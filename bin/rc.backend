@@ -539,9 +539,8 @@ case "$ARG" in
   build-backend)
     set -e
     if [ -f core.js ]; then
-       BUILD=$(date +%Y.%m.%d)-$(git describe --all --long | awk -F- '{ print $$3 }')  
-       VERSION=$(egrep -E '^ +version: "([0-9a-z\.-]+)",$$' core.js | sed 's/[",]//g' | awk '{ print $$2 }')
-       echo "$BUILD: $VERSION"
+       BUILD=$(date +%Y.%m.%d)-$(git describe --all --long | awk -F- '{ print $3 }')  
+       VERSION=$(egrep -E '^ +version: "([0-9a-z\.-]+)",$' core.js | sed 's/[",]//g' | awk '{ print $2 }')
        if [ "$BUILD" != "$VERSION" ]; then sed -E -i '' "s/^ +version: '([0-9a-z\.-]*)',$/    version: '$BUILD',/" core.js; fi
     fi
     

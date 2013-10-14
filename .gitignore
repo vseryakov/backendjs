@@ -16,3 +16,5 @@ data
 .cproject
 .history
 .project
+bin/sqlite3
+node/build**

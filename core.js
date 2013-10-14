@@ -25,7 +25,7 @@ var emailjs = require('emailjs');
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2013.10.10-',
+    version: '2013.10.13-g2c96823',
 
     // Process and config parameters
     argv: [],
