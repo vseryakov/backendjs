@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+ <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+ <title>Backend API</title>
+ <link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+ <link rel="icon" href="/img/favicon.ico" type="image/x-icon" />
+
+ <link href="css/api.css" rel="stylesheet" type="text/css" />
+ <link href="css/jquery-ui.css" rel="stylesheet" type="text/css" />
+
+ <style>
+#loading {
+    display:none;
+    width: 20px;
+    height: 20px;
+}
+
+.login-buttons {
+    float: right;
+    top:0;
+    right:100%;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+  
+ </style>
+
+ <script src="js/jquery.js" type="text/javascript" ></script>
+ <script src="js/jquery-ui.js" type="text/javascript" ></script>
+ <script src="js/knockout.js" type="text/javascript"></script>
+ <script src="js/api.js" type="text/javascript"></script>
+ <script src="js/sha1.js" type="text/javascript"></script>
+ 
+ <script type="text/javascript">
+
+ $(function () {
+     function API() {
+         var self = this;
+         self.json = ko.observable('');
+         self.response = ko.observable('');
+         self.url = ko.observable('');
+         self.expires = ko.observable('');
+         self.signed = ko.observable('');
+         self.email = getCredentials().id;
+         self.images = false;
+         self.table = false;
+
+         self.doRun = function() {
+             if (!self.url()) return;
+             $('#icon').empty();
+
+             // Request for an image, re-route to image container
+             if (/^\/([^\/]+)\/image\/([a-z])?\/?([0-9]+)|(^\/logo\/[a-z0-9]+)/.test(self.url())) {
+                 self.response("");
+                 $("<img />").attr('src', self.url()).load(function() {
+                     if (this.complete && this.naturalWidth) $("#icon").append(this);
+                 });
+             } else {
+                 var options = { url: self.url() };
+                 if (self.json()) {
+                     var data = self.doCheck();
+                     if (!data) return;
+                     options.data = self.json();
+                     options.type = "POST";
+                     options.contentType = "application/json";
+                 }
+                 getJSON(options, function(data) {
+                     var name = self.url().split('/')[1];
+                     try {
+                         if (self.table && data.length) {
+                             var html = "<table><tr>";
+                             for (var p in data[0]) {
+                                 if (p.substr(-3) == "_ts") continue;
+                                 html += "<th>" + p + "</th>"
+                             }
+                             html += "</tr>";
+                             for (var i in data) {
+                                 html += "<tr>"
+                                 if (self.images && data[i].id) html += "<td><img src='/" +  name + "/image/i/" + data[i].id + "' width=32 height=32'></td>";
+                                 for (var p in data[i]) {
+                                     if (p.substr(-3) == "_ts") continue;
+                                     if (String(data[i][p]).indexOf("http://") == 0) data[i][p] = "<a href=" + data[i][p] + ">" + data[i][p] + "</a>";
+                                     html += "<td>" + data[i][p] + "</td>";
+                                 }
+                                 html += "</tr>"
+                             }
+                             html += "</table>";
+                             data = html;
+                         } else {
+                             data = formatJSON(data, " ");
+                         }
+                         self.response(data);
+                     } catch(e) {
+                         self.response(e.toString())
+                     }
+                 }, function(msg, xhr, status, error) {
+                     self.response(error + "\n" + xhr.responseText);
+                 });
+             }
+         }
+
+         self.doCheck = function() {
+             try {
+                 var data = JSON.parse(self.json());
+                 self.response(formatJSON(data, " "));
+                 return data;
+             } catch (e) {
+                 self.response(e);
+                 return false;
+             }
+         }
+         self.doClear = function() {
+             self.response('')
+         }
+         self.doSign = function() {
+             self.signed(signUrl(self.url(), self.expires()));
+         }
+     }
+     ko.applyBindings(new API());
+
+     // Login dialog
+     login = new Login();
+     login.login();
+ });
+ </script>
+
+</head>
+<body>
+<div id="header" class="header">
+   <a href="/"><span class="title">Home</span></a>
+   <div class='login-buttons'>
+     <span onclick="login.login()">Login</span>
+     <span onclick="login.logout()" >Logout</span>
+   </div>
+   <span class="title" style="float:right;" data-bind='text: getCredentials().id' ></span>
+   <p style="clear:both;" />
+
+   <div class="center">
+     <form data-bind="submit: doRun">
+     <table border=0>
+      <tr><td>URL:</td>
+          <td><input id="url" type="text" size=80" data-bind='value: url' /></td>
+          <td colspan=3><button type="submit" >Run</button> <button data-bind='click: doSign' >Sign URL</button></td>
+          <td colspan=2><img id="loading" src="img/loading.gif"></td>
+      </tr>
+      <tr><td>JSON:</td>
+          <td><textarea rows="1" cols="60" data-bind='value: json' title="JSON to be sent in POST request" ></textarea></td>
+          <td><button data-bind="click: doCheck" >Check</button> <button data-bind="click: doClear" >Clear</button></td>
+          <td><input type="checkbox" data-bind="checked: images" /></td>
+          <td>Show Icons</td>
+          <td><input type="checkbox" data-bind="checked: table" /></td>
+          <td>Tabular</td>
+      </tr>
+      <tr><td>Expires:</td>
+          <td colspan=6><input data-bind='value: expires' title="Number of seconds this url is valid or exact Date when it will expire in the future" /></td>
+      </tr>
+     </table>
+     </form>
+     <br/>
+     <span data-bind="text: signed" ></span>
+   </div>
+   <br style="clear:both;"/>
+</div>
+
+<pre><span data-bind="html: response" ></span></pre>
+<div id="icon"></div>
+
+</body>
+</html>

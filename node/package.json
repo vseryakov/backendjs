@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "author": "Vlad Seryakov",
+  "name": "backend",
+  "description": "Node backend framework",
+  "main": "index",
+  "engines": { "node": ">= 0.10" }
+}

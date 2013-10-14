@@ -1,0 +1,562 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+LOCK=/var/lock/backend           
+PREFIX=/usr/local
+ROOT=/data
+DOMAIN=localhost
+
+# Host specific settings and environment variables
+[ -f /etc/backend/profile ] && . /etc/backend/profile
+[ -f $ROOT/etc/profile ] && . $ROOT/etc/profile
+[ -f $HOME/.backendrc ] && . $HOME/.backendrc
+[ -f .backendrc ] && . .backendrc
+
+# Make sure we have defaults set
+[ "$LOCAL_UID" = "" ] && LOCAL_UID=777
+[ "$LOCAL_USER" = "" ] && LOCAL_USER=backend
+[ "$BACKEND_USER" = "" ] && BACKEND_USER=backend
+[ "$DISK" = "" ] && DISK=xvdb1
+[ "$LOGMAIL" = "" ] && LOGMAIL=logwatcher@$DOMAIN
+[ "$PG_DIR" = "" ] && PG_DIR=$ROOT/postgres
+[ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
+[ "$PG_USER" = "" ] && PG_USER=postgres
+[ "$DBNAME" = "" ] && DBNAME=backend
+[ "$DBDUMP" = "" ] && DBDUMP=backup-db.dump
+[ "$BACKUP" = "" ] && BACKUP=$ROOT/backup
+[ "$MASTER" = "" ] && MASTER=master.$DOMAIN
+[ "$MASTER_API" = "" ] && MASTER_API=master-api.$DOMAIN
+[ "$IMAGES" = "" ] && IMAGES=img.$DOMAIN
+[ "$MAX_IDLETIME" = "" ] && MAX_IDLETIME=900
+[ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
+[ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
+
+HOST=$(uname -n | awk -F. '{print $1}')
+PLATFORM=$(uname -s)
+NODE_BACKEND=$PREFIX/lib/node/backend
+export PATH=$PREFIX/bin:$PG_PREFIX/bin:$PATH
+
+# If started without parameters use script name as a parameter
+NAME=$(echo $0 | awk -F/ '{print $NF}')
+ARG=${1:-$NAME}
+
+case "$ARG" in
+  start)
+    case "$NAME" in
+      *backend-init)
+          $0 init
+          ;;
+
+      *backend)
+          $0 run
+          ;;
+    esac
+    ;;
+
+  stop)
+    killall -qr '^backend' node
+    killall -qr '^backend' node
+    ;;
+
+  restart)
+    $0 stop
+    sleep 2
+    $0 start
+    ;;
+
+  kill-web)
+    killall -qr 'backend: web'
+    ;;
+  
+  init)
+    echo "Initializing backend..."
+    # Update to the latest code
+    ($0 sync)
+
+    # Restart itself with new code to continue init
+    ($0 setup)
+    ;;
+	
+  setup)
+    # Combine with command line arguments if running manually
+    BACKEND_ARGS="$BACKEND_ARGS $@"
+
+    # Mount data disk, for cases when all configs are on this disk bootstrap profile 
+    # must be located somewhere else like home or etc
+    if [ "$(grep $ROOT /proc/mounts)" = "" -a "$(grep $DISK /proc/diskstats)" != "" ] ; then
+      echo "Mounting $ROOT to $DISK ..."
+      mount -t ext4 -o noatime /dev/$DISK $ROOT
+      [ -f $ROOT/etc/profile ] && . $ROOT/etc/profile
+    fi
+
+    # Set hostname with unique EC2 instance if not set explicitly
+    [ "$BACKEND_NAME" = "" ] && BACKEND_NAME=$(echo "api-$(wget -q -t1 -T1 -O - http://169.254.169.254/latest/meta-data/instance-id)"|sed 's/-$//g')
+    echo "Setting hostname to $BACKEND_NAME.$DOMAIN..."
+    hostname $BACKEND_NAME.$DOMAIN
+    echo $BACKEND_NAME.$DOMAIN > /etc/hostname
+    if [ -f /etc/sysconfig/network ]; then
+       echo "HOSTNAME=$BACKEND_NAME.$DOMAIN" > /tmp/network
+       grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
+       mv /tmp/network /etc/sysconfig/network
+    fi
+
+    # Additional arguments via EC2 instance user data
+    BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
+
+    echo "Backend arguments: $BACKEND_ARGS"
+
+    # System utilities
+    yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git man telnet catdoc jna
+    yum -y remove sendmail
+
+    # Add local user
+    if [ "$(grep $LOCAL_USER /etc/passwd)" = "" ]; then
+       echo "Adding user $LOCAL_USER..."
+       useradd -g 0 -u $LOCAL_UID -m $LOCAL_USER
+       echo "$LOCAL_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/backend
+       mkdir -p /home/$LOCAL_USER/.ssh
+       cd /home/$LOCAL_USER
+       ln -s /data
+       ln -s /usr/local
+       ln -s /usr/local/lib/node
+       ln -s /usr/local/lib/node/backend
+       echo "StrictHostKeyChecking no" >> .ssh/config
+       cp /home/ec2-user/.ssh/authorized_keys .ssh
+       chown -R $LOCAL_USER .ssh
+       chmod -R g-rwx,o-rwx .ssh
+       echo -e "global = true\ncolor = false\nnodedir = /home/$LOCAL_USER/src/node" > .npmrc
+       echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
+       echo "alias alog=\"tail -100 $ROOT/log/access.log\"" >> .bashrc
+       echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
+       echo 'alias brc="sudo /usr/local/bin/rc.backend"' >> .bashrc
+       echo 'alias asql="msqlite3 /data/var/account.db"' >> .bashrc
+       echo 'alias bcp="rc.backend repl"' >> .bashrc
+       echo 'alias ps="ps augx"' >> .bashrc
+       echo 'alias mc="mc -b"' >> .bashrc
+       echo 'alias pps="psql -A -c \"select * from pg_stat_activity where state='active'\""' >> .bashrc
+       echo 'ulimit -c unlimited' >> .bash_profile
+       echo 'export JAVA_HOME=/usr' >> .bash_profile
+       echo 'export EC2_HOME=/usr/local/ec2' >> .bash_profile
+       echo -e 'export PGDATABASE=backend\nexport PGUSER=postgres' >> .bash_profile
+    fi
+
+    # Allow only pubkey auth
+    if [ "$(grep '#Backend' /etc/ssh/sshd_config)" = "" ]; then
+       echo "Configuring ssh..."
+       egrep -v '^(#Backend|PasswordAuth|GSSAPIAuth|MaxAuth|MaxSess|ClientAlive)' /etc/ssh/sshd_config > /tmp/sshd_config
+       echo "" >> /tmp/sshd_config
+       echo "#Backend config" >> /tmp/sshd_config
+       echo "PasswordAuthentication no" >> /tmp/sshd_config
+       echo "GSSAPIAuthentication no" >> /tmp/sshd_config
+       echo "MaxAuthTries 5" >> /tmp/sshd_config
+       echo "MaxSessions 10" >> /tmp/sshd_config
+       echo "ClientAliveInterval 15" >> /tmp/sshd_config
+       echo "ClientAliveCountMax 5" >> /tmp/sshd_config
+       mv /tmp/sshd_config /etc/ssh
+       service sshd restart
+    fi
+
+    # Setup postfix origin to domain name
+    if [ "$(grep '#Backend' /etc/postfix/main.cf)" = "" ]; then
+       echo "Configuring postfix..."
+       echo '#Backend config' > /tmp/main.cf
+       echo 'myorigin = $mydomain' >> /tmp/main.cf
+       egrep -v '^(#Backend|myorigin)' /etc/postfix/main.cf >> /tmp/main.cf
+       mv /tmp/main.cf /etc/postfix
+       chkconfig postfix on
+       postfix reload
+    fi
+
+    # Update admin mail alias
+    if [ "$(grep $LOGMAIL /etc/aliases)" = "" ] ; then
+       echo "Setting mail alias to $LOGMAIL..."
+       egrep -v '^root:' /etc/aliases > /tmp/aliases
+       echo -e "root:\t\t$LOGMAIL\n" >> /tmp/aliases
+       mv /tmp/aliases /etc
+       newaliases
+       postfix reload
+    fi
+
+    # Setup syslog config
+    if [ "$(grep '#Backend' /etc/rsyslog.conf)" = "" ]; then
+       echo "Configuring rsyslog..."
+       echo '#Backend config' > /etc/rsyslog.conf
+       echo '$ModLoad imklog' >> /etc/rsyslog.conf
+       echo '$ModLoad imuxsock' >> /etc/rsyslog.conf
+       echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
+       echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
+       echo '$SystemLogRateLimitBurst 1000' >> /etc/rsyslog.conf
+       echo '$ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat' >> /etc/rsyslog.conf
+       echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
+       echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
+       echo '*.info;cron.none,local5.none /var/log/messages' >> /etc/rsyslog.conf
+       echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
+       echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
+       echo "local5.* $ROOT/log/access.log" >> /etc/rsyslog.conf
+       killall -HUP rsyslogd
+       rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
+    fi
+
+    # Duplicate messages to the console for easier access
+    if [[ $BACKEND_ARGS = *-instance* ]]; then
+       echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
+       truncate -c -s 0 /var/log/messages
+       killall -HUP rsyslogd
+    fi
+
+    # Coredumps for debugging
+    if [ ! -f /etc/security/limits.d/90-core.conf ]; then
+       echo -e '* soft core unlimited\n* hard core unlimited\n* soft nofile 32768\n* hard nofile 32768\nroot soft nofile 32768\nroot hard nofile 32768\n* soft memlock unlimited\n* hard memlock unlimited\nroot soft memlock unlimited\nroot hard memlock unlimited\n* soft as unlimited\n* hard as unlimited\nroot soft as unlimited\nroot hard as unlimited\n' > /etc/security/limits.d/90-core.conf
+       sed -i 's/1024/10024/' /etc/security/limits.d/90-nproc.conf
+       sed -i 's/kernel.core_uses_pid = 1/kernel.core_uses_pid = 0/' /etc/sysctl.conf
+       echo 'vm.max_map_count = 131072' >> /etc/sysctl.conf
+    fi
+
+    # DNS cache 
+    if [ ! -f /etc/dnsmasq.conf -o "$(grep '#Backend' /etc/dnsmasq.conf)" = "" ]; then
+       echo "#Backend" > /etc/dnsmasq.conf
+       echo "domain-needed" >> /etc/dnsmasq.conf
+       echo "bogus-priv" >> /etc/dnsmasq.conf
+       echo "no-resolv" >> /etc/dnsmasq.conf
+       echo "no-poll" >> /etc/dnsmasq.conf
+       grep nameserver /etc/resolv.conf |grep -v 127|sed 's/nameserver /server=/' >> /etc/dnsmasq.conf
+       echo "server=8.8.8.8" >> /etc/dnsmasq.conf
+       echo "server=8.8.4.4" >> /etc/dnsmasq.conf
+       echo "listen-address=127.0.0.1" >> /etc/dnsmasq.conf
+       echo "no-dhcp-interface=" >> /etc/dnsmasq.conf
+       echo "nameserver 127.0.0.1" > /etc/resolv.conf
+       chkconfig dnsmasq on
+       service dnsmasq restart
+    fi
+
+    if [ "$(grep '#Backend' /etc/logrotate.d/syslog)" = "" ]; then
+       echo "Configuring logrotate..."
+       echo "#Backend logging" > /etc/logrotate.d/syslog
+       echo "/var/log/cron /var/log/messages $ROOT/log/access.log {" >> /etc/logrotate.d/syslog
+       echo " missingok" >> /etc/logrotate.d/syslog
+       echo " weekly" >> /etc/logrotate.d/syslog
+       echo " sharedscripts" >> /etc/logrotate.d/syslog
+       echo " postrotate" >> /etc/logrotate.d/syslog
+       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog
+       echo " endscript" >> /etc/logrotate.d/syslog
+       echo "}" >> /etc/logrotate.d/syslog
+    fi
+
+    # Make sure we use right java
+    if [ -f /usr/local/java ]; then
+       alternatives --install /usr/bin/java java /usr/local/java/bin/java 20000
+    fi
+
+    # Start PostgreSQL proxy
+    if [[ $BACKEND_ARGS = *-db-proxy* ]]; then
+       ($0 pgpool)
+    fi
+    
+    # Setup environment files
+    echo "export PATH=$PREFIX/bin:$NODE_BACKEND/bin:$PG_PREFIX/bin:$PATH" > /etc/profile.d/backend.sh
+    echo "$PREFIX/lib" > /etc/ld.so.conf.d/local.conf
+
+    # Disable firewall and SELinux
+    sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
+    chkconfig iptable off
+    service iptables stop
+
+    # Permissions
+    echo "Setting permissions..."
+    [ ! -f $ROOT ] && mkdir -p $ROOT/etc $ROOT/var $ROOT/log && chown $LOCAL_USER $ROOT
+    touch /var/log/messages $ROOT/log/access.log 
+    chmod -f g+r /var/log/messages $ROOT/log/access.log
+    chown -fR $LOCAL_USER $PREFIX $ROOT/etc $ROOT/var $ROOT/log/access.log
+    [ -f $ROOT/postgres ] && chown -fR postgres $ROOT/postgres
+
+    # Support for shutdown as normal user for instances
+    chmod u+s /sbin/reboot
+
+    # Setup startup scripts
+    ln -sf $PREFIX/bin/rc.backend /etc/init.d/backend
+    (cd /etc/rc3.d && ln -sf ../init.d/backend S25backend-init)
+    (cd /etc/rc3.d && ln -sf ../init.d/backend S70backend)
+    # Sync time
+    ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/ntp
+
+    # If we are running web server we need API databases
+    find /etc/cron.hourly -name 'sync*' -type l -exec rm -f "{}" ";"
+    find /etc/cron.d -name 'sync*' -type l -exec rm -f "{}" ";"
+    if [[ $BACKEND_ARGS != *-no-sync-master* ]]; then
+       echo "Syncing backend modules..."
+       if [[ $BACKEND_ARGS != *-no-sync-source* ]]; then
+          ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/sync
+       fi
+
+       if [[ $BACKEND_ARGS =~ \-(backend |web ) ]]; then
+          if [[ $BACKEND_ARGS != *-no-sync-api* ]]; then
+             echo "Syncing API data files..."
+             ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/sync-api
+             ($0 sync-api)
+          fi
+      
+          if [[ $BACKEND_ARGS != *-no-sync-web* ]]; then
+             echo "Syncing web files..."
+             ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/sync-web
+             ($0 sync-web)
+          fi
+       fi
+    fi
+
+    # Recent postgresql version
+    if [ "$(grep CentOS /etc/issue)" != "" -a ! -f /etc/yum.repos.d/pgdg-93-centos.repo ]; then
+       echo "Setting up PostgreSQL repo..."
+       rpm -i http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
+    fi
+
+    if [ "$(grep CentOS /etc/issue)" != "" -a ! -f /etc/yum.repos.d/rpmforge.repo ]; then
+       echo "Setting up RPM Forge..."
+       rpm -i http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.x86_64.rpm
+    fi
+
+    # Install required packages and utilities
+    yum -y install gcc-c++ make cmake autoconf automake libtool 
+    yum -y install postgresql93-devel libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel 
+    yum -y install blas-devel lapack-devel atlas-devel boost-devel boost-math ImageMagick-devel
+
+    # Make sure instances are not running indefinetely
+    rm -rf /etc/cron.hourly/instance-idle
+    if [[ $BACKEND_ARGS =~ \-(instance ) ]]; then
+       ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/instance-idle
+    fi
+    ;;
+
+  run)
+    # Additional arguments via EC2 instance user data
+    BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
+    if [[ $BACKEND_ARGS = *-no-server* ]]; then
+       exit
+    fi
+ 
+    # Setup environment and paths
+    ldconfig
+    ulimit -c unlimited -n 8196
+    export PATH=$PREFIX/bin:$PATH
+
+    echo "Starting backend $BACKEND_ARGS ..."
+    $PREFIX/bin/node $NODE_ARGS $PREFIX/bin/backend -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
+    ;;
+
+  pgpool)
+    echo "Starting pgpool..."
+    su - $LOCAL_USER -c "rsync -aq -e '$SSH_ARGS' $MASTER:$ROOT/etc/pgpool* $ROOT/etc"
+    $PREFIX/bin/pgpool -m fast
+    killall -q pgpool
+    rm -rf $ROOT/var/pgpool.pid
+    $PREFIX/bin/pgpool -f $ROOT/etc/pgpool.conf -a $ROOT/etc/pgpool_hba.conf
+    ;;
+
+  repl)
+    cd $ROOT
+    $PREFIX/bin/node $NODE_ARGS -i -e "require('backend').shell()" $@
+    ;;
+
+  instance-idle)
+    uptime=$(</proc/uptime)
+    uptime=${uptime%%.*}
+    if [ $uptime -gt $MAX_IDLETIME ]; then
+       ps=$(ps agx|grep backend|grep worker|grep -v grep)
+       if [ "$ps" = "" ]; then
+          logger "No backend running, $uptime/$MAX_IDLETIME, shutting down..."
+          echo $ps >> /var/log/messages
+          /sbin/halt
+       fi
+    fi 
+    if [ $uptime -gt $MAX_RUNTIME ]; then
+       logger "Too long running, $uptime/$MAX_RUNTIME, shutting down..."
+       /sbin/halt
+    fi
+    ;;
+
+  sync)
+    # Sync code from the master
+    su - $LOCAL_USER -c "rsync -aq --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/bin/ $PREFIX/bin"
+    su - $LOCAL_USER -c "rsync -aq --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/include/ $PREFIX/include"
+    su - $LOCAL_USER -c "rsync -aqFF --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/lib/ $PREFIX/lib"
+    ldconfig
+    ;;
+
+  sync-api)
+    # Sync published files for the API clients
+    mkdir -p $ROOT/api
+    su - $LOCAL_USER -c "rsync -aqFF --delete-after -e '$SSH_ARGS' $MASTER_API:$ROOT/api/ $ROOT/api"
+    ;;
+
+  sync-images|sync-reports|sync-web)
+    mkdir -p $ROOT/${ARG:5}
+    su - $LOCAL_USER -c "rsync -aqFF -e '$SSH_ARGS' $MASTER:$ROOT/${ARG:5}/ $ROOT/${ARG:5}"
+    ;;
+
+  ntp)
+    ntpdate pool.ntp.org > /dev/null 2>&1
+    ;;
+
+  backup)
+    DATE=$(date +%m-%d-%y)
+    DOW=$(date +%w)
+    DAY=$(date +%d|sed 's/^0*//g')
+    FILE=backup
+    # Even days will have 1 appended
+    [ "$BACKUP_EVEN" != "" -a $(($DAY % 2)) -eq 0 ] && FILE="${FILE}1"
+    FILE="$FILE-$HOST"
+    # Additional options for tar
+    TAR_ARGS="--ignore-failed-read --exclude-backup $TAR_ARGS"
+    # Files and dirs to backup
+    TAR_FILES="/etc $ROOT/etc $ROOT/web $PREFIX /home $TAR_FILES"
+    # PG on CentOS
+    [ -e $PG_PREFIX ] && TAR_FILES="$TAR_FILES $PG_PREFIX"
+    # File extensions to exclude from backup
+    TAR_EXCLUDE="csv tsv xml list zip csv iso avi mp4 mkv m4v $TAR_EXCLUDE"
+    for ext in $TAR_EXCLUDE; do 
+       TAR_ARGS="--exclude='*.$ext' $TAR_ARGS"
+    done
+    # Database backup if exists
+    if [ "$BACKUP_DB" != "" -a -e $PG_DIR/base ]; then
+       TAR_FILES="$TAR_FILES $PG_DIR/*.conf"
+       $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_DB > $BACKUP/$FILE.dump
+    fi
+
+    # Filesystem backup
+    if [ "$BACKUP_FS" != "" ]; then
+       tar $TAR_ARGS -czf $BACKUP/$FILE.tar.gz $TAR_FILES 2>&1 |egrep -v "tar: Removing leading|tar:.+ignored|as we read it"
+    fi
+ 
+    # Send to remote site backup files   
+    REMOTE_BACKUP="$REMOTE_BACKUP $REMOTE_BACKUP_WEEKLY $REMOTE_BACKUP_MONTHLY"
+    [ -f $BACKUP/$FILE.tar.gz ] && SCP_FILES="$SCP_FILES $BACKUP/$FILE.tar.gz"
+    [ -f $BACKUP/$FILE.dump ] && SCP_FILES="$SCP_FILES $BACKUP/$FILE.dump"
+
+    # Send to remote host if configured, must be full ssh url with path like user@host:/path
+    if [ "$SCP_FILES" != "" ]; then
+       for h in $REMOTE_BACKUP; do
+         su - $LOCAL_USER -c "scp -q $SCP_FILES $h"
+       done
+    fi
+    ;;
+
+  init-cassandra)
+    if [ ! -d $ROOT/cassandra ]; then
+        mkdir -p $ROOT/cassandra/var $ROOT/cassandra/log
+        curl -OL http://downloads.datastax.com/community/dsc.tar.gz
+        tar -C $ROOT/cassandra --strip-components=1 -xzf dsc.tar.gz
+        rm -rf dsc.tar.gz
+        sed -i "s|/var/lib/cassandra/|$ROOT/cassandra/var/|g" $ROOT/cassandra/conf/*
+        sed -i "s|/var/log/cassandra/|$ROOT/cassandra/log/|g" $ROOT/cassandra/conf/*
+        chown -R $LOCAL_USER $ROOT/cassandra
+    fi
+    ;;
+  
+  put)
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$NODE_BACKEND
+    [ -e web ] && rsync -av -e ssh web/ $MASTER:$ROOT/web
+    [ -e bin ] && rsync -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
+    ;;
+    
+  init-env)
+    sudo chown -R $(whoami) $PREFIX
+    mkdir -p bin lib node pg web data
+    rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
+    (cd data && rm -rf web && ln -s ../web)
+    ;;
+    
+  init-dev)
+    [ ! -e $NODE_BACKEND ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
+    mkdir -p bin etc 
+    (cd bin && rm -rf rc.backend && ln -s $NODE_BACKEND/bin/rc.backend)
+    [ ! -e web ] && ln -s $NODE_BACKEND/web
+    [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.initClientRoutes = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
+    ;;
+    
+  run-dev)
+    killall node
+    $PREFIX/bin/node $NODE_ARGS bin/backend -watch -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    ;;
+    
+  clean-dev)
+    rm -rf *~ *.o *.a *.so *.dylib *.node 
+    [ -e node ] && rm -rf node/build
+    [ -f lib/Makefile ] && make -C lib clean
+    [ -f pg/Makefile ] && make -C pg clean
+    ;;
+    
+  init-pg)
+    if [ ! -d $PGDIR ]; then
+       mkdir -p $PG_DIR
+       $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
+       sed -i '' "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf 
+       sed -i '' "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf 
+       $PG_PREFIX/bin/postgres -F -D $PG_DIR &
+       sleep 3
+       $PG_PREFIX/bin/createdb -U $PG_USER $DBNAME
+    fi   
+    ;;
+      
+  run-pg)
+    $PG_PREFIX/bin/postgres -F -D $PG_DIR &
+    ;;
+    
+  import-pg)
+    -[ ! -f $DBDUMP ] && scp $MASTER:/data/backup/$DBDUMP .
+    $PG_PREFIX/bin/psql -q -U $PG_USER -c "DROP DATABASE $DBNAME" postgres
+    $PG_PREFIX/bin/psql -q -U $PG_USER -c "CREATE DATABASE $DBNAME" postgres
+    $PG_PREFIX/bin/psql -q -U $PG_USER -d $DBNAME -f sql/init.sql
+    $PG_PREFIX/bin/pg_restore -U $PG_USER -d $DBNAME $DBDUMP
+    $PG_PREFIX/bin/psql -q -U $PG_USER -d $DBNAME -f pg/backend_procs.sql
+    ;;
+    
+  build-dev)
+    set -e
+    # Combine node and global node_modules together 
+    (mkdir -p $PREFIX/lib/node && cd $PREFIX/lib && rm -rf node_modules && ln -sf node node_modules)
+
+    # To support backtrace dump
+    CFLAGS="-fno-omit-frame-pointer" 
+    CXXFLAGS="-fno-omit-frame-pointer"
+    
+    git clone https://github.com/joyent/node.git
+    (cd node && git checkout v0.10 && ./configure --prefix=$PREFIX && make install)
+
+    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs
+    
+    git clone https://github.com/nanomsg/nanomsg.git
+    (cd nanomsg && ./configure --prefix=$PREFIX && make install)
+    
+    git clone https://code.google.com/p/leveldb
+    (cd leveldb && make && cp -r include/leveldb $PREFIX/include && rm -rf $PREFIX/lib/libleveldb* && cp libleveldb* $PREFIX/lib)
+    
+    git clone https://code.google.com/p/plv8js
+    make -C plv8js -f Makefile.v8 install
+    ;;
+
+  build-backend)
+    set -e
+    if [ -f core.js ]; then
+       BUILD=$(date +%Y.%m.%d)-$(git describe --all --long | awk -F- '{ print $$3 }')  
+       VERSION=$(egrep -E '^ +version: "([0-9a-z\.-]+)",$$' core.js | sed 's/[",]//g' | awk '{ print $$2 }')
+       echo "$BUILD: $VERSION"
+       if [ "$BUILD" != "$VERSION" ]; then sed -E -i '' "s/^ +version: '([0-9a-z\.-]*)',$/    version: '$BUILD',/" core.js; fi
+    fi
+    
+    [ ! -f node/build/Makefile -o node/binding.gyp -nt node/build/Makefile ] && $PREFIX/bin/npm build node
+    make -C node/build
+    [ -f node/build/Release/backend.node ] && mv node/build/Release/*.node .  
+
+    make -C lib sqlite3
+    [ -f lib/sqlite3 ] && mkdir -p bin && mv lib/sqlite3 bin
+
+    [ -f pg/Makefile ] && make -C pg install PG_CONFIG=$PG_PREFIX/bin/pg_config
+    exit 0
+    ;;
+    
+  *)
+    echo "usage: $NAME {start|stop|restart|sync|sync-api|setup|backup|ntp|run|repl|init}"
+esac
+
