@@ -12,6 +12,9 @@ run:
 put:
 	bin/rc.backend put
 
+repl:
+	bin/rc.backend repl
+
 clean:
 	bin/rc.backend clean-dev
 	

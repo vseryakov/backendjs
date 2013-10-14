@@ -472,7 +472,7 @@ case "$ARG" in
     mkdir -p bin etc 
     (cd bin && rm -rf rc.backend && ln -s $NODE_BACKEND/bin/rc.backend)
     [ ! -e web ] && ln -s $NODE_BACKEND/web
-    [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.initClientRoutes = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
+    [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
     ;;
     
   run-dev)
