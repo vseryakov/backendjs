@@ -65,6 +65,7 @@ var api = {
            "account-images",
            "db-pool",
            "access-log",
+           { name: "backend", type: "bool" },
            { name: "allow", type: "regexp" },
            { name: "deny", type: "regexp" },
            { name: "accesslog", type: "path" },
@@ -179,7 +180,7 @@ var api = {
         });
         
         // Provisioning access to the database
-        if (core.role.match("backend")) self.initBackend();
+        if (self.backend) self.initBackend();
 
         // Post init or other application routes
         self.onInit.call(this);

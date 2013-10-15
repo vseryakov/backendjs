@@ -470,6 +470,7 @@ static void lruHandleRead(uv_poll_t *w, int status, int revents)
 	if (status == -1 || !(revents & UV_READABLE)) return;
 	lruSocket *d = (lruSocket*)w->data;
 
+	string str;
 	char *buf, *val;
 	int rc = nn_recv(d->sock1, (void*)&buf, NN_MSG, NN_DONTWAIT);
 	if (rc == -1) {
@@ -480,38 +481,37 @@ static void lruHandleRead(uv_poll_t *w, int status, int revents)
 
 	switch (d->type) {
 	case 0:
-	default:
-		// Delete an item from the cache
-		_lru.del(buf);
+		// Update or delete an item in the cache
+		val = strchr(buf, '\1');
+		if (!val) {
+			_lru.del(buf);
+		} else
+		if (!val[1]) {
+			_lru.del(string(buf, val - buf));
+		} else {
+			_lru.set(buf, val + 1);
+		}
+		// Send to another hop or broadcast to all servers, depends on the socket type
+		if (d->sock2 >= 0) {
+			rc = nn_send(d->sock2, &buf, NN_MSG, NN_DONTWAIT);
+			if (rc == -1) LogError("%d: %d: send: %s", d->type, d->sock2, nn_strerror(nn_errno()));
+			break;
+		}
+		nn_freemsg(buf);
 		break;
 
 	case 1:
-		// Update or delete an item form the cache
-		val = strchr(buf, '\1');
-		*val++ = 0;
-		if (!val[0]) {
-			_lru.del(buf);
-		} else {
-			_lru.set(buf, val);
-		}
-		break;
-
-	case 2:
 		// Respond to get requests, never use second socket
-		string str = _lru.get(buf);
+		str = _lru.get(buf);
 		rc = nn_send(d->sock1, str.c_str(), str.size() + 1, NN_DONTWAIT);
 		if (rc == -1) LogError("%d: %d: send: %s", d->type, d->sock1, nn_strerror(nn_errno()));
 		nn_freemsg(buf);
-		return;
-	}
+		break;
 
-	// Send to another hop or broadcast to all servers, depends on the socket type
-	if (d->sock2 >= 0) {
-		rc = nn_send(d->sock2, &buf, NN_MSG, NN_DONTWAIT);
-		if (rc == -1) LogError("%d: %d: send: %s", d->type, d->sock2, nn_strerror(nn_errno()));
-		return;
+	default:
+		LogError("unknown request type: %d", d->type);
+		nn_freemsg(buf);
 	}
-	nn_freemsg(buf);
 }
 
 static Handle<Value> lruServer(const Arguments& args)

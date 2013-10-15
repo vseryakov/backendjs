@@ -62,7 +62,6 @@ var server = {
     args: [{ name: "max-processes", type: "number", min: 1, max: 4 }, 
            { name: "max-workers", type: "number", min: 1, max: 4 }, 
            { name: "idle-time", type: "number" }, 
-           { name: "role" },
            { name: "crash-delay", type: "number", max: 30000 }, 
            { name: "restart-delay", type: "number", max: 30000 },
            { name: "job", type: "callback", value: "queueJob" },
@@ -210,12 +209,11 @@ var server = {
     startWeb: function(callback) {
         var self = this;
 
-        core.role = this.role || "";
-        
         // Setup IPC communication
         core.ipcInit();
 
         if (cluster.isMaster) {
+            core.role = 'server';
             process.title = core.name + ': server';
 
             // REPL command prompt over TCP
@@ -243,6 +241,7 @@ var server = {
             logger.log('startWeb:', 'master', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
 
         } else {
+            core.role = 'web';
             process.title = core.name + ": web"
 
             // Init API environment

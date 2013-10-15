@@ -167,7 +167,6 @@ case "$ARG" in
        egrep -v '^(#Backend|myorigin)' /etc/postfix/main.cf >> /tmp/main.cf
        mv /tmp/main.cf /etc/postfix
        chkconfig postfix on
-       postfix reload
     fi
 
     # Update admin mail alias
@@ -177,7 +176,6 @@ case "$ARG" in
        echo -e "root:\t\t$LOGMAIL\n" >> /tmp/aliases
        mv /tmp/aliases /etc
        newaliases
-       postfix reload
     fi
 
     # Setup syslog config
@@ -258,6 +256,7 @@ case "$ARG" in
     # Setup environment files
     echo "export PATH=$PREFIX/bin:$NODE_BACKEND/bin:$PG_PREFIX/bin:$PATH" > /etc/profile.d/backend.sh
     echo "$PREFIX/lib" > /etc/ld.so.conf.d/local.conf
+    postfix reload
 
     # Disable firewall and SELinux
     sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
@@ -442,51 +441,6 @@ case "$ARG" in
     fi
     ;;
 
-  init-cassandra)
-    if [ ! -d $ROOT/cassandra ]; then
-        mkdir -p $ROOT/cassandra/var $ROOT/cassandra/log
-        curl -OL http://downloads.datastax.com/community/dsc.tar.gz
-        tar -C $ROOT/cassandra --strip-components=1 -xzf dsc.tar.gz
-        rm -rf dsc.tar.gz
-        sed -i "s|/var/lib/cassandra/|$ROOT/cassandra/var/|g" $ROOT/cassandra/conf/*
-        sed -i "s|/var/log/cassandra/|$ROOT/cassandra/log/|g" $ROOT/cassandra/conf/*
-        chown -R $LOCAL_USER $ROOT/cassandra
-    fi
-    ;;
-  
-  put)
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$NODE_BACKEND
-    [ -e web ] && rsync -av -e ssh web/ $MASTER:$ROOT/web
-    [ -e bin ] && rsync -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
-    ;;
-    
-  init-env)
-    sudo chown -R $(whoami) $PREFIX
-    mkdir -p bin lib node pg web data
-    rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
-    (cd data && rm -rf web && ln -s ../web)
-    ;;
-    
-  init-dev)
-    [ ! -e $NODE_BACKEND ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
-    mkdir -p bin etc 
-    (cd bin && rm -rf rc.backend && ln -s $NODE_BACKEND/bin/rc.backend)
-    [ ! -e web ] && ln -s $NODE_BACKEND/web
-    [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
-    ;;
-    
-  run-dev)
-    killall node
-    $PREFIX/bin/node $NODE_ARGS bin/backend -watch -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
-    ;;
-    
-  clean-dev)
-    rm -rf *~ *.o *.a *.so *.dylib *.node 
-    [ -e node ] && rm -rf node/build
-    [ -f lib/Makefile ] && make -C lib clean
-    [ -f pg/Makefile ] && make -C pg clean
-    ;;
-    
   init-pg)
     if [ ! -d $PGDIR ]; then
        mkdir -p $PG_DIR
@@ -512,6 +466,45 @@ case "$ARG" in
     $PG_PREFIX/bin/psql -q -U $PG_USER -d $DBNAME -f pg/backend_procs.sql
     ;;
     
+  init-cassandra)
+    if [ ! -d $ROOT/cassandra ]; then
+        mkdir -p $ROOT/cassandra/var $ROOT/cassandra/log
+        curl -OL http://downloads.datastax.com/community/dsc.tar.gz
+        tar -C $ROOT/cassandra --strip-components=1 -xzf dsc.tar.gz
+        rm -rf dsc.tar.gz
+        sed -i "s|/var/lib/cassandra/|$ROOT/cassandra/var/|g" $ROOT/cassandra/conf/*
+        sed -i "s|/var/log/cassandra/|$ROOT/cassandra/log/|g" $ROOT/cassandra/conf/*
+        chown -R $LOCAL_USER $ROOT/cassandra
+    fi
+    ;;
+  
+  put)
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$NODE_BACKEND
+    [ -e web ] && rsync -av -e ssh web/ $MASTER:$ROOT/web
+    [ -e bin ] && rsync -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
+    ;;
+    
+  init-dev)
+    [ ! -e $NODE_BACKEND ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
+    mkdir -p bin etc 
+    (cd bin && rm -rf rc.backend && ln -s $NODE_BACKEND/bin/rc.backend)
+    [ ! -e web ] && ln -s $NODE_BACKEND/web
+    [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
+    [ ! -e Makefile ] && echo "#\n# Author: Vlad Seryakov vseryakov@gmail.com\n# Sep 2013\n#\n\nall:\n\nrun:\n\tbin/rc.backend run-dev" > Makefile
+    ;;
+    
+  run-dev)
+    killall node
+    $PREFIX/bin/node $NODE_ARGS bin/backend -watch -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    ;;
+    
+  clean-dev)
+    rm -rf *~ *.o *.a *.so *.dylib *.node 
+    [ -e node ] && rm -rf node/build
+    [ -f lib/Makefile ] && make -C lib clean
+    [ -f pg/Makefile ] && make -C pg clean
+    ;;
+    
   build-dev)
     set -e
     # Combine node and global node_modules together 
@@ -520,6 +513,8 @@ case "$ARG" in
     # To support backtrace dump
     CFLAGS="-fno-omit-frame-pointer" 
     CXXFLAGS="-fno-omit-frame-pointer"
+    
+    mkdir src && cd src
     
     git clone https://github.com/joyent/node.git
     (cd node && git checkout v0.10 && ./configure --prefix=$PREFIX && make install)
@@ -533,17 +528,20 @@ case "$ARG" in
     (cd leveldb && make && cp -r include/leveldb $PREFIX/include && rm -rf $PREFIX/lib/libleveldb* && cp libleveldb* $PREFIX/lib)
     
     git clone https://code.google.com/p/plv8js
-    make -C plv8js -f Makefile.v8 install
+    make -C plv8js -f Makefile.v8 install 
     ;;
 
+  init-backend)
+    sudo chown -R $(whoami) $PREFIX
+    mkdir -p bin lib node pg web data
+    rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
+    (cd data && rm -rf web && ln -s ../web)
+    echo "ROOT=./data" > .backendrc
+    [ "$PLATFORM" = "Darwin" ] && echo "PREFIX=/opt/local\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres" >> .backendrc
+    ;;
+    
   build-backend)
     set -e
-    if [ -f core.js ]; then
-       BUILD=$(date +%Y.%m.%d)-$(git describe --all --long | awk -F- '{ print $3 }')  
-       VERSION=$(egrep -E '^ +version: "([0-9a-z\.-]+)",$' core.js | sed 's/[",]//g' | awk '{ print $2 }')
-       if [ "$BUILD" != "$VERSION" ]; then sed -E -i '' "s/^ +version: '([0-9a-z\.-]*)',$/    version: '$BUILD',/" core.js; fi
-    fi
-    
     [ ! -f node/build/Makefile -o node/binding.gyp -nt node/build/Makefile ] && $PREFIX/bin/npm build node
     make -C node/build
     [ -f node/build/Release/backend.node ] && mv node/build/Release/*.node .  

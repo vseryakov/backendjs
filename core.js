@@ -25,7 +25,7 @@ var emailjs = require('emailjs');
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2013.10.13-g2c96823',
+    version: '2013.10.14.0', 
 
     // Process and config parameters
     argv: [],
@@ -389,50 +389,35 @@ var core = {
         });
     },
 
-    // Setup 2-way IPC channel between master and worker
+    // Setup 2-way IPC channel between master and worker.
     // Cache management signaling, all servers maintain local cache per process of account, any server in the cluster
     // that modifies an account record sends 'del' command to clear local caches so the actual record will be re-read from 
     // the database, all servers share the same database and update it directly. The eviction is done in 2 phases, first local process cache
-    // is cleared and then it sends a broadcast to all servers in the cluster using nanomsg publish socket, other servers all subscribed to that
-    // socket and listen for messages. Local eviction can be done using nanomsg socket or internal ipc mechanism.
+    // is cleared and then it sends a broadcast to all servers in the cluster using nanomsg socket, other servers all subscribed to that
+    // socket and listen for messages.
     ipcInit: function() {
         var self = this;
 
-        // LRU cache nanomsg sockets
-        var sockets = [{ type: 2, master: backend.NN_REP, worker: backend.NN_REQ, name: "Get" }, 
-                       { type: 1, master: backend.NN_PULL, worker: backend.NN_PUSH, name: "Put" }, 
-                       { type: 0, master: backend.NN_PULL, worker: backend.NN_PUSH, name: "Del" }];
-
-
         // Attach our message handler to all workers, process requests from workers
         if (cluster.isMaster) {
-            backend.lruInit(self.getArgInt("-" + self.role + "-lru-max", 1000));
+            backend.lruInit(self.getArgInt("-lru-max", 1000));
             
             sockets.forEach(function(x) {
-                // Primary cache server, respond or listens for cache requests from local workers
-                var addr1 = self.getArg("-" + self.role + "-lru-" + x.name.toLowerCase() + "-server");
-                if (!addr1) return;
-                var sock1 = backend.nnCreate(backend.AF_SP, x.master), sock2 = -1;
-                backend.nnBind(sock1, addr1);
-                self['lruServer' + x.name] = addr1;
-                self['lruServerSocket' + x.name] = sock1;
-                
-                // Broadcast socket, send to subscribed servers all cache updates
-                var addr2 = self.getArg("-" + self.role + "-lru-" + x.name.toLowerCase() + "-publish");
-                if (addr2) {
-                    sock2 = backend.nnCreate(backend.AF_SP, backend.NN_PUB);
-                    backend.nnBind(sock2, addr2);
+                // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts 
+                // it to other connected servers via the same BUS socket
+                var addr = self.getArg("-lru-server");
+                if (addr) {
+                    self.lruServer = backend.nnCreate(backend.AF_SP_RAW, self.lruServer);
+                    backend.nnBind(self.lruServer, addr);
+                    backend.lruServer(0, self.lruServer, self.lruServer);
                 }
-                // Run LRU cache server, receive cache refreshes from the pull socket, clears cache entry and broadcasts 
-                // it to other connected servers via the publish socket
-                backend.lruServer(x.type, sock1, sock2);
                 
-                // Subscription server, listens for brodcasts about cache updates
-                var addr3 = self.getArg("-" + self.role + "-lru-" + x.name.toLowerCase() + "-subscribe");
-                if (!addr3) return;
-                var sock3 = backend.nnCreate(backend.AF_SP, backend.NN_SUB);
-                backend.nnBind(sock3, addr3);
-                backend.lruServer(x.type, sock3);
+                // Send cache requests to the LRU host to be broadcasted to all other servers
+                addr = self.getArg("-lru-host");
+                if (addr) {
+                    sel.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
+                    backend.nnBind(self.lruSocket, addr);
+                }
             });
             
             cluster.on('fork', function(worker) {
@@ -454,13 +439,13 @@ var core = {
                     case 'put':
                         if (msg.key && msg.value) backend.lruSet(msg.key, msg.value);
                         if (msg.reply) worker.send({});
+                        if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key + "\1" + msg.value);
                         break;
 
                     case 'del':
                         if (msg.key) backend.lruDel(msg.key);
                         if (msg.reply) worker.send({});
-                        // Broadcast to all other servers if using this way of clearing cache items
-                        if (self.lruPublish) backend.nnSend(core.lruPublishSocket, msg.key);
+                        if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key);
                         break;
                         
                     case 'clear':
@@ -473,22 +458,6 @@ var core = {
         }
 
         if (cluster.isWorker) {
-            sockets.forEach(function(x) {
-                var addr = self.getArg("-" + self.role + "-lru-" + x.name.toLowerCase() + "-server");
-                if (!addr) return;
-                var sock = backend.nnCreate(backend.AF_SP, x.worker);
-                backend.nnConnect(sock, addr);
-                self['lruServer' + x.name] = addr;
-                self['lruServerSocket' + x.name] = sock;
-            });
-            
-            if (core.lruServerDel) {
-                self.ipcDelCache = function(k) { backend.nnSend(core.lruServerDelSocket, k); }
-            }
-            if (core.lruServerPut) {
-                self.ipcPutCache = function(k) { backend.nnSend(core.lruServerPutSocket, k); }
-            }
-            
             // Event handler for the worker to process response and fire callback
             process.on("message", function(msg) {
                 if (!msg.id) return;
@@ -1027,6 +996,8 @@ var core = {
             // Filter not allowed columns or only allowed columns
             if (options.skip_cols && options.skip_cols.indexOf(p) > -1) continue;
             if (options.allow_cols && options.allow_cols.indexOf(p) == -1) continue;
+            // Do not update primary columns
+            if (cols[p] && cols[p].primary) continue;
             // Avoid int parse errors with empty strings
             if (!v && ["number","json"].indexOf(cols[p].type) > -1) v = null;
             // Not defined fields are skipped but nulls can be triggered by a flag
