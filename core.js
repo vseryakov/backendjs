@@ -1211,10 +1211,20 @@ var core = {
         this.dbQuery(req, options, callback);
     },
 
-    // Select object from the database, 
+    // Select objects from the database 
     // .keys is a list of columns for condition or all primary keys
     // .select is list of columns or expressions to return or *
     dbSelect: function(table, obj, options, callback) {
+        if (typeof options == "function") callback = options,options = null;
+
+        var req = this.dbPrepare("all", table, obj, options);
+        this.dbQuery(req, options, callback);
+    },
+
+    // Retrieve one record from the database 
+    // .keys is a list of columns for condition or all primary keys
+    // .select is list of columns or expressions to return or *
+    dbGet: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
         var req = this.dbPrepare("get", table, obj, options);
@@ -1222,7 +1232,7 @@ var core = {
     },
 
     // Retrieve cached result or put db record into the cache, options.keys can be used to specify exact key to be used for caching
-    dbSelectCached: function(table, obj, options, callback) {
+    dbGetCached: function(table, obj, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options,options = null;
         var pool = this.dbPool(options);
@@ -1237,7 +1247,7 @@ var core = {
             }
             pool.stats.misses++;
             // Retrieve account from the database, use the parameters like in core.dbSelect function
-            self.dbSelect(table, obj, options, function(err, rows) {
+            self.dbGet(table, obj, options, function(err, rows) {
                 if (err) pool.stats.errs++;
                 // Store in cache if no error
                 if (rows.length && !err) {
@@ -1261,6 +1271,56 @@ var core = {
     // Return database pool by name or default sqlite pool
     dbPool: function(options) {
         return this.dbpool[typeof options == "object" && options.pool ? options.pool : "sqlite"] || this.nopool || {};
+    },
+
+    // Reload all columns into the cache for the pool
+    dbCacheColumns: function(options, callback) {
+        this.dbPool(options).cacheColumns(callback);
+    },
+    
+    // Return cached columns for a table or null
+    dbColumns: function(table, options) {
+        return this.dbPool(options).dbcolumns[table.toLowerCase()];
+    },
+
+    // Return cached primary keys for a table or null
+    dbKeys: function(table, options) {
+        return this.dbPool(options).dbkeys[table.toLowerCase()];
+    },
+    
+    // Prepare for execution, SQL,...
+    dbPrepare: function(op, table, obj, options) {
+        return this.dbPool(options).prepare(op, table, obj, options);
+    },
+
+    // Execute SQL query in the database pool
+    // sql can be a string or an object with the following properties:
+    // - .text - SQL statement
+    // - .values - parameter values for sql bindings
+    // - .filter - function to filter rows not to be included in the result, return false to skip row, args are: (ctx, row)
+    // Callback is called with the following params:
+    //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid and affected_rows:
+    dbQuery: function(req, options, callback) { 
+        if (typeof options == "function") callback = options, options = {};
+        if (!req) return callback ? callback(new Error("empty statement"), []) : null;
+
+        var pool = this.dbPool(options);
+        pool.get(function(err, client) {
+            if (err) return callback ? callback(err, []) : null;
+            var t1 = core.mnow();
+            if (typeof req != "object") req = { text: req };
+            client.query(req.text, req.values || [], function(err2, rows) {
+                var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid };
+                pool.free(client);
+                if (err2) {
+                    logger.error("dbQuery:", pool.name, req.text, req.values, err2);
+                    return callback ? callback(err2, rows) : null;
+                }
+                if (req.filter) rows = rows.filter(function(row) { return req.filter.call(opts, row); });
+                logger.log("dbQuery:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "");
+                if (callback) callback(err, rows, info);
+            });
+        });
     },
 
     // Create a database pool with creation and columns caching callbacks
@@ -1334,6 +1394,7 @@ var core = {
         pool.prepare = function(op, table, obj, opts) {
             switch (op) {
             case "new": return self.sqlCreate(table, obj, opts);
+            case "all":
             case "get": return self.sqlSelect(table, obj, opts);
             case "add": return self.sqlInsert(table, obj, opts);
             case "put": return self.sqlUpdate(table, obj, opts);
@@ -1350,56 +1411,6 @@ var core = {
         return pool;
     },
     
-    // Reload all columns into the cache for the pool
-    dbCacheColumns: function(options, callback) {
-        this.dbPool(options).cacheColumns(callback);
-    },
-    
-    // Return cached columns for a table or null
-    dbColumns: function(table, options) {
-        return this.dbPool(options).dbcolumns[table.toLowerCase()];
-    },
-
-    // Return cached primary keys for a table or null
-    dbKeys: function(table, options) {
-        return this.dbPool(options).dbkeys[table.toLowerCase()];
-    },
-    
-    // Prepare for execution, SQL,...
-    dbPrepare: function(op, table, obj, options) {
-        return this.dbPool(options).prepare(op, table, obj, options);
-    },
-
-    // Execute SQL query in the database pool
-    // sql can be a string or an object with the following properties:
-    // - .text - SQL statement
-    // - .values - parameter values for sql bindings
-    // - .filter - function to filter rows not to be included in the result, return false to skip row, args are: (ctx, row)
-    // Callback is called with the following params:
-    //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid and affected_rows:
-    dbQuery: function(req, options, callback) { 
-        if (typeof options == "function") callback = options, options = {};
-        if (!req) return callback ? callback(new Error("empty statement"), []) : null;
-
-        var pool = this.dbPool(options);
-        pool.get(function(err, client) {
-            if (err) return callback ? callback(err, []) : null;
-            var t1 = core.mnow();
-            if (typeof req != "object") req = { text: req };
-            client.query(req.text, req.values || [], function(err2, rows) {
-                var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid };
-                pool.free(client);
-                if (err2) {
-                    logger.error("dbQuery:", pool.name, req.text, req.values, err2);
-                    return callback ? callback(err2, rows) : null;
-                }
-                if (req.filter) rows = rows.filter(function(row) { return req.filter.call(opts, row); });
-                logger.log("dbQuery:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "");
-                if (callback) callback(err, rows, info);
-            });
-        });
-    },
-
     // Setup prumary database access
     pgInitPool: function(options) {
         var self = this;
@@ -1686,7 +1697,6 @@ var core = {
                 var idxs = obj.filter(function(x) { return x.primary_key || x.unique_key }).
                                map(function(x, i) { return [ x.name, !i ? 'HASH' : 'RANGE'] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                logger.log(attrs, keys, idxs);
                 aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
                     callback(err, item ? [item.Item] : []);
                 });
@@ -1696,6 +1706,13 @@ var core = {
                 var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 aws.ddbGetItem(table, keys, options, function(err, item) {
                     callback(err, item ? [item.Item] : []);
+                });
+                break;
+
+            case "all":
+                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                aws.ddbQueryTable(table, keys, options, function(err, item) {
+                    callback(err, item ? item.Items : []);
                 });
                 break;
 

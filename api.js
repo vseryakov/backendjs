@@ -187,11 +187,10 @@ var api = {
 
         // Extract all signatuee components from the request
         var sig = core.parseSignature(req);
-        logger.debug("checkSignature:", sig);
         
         // Show request in the log on demand for diagnostics
         if (logger.level > 1 || req.query._debug) {
-            logger.log('checkRequest:', sig, 'hdrs:', req.headers);
+            logger.log('checkSignature:', sig, 'hdrs:', req.headers);
         }
 
         // Sanity checks, required headers must be present and not empty
@@ -209,7 +208,7 @@ var api = {
         }
 
         // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-        core.dbSelectCached(this.accountPrefix + "account", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
+        core.dbGetCached(this.accountPrefix + "account", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
             if (err) return callback({ status: 500, message: String(err) });
             if (!account) return callback({ status: 404, message: "No account" });
 

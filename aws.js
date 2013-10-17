@@ -522,10 +522,13 @@ var aws = {
         });
     },
 
-    // - condition is an object with name: value for EQ condition or name: [op, value] for other conditions
+    // - condition is an object with name: value for EQ condition or name: [op, value1, ...] for other conditions
     // - options may contain any valid native property if it starts with capital letter or special property:
     //   - start - defines starting primary key
     //   - consistent - set consistency level for the request
+    //   - select - list of attributes to get only
+    //   - total - return number of matching records
+    //   - count - limit number of record in result
     ddbQueryTable: function(name, condition, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -539,6 +542,15 @@ var aws = {
         }
         if (options.start) {
             params.ExclusiveStartKey = self.toDynamoDB(options.start);
+        }
+        if (options.select) {
+            params.AttributesToGet = options.select.split(",");
+        }
+        if (options.count) {
+            params.Limit = options.count;
+        }
+        if (options.total) {
+            params.Select = "COUNT";
         }
         if (condition) {
             for (var name in condition) {
