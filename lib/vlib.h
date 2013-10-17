@@ -107,6 +107,10 @@ vector<string> vShuffleList(const vector<string> list);
 // Global logging level
 void vSetLogging(const char *level);
 
+// Returns distance between 2 coordinates
+double vDistance(double lat1, double long1, double lat2, double long2);
+int vBearing(double lat1, double long1, double lat2, double long2);
+
 // Parse JSON text into object
 jsonValue *jsonParse(const char *source, int size = -1, string *errmsg = NULL);
 string jsonGet(jsonValue *obj, string name);

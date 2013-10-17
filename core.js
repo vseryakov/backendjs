@@ -103,12 +103,16 @@ var core = {
             { name: "repl-port", type: "number", min: 0, max: 99999 },
             { name: "repl-bind" },
             { name: "repl-file" },
-            { name: "db" },
             { name: "db-pool" },
+            { name: "lru-max", type: "number" },
+            { name: "lru-server" },
+            { name: "lru-host" },
             { name: "sqlite-max", type: "number", min: 1, max: 100 },
             { name: "sqlite-idle", type: "number", min: 1000, max: 86400000 },
+            { name: "pg-pool" },
             { name: "pg-max", type: "number", min: 1, max: 100 },
             { name: "pg-idle", type: "number", min: 1000, max: 86400000 },
+            { name: "ddb-pool" },
             { name: "logwatcher-email" },
             { name: "logwatcher-from" },
             { name: "logwatcher-ignore" },
@@ -127,12 +131,13 @@ var core = {
             
     // Database connection pools, sqlite default pool is called sqlite, PostgreSQL default pool is pg
     dbpool: {},
-    nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, get: function() { throw "no pool" }, free: function() { throw "no pool" }, cacheColumns: function() {} },
+    nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, get: function() { throw "no pool" }, free: function() { throw "no pool" }, prepare: function() {}, cacheColumns: function() {} },
     
     // Inter-process messages
     ipcs: {},
     ipcId: 1,
     ipcTimeout: 500,
+    lruMax: 1000,
 
     // Cookie jar
     cookiejar: { changed: false, cookies: [] },
@@ -200,21 +205,36 @@ var core = {
 
             // Local database
             function(next) {
-                var init = [ "CREATE TABLE IF NOT EXISTS backend_property(name TEXT, value TEXT, mtime TEXT, PRIMARY KEY(name))",
-                             "CREATE TABLE IF NOT EXISTS backend_cookies(name TEXT, value TEXT, domain TEXT, path TEXT, expires TEXT, secure TEXT, PRIMARY KEY(name,domain,path))",
-                             "CREATE TABLE IF NOT EXISTS backend_queue(url TEXT, data TEXT, count INTEGER DEFAULT 0, mtime TEXT)",
-                             "CREATE TABLE IF NOT EXISTS backend_jobs(id TEXT PRIMARY KEY, type TEXT DEFAULT 'local', host TEXT DEFAULT '', job TEXT, mtime INT)",
-                           ];
+                var init = { backend_property: [{ name: 'name', primary: 1 }, { name: 'value' }, { name: 'mtime' } ] ,
+                             backend_cookies: [ { name: 'name' }, { name: 'domain', primary_key: 1 }, { name: 'path', primary_key: 1 }, { name: 'value', primary_key: 1 }, { name: 'expires' } ],
+                             backend_queue: [ { name: 'url' }, { name: 'data' }, { name: 'count', type: 'int', value: '0'}, { name: 'mtime' } ],
+                             backend_jobs: [ { name: 'id', primary: 1 }, { name: 'type', value: "local" }, { name: 'host', value: '' }, { name: 'job' }, { name: 'mtime', type: 'int'} ],
+                           };
 
-                self.sqliteInitPool({ pool: 'sqlite', dbname: self.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
-                self.pgInitPool({ pool: 'pg', max: self.pgMax, idle: self.pgIdle });
+                // Sqlite pool is always enabled
+                self.sqliteInitPool({ pool: 'sqlite', db: self.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
                 
-                if (!cluster.isMaster) return next();
-                async.forEachSeries(init, function(sql, next2) { 
-                    self.dbQuery(sql, { pool: 'sqlite' }, function() {
-                        self.dbQuery(sql, { pool: 'pg' }, next2);
-                    });
-                }, next);
+                // Optional pools for supported SQL databases fro iternal management and provisioning
+                if (self.pgPool) {
+                    self.pgInitPool({ pool: 'pg', db: self.pgPool, max: self.pgMax, idle: self.pgIdle });
+                }
+                
+                // DyanmoDB pool is only for accounts and clients
+                if (self.ddbPool) {
+                    self.ddbInitPool({ pool: 'ddb', db: self.ddbPool });
+                }
+
+                // Initialize all pools, we know they all are SQL based
+                async.forEachSeries(Object.keys(init), function(tbl, next2) {
+                    if (cluster.isWorker) return next2();
+                    async.forEachSeries(["sqlite", "pg"], function(pool, next3) { 
+                        self.dbCreate(tbl, init[tbl], { pool: pool }, next3); 
+                    }, next2);
+                }, function() {
+                    async.forEachSeries(Object.keys(self.dbpool), function(pool, next3) { 
+                        self.dbCacheColumns({ pool: pool }, next3); 
+                    }, next);
+                });
             },
 
             // Make sure all cookies are cached
@@ -400,25 +420,21 @@ var core = {
 
         // Attach our message handler to all workers, process requests from workers
         if (cluster.isMaster) {
-            backend.lruInit(self.getArgInt("-lru-max", 1000));
+            backend.lruInit(self.lruMax);
             
-            sockets.forEach(function(x) {
-                // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts 
-                // it to other connected servers via the same BUS socket
-                var addr = self.getArg("-lru-server");
-                if (addr) {
-                    self.lruServer = backend.nnCreate(backend.AF_SP_RAW, self.lruServer);
-                    backend.nnBind(self.lruServer, addr);
-                    backend.lruServer(0, self.lruServer, self.lruServer);
-                }
-                
-                // Send cache requests to the LRU host to be broadcasted to all other servers
-                addr = self.getArg("-lru-host");
-                if (addr) {
-                    sel.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
-                    backend.nnBind(self.lruSocket, addr);
-                }
-            });
+            // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts 
+            // it to other connected servers via the same BUS socket
+            if (self.lruServer) {
+                var sock = backend.nnCreate(backend.AF_SP_RAW, backend.NN_BUS);
+                backend.nnBind(sock, self.lruServer);
+                backend.lruServer(0, sock, sock);
+            }
+            
+            // Send cache requests to the LRU host to be broadcasted to all other servers
+            if (self.lruHost) {
+                sel.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
+                backend.nnBind(self.lruSocket, self.lruHost);
+            }
             
             cluster.on('fork', function(worker) {
                 // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
@@ -582,9 +598,11 @@ var core = {
 
         case "real":
         case "float":
+        case "double":
             return this.toNumber(value, true, dflt, min, max);
 
         case "int":
+        case "integer":
         case "number":
             return this.toNumber(value, null, dflt, min, max);
 
@@ -923,6 +941,35 @@ var core = {
         return req;
     },
 
+    // Create SQL table using column definition list with properties:
+    // - name - column name
+    // - type - type of the column, default is TEXT, options: int, real
+    // - value - default value for the column
+    // - primary - this is primary key column
+    // - unique - this is unique key column
+    // - primary_key - part of the composite primary key
+    // - unique_key - part of the composite unique key
+    // options may contains:
+    // - map - type mapping, convert lowecase type naem into other type for any specific database
+    sqlCreate: function(table, obj, options, callback) {
+        var self = this;
+        if (typeof options == "function") callback = options, options = {};
+        if (!options) options = {};
+        
+        var sql = "CREATE TABLE IF NOT EXISTS " + table + "(" + 
+                       obj.filter(function(x) { return x.name }).
+                           map(function(x) { 
+                               return x.name + " " + 
+                               (function(t) { return (options.map || {})[t] || t })(x.type || "text") + " " + 
+                               (typeof x.value != "undefined" ? "DEFAULT " + self.sqlValue(x.value, x.type) : "") + " " +
+                               (x.unique ? "UNIQUE " : "") + " " +
+                               (x.primary ? "PRIMARY KEY" : "") }).join(",") + " " +
+                       (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(obj.filter(function(x) { return x.primary_key }).map(function(x) { return x.name }).join(',')) +
+                       (function(x) { return x ? ",UNIQUE(" + x + ")" : "" })(obj.filter(function(x) { return x.unique_key }).map(function(x) { return x.name }).join(',')) +
+                      ")";
+        return { text: sql, values: [] };
+    },
+    
     // Select object from the database, .keys is a list of columns for condition, .select is list of columns or expressions to return
     sqlSelect: function(table, obj, options) {
         if (!options) options = {};
@@ -1108,7 +1155,7 @@ var core = {
             if (!select) select = "1";
         }
         
-        var req = this.sqlSelect(table, obj, { select: select });
+        var req = this.dbPrepare("get", table, obj, { select: select });
         if (!req) {
             if (options.update_only) return callback ? callback(null, []) : null;
             return self.dbInsert(table, obj, options, callback);
@@ -1144,24 +1191,24 @@ var core = {
     dbInsert: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
-        var req = this.sqlInsert(table, obj, options);
-        this.dbQuery(req, callback);
+        var req = this.dbPrepare("add", table, obj, options);
+        this.dbQuery(req, options, callback);
     },
 
     // Update object in the database
     dbUpdate: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
-        var req = this.sqlUpdate(table, obj, options);
-        this.dbQuery(req, callback);
+        var req = this.dbPrepare("put", table, obj, options);
+        this.dbQuery(req, options, callback);
     },
 
     // Delete object in the database
     dbDelete: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
-        var req = this.sqlDelete(table, obj, options);
-        this.dbQuery(req, callback);
+        var req = this.dbPrepare("del", table, obj, options);
+        this.dbQuery(req, options, callback);
     },
 
     // Select object from the database, 
@@ -1170,13 +1217,50 @@ var core = {
     dbSelect: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
-        var req = this.sqlSelect(table, obj, options);
-        this.dbQuery(req, callback);
+        var req = this.dbPrepare("get", table, obj, options);
+        this.dbQuery(req, options, callback);
     },
 
+    // Retrieve cached result or put db record into the cache, options.keys can be used to specify exact key to be used for caching
+    dbSelectCached: function(table, obj, options, callback) {
+        var self = this;
+        if (typeof options == "function") callback = options,options = null;
+        var pool = this.dbPool(options);
+        pool.stats.gets++;
+        var keys = options.keys || this.dbKeys(table, options) || [];
+        var key = keys.filter(function(x) { return obj[x]} ).map(function(x) { return obj[x] }).join(":");
+        this.ipcGetCache(table + ":" + key, function(rc) {
+            // Cached value retrieved
+            if (rc) {
+                pool.stats.hits++;
+                return callback ? callback(null, JSON.parse(rc)) : null;
+            }
+            pool.stats.misses++;
+            // Retrieve account from the database, use the parameters like in core.dbSelect function
+            self.dbSelect(table, obj, options, function(err, rows) {
+                if (err) pool.stats.errs++;
+                // Store in cache if no error
+                if (rows.length && !err) {
+                    pool.stats.puts++;
+                    self.ipcPutCache(table + ":" + key, JSON.stringify(rows[0]));
+                }
+                callback(err, rows.length ? rows[0] : null);
+            });
+        });
+   
+    },
+    
+    // Create SQL table, obj is a list with column definitions
+    dbCreate: function(table, obj, options, callback) {
+        if (typeof options == "function") callback = options,options = null;
+
+        var req = this.dbPrepare("new", table, obj, options);
+        this.dbQuery(req, options, callback);
+    },
+    
     // Return database pool by name or default sqlite pool
     dbPool: function(options) {
-        return this.dbpool[options && options.pool ? options.pool : "sqlite"] || this.nopool || {};
+        return this.dbpool[typeof options == "object" && options.pool ? options.pool : "sqlite"] || this.nopool || {};
     },
 
     // Create a database pool with creation and columns caching callbacks
@@ -1245,12 +1329,25 @@ var core = {
         pool.cacheColumns = function(callback) {
             cachecb.call(self, { pool: this.name }, callback);
         }
+        // Prepare for execution, return an object with formatted or transformed query request for the database driver of this pool
+        // For SQL databases it creates a SQL statement with parameters
+        pool.prepare = function(op, table, obj, opts) {
+            switch (op) {
+            case "new": return self.sqlCreate(table, obj, opts);
+            case "get": return self.sqlSelect(table, obj, opts);
+            case "add": return self.sqlInsert(table, obj, opts);
+            case "put": return self.sqlUpdate(table, obj, opts);
+            case "del": return self.sqlDelete(table, obj, opts);
+            }
+        }
         pool.name = options.pool;
         pool.serial = 0;
         pool.dbcolumns = {};
         pool.dbkeys = {};
-        self.dbpool[options.pool] = pool;
-        pool.cacheColumns();
+        pool.dbunique = {};
+        pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
+        this.dbpool[options.pool] = pool;
+        return pool;
     },
     
     // Reload all columns into the cache for the pool
@@ -1267,8 +1364,13 @@ var core = {
     dbKeys: function(table, options) {
         return this.dbPool(options).dbkeys[table.toLowerCase()];
     },
+    
+    // Prepare for execution, SQL,...
+    dbPrepare: function(op, table, obj, options) {
+        return this.dbPool(options).prepare(op, table, obj, options);
+    },
 
-    // Execute SQL query in Sqlite database pool
+    // Execute SQL query in the database pool
     // sql can be a string or an object with the following properties:
     // - .text - SQL statement
     // - .values - parameter values for sql bindings
@@ -1276,9 +1378,8 @@ var core = {
     // Callback is called with the following params:
     //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid and affected_rows:
     dbQuery: function(req, options, callback) { 
-        if (!req) return callback ? callback(new Error("empty statement")) : null;
-        if (typeof options == "function") callback = options, options = null;
-        if (!options) options = {};
+        if (typeof options == "function") callback = options, options = {};
+        if (!req) return callback ? callback(new Error("empty statement"), []) : null;
 
         var pool = this.dbPool(options);
         pool.get(function(err, client) {
@@ -1304,8 +1405,7 @@ var core = {
         var self = this;
         if (!options) options = {};
         if (!options.pool) options.pool = "pg";
-        if (!options.db) options.db = self.db;
-        this.dbInitPool(options, self.pgOpen, self.pgCacheColumns);
+        return this.dbInitPool(options, self.pgOpen, self.pgCacheColumns);
     },
 
     // Open PostgreSQL connection, execute initial statements
@@ -1343,9 +1443,9 @@ var core = {
             if (err) return callback ? callback(err, []) : null;
             
             client.query("SELECT c.table_name,c.column_name,LOWER(c.data_type) AS data_type,c.column_default,c.ordinal_position,c.is_nullable " +
-                       "FROM information_schema.columns c,information_schema.tables t " +
-                       "WHERE c.table_schema='public' AND c.table_name=t.table_name " +
-                       "ORDER BY 5", function(err, rows) {
+                         "FROM information_schema.columns c,information_schema.tables t " +
+                         "WHERE c.table_schema='public' AND c.table_name=t.table_name " +
+                         "ORDER BY 5", function(err, rows) {
                 pool.dbcolumns = {};
                 for (var i = 0; i < rows.length; i++) {
                     if (!pool.dbcolumns[rows[i].table_name]) pool.dbcolumns[rows[i].table_name] = {};
@@ -1383,18 +1483,29 @@ var core = {
                     pool.dbcolumns[rows[i].table_name][rows[i].column_name] = { id: rows[i].ordinal_position, value: val, type: type, data_type: rows[i].data_type, isnull: rows[i].is_nullable == "YES", isserial: isserial };
                 }
 
-                client.query("SELECT c.table_name,k.column_name FROM information_schema.table_constraints c,information_schema.key_column_usage k "+
-                             "WHERE constraint_type='PRIMARY KEY' AND c.constraint_name=k.constraint_name", function(err, rows) {
+                client.query("SELECT c.table_name,k.column_name,constraint_type " +
+                             "FROM information_schema.table_constraints c,information_schema.key_column_usage k "+
+                             "WHERE constraint_type IN ('PRIMARY KEY','UNIQUE') AND c.constraint_name=k.constraint_name", function(err, rows) {
                     pool.dbkeys = {};
+                    pool.dbunique = {};
                     for (var i = 0; i < rows.length; i++) {
-                        if (!pool.dbkeys[rows[i].table_name]) pool.dbkeys[rows[i].table_name] = [];
-                        pool.dbkeys[rows[i].table_name].push(rows[i].column_name);
-                        if (pool.dbcolumns[rows[i].table_name]) {
-                            pool.dbcolumns[rows[i].table_name][rows[i].column_name].primary = true;
+                        var col = pool.dbcolumns[rows[i].table_name][rows[i].column_name];
+                        switch (rows[i].constraint_type) {
+                        case "PRIMARY KEY":
+                            if (!pool.dbkeys[rows[i].table_name]) pool.dbkeys[rows[i].table_name] = [];
+                            pool.dbkeys[rows[i].table_name].push(rows[i].column_name);
+                            if (col) col.primary = true;
+                            break;
+                            
+                        case "UNIQUE":
+                            if (!pool.dbunique[rows[i].table_name]) pool.dbunique[rows[i].table_name] = [];
+                            pool.dbunique[rows[i].table_name].push(rows[i].column_name);
+                            if (col) col.unique = 1;
+                            break;
                         }
                     }
                     pool.free(client);
-                    if (callback) callback(err || err2);
+                    if (callback) callback(err);
                 });
             });
         });
@@ -1412,8 +1523,8 @@ var core = {
         if (typeof options.read_uncommitted == "undefined") options.read_uncommitted = true;
         
         if (!options.pool) options.pool = "sqlite";
-        options.file = path.join(options.path || core.path.spool, (options.dbname || name)  + ".db");
-        this.dbInitPool(options, self.sqliteOpen, self.sqliteCacheColumns);
+        options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
+        return this.dbInitPool(options, self.sqliteOpen, self.sqliteCacheColumns);
     },
 
     // Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
@@ -1462,6 +1573,7 @@ var core = {
                 if (err2) return callback ? callback(err2) : null;
                 pool.dbcolumns = {};
                 pool.dbkeys = {};
+                pool.dbunique = {};
                 async.forEachSeries(tables, function(table, next) {
                     client.query("PRAGMA table_info(" + table.name + ")", function(err3, rows) {
                         if (err3) return next(err3);
@@ -1472,7 +1584,23 @@ var core = {
                             pool.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, value: rows[i].dflt_value, type: rows[i].type.toLowerCase(), data_type: rows[i].type, isnull: !rows[i].notnull, primary: rows[i].pk };
                             if (rows[i].pk) pool.dbkeys[table.name].push(rows[i].name);
                         }
-                        next();
+                        client.query("PRAGMA index_list(" + table.name + ")", function(err4, indexes) {
+                            async.forEachSeries(indexes, function(idx, next2) {
+                                if (!idx.unique) return next2();
+                                client.query("PRAGMA index_info(" + idx.name + ")", function(err5, cols) {
+                                    cols.forEach(function(x) {
+                                        var col = pool.dbcolumns[table.name][x.name];
+                                        if (!col || col.primary) return; 
+                                        col.unique = 1;
+                                        if (!pool.dbunique[table.name]) pool.dbunique[table.name] = [];
+                                        pool.dbunique[table.name].push(x.name);
+                                    });
+                                    next2();
+                                });
+                            }, function() {
+                                next();
+                            });
+                        });
                     });
                 }, function(err4) {
                     pool.free(client);
@@ -1480,6 +1608,125 @@ var core = {
                 });
             });
         });
+    },
+
+    // DynamoDB pool
+    ddbInitPool: function(options) {
+        var self = this;
+        if (!options) options = {};
+        if (!options.pool) options.pool = "ddb";
+        var aws = self.context.aws;
+
+        // Redefine pool but implement the same interface
+        var pool = { name: options.pool, db: options.db, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
+        this.dbpool[options.pool] = pool;
+        
+        pool.get = function(callback) { callback(null, this); }
+        pool.free = function() {}
+        pool.watch = function() {}
+        
+        pool.cacheColumns = function(opts, callback) {
+            if (typeof opts == "function") callback = opts, opts = null;
+            var pool = this;
+            var options = { db: pool.db };
+            
+            aws.ddbListTables(options, function(err, rc) {
+                if (err) return callback ? callback(err) : null;
+                pool.dbcolumns = {};
+                pool.dbkeys = {};
+                pool.dbunique = {};
+                async.forEachSeries(rc.TableNames, function(table, next) {
+                    aws.ddbDescribeTable(table, options, function(err, rc) {
+                        if (err) return next(err);
+                        rc.Table.AttributeDefinitions.forEach(function(x) {
+                            if (!pool.dbcolumns[table]) pool.dbcolumns[table] = {};
+                            var type = x.AttributeType == "N" ? "number" : x.AttributeType.length == 2 ? "array" : "text";
+                            pool.dbcolumns[table][x.AttributeName] = { type: type, data_type: x.AttributeType };
+                        });
+                        rc.Table.KeySchema.forEach(function(x) {
+                            if (!pool.dbkeys[table]) pool.dbkeys[table] = [];
+                            pool.dbkeys[table].push(x.AttributeName);
+                            pool.dbcolumns[table][x.AttributeName].primary = 1;
+                        });
+                        (rc.Table.LocalSecondaryIndexes || []).forEach(function(x) {
+                            x.KeySchema.forEach(function(y) {
+                                if (!pool.dbunique[table]) pool.dbunique[table] = [];
+                                pool.dbunique[table].push(x.AttributeName);
+                                pool.dbcolumns[table][x.AttributeName].unique = 1;
+                            });
+                        });
+                        next();
+                    });
+                }, function(err2) {
+                    if (callback) callback(err2);
+                });
+            });
+        }
+        
+        // Pass all parametetrs directly to the execute function
+        pool.prepare = function(op, table, obj, opts) {
+            return { text: table, values: [op, obj, opts] };
+        }
+        
+        // Simulate query as in SQL driver but performing AWS call, text will be a table name and values will be request options
+        pool.query = function(table, opts, callback) {
+            logger.log("query:", table ,opts)
+            var pool = this;
+            var obj = opts[1];
+            var options = self.addObj(opts[2], "db", pool.db);
+            
+            switch(opts[0]) {
+            case "new":
+                var attrs = obj.filter(function(x) { return x.primary || x.primary_key || x.unique_key }).
+                                map(function(x) { return [ x.name, x.type == "int" || x.type == "real" ? "N" : "S" ] }).
+                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                var keys = obj.filter(function(x) { return x.primary || x.primary_key }).
+                               map(function(x, i) { return [ x.name, !i ? 'HASH' : 'RANGE'] }).
+                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                var idxs = obj.filter(function(x) { return x.primary_key || x.unique_key }).
+                               map(function(x, i) { return [ x.name, !i ? 'HASH' : 'RANGE'] }).
+                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                logger.log(attrs, keys, idxs);
+                aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
+                    callback(err, item ? [item.Item] : []);
+                });
+                break;
+                
+            case "get":
+                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                aws.ddbGetItem(table, keys, options, function(err, item) {
+                    callback(err, item ? [item.Item] : []);
+                });
+                break;
+
+            case "add":
+                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null; } });
+                options.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
+                aws.ddbPutItem(table, o, options, function(err, rc) {
+                    callback(err, []);
+                });
+                break;
+
+            case "put":
+                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n]; } });
+                options.expected = keys;
+                aws.ddbUpdateItem(table, keys, o, options, function(err, rc) {
+                    callback(err, []);
+                });
+                break;
+
+            case "del":
+                aws.ddbDeleteItem(table, obj, options, function(err, rc) {
+                    callback(err, []);
+                });
+                break;
+                
+            default:
+                callback(new Error("invalid op"))
+            }
+        }
+        return pool;
     },
 
     // Downloads file using HTTP and pass it to the callback if provided,
@@ -1632,14 +1879,14 @@ var core = {
     // Host passed here must be the actual host where the request will be sent
     signUrl: function(accesskey, secret, host, uri, expires) {
         var hdrs = this.signRequest(accesskey, secret, "GET", host, uri, "", expires);
-        return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&AccessSignature=" + encodeURIComponent(hdrs.accesskey + ';' + hdrs.expires + ';' + hdrs.signature + ';');
+        return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&v-signature=" + encodeURIComponent(hdrs['v-signature']);
     },
 
     // Sign HTTP request for the API server:
     // url must include all query parametetrs already encoded and ready to be sent
     // expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
     // checksum is SHA1 digest of the POST content, optional
-    signRequest: function(accesskey, secret, method, host, uri, expires, checksum) {
+    signRequest: function(id, secret, method, host, uri, expires, checksum) {
         var now = Date.now();
         if (!expires) expires = now + 30000;
         if (expires < now) expires += now;
@@ -1647,48 +1894,48 @@ var core = {
         var qpath = q[0];
         var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
         var str = String(method) + "\n" + String(host) + "\n" + String(qpath) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(checksum || "");
-        return { accesskey: String(accesskey), expires: expires, checksum: String(checksum || ""), signature: this.sign(String(secret), str) };
+        return { 'v-signature': '1;;' + id + ';' + this.sign(String(secret), str) + ';' + expires + ';' + String(checksum || "") + ';;' };
     },
 
+    // Parse incomomg request for signature and return all pieces wrapped in an object, this object
+    // will be used by checkSignature function for verification against an account
+    parseSignature: function(req) {
+        var rc = { version: 1, expires: 0, checksum: "", password: "" };
+        // Input parameters, convert to empty string if not present
+        rc.url = req.originalUrl || req.url || "/";
+        rc.method = req.method || "";
+        rc.host = (req.headers.host || "").split(':')[0];
+        rc.signature = req.query['v-signature'] || req.headers['v-signature'] || "";
+        var d = String(rc.signature).match(/([^;]+);([^;]*);([^;]+);([^;]+);([^;]+);([^;]*);([^;]*);/);
+        if (!d) return rc;
+        rc.mode = this.toNumber(d[1]);
+        rc.version = d[2] || "";
+        rc.id = d[3];
+        rc.signature = d[4];
+        rc.expires = this.toNumber(d[5]);
+        rc.checksum = d[6] || "";
+        rc.url = req.url.replace(/v-signature=([^& ]+)/g, "");
+        return rc;
+    },
+    
     // Verify signature with given account, signature is an object reurned by parseSignature
     checkSignature: function(sig, account) {
         var q = sig.url.split("?");
         var qpath = q[0];
         var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
         sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires + "\n" + sig.checksum;
-        sig.hash = this.sign(account.secret, sig.str);
-        if (sig.signature == sig.hash) return true;
-        // Second try, verify against digest of the account and and secret, this way a client stores not the 
-        // actual secret in local storage but sha1 digest to prevent exposing real password
-        return sig.signature == this.sign(this.hash(account.account_id + ':' + account.secret), sig.str);
-    },
-    
-    // Parse incomomg request for signature and return all pieces wrapped in an object, this object
-    // will be used by checkSignature function for verification against an account
-    parseSignature: function(req) {
-        var rc = {};
-        // Input parameters, convert to empty string if not present
-        rc.url = req.originalUrl || req.url || "/";
-        rc.method = req.method || "";
-        rc.host = (req.headers.host || "").split(':')[0];
-        rc.expires = this.toNumber(req.headers.expires || "");
-        rc.accesskey = req.headers.accesskey || "";
-        rc.signature = req.headers.signature || "";
-        rc.checksum = req.headers.checksum || "";
-
-        // There is a case when the whole request url is encoded in the query, extract it into new request with
-        // url without special query parameter and keep other data as it is
-        // Signature format: &AccessSignature=accesskey;expires;signature;
-        if (req.query && req.query.AccessSignature) {
-            var d = String(req.query.AccessSignature).match(/([^;]+);([^;]+);([^;]+);/);
-            if (d && d.length > 3) {
-                rc.accesskey = d[1]
-                rc.expires = this.toNumber(d[2]);
-                rc.signature = d[3];
-                rc.url = uri.replace(/AccessSignature=([^& ]+)/g, "");
-            }
+        switch (sig.mode) {
+        case 1:
+            sig.hash = this.sign(account.secret, sig.str);
+            return sig.signature == sig.hash;
+            
+        case 2:
+            // Verify against digest of the account and and secret, this way a client stores not the 
+            // actual secret in local storage but sha1 digest to prevent exposing the real password
+            sig.hash = this.sign(this.sign(account.secret, account.email), sig.str);
+            return sig.signature == sig.hash;
         }
-        return rc;
+        return false;
     },
     
     // Make a request to the backend endpoint, save data in the queue in case of error, if data specified,
@@ -2308,17 +2555,18 @@ var core = {
 
     // Deep copy of an object,
     // - filter is an object to skip properties that defined in it by name, 
-    //   if filter's value is boolean, skip, if integer then skip if greater in length
-    // - _skip_null tells to skip all null properties
+    //   if filter's value is boolean, skip, if integer then skip if greater in length for string properties
+    //   - _skip_null tells to skip all null properties
+    //   - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
     // - props can be used to add additional properties to the new object
     clone: function(obj, filter, props) {
-        var newObj = {};
-        for (var p in props) newObj[p] = props[p];
+        var rc = {};
+        for (var p in props) rc[p] = props[p];
         switch (this.typeName(obj)) {
         case "object":
             break;
         case "array":
-            newObj = [];
+            rc = [];
             break;
         case "buffer":
             return new Buffer(this);
@@ -2330,22 +2578,21 @@ var core = {
             return obj;
         }
         if (!filter) filter = {};
-        for (var i in obj) {
-            if (filter) {
-                switch (this.typeName(filter[i])) {
-                case "undefined":
-                    break;
-                case "number":
-                    if (typeof obj[i] == "string" && obj[i].length < filter[i]) break;
-                    continue;
-                defaut:     
-                    continue;
-                }
+        for (var p in obj) {
+            switch (this.typeName(filter[p])) {
+            case "undefined":
+                break;
+            case "number":
+                if (typeof obj[p] == "string" && obj[p].length < filter[p]) break;
+                continue;
+            default:     
+               continue;
             }
-            if (obj[i] == null && filter._skip_null) continue;
-            newObj[i] = this.clone(obj[i], filter);
+            if ((obj[p] == null || typeof obj[p] == "undefined") && filter._skip_null) continue;
+            if (filter._skip_cb && filter._skip_cb(p, obj[p])) continue;
+            rc[p] = this.clone(obj[p], filter);
         }
-        return newObj;
+        return rc;
     },
 
     // Return new object using arguments as name value pairs for new object properties

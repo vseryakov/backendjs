@@ -6,7 +6,7 @@
  <link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
  <link rel="icon" href="/img/favicon.ico" type="image/x-icon" />
 
- <link href="css/api.css" rel="stylesheet" type="text/css" />
+ <link href="css/backend.css" rel="stylesheet" type="text/css" />
  <link href="css/jquery-ui.css" rel="stylesheet" type="text/css" />
 
  <style>
@@ -29,7 +29,7 @@
  <script src="js/jquery.js" type="text/javascript" ></script>
  <script src="js/jquery-ui.js" type="text/javascript" ></script>
  <script src="js/knockout.js" type="text/javascript"></script>
- <script src="js/api.js" type="text/javascript"></script>
+ <script src="js/backend.js" type="text/javascript"></script>
  <script src="js/sha1.js" type="text/javascript"></script>
  
  <script type="text/javascript">
@@ -42,7 +42,7 @@
          self.url = ko.observable('');
          self.expires = ko.observable('');
          self.signed = ko.observable('');
-         self.email = getCredentials().id;
+         self.email = Backend.getCredentials().email;
          self.images = false;
          self.table = false;
 
@@ -65,7 +65,7 @@
                      options.type = "POST";
                      options.contentType = "application/json";
                  }
-                 getJSON(options, function(data) {
+                 Backend.send(options, function(data) {
                      var name = self.url().split('/')[1];
                      try {
                          if (self.table && data.length) {
@@ -88,7 +88,7 @@
                              html += "</table>";
                              data = html;
                          } else {
-                             data = formatJSON(data, " ");
+                             data = Backend.formatJSON(data, " ");
                          }
                          self.response(data);
                      } catch(e) {
@@ -103,7 +103,7 @@
          self.doCheck = function() {
              try {
                  var data = JSON.parse(self.json());
-                 self.response(formatJSON(data, " "));
+                 self.response(Backend.formatJSON(data, " "));
                  return data;
              } catch (e) {
                  self.response(e);
@@ -114,14 +114,12 @@
              self.response('')
          }
          self.doSign = function() {
-             self.signed(signUrl(self.url(), self.expires()));
+             self.signed(Backend.signUrl(self.url(), self.expires()));
          }
      }
      ko.applyBindings(new API());
 
-     // Login dialog
-     login = new Login();
-     login.login();
+     Backend.login();
  });
  </script>
 
@@ -130,10 +128,10 @@
 <div id="header" class="header">
    <a href="/"><span class="title">Home</span></a>
    <div class='login-buttons'>
-     <span onclick="login.login()">Login</span>
-     <span onclick="login.logout()" >Logout</span>
+     <span onclick="Backend.login()">Login</span>
+     <span onclick="Backend.logout()" >Logout</span>
    </div>
-   <span class="title" style="float:right;" data-bind='text: getCredentials().id' ></span>
+   <span class="title" style="float:right;" data-bind='text: email' ></span>
    <p style="clear:both;" />
 
    <div class="center">

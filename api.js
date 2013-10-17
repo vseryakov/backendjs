@@ -16,6 +16,7 @@ var domain = require('domain');
 var core = require(__dirname + '/core');
 var printf = require('printf');
 var logger = require(__dirname + '/logger');
+var backend = require(__dirname + '/backend');
 
 // HTTP API to the server from the clients
 var api = {
@@ -29,25 +30,29 @@ var api = {
     // Account management
     accountPrefix: '',
     accountImages: '',
-    accountColumns: [ { name: "account_id", primary: 1 },
-                      { name: "facebook_id", type: "int" },
-                      { name: "linkedin_id", type: "int" },
-                      { name: "tweeter_id", },
-                      { name: "google_id", },
+    accountColumns: [ { name: "account_id", unique: 1 },
+                      { name: "email", primary: 1 },
                       { name: "secret" },
                       { name: "name" },
-                      { name: "email" },
+                      { name: "phone" },
                       { name: "birthday" },
-                      { name: "distance", type: "int" },
                       { name: "gender" },
                       { name: "address" },
                       { name: "city" },
                       { name: "state" },
                       { name: "zipcode" },
                       { name: "country" },
-                      { name: "location" },
+                      { name: "properties" },
+                      { name: "distance", type: "int" },
+                      { name: "latitude", type: "real" },
+                      { name: "longitude", type: "real" },
+                      { name: "facebook_id", type: "int" },
+                      { name: "linkedin_id", type: "int" },
+                      { name: "tweeter_id", },
+                      { name: "google_id", },
                       { name: "acl_allow" },
                       { name: "acl_deny" },
+                      { name: "expires", type: "int" },
                       { name: "ltime", type: "int" },
                       { name: "atime", type: "int" },
                       { name: "ctime", type: "int" },
@@ -55,9 +60,6 @@ var api = {
     
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
-    
-    // Cache statistics
-    stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0 },
     
     // Config parameters
     args: ["account-pool", 
@@ -117,116 +119,40 @@ var api = {
             if (err) logger.error('startExpress:', core.port, err);
         });
 
-        // Check authenication, if we get here it means access has been verified
-        self.app.all("/auth", function(req, res) {
-            res.json({ status: 200 });
-        });
-
         // Return current statistics
-        self.app.all("/status", function(req, res) {
+        this.app.all("/status", function(req, res) {
             res.json(self.stats);
         });
 
         // Return images by prefix, id and possibly type, serves from local images folder, 
         // this is generic access without authentication, depends on self.allow regexp
-        self.app.all(/^\/image\/([a-z]+)\/([a-z])?\/?([a-z0-9-]+)/, function(req, res) {
-            self.sendFile(req, res, core.iconPath(req.params[2], req.params[0], req.params[1]));
+        this.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([a-z])?/, function(req, res) {
+            self.sendFile(req, res, core.iconPath(req.params[1], req.params[0], req.params[2]));
         });
 
         // Managing accounts
-        this.app.all(/^\/account\/(add|get|put|del|puticon)$/, function(req, res) {
-            switch (req.params[0]) {
-            case "get":
-                // Delete all special properties and the secret
-                for (var p in req.account) {
-                    if (p[0] == '_' || p == 'secret') delete req.account[p];
-                }
-                // List all possible icons, this server may not have access to the files so it is up to the client to verify which icons exist
-                req.account.icon = self.accountImages + '/image/account/' + req.account.id;
-                req.account.icons = ['a','b','c','d','e','f'].map(function(x) { return self.accountImages + '/image/account/' + x + '/' + req.account.id });
-                res.json(req.account);
-                break;
-
-            case "add":
-                // Verify required fields
-                if (!req.query.account_id) return self.sendReply(res, 400, "Id is required");
-                if (!req.query.secret) return self.sendReply(res, 400, "Secret is required");
-                if (!req.query.name) return self.sendReply(res, 400, "Name is required");
-                if (!req.query.email) return self.sendReply(res, 400, "Email is required");
-                self.manageAccount("account." + req.params[0], req, req.query, {}, function(err) {
-                    self.sendReply(res, err);
-                });
-                break;
-
-            case "put":
-                self.manageAccount("account.put", req, req.query, {}, function(err) {
-                    self.sendReply(res, err);
-                });
-                break;
-
-            case "del":
-                self.manageAccount("account.del", req, req.query, {}, function(err) {
-                   self.sendReply(res, err);
-                });
-                break;
-                
-            case 'puticon':
-                // Add icon to the account, support up to 6 icons with types: a,b,c,d,e,f, primary icon type is ''
-                self.putIcon(req, { id: req.account.id, prefix: 'account' , type: req.body.type || req.query.type || '' }, function(err) {
-                    self.sendReply(res, err);
-                });
-                break;
-            }
-        });
+        this.initAccount();
         
         // Provisioning access to the database
-        if (self.backend) self.initBackend();
+        if (this.backend) this.initBackend();
 
         // Post init or other application routes
-        self.onInit.call(this);
+        this.onInit.call(this);
 
-        // Start the account driver
-        self.manageAccount("init", {}, {}, callback);
-    },
-    
-    
-    // Custom access logger
-    accessLogger: function() {
-        var self = this;
-
-        var format = function(req, res) {
-            var now = new Date();
-            return (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
-                   (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
-                   req.method + " " +
-                   (req.originalUrl || req.url) + " " +
-                   "HTTP/" + req.httpVersionMajor + '.' + req.httpVersionMinor + " " +
-                   res.statusCode + " " +
-                   ((res._headers || {})["content-length"] || '-') + " - " +
-                   (now - req._startTime) + " ms - " +
-                   (req.headers['user-agent'] || "-") + " " +
-                   (req.headers['version'] || "-") + " " +
-                   (req.account ? req.account.account_id : "-") + "\n";
-        }
-
-        return function logger(req, res, next) {
-            req._startTime = new Date;
-            res._end = res.end;
-            res.end = function(chunk, encoding) {
-                res._end(chunk, encoding);
-                if (!self.accesslog || req._skipLogging) return;
-                var line = format(req, res);
-                if (!line) return;
-                self.accesslog.write(line);
-            }
-            next();
+        // Create account table if does not exist, on pool open it caches all existing tables, if we create a new table, refresh with delay
+        if (!core.dbColumns(self.accountPrefix + "account", { pool: self.accountPool })) {
+            core.dbCreate(self.accountPrefix + "account", self.accountColumns, { pool: self.accountPool }, function() {
+                setTimeout(function() { core.dbCacheColumns({ pool: self.accountPool }, callback); }, 3000);
+            });
+        } else {
+            if (callback) callback();
         }
     },
-
+        
     // Perform authorization of the incoming request for access and permissions
     checkRequest: function(req, res, next) {
         var self = this;
-        self.manageAccess(req, function(rc1) {
+        self.checkAccess(req, function(rc1) {
             // Status is given, return an error or proceed to the next module
             if (rc1) return (rc1.status == 200 ? next() : res.json(rc1));
 
@@ -242,6 +168,17 @@ var api = {
         });
     },
 
+    // Perform URL based access checks
+    // Check access permissions, calls the callback with the following argument:
+    // - nothing if checkSignature needs to be called
+    // - an object with status: 200 to skip authorization and proceed with the next module
+    // - an object with status other than 200 to return the status and stop request processing
+    checkAccess: function(req, callback) {
+        if (this.deny && req.path.match(this.deny)) return callback({ status: 401, message: "Access denied" });
+        if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
+        callback();
+    },
+
     // Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers
     checkSignature: function(req, callback) {
         // Make sure we will not crash on wrong object
@@ -250,17 +187,18 @@ var api = {
 
         // Extract all signatuee components from the request
         var sig = core.parseSignature(req);
-
+        logger.debug("checkSignature:", sig);
+        
         // Show request in the log on demand for diagnostics
         if (logger.level > 1 || req.query._debug) {
             logger.log('checkRequest:', sig, 'hdrs:', req.headers);
         }
 
         // Sanity checks, required headers must be present and not empty
-        if (!sig.method || !sig.host || !sig.expires || !sig.accesskey || !sig.signature) {
+        if (!sig.method || !sig.host || !sig.expires || !sig.id || !sig.signature) {
             return callback({ status: 401, message: "Invalid request: " + (!sig.method ? "no method" :
                                                                            !sig.host ? "no host" :
-                                                                           !sig.accesskey ? "no access email" :
+                                                                           !sig.id ? "no email" :
                                                                            !sig.expires ? "no expires" :
                                                                            !sig.signature ? "no signature" : "") });
         }
@@ -271,7 +209,7 @@ var api = {
         }
 
         // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-        this.manageAccount("account.get", req, { account_id: sig.accesskey }, function(err, account) {
+        core.dbSelectCached(this.accountPrefix + "account", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
             if (err) return callback({ status: 500, message: String(err) });
             if (!account) return callback({ status: 404, message: "No account" });
 
@@ -306,13 +244,12 @@ var api = {
                     return callback({ status: 401, message: "Bad checksum, calculated checksum is " + chk });
                 }
             }
-            // Support API version in the request, use current if not specified
-            req.version = (req.headers.version || req.query._version || core.version).substr(0, 10);
             // Save components of signature verification, it will be used later for profile password check as well
             req.signature = sig;
             // Save current account in the request
             req.account = account;
-            // All conditions must be checked for account id
+            // Primary keys must be in the query
+            req.query.email = req.account.email;
             req.query.account_id = account.account_id;
             return callback({ status: 200, message: "Ok" });
         });
@@ -356,102 +293,59 @@ var api = {
         }
     },
 
-    // Perform URL based access checks
-    // Check access permissions, calls the callback with the following argument:
-    // - nothing if checkSignature needs to be called
-    // - an object with status: 200 to skip authorization and proceed with the next module
-    // - an object with status other than 200 to return the status and stop request processing
-    manageAccess: function(req, callback) {
-        if (this.deny && req.path.match(this.deny)) return callback({ status: 401, message: "Access denied" });
-        if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
-        callback();
-    },
-
-    // Account driver that actually retrieve and return account records and perform caching if necesary
-    manageAccount: function(cmd, req, obj, options, callback) { 
+    // Account management
+    initAccount: function() {
         var self = this;
-        if (typeof options == "function") callback = options, options = {};
-        if (typeof callback != "function") callback = function() {};
-            
-        switch (cmd) {
-        case "init":
-            var tables = [ "CREATE TABLE IF NOT EXISTS " + self.accountPrefix + "account(" + 
-                           self.accountColumns.map(function(x) { 
-                               return x.name + " " + 
-                                      (x.type || "TEXT") + " " + 
-                                      (x.value ? "DEFAULT " + x.value : "") + " " + 
-                                      (x.primary ? "PRIMARY KEY" : "") }).join(",") + 
-                           ")" ];
-            async.forEachSeries(tables, function(t, next) { 
-                core.dbQuery(t, { pool: self.accountPool }, next); 
-            }, function() {
-                // Cache all columns for operations to work correctly
-                core.dbCacheColumns({ pool: self.accountPool }, callback);
-            });
-            break;
-            
-        case "account.get":
-            self.gets++;
-            core.ipcGetCache("account:" + obj.account_id, function(rc) {
-                // Cached value retrieved
-                if (rc) {
-                    self.stats.hits++;
-                    return callback(null, JSON.parse(rc));
+        
+        this.app.all(/^\/account\/(add|get|put|del|puticon)$/, function(req, res) {
+            switch (req.params[0]) {
+            case "get":
+                // Delete all special properties and the secret
+                for (var p in req.account) {
+                    if (p[0] == '_' || p == 'secret') delete req.account[p];
                 }
-                self.stats.misses++;
-                // Retrieve account from the database
-                core.dbSelect(self.accountPrefix + "account", obj, { pool: self.accountPool }, function(err, rows) {
-                    // Store in cache if no error
-                    if (rows.length && !err) {
-                        self.stats.puts++;
-                        core.ipcPutCache("account:" + obj.account_id, JSON.stringify(rows[0]));
-                    }
-                    callback(err, rows.length ? rows[0] : null);
+                // List all possible icons, this server may not have access to the files so it is up to the client to verify which icons exist
+                req.account.icon = self.accountImages + '/image/account/' + req.account.account_id;
+                req.account.icons = ['a','b','c','d','e','f'].map(function(x) { return self.accountImages + '/image/account/' + req.account.account_id + '/' + x });
+                res.json(req.account);
+                break;
+
+            case "add":
+                // Verify required fields
+                if (!req.query.secret) return self.sendReply(res, 400, "Secret is required");
+                if (!req.query.name) return self.sendReply(res, 400, "Name is required");
+                if (!req.query.email) return self.sendReply(res, 400, "Email is required");
+                req.query.account_id = backend.uuid().replace(/-/g, '');
+                req.query.mtime = req.query.ctime = core.now();
+                core.dbInsert(self.accountPrefix + "account", req.query, { pool: self.accountPool }, function(err) {
+                    self.sendReply(res, err);
                 });
-            });
-            break;
+                break;
+
+            case "put":
+                req.query.mtime = core.now();
+                if (req.query.latitude && req.query.longitude) req.query.ltime = core.now();
+                core.dbUpdate(self.accountPrefix + "account", req.query, { pool: self.accountPool }, function(err) {
+                    core.ipcDelCache("account:" + req.query.email);
+                    self.sendReply(res, err);
+                });
+                break;
+
+            case "del":
+                core.dbDelete(self.accountPrefix + "account", req.query, { pool: self.accountPool }, function(err) {
+                    core.ipcDelCache("account:" + req.query.email);
+                    self.sendReply(res, err);
+                });
+                break;
                 
-        case "account.add":
-            obj.mtime = obj.ctime = core.now();
-            core.dbInsert(self.accountPrefix + "account", obj, { pool: self.accountPool }, function(err, rows) {
-                self.stats.dels++;
-                core.ipcDelCache("account:" + obj.account_id);
-                callback(err);
-            });
-            break;
-
-        case "account.put":
-            obj.mtime = core.now();
-            core.dbUpdate(self.accountPrefix + "account", obj, { pool: self.accountPool }, function(err) {
-                self.stats.dels++;
-                core.ipcDelCache("account:" + obj.account_id);
-                callback(err);
-            });
-            break;
-            
-        case "account.del":
-            core.dbDelete(self.accountPrefix + "account", obj, { pool: self.accountPool }, function(err) {
-                self.stats.dels++;
-                core.ipcDelCache("account:" + obj.account_id);
-                callback(err);
-            });
-            break;
-            
-        default:
-            // Third argument signifies unsupported command
-            callback(null, null, null);
-        }
-    },
-
-    // Prepare an account record to be put into the database, remove not supported fields
-    prepareAccount: function(obj, options) {
-        for (var p in obj) {
-            if (p[0] == '_' || typeof obj[p] == "undefined") delete obj[p];
-            if (!this.accountColumns.some(function(x) { return x.name == p })) delete obj[p];
-            if (obj[p] === null && options && options.nonull) delete obj[p];
-        }
-        obj.mtime = core.now();
-        return obj;
+            case 'puticon':
+                // Add icon to the account, support up to 6 icons with types: a,b,c,d,e,f, primary icon type is ''
+                self.putIcon(req, { id: req.account.id, prefix: 'account' , type: req.body.type || req.query.type || '' }, function(err) {
+                    self.sendReply(res, err);
+                });
+                break;
+            }
+        });
     },
     
     // API for internal provisioning, by default supports access to all tables
@@ -524,79 +418,40 @@ var api = {
         });
         
     },
-
-    // DynamoDB account driver
-    manageAccountDynamoDB: function(cmd, req, obj, options, callback) {
+    
+    // Custom access logger
+    accessLogger: function() {
         var self = this;
-        if (typeof options == "function") callback = options, options = {};
-        if (typeof callback != "function") callback = function() {};
 
-        switch (cmd) {
-        case "init":
-            aws.ddbListTables(function(err, rc) {
-                if (err || !rc) return callback(err);
-                var tables = [ { name: self.accountPrefix + "account", args: [{ account_id: 'S' }, { account_id: 'HASH' }, {}] } ];
-                async.forEachSeries(tables, function(table, next) {
-                    if (rc.TableNames.indexOf(table.name) > -1) return next();
-                    aws.ddbCreateTable(table.name, table.args[0], table.args[1], table.args[2], next);
-                }, function() {
-                   callback();
-                });
-            });
-            break;
+        var format = function(req, res) {
+            var now = new Date();
+            return (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
+                   (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
+                   req.method + " " +
+                   (req.originalUrl || req.url) + " " +
+                   "HTTP/" + req.httpVersionMajor + '.' + req.httpVersionMinor + " " +
+                   res.statusCode + " " +
+                   ((res._headers || {})["content-length"] || '-') + " - " +
+                   (now - req._startTime) + " ms - " +
+                   (req.headers['user-agent'] || "-") + " " +
+                   (req.headers['version'] || "-") + " " +
+                   (req.account ? req.account.account_id : "-") + "\n";
+        }
 
-        case "account.get":
-            self.gets++;
-            core.ipcGetCache("account:" + obj.account_id, function(rc) {
-                // Cached value retrieved
-                if (rc) {
-                    self.stats.hits++;
-                    return callback(null, JSON.parse(rc));
-                }
-                self.stats.misses++;
-                aws.ddbGetItem(self.accountPrefix + "account", { account_id: obj.account_id }, { ConsistentRead: true }, function(err, item) {
-                    // Store in cache if no error
-                    if (!err && item && item.Item) {
-                        self.stats.puts++;
-                        core.ipcPutCache("account:" + obj.account_id, JSON.stringify(item.Item));
-                    }
-                    callback(err, item ? item.Item : null);
-                });
-            });
-            break;
-
-        case "account.add":
-            self.prepareAccount(obj, { nonull: 1 });
-            obj.ctime = core.now();
-            aws.ddbPutItem("account", obj, { expected: { account_id: null } }, function(err, rc) {
-                self.stats.dels++;
-                core.ipcDelCache("account:" + obj.account_id);
-                callback(err);
-            });
-            break;
-
-        case "account.put":
-            self.prepareAccount(obj, { nonull: 1 });
-            aws.ddbUpdateItem(self.accountPrefix + "account", { account_id: obj.account_id }, obj, { expected: { account_id: obj.account_id } }, function(err, rc) {
-                self.stats.dels++;
-                core.ipcDelCache("account:" + obj.account_id);
-                callback(err);
-            });
-            break;
-
-        case "account.del":
-            aws.ddbDeleteItem(self.accountPrefix + "account", { account_id: obj.account_id }, {}, function(err, rc) {
-                self.stats.dels++;
-                core.ipcDelCache("account:" + obj.account_id);
-                callback(err);
-            });
-            break;
-            
-        default:
-            // Third argument signifies unsupported command
-            callback(null, null, null);
+        return function logger(req, res, next) {
+            req._startTime = new Date;
+            res._end = res.end;
+            res.end = function(chunk, encoding) {
+                res._end(chunk, encoding);
+                if (!self.accesslog || req._skipLogging) return;
+                var line = format(req, res);
+                if (!line) return;
+                self.accesslog.write(line);
+            }
+            next();
         }
     },
+
 }
 
 module.exports = api;

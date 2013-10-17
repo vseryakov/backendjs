@@ -18,7 +18,7 @@ var xml2json = require('xml2json');
 
 var aws = {
     name: 'aws',
-    args: [ "key", "secret", "region", "keypair", "image", "instance", { name: "nometadata", type: "bool" }],
+    args: [ "key", "secret", "region", "keypair", "image", "instance", "dynamodb-host", { name: "nometadata", type: "bool" }],
     region: 'us-east-1',
     instance: "t1.micro",
 
@@ -106,13 +106,14 @@ var aws = {
     queryDDB: function (action, obj, options, callback) {
         if (typeof options == "function") callback = options, options = {};
         var start = core.mnow();
-        var uri = 'https://dynamodb.' + this.region + '.amazonaws.com/';
+        var uri = options.db || ('https://dynamodb.' + this.region + '.amazonaws.com/');
         var version = '2012-08-10';
         var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
         var req = url.parse(uri);
         var json = JSON.stringify(obj);
-        var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8',
-                        'x-amz-target': target };
+        var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };
+        logger.debug('queryDDB:', uri, 'action:', action, 'obj:', obj, 'options:', options);
+        
         this.querySign("dynamodb", req.hostname, "POST", req.path, json, headers);
         core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
             if (err) return (callback ? callback(err) : null);
@@ -264,72 +265,83 @@ var aws = {
         }
     },
 
+    // Return list of tables in .TableNames property of the result
+    // Example: { TableNames: [ name, ...] }
     ddbListTables: function(options, callback) {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
-        this.queryDDB('ListTables', options, callback);
+        this.queryDDB('ListTables', {}, options, callback);
     },
 
-    ddbDescribeTable: function(name, callback) {
+    // Return table definition and parameters in the result structure with property of the given table name
+    // Example: { name: { AttributeDefinitions: [], KeySchema: [] ...} }
+    ddbDescribeTable: function(name, options, callback) {
         var params = { TableName: name };
-        this.queryDDB('DescribeTable', params, callback);
+        this.queryDDB('DescribeTable', params, options, callback);
     },
 
-    // Attributes can be an array in native DDB JSON format or an object with name:type properties
-    // Keys can be an array in native DDB JSON format or an object with name:keytype properties
-    // Indexes can be an array in native DDB JSON format or an object with each property as index name and
-    // value as an object with property name for range attribute and value for projection type
-    // Example: ddbCreateTable('test', {id:'S',mtime:'N',name:'S'}, {id:'HASH',mtime:'RANGE'}, {name:{name:'ALL'}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});
+    // - Attributes can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS
+    // - Keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE
+    // - Indexes can be an array in native DDB JSON format or an object with each property for an index name and
+    //   value in the same format as for primary keys, additional property _projection defines projection type for an index.
+    // - options may contain any valid native property if it starts with capital letter.
+    // Example: ddbCreateTable('test', {id:'S',mtime:'N',name:'S'}, {id:'HASH',mtime:'RANGE'}, {name_idx:{name:"HASH",_projection:"ALL"}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});
     ddbCreateTable: function(name, attrs, keys, indexes, options, callback) {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
         var params = { "TableName": name, "AttributeDefinitions": [], "KeySchema": [], "ProvisionedThroughput": {"ReadCapacityUnits": options.ReadCapacityUnits || 10, "WriteCapacityUnits": options.WriteCapacityUnits || 5 }};
-        if (Array.isArray(attrs)) {
+        
+        if (Array.isArray(attrs) && attrs.length) {
             params.AttributeDefinitions = attrs;
         } else {
             for (var p in attrs) {
                 params.AttributeDefinitions.push({ AttributeName: p, AttributeType: String(attrs[p]).toUpperCase() })
             }
         }
-        if (Array.isArray(keys)) {
+        if (Array.isArray(keys) && keys.length) {
             params.KeySchema = attrs;
         } else {
             for (var p in keys) {
                 params.KeySchema.push({ AttributeName: p, KeyType: String(keys[p]).toUpperCase() })
             }
         }
-        if (Array.isArray(indexes)) {
+        if (Array.isArray(indexes) && indexes.length) {
             params.LocalSecondaryIndexes = indexes;
         } else {
-            for (var p in indexes) {
-                var idx = indexes[p];
-                for (var i in idx) {
-                    if (!params.LocalSecondaryIndexes) params.LocalSecondaryIndexes = [];
-                    var project = { ProjectionType: Array.isArray(idx[i]) ? "INLCUDE" : String(idx[i]).toUpperCase() };
-                    if (project.ProjectionType == "INLCLUDE") project.NonKeyAttributes = idx[i];
-                    params.LocalSecondaryIndexes.push({ IndexName: p, KeySchema: [ schema[0], { AttributeName: i, KeyType: "RANGE" }], Projection: project })
+            for (var n in indexes) {
+                var idx = indexes[n];
+                var index = { IndexName: n, KeySchema: [] };
+                for (var p in idx) {
+                    index.KeySchema.push({ AttributeName: p, KeyType: String(idx[p]).toUpperCase() })
                 }
+                if (idx._projection) {
+                    index.Projection = { ProjectionType: Array.isArray(idx._projection) ? "INLCUDE" : String(idx._projection).toUpperCase() };
+                    if (index.Projection.ProjectionType == "INLCLUDE") index.Projection.NonKeyAttributes = idx._projection;
+                }
+                if (!params.LocalSecondaryIndexes) params.LocalSecondaryIndexes = [];
+                params.LocalSecondaryIndexes.push(index);
             }
         }
         for (var p in options) {
             if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
         }
 
-        this.queryDDB('CreateTable', params, callback);
+        this.queryDDB('CreateTable', params, options, callback);
     },
 
-    ddbDeleteTable: function(name, callback) {
+    ddbDeleteTable: function(name, options, callback) {
         var params = { TableName: name };
-        this.queryDDB('DeleteTable', params, callback);
+        this.queryDDB('DeleteTable', params, options, callback);
     },
 
-    ddbUpdateTable: function(name, rlimit, wlimit, callback) {
+    ddbUpdateTable: function(name, rlimit, wlimit, options, callback) {
         var params = {"TableName": name, "ProvisionedThroughput": {"ReadCapacityUnits":rlimit,"WriteCapacityUnits":wlimit } };
-        this.queryDDB('UpdateTable', params, callback);
+        this.queryDDB('UpdateTable', params, options, callback);
     },
 
-    // keys is an object with key attributes name and value,
-    // options may contain any native property allowed in the request
+    // - keys is an object with primary key attributes name and value.
+    // - options may contain any native property allowed in the request or special properties:
+    //   - consistent - set consistency level for the request
     ddbGetItem: function(name, keys, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -338,16 +350,22 @@ var aws = {
         for (var p in options) {
             if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
         }
+        if (options.consistent) {
+            params.ConsistentRead = true;
+        }
         for (var p in keys) {
             params.Key[p] = self.toDynamoDB(keys[p]);
         }
-        this.queryDDB('GetItem', params, function(err, rc) {
+        this.queryDDB('GetItem', params, options, function(err, rc) {
             if (rc && rc.Item) rc.Item = self.fromDynamoDB(rc.Item);
             if (callback) callback(err, rc);
         });
     },
 
-    // item is an object, type will be inferred from the native js type
+    // - item is an object, type will be inferred from the native js type.
+    // - options may contain any valid native property if it starts with capital letter or special properties:
+    //   - expected - an object with column names to be used in Expected clause. 
+    //     The value can be null set condition to Exists: false or any other exct value to checked against
     ddbPutItem: function(name, item, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -365,16 +383,20 @@ var aws = {
                 params.Expected[p] = { Value: self.toDynamoDB(options.expected[p]) };
             }
         }
-        this.queryDDB('PutItem', params, function(err, rc) {
+        this.queryDDB('PutItem', params, options, function(err, rc) {
             if (rc && rc.Attributes) rc.Item = self.fromDynamoDB(rc.Attributes);
             if (callback) callback(err, rc);
         });
     },
 
-    // item is an object with properties where value can be:
-    //  - number/string/array - action PUT,
-    //  - null - action DELETE
-    //  - object in the form: { ADD: val } or { DELETE: val }
+    // - keys is an object with primary key attributes name and value.
+    // - item is an object with properties where value can be:
+    //    - number/string/array - implies PUT action,
+    //    - null - action DELETE
+    //    - object in the form: { ADD: val } or { DELETE: val }
+    // - options may contain any valid native property if it starts with capital letter or special properties:
+    //   - expected - an object with column names to be used in Expected clause. 
+    //      The value can be null set condition to Exists: false or any other exct value to checked against
     ddbUpdateItem: function(name, keys, item, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -422,13 +444,14 @@ var aws = {
                     break;
             }
         }
-        this.queryDDB('UpdateItem', params, function(err, rc) {
+        this.queryDDB('UpdateItem', params, options, function(err, rc) {
             if (rc && rc.Attributes) rc.Item = self.fromDynamoDB(rc.Attributes);
             if (callback) callback(err, rc);
         });
     },
 
-    // keys is an object with name: value for hash/range attributes
+    // - keys is an object with name: value for hash/range attributes
+    // - options may contain any valid native property if it starts with capital letter.
     ddbDeleteItem: function(name, keys, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -440,13 +463,15 @@ var aws = {
         for (var p in keys) {
             params.Key[p] = self.toDynamoDB(keys[p]);
         }
-        this.queryDDB('DeleteItem', params, function(err, rc) {
+        this.queryDDB('DeleteItem', params, options, function(err, rc) {
             if (rc && rc.Attributes) rc.Item = self.fromDynamoDB(rc.Attributes);
             if (callback) callback(err, rc);
         });
     },
 
-    // Format of items: { table: [ { PutRequest: { id: 1, name: "tt" } }, ] }
+    // - items is a list of objects with table name as property and list of operations, an operation can be PutRequest or DeleteRequest
+    // - options may contain any valid native property if it starts with capital letter.
+    // Example: { table: [ { PutRequest: { id: 1, name: "tt" } }, ] }
     ddbBatchWriteItem: function(items, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -465,13 +490,15 @@ var aws = {
                 params.RequestItems[p].push(obj);
             });
         }
-        this.queryDDB('BatchWriteItem', params, function(err, rc) {
+        this.queryDDB('BatchWriteItem', params, options, function(err, rc) {
             if (rc && rc.Attributes) rc.Item = self.fromDynamoDB(rc.Attributes);
             if (callback) callback(err, rc);
         });
     },
 
-    // Format of items: { table: [ { Keys: { id: 1, name: "tt" }, AttributesToGet: ['name'], ConsistentRead: true }, ] }
+    // - items is list of objects with table name as property name and list of options for GetItem request
+    // - options may contain any valid native property if it starts with capital letter.
+    // Example: { table: [ { Keys: { id: 1, name: "tt" }, AttributesToGet: ['name'], ConsistentRead: true }, ] }
     ddbBatchGetItem: function(items, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -489,13 +516,16 @@ var aws = {
                 params.RequestItems[p].push(obj);
             });
         }
-        this.queryDDB('BatchGetItem', params, function(err, rc) {
+        this.queryDDB('BatchGetItem', params, options, function(err, rc) {
             if (rc && rc.Responses) rc.Responses = self.fromDynamoDB(rc.Responses);
             if (callback) callback(err, rc);
         });
     },
 
-    // condition is an object with name: value for EQ condition or name: [op, value] for other conditions
+    // - condition is an object with name: value for EQ condition or name: [op, value] for other conditions
+    // - options may contain any valid native property if it starts with capital letter or special property:
+    //   - start - defines starting primary key
+    //   - consistent - set consistency level for the request
     ddbQueryTable: function(name, condition, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -503,6 +533,9 @@ var aws = {
         var params = { TableName: name, KeyConditions: {} };
         for (var p in options) {
             if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
+        }
+        if (options.consistent) {
+            params.ConsistentRead = true;
         }
         if (options.start) {
             params.ExclusiveStartKey = self.toDynamoDB(options.start);
@@ -531,13 +564,15 @@ var aws = {
                 params.KeyConditions[name] = op;
             }
         }
-        this.queryDDB('Query', params, function(err, rc) {
+        this.queryDDB('Query', params, options, function(err, rc) {
             if (rc && rc.Items) rc.Items = self.fromDynamoDB(rc.Items);
             if (callback) callback(err, rc);
         });
     },
 
-    // condition is an object like in Query action
+    // - condition is an object with name: value for EQ condition or name: [op, value] for other conditions
+    // - options may contain any valid native property if it starts with capital letter or special property:
+    //   - start - defines starting primary key
     ddbScanTable: function(name, condition, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -573,7 +608,7 @@ var aws = {
                 params.ScanFilter[name] = op;
             }
         }
-        this.queryDDB('Scan', params, function(err, rc) {
+        this.queryDDB('Scan', params, options, function(err, rc) {
             if (rc && rc.Items) rc.Items = self.fromDynamoDB(rc.Items);
             if (callback) callback(err, rc);
         });

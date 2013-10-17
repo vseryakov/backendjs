@@ -403,14 +403,18 @@ case "$ARG" in
     DOW=$(date +%w)
     DAY=$(date +%d|sed 's/^0*//g')
     FILE=backup
-    # Even days will have 1 appended
-    [ "$BACKUP_EVEN" != "" -a $(($DAY % 2)) -eq 0 ] && FILE="${FILE}1"
+    # Even days will have 1 appended to the backup file name
+    [ "$BACKUP_COPY_EVEN" != "" -a $(($DAY % 2)) -eq 0 ] && FILE="${FILE}1"
+    # Make backup copies daily/weekly...
+    [ "$BACKUP_COPY_DAILY" != "" ] && FILE="$FILE$DAY"
+    [ "$BACKUP_COPY_WEEKLY" != "" ] && FILE="$FILE$DOW"
+    [ "$BACKUP_COPY_HALFWEEKLY" != "" ] && FILE="$FILE$((6 - $DOW))"
     FILE="$FILE-$HOST"
     # Additional options for tar
     TAR_ARGS="--ignore-failed-read --exclude-backup $TAR_ARGS"
     # Files and dirs to backup
     TAR_FILES="/etc $ROOT/etc $ROOT/web $PREFIX /home $TAR_FILES"
-    # PG on CentOS
+    # PG directry on CentOS is separate
     [ -e $PG_PREFIX ] && TAR_FILES="$TAR_FILES $PG_PREFIX"
     # File extensions to exclude from backup
     TAR_EXCLUDE="csv tsv xml list zip csv iso avi mp4 mkv m4v $TAR_EXCLUDE"
