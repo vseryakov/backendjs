@@ -131,7 +131,9 @@ var core = {
             
     // Database connection pools, sqlite default pool is called sqlite, PostgreSQL default pool is pg
     dbpool: {},
-    nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, get: function() { throw "no pool" }, free: function() { throw "no pool" }, prepare: function() {}, cacheColumns: function() {} },
+    nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, unique: {}, 
+              get: function() { throw "no pool" }, free: function() { throw "no pool" }, 
+              prepare: function() {}, cacheColumns: function() {}, value: function() {} },
     
     // Inter-process messages
     ipcs: {},
@@ -934,7 +936,7 @@ var core = {
                 req.cond.push("(" + cond.join(" OR ") + ")");
             } else {
                 req.cond.push(keys[j] + "=$" + idx);
-                req.values.push(this.sqlParamValue(v));
+                req.values.push(this.dbValue(options, v));
                 idx++;
             }
         }
@@ -1015,7 +1017,7 @@ var core = {
             if (typeof v == "undefined" || (v == null && !options.insert_nulls)) continue;
             names.push(p);
             pnums.push(options.placeholder || ("$" + i));
-            v = this.sqlParamValue(v, cols[p]);
+            v = this.dbValue(options, v, cols[p]);
             req.values.push(v);
             i++;
         }
@@ -1059,7 +1061,7 @@ var core = {
             } else {
                 sets.push(p + "=" + (options.placeholder || ("$" + i)));
             }
-            v = this.sqlParamValue(v, cols[p]);
+            v = this.dbValue(options, v, cols[p]);
             req.values.push(v);
             i++;
         }
@@ -1092,42 +1094,6 @@ var core = {
         return req;
     },
     
-    // Convert js array into db PostgreSQL array format: {..}
-    sqlArrayValue: function(v) {
-        var a = '{';
-        for (var i = 0 ; i < v.length; i++) {
-            if (i > 0) a = a + ',';
-            if (Array.isArray(v[i])) {
-                a = a + this.sqlArrayValue(v[i]);
-            } else {
-                a = a + (typeof v[i] === 'undefined' || v[i] === null ? 'NULL' : JSON.stringify(v[i]));
-            }
-        }
-        return a + '}';
-    },
-
-    // Convert possibly value to be used in as database parametrized value
-    sqlParamValue: function(v, options) {
-        switch (options && options.data_type ? options.data_type : "") {
-        case "array":
-            if (Buffer.isBuffer(v)) {
-                var a = [];
-                for (var i = 0; i < v.length; i++) a.push(v[i]);
-                v = a.join(',');
-            } else
-            if (Array.isArray(v)) {
-                v = this.sqlArrayValue(v);
-            }
-            if (v && v[0] != "{") v = "{" + v + "}";
-            break;
-
-        default:
-            if (Buffer.isBuffer(v)) v = v.toJSON();
-            if (Array.isArray(v)) v = String(v);
-        }
-        return v;
-    },
-
     // Insert or update the record, check by primary key existence, due to callback the insert/update may happen much later
     // Parameters:
     //  - obj is Javascript object with properties that correspond to table columns
@@ -1293,6 +1259,11 @@ var core = {
         return this.dbPool(options).prepare(op, table, obj, options);
     },
 
+    // Return possibly converted value to be used for inserting/updating values in the database, used for SQL parametrized statements
+    dbValue: function(options, val, vopts) {
+        return this.dbPool(options).value(val, vopts);
+    },
+    
     // Execute SQL query in the database pool
     // sql can be a string or an object with the following properties:
     // - .text - SQL statement
@@ -1324,7 +1295,7 @@ var core = {
     },
 
     // Create a database pool with creation and columns caching callbacks
-    dbInitPool: function(options, createcb, cachecb) {
+    dbInitPool: function(options, createcb, cachecb, valuecb) {
         var self = this;
         if (!options) options = {};
         if (!options.pool) options.pool = "sqlite";
@@ -1401,6 +1372,8 @@ var core = {
             case "del": return self.sqlDelete(table, obj, opts);
             }
         }
+        // Convert a value when using with parametrized statements or convert into appropriate database type
+        pool.value = valuecb || function(val, opts) { return val; }
         pool.name = options.pool;
         pool.serial = 0;
         pool.dbcolumns = {};
@@ -1416,7 +1389,7 @@ var core = {
         var self = this;
         if (!options) options = {};
         if (!options.pool) options.pool = "pg";
-        return this.dbInitPool(options, self.pgOpen, self.pgCacheColumns);
+        return this.dbInitPool(options, self.pgOpen, self.pgCacheColumns, self.pgValue);
     },
 
     // Open PostgreSQL connection, execute initial statements
@@ -1522,6 +1495,31 @@ var core = {
         });
     },
 
+    // Convert js array into db PostgreSQL array format: {..}
+    pgValue: function(val, opts) {
+        function toArray(v) {
+            return '{' + v.map(function(x) { return Array.isArray(x) ? toArray(x) : typeof x === 'undefined' || x === null ? 'NULL' : JSON.stringify(x);3 } ).join(',') + '}';
+        }
+        switch ((opts || {}).data_type || "") {
+        case "array":
+            if (Buffer.isBuffer(val)) {
+                var a = [];
+                for (var i = 0; i < v.length; i++) a.push(v[i]);
+                val = a.join(',');
+            } else
+            if (Array.isArray(val)) {
+                val = toArray(val);
+            }
+            if (val && val[0] != "{") val = "{" + v + "}";
+            break;
+
+        default:
+            if (Buffer.isBuffer(val)) val = val.toJSON();
+            if (Array.isArray(val)) val = String(val);
+        }
+        return val;
+    },
+    
     // Initialize local sqlite cache database by name, the db files are open in read only mode and are watched for changes,
     // if new file got copied from the master, we reopen local database
     sqliteInitPool: function(options) {
@@ -1535,7 +1533,7 @@ var core = {
         
         if (!options.pool) options.pool = "sqlite";
         options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
-        return this.dbInitPool(options, self.sqliteOpen, self.sqliteCacheColumns);
+        return this.dbInitPool(options, self.sqliteOpen, self.sqliteCacheColumns, self.sqliteValue);
     },
 
     // Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
@@ -1621,6 +1619,13 @@ var core = {
         });
     },
 
+    // Convert into appropriate Sqlite format
+    sqliteValue: function(val, opts) {
+        // Dates must be converted into seconds
+        if (typeof val == "object" && val.getTime) return Math.round(val.getTime()/1000);
+        return val;
+    },
+    
     // DynamoDB pool
     ddbInitPool: function(options) {
         var self = this;
@@ -1635,6 +1640,7 @@ var core = {
         pool.get = function(callback) { callback(null, this); }
         pool.free = function() {}
         pool.watch = function() {}
+        pool.value = function(v) { return v }
         
         pool.cacheColumns = function(opts, callback) {
             if (typeof opts == "function") callback = opts, opts = null;

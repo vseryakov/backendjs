@@ -16,6 +16,7 @@ typedef tr1::unordered_map<string, string> string_map;
 typedef tr1::unordered_map<string, vector<string> > vector_map;
 
 enum jsonType { JSON_NULL, JSON_OBJECT, JSON_ARRAY, JSON_STRING, JSON_INT, JSON_FLOAT, JSON_BOOL };
+
 class jsonValue {
 public:
     jsonValue(jsonType otype, string oname, string ovalue = string()): parent(0), next(0), first(0), last(0), type(otype), name(oname), value(ovalue) {}
@@ -110,6 +111,13 @@ void vSetLogging(const char *level);
 // Returns distance between 2 coordinates
 double vDistance(double lat1, double long1, double lat2, double long2);
 int vBearing(double lat1, double long1, double lat2, double long2);
+
+// Encode into GeoHash with given precision
+string vGeoHashEncode(double latitude, double longitude, uint precision = 12);
+// Decode GeoHash into a vector, item0 is lat, item1 is long, item2-3 are lat min/max, item4-5 are long min/max
+vector<double> vGeoHashDecode(string hash);
+// Return adjacent points, dir is one of top,left,right,bottom
+string vGeoHashAdjacent(string hash, string dir);
 
 // Parse JSON text into object
 jsonValue *jsonParse(const char *source, int size = -1, string *errmsg = NULL);

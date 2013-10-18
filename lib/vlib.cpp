@@ -1023,9 +1023,117 @@ int vBearing(double lat1, double long1, double lat2, double long2)
 	static double pi = 3.14159265358979323846264338327950288;
 	static double d2r = pi / 180;
 	double dlong = (long2 - long1) * d2r;
-	double dlat = (lat2 - lat1) * d2r;
+	//double dlat = (lat2 - lat1) * d2r;
 	double y = sin(dlong) * cos(lat2 * d2r);
 	double x = cos(lat1 * d2r) * sin(lat2 * d2r) - sin(lat1 * d2r) * cos(lat2 * d2r) * cos(dlong);
 	double b = atan2(y, x);
 	return (int)((b * 180 / pi) + 360) % 360;
 }
+
+static int BITS[] = {16, 8, 4, 2, 1};
+static string BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+
+vector<double> vGeoHashDecode(string hash)
+{
+    int is_even = 1;
+    double lat[3] = {-90,90,0}, lon[3] = {-180,180,0}, lat_err = 90.0, lon_err = 180.0;
+    vector<double> rc;
+
+    for (uint i = 0; i< hash.size(); i++) {
+    	char c = hash[i];
+    	string::size_type cd = BASE32.find(c);
+    	for (int j = 0; j < 5; j++) {
+    		int mask = BITS[j];
+    		if (is_even) {
+    			lon_err /= 2;
+    			if (cd & mask) lon[0] = (lon[0] + lon[1])/2; else lon[1] = (lon[0] + lon[1])/2;
+    		} else {
+    			lat_err /= 2;
+    			if (cd & mask) lat[0] = (lat[0] + lat[1])/2; else lat[1] = (lat[0] + lat[1])/2;
+    		}
+    		is_even = !is_even;
+    	}
+    }
+    rc.push_back((lat[0] + lat[1])/2);
+    rc.push_back((lon[0] + lon[1])/2);
+    for (int i = 0; i < 2; i++) rc.push_back(lat[i]);
+    for (int i = 0; i < 2; i++) rc.push_back(lon[i]);
+    return rc;
+}
+
+string vGeoHashEncode(double latitude, double longitude, uint precision)
+{
+	int is_even=1,bit=0,ch=0;
+	double lat[2] = {-90,90}, lon[2] = {-180,180};
+	string hash;
+	if (precision == 0) precision = 12;
+	if (precision > 22) precision = 22;
+
+	while (hash.size() < precision) {
+		if (is_even) {
+			double mid = (lon[0] + lon[1]) / 2;
+			if (longitude > mid) {
+				ch |= BITS[bit];
+				lon[0] = mid;
+			} else {
+				lon[1] = mid;
+			}
+		} else {
+			double mid = (lat[0] + lat[1]) / 2;
+			if (latitude > mid) {
+				ch |= BITS[bit];
+				lat[0] = mid;
+			} else {
+				lat[1] = mid;
+			}
+          }
+
+		is_even = !is_even;
+		if (bit < 4) {
+			bit++;
+		} else {
+			hash += BASE32[ch];
+			bit = 0;
+			ch = 0;
+		}
+	}
+	return hash;
+}
+
+string vGeoHashAdjacent(string hash, string dir)
+{
+	static map<string,string> NEIGHBORS;
+	static map<string,string> BORDERS;
+	static bool inited = 0;
+	if (!inited) {
+		NEIGHBORS["right.even"] = "bc01fg45238967deuvhjyznpkmstqrwx";
+		NEIGHBORS["left.even"] = "238967debc01fg45kmstqrwxuvhjyznp";
+		NEIGHBORS["top.even"] = "p0r21436x8zb9dcf5h7kjnmqesgutwvy";
+		NEIGHBORS["bottom.even"] = "14365h7k9dcfesgujnmqp0r2twvyx8zb";
+		NEIGHBORS["bottom.odd"] = NEIGHBORS["left.even"];
+		NEIGHBORS["top.odd"] = NEIGHBORS["right.even"];
+		NEIGHBORS["left.odd"] = NEIGHBORS["bottom.even"];
+		NEIGHBORS["right.odd"] = NEIGHBORS["top.even"];
+
+		BORDERS["right.even"] = "bcfguvyz";
+		BORDERS["left.even"] = "0145hjnp";
+		BORDERS["top.even"] = "prxz";
+		BORDERS["bottom.even"] = "028b";
+		BORDERS["bottom.odd"] = BORDERS["left.even"];
+		BORDERS["top.odd"] = BORDERS["right.even"];
+		BORDERS["left.odd"] = BORDERS["bottom.even"];
+		BORDERS["right.odd"] = BORDERS["top.even"];
+		inited = 1;
+	}
+	if (!hash.size()) return string();
+	char lastChr = hash[hash.size() - 1];
+	string type = dir + (hash.size() % 2 ? ".odd" : ".even");
+	string base = hash.substr(0, hash.size()-1);
+	if (BORDERS[type].find(lastChr) != string::npos) {
+		base = vGeoHashAdjacent(base, dir);
+	}
+	string::size_type cd = NEIGHBORS[type].find(lastChr);
+	if (cd != string::npos) base += BASE32[cd];
+	return base;
+}
+

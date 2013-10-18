@@ -207,6 +207,9 @@ var aws = {
             obj[type == "number" ? "NS": type == "buffer" ? "BS" : "SS"] = arr;
             return obj;
 
+        case "date":
+            return { "N": Math.round(value.getTime()/1000) };
+            
         case 'object':
             if (level) return { "S" : JSON.stringify(value) };
             var obj = {};

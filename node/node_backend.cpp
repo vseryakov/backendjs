@@ -515,6 +515,45 @@ static Handle<Value> splitArray(const Arguments& args)
    return scope.Close(toArray(list));
 }
 
+static Handle<Value> geoHashEncode(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_NUMBER(0, lat);
+   REQUIRE_ARGUMENT_NUMBER(1, lon);
+   OPTIONAL_ARGUMENT_INT(2, len);
+
+   string hash = vGeoHashEncode(lat, lon, len);
+   Local<String> result = Local<String>::New(String::New(hash.c_str()));
+   return scope.Close(result);
+}
+
+static Handle<Value> geoHashDecode(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, hash);
+
+   vector<double> rc = vGeoHashDecode(*hash);
+   Local<Array> result = Local<Array>::New(Array::New(rc.size()));
+   for (uint i = 0; i < rc.size(); i++) {
+	   result->Set(Integer::New(i), Local<Number>::New(Number::New(rc[i])));
+   }
+   return scope.Close(result);
+}
+
+static Handle<Value> geoHashAdjacent(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, base);
+   REQUIRE_ARGUMENT_STRING(1, dir);
+
+   string hash = vGeoHashAdjacent(*base, *dir);
+   Local<String> result = Local<String>::New(String::New(hash.c_str()));
+   return scope.Close(result);
+}
+
 void backend_init(Handle<Object> target)
 {
     HandleScope scope;
@@ -545,6 +584,10 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "resizeImageSync", resizeImageSync);
 
     NODE_SET_METHOD(target, "uuid", uuid);
+
+    NODE_SET_METHOD(target, "geoHashEncode", geoHashEncode);
+    NODE_SET_METHOD(target, "geoHashDecode", geoHashDecode);
+    NODE_SET_METHOD(target, "geoHashAdjacent", geoHashAdjacent);
 
     CacheInit(target);
     SyslogInit(target);
