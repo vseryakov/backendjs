@@ -280,7 +280,10 @@ var aws = {
     // Example: { name: { AttributeDefinitions: [], KeySchema: [] ...} }
     ddbDescribeTable: function(name, options, callback) {
         var params = { TableName: name };
-        this.queryDDB('DescribeTable', params, options, callback);
+        this.queryDDB('DescribeTable', params, options, function(err, rc) {
+            logger.debug('DescribeTable:', name, util.inspect(rc, null, null));
+            if (callback) callback(err, rc);
+        });
     },
 
     // - Attributes can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS
@@ -320,6 +323,8 @@ var aws = {
                 if (idx._projection) {
                     index.Projection = { ProjectionType: Array.isArray(idx._projection) ? "INLCUDE" : String(idx._projection).toUpperCase() };
                     if (index.Projection.ProjectionType == "INLCLUDE") index.Projection.NonKeyAttributes = idx._projection;
+                } else {
+                    index.Projection = { ProjectionType: "KEYS_ONLY" };
                 }
                 if (!params.LocalSecondaryIndexes) params.LocalSecondaryIndexes = [];
                 params.LocalSecondaryIndexes.push(index);
@@ -532,6 +537,8 @@ var aws = {
     //   - select - list of attributes to get only
     //   - total - return number of matching records
     //   - count - limit number of record in result
+    //   - desc - descending order
+    //   - sort - index name to use
     ddbQueryTable: function(name, condition, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -545,6 +552,12 @@ var aws = {
         }
         if (options.start) {
             params.ExclusiveStartKey = self.toDynamoDB(options.start);
+        }
+        if (options.sort) {
+            params.IndexName = options.sort;
+        }
+        if (options.desc) {
+            params.ScanIndexForward = false;
         }
         if (options.select) {
             params.AttributesToGet = options.select.split(",");

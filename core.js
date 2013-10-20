@@ -110,9 +110,11 @@ var core = {
             { name: "sqlite-max", type: "number", min: 1, max: 100 },
             { name: "sqlite-idle", type: "number", min: 1000, max: 86400000 },
             { name: "pg-pool" },
+            { name: "pg-prefix" },
             { name: "pg-max", type: "number", min: 1, max: 100 },
             { name: "pg-idle", type: "number", min: 1000, max: 86400000 },
             { name: "ddb-pool" },
+            { name: "ddb-prefix" },
             { name: "logwatcher-email" },
             { name: "logwatcher-from" },
             { name: "logwatcher-ignore" },
@@ -207,10 +209,23 @@ var core = {
 
             // Local database
             function(next) {
-                var init = { backend_property: [{ name: 'name', primary: 1 }, { name: 'value' }, { name: 'mtime' } ] ,
-                             backend_cookies: [ { name: 'name' }, { name: 'domain', primary_key: 1 }, { name: 'path', primary_key: 1 }, { name: 'value', primary_key: 1 }, { name: 'expires' } ],
-                             backend_queue: [ { name: 'url' }, { name: 'data' }, { name: 'count', type: 'int', value: '0'}, { name: 'mtime' } ],
-                             backend_jobs: [ { name: 'id', primary: 1 }, { name: 'type', value: "local" }, { name: 'host', value: '' }, { name: 'job' }, { name: 'mtime', type: 'int'} ],
+                var init = { backend_property: [{ name: 'name', primary: 1 }, 
+                                                { name: 'value' }, 
+                                                { name: 'mtime' } ] ,
+                             backend_cookies: [ { name: 'name' }, 
+                                                { name: 'domain', primary: 1 }, 
+                                                { name: 'path', primary: 1 }, 
+                                                { name: 'value', primary: 1 }, 
+                                                { name: 'expires' } ],
+                             backend_queue: [ { name: 'url' }, 
+                                              { name: 'data' }, 
+                                              { name: 'count', type: 'int', value: '0'}, 
+                                              { name: 'mtime' } ],
+                             backend_jobs: [ { name: 'id', primary: 1 }, 
+                                             { name: 'type', value: "local" }, 
+                                             { name: 'host', value: '' }, 
+                                             { name: 'job' }, 
+                                             { name: 'mtime', type: 'int'} ],
                            };
 
                 // Sqlite pool is always enabled
@@ -218,12 +233,12 @@ var core = {
                 
                 // Optional pools for supported SQL databases fro iternal management and provisioning
                 if (self.pgPool) {
-                    self.pgInitPool({ pool: 'pg', db: self.pgPool, max: self.pgMax, idle: self.pgIdle });
+                    self.pgInitPool({ pool: 'pg', db: self.pgPool, max: self.pgMax, idle: self.pgIdle, prefix: self.pgPrefix });
                 }
                 
                 // DyanmoDB pool is only for accounts and clients
                 if (self.ddbPool) {
-                    self.ddbInitPool({ pool: 'ddb', db: self.ddbPool });
+                    self.ddbInitPool({ pool: 'ddb', db: self.ddbPool, prefix: self.ddbPrefix });
                 }
 
                 // Initialize all pools, we know they all are SQL based
@@ -947,10 +962,11 @@ var core = {
     // - name - column name
     // - type - type of the column, default is TEXT, options: int, real
     // - value - default value for the column
-    // - primary - this is primary key column
-    // - unique - this is unique key column
-    // - primary_key - part of the composite primary key
-    // - unique_key - part of the composite unique key
+    // - primary - part of the primary key
+    // - unique - part of the unique key
+    // - unique1, unique2 - additional unique keys
+    // - index - regular index
+    // - index1, index2 - additonal indexes
     // options may contains:
     // - map - type mapping, convert lowecase type naem into other type for any specific database
     sqlCreate: function(table, obj, options, callback) {
@@ -958,17 +974,46 @@ var core = {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
         
+        function items(name) { return obj.filter(function(x) { return x[name] }).map(function(x) { return x.name }).join(','); }
+        
         var sql = "CREATE TABLE IF NOT EXISTS " + table + "(" + 
-                       obj.filter(function(x) { return x.name }).
-                           map(function(x) { 
-                               return x.name + " " + 
-                               (function(t) { return (options.map || {})[t] || t })(x.type || "text") + " " + 
-                               (typeof x.value != "undefined" ? "DEFAULT " + self.sqlValue(x.value, x.type) : "") + " " +
-                               (x.unique ? "UNIQUE " : "") + " " +
-                               (x.primary ? "PRIMARY KEY" : "") }).join(",") + " " +
-                       (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(obj.filter(function(x) { return x.primary_key }).map(function(x) { return x.name }).join(',')) +
-                       (function(x) { return x ? ",UNIQUE(" + x + ")" : "" })(obj.filter(function(x) { return x.unique_key }).map(function(x) { return x.name }).join(',')) +
-                      ")";
+                   obj.filter(function(x) { return x.name }).
+                       map(function(x) { 
+                           return x.name + " " + 
+                           (function(t) { return (options.map || {})[t] || t })(x.type || "text") + " " + 
+                           (typeof x.value != "undefined" ? "DEFAULT " + self.sqlValue(x.value, x.type) : "") }).join(",") + " " +
+                   (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(items('primary')) + ");";
+        
+        // Create indexes
+        ["","1","2"].forEach(function(y) {
+            sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_unq" + y + " ON " + table + "(" + x + ");" : "" })(items('unique' + y));
+            sql += (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ");" : "" })(items('index' + y));
+        });
+        
+        return { text: sql, values: [] };
+    },
+    
+    // Create ALTER TABLE ADD COLUMN statemwnts for missing columns
+    sqlUpgrade: function(table, obj, options, callback) {
+        var self = this;
+        if (typeof options == "function") callback = options, options = {};
+        if (!options) options = {};
+        
+        function items(name) { return obj.filter(function(x) { return x[name] }).map(function(x) { return x.name }).join(','); }
+        var dbcols = core.dbColumns(table, options) || {};
+        var sql = obj.filter(function(x) { return x.name && !(x.name in dbcols) }).
+                      map(function(x) { 
+                          return "ALTER TABLE " + table + " ADD COLUMN " + x.name + " " + 
+                          (function(t) { return (options.map || {})[t] || t })(x.type || "text") + " " + 
+                          (typeof x.value != "undefined" ? "DEFAULT " + self.sqlValue(x.value, x.type) : "") }).join(";");
+        if (sql) sql += ";";
+        
+        // Create indexes
+        ["","1","2"].forEach(function(y) {
+            sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_unq" + y + " ON " + table + "(" + x + ");" : "" })(items('unique' + y));
+            sql += (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ");" : "" })(items('index' + y));
+        });
+        
         return { text: sql, values: [] };
     },
     
@@ -992,7 +1037,7 @@ var core = {
             return null;
         }
         req.text = "SELECT " + cols + " FROM " + table + " WHERE " + req.cond.join(" AND ");
-        if (options.sort) req.text += " ORDER BY " + options.sort;
+        if (options.sort) req.text += " ORDER BY " + options.sort + (options.desc ? " DESC " : "");
         if (options.count) req.text += " LIMIT " + options.limit;
 
         return req;
@@ -1218,7 +1263,7 @@ var core = {
                 // Store in cache if no error
                 if (rows.length && !err) {
                     pool.stats.puts++;
-                    self.ipcPutCache(table + ":" + key, JSON.stringify(rows[0]));
+                    self.ipcPutCache(table + ":" + key, self.stringify(rows[0]));
                 }
                 callback(err, rows.length ? rows[0] : null);
             });
@@ -1231,6 +1276,15 @@ var core = {
         if (typeof options == "function") callback = options,options = null;
 
         var req = this.dbPrepare("new", table, obj, options);
+        this.dbQuery(req, options, callback);
+    },
+    
+    // Upgrade SQL table with missing columns from the definition list
+    dbUpgrade: function(table, obj, options, callback) {
+        if (typeof options == "function") callback = options,options = null;
+
+        var req = this.dbPrepare("upgrade", table, obj, options);
+        if (!req.sql) return callback ? callback() : null;
         this.dbQuery(req, options, callback);
     },
     
@@ -1263,6 +1317,11 @@ var core = {
     dbValue: function(options, val, vopts) {
         return this.dbPool(options).value(val, vopts);
     },
+
+    // Convert column definition list used in dbCreate into the format used by internal db pool functions
+    dbConvertColumns: function(cols) {
+        return (cols || []).reduce(function(x,y) { x[y.name] = y; return x }, {});
+    },
     
     // Execute SQL query in the database pool
     // sql can be a string or an object with the following properties:
@@ -1273,13 +1332,13 @@ var core = {
     //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid and affected_rows:
     dbQuery: function(req, options, callback) { 
         if (typeof options == "function") callback = options, options = {};
-        if (!req) return callback ? callback(new Error("empty statement"), []) : null;
+        if (this.typeName(req) != "object") req = { text: req };
+        if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
 
         var pool = this.dbPool(options);
         pool.get(function(err, client) {
             if (err) return callback ? callback(err, []) : null;
             var t1 = core.mnow();
-            if (typeof req != "object") req = { text: req };
             client.query(req.text, req.values || [], function(err2, rows) {
                 var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid };
                 pool.free(client);
@@ -1364,21 +1423,24 @@ var core = {
         // For SQL databases it creates a SQL statement with parameters
         pool.prepare = function(op, table, obj, opts) {
             switch (op) {
-            case "new": return self.sqlCreate(table, obj, opts);
-            case "all":
-            case "get": return self.sqlSelect(table, obj, opts);
-            case "add": return self.sqlInsert(table, obj, opts);
-            case "put": return self.sqlUpdate(table, obj, opts);
-            case "del": return self.sqlDelete(table, obj, opts);
+            case "new": return self.sqlCreate(this.prefix + table, obj, opts);
+            case "upgrade": return self.sqlUpgrade(this.prefix + table, obj, opts);
+            case "all": return self.sqlSelect(this.prefix + table, obj, opts);
+            case "get": return self.sqlSelect(this.prefix + table, obj, self.clone(opts, {}, { count: 1 }));
+            case "add": return self.sqlInsert(this.prefix + table, obj, opts);
+            case "put": return self.sqlUpdate(this.prefix + table, obj, opts);
+            case "del": return self.sqlDelete(this.prefix + table, obj, opts);
             }
         }
         // Convert a value when using with parametrized statements or convert into appropriate database type
         pool.value = valuecb || function(val, opts) { return val; }
         pool.name = options.pool;
+        pool.prefix = options.prefix || "";
         pool.serial = 0;
         pool.dbcolumns = {};
         pool.dbkeys = {};
         pool.dbunique = {};
+        pool.sql = true;
         pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
         this.dbpool[options.pool] = pool;
         return pool;
@@ -1634,14 +1696,14 @@ var core = {
         var aws = self.context.aws;
 
         // Redefine pool but implement the same interface
-        var pool = { name: options.pool, db: options.db, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
+        var pool = { name: options.pool, db: options.db, prefix: options.prefix || "", dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
         this.dbpool[options.pool] = pool;
         
         pool.get = function(callback) { callback(null, this); }
         pool.free = function() {}
         pool.watch = function() {}
         pool.value = function(v) { return v }
-        
+
         pool.cacheColumns = function(opts, callback) {
             if (typeof opts == "function") callback = opts, opts = null;
             var pool = this;
@@ -1668,8 +1730,8 @@ var core = {
                         (rc.Table.LocalSecondaryIndexes || []).forEach(function(x) {
                             x.KeySchema.forEach(function(y) {
                                 if (!pool.dbunique[table]) pool.dbunique[table] = [];
-                                pool.dbunique[table].push(x.AttributeName);
-                                pool.dbcolumns[table][x.AttributeName].unique = 1;
+                                pool.dbunique[table].push(y.AttributeName);
+                                pool.dbcolumns[table][y.AttributeName].index = 1;
                             });
                         });
                         next();
@@ -1694,53 +1756,59 @@ var core = {
             
             switch(opts[0]) {
             case "new":
-                var attrs = obj.filter(function(x) { return x.primary || x.primary_key || x.unique_key }).
+                var attrs = obj.filter(function(x) { return x.primary || x.index }).
                                 map(function(x) { return [ x.name, x.type == "int" || x.type == "real" ? "N" : "S" ] }).
                                 reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                var keys = obj.filter(function(x) { return x.primary || x.primary_key }).
-                               map(function(x, i) { return [ x.name, !i ? 'HASH' : 'RANGE'] }).
+                var keys = obj.filter(function(x, i) { return x.primary && i < 2 }).
+                               map(function(x, i) { return [ x.name, i ? 'RANGE' : 'HASH' ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                var idxs = obj.filter(function(x) { return x.primary_key || x.unique_key }).
-                               map(function(x, i) { return [ x.name, !i ? 'HASH' : 'RANGE'] }).
+                var idxs = obj.filter(function(x) { return x.index }).
+                               map(function(x) { return [x.name, self.newObj(obj.filter(function(y) { return y.primary })[0].name, 'HASH', x.name, 'RANGE') ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
+                aws.ddbCreateTable(pool.prefix + table, attrs, keys, idxs, options, function(err, item) {
                     callback(err, item ? [item.Item] : []);
                 });
                 break;
                 
+            case "upgrade":
+                callback();
+                break;
+                
             case "get":
-                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                aws.ddbGetItem(table, keys, options, function(err, item) {
+                var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                aws.ddbGetItem(pool.prefix + table, keys, options, function(err, item) {
                     callback(err, item ? [item.Item] : []);
                 });
                 break;
 
             case "all":
-                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                aws.ddbQueryTable(table, keys, options, function(err, item) {
+                var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                aws.ddbQueryTable(pool.prefix + table, keys, options, function(err, item) {
                     callback(err, item ? item.Items : []);
                 });
                 break;
 
             case "add":
-                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null; } });
+                // Add only listed columns if there is a .columns property specified
+                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
                 options.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
-                aws.ddbPutItem(table, o, options, function(err, rc) {
+                aws.ddbPutItem(pool.prefix + table, o, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;
 
             case "put":
-                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n]; } });
+                var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                // Skip special columns, nulls, primary key columns. If we have specific list of allowed columns only keep those.
+                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n] || (options.columns && !(n in options.columns)); } });
                 options.expected = keys;
-                aws.ddbUpdateItem(table, keys, o, options, function(err, rc) {
+                aws.ddbUpdateItem(pool.prefix + table, keys, o, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;
 
             case "del":
-                aws.ddbDeleteItem(table, obj, options, function(err, rc) {
+                aws.ddbDeleteItem(pool.prefix + table, obj, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;
@@ -2584,7 +2652,6 @@ var core = {
     // - props can be used to add additional properties to the new object
     clone: function(obj, filter, props) {
         var rc = {};
-        for (var p in props) rc[p] = props[p];
         switch (this.typeName(obj)) {
         case "object":
             break;
@@ -2615,9 +2682,15 @@ var core = {
             if (filter._skip_cb && filter._skip_cb(p, obj[p])) continue;
             rc[p] = this.clone(obj[p], filter);
         }
+        for (var p in props) rc[p] = props[p];
         return rc;
     },
 
+    // JSON stringify without empty properties
+    stringify: function(obj) {
+        return JSON.stringify(this.clone(obj, { _skip_null: 1, _skip_cb: function(n,v) { return v == "" } }));
+    },
+    
     // Return new object using arguments as name value pairs for new object properties
     newObj: function() {
         var obj = {};

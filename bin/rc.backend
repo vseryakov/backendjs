@@ -33,6 +33,7 @@ DOMAIN=localhost
 [ "$MAX_IDLETIME" = "" ] && MAX_IDLETIME=900
 [ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
 [ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
+[ "$DDB_DIR" = "" ] && DDB_DIR=$PREFIX/dynamodb
 
 HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
@@ -468,6 +469,11 @@ case "$ARG" in
     $PG_PREFIX/bin/psql -q -U $PG_USER -d $DBNAME -f sql/init.sql
     $PG_PREFIX/bin/pg_restore -U $PG_USER -d $DBNAME $DBDUMP
     $PG_PREFIX/bin/psql -q -U $PG_USER -d $DBNAME -f pg/backend_procs.sql
+    ;;
+    
+  run-ddb)
+    killall -qr dynamodb
+    (cd $ROOT/var && nohup java -Djava.library.path=$DDB_DIR -jar $DDB_DIR/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
     ;;
     
   init-cassandra)

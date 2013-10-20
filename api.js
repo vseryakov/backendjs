@@ -8,7 +8,6 @@ var util = require('util');
 var fs = require('fs');
 var http = require('http');
 var url = require('url');
-var pool = require('generic-pool');
 var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
@@ -28,43 +27,58 @@ var api = {
     deny: null,
     
     // Account management
-    accountPrefix: '',
-    accountImages: '',
-    accountColumns: [ { name: "account_id", unique: 1 },
-                      { name: "email", primary: 1 },
-                      { name: "secret" },
-                      { name: "name" },
-                      { name: "phone" },
-                      { name: "birthday" },
-                      { name: "gender" },
-                      { name: "address" },
-                      { name: "city" },
-                      { name: "state" },
-                      { name: "zipcode" },
-                      { name: "country" },
-                      { name: "properties" },
-                      { name: "distance", type: "int" },
-                      { name: "latitude", type: "real" },
-                      { name: "longitude", type: "real" },
-                      { name: "facebook_id", type: "int" },
-                      { name: "linkedin_id", type: "int" },
-                      { name: "tweeter_id", },
-                      { name: "google_id", },
-                      { name: "acl_allow" },
-                      { name: "acl_deny" },
-                      { name: "expires", type: "int" },
-                      { name: "ltime", type: "int" },
-                      { name: "atime", type: "int" },
-                      { name: "ctime", type: "int" },
-                      { name: "mtime", type: "int" } ],
+    imagesUrl: '',
+    tables: { 
+        // Basic account information and settings
+        account: [ { name: "id", primary: 1 },
+                   { name: "email", unique: 1 },
+                   { name: "name" },
+                   { name: "phone" },
+                   { name: "website" },
+                   { name: "birthday" },
+                   { name: "gender" },
+                   { name: "address" },
+                   { name: "city" },
+                   { name: "state" },
+                   { name: "zipcode" },
+                   { name: "country" },
+                   { name: "distance", type: "int" },
+                   { name: "facebook_id", type: "int" },
+                   { name: "linkedin_id", type: "int" },
+                   { name: "tweeter_id", },
+                   { name: "google_id", },
+                   { name: "ctime", type: "int" },
+                   { name: "mtime", type: "int" } ],
+                   
+       // Authentication by email and secret
+       auth: [ { name: 'email', primary: 1 },
+               { name: 'id', unique: 1 },
+               { name: 'secret' },
+               { name: 'acl_deny' },
+               { name: 'acl_allow' },
+               { name: "expires", type: "int" } ],
+                
+       // All location changes           
+       location: [ { name: "id", primary: 1 },
+                   { name: "geohash", primary: 1 },
+                   { name: "latitude", type: "real" },
+                   { name: "longitude", type: " real" },
+                   { name: "location" },
+                   { name: "mtime", type: "int", index: 1 }],
+                   
+       // Keep historic data about an account, data can be JSON depending on the type
+       history: [{ name: "id", primary: 1 },
+                 { name: "mtime", type: "int", primary: 1 },
+                 { name: "type" },
+                 { name: "data" } ]
+    },
     
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
     
     // Config parameters
     args: ["account-pool", 
-           "account-prefix", 
-           "account-images",
+           "images-url",
            "db-pool",
            "access-log",
            { name: "backend", type: "bool" },
@@ -121,7 +135,7 @@ var api = {
 
         // Return current statistics
         this.app.all("/status", function(req, res) {
-            res.json(self.stats);
+            res.json(core.dbpool[self.accountPool].stats);
         });
 
         // Return images by prefix, id and possibly type, serves from local images folder, 
@@ -140,13 +154,17 @@ var api = {
         this.onInit.call(this);
 
         // Create account table if does not exist, on pool open it caches all existing tables, if we create a new table, refresh with delay
-        if (!core.dbColumns(self.accountPrefix + "account", { pool: self.accountPool })) {
-            core.dbCreate(self.accountPrefix + "account", self.accountColumns, { pool: self.accountPool }, function() {
-                setTimeout(function() { core.dbCacheColumns({ pool: self.accountPool }, callback); }, 3000);
+        async.forEachSeries(Object.keys(self.tables), function(table, next) {
+            // We if have columns, SQL table must be checked for missing columns and indexes
+            if (core.dbColumns(table, { pool: self.accountPool })) {
+                return core.dbUpgrade(table, self.tables[table], { pool: self.accountPool }, function() { next() });
+            }
+            core.dbCreate(table, self.tables[table], { pool: self.accountPool }, function() {
+                setTimeout(function() { next(); }, 1000);
             });
-        } else {
-            if (callback) callback();
-        }
+        }, function() {
+            setTimeout(function() { core.dbCacheColumns({ pool: self.accountPool }, callback); }, 3000);
+        });
     },
         
     // Perform authorization of the incoming request for access and permissions
@@ -208,7 +226,7 @@ var api = {
         }
 
         // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-        core.dbGetCached(this.accountPrefix + "account", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
+        core.dbGetCached("auth", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
             if (err) return callback({ status: 500, message: String(err) });
             if (!account) return callback({ status: 404, message: "No account" });
 
@@ -248,8 +266,8 @@ var api = {
             // Save current account in the request
             req.account = account;
             // Primary keys must be in the query
-            req.query.email = req.account.email;
-            req.query.account_id = account.account_id;
+            req.query.id = account.id;
+            req.query.email = account.email;
             return callback({ status: 200, message: "Ok" });
         });
     },
@@ -296,17 +314,20 @@ var api = {
     initAccount: function() {
         var self = this;
         
-        this.app.all(/^\/account\/(add|get|put|del|puticon)$/, function(req, res) {
+        // Accont database driver
+        var pool = core.dbPool(self.accountPool);
+        
+        this.app.all(/^\/account\/([a-z]+)$/, function(req, res) {
             switch (req.params[0]) {
             case "get":
-                // Delete all special properties and the secret
-                for (var p in req.account) {
-                    if (p[0] == '_' || p == 'secret') delete req.account[p];
-                }
-                // List all possible icons, this server may not have access to the files so it is up to the client to verify which icons exist
-                req.account.icon = self.accountImages + '/image/account/' + req.account.account_id;
-                req.account.icons = ['a','b','c','d','e','f'].map(function(x) { return self.accountImages + '/image/account/' + req.account.account_id + '/' + x });
-                res.json(req.account);
+                core.dbGet("account", { id: req.account.id }, { pool: self.accountPool }, function(err, rows) {
+                    if (err) self.sendReply(res, err);
+                    if (!rows.length) return self.sendReply(res, 404);
+                    // List all possible icons, this server may not have access to the files so it is up to the client to verify which icons exist
+                    rows[0].icon = self.imagesUrl + '/image/account/' + req.account.id;
+                    rows[0].icons = ['a','b','c','d','e','f'].map(function(x) { return self.imagesUrl + '/image/account/' + req.account.id + '/' + x });
+                    res.json(rows[0]);
+                });
                 break;
 
             case "add":
@@ -314,35 +335,74 @@ var api = {
                 if (!req.query.secret) return self.sendReply(res, 400, "Secret is required");
                 if (!req.query.name) return self.sendReply(res, 400, "Name is required");
                 if (!req.query.email) return self.sendReply(res, 400, "Email is required");
-                req.query.account_id = backend.uuid().replace(/-/g, '');
+                req.query.id = backend.uuid().replace(/-/g, '');
                 req.query.mtime = req.query.ctime = core.now();
-                core.dbInsert(self.accountPrefix + "account", req.query, { pool: self.accountPool }, function(err) {
-                    self.sendReply(res, err);
+                // Add new auth record with only columns we support, no-SQL dbs can add any columns on 
+                // the fly and we want to keep auth table very small
+                core.dbInsert("auth", req.query, { pool: self.accountPool, columns: core.dbConvertColumns(self.tables.auth) }, function(err) {
+                    if (err) return self.sendReply(res, err);
+                    core.dbInsert("account", req.query, { pool: self.accountPool }, function(err) {
+                        if (err) core.dbDelete("auth", req.query, { pool: self.accountPool });
+                        self.sendReply(res, err);
+                    });
                 });
                 break;
 
             case "put":
                 req.query.mtime = core.now();
-                if (req.query.latitude && req.query.longitude) req.query.ltime = core.now();
-                core.dbUpdate(self.accountPrefix + "account", req.query, { pool: self.accountPool }, function(err) {
-                    core.ipcDelCache("account:" + req.query.email);
+                core.dbUpdate("account", req.query, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
 
+            case "putsecret":
+                if (!req.query.secret) return self.sendReply(res, 400, "Secret is required");
+                core.dbUpdate("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
+                    self.sendReply(res, err);
+                    core.ipcDelCache("auth:" + req.account.email);
+                });
+                break;
+                
             case "del":
-                core.dbDelete(self.accountPrefix + "account", req.query, { pool: self.accountPool }, function(err) {
-                    core.ipcDelCache("account:" + req.query.email);
+                core.dbDelete("auth", req.account, { pool: self.accountPool }, function(err) {
+                    self.sendReply(res, err);
+                    core.ipcDelCache("auth:" + req.account.email);
+                    if (!err) core.dbDelete("account", req.account, { pool: self.accountPool });
+                });
+                break;
+                
+            case "puthistory":
+                self.sendReply(res);
+                // History time is in milliseconds for high resolution
+                req.query.mtime = core.mnow();
+                core.dbInsert("history", req.query, { pool: self.accountPool });
+                break;
+                
+            case "getlocation":
+                // Select the last location record 
+                core.dbSelect("location", { id: req.account.id }, { pool: self.accountPool, count: 1, sort: 'mtime', desc: 1 }, function(err, rows) {
+                    res.json(rows);
+                });
+                break;
+                
+            case "putlocation":
+                req.query.mtime = core.now();
+                req.query.geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
+                // Make sure we dont add extra properties in case of noSQL database
+                core.dbUpdate("location", req.query, { pool: self.accountPool, columns: core.dbConvertcolumns(self.tables.location) }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
                 
-            case 'puticon':
+            case "puticon":
                 // Add icon to the account, support up to 6 icons with types: a,b,c,d,e,f, primary icon type is ''
                 self.putIcon(req, { id: req.account.id, prefix: 'account' , type: req.body.type || req.query.type || '' }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
+                
+            default:
+                self.sendReply(res, 400, "Invalid operation");
             }
         });
     },
@@ -434,7 +494,7 @@ var api = {
                    (now - req._startTime) + " ms - " +
                    (req.headers['user-agent'] || "-") + " " +
                    (req.headers['version'] || "-") + " " +
-                   (req.account ? req.account.account_id : "-") + "\n";
+                   (req.account ? req.account.email : "-") + "\n";
         }
 
         return function logger(req, res, next) {
