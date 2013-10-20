@@ -153,18 +153,8 @@ var api = {
         // Post init or other application routes
         this.onInit.call(this);
 
-        // Create account table if does not exist, on pool open it caches all existing tables, if we create a new table, refresh with delay
-        async.forEachSeries(Object.keys(self.tables), function(table, next) {
-            // We if have columns, SQL table must be checked for missing columns and indexes
-            if (core.dbColumns(table, { pool: self.accountPool })) {
-                return core.dbUpgrade(table, self.tables[table], { pool: self.accountPool }, function() { next() });
-            }
-            core.dbCreate(table, self.tables[table], { pool: self.accountPool }, function() {
-                setTimeout(function() { next(); }, 1000);
-            });
-        }, function() {
-            setTimeout(function() { core.dbCacheColumns({ pool: self.accountPool }, callback); }, 3000);
-        });
+        // Create account tables if dont exist
+        core.dbInit({ pool: self.accountPool, tables: self.tables }, callback);
     },
         
     // Perform authorization of the incoming request for access and permissions

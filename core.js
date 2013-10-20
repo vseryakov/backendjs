@@ -209,23 +209,23 @@ var core = {
 
             // Local database
             function(next) {
-                var init = { backend_property: [{ name: 'name', primary: 1 }, 
-                                                { name: 'value' }, 
-                                                { name: 'mtime' } ] ,
-                             backend_cookies: [ { name: 'name' }, 
-                                                { name: 'domain', primary: 1 }, 
-                                                { name: 'path', primary: 1 }, 
-                                                { name: 'value', primary: 1 }, 
-                                                { name: 'expires' } ],
-                             backend_queue: [ { name: 'url' }, 
-                                              { name: 'data' }, 
-                                              { name: 'count', type: 'int', value: '0'}, 
-                                              { name: 'mtime' } ],
-                             backend_jobs: [ { name: 'id', primary: 1 }, 
-                                             { name: 'type', value: "local" }, 
-                                             { name: 'host', value: '' }, 
-                                             { name: 'job' }, 
-                                             { name: 'mtime', type: 'int'} ],
+                var tables = { backend_property: [{ name: 'name', primary: 1 }, 
+                                                  { name: 'value' }, 
+                                                  { name: 'mtime' } ] ,
+                               backend_cookies: [ { name: 'name' }, 
+                                                  { name: 'domain', primary: 1 }, 
+                                                  { name: 'path', primary: 1 }, 
+                                                  { name: 'value', primary: 1 }, 
+                                                  { name: 'expires' } ],
+                               backend_queue: [ { name: 'url' }, 
+                                                { name: 'data' }, 
+                                                { name: 'count', type: 'int', value: '0'}, 
+                                                { name: 'mtime' } ],
+                               backend_jobs: [ { name: 'id', primary: 1 }, 
+                                               { name: 'type', value: "local" }, 
+                                               { name: 'host', value: '' }, 
+                                               { name: 'job' }, 
+                                               { name: 'mtime', type: 'int'} ],
                            };
 
                 // Sqlite pool is always enabled
@@ -242,15 +242,14 @@ var core = {
                 }
 
                 // Initialize all pools, we know they all are SQL based
-                async.forEachSeries(Object.keys(init), function(tbl, next2) {
-                    if (cluster.isWorker) return next2();
-                    async.forEachSeries(["sqlite", "pg"], function(pool, next3) { 
-                        self.dbCreate(tbl, init[tbl], { pool: pool }, next3); 
-                    }, next2);
+                async.forEachSeries(["sqlite", "pg"], function(pool, next) {
+                    if (cluster.isWorker) {
+                        self.dbCacheColumns({ pool: pool }, next);
+                    } else {
+                        self.dbInit({ pool: pool, tables: tables }, next);
+                    }
                 }, function() {
-                    async.forEachSeries(Object.keys(self.dbpool), function(pool, next3) { 
-                        self.dbCacheColumns({ pool: pool }, next3); 
-                    }, next);
+                    next();
                 });
             },
 
@@ -986,7 +985,7 @@ var core = {
         
         // Create indexes
         ["","1","2"].forEach(function(y) {
-            sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_unq" + y + " ON " + table + "(" + x + ");" : "" })(items('unique' + y));
+            sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_udx" + y + " ON " + table + "(" + x + ");" : "" })(items('unique' + y));
             sql += (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ");" : "" })(items('index' + y));
         });
         
@@ -1010,7 +1009,7 @@ var core = {
         
         // Create indexes
         ["","1","2"].forEach(function(y) {
-            sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_unq" + y + " ON " + table + "(" + x + ");" : "" })(items('unique' + y));
+            sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_udx" + y + " ON " + table + "(" + x + ");" : "" })(items('unique' + y));
             sql += (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ");" : "" })(items('index' + y));
         });
         
@@ -1321,6 +1320,30 @@ var core = {
     // Convert column definition list used in dbCreate into the format used by internal db pool functions
     dbConvertColumns: function(cols) {
         return (cols || []).reduce(function(x,y) { x[y.name] = y; return x }, {});
+    },
+    
+    // Init the pool, create tables and columns
+    // options properties:
+    // - tables - list of tables to create or upgrade
+    dbInit: function(options, callback) {
+        var self = this;
+        if (typeof options == "function") callback = options, options = {};
+        
+        self.dbCacheColumns(options, function() {
+            var changes = 0;
+            async.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
+                // We if have columns, SQL table must be checked for missing columns and indexes
+                if (self.dbColumns(table, options)) {
+                    self.dbUpgrade(table, options.tables[table], options, function(err, rows) { if (rows) changes++; next() });
+                } else {
+                    self.dbCreate(table, options.tables[table], options, function(err, rows) { changes++; next() });
+                }
+            }, function() {
+                logger.debug('dbInit:', options.pool, 'changes:', changes);
+                if (!changes) return callback ? callback() : null;
+                self.dbCacheColumns(options, callback);
+            });
+        });
     },
     
     // Execute SQL query in the database pool
