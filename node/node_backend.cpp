@@ -554,6 +554,18 @@ static Handle<Value> geoHashAdjacent(const Arguments& args)
    return scope.Close(result);
 }
 
+static Handle<Value> geoDistance(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_NUMBER(0, lat1);
+   REQUIRE_ARGUMENT_NUMBER(1, lon1);
+   REQUIRE_ARGUMENT_NUMBER(2, lat2);
+   REQUIRE_ARGUMENT_NUMBER(3, lon2);
+
+   return scope.Close(Local<Number>::New(Number::New(vDistance(lat1, lon1, lat2, lon2))));
+}
+
 void backend_init(Handle<Object> target)
 {
     HandleScope scope;
@@ -585,6 +597,7 @@ void backend_init(Handle<Object> target)
 
     NODE_SET_METHOD(target, "uuid", uuid);
 
+    NODE_SET_METHOD(target, "geoDistance", geoDistance);
     NODE_SET_METHOD(target, "geoHashEncode", geoHashEncode);
     NODE_SET_METHOD(target, "geoHashDecode", geoHashDecode);
     NODE_SET_METHOD(target, "geoHashAdjacent", geoHashAdjacent);

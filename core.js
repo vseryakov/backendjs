@@ -963,9 +963,8 @@ var core = {
     // - value - default value for the column
     // - primary - part of the primary key
     // - unique - part of the unique key
-    // - unique1, unique2 - additional unique keys
     // - index - regular index
-    // - index1, index2 - additonal indexes
+    // - hashindex - index that consist from primary key hash and range
     // options may contains:
     // - map - type mapping, convert lowecase type naem into other type for any specific database
     sqlCreate: function(table, obj, options, callback) {
@@ -984,8 +983,10 @@ var core = {
                    (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(items('primary')) + ");";
         
         // Create indexes
+        var key = obj.filter(function(y) { return y.primary })[0].name;
         ["","1","2"].forEach(function(y) {
             sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_udx" + y + " ON " + table + "(" + x + ");" : "" })(items('unique' + y));
+            sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_rdx" + y + " ON " + table + "(" + key + "," + x + ");" : "" })(items('hashindex' + y));
             sql += (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ");" : "" })(items('index' + y));
         });
         
@@ -1008,8 +1009,10 @@ var core = {
         if (sql) sql += ";";
         
         // Create indexes
+        var key = obj.filter(function(y) { return y.primary })[0].name;
         ["","1","2"].forEach(function(y) {
             sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_udx" + y + " ON " + table + "(" + x + ");" : "" })(items('unique' + y));
+            sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_rdx" + y + " ON " + table + "(" + key + "," + x + ");" : "" })(items('hashindex' + y));
             sql += (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ");" : "" })(items('index' + y));
         });
         
@@ -1779,13 +1782,13 @@ var core = {
             
             switch(opts[0]) {
             case "new":
-                var attrs = obj.filter(function(x) { return x.primary || x.index }).
+                var attrs = obj.filter(function(x) { return x.primary || x.hashindex }).
                                 map(function(x) { return [ x.name, x.type == "int" || x.type == "real" ? "N" : "S" ] }).
                                 reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 var keys = obj.filter(function(x, i) { return x.primary && i < 2 }).
                                map(function(x, i) { return [ x.name, i ? 'RANGE' : 'HASH' ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                var idxs = obj.filter(function(x) { return x.index }).
+                var idxs = obj.filter(function(x) { return x.hashindex }).
                                map(function(x) { return [x.name, self.newObj(obj.filter(function(y) { return y.primary })[0].name, 'HASH', x.name, 'RANGE') ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 aws.ddbCreateTable(pool.prefix + table, attrs, keys, idxs, options, function(err, item) {

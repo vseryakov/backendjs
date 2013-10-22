@@ -21,7 +21,7 @@ var backend = require(__dirname + '/backend');
 var api = {
 
     // No authentication for these urls
-    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html|txt|csv|json|plist)$|(^\/image\/[a-z]+\/|^\/account\/add))/,
+    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html|txt|csv|json|plist)$|(^\/public\/)|(^\/image\/[a-z]+\/|^\/account\/add))/,
 
     // Refuse access to these urls
     deny: null,
@@ -29,10 +29,20 @@ var api = {
     // Account management
     imagesUrl: '',
     tables: { 
-        // Basic account information and settings
+        // Authentication by email and secret
+        auth: [ { name: 'email', primary: 1 },
+                { name: 'id', unique: 1 },
+                { name: 'secret' },
+                { name: 'deny' },
+                { name: 'allow' },
+                { name: "expires", type: "int" },
+                { name: "mtime", type: "int" } ],
+                 
+        // Basic account information
         account: [ { name: "id", primary: 1 },
                    { name: "email", unique: 1 },
                    { name: "name" },
+                   { name: "alias" },
                    { name: "phone" },
                    { name: "website" },
                    { name: "birthday" },
@@ -42,35 +52,38 @@ var api = {
                    { name: "state" },
                    { name: "zipcode" },
                    { name: "country" },
-                   { name: "distance", type: "int" },
-                   { name: "facebook_id", type: "int" },
-                   { name: "linkedin_id", type: "int" },
-                   { name: "tweeter_id", },
-                   { name: "google_id", },
-                   { name: "ctime", type: "int" },
-                   { name: "mtime", type: "int" } ],
-                   
-       // Authentication by email and secret
-       auth: [ { name: 'email', primary: 1 },
-               { name: 'id', unique: 1 },
-               { name: 'secret' },
-               { name: 'acl_deny' },
-               { name: 'acl_allow' },
-               { name: "expires", type: "int" } ],
-                
-       // All location changes           
-       location: [ { name: "id", primary: 1 },
-                   { name: "geohash", primary: 1 },
+                   { name: "geohash" },
                    { name: "latitude", type: "real" },
                    { name: "longitude", type: " real" },
                    { name: "location" },
-                   { name: "mtime", type: "int", index: 1 }],
+                   { name: "ltime", type: "int" },
+                   { name: "ctime", type: "int" },
+                   { name: "mtime", type: "int" } ],
                    
+       // Locations for all accounts to support distance searches
+       // - geohash - base for the location
+       // - id - second part of the geohash and account id           
+       location: [ { name: "geohash", primary: 1 },
+                   { name: "id", primary: 1 },
+                   { name: "latitude", type: "real" },
+                   { name: "longitude", type: " real" }],
+
+       // All connections for an account
+       connection: [ { name: "id", primary: 1 },
+                     { name: "aid", primary: 1 },
+                     { name: "type", hashindex: 1 },
+                     { name: "mtime", type: "int" }],
+                   
+       // All relations, likes/dislikes... for an account
+       relation: [ { name: "id", primary: 1 },
+                   { name: "aid", primary: 1 },
+                   { name: "type", hashindex: 1 },
+                   { name: "mtime", type: "int" }],
+                
        // Keep historic data about an account, data can be JSON depending on the type
        history: [{ name: "id", primary: 1 },
                  { name: "mtime", type: "int", primary: 1 },
-                 { name: "type" },
-                 { name: "data" } ]
+                 { name: "type" } ]
     },
     
     // Upload limit, bytes
@@ -226,10 +239,10 @@ var api = {
             }
 
             // Verify ACL regex if specified, test the whole query string as it appear in GET query line
-            if (account.acl_deny && sig.url.match(account.acl_deny)) {
+            if (account.deny && sig.url.match(account.deny)) {
                 return callback({ status: 401, message: "Access denied" });
             }
-            if (account.acl_allow && !sig.url.match(account.acl_allow)) {
+            if (account.allow && !sig.url.match(account.allow)) {
                 return callback({ status: 401, message: "Not permitted" });
             }
 
@@ -255,9 +268,6 @@ var api = {
             req.signature = sig;
             // Save current account in the request
             req.account = account;
-            // Primary keys must be in the query
-            req.query.id = account.id;
-            req.query.email = account.email;
             return callback({ status: 200, message: "Ok" });
         });
     },
@@ -299,15 +309,26 @@ var api = {
             return callback(new Error("no icon"));
         }
     },
+    
+    // Add columns to account tables, makes sense in case of SQL database only for extending supported properties
+    initColumns: function(table, columns) {
+        var self = this;
+        if (!self.tables[table] || !Array.isArray(columns)) return;
+        columns.forEach(function(x) {
+            if (typeof x == "object" && x.name && !self.tables[table].some(function(y) { return y.name == x.name })) {
+                self.tables[table].push(x);
+            } 
+        });
+    },
 
     // Account management
     initAccount: function() {
         var self = this;
-        
-        // Accont database driver
-        var pool = core.dbPool(self.accountPool);
+        var now = core.now();
         
         this.app.all(/^\/account\/([a-z]+)$/, function(req, res) {
+            logger.debug('account:', req.params[0], req.account, req.query);
+            
             switch (req.params[0]) {
             case "get":
                 core.dbGet("account", { id: req.account.id }, { pool: self.accountPool }, function(err, rows) {
@@ -326,7 +347,7 @@ var api = {
                 if (!req.query.name) return self.sendReply(res, 400, "Name is required");
                 if (!req.query.email) return self.sendReply(res, 400, "Email is required");
                 req.query.id = backend.uuid().replace(/-/g, '');
-                req.query.mtime = req.query.ctime = core.now();
+                req.query.mtime = req.query.ctime = now;
                 // Add new auth record with only columns we support, no-SQL dbs can add any columns on 
                 // the fly and we want to keep auth table very small
                 core.dbInsert("auth", req.query, { pool: self.accountPool, columns: core.dbConvertColumns(self.tables.auth) }, function(err) {
@@ -339,49 +360,85 @@ var api = {
                 break;
 
             case "put":
-                req.query.mtime = core.now();
+                req.query.mtime = now;
+                req.query.id = req.account.id;
+                req.query.email = req.account.email;
+                // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
+                ["secret","ctime","ltime","latitude","longitude","geohash","location"].forEach(function(x) { delete req.query[x] });
                 core.dbUpdate("account", req.query, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
 
+            case "del":
+                core.dbDelete("auth", { email: req.account.email } , { pool: self.accountPool }, function(err) {
+                    self.sendReply(res, err);
+                    core.ipcDelCache("auth:" + req.account.email);
+                    if (err) return;
+                    core.dbDelete("account", { id: req.account.id } , { pool: self.accountPool });
+                });
+                break;
+                
             case "putsecret":
                 if (!req.query.secret) return self.sendReply(res, 400, "Secret is required");
                 core.dbUpdate("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
+                    if (err) return;
+                    // Keep history of all changes
+                    core.dbInsert("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.accountPool });
                 });
                 break;
                 
-            case "del":
-                core.dbDelete("auth", req.account, { pool: self.accountPool }, function(err) {
+            case "putlocation":
+                if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "Location is required");
+                var geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
+                var obj = { id: req.account.id, 
+                            email: req.account.email, 
+                            mtime: now, 
+                            ltime: now, 
+                            latitude: req.query.latitude,
+                            longitude: req.query.longitude,
+                            geohash: geohash, 
+                            location: req.query.location };
+                core.dbUpdate("account", obj, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
-                    core.ipcDelCache("auth:" + req.account.email);
-                    if (!err) core.dbDelete("account", req.account, { pool: self.accountPool });
+                    if (err) return;
+                    // Store location for searches
+                    core.dbGet("account", { id: req.account.id }, { pool: self.accountPool, select: 'geohash,latitude,longitude' }, function(err, rows) {
+                        var row = rows[0];
+                        // Skip if within short range
+                        var distance = backend.getDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
+                        logger.debug(req.params[0], req.account, 'distance:', distance);
+                        if (distance < 5) return;
+                        // Delete current location
+                        obj = { geohash: row.geohash.substr(0, 4), id: row.geohash.substr(4) + " " + req.account.id };
+                        core.dbDelete("location", obj, { pool: self.accountPool });
+                        // Insert new location
+                        obj = { geohash: obj.geohash.substr(0, 4), id: obj.geohash.substr(4) + " " + req.account.id, latitude: req.query.latitude, longitude: req.query.longitude };
+                        core.dbInsert("location", obj, { pool: self.accountPool });
+                    });
+                        
+                    // Keep history of all changes
+                    core.dbInsert("history", { id: req.account.id, type: req.params[0], mtime: now, latitude: obj.latitude, longitude: obj.longitude }, { pool: self.accountPool });
+                });
+                break;
+                
+            case "searchlocation":
+                // Only public fields are returned
+                core.dbSelect("location", req.query, { pool: self.accountPool }, function(err, rows) {
+                    rows.forEach(function(row) {
+                        if (row.birthday) row.age = (now - core.toDate(row.birthday))/(86400*365);
+                        delete row.birthday;
+                    });
+                    res.json(rows);
                 });
                 break;
                 
             case "puthistory":
                 self.sendReply(res);
-                // History time is in milliseconds for high resolution
-                req.query.mtime = core.mnow();
+                req.query.mtime = now();
                 core.dbInsert("history", req.query, { pool: self.accountPool });
-                break;
-                
-            case "getlocation":
-                // Select the last location record 
-                core.dbSelect("location", { id: req.account.id }, { pool: self.accountPool, count: 1, sort: 'mtime', desc: 1 }, function(err, rows) {
-                    res.json(rows);
-                });
-                break;
-                
-            case "putlocation":
-                req.query.mtime = core.now();
-                req.query.geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
-                // Make sure we dont add extra properties in case of noSQL database
-                core.dbUpdate("location", req.query, { pool: self.accountPool, columns: core.dbConvertcolumns(self.tables.location) }, function(err) {
-                    self.sendReply(res, err);
-                });
                 break;
                 
             case "puticon":
