@@ -97,6 +97,7 @@ public:
     static Handle<Value> InsertedOidGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> AffectedRowsGetter(Local<String> str, const AccessorInfo& accessor);
     static void Timer_Connect(uv_timer_t* req, int status);
+    static void Timer_Timeout(uv_timer_t* req, int status);
     static void Handle_Connect(uv_poll_t* w, int status, int revents);
     static void Handle_Notice(void *arg, const char *message);
 
@@ -210,6 +211,19 @@ void PgSQLDatabase::Timer_Connect(uv_timer_t* req, int status)
 
     uv_poll_init(uv_default_loop(), &db->poll, db->fd);
     POLL_START(db->poll, UV_WRITABLE, Handle_Connect, db);
+
+    // Start connection timer for timeouts
+    if (db->conninfo.find("connect_timeout") == string::npos) {
+    	db->timer.data = db;
+    	uv_timer_start(&db->timer, Timer_Timeout, 3000, 0);
+    }
+}
+
+void PgSQLDatabase::Timer_Timeout(uv_timer_t* req, int status)
+{
+    PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
+    POLL_STOP(db->poll);
+    db->CallCallback(CB_CONNECT, "connection timeout", true, true);
 }
 
 void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
@@ -217,6 +231,7 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
     if (status == -1) return;
     PgSQLDatabase *db = static_cast<PgSQLDatabase*>(w->data);
     PostgresPollingStatusType rc = PQconnectPoll(db->handle);
+	uv_timer_stop(&db->timer);
 
     switch (rc) {
     case PGRES_POLLING_READING:

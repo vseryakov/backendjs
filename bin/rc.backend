@@ -34,10 +34,10 @@ DOMAIN=localhost
 [ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
 [ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
 [ "$DDB_DIR" = "" ] && DDB_DIR=$PREFIX/dynamodb
+[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$PREFIX/lib/node/backend
 
 HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
-NODE_BACKEND=$PREFIX/lib/node/backend
 export PATH=$PREFIX/bin:$PG_PREFIX/bin:$PATH
 
 # If started without parameters use script name as a parameter
@@ -491,21 +491,25 @@ case "$ARG" in
   put)
     rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$NODE_BACKEND
     [ -e web ] && rsync -av -e ssh web/ $MASTER:$ROOT/web
-    [ -e bin ] && rsync -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
+    [ -f bin/rc.backend ] && rsync -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
     ;;
     
   init-dev)
-    [ ! -e $NODE_BACKEND ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
-    mkdir -p bin etc 
-    (cd bin && rm -rf rc.backend && ln -s $NODE_BACKEND/bin/rc.backend)
+    [ ! -e $NODE_BACKEND/bin/rc.backend -a "$PLATFORM" = "Darwin" ] && PREFIX=/opt/local && NODE_BACKEND=$PREFIX/lib/node-backend
+    [ ! -e $NODE_BACKEND/bin/rc.backend ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
+    mkdir -p bin data/etc
+    [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres" > .backendrc 
+    [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
+    [ ! -e bin/backend ] && echo "#!/bin/bash\nexec $PREFIX/bin/node main.js \$@\n" > bin/backend && chmod 755 bin/backend
     [ ! -e web ] && ln -s $NODE_BACKEND/web
+    [ ! -e data/etc/config ] && echo "pg-pool=postgresql://postgres@127.0.0.1/backend\nddb-pool=http://localhost:8181\n" > data/etc/config
     [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
-    [ ! -e Makefile ] && echo "#\n# Author: Vlad Seryakov vseryakov@gmail.com\n# Sep 2013\n#\n\nall:\n\nrun:\n\tbin/rc.backend run-dev" > Makefile
+    [ ! -e Makefile ] && echo "#\n# Author: Vlad Seryakov vseryakov@gmail.com\n# Sep 2013\n#\n\nall:\n\nrun:\n\tbin/rc.backend run-dev\n\nput:\n\tbin/rc.backend put\n" > Makefile
     ;;
     
   run-dev)
     killall node
-    $PREFIX/bin/node $NODE_ARGS bin/backend -watch -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    bin/backend -watch -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
     ;;
     
   clean-dev)

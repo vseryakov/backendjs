@@ -33,20 +33,21 @@ var api = {
         auth: [ { name: 'email', primary: 1 },
                 { name: 'id', unique: 1 },
                 { name: 'secret' },
-                { name: 'deny' },
-                { name: 'allow' },
+                { name: 'api_deny' },
+                { name: 'api_allow' },
+                { name: 'account_allow' },                        // list of public columns
                 { name: "expires", type: "int" },
                 { name: "mtime", type: "int" } ],
                  
         // Basic account information
-        account: [ { name: "id", primary: 1 },
+        account: [ { name: "id", primary: 1, pub: 1 },
                    { name: "email", unique: 1 },
                    { name: "name" },
-                   { name: "alias" },
+                   { name: "alias", pub: 1 },
                    { name: "phone" },
                    { name: "website" },
-                   { name: "birthday" },
-                   { name: "gender" },
+                   { name: "birthday", semipub: 1 },
+                   { name: "gender", pub: 1 },
                    { name: "address" },
                    { name: "city" },
                    { name: "state" },
@@ -61,25 +62,16 @@ var api = {
                    { name: "mtime", type: "int" } ],
                    
        // Locations for all accounts to support distance searches
-       // - geohash - base for the location
-       // - id - second part of the geohash and account id           
-       location: [ { name: "geohash", primary: 1 },
-                   { name: "id", primary: 1 },
+       location: [ { name: "geohash", primary: 1 },                // geohash[0-2]
+                   { name: "id", primary: 1 },                     // geohash[3-8]:account_id
                    { name: "latitude", type: "real" },
                    { name: "longitude", type: " real" }],
 
-       // All connections for an account
-       connection: [ { name: "id", primary: 1 },
-                     { name: "aid", primary: 1 },
-                     { name: "type", hashindex: 1 },
+       // All connections between accounts, like,dislike,friend...
+       connection: [ { name: "id", primary: 1 },                    // account_id
+                     { name: "type", primary: 1 },                  // type:connection_id
                      { name: "mtime", type: "int" }],
                    
-       // All relations, likes/dislikes... for an account
-       relation: [ { name: "id", primary: 1 },
-                   { name: "aid", primary: 1 },
-                   { name: "type", hashindex: 1 },
-                   { name: "mtime", type: "int" }],
-                
        // Keep historic data about an account, data can be JSON depending on the type
        history: [{ name: "id", primary: 1 },
                  { name: "mtime", type: "int", primary: 1 },
@@ -239,10 +231,10 @@ var api = {
             }
 
             // Verify ACL regex if specified, test the whole query string as it appear in GET query line
-            if (account.deny && sig.url.match(account.deny)) {
+            if (account.api_deny && sig.url.match(account.api_deny)) {
                 return callback({ status: 401, message: "Access denied" });
             }
-            if (account.allow && !sig.url.match(account.allow)) {
+            if (account.api_allow && !sig.url.match(account.api_allow)) {
                 return callback({ status: 401, message: "Not permitted" });
             }
 
@@ -272,80 +264,44 @@ var api = {
         });
     },
 
-    // Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back
-    sendReply: function(res, status, msg) {
-        if (status instanceof Error) msg = status, status = 500;
-        if (!status) status = 200, msg = "";
-        res.json(status, { status: status, message: String(msg || "").replace(/SQLITE_CONSTRAINT:/g, '') });
-        return false;
-    },
-
-    // Send file back to the client, res is Express response object
-    sendFile: function(req, res, file, redirect) {
-        fs.exists(file, function(yes) {
-            if (req.method == 'HEAD') return res.send(yes ? 200 : 404);
-            if (yes) return res.sendfile(file);
-            if (redirect) return res.redirect(redirect);
-            res.send(404);
-        });
-    },
-
-    // Store an icon for account, .type defines icon prefix
-    putIcon: function(req, options, callback) {
-        // Multipart upload can provide more than one icon, file name can be accompanied by file_type property
-        // to define type for each icon
-        if (req.files) {
-            async.forEachSeries(Object.keys(req.files), function(f, next) {
-                core.putIcon(req.files[f].path, options.id, { prefix: options.prefix, type: req.body[f + '_type'] }, next);
-            }, function(err) {
-                callback(err);
-            });
-        } else 
-        // JSON object submitted with .icon property
-        if (typeof req.body == "object") {
-            req.body = new Buffer(req.body.icon, "base64");
-            core.putIcon(req.body, options.id, options, callback);
-        } else {
-            return callback(new Error("no icon"));
-        }
-    },
-    
-    // Add columns to account tables, makes sense in case of SQL database only for extending supported properties
-    initColumns: function(table, columns) {
-        var self = this;
-        if (!self.tables[table] || !Array.isArray(columns)) return;
-        columns.forEach(function(x) {
-            if (typeof x == "object" && x.name && !self.tables[table].some(function(y) { return y.name == x.name })) {
-                self.tables[table].push(x);
-            } 
-        });
-    },
-
     // Account management
     initAccount: function() {
         var self = this;
         var now = core.now();
         
-        this.app.all(/^\/account\/([a-z]+)$/, function(req, res) {
+        this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res) {
             logger.debug('account:', req.params[0], req.account, req.query);
+            var pubcols = core.dbPublicColumns('account', { columns: self.tables.account });
             
             switch (req.params[0]) {
             case "get":
                 core.dbGet("account", { id: req.account.id }, { pool: self.accountPool }, function(err, rows) {
                     if (err) self.sendReply(res, err);
                     if (!rows.length) return self.sendReply(res, 404);
-                    // List all possible icons, this server may not have access to the files so it is up to the client to verify which icons exist
-                    rows[0].icon = self.imagesUrl + '/image/account/' + req.account.id;
-                    rows[0].icons = ['a','b','c','d','e','f'].map(function(x) { return self.imagesUrl + '/image/account/' + req.account.id + '/' + x });
+                    if (rows[0].birthday) rows[0].age = (now - core.toDate(rows[0].birthday))/(86400*365);
+                    rows[0].icon = self.imagesUrl + '/image/account/' + row.id;
                     res.json(rows[0]);
                 });
                 break;
 
+            case "list":
+            case "search":
+                core.dbSelect("account", { id: req.query.id }, { pool: self.accountPool, select: pubcols }, function(err, rows) {
+                    if (err) self.sendReply(res, err);
+                    rows.forEach(function(row) {
+                        if (row.birthday) row.age = (now - core.toDate(row.birthday))/(86400*365);
+                        row.icon = self.imagesUrl + '/image/account/' + row.id;
+                        core.dbPublicPrepare(rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
+                    });
+                    res.json(rows[0]);
+                });
+                break;
+                
             case "add":
                 // Verify required fields
-                if (!req.query.secret) return self.sendReply(res, 400, "Secret is required");
-                if (!req.query.name) return self.sendReply(res, 400, "Name is required");
-                if (!req.query.email) return self.sendReply(res, 400, "Email is required");
+                if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
+                if (!req.query.name) return self.sendReply(res, 400, "name is required");
+                if (!req.query.email) return self.sendReply(res, 400, "email is required");
                 req.query.id = backend.uuid().replace(/-/g, '');
                 req.query.mtime = req.query.ctime = now;
                 // Add new auth record with only columns we support, no-SQL dbs can add any columns on 
@@ -379,8 +335,8 @@ var api = {
                 });
                 break;
                 
-            case "putsecret":
-                if (!req.query.secret) return self.sendReply(res, 400, "Secret is required");
+            case "secret/put":
+                if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
                 core.dbUpdate("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
@@ -390,17 +346,10 @@ var api = {
                 });
                 break;
                 
-            case "putlocation":
-                if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "Location is required");
+            case "location/put":
+                if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 var geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
-                var obj = { id: req.account.id, 
-                            email: req.account.email, 
-                            mtime: now, 
-                            ltime: now, 
-                            latitude: req.query.latitude,
-                            longitude: req.query.longitude,
-                            geohash: geohash, 
-                            location: req.query.location };
+                var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: req.query.latitude, longitude: req.query.longitude, geohash: geohash, location: req.query.location };
                 core.dbUpdate("account", obj, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     if (err) return;
@@ -412,10 +361,10 @@ var api = {
                         logger.debug(req.params[0], req.account, 'distance:', distance);
                         if (distance < 5) return;
                         // Delete current location
-                        obj = { geohash: row.geohash.substr(0, 4), id: row.geohash.substr(4) + " " + req.account.id };
+                        obj = { geohash: row.geohash.substr(0, 3), id: row.geohash.substr(3) + ":" + req.account.id };
                         core.dbDelete("location", obj, { pool: self.accountPool });
                         // Insert new location
-                        obj = { geohash: obj.geohash.substr(0, 4), id: obj.geohash.substr(4) + " " + req.account.id, latitude: req.query.latitude, longitude: req.query.longitude };
+                        obj = { geohash: obj.geohash.substr(0, 3), id: obj.geohash.substr(3) + ":" + req.account.id, latitude: req.query.latitude, longitude: req.query.longitude };
                         core.dbInsert("location", obj, { pool: self.accountPool });
                     });
                         
@@ -423,25 +372,47 @@ var api = {
                     core.dbInsert("history", { id: req.account.id, type: req.params[0], mtime: now, latitude: obj.latitude, longitude: obj.longitude }, { pool: self.accountPool });
                 });
                 break;
-                
-            case "searchlocation":
-                // Only public fields are returned
-                core.dbSelect("location", req.query, { pool: self.accountPool }, function(err, rows) {
-                    rows.forEach(function(row) {
-                        if (row.birthday) row.age = (now - core.toDate(row.birthday))/(86400*365);
-                        delete row.birthday;
+
+            case "connection/put":
+                if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
+                var obj = { id: req.account.id, type: req.query.type + ":" + req.query.id, mtime: now };
+                core.dbInsert("connection", obj, { pool: self.accountPool }, function(err) {
+                    self.sendReply(res, err);
+                });
+                break;
+
+            case "connection/del":
+                if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
+                var obj = { id: req.account.id, type: req.query.type + ":" + req.query.id };
+                core.dbDelete("connection", obj, { pool: self.accountPool }, function(err) {
+                    self.sendReply(res, err);
+                });
+                break;
+
+            case "connection/list":
+                core.dbSelect("connection", { id: req.account.id, type: req.query.type }, { pool: self.accountPool, select: "type" }, function(err, rows) {
+                    if (err) self.sendReply(res, err);
+                    rows.forEach(function(x) {
+                        var type = row.type.split(":");
+                        row.id = type[1];
+                        row.type = type[0];
                     });
                     res.json(rows);
                 });
                 break;
-                
-            case "puthistory":
+
+            case "history/put":
                 self.sendReply(res);
                 req.query.mtime = now();
                 core.dbInsert("history", req.query, { pool: self.accountPool });
                 break;
                 
-            case "puticon":
+            case "icon/list":
+                // List all possible icons, this server may not have access to the files so it is up to the client to verify which icons exist
+                res.json(['a','b','c','d','e','f'].map(function(x) { return self.imagesUrl + '/image/account/' + req.account.id + '/' + x }));
+                break;
+                
+            case "icon/put":
                 // Add icon to the account, support up to 6 icons with types: a,b,c,d,e,f, primary icon type is ''
                 self.putIcon(req, { id: req.account.id, prefix: 'account' , type: req.body.type || req.query.type || '' }, function(err) {
                     self.sendReply(res, err);
@@ -523,6 +494,57 @@ var api = {
             }
         });
         
+    },
+    
+    
+    // Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes
+    initTables: function(table, columns) {
+        var self = this;
+        if (!Array.isArray(columns)) return;
+        if (!self.tables[table]) self.tables[table] = []; 
+        columns.forEach(function(x) {
+            if (typeof x == "object" && x.name && !self.tables[table].some(function(y) { return y.name == x.name })) {
+                self.tables[table].push(x);
+            } 
+        });
+    },
+
+    // Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back
+    sendReply: function(res, status, msg) {
+        if (status instanceof Error) msg = status, status = 500;
+        if (!status) status = 200, msg = "";
+        res.json(status, { status: status, message: String(msg || "").replace(/SQLITE_CONSTRAINT:/g, '') });
+        return false;
+    },
+
+    // Send file back to the client, res is Express response object
+    sendFile: function(req, res, file, redirect) {
+        fs.exists(file, function(yes) {
+            if (req.method == 'HEAD') return res.send(yes ? 200 : 404);
+            if (yes) return res.sendfile(file);
+            if (redirect) return res.redirect(redirect);
+            res.send(404);
+        });
+    },
+
+    // Store an icon for account, .type defines icon prefix
+    putIcon: function(req, options, callback) {
+        // Multipart upload can provide more than one icon, file name can be accompanied by file_type property
+        // to define type for each icon
+        if (req.files) {
+            async.forEachSeries(Object.keys(req.files), function(f, next) {
+                core.putIcon(req.files[f].path, options.id, { prefix: options.prefix, type: req.body[f + '_type'] }, next);
+            }, function(err) {
+                callback(err);
+            });
+        } else 
+        // JSON object submitted with .icon property
+        if (typeof req.body == "object") {
+            req.body = new Buffer(req.body.icon, "base64");
+            core.putIcon(req.body, options.id, options, callback);
+        } else {
+            return callback(new Error("no icon"));
+        }
     },
     
     // Custom access logger

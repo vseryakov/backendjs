@@ -12,6 +12,7 @@ var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
 var core = require(__dirname + '/core');
 var logger = require(__dirname + '/logger');
+var db = require(__dirname + '/db');
 var aws = require(__dirname + '/aws');
 var os = require('os');
 var stream = require('stream');
@@ -518,8 +519,11 @@ var server = {
 
     // Remote mode, launch remote instance to perform scraping or other tasks
     // By default shutdown the instance after job finishes
-    launchJob: function(job, callback) {
+    launchJob: function(job, options, callback) {
         if (!job) return;
+        if (typeof options == "function") callback = options, options = null;
+        if (!options) options = {};
+        
         if (typeof job == "string") job = core.newObj(job, null);
         if (!Object.keys(job).length) return logger.error('launchJob:', 'no valid jobs:', job);
         job = core.clone(job);
@@ -532,7 +536,7 @@ var server = {
         }
 
         this.jobTime = core.now();
-        logger.log('launchJob:', util.inspect(job, true, null));
+        logger.log('launchJob:', util.inspect(job, true, null), options);
 
         // Common arguments for remote workers
         var args = ["-master", "-instance",
@@ -541,9 +545,17 @@ var server = {
                     "-backend-key", core.backendKey || "",
                     "-backend-secret", core.backendSecret || "",
                     "-jobname", Object.keys(job).join(","),
-                    "-job", new Buffer(JSON.stringify(job)).toString("base64"),
-                    "-job", new Buffer(JSON.stringify({ 'server.shutdown': { runlast: 1 } })).toString("base64") ];
-
+                    "-job", new Buffer(JSON.stringify(job)).toString("base64") ];
+        
+        if (!options.noshutdown) {
+            args.push("-job", new Buffer(JSON.stringify({ 'server.shutdown': { runlast: 1 } })).toString("base64"));
+        }
+        
+        // Launch arguments for the backend, must begin with -
+        for (var p in options) {
+            if (p[0] != '-') continue;
+            args.push(p, options[p])
+        }
         aws.runInstances(1, args.map(function(x) { return String(x).replace(/ /g, '%20') }).join(" "), callback);
         return true;
     },
@@ -594,23 +606,24 @@ var server = {
         this.crontab.push(cj);
     },
 
-    // Create new cron job to be run on a drone in the cloud
+    // Create new cron job to be run on a drone in the cloud, for th remote jobs additonal property args can be use din the cron object to define 
+    // arguments to the instance backend process, properties must start with -
     scheduleLaunchjob: function(spec, obj) {
         var self = this;
         var job = self.checkJob('remote', obj.job);
         if (!job) return;
         logger.debug('scheduleLaunchjob:', spec, util.inspect(obj, true, null));
-        var cj = new cron.CronJob(spec, function() { self.doJob(this.type, job)  }, null, true);
+        var cj = new cron.CronJob(spec, function() { self.doJob(this.type, job, obj.args)  }, null, true);
         cj.type = obj.type;
         this.crontab.push(cj);
     },
 
     // Perform execution according to type
-    doJob: function(type, job) {
+    doJob: function(type, job, options) {
         var self = this;
         switch (type) {
         case 'remote':
-            setImmediate(function() { self.launchJob(job); });
+            setImmediate(function() { self.launchJob(job, options); });
             break;
 
         case "server":
@@ -683,7 +696,7 @@ var server = {
     submitJob: function(options, callback) {
         if (!options || !options.job) return logger.error('submitJob:', 'invalid job spec:', options);
         var job = JSON.stringify(options.job);
-        core.dbInsert("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { pool: core.dbPool, nocolumns: 1 }, function() {
+        db.insert("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { pool: core.dbPool, nocolumns: 1 }, function() {
             if (callback) callback();
         });
     },
@@ -697,14 +710,14 @@ var server = {
         var hosts = [os.hostname(), os.hostname().split('.')[0]];
         // Primary job servers, run all jobs with empty host
         if (this.jobsPrimary) hosts.push("");
-        core.dbSelect("backend_jobs", { host: hosts }, { keys: ['host'], pool: core.dbPool }, function(err, rows) {
+        db.select("backend_jobs", { host: hosts }, { keys: ['host'], pool: core.dbPool }, function(err, rows) {
             async.forEachSeries(rows, function(row, next) {
                 try { 
                     self.doJob(row.type, JSON.parse(row.job));
                 } catch(e) {
                     logger.error('processJobs:', e, row);
                 }
-                core.dbDelete('backend_jobs', row, { pool: core.dbPool }, function() { next() });
+                db.remove('backend_jobs', row, { pool: core.dbPool }, function() { next() });
             }, function() {
                 if (rows.length) logger.log('processJobs:', rows.length, 'jobs');
                 if (callback) callback();

@@ -1066,8 +1066,8 @@ string vGeoHashEncode(double latitude, double longitude, uint precision)
 	int is_even=1,bit=0,ch=0;
 	double lat[2] = {-90,90}, lon[2] = {-180,180};
 	string hash;
-	if (precision == 0) precision = 12;
-	if (precision > 22) precision = 22;
+	if (precision == 0) precision = 8;
+	if (precision > 12) precision = 12;
 
 	while (hash.size() < precision) {
 		if (is_even) {
