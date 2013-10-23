@@ -19,19 +19,81 @@ var os = require('os');
 
 var db = {
     name: 'db',
-    pool: '',
+    
+    // Default database pool for the backend
+    pool: 'sqlite',
 
     // Database connection pools, sqlite default pool is called sqlite, PostgreSQL default pool is pg, DynamoDB is ddb
     dbpool: {},
     nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, unique: {}, 
               get: function() { throw "no pool" }, free: function() { throw "no pool" }, 
               prepare: function() {}, cacheColumns: function() {}, value: function() {} },
-    args: [],
+              
+    // Config parameters              
+    args: [{ name: "pool" },
+           { name: "sqlite-prefix" },
+           { name: "sqlite-max", type: "number", min: 1, max: 100 },
+           { name: "sqlite-idle", type: "number", min: 1000, max: 86400000 },
+           { name: "pg-pool" },
+           { name: "pg-prefix" },
+           { name: "pg-max", type: "number", min: 1, max: 100 },
+           { name: "pg-idle", type: "number", min: 1000, max: 86400000 },
+           { name: "ddb-pool" },
+           { name: "ddb-prefix" },
+    ],
+
+    // Default tables
+    tables: { backend_property: [{ name: 'name', primary: 1 }, 
+                                 { name: 'value' }, 
+                                 { name: 'mtime' } ] ,
+                                 
+              backend_cookies: [ { name: 'name' }, 
+                                 { name: 'domain', primary: 1 }, 
+                                 { name: 'path', primary: 1 }, 
+                                 { name: 'value', primary: 1 }, 
+                                 { name: 'expires' } ],
+                                 
+              backend_queue: [ { name: 'url' }, 
+                               { name: 'data' }, 
+                               { name: 'count', type: 'int', value: '0'}, 
+                               { name: 'mtime' } ],
+                               
+              backend_jobs: [ { name: 'id', primary: 1 }, 
+                              { name: 'type', value: "local" }, 
+                              { name: 'host', value: '' }, 
+                              { name: 'job' }, 
+                              { name: 'mtime', type: 'int'} ],
+    },
+
+    // Initialize database pools
+    init: function(callback) {
+        var self = this;
+        
+        // Internal Sqlite database is always open
+        db.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
+        
+        // Optional pools for supported databases
+        ["pg", "ddb"].forEach(function(x) {
+            if (!self[x + 'Pool']) return;
+            self[x + 'InitPool']({ pool: x, db: self[x + 'Pool'], max: self[x + 'Max'], idle: self[x + 'Idle'], prefix: self[x + 'Prefix'] });
+        });
+        
+        // Initialize SQL pools
+        async.forEachSeries(["sqlite", "pg"], function(pool, next) {
+            if (cluster.isWorker) {
+                db.cacheColumns({ pool: pool }, next);
+            } else {
+                db.initTables({ pool: pool, tables: self.tables }, next);
+            }
+        }, function(err) {
+            if (callback) callback(err);
+        });
+    },
     
     // Init the pool, create tables and columns
     // options properties:
     // - tables - list of tables to create or upgrade
-    init: function(options, callback) {
+    initTables: function(options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
         
@@ -142,6 +204,7 @@ var db = {
         pool.sql = true;
         pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
         this.dbpool[options.pool] = pool;
+        logger.debug('initPool:', pool.name);
         return pool;
     },
     

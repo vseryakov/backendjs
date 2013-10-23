@@ -99,15 +99,6 @@ var core = {
             { name: "gid", type: "number", min: 0, max: 9999 },
             { name: "port", type: "number", min: 0, max: 99999 },
             { name: "bind" },
-            { name: "db-pool" },
-            { name: "sqlite-max", type: "number", min: 1, max: 100 },
-            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000 },
-            { name: "pg-pool" },
-            { name: "pg-prefix" },
-            { name: "pg-max", type: "number", min: 1, max: 100 },
-            { name: "pg-idle", type: "number", min: 1000, max: 86400000 },
-            { name: "ddb-pool" },
-            { name: "ddb-prefix" },
             { name: "repl-port", type: "number", min: 0, max: 99999 },
             { name: "repl-bind" },
             { name: "repl-file" },
@@ -202,50 +193,9 @@ var core = {
                 next();
             },
 
-            // Local database
+            // Local databases
             function(next) {
-                var tables = { backend_property: [{ name: 'name', primary: 1 }, 
-                                                  { name: 'value' }, 
-                                                  { name: 'mtime' } ] ,
-                               backend_cookies: [ { name: 'name' }, 
-                                                  { name: 'domain', primary: 1 }, 
-                                                  { name: 'path', primary: 1 }, 
-                                                  { name: 'value', primary: 1 }, 
-                                                  { name: 'expires' } ],
-                               backend_queue: [ { name: 'url' }, 
-                                                { name: 'data' }, 
-                                                { name: 'count', type: 'int', value: '0'}, 
-                                                { name: 'mtime' } ],
-                               backend_jobs: [ { name: 'id', primary: 1 }, 
-                                               { name: 'type', value: "local" }, 
-                                               { name: 'host', value: '' }, 
-                                               { name: 'job' }, 
-                                               { name: 'mtime', type: 'int'} ],
-                           };
-
-                // Database pools
-                db.sqliteInitPool({ pool: 'sqlite', db: self.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
-                
-                // Optional pools for supported SQL databases fro iternal management and provisioning
-                if (self.pgPool) {
-                    db.pgInitPool({ pool: 'pg', db: self.pgPool, max: self.pgMax, idle: self.pgIdle, prefix: self.pgPrefix });
-                }
-                
-                // DynamoDB pool is only for accounts and clients
-                if (self.ddbPool) {
-                    db.ddbInitPool({ pool: 'ddb', db: self.ddbPool, prefix: self.ddbPrefix });
-                }
-
-                // Initialize all pools, we know they all are SQL based
-                async.forEachSeries(["sqlite", "pg"], function(pool, next) {
-                    if (cluster.isWorker) {
-                        db.cacheColumns({ pool: pool }, next);
-                    } else {
-                        db.init({ pool: pool, tables: tables }, next);
-                    }
-                }, function() {
-                    next();
-                });
+                db.init(next);
             },
 
             // Make sure all cookies are cached
