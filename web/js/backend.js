@@ -48,11 +48,7 @@ var Backend = {
         var path = q[0];
         var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
         var str = String(method || "GET") + "\n" + String(host) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(checksum || "");
-        return { 'v-signature': '2;;' +
-                                creds.email + ';' + 
-                                b64_hmac_sha1(creds.secret, str) + ';' + 
-                                String(expires) + ';' + 
-                                String(checksum || '') + ';;' };
+        return { 'v-signature': '2;;' + creds.email + ';' + b64_hmac_sha1(creds.secret, str) + ';' + String(expires) + ';' + String(checksum || '') + ';;' };
     },
 
     // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.

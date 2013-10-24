@@ -696,7 +696,7 @@ var server = {
     submitJob: function(options, callback) {
         if (!options || !options.job) return logger.error('submitJob:', 'invalid job spec:', options);
         var job = JSON.stringify(options.job);
-        db.insert("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { pool: core.dbPool, nocolumns: 1 }, function() {
+        db.add("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { pool: core.dbPool, nocolumns: 1 }, function() {
             if (callback) callback();
         });
     },
@@ -717,7 +717,7 @@ var server = {
                 } catch(e) {
                     logger.error('processJobs:', e, row);
                 }
-                db.remove('backend_jobs', row, { pool: core.dbPool }, function() { next() });
+                db.del('backend_jobs', row, { pool: core.dbPool }, function() { next() });
             }, function() {
                 if (rows.length) logger.log('processJobs:', rows.length, 'jobs');
                 if (callback) callback();

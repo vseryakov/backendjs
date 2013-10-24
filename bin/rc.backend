@@ -496,7 +496,7 @@ case "$ARG" in
     [ ! -e $NODE_BACKEND/bin/rc.backend ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
     mkdir -p bin data/etc
     [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres" > .backendrc 
-    [ ! -e .gitignore ] && echo ".DS_Store\m.settings\n.cproject\n.project\ndata\n*.swp\n*.*~\n.backendrc\n.history\nbin/rc.backend\n" > .gitignore
+    [ ! -e .gitignore ] && echo ".DS_Store\n.settings\n.cproject\n.project\n*.swp\n*.*~\n*.[oa]\n*.so\n*.dylib\n*.node\n*.log\n.backendrc\n.history\ndata\nbin/rc.backend\n" > .gitignore
     [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
     [ ! -e bin/backend ] && echo "#!/bin/bash\nexec $PREFIX/bin/node main.js \$@\n" > bin/backend && chmod 755 bin/backend
     [ ! -e web ] && ln -s $NODE_BACKEND/web
