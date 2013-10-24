@@ -834,7 +834,7 @@ bool vsqlite_init_db(sqlite3 *handle, int (*progress)(void *))
 
     if (!handle) return false;
     sqlite3_create_function(handle, "regexp", 2, SQLITE_UTF8, 0, sqliteRegexp, 0, 0);
-    sqlite3_create_function(handle, "str_concat", -1, SQLITE_UTF8, 0, NULL, sqliteConcatStep, sqliteConcatFinal);
+    sqlite3_create_function(handle, "concat", -1, SQLITE_UTF8, 0, NULL, sqliteConcatStep, sqliteConcatFinal);
     sqlite3_create_function(handle, "busy_timeout", 1, SQLITE_UTF8, 0, sqliteTimeout, 0, 0);
     sqlite3_create_function(handle, "mnow", 0, SQLITE_UTF8, 0, sqliteMNow, 0, 0);
     sqlite3_create_function(handle, "now", 0, SQLITE_UTF8, 0, sqliteNow, 0, 0);

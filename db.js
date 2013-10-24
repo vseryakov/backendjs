@@ -31,15 +31,12 @@ var db = {
               
     // Config parameters              
     args: [{ name: "pool" },
-           { name: "sqlite-prefix" },
            { name: "sqlite-max", type: "number", min: 1, max: 100 },
            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000 },
            { name: "pg-pool" },
-           { name: "pg-prefix" },
            { name: "pg-max", type: "number", min: 1, max: 100 },
            { name: "pg-idle", type: "number", min: 1000, max: 86400000 },
            { name: "ddb-pool" },
-           { name: "ddb-prefix" },
     ],
 
     // Default tables
@@ -75,7 +72,7 @@ var db = {
         // Optional pools for supported databases
         ["pg", "ddb"].forEach(function(x) {
             if (!self[x + 'Pool']) return;
-            self[x + 'InitPool']({ pool: x, db: self[x + 'Pool'], max: self[x + 'Max'], idle: self[x + 'Idle'], prefix: self[x + 'Prefix'] });
+            self[x + 'InitPool']({ pool: x, db: self[x + 'Pool'], max: self[x + 'Max'], idle: self[x + 'Idle'] });
         });
         
         // Initialize SQL pools
@@ -184,19 +181,19 @@ var db = {
         // For SQL databases it creates a SQL statement with parameters
         pool.prepare = function(op, table, obj, opts) {
             switch (op) {
-            case "new": return self.sqlCreate(this.prefix + table, obj, opts);
-            case "upgrade": return self.sqlUpgrade(this.prefix + table, obj, opts);
-            case "all": return self.sqlSelect(this.prefix + table, obj, opts);
-            case "get": return self.sqlSelect(this.prefix + table, obj, self.clone(opts, {}, { count: 1 }));
-            case "add": return self.sqlInsert(this.prefix + table, obj, opts);
-            case "put": return self.sqlUpdate(this.prefix + table, obj, opts);
-            case "del": return self.sqlDelete(this.prefix + table, obj, opts);
+            case "new": return self.sqlCreate(table, obj, opts);
+            case "upgrade": return self.sqlUpgrade(table, obj, opts);
+            case "select":
+            case "list": return self.sqlSelect(table, obj, opts);
+            case "get": return self.sqlSelect(table, obj, self.clone(opts, {}, { count: 1 }));
+            case "add": return self.sqlInsert(table, obj, opts);
+            case "put": return self.sqlUpdate(table, obj, opts);
+            case "del": return self.sqlDelete(table, obj, opts);
             }
         }
         // Convert a value when using with parametrized statements or convert into appropriate database type
         pool.value = valuecb || function(val, opts) { return val; }
         pool.name = options.pool;
-        pool.prefix = options.prefix || "";
         pool.serial = 0;
         pool.dbcolumns = {};
         pool.dbkeys = {};
@@ -291,19 +288,33 @@ var db = {
         });
     },
 
-    // Select objects from the database 
-    // .keys is a list of columns for condition or all primary keys
-    // .select is list of columns or expressions to return or *
+    // Select objects from the database
+    // 1. obj is an object with primary key propeties set for the condition, all matching records will be returned
+    // 2. obj is a list where each item is an object with primary key condition. Only records specified in the list must be returned.
+    // Options can use the following special propeties:
+    //  - keys - a list of columns for condition or all primary keys
+    //  - select - a list of columns or expressions to return or all columns
+    //  - start - start records ith this primary key
+    //  - count - how many records to return
+    //  - sort - sort by this column
+    //  - desc - if sorting, do in descending order
+    //  - page - starting page number for pagination, uses count to find actual record to start 
+    // On return, the callback can check third argument which is an object with the following properties:
+    // - affected_rows - how many records this operation affected
+    // - inserted_oid - last created auto generated id
+    // - last_evaluated_key - last processed primary key, this can be used later to continue 
+    //   pagination by passing it as .start or .page property
     select: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
-        var req = this.prepare("all", table, obj, options);
+        var req = this.prepare(Array.isArray(obj) ? "list" : "select", table, obj, options);
         this.query(req, options, callback);
     },
 
     // Retrieve one record from the database 
-    // .keys is a list of columns for condition or all primary keys
-    // .select is list of columns or expressions to return or *
+    // Options can use the follwoing special properties:
+    //  - keys - a list of columns for condition or all primary keys
+    //  - select - a list of columns or expressions to return or *
     get: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
@@ -311,7 +322,8 @@ var db = {
         this.query(req, options, callback);
     },
 
-    // Retrieve cached result or put db record into the cache, options.keys can be used to specify exact key to be used for caching
+    // Retrieve cached result or put a record into the cache
+    // Options accept the same parameters as for the usual get action.
     getCached: function(table, obj, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options,options = null;
@@ -432,7 +444,7 @@ var db = {
             if (err) return callback ? callback(err, []) : null;
             var t1 = core.mnow();
             client.query(req.text, req.values || [], function(err2, rows) {
-                var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid };
+                var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, last_key: client.last_evaluated_key };
                 pool.free(client);
                 if (err2) {
                     logger.error("dbQuery:", pool.name, req.text, req.values, err2);
@@ -777,9 +789,21 @@ var db = {
     // Build SQL where condition from the keys and object values, return object with .values and .cond properties, idx is the starting index for
     // parameters, default is 1
     sqlWhere: function(obj, keys, idx, options) {
+        var self = this;
         if (!options) options = {};
-        var req = { cond: [], values: [] };
         if (!idx) idx = 1;
+        var req = { cond: [], values: [] };
+        
+        // List of records to return by primary key
+        if (Array.isArray(obj)) {
+            if (keys.length == 1) {
+                req.cond = keys[0] + " IN (" + this.sqlValueIn(obj.map(function(x) { return x[keys[0]] })) + ")"; 
+            } else {
+                req.cond = obj.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.value(options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
+            }
+            return req;
+        }
+        // Regular object with conditions
         for (var j in keys) {
             var v = obj[keys[j]];
             if (typeof v == "undefined") continue;
@@ -787,13 +811,17 @@ var db = {
                 req.cond.push(keys[j] + " IS NULL");
             } else
             if (Array.isArray(v)) {
-                var cond = [];
-                for (var i = 0; i < v.length; i++ ) {
-                    cond.push(keys[j] + "=$" + idx);
-                    req.values.push(v[i]);
-                    idx++;
+                if (!options.array_or) {
+                    req.cond.push(this.sqlValueIn(v));
+                } else {
+                    var cond = [];
+                    for (var i = 0; i < v.length; i++ ) {
+                        cond.push(keys[j] + "=$" + idx);
+                        req.values.push(v[i]);
+                        idx++;
+                    }
+                    req.cond.push("(" + cond.join(" OR ") + ")");
                 }
-                req.cond.push("(" + cond.join(" OR ") + ")");
             } else {
                 req.cond.push(keys[j] + "=$" + idx);
                 req.values.push(this.value(options, v));
@@ -950,7 +978,7 @@ var db = {
             } else
             // Concat mode means append new value to existing, not overwrite
             if (options.concat && options.concat.indexOf(p) > -1) {
-                sets.push(p + "=STR_CONCAT(" + p + ", $" + i + ")");
+                sets.push(p + "=CONCAT(" + p + ", $" + i + ")");
             } else {
                 sets.push(p + "=" + (options.placeholder || ("$" + i)));
             }
@@ -1236,9 +1264,11 @@ var db = {
         if (!options.pool) options.pool = "ddb";
 
         // Redefine pool but implement the same interface
-        var pool = { name: options.pool, db: options.db, prefix: options.prefix || "", dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
+        var pool = { name: options.pool, db: options.db, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
         this.dbpool[options.pool] = pool;
-        
+        pool.last_evaluated_key = null;
+        pool.affected_rows = 0;
+        pool.inserted_oid = 0;
         pool.get = function(callback) { callback(null, this); }
         pool.free = function() {}
         pool.watch = function() {}
@@ -1293,6 +1323,7 @@ var db = {
             var pool = this;
             var obj = opts[1];
             var options = self.addObj(opts[2], "db", pool.db);
+            pool.last_evaluated_key = "";
             
             switch(opts[0]) {
             case "new":
@@ -1305,7 +1336,7 @@ var db = {
                 var idxs = obj.filter(function(x) { return x.hashindex }).
                                map(function(x) { return [x.name, self.newObj(obj.filter(function(y) { return y.primary })[0].name, 'HASH', x.name, 'RANGE') ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                aws.ddbCreateTable(pool.prefix + table, attrs, keys, idxs, options, function(err, item) {
+                aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
                     callback(err, item ? [item.Item] : []);
                 });
                 break;
@@ -1316,23 +1347,66 @@ var db = {
                 
             case "get":
                 var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                aws.ddbGetItem(pool.prefix + table, keys, options, function(err, item) {
+                aws.ddbGetItem(table, keys, options, function(err, item) {
                     callback(err, item ? [item.Item] : []);
                 });
                 break;
 
-            case "all":
+            case "select":
                 var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                aws.ddbQueryTable(pool.prefix + table, keys, options, function(err, item) {
-                    callback(err, item ? item.Items : []);
+                aws.ddbQueryTable(table, keys, options, function(err, item) {
+                    if (err) return callback(err, []);
+                    var count = options.count || 0;
+                    var items = item.Items;
+                    pool.last_evaluated_key = item.LastEvaluatedKey || "";
+                    count -= items.length;
+                    // Keep retrieving items until we reach the end or our limit
+                    async.until(
+                        function() { return pool.last_evaluated_key != "" || count > 0; },
+                        function(next) {
+                            options.start = pool.last_evaluated_key;
+                            if (count < 100) options.count = count;
+                            aws.ddbQueryTable(table, keys, options, function(err, item) {
+                                count -= item.Items.length;
+                                items.push.apply(items, item.Items);
+                                pool.last_evaluated_key = item.LastEvaluatedKey || "";
+                                next(err);
+                            });                            
+                        },
+                        function(err) {
+                            callback(err, items);
+                        });
                 });
                 break;
 
+            case "list":
+                var req = {};
+                req[table] = obj.map(function(x) { return { keys: x, select: options.select, consistent: options.consistent } });
+                aws.ddbBatchGetItem(req, options, function(err, item) {
+                    if (err) return callback(err, []);
+                    // Keep retrieving items until we get all items
+                    var moreKeys = item.UnprocessedKeys || null;
+                    var items = item.Responses[table] || [];
+                    async.until(
+                        function() { return moreKeys; },
+                        function(next) {
+                            options.RequestItems = moreKeys;
+                            aws.ddbBatchGetItem({}, options, function(err, item) {
+                                items.push.apply(items, item.Responses[table] || []);
+                                next(err);
+                            });                            
+                        },
+                        function(err) {
+                            callback(err, items);
+                        });
+                });
+                break;
+                
             case "add":
                 // Add only listed columns if there is a .columns property specified
                 var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
                 options.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
-                aws.ddbPutItem(pool.prefix + table, o, options, function(err, rc) {
+                aws.ddbPutItem(table, o, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;
@@ -1342,13 +1416,13 @@ var db = {
                 // Skip special columns, nulls, primary key columns. If we have specific list of allowed columns only keep those.
                 var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n] || (options.columns && !(n in options.columns)); } });
                 options.expected = keys;
-                aws.ddbUpdateItem(pool.prefix + table, keys, o, options, function(err, rc) {
+                aws.ddbUpdateItem(table, keys, o, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;
 
             case "del":
-                aws.ddbDeleteItem(pool.prefix + table, obj, options, function(err, rc) {
+                aws.ddbDeleteItem(table, obj, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;

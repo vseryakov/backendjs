@@ -67,7 +67,7 @@ var api = {
                    { name: "latitude", type: "real" },
                    { name: "longitude", type: " real" }],
 
-       // All connections between accounts, like,dislike,friend...
+       // All connections between accounts: like,dislike,friend...
        connection: [ { name: "id", primary: 1 },                    // account_id
                      { name: "type", primary: 1 },                  // type:connection_id
                      { name: "mtime", type: "int" }],
@@ -83,8 +83,8 @@ var api = {
     
     // Config parameters
     args: ["account-pool", 
+           "backend-pool",
            "images-url",
-           "db-pool",
            "access-log",
            { name: "backend", type: "bool" },
            { name: "allow", type: "regexp" },
@@ -140,7 +140,7 @@ var api = {
 
         // Return current statistics
         this.app.all("/status", function(req, res) {
-            res.json(core.dbpool[self.accountPool].stats);
+            res.json(db.getPool(self.accountPool).stats);
         });
 
         // Return images by prefix, id and possibly type, serves from local images folder, 
@@ -159,7 +159,7 @@ var api = {
         this.onInit.call(this);
 
         // Create account tables if dont exist
-        core.dbInit({ pool: self.accountPool, tables: self.tables }, callback);
+        db.initTables({ pool: self.accountPool, tables: self.tables }, callback);
     },
         
     // Perform authorization of the incoming request for access and permissions
@@ -221,7 +221,7 @@ var api = {
         }
 
         // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-        core.dbGetCached("auth", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
+        db.getCached("auth", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
             if (err) return callback({ status: 500, message: String(err) });
             if (!account) return callback({ status: 404, message: "No account" });
 
@@ -271,11 +271,11 @@ var api = {
         
         this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res) {
             logger.debug('account:', req.params[0], req.account, req.query);
-            var pubcols = core.dbPublicColumns('account', { columns: self.tables.account });
+            var pubcols = db.publicColumns('account', { columns: self.tables.account });
             
             switch (req.params[0]) {
             case "get":
-                core.dbGet("account", { id: req.account.id }, { pool: self.accountPool }, function(err, rows) {
+                db.get("account", { id: req.account.id }, { pool: self.accountPool }, function(err, rows) {
                     if (err) self.sendReply(res, err);
                     if (!rows.length) return self.sendReply(res, 404);
                     if (rows[0].birthday) rows[0].age = (now - core.toDate(rows[0].birthday))/(86400*365);
@@ -285,13 +285,19 @@ var api = {
                 break;
 
             case "list":
-            case "search":
-                core.dbSelect("account", { id: req.query.id }, { pool: self.accountPool, select: pubcols }, function(err, rows) {
+                if (!req.query.id) return self.sendReply(res, 400, "id is required");
+                // Provided list of columns must be a subset of public columns
+                var cols = req.query._columns ? core.strSplit(req.query._columns).filter(function(x) { return pubcols.indexOf(x) > -1 }) : pubcols;
+                // List of account ids can be provided to retrieve all accounts at once, for DynamoDB it means we may iterate over all 
+                // pages in order to get all items until we reach our limit.
+                var ids = core.strSplit(req.query.id);
+                ids = ids.length > 1 ? ids.map(function(x) { return { id: x } }) : { id: ids[0] };
+                db.select("account", ids, { pool: self.accountPool, select: cols }, function(err, rows) {
                     if (err) self.sendReply(res, err);
                     rows.forEach(function(row) {
                         if (row.birthday) row.age = (now - core.toDate(row.birthday))/(86400*365);
                         row.icon = self.imagesUrl + '/image/account/' + row.id;
-                        core.dbPublicPrepare(rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
+                        db.publicPrepare(rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
                     });
                     res.json(rows[0]);
                 });
@@ -306,10 +312,10 @@ var api = {
                 req.query.mtime = req.query.ctime = now;
                 // Add new auth record with only columns we support, no-SQL dbs can add any columns on 
                 // the fly and we want to keep auth table very small
-                core.dbInsert("auth", req.query, { pool: self.accountPool, columns: core.dbConvertColumns(self.tables.auth) }, function(err) {
+                db.insert("auth", req.query, { pool: self.accountPool, columns: db.convertColumns(self.tables.auth) }, function(err) {
                     if (err) return self.sendReply(res, err);
-                    core.dbInsert("account", req.query, { pool: self.accountPool }, function(err) {
-                        if (err) core.dbDelete("auth", req.query, { pool: self.accountPool });
+                    db.insert("account", req.query, { pool: self.accountPool }, function(err) {
+                        if (err) db.remove("auth", req.query, { pool: self.accountPool });
                         self.sendReply(res, err);
                     });
                 });
@@ -321,28 +327,28 @@ var api = {
                 req.query.email = req.account.email;
                 // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
                 ["secret","ctime","ltime","latitude","longitude","geohash","location"].forEach(function(x) { delete req.query[x] });
-                core.dbUpdate("account", req.query, { pool: self.accountPool }, function(err) {
+                db.update("account", req.query, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
 
             case "del":
-                core.dbDelete("auth", { email: req.account.email } , { pool: self.accountPool }, function(err) {
+                db.remove("auth", { email: req.account.email } , { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
-                    core.dbDelete("account", { id: req.account.id } , { pool: self.accountPool });
+                    db.remove("account", { id: req.account.id } , { pool: self.accountPool });
                 });
                 break;
                 
             case "secret/put":
                 if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-                core.dbUpdate("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
+                db.update("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
                     // Keep history of all changes
-                    core.dbInsert("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.accountPool });
+                    db.insert("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.accountPool });
                 });
                 break;
                 
@@ -350,11 +356,11 @@ var api = {
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 var geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
                 var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: req.query.latitude, longitude: req.query.longitude, geohash: geohash, location: req.query.location };
-                core.dbUpdate("account", obj, { pool: self.accountPool }, function(err) {
+                db.update("account", obj, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     if (err) return;
                     // Store location for searches
-                    core.dbGet("account", { id: req.account.id }, { pool: self.accountPool, select: 'geohash,latitude,longitude' }, function(err, rows) {
+                    db.get("account", { id: req.account.id }, { pool: self.accountPool, select: 'geohash,latitude,longitude' }, function(err, rows) {
                         var row = rows[0];
                         // Skip if within short range
                         var distance = backend.getDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
@@ -362,21 +368,21 @@ var api = {
                         if (distance < 5) return;
                         // Delete current location
                         obj = { geohash: row.geohash.substr(0, 3), id: row.geohash.substr(3) + ":" + req.account.id };
-                        core.dbDelete("location", obj, { pool: self.accountPool });
+                        db.remove("location", obj, { pool: self.accountPool });
                         // Insert new location
                         obj = { geohash: obj.geohash.substr(0, 3), id: obj.geohash.substr(3) + ":" + req.account.id, latitude: req.query.latitude, longitude: req.query.longitude };
-                        core.dbInsert("location", obj, { pool: self.accountPool });
+                        db.insert("location", obj, { pool: self.accountPool });
                     });
                         
                     // Keep history of all changes
-                    core.dbInsert("history", { id: req.account.id, type: req.params[0], mtime: now, latitude: obj.latitude, longitude: obj.longitude }, { pool: self.accountPool });
+                    db.insert("history", { id: req.account.id, type: req.params[0], mtime: now, latitude: obj.latitude, longitude: obj.longitude }, { pool: self.accountPool });
                 });
                 break;
 
             case "connection/put":
                 if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
                 var obj = { id: req.account.id, type: req.query.type + ":" + req.query.id, mtime: now };
-                core.dbInsert("connection", obj, { pool: self.accountPool }, function(err) {
+                db.insert("connection", obj, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
@@ -384,13 +390,13 @@ var api = {
             case "connection/del":
                 if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
                 var obj = { id: req.account.id, type: req.query.type + ":" + req.query.id };
-                core.dbDelete("connection", obj, { pool: self.accountPool }, function(err) {
+                db.remove("connection", obj, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
 
             case "connection/list":
-                core.dbSelect("connection", { id: req.account.id, type: req.query.type }, { pool: self.accountPool, select: "type" }, function(err, rows) {
+                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.accountPool, select: "type" }, function(err, rows) {
                     if (err) self.sendReply(res, err);
                     rows.forEach(function(x) {
                         var type = row.type.split(":");
@@ -404,7 +410,7 @@ var api = {
             case "history/put":
                 self.sendReply(res);
                 req.query.mtime = now();
-                core.dbInsert("history", req.query, { pool: self.accountPool });
+                db.insert("history", req.query, { pool: self.accountPool });
                 break;
                 
             case "icon/list":
@@ -431,23 +437,23 @@ var api = {
         
         // Load columns into the cache
         this.app.all(/^\/cache-columns$/, function(req, res) {
-            core.dbCacheColumns({ pool: self.dbPool });
+            db.cacheColumns({ pool: self.backendPool });
             res.json([]);
         });
 
         // Return table columns
         this.app.all(/^\/([a-z_0-9]+)\/columns$/, function(req, res) {
-            res.json(core.dbColumns(req.params[0], { pool: self.dbPool }));
+            res.json(db.getColumns(req.params[0], { pool: self.backendPool }));
         });
 
         // Return table keys
         this.app.all(/^\/([a-z_0-9]+)\/keys$/, function(req, res) {
-            res.json(core.dbKeys(req.params[0], { pool: self.dbPool }));
+            res.json(db.getKeys(req.params[0], { pool: self.backendPool }));
         });
 
         // Query on a table
         this.app.all(/^\/([a-z_0-9]+)\/get$/, function(req, res) {
-            var options = { pool: self.dbPool, 
+            var options = { pool: self.backendPool, 
                             total: req.query._total, 
                             count: req.query._count || 25, 
                             sort: req.query._sort, 
@@ -456,7 +462,7 @@ var api = {
             for (var p in req.query) {
                 if (p[0] != '_' && req.query[p].indexOf("|") > 0) req.query[p] = req.query[p].split("|");
             }
-            core.dbSelect(req.params[0], req.query, options, function(err, rows) {
+            db.select(req.params[0], req.query, options, function(err, rows) {
                 if (err) return res.json([]);
                 res.json(rows);
             });
@@ -464,30 +470,30 @@ var api = {
         
         // Basic operations on a table
         this.app.all(/^\/([a-z_0-9]+)\/(add|put|del)$/, function(req, res) {
-            var dbcols = core.dbColumns(req.params[0], { pool: self.dbPool });
+            var dbcols = db.getColumns(req.params[0], { pool: self.backendPool });
             if (!dbcols) return res.json([]);
             
             switch (req.params[1]) {
             case "add":
-                core.dbInsert(req.params[0], req.query, { pool: self.dbPool }, function(err, rows) {
+                db.insert(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
                     return self.sendReply(res, err);
                 });
                 break;
                 
             case "rep":
-                core.dbReplace(req.params[0], req.query, { pool: self.dbPool }, function(err, rows) {
+                db.replace(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
                     self.sendReply(res, err);
                 });
                 break;
                 
             case "put":
-                core.dbUpdate(req.params[0], req.query, { pool: self.dbPool }, function(err, rows) {
+                db.update(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
                     self.sendReply(res, err);
                 });
                 break;
                 
             case "del":
-                core.dbDelete(req.params[0], req.query, { pool: self.dbPool }, function(err, rows) {
+                db.remove(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
                     self.sendReply(res, err);
                 });
                 break;

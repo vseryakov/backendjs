@@ -24,7 +24,7 @@ var emailjs = require('emailjs');
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2013.10.14.0', 
+    version: '2013.10.20.0', 
 
     // Process and config parameters
     argv: [],
@@ -1056,7 +1056,7 @@ var core = {
     // Split string into array, ignore empty items
     strSplit: function(str, sep) {
         if (!str) return [];
-        return (Array.isArray(str) ? str : String(str).split(sep || ',')).map(function(x) { return x.trim() }).filter(function(x) { return x != '' });
+        return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).map(function(x) { return x.trim() }).filter(function(x) { return x != '' });
     },
 
     // Split as above but keep only unique items

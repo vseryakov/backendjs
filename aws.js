@@ -116,7 +116,7 @@ var aws = {
         
         this.querySign("dynamodb", req.hostname, "POST", req.path, json, headers);
         core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
-            if (err) return (callback ? callback(err) : null);
+            if (err) return callback ? callback(err, {}) : null;
             // Reply is always JSON but we dont take any chances
             try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
             if (params.status != 200) {
@@ -128,7 +128,7 @@ var aws = {
                 }
                 // Report about the error
                 if (!err) err = new Error(params.json.__type + ": " + (params.json.message || params.json.Message));
-                return (callback ? callback(err) : null);
+                return callback ? callback(err, {}) : null;
             }
             logger.log('queryDDB:', action, core.mnow() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', util.inspect(obj, null, null));
             if (callback) callback(err, params.json);
@@ -286,12 +286,13 @@ var aws = {
         });
     },
 
-    // - Attributes can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS
-    // - Keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE
-    // - Indexes can be an array in native DDB JSON format or an object with each property for an index name and
+    // Create a table
+    // - attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS
+    // - keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE
+    // - indexes can be an array in native DDB JSON format or an object with each property for an index name and
     //   value in the same format as for primary keys, additional property _projection defines projection type for an index.
     // - options may contain any valid native property if it starts with capital letter.
-    // Example: ddbCreateTable('test', {id:'S',mtime:'N',name:'S'}, {id:'HASH',mtime:'RANGE'}, {name_idx:{name:"HASH",_projection:"ALL"}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});
+    // Example: ddbCreateTable('users', {id:'S',mtime:'N',name:'S'}, {id:'HASH',name:'RANGE'}, {mtime:{mtime:"HASH",_projection:"ALL"}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});
     ddbCreateTable: function(name, attrs, keys, indexes, options, callback) {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
@@ -347,9 +348,12 @@ var aws = {
         this.queryDDB('UpdateTable', params, options, callback);
     },
 
-    // - keys is an object with primary key attributes name and value.
+    // Retrieve one item by primary key
+    // - keys - an object with primary key attributes name and value.
+    // - select - list of columns to return, otherwise all columns will be returned
     // - options may contain any native property allowed in the request or special properties:
     //   - consistent - set consistency level for the request
+    // Example: ddbGetItem("users", { id: 1, name: "john" }, { select: 'id,name' })
     ddbGetItem: function(name, keys, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -358,6 +362,9 @@ var aws = {
         for (var p in options) {
             if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
         }
+        if (options.select) {
+            params.AttributesToGet = core.strSplit(options.select);
+        }
         if (options.consistent) {
             params.ConsistentRead = true;
         }
@@ -365,15 +372,17 @@ var aws = {
             params.Key[p] = self.toDynamoDB(keys[p]);
         }
         this.queryDDB('GetItem', params, options, function(err, rc) {
-            if (rc && rc.Item) rc.Item = self.fromDynamoDB(rc.Item);
+            rc.Item = rc.Item ? self.fromDynamoDB(rc.Item) : {};
             if (callback) callback(err, rc);
         });
     },
 
+    // Put or add an item
     // - item is an object, type will be inferred from the native js type.
     // - options may contain any valid native property if it starts with capital letter or special properties:
-    //   - expected - an object with column names to be used in Expected clause. 
-    //     The value can be null set condition to Exists: false or any other exct value to checked against
+    //   - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
+    //     any other exact value to be checked against which corresponds to { Exists: true, Value: value }
+    // Example: ddbPutItem("users", { id: 1, name: "john", mtime: 11233434 }, { expected: { name: null } })
     ddbPutItem: function(name, item, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -392,19 +401,21 @@ var aws = {
             }
         }
         this.queryDDB('PutItem', params, options, function(err, rc) {
-            if (rc && rc.Attributes) rc.Item = self.fromDynamoDB(rc.Attributes);
+            rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
             if (callback) callback(err, rc);
         });
     },
 
+    // Update an item
     // - keys is an object with primary key attributes name and value.
     // - item is an object with properties where value can be:
     //    - number/string/array - implies PUT action,
     //    - null - action DELETE
     //    - object in the form: { ADD: val } or { DELETE: val }
     // - options may contain any valid native property if it starts with capital letter or special properties:
-    //   - expected - an object with column names to be used in Expected clause. 
-    //      The value can be null set condition to Exists: false or any other exct value to checked against
+    //   - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
+    //     any other exact value to be checked against which corresponds to { Exists: true, Value: value }
+    // Example: ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male' }, { expected: { id: 1 } })
     ddbUpdateItem: function(name, keys, item, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -453,13 +464,15 @@ var aws = {
             }
         }
         this.queryDDB('UpdateItem', params, options, function(err, rc) {
-            if (rc && rc.Attributes) rc.Item = self.fromDynamoDB(rc.Attributes);
+            rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
             if (callback) callback(err, rc);
         });
     },
 
+    // Delete an item from a table
     // - keys is an object with name: value for hash/range attributes
     // - options may contain any valid native property if it starts with capital letter.
+    // Example: ddbDeleteItem("users", { id: 1, name: "john" }, {})
     ddbDeleteItem: function(name, keys, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -472,11 +485,12 @@ var aws = {
             params.Key[p] = self.toDynamoDB(keys[p]);
         }
         this.queryDDB('DeleteItem', params, options, function(err, rc) {
-            if (rc && rc.Attributes) rc.Item = self.fromDynamoDB(rc.Attributes);
+            rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
             if (callback) callback(err, rc);
         });
     },
 
+    // Update items from the list at the same time
     // - items is a list of objects with table name as property and list of operations, an operation can be PutRequest or DeleteRequest
     // - options may contain any valid native property if it starts with capital letter.
     // Example: { table: [ { PutRequest: { id: 1, name: "tt" } }, ] }
@@ -499,14 +513,15 @@ var aws = {
             });
         }
         this.queryDDB('BatchWriteItem', params, options, function(err, rc) {
-            if (rc && rc.Attributes) rc.Item = self.fromDynamoDB(rc.Attributes);
+            rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
             if (callback) callback(err, rc);
         });
     },
 
+    // Retrieve all items for given list of keys
     // - items is list of objects with table name as property name and list of options for GetItem request
     // - options may contain any valid native property if it starts with capital letter.
-    // Example: { table: [ { Keys: { id: 1, name: "tt" }, AttributesToGet: ['name'], ConsistentRead: true }, ] }
+    // Example: { users: [ { keys: { id: 1, name: "john" }, select: ['name','id'], consistent: true }, ...] }
     ddbBatchGetItem: function(items, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -516,30 +531,33 @@ var aws = {
             if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
         }
         for (var p in items) {
-            params.RequestItems[p] = [];
+            if (!params.RequestItems[p]) params.RequestItems[p] = [];
             items[p].forEach(function(x) {
                 var obj = {};
-                for (var m in x) obj[m] = x[m];
-                obj.Keys = self.toDynamoDB(obj.Keys);
+                obj.Keys = self.toDynamoDB(obj.keys);
+                if (x.select) obj.AttributesToGet = core.strSplit(x.select);
+                if (x.consistent) obj.ConsistentRead = true;
                 params.RequestItems[p].push(obj);
             });
         }
         this.queryDDB('BatchGetItem', params, options, function(err, rc) {
-            if (rc && rc.Responses) rc.Responses = self.fromDynamoDB(rc.Responses);
+            rc.Responses = rc.Responses ? self.fromDynamoDB(rc.Responses) : [];
             if (callback) callback(err, rc);
         });
     },
 
-    // - condition is an object with name: value for EQ condition or name: [op, value1, ...] for other conditions
+    // Query on a table, return all matching items
+    // - keys is an object with name: value pairs for key condition
     // - options may contain any valid native property if it starts with capital letter or special property:
-    //   - start - defines starting primary key
+    //   - start or page - defines starting primary key when paginating
     //   - consistent - set consistency level for the request
     //   - select - list of attributes to get only
     //   - total - return number of matching records
     //   - count - limit number of record in result
     //   - desc - descending order
-    //   - sort - index name to use
-    ddbQueryTable: function(name, condition, options, callback) {
+    //   - sort - index name to use, indexes are named the same as the corresponding column
+    // Example: ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name' })
+    ddbQueryTable: function(name, keys, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
@@ -550,8 +568,8 @@ var aws = {
         if (options.consistent) {
             params.ConsistentRead = true;
         }
-        if (options.start) {
-            params.ExclusiveStartKey = self.toDynamoDB(options.start);
+        if (options.start || options.page) {
+            params.ExclusiveStartKey = self.toDynamoDB(options.start || options.page);
         }
         if (options.sort) {
             params.IndexName = options.sort;
@@ -560,7 +578,7 @@ var aws = {
             params.ScanIndexForward = false;
         }
         if (options.select) {
-            params.AttributesToGet = options.select.split(",");
+            params.AttributesToGet = core.strSplit(options.select);
         }
         if (options.count) {
             params.Limit = options.count;
@@ -593,14 +611,16 @@ var aws = {
             }
         }
         this.queryDDB('Query', params, options, function(err, rc) {
-            if (rc && rc.Items) rc.Items = self.fromDynamoDB(rc.Items);
+            rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
             if (callback) callback(err, rc);
         });
     },
 
-    // - condition is an object with name: value for EQ condition or name: [op, value] for other conditions
+    // Scan a table for all matching items
+    // - condition is an object with name: value pairs for EQ condition or name: [op, value] for other conditions
     // - options may contain any valid native property if it starts with capital letter or special property:
     //   - start - defines starting primary key
+    // Example: ddbScanTable("users", { id: 1, name: ['gt', 'a'] }, {})
     ddbScanTable: function(name, condition, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -637,7 +657,7 @@ var aws = {
             }
         }
         this.queryDDB('Scan', params, options, function(err, rc) {
-            if (rc && rc.Items) rc.Items = self.fromDynamoDB(rc.Items);
+            rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
             if (callback) callback(err, rc);
         });
     },

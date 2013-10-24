@@ -28,7 +28,6 @@ DOMAIN=localhost
 [ "$DBDUMP" = "" ] && DBDUMP=backup-db.dump
 [ "$BACKUP" = "" ] && BACKUP=$ROOT/backup
 [ "$MASTER" = "" ] && MASTER=master.$DOMAIN
-[ "$MASTER_API" = "" ] && MASTER_API=master-api.$DOMAIN
 [ "$IMAGES" = "" ] && IMAGES=img.$DOMAIN
 [ "$MAX_IDLETIME" = "" ] && MAX_IDLETIME=900
 [ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
@@ -385,12 +384,11 @@ case "$ARG" in
     ;;
 
   sync-api)
-    # Sync published files for the API clients
-    mkdir -p $ROOT/api
-    su - $LOCAL_USER -c "rsync -aqFF --delete-after -e '$SSH_ARGS' $MASTER_API:$ROOT/api/ $ROOT/api"
+    mkdir -p $ROOT/${ARG:5}
+    su - $LOCAL_USER -c "rsync -aqFF --delete-after -e '$SSH_ARGS' $MASTER:$ROOT/${ARG:5}/ $ROOT/${ARG:5}"
     ;;
 
-  sync-images|sync-reports|sync-web)
+  sync-images|sync-web)
     mkdir -p $ROOT/${ARG:5}
     su - $LOCAL_USER -c "rsync -aqFF -e '$SSH_ARGS' $MASTER:$ROOT/${ARG:5}/ $ROOT/${ARG:5}"
     ;;
@@ -472,7 +470,6 @@ case "$ARG" in
     ;;
     
   run-ddb)
-    killall -qr dynamodb
     (cd $ROOT/var && nohup java -Djava.library.path=$DDB_DIR -jar $DDB_DIR/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
     ;;
     
@@ -499,6 +496,7 @@ case "$ARG" in
     [ ! -e $NODE_BACKEND/bin/rc.backend ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
     mkdir -p bin data/etc
     [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres" > .backendrc 
+    [ ! -e .gitignore ] && echo ".DS_Store\m.settings\n.cproject\n.project\ndata\n*.swp\n*.*~\n.backendrc\n.history\nbin/rc.backend\n" > .gitignore
     [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
     [ ! -e bin/backend ] && echo "#!/bin/bash\nexec $PREFIX/bin/node main.js \$@\n" > bin/backend && chmod 755 bin/backend
     [ ! -e web ] && ln -s $NODE_BACKEND/web
