@@ -26,8 +26,10 @@ var api = {
     // Refuse access to these urls
     deny: null,
     
-    // Account management
+    // Where images are kept
     imagesUrl: '',
+    imagesS3: '',
+    
     tables: { 
         // Authentication by email and secret
         auth: [ { name: 'email', primary: 1 },
@@ -92,6 +94,7 @@ var api = {
     args: ["account-pool", 
            "backend-pool",
            "images-url",
+           "images-s3",
            "access-log",
            { name: "backend", type: "bool" },
            { name: "allow", type: "regexp" },
@@ -384,7 +387,7 @@ var api = {
                 });
                 break;
 
-            case "connection/set":
+            case "connection/put":
                 if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
                 if (req.query.id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
                 // Override primary key properties, the rest of the properties will be added as is
@@ -478,7 +481,7 @@ var api = {
                 
             case "icon/put":
                 // Add icon to the account, support up to 6 icons with types: a,b,c,d,e,f, primary icon type is ''
-                self.putIcon(req, { id: req.account.id, prefix: 'account' , type: req.body.type || req.query.type || '' }, function(err) {
+                self.putIcon(req, { id: req.account.id, prefix: 'account', type: req.body.type || req.query.type || '' }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
@@ -628,7 +631,7 @@ var api = {
         // to define type for each icon
         if (req.files) {
             async.forEachSeries(Object.keys(req.files), function(f, next) {
-                core.putIcon(req.files[f].path, options.id, { prefix: options.prefix, type: req.body[f + '_type'] }, next);
+                core.putIcon(req.files[f].path, options.id, core.addObj(options, 'type', req.body[f + '_type']), next);
             }, function(err) {
                 callback(err);
             });
@@ -640,6 +643,24 @@ var api = {
         } else {
             return callback(new Error("no icon"));
         }
+    },
+    
+    // Same as putIcon but sote the icon in the S3 bucket, icon can be a file or a buffer with image data
+    putIconS3: function(file, id, options, callback) {
+        var self = this;
+        if (typeof options == "function") callback = options, options = null;
+        if (!options) options = {};
+        logger.debug('putIconS3:', id, options);
+        
+        var key = self.iconPath(id, options.prefix, options.type, options.ext);
+        var aws = this.context.aws;
+        backend.resizeImage(file, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, function(err, data) {
+            logger.edebug(err, 'putIconS3:', typeof file == "object" ? file.length : file, w, h, fmt, quality);
+            var headers = { 'content-type': 'image/' + options.ext };
+            aws.queryS3(self.imgesS3, key, { method: "PUT", postdata: data, headers: headers }, function(err) {
+                if (callback) callback(err);
+            });
+        });
     },
     
     // Custom access logger

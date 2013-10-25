@@ -526,7 +526,7 @@ var server = {
         
         if (typeof job == "string") job = core.newObj(job, null);
         if (!Object.keys(job).length) return logger.error('launchJob:', 'no valid jobs:', job);
-        job = core.clone(job);
+        job = core.cloneObj(job);
 
         // Default btime flag for all jobs
         var btime = core.sqlTime();
@@ -640,7 +640,7 @@ var server = {
     checkJob: function(type, job) {
         if (typeof job == "string") job = core.newObj(job, null);
         if (typeof job != "object") return null;
-        job = core.clone(job);
+        job = core.cloneObj(job);
         for (var p in job) if (!this.allowJob(type, p)) delete job[p];
         if (!Object.keys(job).length) return null;
         return job;

@@ -554,7 +554,7 @@ var core = {
     //  - headers - object with headers to pass to HTTP request, properties must be all lower case
     //  - nocookies - do not send any saved cookies
     //  - file - file name where to save response, in case of error response the error body will be saved as well
-    //  - postdata - data to be sent with the POST method
+    //  - postdata - data to be sent with the request in the body
     // On end, the object params will contains the following updated properties:
     //  - data if file was not specified, data eill contain collected response body as string
     //  - status - HTTP response status code
@@ -571,7 +571,7 @@ var core = {
         options.headers = params.headers || {};
         options.agent = params.agent || null;
         options.rejectUnauthorized = false;
-
+        
         // Make sure required headers are set
         if (!options.headers['user-agent']) {
             options.headers['user-agent'] = this.userAgent[this.randomInt(0, this.userAgent.length-1)];
@@ -589,12 +589,44 @@ var core = {
             options.headers['accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
         }
         options.headers['accept-language'] = 'en-US,en;q=0.5';
+        
+        if (params.postdata) {
+            if (options.method == "GET") options.method = "POST";
+            switch (this.typeName(params.postdata)) {
+            case "string":
+            case "buffer":
+                break;
+            case "object":
+                params.postdata = JSON.stringify(params.postdata);
+                options.headers['content-type'] = "application/json";
+                break;
+            default:
+                params.postdata = String(params.postdata);
+            }
+            options.headers['content-length'] = params.postdata.length; 
+        } else
+        if (params.postfile) {
+            if (options.method == "GET") options.method = "POST";
+            headers['transfer-encoding'] = 'chunked';
+            params.poststream = fs.createReadableStream(params.postfile);
+            params.poststream.on("error", function(err) { logger.error('httpGet: stream:', params.postfile, err) });
+        }
+
+        // Make sure our data is not corrupted
+        if (params.checksum) options.checksum = params.postdata ? this.hash(params.postdata) : null;
+        
+        // Sign request using internal backend credentials
+        if (params.sign) {
+            var headers = this.signRequest(this.backendKey, this.backendSecret, options.method, options.hostname, uri, 0, options.checksum);
+            for (var p in headers) options.headers[p] = headers[p];
+        }
+        
         // Runtime properties
         if (!params.retries) params.retries = 0;
         if (!params.redirects) params.redirects = 0;
         if (!params.httpTimeout) params.httpTimeout = 300000;
         if (!params.ignoreredirect) params.ignoreredirect = {};
-        params.size = 0, params.err = null, params.fd = 0, params.status = 0, params.data = '';
+        params.size = 0, params.err = null, params.fd = 0, params.status = 0, params.data = '', params.poststream = null;
         params.href = options.href, params.pathname = options.pathname, params.hostname = options.hostname;
         var req = null;
         var mod = uri.indexOf("https://") == 0 ? https : http;
@@ -604,6 +636,15 @@ var core = {
           res.on("data", function(chunk) {
               logger.dev("httpGet: data", 'size:', chunk.length, '/', params.size, "status:", res.statusCode, 'file:', params.file || '');
 
+              if (params.stream) {
+                  try {
+                      params.stream.write(chunk);
+                  } catch(e) {
+                      if (!params.quiet) logger.error('httpGet:', "stream:", e);
+                      params.err = e;
+                      req.abort();
+                  }
+              } else
               if (params.file) {
                   try {
                       if (!params.fd && res.statusCode >= 200 && res.statusCode < 300) {
@@ -633,6 +674,7 @@ var core = {
               params.mtime = res.headers.date ? new Date(res.headers.date) : null;
               if (!params.size) params.size = self.toNumber(res.headers['content-length'] || 0);
               if (params.fd) try { fs.closeSync(params.fd); } catch(e) {}
+              if (params.stream) try { params.stream.end(params.onfinish); } catch(e) {}
               params.fd = 0;
 
               logger.debug("httpGet: end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '');
@@ -676,15 +718,18 @@ var core = {
             }
             if (callback) callback(err, params, {});
         });
-
-        if (options.method == 'POST') {
-            req.write(String(params.postdata));
-        }
         if (params.httpTimeout) {
             req.setTimeout(params.httpTimeout, function() {
                 if (!params.quiet) logger.error("httpGet:", "timeout:", uri, 'file:', params.file || "", 'retries:', params.retries, 'timeout:', params.httpTimeout);
                 req.abort();
             });
+        }
+        if (params.postdata) {
+            req.write(params.postdata);
+        } else
+        if (params.poststream) {
+            params.poststream.pipe(req);
+            return req;
         }
         req.end();
         return req;
@@ -760,60 +805,39 @@ var core = {
     // - .proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
     // - .queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
     // - .rowid - unique record id to be used in case of queue management
-    // - .data - actual data to be send in POST
-    // - .json - send as application/json content type
     // - .checksum - calculate checksum from the data
-    sendRequest: function(uri, data, options, callback) {
+    sendRequest: function(uri, options, callback) {
         var self = this;
+        if (typeof options == "function") callback = options, options = {};
+        if (!options) options = {};
+        
         // Nothing to do without credentials
         if (!self.backendHost || !self.backendKey || !self.backendSecret) {
             logger.debug('sendRequest:', 'no backend credentials', uri, options);
-            return (callback ? callback(null, { status: 200, message: "", json: { status: 200 } }) : null);
+            return callback ? callback(null, { status: 200, message: "", json: { status: 200 } }) : null;
         }
-
-        if (typeof options == "function") callback = options, options = {};
-        if (!options) options = {};
-
-        var params = { method: "GET", agent: options.agent };
-        var type = "text/plain";
-
-        // Convert data into string
-        if (data) {
-            if (typeof data == "object") data = JSON.stringify(data), type = "application/json";
-            if (typeof data != "string") data = String(data);
-        }
-        // Make sure our data is not corrupted
-        if (options.checksum) {
-            params.checksum = data ? this.hash(data) : null;
-        }
-        // Data can be sent as POST even if it is small
-        if (data) {
-            params.method = 'POST';
-            params.postdata = data;
-        }
-        uri = self.backendHost + uri;
-        var opts = url.parse(uri);
-        params.headers = self.signRequest(self.backendKey, self.backendSecret, params.method, opts.hostname, uri, 0, params.checksum);
-        params.headers['content-type'] = type;
 
         var db = self.context.db;
-        self.httpGet(uri, params, function(err, opts, res) {
+        self.httpGet(self.backendHost + uri, options, function(err, params, res) {
             // Queue management, insert on failure or delete on success
             if (options.queue) {
                 if (params.status == 200) {
-                    if (options.rowid) {
-                        db.query({ text: "DELETE FROM backend_queue WHERE rowid=?", values: [options.rowid] }, function(e) { logger.edebug(e, "sendRequest:", uri); });
+                    if (options.id) {
+                        db.del("backend_queue", { id: options.id });
                     }
                 } else {
-                    if (!options.rowid) {
-                        db.query({ text: "INSERT INTO backend_queue(url,data,mtime) VALUES(?,?,?)", values: [uri, data, self.mnow()] }, function(e) { logger.edebug(e, "sendRequest:", uri); });
+                    if (!options.id) options.id = core.hash(uri + (options.postdata || ""));
+                    options.mtime = self.now();
+                    options.counter = (options.counter || 0) + 1;
+                    if (options.counter > 10) {
+                        db.del("backend_queue", { id: options.id });
                     } else {
-                        db.query({ text: "UPDATE backend_queue SET count=count+1 WHERE rowid=?", values: [options.rowid] }, function(e) { logger.edebug(e, "sendRequest:", uri); });
+                        db.put("backend_queue", options);
                     }
                 }
             }
             // If the contents are encrypted, decrypt before processing content type
-            if (params.headers['content-encoding'] == "encrypted") {
+            if (options.headers['content-encoding'] == "encrypted") {
                 params.data = self.decrypt(self.backendSecret, params.data);
             }
             // Parse JSON and store in the params, set error if cannot be parsed, the caller will deal with it
@@ -855,11 +879,9 @@ var core = {
         var self = this;
         var db = self.context.db;
         
-        db.query("SELECT rowid,url,data FROM backend_queue WHERE count<10 ORDER BY mtime", function(err, rows) {
+        db.select("backend_queue", {}, { sort: "mtime" } , function(err, rows) {
             async.forEachSeries(rows, function(row, next) {
-                self.sendRequest(row.url, row.data, { queue: true, rowid: row.rowid }, function(err2) {
-                    next();
-                });
+                self.sendRequest(row.url, core.addObj(row, "queue", true), function(err2) { next(); });
             }, function(err3) {
                 if (rows.length) logger.log('processQueue:', 'sent', rows.length);
                 if (callback) callback();
@@ -1040,7 +1062,7 @@ var core = {
             p : function(t) { return this.H(t) < 12 ? 'AM' : 'PM'; },
             S : function(t) { return zeropad(utc ? t.getUTCSeconds() : t.getSeconds()) },
             w : function(t) { return utc ? t.getUTCDay() : t.getDay() }, // 0..6 == sun..sat
-            W : function(t) { var d = new Date(t.getFullYear(), 0, 1); return Math.ceil((((t - d) / 86400000) + d.getDay() + 1) / 7); },
+            W : function(t) { var d = utc ? Date.UTC(utc ? t.getUTCFullYear() : t.getFullYear(), 0, 1) : new Date(t.getFullYear(), 0, 1); return Math.ceil((((t - d) / 86400000) + d.getDay() + 1) / 7); },
             y : function(t) { return zeropad(this.Y(t) % 100); },
             Y : function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
             t : function(t) { return t.getTime() },
@@ -1250,7 +1272,7 @@ var core = {
     // Download image and convert into JPG, store under core.path.images
     // Options may be controlled using the properties:
     // - force - force rescaling for all types even if already exists
-    // - types - which icons needs to be created
+    // - type - type for the icon, prepended to the icon id
     // - prefix - where to store all scaled icons
     // - verify - check if the original icon is the same as at the source
     getIcon: function(uri, id, options, callback) {
@@ -1311,49 +1333,28 @@ var core = {
         var self = this;
         if (typeof options == "function") callback = options, options = null;
         if (!options) options = {};
-        if (!callback) callback = function() {};
         logger.debug('putIcon:', id, file, options);
 
         var image = self.iconPath(id, options.prefix, options.type, options.ext);
+        
+        // Filesystem based icon storage, verify local disk
         fs.exists(image, function(yes) {
             // Exists and we do not need to rescale
             if (yes && !options.force) return callback();
             // Make new scaled icon
             self.scaleIcon(file, image, options, function(err) {
                 logger.edebug(err, "putIcon:", id, file, options);
-                callback(err);
+                if (callback) callback(err);
             });
         });
     },
 
-    // Return list of all existing icons by type, if any icon does not exist the corresponding item in the list will be empty
-    listIcon: function(id, options, callback) {
-        var self = this;
-        if (typeof options == "function") callback = options, options = null;
-        if (!options) options = {};
-
-        var files = [];
-        async.forEachSeries(options.types || [''], function(type, next) {
-            var image = self.iconPath(id, options.prefix, type, options.ext);
-            fs.stat(image, function(err, st) {
-                if (err) st = { mtime : new Date("1970-08-09") };
-                st.file = image;
-                st.type = type;
-                files.push(st);
-                next();
-            });
-        }, function() {
-            files.sort(function(a,b) { return !a.type ? -1 : !b.type ? 1 : a.mtime.getTime() - b.mtime.getTime() });
-            callback(files);
-        })
-    },
-    
     // Scale image using ImageMagick into a file, return err if failed
     scaleIcon: function(infile, outfile, options, callback) {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
         backend.resizeImage(infile, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, outfile, function(err2) {
-            logger.edebug(err2, 'scaleIcon:', typeof infile == "object" ? infile.length : infile, outfile, w, h, fmt, quality, stats);
+            logger.edebug(err2, 'scaleIcon:', typeof infile == "object" ? infile.length : infile, outfile, w, h, fmt, quality);
             if (callback) callback(err2);
         });
     },
@@ -1396,7 +1397,7 @@ var core = {
     //   - _skip_null tells to skip all null properties
     //   - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
     // - props can be used to add additional properties to the new object
-    clone: function(obj, filter, props) {
+    cloneObj: function(obj, filter, props) {
         var rc = {};
         switch (this.typeName(obj)) {
         case "object":
@@ -1426,17 +1427,12 @@ var core = {
             }
             if ((obj[p] == null || typeof obj[p] == "undefined") && filter._skip_null) continue;
             if (filter._skip_cb && filter._skip_cb(p, obj[p])) continue;
-            rc[p] = this.clone(obj[p], filter);
+            rc[p] = this.cloneObj(obj[p], filter);
         }
         for (var p in props) rc[p] = props[p];
         return rc;
     },
 
-    // JSON stringify without empty properties
-    stringify: function(obj) {
-        return JSON.stringify(this.clone(obj, { _skip_null: 1, _skip_cb: function(n,v) { return v == "" } }));
-    },
-    
     // Return new object using arguments as name value pairs for new object properties
     newObj: function() {
         var obj = {};
@@ -1458,6 +1454,11 @@ var core = {
         return arguments[0];
     },
 
+    // JSON stringify without empty properties
+    stringify: function(obj) {
+        return JSON.stringify(this.cloneObj(obj, { _skip_null: 1, _skip_cb: function(n,v) { return v == "" } }));
+    },
+    
     // Parse one cookie
     cookieParse: function(str) {
         var parts = str.split(";");

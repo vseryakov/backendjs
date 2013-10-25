@@ -50,9 +50,10 @@ var db = {
                                  { name: 'value', primary: 1 }, 
                                  { name: 'expires' } ],
                                  
-              backend_queue: [ { name: 'url' }, 
-                               { name: 'data' }, 
-                               { name: 'count', type: 'int', value: '0'}, 
+              backend_queue: [ { name: 'id', primary: 1 },
+                               { name: 'url' }, 
+                               { name: 'postdata' }, 
+                               { name: 'counter', type: 'int' }, 
                                { name: 'mtime' } ],
                                
               backend_jobs: [ { name: 'id', primary: 1 }, 
@@ -185,7 +186,7 @@ var db = {
             case "upgrade": return self.sqlUpgrade(table, obj, opts);
             case "list": 
             case "select": return self.sqlSelect(table, obj, opts);
-            case "get": return self.sqlSelect(table, obj, self.clone(opts, {}, { count: 1 }));
+            case "get": return self.sqlSelect(table, obj, self.cloneObj(opts, {}, { count: 1 }));
             case "add": return self.sqlInsert(table, obj, opts);
             case "put": return self.sqlInsert(table, obj, core.addObj(opts || {}, 'replace', 1));
             case "update": return self.sqlUpdate(table, obj, opts);
@@ -219,7 +220,7 @@ var db = {
         this.query(req, options, callback);
     },
 
-    // Add/update an object in the database, if object already exists it will be replaced with all new properties
+    // Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj
     put: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
         
@@ -282,7 +283,7 @@ var db = {
         }
 
         // Create deep copy of the object so we have it complete inside the callback
-        obj = this.clone(obj);
+        obj = this.cloneObj(obj);
 
         self.query(req, function(err, rows) {
             if (err) return callback ? callback(err, []) : null;
@@ -1431,7 +1432,7 @@ var db = {
                 
             case "add":
                 // Add only listed columns if there is a .columns property specified
-                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
+                var o = self.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
                 options.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
                 aws.ddbPutItem(table, o, options, function(err, rc) {
                     callback(err, []);
@@ -1440,7 +1441,7 @@ var db = {
 
             case "put":
                 // Add/put only listed columns if there is a .columns property specified
-                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
+                var o = self.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
                 aws.ddbPutItem(table, o, options, function(err, rc) {
                     callback(err, []);
                 });
@@ -1449,7 +1450,7 @@ var db = {
             case "update":
                 var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 // Skip special columns, nulls, primary key columns. If we have specific list of allowed columns only keep those.
-                var o = self.clone(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n] || (options.columns && !(n in options.columns)); } });
+                var o = self.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n] || (options.columns && !(n in options.columns)); } });
                 options.expected = keys;
                 aws.ddbUpdateItem(table, keys, o, options, function(err, rc) {
                     callback(err, []);

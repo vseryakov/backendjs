@@ -31,7 +31,7 @@ var aws = {
     // Make AWS request, return parsed response as Javascript object or null in case of error
     queryAWS: function(proto, method, host, path, obj, callback) {
         var curTime = new Date();
-        var formattedTime = core.strftime(curTime, "%Y-%m-%dT%H:%M:%SZ", true);
+        var formattedTime = curTime.toISOString().replace(/\.[0-9]+Z$/, 'Z');
         var sigValues = new Array();
         sigValues.push(["AWSAccessKeyId", this.key]);
         sigValues.push(["SignatureMethod", "HmacSHA256"]);
@@ -145,7 +145,7 @@ var aws = {
         if (headers["content-type"] && headers["content-type"].indexOf("charset=") == -1) headers["content-type"] += "; charset=utf-8";
 
         // Construct the string to sign and query string
-        var strSign = method + "\n" + (headers['content-md5']  || "") + "\n" + (headers['content-type'] || "") + "\n" + (expires || "") + "\n";
+        var strSign = (method || "GET") + "\n" + (headers['content-md5']  || "") + "\n" + (headers['content-type'] || "") + "\n" + (expires || "") + "\n";
 
         // Amazon canonical headers
         var hdrs = [];
@@ -164,7 +164,7 @@ var aws = {
                          "response-content-type", "response-content-language", "response-expires",
                          "response-cache-control", "response-content-disposition", "response-content-encoding" ];
         var rclist = [];
-        var a = query.split("?");
+        var a = (query || "").split("?");
         if (a[1]) a = a[1].split("&");
         for (var i = 0; i < a.length; ++i) {
             var parts = a[i].split("=");
@@ -175,7 +175,7 @@ var aws = {
         var signature = core.sign(this.secret, strSign);
         headers["authorization"] = "AWS " + this.key + ":" + signature;
 
-        var uri = 'http://' + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + query;
+        var uri = 'http://' + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + (query || "");
         // Build REST url if expires is given, no need to send headers
         if (expires) {
             uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Expires=" + expires + "&Signature=" + encodeURIComponent(signature);
@@ -184,33 +184,14 @@ var aws = {
         return uri;
     },
     
-    downloadS3: function (bucket, key, query, options, callback) {
+    // S3 requests, optional query params can be specified in options.query
+    queryS3: function(bucket, key, options, callback) {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
-        var headers = {};
-        var uri = this.signS3("GET", bucket, key, query, headers);
-        core.httpGet(uri, { headers: headers, file: options.file }, function(err, params) {
-            if (params.status != 200) logger.debug('downloadS3:', uri, params.status, params.data);
-            if (callback) callback(err, params);
-        });
-    },
-
-    uploadS3: function(bucket, key, query, options, callback) {
-        if (typeof options == "function") callback = options, options = {};
-        if (!options) options = {};
-        var headers = {};
-        if (options.data) headers['content-length'] = options.data.length;
-        if (options.file) headers['content-length'] = core.statsync(options.file).size;
-        var uri = this.signS3("PUT", bucket, key, query, headers);
-    },
-
-    queryS3: function(method, bucket, key, query, options, callback) {
-        if (typeof options == "function") callback = options, options = {};
-        if (!options) options = {};
-        var headers = {};
-        var uri = this.signS3(method, bucket, key, query, headers);
-        core.httpGet(uri, { method: method, postdata: options.data, headers: headers }, function(err, params) {
-            if (params.status != 200) logger.debug('queryS3:', uri, params.data);
+        if (!options.headers) options.headers = {};
+        var uri = this.signS3(options.method, bucket, key, options.query, options.headers);
+        core.httpGet(uri, options, function(err, params) {
+            if (params.status != 200) logger.error('queryS3:', uri, params.status, params.data);
             if (callback) callback(err, params);
         });
     },
@@ -627,7 +608,7 @@ var aws = {
     },
 
     // Query on a table, return all matching items
-    // - keys is an object with name: value pairs for key condition
+    // - condition is an object with name: value pairs for EQ condition or name: [op, value] for other conditions
     // - options may contain any valid native property if it starts with capital letter or special property:
     //   - start or page - defines starting primary key when paginating
     //   - consistent - set consistency level for the request
@@ -637,7 +618,7 @@ var aws = {
     //   - desc - descending order
     //   - sort - index name to use, indexes are named the same as the corresponding column
     // Example: ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name' })
-    ddbQueryTable: function(name, keys, options, callback) {
+    ddbQueryTable: function(name, condition, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
@@ -666,29 +647,27 @@ var aws = {
         if (options.total) {
             params.Select = "COUNT";
         }
-        if (condition) {
-            for (var name in condition) {
-                var args = condition[name];
-                if (!Array.isArray(args) || args.length < 2) args = [ 'eq', args ];
-                var op = { AttributeValueList: [], ComparisonOperator: args[0].toUpperCase() }
-                switch (args[0].toLowerCase()) {
-                case 'between':
-                    if (args.length < 3) continue;
-                    op.AttributeValueList.push(self.toDynamoDB(args[1]));
-                    op.AttributeValueList.push(self.toDynamoDB(args[2]));
-                    break;
+        for (var name in condition) {
+            var args = condition[name];
+            if (!Array.isArray(args) || args.length < 2) args = [ 'eq', args ];
+            var op = { AttributeValueList: [], ComparisonOperator: args[0].toUpperCase() }
+            switch (args[0].toLowerCase()) {
+            case 'between':
+                if (args.length < 3) continue;
+                op.AttributeValueList.push(self.toDynamoDB(args[1]));
+                op.AttributeValueList.push(self.toDynamoDB(args[2]));
+                break;
 
-                case 'eq':
-                case 'le':
-                case 'lt':
-                case 'ge':
-                case 'gt':
-                case 'begins_with':
-                    op.AttributeValueList.push(self.toDynamoDB(args[1]));
-                    break;
-                }
-                params.KeyConditions[name] = op;
+            case 'eq':
+            case 'le':
+            case 'lt':
+            case 'ge':
+            case 'gt':
+            case 'begins_with':
+                op.AttributeValueList.push(self.toDynamoDB(args[1]));
+                break;
             }
+            params.KeyConditions[name] = op;
         }
         this.queryDDB('Query', params, options, function(err, rc) {
             rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
@@ -712,29 +691,27 @@ var aws = {
         if (options.start) {
             params.ExclusiveStartKey = self.toDynamoDB(options.start);
         }
-        if (condition) {
-            for (var name in condition) {
-                var args = condition[name];
-                if (!Array.isArray(args) || args.length < 2) args = [ 'eq', args ];
-                var op = { AttributeValueList: [], ComparisonOperator: args[0].toUpperCase() }
-                switch (args[0].toLowerCase()) {
-                case 'between':
-                    if (args.length < 3) continue;
-                    op.AttributeValueList.push(self.toDynamoDB(args[1]));
-                    op.AttributeValueList.push(self.toDynamoDB(args[2]));
-                    break;
+        for (var name in condition) {
+            var args = condition[name];
+            if (!Array.isArray(args) || args.length < 2) args = [ 'eq', args ];
+            var op = { AttributeValueList: [], ComparisonOperator: args[0].toUpperCase() }
+            switch (args[0].toLowerCase()) {
+            case 'between':
+                if (args.length < 3) continue;
+                op.AttributeValueList.push(self.toDynamoDB(args[1]));
+                op.AttributeValueList.push(self.toDynamoDB(args[2]));
+                break;
 
-                case 'eq':
-                case 'le':
-                case 'lt':
-                case 'ge':
-                case 'gt':
-                case 'begins_with':
-                    op.AttributeValueList.push(self.toDynamoDB(args[1]));
-                    break;
-                }
-                params.ScanFilter[name] = op;
+            case 'eq':
+            case 'le':
+            case 'lt':
+            case 'ge':
+            case 'gt':
+            case 'begins_with':
+                op.AttributeValueList.push(self.toDynamoDB(args[1]));
+                break;
             }
+            params.ScanFilter[name] = op;
         }
         this.queryDDB('Scan', params, options, function(err, rc) {
             rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
