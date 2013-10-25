@@ -20,6 +20,7 @@ var aws = {
     name: 'aws',
     args: [ "key", "secret", "region", "keypair", "image", "instance", "dynamodb-host", { name: "nometadata", type: "bool" }],
     region: 'us-east-1',
+    s3: "s3.amazonaws.com",
     instance: "t1.micro",
 
     // Initialization to be run inside core.init in master mode only
@@ -135,6 +136,85 @@ var aws = {
         });
     },
 
+    // Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well
+    signS3: function(method, bucket, key, query, headers, expires) {
+        var curTime = new Date().toUTCString();
+        if (!headers["x-amz-date"]) headers["x-amz-date"] = curTime;
+        if (!headers["content-type"]) headers["content-type"] = "binary/octet-stream; charset=utf-8";
+        if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
+        if (headers["content-type"] && headers["content-type"].indexOf("charset=") == -1) headers["content-type"] += "; charset=utf-8";
+
+        // Construct the string to sign and query string
+        var strSign = method + "\n" + (headers['content-md5']  || "") + "\n" + (headers['content-type'] || "") + "\n" + (expires || "") + "\n";
+
+        // Amazon canonical headers
+        var hdrs = [];
+        for (var p in headers) {
+            if (/X-AMZ-/i.test(p)) {
+                var value = headers[p];
+                if (value instanceof Array) value = value.join(',');
+                hdrs.push(p.toString().toLowerCase() + ':' + value);
+            }
+        }
+        if (hdrs.length) strSign += hdrs.sort().join('\n') + "\n";
+        // Split query string for subresources, supported are:
+        var resources = ["acl", "lifecycle", "location", "logging", "notification", "partNumber", "policy", "requestPayment", "torrent",
+                         "uploadId", "uploads", "versionId", "versioning", "versions", "website", "cors",
+                         "delete",
+                         "response-content-type", "response-content-language", "response-expires",
+                         "response-cache-control", "response-content-disposition", "response-content-encoding" ];
+        var rclist = [];
+        var a = query.split("?");
+        if (a[1]) a = a[1].split("&");
+        for (var i = 0; i < a.length; ++i) {
+            var parts = a[i].split("=");
+            var p = parts[0].toLowerCase();
+            if (resources.indexOf(p) != -1) rclist.push(p + (!parts[1] ? "" : "=" + parts[1]));
+        }
+        strSign += (bucket ? "/" + bucket : "").toLowerCase() + (key[0] != "/" ? "/" : "") + encodeURI(key) + (rclist.length ? "?" : "") + rclist.sort().join("&");
+        var signature = core.sign(this.secret, strSign);
+        headers["authorization"] = "AWS " + this.key + ":" + signature;
+
+        var uri = 'http://' + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + query;
+        // Build REST url if expires is given, no need to send headers
+        if (expires) {
+            uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Expires=" + expires + "&Signature=" + encodeURIComponent(signature);
+        }
+        logger.debug('signS3:', uri, headers);
+        return uri;
+    },
+    
+    downloadS3: function (bucket, key, query, options, callback) {
+        if (typeof options == "function") callback = options, options = {};
+        if (!options) options = {};
+        var headers = {};
+        var uri = this.signS3("GET", bucket, key, query, headers);
+        core.httpGet(uri, { headers: headers, file: options.file }, function(err, params) {
+            if (params.status != 200) logger.debug('downloadS3:', uri, params.status, params.data);
+            if (callback) callback(err, params);
+        });
+    },
+
+    uploadS3: function(bucket, key, query, options, callback) {
+        if (typeof options == "function") callback = options, options = {};
+        if (!options) options = {};
+        var headers = {};
+        if (options.data) headers['content-length'] = options.data.length;
+        if (options.file) headers['content-length'] = core.statsync(options.file).size;
+        var uri = this.signS3("PUT", bucket, key, query, headers);
+    },
+
+    queryS3: function(method, bucket, key, query, options, callback) {
+        if (typeof options == "function") callback = options, options = {};
+        if (!options) options = {};
+        var headers = {};
+        var uri = this.signS3(method, bucket, key, query, headers);
+        core.httpGet(uri, { method: method, postdata: options.data, headers: headers }, function(err, params) {
+            if (params.status != 200) logger.debug('queryS3:', uri, params.data);
+            if (callback) callback(err, params);
+        });
+    },
+    
     // Run AWS instances with given arguments in user-data
     runInstances: function(count, args, callback) {
         var self = this;

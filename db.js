@@ -171,7 +171,7 @@ var db = {
             // need to destroy the client, not return to the pool
             client.pool_serial = this.serial;
             client.pool_name = this.name;
-            logger.log('pool:', 'open', this.name, "#", this.serial);
+            logger.debug('pool:', 'open', this.name, "#", this.serial);
         }
         // Call column caching callback with our pool name
         pool.cacheColumns = function(callback) {
@@ -395,7 +395,7 @@ var db = {
                     return callback ? callback(err2, rows) : null;
                 }
                 if (req.filter) rows = rows.filter(function(row) { return req.filter.call(opts, row); });
-                logger.log("dbQuery:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "");
+                logger.debug("dbQuery:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "");
                 if (callback) callback(err, rows, info);
             });
         });

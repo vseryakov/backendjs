@@ -61,7 +61,7 @@ var api = {
                    { name: "mtime", type: "int" } ],
                    
        // Locations for all accounts to support distance searches
-       location: [ { name: "geohash", primary: 1 },                // geohash[0-2]
+       location: [ { name: "geohash", primary: 1 },                // geohash[0-3]
                    { name: "id", primary: 1 },                     // geohash[3-8]:account_id
                    { name: "latitude", type: "real" },
                    { name: "longitude", type: " real" },
@@ -320,7 +320,7 @@ var api = {
                 req.query.id = req.account.id;
                 req.query.email = req.account.email;
                 // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
-                ["secret","ctime","ltime","latitude","longitude","geohash","location"].forEach(function(x) { delete req.query[x] });
+                ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
                 db.update("account", req.query, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                 });
@@ -375,8 +375,8 @@ var api = {
                 
             case "location/list":
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-                if (!req.query.distance) return self.sendReply(res, 400, "Distance is required (km)");
                 req.query.distance = core.toNumber(req.query.distance);
+                if (req.query.distance < 5) return self.sendReply(res, 400, "Distance is required (5 km min)");
                 var geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
                 db.select("location", { geohash: geohash.substr(0, 3), id: geohash.substr(3) }, { pool: self.accountPool, select: "id,latitude,longitude" }, function(err, rows) {
                     rows = rows.filter(function(x) { return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= req.query.distance });
