@@ -531,7 +531,7 @@ case "$ARG" in
     git clone https://github.com/joyent/node.git
     (cd node && git checkout v0.10 && ./configure --prefix=$PREFIX && make install)
 
-    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs
+    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs mime
     
     git clone https://github.com/nanomsg/nanomsg.git
     (cd nanomsg && ./configure --prefix=$PREFIX && make install)

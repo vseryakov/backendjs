@@ -163,19 +163,16 @@ var aws = {
                          "delete",
                          "response-content-type", "response-content-language", "response-expires",
                          "response-cache-control", "response-content-disposition", "response-content-encoding" ];
-        var rclist = [];
-        var a = (query || "").split("?");
-        if (a[1]) a = a[1].split("&");
-        for (var i = 0; i < a.length; ++i) {
-            var parts = a[i].split("=");
-            var p = parts[0].toLowerCase();
-            if (resources.indexOf(p) != -1) rclist.push(p + (!parts[1] ? "" : "=" + parts[1]));
+        var rc = [];
+        for (p in query) {
+            p = p.toLowerCase();
+            if (resources.indexOf(p) != -1) rc.push(p + (query[p] == null ? "" : "=" + query[p]));
         }
-        strSign += (bucket ? "/" + bucket : "").toLowerCase() + (key[0] != "/" ? "/" : "") + encodeURI(key) + (rclist.length ? "?" : "") + rclist.sort().join("&");
+        strSign += (bucket ? "/" + bucket : "").toLowerCase() + (key[0] != "/" ? "/" : "") + encodeURI(key) + (rc.length ? "?" : "") + rc.sort().join("&");
         var signature = core.sign(this.secret, strSign);
         headers["authorization"] = "AWS " + this.key + ":" + signature;
 
-        var uri = 'http://' + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + (query || "");
+        var uri = 'http://' + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + url.format({ query: query });
         // Build REST url if expires is given, no need to send headers
         if (expires) {
             uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Expires=" + expires + "&Signature=" + encodeURIComponent(signature);
@@ -184,12 +181,18 @@ var aws = {
         return uri;
     },
     
-    // S3 requests, optional query params can be specified in options.query
+    // S3 requests
+    // Options may contain the following properties:
+    // - method - HTTP method
+    // - query - query parameters for the url as an object
+    // - postdata - anyd data to be sent with POST
+    // - expires - absolute time when this request is expires
+    // - headers - HTTP headers to be sent with request
     queryS3: function(bucket, key, options, callback) {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
         if (!options.headers) options.headers = {};
-        var uri = this.signS3(options.method, bucket, key, options.query, options.headers);
+        var uri = this.signS3(options.method, bucket, key, options.query, options.headers, options.expires);
         core.httpGet(uri, options, function(err, params) {
             if (params.status != 200) logger.error('queryS3:', uri, params.status, params.data);
             if (callback) callback(err, params);

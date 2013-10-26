@@ -379,9 +379,9 @@ var api = {
             case "location/list":
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 req.query.distance = core.toNumber(req.query.distance);
-                if (req.query.distance < 5) return self.sendReply(res, 400, "Distance is required (5 km min)");
+                if (req.query.distance <= 0) return self.sendReply(res, 400, "Distance is required");
                 var geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
-                db.select("location", { geohash: geohash.substr(0, 3), id: geohash.substr(3) }, { pool: self.accountPool, select: "id,latitude,longitude" }, function(err, rows) {
+                db.select("location", { geohash: geohash.substr(0, 3), id: geohash.substr(3, 1) }, { pool: self.accountPool, select: "id,latitude,longitude" }, function(err, rows) {
                     rows = rows.filter(function(x) { return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= req.query.distance });
                     res.json(rows);
                 });
@@ -646,18 +646,17 @@ var api = {
     },
     
     // Same as putIcon but sote the icon in the S3 bucket, icon can be a file or a buffer with image data
-    putIconS3: function(file, id, options, callback) {
-        var self = this;
+    putIconS3: function(bucket, file, id, options, callback) {
         if (typeof options == "function") callback = options, options = null;
         if (!options) options = {};
         logger.debug('putIconS3:', id, options);
         
-        var key = self.iconPath(id, options.prefix, options.type, options.ext);
         var aws = this.context.aws;
+        var key = core.iconPath(id, options.prefix, options.type, options.ext);
         backend.resizeImage(file, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, function(err, data) {
             logger.edebug(err, 'putIconS3:', typeof file == "object" ? file.length : file, w, h, fmt, quality);
-            var headers = { 'content-type': 'image/' + options.ext };
-            aws.queryS3(self.imgesS3, key, { method: "PUT", postdata: data, headers: headers }, function(err) {
+            var headers = { 'content-type': 'image/' + (options.ext == "jpg" ? "jpeg" : options.ext) };
+            aws.queryS3(bucket, key, { method: "PUT", postdata: data, headers: headers }, function(err) {
                 if (callback) callback(err);
             });
         });

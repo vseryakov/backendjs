@@ -555,6 +555,8 @@ var core = {
     //  - nocookies - do not send any saved cookies
     //  - file - file name where to save response, in case of error response the error body will be saved as well
     //  - postdata - data to be sent with the request in the body
+    //  - postfile - file to be uploaded in the POST body, not as multipart
+    //  - query - aditional query parameters to be added to the url as an object or as encoded string
     // On end, the object params will contains the following updated properties:
     //  - data if file was not specified, data eill contain collected response body as string
     //  - status - HTTP response status code
@@ -614,6 +616,12 @@ var core = {
 
         // Make sure our data is not corrupted
         if (params.checksum) options.checksum = params.postdata ? this.hash(params.postdata) : null;
+        
+        // Aditional query parameters as an object
+        var qtype = this.typeName(params.query);
+        var query = url.format({ query: qtype == "object" ? params.query: null, search: qtype == "string" ? params.query: null });
+        if (query[0] == "?" && uri.indexOf("?") > -1) query = query.substr(1);     
+        uri += query;
         
         // Sign request using internal backend credentials
         if (params.sign) {
