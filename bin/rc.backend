@@ -511,7 +511,7 @@ case "$ARG" in
     ;;
     
   clean-dev)
-    rm -rf *~ *.o *.a *.so *.dylib *.node 
+    rm -rf *~ *.o *.a *.so *.dylib *.node *.log
     [ -e node ] && rm -rf node/build
     [ -f lib/Makefile ] && make -C lib clean
     [ -f pg/Makefile ] && make -C pg clean

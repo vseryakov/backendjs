@@ -112,7 +112,15 @@ var db = {
         });
     },
     
-    // Create a database pool with creation and columns caching callbacks
+    // Create a database pool
+    // - options - an object defining the pool, the following properties define the pool:
+    //   - pool - pool name/type, of not specified sqlite is used
+    //   - max - max number of clients to be allocated in the pool
+    //   - idle - after how many milliseconds an idle client will be destroyed
+    // - cratecb - a callbacl to be called when actual database client needs to be created, the callback signature is
+    //     function(options, callback) and will be called with first arg an error object and second arg is the database instance
+    // - cachecb - a callback for caching database tables and columns
+    // - valuecb - a callback that performs value transformation if necessary for the bind parameters
     initPool: function(options, createcb, cachecb, valuecb) {
         var self = this;
         if (!options) options = {};
@@ -213,6 +221,7 @@ var db = {
     },
     
     // Insert new object into the database
+    // - obj - an object with properties for the record, primary key properties must be supplied
     add: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
@@ -221,6 +230,8 @@ var db = {
     },
 
     // Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj
+    // - obj - an object with record properties, primary key properties must be specified
+    // - options - same propetties as for .select method
     put: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
         
@@ -232,7 +243,9 @@ var db = {
         this.query(req, options, callback);
     },
     
-    // Update existing object in the database
+    // Update existing object in the database.
+    // - obj - is an actual record to be updated, primary key properties must be specified
+    // - options - same properties as for .select method
     update: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
@@ -240,7 +253,9 @@ var db = {
         this.query(req, options, callback);
     },
 
-    // Delete object in the database
+    // Delete object in the database, no error if the object does not exist
+    // - obj - an object with primary key properties only, other properties will be ignored
+    // - options - same propetties as for .select method
     del: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
@@ -248,15 +263,14 @@ var db = {
         this.query(req, options, callback);
     },
 
-    // Insert or update the record, check by primary key existence, due to callback the add/put may be delayed.
-    // Parameters:
-    //  - obj is a Javascript object with properties that correspond to the table columns
-    //  - options define additional flags that may
-    //    - keys is list of column names to be used as primary key when looking for updating the record, if not specified
-    //      then default primary keys for the table will be used
-    //    - check_mtime defines a column name to be used for checking modification time and skip if not modified, must be a date value
-    //    - check_data tell to verify every value in the given object with actual value in the database and skip update if the record is the same, if it is an array
-    //      then check only specified columns
+    // Insert or update the object, check existence by the primary key or by othe keys specified.
+    // - obj is a Javascript object with properties that correspond to the table columns
+    // - options define additional flags that may
+    //   - keys is list of column names to be used as primary key when looking for updating the record, if not specified
+    //     then default primary keys for the table will be used
+    //   - check_mtime defines a column name to be used for checking modification time and skip if not modified, must be a date value
+    //   - check_data tell to verify every value in the given object with actual value in the database and skip update if the record is the same, if it is an array
+    //     then check only specified columns
     replace: function(table, obj, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options,options = {};
@@ -308,11 +322,13 @@ var db = {
         });
     },
 
-    // Select objects from the database
-    // 1. obj is an object with primary key propeties set for the condition, all matching records will be returned
-    // 2. obj is a list where each item is an object with primary key condition. Only records specified in the list must be returned.
+    // Select objects from the database that match supplied conditions.
+    // - obj - can be an object with primary key propeties set for the condition, all matching records will be returned
+    // - obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
     // Options can use the following special propeties:
     //  - keys - a list of columns for condition or all primary keys
+    //  - ops - operators to use for comparison for properties, an object
+    //  - types - type mapping between supplied and actual column types, an object
     //  - select - a list of columns or expressions to return or all columns
     //  - start - start records ith this primary key
     //  - count - how many records to return
@@ -335,6 +351,7 @@ var db = {
     // Options can use the follwoing special properties:
     //  - keys - a list of columns for condition or all primary keys
     //  - select - a list of columns or expressions to return or *
+    //  - op - operators to use for comparison for properties
     get: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
@@ -342,7 +359,7 @@ var db = {
         this.query(req, options, callback);
     },
 
-    // Retrieve cached result or put a record into the cache
+    // Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
     // Options accept the same parameters as for the usual get action.
     getCached: function(table, obj, options, callback) {
         var self = this;
@@ -372,13 +389,14 @@ var db = {
    
     },
     
-    // Execute SQL query in the database pool
-    // sql can be a string or an object with the following properties:
-    // - .text - SQL statement
-    // - .values - parameter values for sql bindings
+    // Execute query using native database driver, the query is passed directly to the driver.
+    // - req - can be a string or an object with the following properties:
+    // - .text - SQL statement or other query
+    // - .values - parameter values for sql bindings or other driver specific data
     // - .filter - function to filter rows not to be included in the result, return false to skip row, args are: (ctx, row)
     // Callback is called with the following params:
-    //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid and affected_rows:
+    //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,last_evaluated_key
+    //    rows is always returned as a list, even in case of error it is an empty list
     query: function(req, options, callback) { 
         if (typeof options == "function") callback = options, options = {};
         if (core.typeName(req) != "object") req = { text: req };
@@ -402,7 +420,18 @@ var db = {
         });
     },
 
-    // Create SQL table, obj is a list with column definitions
+    // Create a table using column definitions represented as a list of objects. Each column definiton can
+    // contain the following properties:
+    // - name - column name
+    // - type - column type, one of: int, real, string or other supported type
+    // - primary - column is part of the primary key
+    // - unique - column is part of an unique key
+    // - index - column is part of an index
+    // - value - default value for the column
+    // - pub - columns is public
+    // - semipub - column is not public but still retrieved to support other public columns
+    // - hashindex - index that consists from primary key hash and this column for range
+    // Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2
     create: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
@@ -419,12 +448,14 @@ var db = {
         this.query(req, options, callback);
     },
     
-    // Prepare for execution, SQL,...
+    // Prepare for execution for the given operation: add, del, put, update,...
+    // Returns prepared object to be passed to the driver's .query method.
     prepare: function(op, table, obj, options) {
         return this.getPool(options).prepare(op, table, obj, options);
     },
 
-    // Return possibly converted value to be used for inserting/updating values in the database, used for SQL parametrized statements
+    // Return possibly converted value to be used for inserting/updating values in the database, 
+    // is used for SQL parametrized statements
     value: function(options, val, vopts) {
         return this.getPool(options).value(val, vopts);
     },
@@ -434,7 +465,7 @@ var db = {
         return this.dbpool[typeof options == "object" && options.pool ? options.pool : "sqlite"] || this.nopool || {};
     },
 
-    // Return cached columns for a table or null, column sis an object with column names and objets for definiton
+    // Return cached columns for a table or null, column is an object with column names and objects for definiton
     getColumns: function(table, options) {
         return this.getPool(options).dbcolumns[table.toLowerCase()];
     },
@@ -449,7 +480,7 @@ var db = {
         this.getPool(options).cacheColumns(callback);
     },
     
-    // Convert column definition list used in dbCreate into the format used by internal db pool functions
+    // Convert column definition list used in db.create into the format used by internal db pool functions
     convertColumns: function(cols) {
         return (cols || []).reduce(function(x,y) { x[y.name] = y; return x }, {});
     },
@@ -467,7 +498,7 @@ var db = {
     
     // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
     // .pub property means public column
-    // .semupub means not allowed but must be returned for calculations in the select to produce another public column
+    // .semipub means not allowed but must be returned for calculations in the select to produce another public column
     // options may be used to define the column list as property columns instead of cached columns for a table
     publicColumns: function(table, options) {
         if (options && Array.isArray(options.columns)) {
@@ -686,18 +717,19 @@ var db = {
     },
 
     // Given columns definition object, build SQL query using values from the values object, all conditions are joined using AND,
-    // each column is defined as object with the following properties:
-    //  name - column name, also this is the key to use in the values object to get value by
-    //  col - actual column name to use in the SQL
-    //  alias - optional table prefix if multiple tables involved
-    //  value - default value
-    //  type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr
-    //  op - any valid SQL operation: =,>,<, between, like, not like, in, not in, ~*,.....
-    //  group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)
-    //  always - only use default value if true
-    //  required - value default or supplied must be in the query, otherwise return empty SQL
-    //  search - aditional name for a value, for cases when generic field is used for search but we search specific column
-    // params if given will contain values for binding parameters
+    // - columns is a list of objects with the following properties:
+    //   - name - column name, also this is the key to use in the values object to get value by
+    //   - col - actual column name to use in the SQL
+    //   - alias - optional table prefix if multiple tables involved
+    //   - value - default value
+    //   - type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr
+    //   - op - any valid SQL operation: =,>,<, between, like, not like, in, not in, ~*,.....
+    //   - group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)
+    //   - always - only use default value if true
+    //   - required - value default or supplied must be in the query, otherwise return empty SQL
+    //   - search - aditional name for a value, for cases when generic field is used for search but we search specific column
+    // - values - actual values for the condition as an object
+    // - params if given will contain values for binding parameters
     sqlFilter: function(columns, values, params) {
         var all = [], groups = {};
         if (!values) values = {};
@@ -806,8 +838,13 @@ var db = {
         return rc;
     },
 
-    // Build SQL where condition from the keys and object values, return object with .values and .cond properties, idx is the starting index for
-    // parameters, default is 1
+    // Build SQL where condition from the keys and object values, returns object with .values and .cond properties.
+    // - obj - an object record properties
+    // - keys - a list of primary key columns
+    // - idx - the starting index for bind parameters, default is 1.
+    // - options may contains the following properties:
+    //   - ops - object for other comparison operators for properties
+    //   - pool - pool to be used for driver specific functions
     sqlWhere: function(obj, keys, idx, options) {
         var self = this;
         if (!options) options = {};
@@ -853,14 +890,14 @@ var db = {
 
     // Create SQL table using column definition list with properties:
     // - name - column name
-    // - type - type of the column, default is TEXT, options: int, real
+    // - type - type of the column, default is TEXT, options: int, real or other supported type
     // - value - default value for the column
     // - primary - part of the primary key
     // - unique - part of the unique key
     // - index - regular index
-    // - hashindex - index that consist from primary key hash and range
+    // - hashindex - unique index that consist from primary key hash and range
     // options may contains:
-    // - map - type mapping, convert lowecase type naem into other type for any specific database
+    // - types - type mapping, convert lowecase type into other type for any specific database
     sqlCreate: function(table, obj, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -872,7 +909,7 @@ var db = {
                    obj.filter(function(x) { return x.name }).
                        map(function(x) { 
                            return x.name + " " + 
-                           (function(t) { return (options.map || {})[t] || t })(x.type || "text") + " " + 
+                           (function(t) { return (options.types || {})[t] || t })(x.type || "text") + " " + 
                            (typeof x.value != "undefined" ? "DEFAULT " + self.sqlValue(x.value, x.type) : "") }).join(",") + " " +
                    (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(items('primary')) + ");";
         
@@ -887,7 +924,7 @@ var db = {
         return { text: sql, values: [] };
     },
     
-    // Create ALTER TABLE ADD COLUMN statemwnts for missing columns
+    // Create ALTER TABLE ADD COLUMN statements for missing columns
     sqlUpgrade: function(table, obj, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -898,7 +935,7 @@ var db = {
         var sql = obj.filter(function(x) { return x.name && !(x.name in dbcols) }).
                       map(function(x) { 
                           return "ALTER TABLE " + table + " ADD COLUMN " + x.name + " " + 
-                          (function(t) { return (options.map || {})[t] || t })(x.type || "text") + " " + 
+                          (function(t) { return (options.types || {})[t] || t })(x.type || "text") + " " + 
                           (typeof x.value != "undefined" ? "DEFAULT " + self.sqlValue(x.value, x.type) : "") }).join(";");
         if (sql) sql += ";";
         
@@ -1018,7 +1055,7 @@ var db = {
         return req;
     },
 
-    // Build SQL statement for deleyte
+    // Build SQL statement for delete
     sqlDelete: function(table, obj, options) {
         if (!options) options = {};
         var keys = options.keys;

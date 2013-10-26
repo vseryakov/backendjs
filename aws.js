@@ -611,7 +611,7 @@ var aws = {
     },
 
     // Query on a table, return all matching items
-    // - condition is an object with name: value pairs for EQ condition or name: [op, value] for other conditions
+    // - condition is an object with name: value pairs, by default EQ opeartor is used for comparison
     // - options may contain any valid native property if it starts with capital letter or special property:
     //   - start or page - defines starting primary key when paginating
     //   - consistent - set consistency level for the request
@@ -620,7 +620,8 @@ var aws = {
     //   - count - limit number of record in result
     //   - desc - descending order
     //   - sort - index name to use, indexes are named the same as the corresponding column
-    // Example: ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name' })
+    //   - ops - an object with operators to be used for properties if other than EQ.
+    // Example: ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', op: { name: 'gt' } })
     ddbQueryTable: function(name, condition, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -652,25 +653,25 @@ var aws = {
         }
         for (var name in condition) {
             var args = condition[name];
-            if (!Array.isArray(args) || args.length < 2) args = [ 'eq', args ];
-            var op = { AttributeValueList: [], ComparisonOperator: args[0].toUpperCase() }
-            switch (args[0].toLowerCase()) {
-            case 'between':
+            var op = (options.ops || {})[name] || "eq";
+            var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
+            switch (cond.ComparisonOperator) {
+            case 'BETWEEN':
                 if (args.length < 3) continue;
-                op.AttributeValueList.push(self.toDynamoDB(args[1]));
-                op.AttributeValueList.push(self.toDynamoDB(args[2]));
+                cond.AttributeValueList.push(self.toDynamoDB(args[1]));
+                cond.AttributeValueList.push(self.toDynamoDB(args[2]));
                 break;
 
-            case 'eq':
-            case 'le':
-            case 'lt':
-            case 'ge':
-            case 'gt':
-            case 'begins_with':
-                op.AttributeValueList.push(self.toDynamoDB(args[1]));
+            case 'EQ':
+            case 'LE':
+            case 'LT':
+            case 'GE':
+            case 'GT':
+            case 'BEGINS_WITH':
+                cond.AttributeValueList.push(self.toDynamoDB(args[1]));
                 break;
             }
-            params.KeyConditions[name] = op;
+            params.KeyConditions[name] = cond;
         }
         this.queryDDB('Query', params, options, function(err, rc) {
             rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
@@ -679,10 +680,11 @@ var aws = {
     },
 
     // Scan a table for all matching items
-    // - condition is an object with name: value pairs for EQ condition or name: [op, value] for other conditions
+    // - condition is an object with name: value pairs
     // - options may contain any valid native property if it starts with capital letter or special property:
     //   - start - defines starting primary key
-    // Example: ddbScanTable("users", { id: 1, name: ['gt', 'a'] }, {})
+    //   - ops - an object with operators to be used for properties if other than EQ.
+    // Example: ddbScanTable("users", { id: 1, name: 'a' }, { op: { name: 'gt' }})
     ddbScanTable: function(name, condition, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -696,25 +698,25 @@ var aws = {
         }
         for (var name in condition) {
             var args = condition[name];
-            if (!Array.isArray(args) || args.length < 2) args = [ 'eq', args ];
-            var op = { AttributeValueList: [], ComparisonOperator: args[0].toUpperCase() }
-            switch (args[0].toLowerCase()) {
-            case 'between':
+            var op = (options.ops || {})[name] || "eq";
+            var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
+            switch (cond.ComparisonOperator) {
+            case 'BETWEEN':
                 if (args.length < 3) continue;
-                op.AttributeValueList.push(self.toDynamoDB(args[1]));
-                op.AttributeValueList.push(self.toDynamoDB(args[2]));
+                cond.AttributeValueList.push(self.toDynamoDB(args[1]));
+                cond.AttributeValueList.push(self.toDynamoDB(args[2]));
                 break;
 
-            case 'eq':
-            case 'le':
-            case 'lt':
-            case 'ge':
-            case 'gt':
-            case 'begins_with':
-                op.AttributeValueList.push(self.toDynamoDB(args[1]));
+            case 'EQ':
+            case 'LE':
+            case 'LT':
+            case 'GE':
+            case 'GT':
+            case 'BEGINS_WITH':
+                cond.AttributeValueList.push(self.toDynamoDB(args[1]));
                 break;
             }
-            params.ScanFilter[name] = op;
+            params.ScanFilter[name] = cond;
         }
         this.queryDDB('Scan', params, options, function(err, rc) {
             rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
