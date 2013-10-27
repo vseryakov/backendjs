@@ -427,9 +427,13 @@ var server = {
         }
     },
 
-    // Execute job in the background by one of the workers, object must be known exported module, like catalog, netflix, rovi..
-    // and method must be existing method of the given object. The method function must take callback as its first argument.
-    // More than one job can be specified, property of the object defines name for the job to run: { 'imdb.sync': {}, 'server.shutdown': {} }
+    // Execute job in the background by one of the workers, object must be known exported module
+    // and method must be existing method of the given object. The method function must take options 
+    // object as its first argument and callback as its second argument.
+    // More than one job can be specified, property of the object defines name for the job to run: 
+    // Example: { 'scraper.run': {}, 'server.shutdown': {} }
+    // If the same object.method must be executed several times, prepend subsequent jobs with $
+    // Example: { 'scraper.run': { "arg": 1 }, '$scraper.run': { "arg": 2 }, '$$scraper.run': { "arg": 3 } }
     // Supported options by the server:
     // - runalways - no checks for existing job wth the same name should be done
     // - runlast - run when no more pending or running jobs
@@ -518,7 +522,7 @@ var server = {
     },
 
     // Remote mode, launch remote instance to perform scraping or other tasks
-    // By default shutdown the instance after job finishes
+    // By default shutdown the instance after job finishes unles noshutdown is specified in the options
     launchJob: function(job, options, callback) {
         if (!job) return;
         if (typeof options == "function") callback = options, options = null;
@@ -589,6 +593,8 @@ var server = {
     },
 
     // Create new cron job
+    // Example: { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
+    //          { "type": "local", "cron": "0 10 7 * * *", "job": "api.processQueue" } 
     scheduleCronjob: function(spec, obj) {
         var self = this;
         var job = self.checkJob('local', obj.job);
@@ -606,8 +612,10 @@ var server = {
         this.crontab.push(cj);
     },
 
-    // Create new cron job to be run on a drone in the cloud, for th remote jobs additonal property args can be use din the cron object to define 
+    // Create new cron job to be run on a drone in the cloud
+    // For remote jobs additonal property args can be used in the cron object to define 
     // arguments to the instance backend process, properties must start with -
+    // Example: { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
     scheduleLaunchjob: function(spec, obj) {
         var self = this;
         var job = self.checkJob('remote', obj.job);
@@ -659,7 +667,7 @@ var server = {
     },
 
     // Load crontab from JSON file as list of job specs:
-    // [ { "type": "local", cron: "0 0 * * * *", job: "imdb.sync" }, ..]
+    // [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
     // Cron format: 'second', 'minute', 'hour', 'dayOfMonth', 'month', 'dayOfWeek';
     loadSchedules: function() {
         var self = this;

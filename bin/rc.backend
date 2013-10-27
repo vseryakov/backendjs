@@ -519,6 +519,10 @@ case "$ARG" in
     
   build-dev)
     set -e
+    
+    # Required macport packages
+    port install pcre automake autoconf
+    
     # Combine node and global node_modules together 
     (mkdir -p $PREFIX/lib/node && cd $PREFIX/lib && rm -rf node_modules && ln -sf node node_modules)
 
@@ -541,6 +545,13 @@ case "$ARG" in
     
     git clone https://code.google.com/p/plv8js
     make -C plv8js -f Makefile.v8 install 
+    
+    mkdir -p ImageMagick
+    curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
+    tar -C ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz
+    rm -rf ImageMagick.tar.gz
+    (cd ImageMagick && ./configure --prefix=/opt/local && make install)
+    
     ;;
 
   init-backend)

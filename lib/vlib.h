@@ -11,9 +11,9 @@
 #include "vsystem.h"
 #include "vlog.h"
 
-typedef tr1::unordered_map<string, int> int_map;
-typedef tr1::unordered_map<string, string> string_map;
-typedef tr1::unordered_map<string, vector<string> > vector_map;
+typedef map<string, int> int_map;
+typedef map<string, string> string_map;
+typedef map<string, vector<string> > vector_map;
 
 enum jsonType { JSON_NULL, JSON_OBJECT, JSON_ARRAY, JSON_STRING, JSON_INT, JSON_FLOAT, JSON_BOOL };
 

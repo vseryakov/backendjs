@@ -87,7 +87,6 @@
 #include <list>
 #include <map>
 #include <queue>
-#include <tr1/unordered_map>
 using namespace std;
 
 #ifdef PG_EXTENSION

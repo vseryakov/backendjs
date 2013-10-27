@@ -19,7 +19,7 @@ function test_account()
     var key = core.random() + "@test.com";
     async.series([
         function(next) {
-            call(key, "/account/add?id=" + key + "&secret=" + secret + "&name=Test&birthday=" + core.strftime(""), function(data) {
+            core.sendRequest("/account/add?id=" + email + "&secret=" + secret + "&name=&birthday=" + core.strftime(""), function(data) {
                 next();
             });
         },

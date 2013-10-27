@@ -12,7 +12,7 @@ struct lruSocket {
 };
 
 struct LRUStringCache {
-    typedef tr1::unordered_map<string, pair<string, list<string>::iterator> > LRUStringItems;
+    typedef map<string, pair<string, list<string>::iterator> > LRUStringItems;
     size_t size;
     size_t max;
     list<string> lru;
@@ -177,7 +177,7 @@ struct StringCache {
     }
 };
 
-typedef tr1::unordered_map<string, StringCache> Cache;
+typedef map<string, StringCache> Cache;
 
 static Cache _cache;
 static LRUStringCache _lru;
