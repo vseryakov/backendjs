@@ -9,9 +9,10 @@
 var async = require('async');
 var backend = require('backend')
 core = backend.core;
-api = backend.core;
-db = backend.core;
-server = backend.core;
+api = backend.api;
+db = backend.db;
+aws = backend.aws;
+server = backend.server;
 logger = backend.logger;
 
 // Test object with function for different ares to be tested
@@ -39,7 +40,7 @@ var tests = {
         var key = core.random() + "@test.com";
         async.series([
             function(next) {
-                core.sendRequest("/account/add?id=" + email + "&secret=" + secret + "&name=&birthday=" + core.strftime(""), function(data) {
+                core.sendRequest("/account/add?email=" + email + "&secret=" + secret + "&name=&birthday=" + core.strftime(""), function(data) {
                     next();
                 });
             },
@@ -64,6 +65,14 @@ var tests = {
         });
     },
 
+    s3: function(callback) {
+        api.putIconS3("../web/img/loading.gif", 1, { prefix: "account" }, function(err) {
+            api.getIconS3(1, { prefix: "account", file: "tmp/1.jpg" }, function(err) {
+                console.log('icon:', core.statSync("tmp/1.jpg"));
+            });
+        });
+    },
+    
     cookies: function(callback) {
         core.httpGet('http://google.com', { cookies: true }, function(err, params) {
             console.log('COOKIES:', params.cookies);

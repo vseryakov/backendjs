@@ -618,7 +618,7 @@ var core = {
         } else
         if (params.postfile) {
             if (options.method == "GET") options.method = "POST";
-            headers['transfer-encoding'] = 'chunked';
+            options.headers['transfer-encoding'] = 'chunked';
             params.poststream = fs.createReadableStream(params.postfile);
             params.poststream.on("error", function(err) { logger.error('httpGet: stream:', params.postfile, err) });
         }

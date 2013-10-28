@@ -218,7 +218,7 @@ static Handle<Value> resizeImage(const Arguments& args)
     REQUIRE_ARGUMENT_AS_STRING(3, format);
     REQUIRE_ARGUMENT_AS_STRING(4, filter);
     REQUIRE_ARGUMENT_INT(5, q);
-    OPTIONAL_ARGUMENT_AS_STRING(6, out);
+    OPTIONAL_ARGUMENT_STRING(6, out);
     EXPECT_ARGUMENT_FUNCTION(-1, cb);
 
     uv_work_t *req = new uv_work_t;

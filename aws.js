@@ -185,16 +185,18 @@ var aws = {
     // Options may contain the following properties:
     // - method - HTTP method
     // - query - query parameters for the url as an object
-    // - postdata - anyd data to be sent with POST
+    // - postdata - any data to be sent with POST
+    // - postfile - file to be uploaded to S3 bucket
     // - expires - absolute time when this request is expires
     // - headers - HTTP headers to be sent with request
+    // - file - file name where to save downloaded contents
     queryS3: function(bucket, key, options, callback) {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
         if (!options.headers) options.headers = {};
         var uri = this.signS3(options.method, bucket, key, options.query, options.headers, options.expires);
         core.httpGet(uri, options, function(err, params) {
-            if (params.status != 200) logger.error('queryS3:', uri, params.status, params.data);
+            if (params.status != 200) logger.error('queryS3:', uri, params.status, params.headers, params.data);
             if (callback) callback(err, params);
         });
     },

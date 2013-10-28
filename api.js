@@ -632,19 +632,32 @@ var api = {
     },
     
     // Same as putIcon but sote the icon in the S3 bucket, icon can be a file or a buffer with image data
-    putIconS3: function(bucket, file, id, options, callback) {
+    putIconS3: function(file, id, options, callback) {
+        var self = this;
         if (typeof options == "function") callback = options, options = null;
         if (!options) options = {};
         logger.debug('putIconS3:', id, options);
         
-        var aws = this.context.aws;
-        var key = core.iconPath(id, options.prefix, options.type, options.ext);
+        var aws = core.context.aws;
+        var icon = core.iconPath(id, options.prefix, options.type, options.ext);
         backend.resizeImage(file, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, function(err, data) {
-            logger.edebug(err, 'putIconS3:', typeof file == "object" ? file.length : file, w, h, fmt, quality);
-            var headers = { 'content-type': 'image/' + (options.ext == "jpg" ? "jpeg" : options.ext) };
-            aws.queryS3(bucket, key, { method: "PUT", postdata: data, headers: headers }, function(err) {
+            logger.edebug(err, 'putIconS3:', typeof file == "object" ? file.length : file, 'id:', id, 'image:', data.length, options);
+            var headers = { 'content-type': 'image/' + (options.ext || "jpg") };
+            aws.queryS3(self.imagesS3, icon, { method: "PUT", postdata: data, headers: headers }, function(err) {
                 if (callback) callback(err);
             });
+        });
+    },
+    
+    // Retrieve an icon from the S3 drive, params is the object passed by core.httpGet method
+    getIconS3: function(id, options, callback) {
+        if (typeof options == "function") callback = options, options = null;
+        if (!options) options = {};
+        
+        var aws = core.context.aws;
+        var icon = core.iconPath(id, options.prefix, options.type, options.ext);
+        aws.queryS3(api.imagesS3, icon, options, function(err, params) {
+            if (callback) callback(err, params)
         });
     },
     
