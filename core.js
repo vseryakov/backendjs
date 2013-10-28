@@ -127,9 +127,6 @@ var core = {
     ipcTimeout: 500,
     lruMax: 1000,
 
-    // Cookie jar
-    cookiejar: { changed: false, cookies: [] },
-
     // REPL port for server
     replPort: 2080,
     replBind: '0.0.0.0',
@@ -160,13 +157,13 @@ var core = {
         // Serialize initialization procedure, run each function one after another
         async.series([
             function(next) {
-                // Process arguments, override defaults
-                self.parseArgs(process.argv);
                 self.loadConfig(next);
             },
 
             // Create all directories, only master should do it once but we resolve absolute paths in any mode
             function(next) {
+                self.parseArgs(process.argv);
+                
                 // Redirect system logging to stderr
                 logger.setChannel("stderr");
                 
@@ -198,11 +195,6 @@ var core = {
                 db.init(next);
             },
 
-            // Make sure all cookies are cached
-            function(next) {
-                self.cookieLoad(next);
-            },
-
             function(next) {
                 // Watch config directory for changes
                 fs.watch(self.etc, function (event, filename) {
@@ -217,7 +209,7 @@ var core = {
             }],
             // Final callbacks
             function(err) {
-                logger.debug("init:", err || "");
+                logger.debug("core: init:", err || "");
                 if (callback) setImmediate(function() { 
                     callback.call(self, err); 
                 });
@@ -231,7 +223,7 @@ var core = {
     // - require('backend').run(function() {}) is one example where this call is used as a shortcut for ad-hoc scripting
     run: function(callback) {
         var self = this;
-        if (!callback) return;
+        if (!callback) return logger.error('run:', 'callback is required');
         this.init(function(err) {
             callback.call(self, err);
         });
@@ -258,15 +250,15 @@ var core = {
     // Switch to new home directory, exit if we cannot, this is important for relative paths to work if used,
     // no need to do this in worker because we already switched to home diretory in the master and all child processes
     // inherit current directory
-    // Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling it in the spawned web master will 
-    // fail due to the fact that we already set the home and relative path will not work after that. 
+    // Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling 
+    // it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that. 
     setHome: function(home) {
-        if (this.home && cluster.isMaster) {
+        if ((home || this.home) && cluster.isMaster) {
             if (home) this.home = path.resolve(home);
             try {
                 process.chdir(this.home);
             } catch(e) {
-                logger.error('init: cannot set home directory', this.home, e);
+                logger.error('setHome: cannot set home directory', this.home, e);
                 process.exit(1);
             }
             logger.dev('setHome:', this.home);
@@ -552,7 +544,7 @@ var core = {
     // params can contain the following options:
     //  - method - GET, POST
     //  - headers - object with headers to pass to HTTP request, properties must be all lower case
-    //  - nocookies - do not send any saved cookies
+    //  - cookies - a list with cookies or a boolean to load cookies from the db
     //  - file - file name where to save response, in case of error response the error body will be saved as well
     //  - postdata - data to be sent with the request in the body
     //  - postfile - file to be uploaded in the POST body, not as multipart
@@ -568,6 +560,12 @@ var core = {
         if (typeof params == "function") callback = params, params = null;
         if (!params) params = {};
 
+        // Aditional query parameters as an object
+        var qtype = this.typeName(params.query);
+        var query = url.format({ query: qtype == "object" ? params.query: null, search: qtype == "string" ? params.query: null });
+        if (query[0] == "?" && uri.indexOf("?") > -1) query = query.substr(1);     
+        uri += query;
+        
         var options = url.parse(uri);
         options.method = params.method || 'GET';
         options.headers = params.headers || {};
@@ -581,10 +579,20 @@ var core = {
         if (options.method == "POST" && !options.headers["content-type"]) {
             options.headers["content-type"] = "application/x-www-form-urlencoded";
         }
-        if (params.cookies && options.hostname) {
-            var cookies = this.cookieGet(options.hostname);
-            if (cookies.length) {
-                options.headers["cookie"] = cookies.map(function(c) { return c.name+"="+c.value; }).join(";");
+        
+        // Load matched cookies and restart with the cookie list in the params
+        if (params.cookies) {
+            if (typeof params.cookies == "boolean" && options.hostname) {
+                this.cookieGet(options.hostname, function(cookies) {
+                    params.cookies = cookies;
+                    self.httpGet(uri, params, callback);
+                });
+                return;
+            }
+            // Cookie list already provided, just use it
+            if (Array.isArray(params.cookies)) {
+                options.headers["cookie"] = params.cookies.map(function(c) { return c.name+"="+c.value; }).join("; ");
+                logger.debug('httpGet:', uri, options.headers);
             }
         }
         if (!options.headers['accept']) {
@@ -592,6 +600,7 @@ var core = {
         }
         options.headers['accept-language'] = 'en-US,en;q=0.5';
         
+        // Data to be sent over in the body
         if (params.postdata) {
             if (options.method == "GET") options.method = "POST";
             switch (this.typeName(params.postdata)) {
@@ -617,12 +626,6 @@ var core = {
         // Make sure our data is not corrupted
         if (params.checksum) options.checksum = params.postdata ? this.hash(params.postdata) : null;
         
-        // Aditional query parameters as an object
-        var qtype = this.typeName(params.query);
-        var query = url.format({ query: qtype == "object" ? params.query: null, search: qtype == "string" ? params.query: null });
-        if (query[0] == "?" && uri.indexOf("?") > -1) query = query.substr(1);     
-        uri += query;
-        
         // Sign request using internal backend credentials
         if (params.sign) {
             var headers = this.signRequest(this.backendKey, this.backendSecret, options.method, options.hostname, uri, 0, options.checksum);
@@ -640,7 +643,8 @@ var core = {
         var mod = uri.indexOf("https://") == 0 ? https : http;
 
         req = mod.request(options, function(res) {
-          logger.dev("httpGet: started", params)
+          logger.dev("httpGet: started", options.method, 'headers:', options.headers, params)
+          
           res.on("data", function(chunk) {
               logger.dev("httpGet: data", 'size:', chunk.length, '/', params.size, "status:", res.statusCode, 'file:', params.file || '');
 
@@ -673,8 +677,9 @@ var core = {
           });
 
           res.on("end", function() {
-              if (params.cookies) {
-                  self.cookieSave(res.headers["set-cookie"], params.hostname);
+              // Array means we wanted to use cookies just did not have existing before the request, now we can save the ones we received
+              if (Array.isArray(params.cookies)) {
+                  self.cookieSave(params.cookies, res.headers["set-cookie"], params.hostname);
               }
               params.headers = res.headers;
               params.status = res.statusCode;
@@ -696,8 +701,6 @@ var core = {
               // Redirection
               if (res.statusCode >= 301 && res.statusCode <= 307 && !params.noredirects) {
                   params.redirects += 1;
-                  delete params.method;
-                  delete params.postdata;
                   if (params.redirects < 10) {
                       var uri2 = res.headers.location;
                       if (uri2.indexOf("://") == -1) {
@@ -707,6 +710,8 @@ var core = {
 
                       // Ignore redirects we dont want and return data recieved
                       if (!params.ignoreredirect[uri2]) {
+                          ['method','query','headers','postdata','postfile','poststream','sign','checksum'].forEach(function(x) { delete params[x] });
+                          if (params.cookies) params.cookies = true;
                           return self.httpGet(uri2, params, callback);
                       }
                   }
@@ -1467,110 +1472,78 @@ var core = {
         return JSON.stringify(this.cloneObj(obj, { _skip_null: 1, _skip_cb: function(n,v) { return v == "" } }));
     },
     
-    // Parse one cookie
-    cookieParse: function(str) {
-        var parts = str.split(";");
-        var pair = parts[0].match(/([^=]+)=((?:.|\n)*)/);
-        if (!pair) return null;
-        var obj = { name: pair[1], value: pair[2], path: "", domain: "", secure: false, expires: Infinity };
-
-        for (var i = 1; i < parts.length; i++) {
-            pair = parts[i].match(/([^=]+)(?:=((?:.|\n)*))?/);
-            if (!pair) continue;
-            var key = pair[1].trim().toLowerCase();
-            var value = pair[2];
-            switch(key) {
-            case "expires":
-                obj.expires = value ? Number(Date.parse(value)) : Infinity;
-                break;
-
-            case "path":
-                obj.path = value ? value.trim() : "";
-                break;
-
-            case "domain":
-                obj.domain = value ? value.trim() : "";
-                break;
-
-            case "secure":
-                obj.secure = true;
-                break;
-            }
-        }
-        logger.dev("cookieParse:", obj)
-        return obj;
-    },
-
-    // Return cookies that match request
-    cookieGet: function(domain) {
-        var list = [];
-        for (var i in this.cookiejar.cookies) {
-            var cookie = this.cookiejar.cookies[i];
-            if (cookie.expires <= Date.now()) continue;
-            if (cookie.domain == domain) {
-                list.push(cookie);
-            } else
-            if (cookie.domain.charAt(0) == "." && (cookie.domain.substr(1) == domain || domain.match(cookie.domain.replace(/\./g,'\\.') + '$'))) {
-                list.push(cookie);
-            }
-        }
-        logger.dev('cookieGet:', domain, list)
-        return list;
-    },
-
-    // Load cookies into memory
-    cookieLoad: function(callback) {
-        var self = this;
-        var db = self.context.db;
-        self.cookiejar.cookies = [];
-        db.query("SELECT * FROM backend_cookies", function(err, rows) {
-            logger.edebug(err, 'cookieLoad:', (rows || []).length, 'records');
-            self.cookiejar.cookies = rows || [];
-            self.cookiejar.changed = false;
-            if (callback) callback(err);
+    // Return cookies that match given domain
+    cookieGet: function(domain, callback) {
+        this.context.db.select("backend_cookies", {}, function(err, rows) {
+            var cookies = [];
+            rows.forEach(function(cookie) {
+                if (cookie.expires <= Date.now()) return;
+                if (cookie.domain == domain) {
+                    cookies.push(cookie);
+                } else
+                if (cookie.domain.charAt(0) == "." && (cookie.domain.substr(1) == domain || domain.match(cookie.domain.replace(/\./g,'\\.') + '$'))) {
+                    cookies.push(cookie);
+                }
+            });
+            logger.debug('cookieGet:', domain, cookies);
+            if (callback) callback(cookies);
         });
     },
 
-    // Save cookies in the jar
-    cookieSave: function(cookies, hostname) {
+    // Save new cookies arrived in the request, 
+    // merge with existing cookies from the jar which is a list of cookies before the request
+    cookieSave: function(cookiejar, setcookies, hostname, callback) {
         var self = this;
-        var db = self.context.db;
-        cookies = !cookies ? [] : Array.isArray(cookies) ? cookies : cookies.split(/[:](?=\s*[a-zA-Z0-9_\-]+\s*[=])/g);
-        for (var i in cookies) {
-            var obj = this.cookieParse(cookies[i]);
-            if (!obj.domain) obj.domain = hostname || "";
-            if (!obj) continue;
-            var found = false;
-            for (var j = 0; j < this.cookiejar.cookies.length; j++) {
-                var cookie = this.cookiejar.cookies[j];
-                if (cookie.path == obj.path && cookie.domain == obj.domain && cookie.name == obj.name) {
-                    if (obj.expires <= Date.now()) {
-                        delete cookie;
-                        logger.dev('cookieSet: delete', obj)
-                    } else {
-                        this.cookiejar.cookies[j] = obj;
-                        logger.dev('cookieSet: replace', obj)
-                    }
-                    this.cookiejar.changed = true;
-                    found = true;
+        var cookies = !setcookies ? [] : Array.isArray(setcookies) ? setcookies : String(setcookies).split(/[:](?=\s*[a-zA-Z0-9_\-]+\s*[=])/g);
+        logger.debug('cookieSave:', cookiejar, 'SET:', cookies);
+        cookies.forEach(function(cookie) {
+            var parts = cookie.split(";");
+            var pair = parts[0].match(/([^=]+)=((?:.|\n)*)/);
+            if (!pair) return;
+            var obj = { name: pair[1], value: pair[2], path: "", domain: "", secure: false, expires: Infinity };
+            for (var i = 1; i < parts.length; i++) {
+                pair = parts[i].match(/([^=]+)(?:=((?:.|\n)*))?/);
+                if (!pair) continue;
+                var key = pair[1].trim().toLowerCase();
+                var value = pair[2];
+                switch(key) {
+                case "expires":
+                    obj.expires = value ? Number(self.toDate(value)) : Infinity;
+                    break;
+
+                case "path":
+                    obj.path = value ? value.trim() : "";
+                    break;
+
+                case "domain":
+                    obj.domain = value ? value.trim() : "";
+                    break;
+
+                case "secure":
+                    obj.secure = true;
                     break;
                 }
             }
-            if (!found) {
-                this.cookiejar.changed = true;
-                this.cookiejar.cookies.push(obj);
-                logger.dev('cookieSet: add', obj)
-            }
-        }
-        if (this.cookiejar.changed) {
-            for (var i in this.cookiejar.cookies) {
-                var cookie = this.cookiejar.cookies[i];
-                db.query({ text: "REPLACE INTO backend_cookies VALUES(?,?,?,?,?,?)", values: [cookie.name, cookie.value, cookie.domain, cookie.path, cookie.expires, cookie.secure] }, function(err) {
-                    if (err) logger.error('cookieSave:', err);
-                });
-            }
-            logger.dev('cookieSave:', 'saved', this.cookiejar.cookies.length, 'cookies')
-        }
+            if (!obj.domain) obj.domain = hostname || "";
+            var found = false;
+            cookiejar.forEach(function(x, j) {
+                if (x.path == obj.path && x.domain == obj.domain && x.name == obj.name) {
+                    if (obj.expires <= Date.now()) {
+                        cookiejar[j] = null;
+                    } else {
+                        cookiejar[j] = obj;
+                    }
+                    found = true;
+                }
+            });
+            if (!found) cookiejar.push(obj);
+        });
+        async.forEachSeries(cookiejar, function(rec, next) {
+            if (!rec) return next();
+            self.context.db.put("backend_cookies", rec, function() { next() });
+        }, function() {
+            if (callback) callback();
+        });
     },
 
     // Adds reference to the object in the core for further access

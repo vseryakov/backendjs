@@ -644,7 +644,8 @@ var server = {
         }
     },
     
-    // Verify job structure and permissions and return as object
+    // Verify job structure and permissions and return as an object if the job is a string
+    // Permissions are checked against jobsAllow/jobsDisallow configuration parameters, see allowJob method
     checkJob: function(type, job) {
         if (typeof job == "string") job = core.newObj(job, null);
         if (typeof job != "object") return null;

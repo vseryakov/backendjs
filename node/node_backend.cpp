@@ -389,106 +389,6 @@ static Handle<Value> countAllWords(const Arguments& args)
     return scope.Close(obj);
 }
 
-static Handle<Value> tokenize(const Arguments& args)
-{
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_STRING(0, word);
-
-    vector<string> list = vsqlite_tokenize(*word);
-    return scope.Close(toArray(list));
-}
-
-static Handle<Value> findSynonyms(const Arguments& args)
-{
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_STRING(0, word);
-
-    vector<string> list = vsqlite_find_synonyms(*word);
-    return scope.Close(toArray(list));
-}
-
-static Handle<Value> addSynonyms(const Arguments& args)
-{
-    HandleScope scope;
-
-    if (args.Length() < 2) return ThrowException(Exception::Error(String::New("must have at least 2 parameters")));
-
-    vector<string> words;
-    for (int i = 0; i < args.Length(); i++) {
-        String::Utf8Value word(args[i]);
-        words.push_back(*word);
-    }
-    vsqlite_add_synonyms(words);
-
-    return scope.Close(Undefined());
-}
-
-static Handle<Value> addStopword(const Arguments& args)
-{
-    HandleScope scope;
-
-    for (int i = 0; i < args.Length(); i++) {
-        String::Utf8Value word(args[i]);
-        vsqlite_add_stopword(*word);
-    }
-    return scope.Close(Undefined());
-}
-
-static Handle<Value> addStemming(const Arguments& args)
-{
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_STRING(0, word);
-    REQUIRE_ARGUMENT_STRING(1, rule);
-
-    vsqlite_add_stemming(*word, *rule);
-
-    return scope.Close(Undefined());
-}
-
-static Handle<Value> loadTokenizer(const Arguments& args)
-{
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_STRING(0, type);
-    REQUIRE_ARGUMENT_STRING(1, file);
-
-    return scope.Close(Integer::New(vsqlite_load(*type, *file)));
-}
-
-static Handle<Value> listTokenizer(const Arguments& args)
-{
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_STRING(0, type);
-
-	vector<string> list;
-    if (!strcmp(*type, "stemming")) {
-    	string_map map = vsqlite_stemming_list();
-    	string_map::const_iterator it = map.begin();
-    	while (it != map.end()) {
-    		list.push_back(it->first + "|" + it->second);
-    		it++;
-    	}
-    }
-
-    if (!strcmp(*type, "synonyms")) {
-    	list = vsqlite_synonyms_list();
-    }
-
-    if (!strcmp(*type, "stopwords")) {
-    	int_map map = vsqlite_stopwords_list();
-    	int_map::const_iterator it = map.begin();
-    	while (it != map.end()) {
-    		list.push_back(it->first);
-    		it++;
-    	}
-    }
-	return scope.Close(toArray(list));
-}
-
 static Handle<Value> uuid(const Arguments& args)
 {
    HandleScope scope;
@@ -579,14 +479,6 @@ void backend_init(Handle<Object> target)
 
     NODE_SET_METHOD(target, "logging", logging);
     NODE_SET_METHOD(target, "loggingChannel", loggingChannel);
-
-    NODE_SET_METHOD(target, "tokenize", tokenize);
-    NODE_SET_METHOD(target, "addSynonyms", addSynonyms);
-    NODE_SET_METHOD(target, "findSynonyms", findSynonyms);
-    NODE_SET_METHOD(target, "addStopword", addStopword);
-    NODE_SET_METHOD(target, "addStemming", addStemming);
-    NODE_SET_METHOD(target, "loadTokenizer", loadTokenizer);
-    NODE_SET_METHOD(target, "listTokenizer", listTokenizer);
 
     NODE_SET_METHOD(target, "countWordsInit", countWordsInit);
     NODE_SET_METHOD(target, "countWords", countWords);

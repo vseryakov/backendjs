@@ -90,12 +90,17 @@ var api = {
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
     
+    // Minimal distance between updates of account location, this is to avoid 
+    // too many location updates with very high resolution is not required
+    minDistance: 5,
+    
     // Config parameters
     args: ["account-pool", 
            "backend-pool",
            "images-url",
            "images-s3",
            "access-log",
+           { name: "min-distance", type: "int" },
            { name: "backend", type: "bool" },
            { name: "allow", type: "regexp" },
            { name: "deny", type: "regexp" },
@@ -318,7 +323,7 @@ var api = {
                 });
                 break;
 
-            case "put":
+            case "update":
                 req.query.mtime = now;
                 req.query.id = req.account.id;
                 req.query.email = req.account.email;
@@ -340,7 +345,7 @@ var api = {
                 
             case "secret/put":
                 if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-                db.update("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
+                db.put("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
@@ -351,23 +356,27 @@ var api = {
                 
             case "location/put":
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-                var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: req.query.latitude, longitude: req.query.longitude, location: req.query.location };
-                db.update("account", obj, { pool: self.accountPool }, function(err) {
-                    self.sendReply(res, err);
-                    if (err) return;
-                    // Store location for searches
-                    db.get("account", { id: req.account.id }, { pool: self.accountPool, select: 'geohash,latitude,longitude' }, function(err, rows) {
-                        var row = rows[0];
-                        // Skip if within short range
-                        var distance = backend.getDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
-                        logger.debug(req.params[0], req.account, 'distance:', distance);
-                        if (distance < 5) return;
+                // Get current location
+                db.get("account", { id: req.account.id }, { pool: self.accountPool, select: 'latitude,longitude' }, function(err, rows) {
+                    if (err) return self.sendReply(res, err);
+                    var row = rows[0];
+                    // Skip if within minimal distance
+                    var distance = backend.getDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
+                    logger.debug(req.params[0], req.account, req.query, 'distance:', distance);
+                    if (distance < self.minDistance) return self.sendReply(res, 200, "ignored, min distance: " + self.minDistance);
+                    
+                    var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: req.query.latitude, longitude: req.query.longitude, location: req.query.location };
+                    db.update("account", obj, { pool: self.accountPool }, function(err) {
+                        self.sendReply(res, err);
+                        if (err) return;
+                        
                         // Delete current location
-                        obj = { geohash: row.geohash.substr(0, 3), id: row.geohash.substr(3) + ":" + req.account.id };
+                        var obj = self.prepareGeoHash(req, row.latitude, row.longitude);
                         db.del("location", obj, { pool: self.accountPool });
+                        
                         // Insert new location
-                        var geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
-                        obj = { geohash: geohash.substr(0, 3), id: geohash.substr(3) + ":" + req.account.id, latitude: req.query.latitude, longitude: req.query.longitude, mtime: now };
+                        obj = self.prepareGeoHash(req, req.query.latitude, req.query.longitude);
+                        obj.mtime = now;
                         db.put("location", obj, { pool: self.accountPool });
                     });
                         
@@ -387,19 +396,23 @@ var api = {
                 });
                 break;
 
+            case "connection/add":
             case "connection/put":
-                if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
-                if (req.query.id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
-                // Override primary key properties, the rest of the properties will be added as is
+            case "connection/update":
+                var op = req.params[0].split("/").pop();
                 var id = req.query.id, type = req.query.type;
+                if (!id || !type) return self.sendReply(res, 400, "id and type are required");
+                if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
+                // Override primary key properties, the rest of the properties will be added as is
                 req.query.id = req.account.id;
                 req.query.type = type + ":" + id;
                 req.query.mtime = now;
-                db.put("connection", req.query, { pool: self.accountPool }, function(err) {
+                db[op]("connection", req.query, { pool: self.accountPool }, function(err) {
                     if (err) return self.sendReply(res, err);
+                    // Reverse reference to the same connection
                     req.query.id = id;
                     req.query.type = type + ":"+ req.account.id;
-                    db.put("reference", req.query, { pool: self.accountPool }, function(err) {
+                    db[op]("reference", req.query, { pool: self.accountPool }, function(err) {
                         if (err) db.del("connection", { id: req.account.id, type: type + ":" + id }, { pool: self.accountPool });
                         self.sendReply(res, err);
                     });
@@ -430,7 +443,7 @@ var api = {
                 });
                 break;
 
-            case "reference/list":
+            case "connection/reference/list":
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
                 db.select("reference", { id: req.account.id, type: req.query.type }, { pool: self.accountPool, select: req.query._columns }, function(err, rows) {
@@ -444,7 +457,7 @@ var api = {
                 });
                 break;
                 
-            case "connection/members":
+            case "connection/list/accounts":
                 db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.accountPool, select: req.query._columns }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     var list = {}, ids = [];
@@ -490,6 +503,12 @@ var api = {
                 self.sendReply(res, 400, "Invalid operation");
             }
         });
+    },
+    
+    // Return object iwth geohash for given coordinates to be used for location search
+    prepareGeoHash: function(req, latitude, longitude) {
+        var geohash = backend.geoHashEncode(latitude, longitude);
+        return { geohash: geohash.substr(0, 3), id: geohash.substr(3) + ":" + req.account.id, latitude: latitude, longitude: longitude };
     },
     
     // Prepare an account record for response, set required fields, icons
@@ -539,12 +558,8 @@ var api = {
         });
 
         // Query on a table
-        this.app.all(/^\/([a-z_0-9]+)\/get$/, function(req, res) {
-            var options = { pool: self.backendPool, 
-                            total: req.query._total, 
-                            count: req.query._count || 25, 
-                            sort: req.query._sort, 
-                            select: req.query._cols };
+        this.app.all(/^\/([a-z_0-9]+)\/list$/, function(req, res) {
+            var options = { pool: self.backendPool, total: req.query._total, count: req.query._count || 25, sort: req.query._sort, select: req.query._cols };
             // Convert values into actual arrays if separated by pipes
             for (var p in req.query) {
                 if (p[0] != '_' && req.query[p].indexOf("|") > 0) req.query[p] = req.query[p].split("|");
@@ -556,41 +571,12 @@ var api = {
         });
         
         // Basic operations on a table
-        this.app.all(/^\/([a-z_0-9]+)\/(add|put|del)$/, function(req, res) {
+        this.app.all(/^\/([a-z_0-9]+)\/(add|put|update|del|replace)$/, function(req, res) {
             var dbcols = db.getColumns(req.params[0], { pool: self.backendPool });
             if (!dbcols) return res.json([]);
-            
-            switch (req.params[1]) {
-            case "add":
-                db.add(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
-                    return self.sendReply(res, err);
-                });
-                break;
-                
-            case "rep":
-                db.replace(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
-                    self.sendReply(res, err);
-                });
-                break;
-                
-            case "put":
-                db.put(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
-                    self.sendReply(res, err);
-                });
-                break;
-                
-            case "update":
-                db.update(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
-                    self.sendReply(res, err);
-                });
-                break;
-                
-            case "del":
-                db.del(req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
-                    self.sendReply(res, err);
-                });
-                break;
-            }
+            db[req.params[1]](req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
+                return self.sendReply(res, err);
+            });
         });
         
     },

@@ -14,51 +14,69 @@ db = backend.core;
 server = backend.core;
 logger = backend.logger;
 
-function test_account() 
-{
-    var key = core.random() + "@test.com";
-    async.series([
-        function(next) {
-            core.sendRequest("/account/add?id=" + email + "&secret=" + secret + "&name=&birthday=" + core.strftime(""), function(data) {
-                next();
-            });
-        },
-        function(next) {
-            call(key, "/account/get", function(data) {
-                next();
-            });
-        },
-        function(next) {
-            call(key, "/account/location/put?latitude=10&longitude=-10&location=test", function(data) {
-                next();
-            });
-        },
-        function(next) {
-            call(key, "/account/get", function(data) {
-                next();
-            });
+// Test object with function for different ares to be tested
+var tests = {
+    name: 'tests',
+    start_time: 0,
+    
+    start: function(type) {
+        var self = this;
+        if (!this[type]) {
+            logger.error(this.name, 'no such test:', type);
+            process.exit(1);
         }
-    ],
-    function() {
-        exit();
-    });
-}
+        
+        this.start_time = core.mnow();
+        logger.log(self.name, "started:", type);
+        
+        this[type](function(err) {
+            logger.log(self.name, "stopped:", type, core.mnow() - self.start_time, "ms", err || "");
+            process.exit(err ? 1 : 0);    
+        });
+    },
+    
+    accounts: function(callback) {
+        var key = core.random() + "@test.com";
+        async.series([
+            function(next) {
+                core.sendRequest("/account/add?id=" + email + "&secret=" + secret + "&name=&birthday=" + core.strftime(""), function(data) {
+                    next();
+                });
+            },
+            function(next) {
+                call(key, "/account/get", function(data) {
+                    next();
+                });
+            },
+            function(next) {
+                call(key, "/account/location/put?latitude=10&longitude=-10&location=test", function(data) {
+                    next();
+                });
+            },
+            function(next) {
+                call(key, "/account/get", function(data) {
+                    next();
+                });
+            }
+        ],
+        function(err) {
+            callback(err)
+        });
+    },
+
+    cookies: function(callback) {
+        core.httpGet('http://google.com', { cookies: true }, function(err, params) {
+            console.log('COOKIES:', params.cookies);
+            callback(err);
+        });
+    },
+};
+
+// By default use data/ inside the source tree, if used somewhere else, config or command line parameter should be used for home
+core.parseArgs(["-home", "data"]);
 
 backend.run(function() {
-
-    logger.log('tests: started'); 
-    var start = core.mnow();
-    function exit() {
-        logger.log("tests: stopped", core.mnow() - start, "ms");
-        process.exit(0);
-    }
-    
-    switch(core.getArg("-cmd")) {
-    case "account":
-        test_account();
-        break;
-    }
-
+    tests.start(core.getArg("-cmd"));
 });
 
 

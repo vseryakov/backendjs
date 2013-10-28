@@ -27,7 +27,8 @@ var db = {
     dbpool: {},
     nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, unique: {}, 
               get: function() { throw "no pool" }, free: function() { throw "no pool" }, 
-              prepare: function() {}, put: function() {}, cacheColumns: function() {}, value: function() {} },
+              prepare: function() { throw "no pool" }, put: function() { throw "no pool" }, 
+              cacheColumns: function() { throw "no pool" }, value: function() {} },
               
     // Config parameters              
     args: [{ name: "pool" },
@@ -44,10 +45,10 @@ var db = {
                                  { name: 'value' }, 
                                  { name: 'mtime' } ] ,
                                  
-              backend_cookies: [ { name: 'name' }, 
+              backend_cookies: [ { name: 'name', primary: 1 }, 
                                  { name: 'domain', primary: 1 }, 
                                  { name: 'path', primary: 1 }, 
-                                 { name: 'value', primary: 1 }, 
+                                 { name: 'value' }, 
                                  { name: 'expires' } ],
                                  
               backend_queue: [ { name: 'id', primary: 1 },
@@ -68,7 +69,7 @@ var db = {
         var self = this;
         
         // Internal Sqlite database is always open
-        db.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
+        this.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
         
         // Optional pools for supported databases
         ["pg", "ddb"].forEach(function(x) {
@@ -77,13 +78,14 @@ var db = {
         });
         
         // Initialize SQL pools
-        async.forEachSeries(["sqlite", "pg"], function(pool, next) {
+        async.forEachSeries(Object.keys(this.dbpool), function(pool, next) {
             if (cluster.isWorker) {
                 db.cacheColumns({ pool: pool }, next);
             } else {
                 db.initTables({ pool: pool, tables: self.tables }, next);
             }
         }, function(err) {
+            logger.debug("db.init:", err);
             if (callback) callback(err);
         });
     },
@@ -105,7 +107,7 @@ var db = {
                     self.create(table, options.tables[table], options, function(err, rows) { changes++; next() });
                 }
             }, function() {
-                logger.debug('dbInit:', options.pool, 'changes:', changes);
+                logger.debug('initTables:', options.pool, 'changes:', changes);
                 if (!changes) return callback ? callback() : null;
                 self.cacheColumns(options, callback);
             });
@@ -204,7 +206,7 @@ var db = {
         // Sqlite supports REPLACE INTO natively
         pool.put = function(table, obj, opts, callback) {
             var req = this.prepare("add", table, obj, core.addObj(opts || {}, 'replace', 1));
-            this.query(req, options, callback);
+            self.query(req, options, callback);
         }
         // Convert a value when using with parametrized statements or convert into appropriate database type
         pool.value = valuecb || function(val, opts) { return val; }
@@ -231,13 +233,13 @@ var db = {
 
     // Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj
     // - obj - an object with record properties, primary key properties must be specified
-    // - options - same propetties as for .select method
+    // - options - same properties as for .select method
     put: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
         
-        // Custom handler for the operaton
-        var put = db.getPool(options).put;
-        if (put) return put(table, obj, options, callback);
+        // Custom handler for the operation
+        var pool = this.getPool(options);
+        if (pool.put) return pool.put(table, obj, options, callback);
         
         var req = this.prepare("put", table, obj, options);
         this.query(req, options, callback);
@@ -361,6 +363,8 @@ var db = {
 
     // Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
     // Options accept the same parameters as for the usual get action.
+    // Additional options:
+    // - prefix - prefix to be used for the key instead of table:
     getCached: function(table, obj, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options,options = null;
@@ -368,7 +372,8 @@ var db = {
         pool.stats.gets++;
         var keys = options.keys || this.getKeys(table, options) || [];
         var key = keys.filter(function(x) { return obj[x]} ).map(function(x) { return obj[x] }).join(":");
-        this.ipcGetCache(table + ":" + key, function(rc) {
+        var prefix = options.prefix || table;
+        this.ipcGetCache(prefix + ":" + key, function(rc) {
             // Cached value retrieved
             if (rc) {
                 pool.stats.hits++;
@@ -381,7 +386,7 @@ var db = {
                 // Store in cache if no error
                 if (rows.length && !err) {
                     pool.stats.puts++;
-                    self.ipcPutCache(table + ":" + key, self.stringify(rows[0]));
+                    self.ipcPutCache(prefix + ":" + key, self.stringify(rows[0]));
                 }
                 callback(err, rows.length ? rows[0] : null);
             });
@@ -462,7 +467,7 @@ var db = {
 
     // Return database pool by name or default sqlite pool
     getPool: function(options) {
-        return this.dbpool[typeof options == "object" && options.pool ? options.pool : "sqlite"] || this.nopool || {};
+        return this.dbpool[(options || {})["pool"] || "sqlite"] || this.nopool || {};
     },
 
     // Return cached columns for a table or null, column is an object with column names and objects for definiton
@@ -561,7 +566,7 @@ var db = {
     //       special operator null/not null is used to build IS NULL condition, value is ignored in this case
     //  type - can be data, string, number, float, expr, default is string
     //  dflt, min, max - are used for numeric values for validation of ranges
-    //  for type expr, options.value contains sprintf-like formatted expression to be used as is with all '%s' substituted with actual value
+    //  for type expr, options.expr contains sprintf-like formatted expression to be used as is with all '%s' substituted with actual value
     sqlExpr: function(name, value, options) {
         var self = this;
         if (!name || typeof value == "undefined") return "";
@@ -838,54 +843,37 @@ var db = {
         return rc;
     },
 
-    // Build SQL where condition from the keys and object values, returns object with .values and .cond properties.
+    // Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE
     // - obj - an object record properties
     // - keys - a list of primary key columns
-    // - idx - the starting index for bind parameters, default is 1.
     // - options may contains the following properties:
-    //   - ops - object for other comparison operators for properties
     //   - pool - pool to be used for driver specific functions
-    sqlWhere: function(obj, keys, idx, options) {
+    //   - ops - object for other comparison operators for primary key beside =
+    //   - types - type mapping for properties to be used in the condition
+    sqlWhere: function(obj, keys, options) {
         var self = this;
         if (!options) options = {};
-        if (!idx) idx = 1;
-        var req = { cond: [], values: [] };
         
         // List of records to return by primary key
         if (Array.isArray(obj)) {
             if (keys.length == 1) {
-                req.cond = keys[0] + " IN (" + this.sqlValueIn(obj.map(function(x) { return x[keys[0]] })) + ")"; 
-            } else {
-                req.cond = obj.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.value(options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
+                return keys[0] + " IN (" + this.sqlValueIn(obj.map(function(x) { return x[keys[0]] })) + ")"; 
             }
-            return req;
+            return obj.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.value(options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
         }
+        
         // Regular object with conditions
-        for (var j in keys) {
-            var v = obj[keys[j]];
-            if (typeof v == "undefined") continue;
-            if (v == null) {
-                req.cond.push(keys[j] + " IS NULL");
-            } else
-            if (Array.isArray(v)) {
-                if (!options.array_or) {
-                    req.cond.push(this.sqlValueIn(v));
-                } else {
-                    var cond = [];
-                    for (var i = 0; i < v.length; i++ ) {
-                        cond.push(keys[j] + "=$" + idx);
-                        req.values.push(v[i]);
-                        idx++;
-                    }
-                    req.cond.push("(" + cond.join(" OR ") + ")");
-                }
-            } else {
-                req.cond.push(keys[j] + "=$" + idx);
-                req.values.push(this.value(options, v));
-                idx++;
-            }
-        }
-        return req;
+        var where = [];
+        (keys || []).forEach(function(k) {
+            var v = obj[k];
+            var op = (options.ops || {})[k];
+            var type = (options.type || {})[k];
+            if (!op && v == null) op = "null";
+            if (!op && Array.isArray(v)) op = "in";
+            var sql = self.sqlExpr(k, v, { op: op, type: type });
+            if (sql) where.push(sql);
+        });
+        return where.join(" AND ");
     },
 
     // Create SQL table using column definition list with properties:
@@ -962,14 +950,10 @@ var db = {
                    options.select ? options.select.split(",").filter(function(x) { return /^[a-z0-9_]+$/.test(x) && x in dbcols; }).map(function(x) { return x }).join(",") : "";
         if (!cols) cols = "*";
 
-        var req = this.sqlWhere(obj, keys);
-
-        // No keys or columns to select, just exit, it is not an error, return empty result
-        if (!req.cond.length) {
-            logger.debug('sqlSelect:', table, 'nothing to do', obj, keys);
-            return null;
-        }
-        req.text = "SELECT " + cols + " FROM " + table + " WHERE " + req.cond.join(" AND ");
+        var where = this.sqlWhere(obj, keys);
+        if (where) where = " WHERE " + where;
+        
+        var req = { text: "SELECT " + cols + " FROM " + table + where };
         if (options.sort) req.text += " ORDER BY " + options.sort + (options.desc ? " DESC " : "");
         if (options.count) req.text += " LIMIT " + options.limit;
 
@@ -1043,14 +1027,14 @@ var db = {
             req.values.push(v);
             i++;
         }
-        var w = this.sqlWhere(obj, keys, i, options);
-        if (!sets.length || !w.values.length) {
+        var where = this.sqlWhere(obj, keys, options);
+        if (!sets.length || !where) {
             // No keys or columns to update, just exit, it is not an error, return empty result
             logger.debug('sqlUpdate:', table, 'nothing to do', obj, keys);
             return null;
         }
         req.values = req.values.concat(w.values);
-        req.text = "UPDATE " + table + " SET " + sets.join(",") + " WHERE " + w.cond.join(" AND ");
+        req.text = "UPDATE " + table + " SET " + sets.join(",") + " WHERE " + where;
         if (options.returning) req.text += " RETURNING " + options.returning;
         return req;
     },
@@ -1061,13 +1045,13 @@ var db = {
         var keys = options.keys;
         if (!keys || !keys.length) keys = this.getKeys(table, options) || [];
         
-        var req = this.sqlWhere(obj, keys, 1, options);
-        if (!req.values.length) {
+        var where = this.sqlWhere(obj, keys, options);
+        if (!where) {
             // No keys or columns to update, just exit, it is not an error, return empty result
             logger.debug('sqlUpdate:', table, 'nothing to do', obj, keys);
             return null;
         }
-        req.text = "DELETE FROM " + table + " WHERE " + req.cond.join(" AND ");
+        var req = { text: "DELETE FROM " + table + " WHERE " + where };
         if (options.returning) req.text += " RETURNING " + options.returning;
         return req;
     },
@@ -1387,7 +1371,7 @@ var db = {
             logger.log("query:", table ,opts)
             var pool = this;
             var obj = opts[1];
-            var options = self.addObj(opts[2], "db", pool.db);
+            var options = core.addObj(opts[2], "db", pool.db);
             pool.last_evaluated_key = "";
             
             switch(opts[0]) {

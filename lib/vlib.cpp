@@ -1104,8 +1104,8 @@ string vGeoHashAdjacent(string hash, string dir)
 {
 	static map<string,string> NEIGHBORS;
 	static map<string,string> BORDERS;
-	static bool inited = 0;
-	if (!inited) {
+	static bool init = 0;
+	if (!init) {
 		NEIGHBORS["right.even"] = "bc01fg45238967deuvhjyznpkmstqrwx";
 		NEIGHBORS["left.even"] = "238967debc01fg45kmstqrwxuvhjyznp";
 		NEIGHBORS["top.even"] = "p0r21436x8zb9dcf5h7kjnmqesgutwvy";
@@ -1123,15 +1123,13 @@ string vGeoHashAdjacent(string hash, string dir)
 		BORDERS["top.odd"] = BORDERS["right.even"];
 		BORDERS["left.odd"] = BORDERS["bottom.even"];
 		BORDERS["right.odd"] = BORDERS["top.even"];
-		inited = 1;
+		init = 1;
 	}
 	if (!hash.size()) return string();
 	char lastChr = hash[hash.size() - 1];
 	string type = dir + (hash.size() % 2 ? ".odd" : ".even");
 	string base = hash.substr(0, hash.size()-1);
-	if (BORDERS[type].find(lastChr) != string::npos) {
-		base = vGeoHashAdjacent(base, dir);
-	}
+	if (BORDERS[type].find(lastChr) != string::npos) base = vGeoHashAdjacent(base, dir);
 	string::size_type cd = NEIGHBORS[type].find(lastChr);
 	if (cd != string::npos) base += BASE32[cd];
 	return base;
