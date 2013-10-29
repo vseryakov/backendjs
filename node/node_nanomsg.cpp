@@ -74,6 +74,7 @@ struct Sock {
         url = addr;
         vector<string> urls = strSplit(url);
         for (uint i = 0; i < urls.size(); i++) {
+        	if (!urls[i].size()) continue;
             int rc = nn_bind(sock, urls[i].c_str());
             if (nn_slow(rc == -1)) return Close(rc);
         }

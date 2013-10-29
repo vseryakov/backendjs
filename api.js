@@ -63,8 +63,9 @@ var api = {
                    { name: "mtime", type: "int" } ],
                    
        // Locations for all accounts to support distance searches
-       location: [ { name: "geohash", primary: 1 },                // geohash[0-3]
-                   { name: "id", primary: 1 },                     // geohash[3-8]:account_id
+       location: [ { name: "hash", primary: 1 },                     // geohash(first part), the biggest radius expected
+                   { name: "range", primary: 1 },                    // geohash(second part), the rest of the geohash
+                   { name: "id" },
                    { name: "latitude", type: "real" },
                    { name: "longitude", type: " real" },
                    { name: "mtime", type: "int" }],
@@ -90,17 +91,22 @@ var api = {
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
     
-    // Minimal distance between updates of account location, this is to avoid 
+    // Minimal distance in km between updates of account location, this is to avoid 
     // too many location updates with very high resolution is not required
     minDistance: 5,
+    // Max distance in km for location searches
+    maxDistance: 200, 
+    
+    // Geohash ranges for diffetent lenghts in km
+    geoRange: [ [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]],
     
     // Config parameters
-    args: ["account-pool", 
-           "backend-pool",
+    args: ["pool", 
            "images-url",
            "images-s3",
            "access-log",
            { name: "min-distance", type: "int" },
+           { name: "max-distance", type: "int", max: 40000, min: 1 },
            { name: "backend", type: "bool" },
            { name: "allow", type: "regexp" },
            { name: "deny", type: "regexp" },
@@ -153,28 +159,23 @@ var api = {
             if (err) logger.error('startExpress:', core.port, err);
         });
 
-        // Return current statistics
-        this.app.all("/status", function(req, res) {
-            res.json(db.getPool(self.accountPool).stats);
-        });
-
         // Return images by prefix, id and possibly type, serves from local images folder, 
         // this is generic access without authentication, depends on self.allow regexp
         this.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([a-z])?/, function(req, res) {
-            self.sendFile(req, res, core.iconPath(req.params[1], req.params[0], req.params[2]));
+            self.getIcon(req, res, req.params[1], { prefix: req.params[0], type: req.params[2] });
         });
 
-        // Managing accounts
+        // Managing accounts, basic functionality
         this.initAccount();
         
         // Provisioning access to the database
-        if (this.backend) this.initBackend();
+        this.initBackend();
 
         // Post init or other application routes
         this.onInit.call(this);
 
         // Create account tables if dont exist
-        db.initTables({ pool: self.accountPool, tables: self.tables }, callback);
+        core.context.db.initTables({ pool: self.pool, tables: self.tables }, callback);
     },
         
     // Perform authorization of the incoming request for access and permissions
@@ -217,7 +218,7 @@ var api = {
         var sig = core.parseSignature(req);
         
         // Show request in the log on demand for diagnostics
-        if (logger.level > 1 || req.query._debug) {
+        if (logger.level >= 1 || req.query._debug) {
             logger.log('checkSignature:', sig, 'hdrs:', req.headers);
         }
 
@@ -236,7 +237,7 @@ var api = {
         }
 
         // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-        db.getCached("auth", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
+        core.context.db.getCached("auth", { email: sig.id }, { pool: this.pool }, function(err, account) {
             if (err) return callback({ status: 500, message: String(err) });
             if (!account) return callback({ status: 404, message: "No account" });
 
@@ -283,13 +284,14 @@ var api = {
     initAccount: function() {
         var self = this;
         var now = core.now();
+        var db = core.context.db;
         
         this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res) {
             logger.debug('account:', req.params[0], req.account, req.query);
             
             switch (req.params[0]) {
             case "get":
-                db.get("account", { id: req.account.id }, { pool: self.accountPool }, function(err, rows) {
+                db.get("account", { id: req.account.id }, { pool: self.pool }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     if (!rows.length) return self.sendReply(res, 404);
                     self.prepareAccount(rows[0]);
@@ -314,10 +316,10 @@ var api = {
                 req.query.mtime = req.query.ctime = now;
                 // Add new auth record with only columns we support, no-SQL dbs can add any columns on 
                 // the fly and we want to keep auth table very small
-                db.add("auth", req.query, { pool: self.accountPool, columns: db.convertColumns(self.tables.auth) }, function(err) {
+                db.add("auth", req.query, { pool: self.pool, columns: db.convertColumns(self.tables.auth) }, function(err) {
                     if (err) return self.sendReply(res, err);
-                    db.add("account", req.query, { pool: self.accountPool }, function(err) {
-                        if (err) db.del("auth", req.query, { pool: self.accountPool });
+                    db.add("account", req.query, { pool: self.pool }, function(err) {
+                        if (err) db.del("auth", req.query, { pool: self.pool });
                         self.sendReply(res, err);
                     });
                 });
@@ -329,59 +331,61 @@ var api = {
                 req.query.email = req.account.email;
                 // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
                 ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-                db.update("account", req.query, { pool: self.accountPool }, function(err) {
+                db.update("account", req.query, { pool: self.pool }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
 
             case "del":
-                db.del("auth", { email: req.account.email } , { pool: self.accountPool }, function(err) {
+                db.del("auth", { email: req.account.email } , { pool: self.pool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
-                    db.del("account", { id: req.account.id } , { pool: self.accountPool });
+                    db.del("account", { id: req.account.id } , { pool: self.pool });
                 });
                 break;
                 
             case "secret/put":
                 if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-                db.put("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
+                db.put("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.pool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
                     // Keep history of all changes
-                    db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.accountPool });
+                    db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.pool });
                 });
                 break;
                 
             case "location/put":
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 // Get current location
-                db.get("account", { id: req.account.id }, { pool: self.accountPool, select: 'latitude,longitude' }, function(err, rows) {
+                db.get("account", { id: req.account.id }, { pool: self.pool, select: 'latitude,longitude' }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     var row = rows[0];
                     // Skip if within minimal distance
-                    var distance = backend.getDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
+                    var distance = backend.geoDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
                     logger.debug(req.params[0], req.account, req.query, 'distance:', distance);
                     if (distance < self.minDistance) return self.sendReply(res, 200, "ignored, min distance: " + self.minDistance);
                     
                     var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: req.query.latitude, longitude: req.query.longitude, location: req.query.location };
-                    db.update("account", obj, { pool: self.accountPool }, function(err) {
+                    db.update("account", obj, { pool: self.pool }, function(err) {
                         self.sendReply(res, err);
                         if (err) return;
                         
                         // Delete current location
-                        var obj = self.prepareGeoHash(req, row.latitude, row.longitude);
-                        db.del("location", obj, { pool: self.accountPool });
+                        var geo = self.prepareLocation(row.latitude, row.longitude);
+                        geo.id = req.account.id;
+                        db.del("location", geo, { pool: self.pool });
                         
                         // Insert new location
-                        obj = self.prepareGeoHash(req, req.query.latitude, req.query.longitude);
-                        obj.mtime = now;
-                        db.put("location", obj, { pool: self.accountPool });
+                        geo = self.prepareLocation(req.query.latitude, req.query.longitude);
+                        geo.mtime = now;
+                        geo.id = req.account.id;
+                        db.put("location", geo, { pool: self.pool });
                     });
                         
                     // Keep history of all changes
-                    db.add("history", { id: req.account.id, type: req.params[0], mtime: now, latitude: obj.latitude, longitude: obj.longitude }, { pool: self.accountPool });
+                    db.add("history", { id: req.account.id, type: req.params[0], mtime: now, latitude: obj.latitude, longitude: obj.longitude }, { pool: self.pool });
                 });
                 break;
                 
@@ -389,8 +393,8 @@ var api = {
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 req.query.distance = core.toNumber(req.query.distance);
                 if (req.query.distance <= 0) return self.sendReply(res, 400, "Distance is required");
-                var geohash = backend.geoHashEncode(req.query.latitude, req.query.longitude);
-                db.select("location", { geohash: geohash.substr(0, 3), id: geohash.substr(3, 1) }, { pool: self.accountPool, select: "id,latitude,longitude" }, function(err, rows) {
+                var geo = self.prepareLocation(req.query.latitude, req.query.longitude);
+                db.select("location", { hash: geo.hash, range: geo.range.substr(0, 1) }, { pool: self.pool, start: req.query._start, count: req.query._count || 25 }, function(err, rows) {
                     rows = rows.filter(function(x) { return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= req.query.distance });
                     res.json(rows);
                 });
@@ -407,13 +411,13 @@ var api = {
                 req.query.id = req.account.id;
                 req.query.type = type + ":" + id;
                 req.query.mtime = now;
-                db[op]("connection", req.query, { pool: self.accountPool }, function(err) {
+                db[op]("connection", req.query, { pool: self.pool }, function(err) {
                     if (err) return self.sendReply(res, err);
                     // Reverse reference to the same connection
                     req.query.id = id;
                     req.query.type = type + ":"+ req.account.id;
-                    db[op]("reference", req.query, { pool: self.accountPool }, function(err) {
-                        if (err) db.del("connection", { id: req.account.id, type: type + ":" + id }, { pool: self.accountPool });
+                    db[op]("reference", req.query, { pool: self.pool }, function(err) {
+                        if (err) db.del("connection", { id: req.account.id, type: type + ":" + id }, { pool: self.pool });
                         self.sendReply(res, err);
                     });
                 });
@@ -421,9 +425,9 @@ var api = {
 
             case "connection/del":
                 if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
-                db.del("connection", { id: req.account.id, type: req.query.type + ":" + req.query.id }, { pool: self.accountPool }, function(err) {
+                db.del("connection", { id: req.account.id, type: req.query.type + ":" + req.query.id }, { pool: self.pool }, function(err) {
                     if (err) return self.sendReply(res, err);
-                    db.del("reference", { id: req.query.id, type: req.query.type + ":" + req.account.id }, { pool: self.accountPool }, function(err) {
+                    db.del("reference", { id: req.query.id, type: req.query.type + ":" + req.account.id }, { pool: self.pool }, function(err) {
                         self.sendReply(res, err);
                     });
                 });
@@ -432,7 +436,7 @@ var api = {
             case "connection/list":
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
-                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.accountPool, select: req.query._columns }, function(err, rows) {
+                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     rows.forEach(function(row) {
                         var type = row.type.split(":");
@@ -446,7 +450,7 @@ var api = {
             case "connection/reference/list":
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
-                db.select("reference", { id: req.account.id, type: req.query.type }, { pool: self.accountPool, select: req.query._columns }, function(err, rows) {
+                db.select("reference", { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     rows.forEach(function(row) {
                         var type = row.type.split(":");
@@ -458,7 +462,7 @@ var api = {
                 break;
                 
             case "connection/list/accounts":
-                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.accountPool, select: req.query._columns }, function(err, rows) {
+                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     var list = {}, ids = [];
                     // Collect account ids
@@ -484,7 +488,7 @@ var api = {
             case "history/add":
                 self.sendReply(res);
                 req.query.mtime = now();
-                db.add("history", req.query, { pool: self.accountPool });
+                db.add("history", req.query, { pool: self.pool });
                 break;
                 
             case "icon/list":
@@ -494,7 +498,7 @@ var api = {
                 
             case "icon/put":
                 // Add icon to the account, support up to 6 icons with types: a,b,c,d,e,f, primary icon type is ''
-                self.putIcon(req, { id: req.account.id, prefix: 'account', type: req.body.type || req.query.type || '' }, function(err) {
+                self.putIcon(req, req.account.id, { prefix: 'account', type: req.body.type || req.query.type || '' }, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
@@ -505,15 +509,17 @@ var api = {
         });
     },
     
-    // Return object iwth geohash for given coordinates to be used for location search
-    prepareGeoHash: function(req, latitude, longitude) {
+    // Return object with geohash for given coordinates to be used for location search
+    prepareLocation: function(latitude, longitude) {
+        var self = this;
+        var bits = this.geoRange.filter(function(x) { return x[1] > self.maxDistance })[0][0];
         var geohash = backend.geoHashEncode(latitude, longitude);
-        return { geohash: geohash.substr(0, 3), id: geohash.substr(3) + ":" + req.account.id, latitude: latitude, longitude: longitude };
+        return { hash: geohash.substr(0, bits), range: geohash.substr(bits), latitude: latitude, longitude: longitude };
     },
     
     // Prepare an account record for response, set required fields, icons
     prepareAccount: function(row) {
-        if (row.birthday) row.age = (core.now() - core.toDate(row.birthday))/(86400*365);
+        if (row.birthday) row.age = (Date.now() - core.toDate(row.birthday))/(86400000*365);
         row.icon = this.imagesUrl + '/image/account/' + row.id;
     },
     
@@ -527,7 +533,7 @@ var api = {
         // pages in order to get all items until we reach our limit.
         var ids = core.strSplit(obj.id);
         ids = ids.length > 1 ? ids.map(function(x) { return { id: x } }) : { id: ids[0] };
-        db.select("account", ids, { pool: self.accountPool, select: cols }, function(err, rows) {
+        db.select("account", ids, { pool: self.pool, select: cols }, function(err, rows) {
             if (err) return callback(err, []);
             rows.forEach(function(row) {
                 self.prepareAccount(row);
@@ -541,40 +547,41 @@ var api = {
     initBackend: function() {
         var self = this;
         
+        // Return current statistics
+        this.app.all("/backend/stats", function(req, res) {
+            res.json(db.getPool(self.pool).stats);
+        });
+
         // Load columns into the cache
-        this.app.all(/^\/cache-columns$/, function(req, res) {
-            db.cacheColumns({ pool: self.backendPool });
-            res.json([]);
+        this.app.all(/^\/backend\/columns$/, function(req, res) {
+            db.cacheColumns({ pool: self.pool }, function() {
+                res.json(db.getPool(self.pool).dbcolumns);
+            });
         });
 
         // Return table columns
-        this.app.all(/^\/([a-z_0-9]+)\/columns$/, function(req, res) {
-            res.json(db.getColumns(req.params[0], { pool: self.backendPool }));
+        this.app.all(/^\/backend\/columns\/([a-z_0-9]+)$/, function(req, res) {
+            res.json(db.getColumns(req.params[0], { pool: self.pool }));
         });
 
         // Return table keys
-        this.app.all(/^\/([a-z_0-9]+)\/keys$/, function(req, res) {
-            res.json(db.getKeys(req.params[0], { pool: self.backendPool }));
+        this.app.all(/^\/backend\/keys\/([a-z_0-9]+)$/, function(req, res) {
+            res.json(db.getKeys(req.params[0], { pool: self.pool }));
         });
 
-        // Query on a table
-        this.app.all(/^\/([a-z_0-9]+)\/list$/, function(req, res) {
-            var options = { pool: self.backendPool, total: req.query._total, count: req.query._count || 25, sort: req.query._sort, select: req.query._cols };
+        // Basic operations on a table
+        this.app.all(/^\/backend\/(select|get|add|put|update|del|replace)\/([a-z_0-9]+)$/, function(req, res) {
+            var dbcols = db.getColumns(req.params[1], { pool: self.pool });
+            if (!dbcols) return res.json([]);
+            var options = {};
             // Convert values into actual arrays if separated by pipes
+            // Set options from special properties
             for (var p in req.query) {
                 if (p[0] != '_' && req.query[p].indexOf("|") > 0) req.query[p] = req.query[p].split("|");
+                if (p[0] == '_') options[p.substr(1)] = req.query[p];
             }
-            db.select(req.params[0], req.query, options, function(err, rows) {
-                if (err) return res.json([]);
-                res.json(rows);
-            });
-        });
-        
-        // Basic operations on a table
-        this.app.all(/^\/([a-z_0-9]+)\/(add|put|update|del|replace)$/, function(req, res) {
-            var dbcols = db.getColumns(req.params[0], { pool: self.backendPool });
-            if (!dbcols) return res.json([]);
-            db[req.params[1]](req.params[0], req.query, { pool: self.backendPool }, function(err, rows) {
+            options.pool = self.pool;
+            db[req.params[0]](req.params[1], req.query, options, function(err, rows) {
                 return self.sendReply(res, err);
             });
         });
@@ -611,13 +618,36 @@ var api = {
         });
     },
 
+    // Return icon to the client
+    getIcon: function(req, res, id, options) {
+        var self = this;
+        
+        var icon = core.iconPath(id, options);
+        if (this.imagesS3) {
+            var aws = core.context.aws;
+            aws.queryS3(this.imagesS3, icon, options, function(err, params) {
+                if (err) return self.sendReply(res, err);
+                res.type("image/" + (options.ext || "jpeg")); 
+                res.send(200, params.data);
+            });
+        } else {
+            this.sendFile(req, res, icon);
+        }
+    },
+    
     // Store an icon for account, .type defines icon prefix
-    putIcon: function(req, options, callback) {
+    putIcon: function(req, id, options, callback) {
+        var self = this;
         // Multipart upload can provide more than one icon, file name can be accompanied by file_type property
         // to define type for each icon
         if (req.files) {
             async.forEachSeries(Object.keys(req.files), function(f, next) {
-                core.putIcon(req.files[f].path, options.id, core.addObj(options, 'type', req.body[f + '_type']), next);
+                var opts = core.extendObj(options, 'type', req.body[f + '_type']);
+                if (self.imagesS3) {
+                    self.putIconS3(req.files[f].path, id, opts, next);
+                } else {
+                    core.putIcon(req.files[f].path, id, opts, next);
+                }
             }, function(err) {
                 callback(err);
             });
@@ -625,39 +655,30 @@ var api = {
         // JSON object submitted with .icon property
         if (typeof req.body == "object") {
             req.body = new Buffer(req.body.icon, "base64");
-            core.putIcon(req.body, options.id, options, callback);
+            if (self.imagesS3) {
+                self.putIconS3(req.body, id, options, callback);
+            } else {
+                core.putIcon(req.body, id, options, callback);
+            }
         } else {
             return callback(new Error("no icon"));
         }
     },
     
-    // Same as putIcon but sote the icon in the S3 bucket, icon can be a file or a buffer with image data
+    // Same as putIcon but store the icon in the S3 bucket, icon can be a file or a buffer with image data
     putIconS3: function(file, id, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = null;
         if (!options) options = {};
-        logger.debug('putIconS3:', id, options);
         
         var aws = core.context.aws;
-        var icon = core.iconPath(id, options.prefix, options.type, options.ext);
-        backend.resizeImage(file, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, function(err, data) {
-            logger.edebug(err, 'putIconS3:', typeof file == "object" ? file.length : file, 'id:', id, 'image:', data.length, options);
-            var headers = { 'content-type': 'image/' + (options.ext || "jpg") };
+        var icon = core.iconPath(id, options);
+        core.scaleIcon(file, "", options, function(err, data) {
+            if (err) return callback ? callback(err) : null;
+            var headers = { 'content-type': 'image/' + (options.ext || "jpeg") };
             aws.queryS3(self.imagesS3, icon, { method: "PUT", postdata: data, headers: headers }, function(err) {
                 if (callback) callback(err);
             });
-        });
-    },
-    
-    // Retrieve an icon from the S3 drive, params is the object passed by core.httpGet method
-    getIconS3: function(id, options, callback) {
-        if (typeof options == "function") callback = options, options = null;
-        if (!options) options = {};
-        
-        var aws = core.context.aws;
-        var icon = core.iconPath(id, options.prefix, options.type, options.ext);
-        aws.queryS3(api.imagesS3, icon, options, function(err, params) {
-            if (callback) callback(err, params)
         });
     },
     

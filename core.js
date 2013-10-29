@@ -105,6 +105,7 @@ var core = {
             { name: "lru-max", type: "number" },
             { name: "lru-server" },
             { name: "lru-host" },
+            { name: "no-cache", type:" bool" },
             { name: "logwatcher-email" },
             { name: "logwatcher-from" },
             { name: "logwatcher-ignore" },
@@ -385,8 +386,8 @@ var core = {
             
             // Send cache requests to the LRU host to be broadcasted to all other servers
             if (self.lruHost) {
-                sel.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
-                backend.nnBind(self.lruSocket, self.lruHost);
+                self.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
+                backend.nnConnect(self.lruSocket, self.lruHost);
             }
             
             cluster.on('fork', function(worker) {
@@ -459,14 +460,17 @@ var core = {
     },
 
     ipcGetCache: function(key, callback) { 
+        if (this.noCache) return callback ? callback() : null;
         this.ipcSend("get", key, callback); 
     },
     
     ipcDelCache: function(key) { 
+        if (this.noCache) return;
         this.ipcSend("del", key); 
     },
     
     ipcPutCache: function(key, val) { 
+        if (this.noCache) return;
         this.ipcSend("put", key, val); 
     },
 
@@ -536,19 +540,21 @@ var core = {
         }
     },
 
-    // Downloads file using HTTP and pass it to the callback if provided,
-    // Callback will be called with the arguments:
-    //  first argument is error object if any
-    //  second is params object itself with updted fields
-    //  third is HTTP response object
-    // params can contain the following options:
-    //  - method - GET, POST
-    //  - headers - object with headers to pass to HTTP request, properties must be all lower case
-    //  - cookies - a list with cookies or a boolean to load cookies from the db
-    //  - file - file name where to save response, in case of error response the error body will be saved as well
-    //  - postdata - data to be sent with the request in the body
-    //  - postfile - file to be uploaded in the POST body, not as multipart
-    //  - query - aditional query parameters to be added to the url as an object or as encoded string
+    // Downloads file using HTTP and pass it to the callback if provided
+    // - uri can be full URL or an object with parts of the url, same format as in url.format
+    // - params can contain the following options:
+    //   - method - GET, POST
+    //   - headers - object with headers to pass to HTTP request, properties must be all lower case
+    //   - cookies - a list with cookies or a boolean to load cookies from the db
+    //   - file - file name where to save response, in case of error response the error body will be saved as well
+    //   - postdata - data to be sent with the request in the body
+    //   - postfile - file to be uploaded in the POST body, not as multipart
+    //   - query - aditional query parameters to be added to the url as an object or as encoded string
+    //   - sign - sign request with provided email/secret properties
+    // - callback will be called with the arguments:
+    //     first argument is error object if any
+    //     second is params object itself with updted fields
+    //     third is HTTP response object
     // On end, the object params will contains the following updated properties:
     //  - data if file was not specified, data eill contain collected response body as string
     //  - status - HTTP response status code
@@ -562,9 +568,19 @@ var core = {
 
         // Aditional query parameters as an object
         var qtype = this.typeName(params.query);
-        var query = url.format({ query: qtype == "object" ? params.query: null, search: qtype == "string" ? params.query: null });
-        if (query[0] == "?" && uri.indexOf("?") > -1) query = query.substr(1);     
-        uri += query;
+        switch (this.typeName(uri)) {
+        case "object":
+            uri = url.format(uri);
+            break;
+            
+        case "string":
+            var q = url.format({ query: qtype == "object" ? params.query: null, search: qtype == "string" ? params.query: null });
+            uri += uri.indexOf("?") == -1 ? q : q.substr(1);
+            break;
+            
+        default:
+            return callback ? callback(new Error("invalid url: " + uri)) : null;
+        }
         
         var options = url.parse(uri);
         options.method = params.method || 'GET';
@@ -628,7 +644,7 @@ var core = {
         
         // Sign request using internal backend credentials
         if (params.sign) {
-            var headers = this.signRequest(this.backendKey, this.backendSecret, options.method, options.hostname, uri, 0, options.checksum);
+            var headers = this.signRequest(params.email, params.secret, options.method, options.hostname, options.path, 0, options.checksum);
             for (var p in headers) options.headers[p] = headers[p];
         }
         
@@ -767,7 +783,7 @@ var core = {
         var qpath = q[0];
         var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
         var str = String(method) + "\n" + String(host) + "\n" + String(qpath) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(checksum || "");
-        return { 'v-signature': '1;;' + id + ';' + this.sign(String(secret), str) + ';' + expires + ';' + String(checksum || "") + ';;' };
+        return { 'v-signature': '1;;' + String(id) + ';' + this.sign(String(secret), str) + ';' + expires + ';' + String(checksum || "") + ';;' };
     },
 
     // Parse incomomg request for signature and return all pieces wrapped in an object, this object
@@ -815,23 +831,30 @@ var core = {
     // POST request is made, if data is an object, it is converted into string.
     // Returns params as in httpGet with .json property assigned with an object from parsed JSON response
     // Special parameters for options:
-    // - .proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
-    // - .queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
-    // - .rowid - unique record id to be used in case of queue management
-    // - .checksum - calculate checksum from the data
+    // - email - email to use for access credentials insted of global credentials
+    // - secret - secret to use for access intead of global credentials
+    // - proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
+    // - queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
+    // - rowid - unique record id to be used in case of queue management
+    // - checksum - calculate checksum from the data
     sendRequest: function(uri, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
+        options.sign = true;
         
         // Nothing to do without credentials
-        if (!self.backendHost || !self.backendKey || !self.backendSecret) {
+        if (!options.email) options.email = self.backendKey;
+        if (!options.secret) options.secret = self.backendSecret;
+        if (!options.email || !options.secret) {
             logger.debug('sendRequest:', 'no backend credentials', uri, options);
             return callback ? callback(null, { status: 200, message: "", json: { status: 200 } }) : null;
         }
-
+        // Relative urls resolve against global backend host
+        if (uri.indexOf("://") == -1) uri = self.backendHost + uri; 
+        
         var db = self.context.db;
-        self.httpGet(self.backendHost + uri, options, function(err, params, res) {
+        self.httpGet(uri, options, function(err, params, res) {
             // Queue management, insert on failure or delete on success
             if (options.queue) {
                 if (params.status == 200) {
@@ -850,39 +873,18 @@ var core = {
                 }
             }
             // If the contents are encrypted, decrypt before processing content type
-            if (options.headers['content-encoding'] == "encrypted") {
-                params.data = self.decrypt(self.backendSecret, params.data);
+            if ((options.headers || {})['content-encoding'] == "encrypted") {
+                params.data = self.decrypt(options.secret, params.data);
             }
             // Parse JSON and store in the params, set error if cannot be parsed, the caller will deal with it
-            if (!err && params.data && params.type == "application/json") {
+            if (params.data && params.type == "application/json") {
                 try {
-                    params.json = JSON.parse(params.data);
+                    params.obj = JSON.parse(params.data);
                 } catch(e) {
                     err = e;
                 }
             }
-            // if we are in proxy mode, we deal with errros and provide nice result to the caller which wil be sent to the API client,
-            // in proxy mode there is no error, only JSON result and status, also we copy .id property from the result if any for cases of autogenereated ids
-            if (options.proxy) {
-                if (err) {
-                    params.status = 500;
-                    params.json = { status: params.status, message: String(err) };
-                } else
-                if (params.json) {
-                    var json = params.json;
-                    if (Array.isArray(json)) json = json[0];
-                    if (options.rows) {
-
-                    } else
-                    if (options.row) {
-                        params.json = json;
-                    } else {
-                        params.json = { status: params.status, message: json.message || "", id: json.id || "" };
-                    }
-                } else {
-                    params.json = { status: params.status, message: "" };
-                }
-            }
+            if (params.status != 200) err = new Error("HTTP error: " + params.status);
             if (callback) callback(err, params, res);
         });
     },
@@ -894,7 +896,7 @@ var core = {
         
         db.select("backend_queue", {}, { sort: "mtime" } , function(err, rows) {
             async.forEachSeries(rows, function(row, next) {
-                self.sendRequest(row.url, core.addObj(row, "queue", true), function(err2) { next(); });
+                self.sendRequest(row.url, self.extendObj(row, "queue", true), function(err2) { next(); });
             }, function(err3) {
                 if (rows.length) logger.log('processQueue:', 'sent', rows.length);
                 if (callback) callback();
@@ -1022,12 +1024,12 @@ var core = {
 
     // HMAC signing and base64 encoded, default algorithm is sha1
     sign: function (key, data, algorithm, encode) {
-        return crypto.createHmac(algorithm ? algorithm : "sha1", key).update(String(data), "utf8").digest(encode ? encode : "base64");
+        return crypto.createHmac(algorithm || "sha1", key).update(String(data), "utf8").digest(encode || "base64");
     },
 
     // Hash and base64 encoded, default algorithm is sha1
     hash: function (data, algorithm, encode) {
-        return crypto.createHash(algorithm ? algorithm : "sha1").update(String(data), "utf8").digest(encode ? encode : "base64");
+        return crypto.createHash(algorithm || "sha1").update(String(data), "utf8").digest(encode || "base64");
     },
 
     // Generate random key, size if specified defines how many random bits to generate
@@ -1040,10 +1042,9 @@ var core = {
         return min + (0 | Math.random() * (max - min + 1));
     },
 
-    // Inherits prototype methods from one object to another
-    inherits: function(target, source) {
-        for (var k in source.prototype)
-          target.prototype[k] = source.prototype[k];
+    // Return number between min and max inclusive
+    randomNum: function(min, max) {
+        return min + (Math.random() * (max - min));
     },
 
     // Return number of seconds for current time
@@ -1276,10 +1277,11 @@ var core = {
     },
     
     // Full path to the icon, perform necessary hashing and sharding, id can be a number or any string
-    iconPath: function(id, prefix, type, ext) {
+    iconPath: function(id, options) {
+        if (!options) options = {};
         // Convert into string and remove all chars except numbers, this will support UUIDs as well as regulat integers
         id = String(id).replace(/[^0-9]/g, '');
-        return path.join(this.path.images, prefix || "", id.substr(-2), id.substr(-4, 2), (type ? String(type)[0] : "") + id + "." + (ext || "jpg"));
+        return path.join(this.path.images, options.prefix || "", id.substr(-2), id.substr(-4, 2), (options.type ? String(options.type)[0] : "") + id + "." + (options.ext || "jpg"));
     },
 
     // Download image and convert into JPG, store under core.path.images
@@ -1299,7 +1301,7 @@ var core = {
 
         // Verify image size and skip download if the same
         if (options.verify) {
-            var imgfile = this.iconPath(id, options.prefix, options.type, options.ext);
+            var imgfile = this.iconPath(id, options);
             fs.stat(imgfile, function(err, stats) {
                 logger.debug('getIcon:', id, imgfile, 'stats:', stats, err);
                 // No image, get a new one
@@ -1348,7 +1350,7 @@ var core = {
         if (!options) options = {};
         logger.debug('putIcon:', id, file, options);
 
-        var image = self.iconPath(id, options.prefix, options.type, options.ext);
+        var image = self.iconPath(id, options);
         
         // Filesystem based icon storage, verify local disk
         fs.exists(image, function(yes) {
@@ -1363,12 +1365,15 @@ var core = {
     },
 
     // Scale image using ImageMagick into a file, return err if failed
+    // - infile can be a string with file name or a Buffer with actual image data
+    // - outfle is not empty is a file naem where to store scaled image or if empty the new image contents will be returned in the callback
+    // - options can specify image extension in .ext, width/height/filter/quality
     scaleIcon: function(infile, outfile, options, callback) {
         if (typeof options == "function") callback = options, options = {};
         if (!options) options = {};
-        backend.resizeImage(infile, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, outfile, function(err2) {
-            logger.edebug(err2, 'scaleIcon:', typeof infile == "object" ? infile.length : infile, outfile, w, h, fmt, quality);
-            if (callback) callback(err2);
+        backend.resizeImage(infile, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, outfile, function(err, data) {
+            logger.edebug(err, 'scaleIcon:', typeof infile == "object" ? infile.length : infile, outfile, options);
+            if (callback) callback(err, data);
         });
     },
 
@@ -1454,7 +1459,7 @@ var core = {
     },
 
     // Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
-    addObj: function() {
+    extendObj: function() {
         if (typeof arguments[0] != "object") return;
         for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
         return arguments[0];

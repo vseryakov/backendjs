@@ -107,7 +107,7 @@ var db = {
                     self.create(table, options.tables[table], options, function(err, rows) { changes++; next() });
                 }
             }, function() {
-                logger.debug('initTables:', options.pool, 'changes:', changes);
+                logger.debug('db.initTables:', options.pool, 'changes:', changes);
                 if (!changes) return callback ? callback() : null;
                 self.cacheColumns(options, callback);
             });
@@ -198,14 +198,14 @@ var db = {
             case "select": return self.sqlSelect(table, obj, opts);
             case "get": return self.sqlSelect(table, obj, self.cloneObj(opts, {}, { count: 1 }));
             case "add": return self.sqlInsert(table, obj, opts);
-            case "put": return self.sqlInsert(table, obj, core.addObj(opts || {}, 'replace', 1));
+            case "put": return self.sqlInsert(table, obj, core.extendObj(opts || {}, 'replace', 1));
             case "update": return self.sqlUpdate(table, obj, opts);
             case "del": return self.sqlDelete(table, obj, opts);
             }
         }
         // Sqlite supports REPLACE INTO natively
         pool.put = function(table, obj, opts, callback) {
-            var req = this.prepare("add", table, obj, core.addObj(opts || {}, 'replace', 1));
+            var req = this.prepare("add", table, obj, core.extendObj(opts || {}, 'replace', 1));
             self.query(req, options, callback);
         }
         // Convert a value when using with parametrized statements or convert into appropriate database type
@@ -218,7 +218,7 @@ var db = {
         pool.sql = true;
         pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
         this.dbpool[options.pool] = pool;
-        logger.debug('initPool:', pool.name);
+        logger.debug('db.initPool:', pool.name);
         return pool;
     },
     
@@ -304,7 +304,7 @@ var db = {
         self.query(req, function(err, rows) {
             if (err) return callback ? callback(err, []) : null;
             
-            logger.debug('dbReplace:', req, result);
+            logger.debug('db.replace:', req, result);
             if (rows.length) {
                 // Skip update if specified or mtime is less or equal
                 if (options.add_only || (select == options.check_mtime && self.toDate(rows[0][options.check_mtime]) >= self.toDate(obj[options.check_mtime]))) {
@@ -350,7 +350,7 @@ var db = {
     },
 
     // Retrieve one record from the database 
-    // Options can use the follwoing special properties:
+    // Options can use the following special properties:
     //  - keys - a list of columns for condition or all primary keys
     //  - select - a list of columns or expressions to return or *
     //  - op - operators to use for comparison for properties
@@ -373,7 +373,7 @@ var db = {
         var keys = options.keys || this.getKeys(table, options) || [];
         var key = keys.filter(function(x) { return obj[x]} ).map(function(x) { return obj[x] }).join(":");
         var prefix = options.prefix || table;
-        this.ipcGetCache(prefix + ":" + key, function(rc) {
+        core.ipcGetCache(prefix + ":" + key, function(rc) {
             // Cached value retrieved
             if (rc) {
                 pool.stats.hits++;
@@ -386,7 +386,7 @@ var db = {
                 // Store in cache if no error
                 if (rows.length && !err) {
                     pool.stats.puts++;
-                    self.ipcPutCache(prefix + ":" + key, self.stringify(rows[0]));
+                    core.ipcPutCache(prefix + ":" + key, core.stringify(rows[0]));
                 }
                 callback(err, rows.length ? rows[0] : null);
             });
@@ -396,9 +396,9 @@ var db = {
     
     // Execute query using native database driver, the query is passed directly to the driver.
     // - req - can be a string or an object with the following properties:
-    // - .text - SQL statement or other query
-    // - .values - parameter values for sql bindings or other driver specific data
-    // - .filter - function to filter rows not to be included in the result, return false to skip row, args are: (ctx, row)
+    //   - text - SQL statement or other query in the format of the native driver
+    //   - values - parameter values for sql bindings or other driver specific data
+    //   - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
     // Callback is called with the following params:
     //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,last_evaluated_key
     //    rows is always returned as a list, even in case of error it is an empty list
@@ -415,11 +415,11 @@ var db = {
                 var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, last_evaluated_key: client.last_evaluated_key };
                 pool.free(client);
                 if (err2) {
-                    logger.error("dbQuery:", pool.name, req.text, req.values, err2);
+                    logger.error("db.query:", pool.name, req.text, req.values, err2);
                     return callback ? callback(err2, rows) : null;
                 }
-                if (req.filter) rows = rows.filter(function(row) { return req.filter.call(opts, row); });
-                logger.debug("dbQuery:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "");
+                if (req.filter) rows = rows.filter(function(row) { return req.filter(row, options); });
+                logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "");
                 if (callback) callback(err, rows, info);
             });
         });
@@ -1371,7 +1371,7 @@ var db = {
             logger.log("query:", table ,opts)
             var pool = this;
             var obj = opts[1];
-            var options = core.addObj(opts[2], "db", pool.db);
+            var options = core.extendObj(opts[2], "db", pool.db);
             pool.last_evaluated_key = "";
             
             switch(opts[0]) {
@@ -1397,7 +1397,7 @@ var db = {
             case "get":
                 var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 aws.ddbGetItem(table, keys, options, function(err, item) {
-                    callback(err, item ? [item.Item] : []);
+                    callback(err, item.Item ? [item.Item] : []);
                 });
                 break;
 
@@ -1453,7 +1453,7 @@ var db = {
                 
             case "add":
                 // Add only listed columns if there is a .columns property specified
-                var o = self.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
+                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
                 options.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
                 aws.ddbPutItem(table, o, options, function(err, rc) {
                     callback(err, []);
@@ -1462,7 +1462,7 @@ var db = {
 
             case "put":
                 // Add/put only listed columns if there is a .columns property specified
-                var o = self.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
+                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
                 aws.ddbPutItem(table, o, options, function(err, rc) {
                     callback(err, []);
                 });
@@ -1471,7 +1471,7 @@ var db = {
             case "update":
                 var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 // Skip special columns, nulls, primary key columns. If we have specific list of allowed columns only keep those.
-                var o = self.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n] || (options.columns && !(n in options.columns)); } });
+                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n] || (options.columns && !(n in options.columns)); } });
                 options.expected = keys;
                 aws.ddbUpdateItem(table, keys, o, options, function(err, rc) {
                     callback(err, []);
@@ -1479,7 +1479,8 @@ var db = {
                 break;
 
             case "del":
-                aws.ddbDeleteItem(table, obj, options, function(err, rc) {
+                var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                aws.ddbDeleteItem(table, keys, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;

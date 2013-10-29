@@ -460,6 +460,10 @@ case "$ARG" in
     $PG_PREFIX/bin/postgres -F -D $PG_DIR &
     ;;
     
+  stop-pg)
+    killall postgres
+    ;;  
+    
   import-pg)
     -[ ! -f $DBDUMP ] && scp $MASTER:/data/backup/$DBDUMP .
     $PG_PREFIX/bin/psql -q -U $PG_USER -c "DROP DATABASE $DBNAME" postgres
@@ -473,6 +477,10 @@ case "$ARG" in
     (cd $ROOT/var && nohup java -Djava.library.path=$DDB_DIR -jar $DDB_DIR/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
     ;;
     
+  stop-ddb)
+    kill $(ps agx|grep dynamodb|grep -v grep|awk '{print $1}')
+    ;;
+      
   init-cassandra)
     if [ ! -d $ROOT/cassandra ]; then
         mkdir -p $ROOT/cassandra/var $ROOT/cassandra/log
