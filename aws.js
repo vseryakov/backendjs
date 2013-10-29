@@ -113,7 +113,7 @@ var aws = {
         var req = url.parse(uri);
         var json = JSON.stringify(obj);
         var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };
-        logger.debug('queryDDB:', uri, 'action:', action, 'obj:', obj, 'options:', options);
+        logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options);
         
         this.querySign("dynamodb", req.hostname, "POST", req.path, json, headers);
         core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
@@ -131,7 +131,7 @@ var aws = {
                 if (!err) err = new Error(params.json.__type + ": " + (params.json.message || params.json.Message));
                 return callback ? callback(err, {}) : null;
             }
-            logger.log('queryDDB:', action, core.mnow() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', util.inspect(obj, null, null));
+            logger.debug('queryDDB:', action, 'finished:', core.mnow() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows');
             if (callback) callback(err, params.json);
         });
     },
@@ -615,7 +615,7 @@ var aws = {
     // Query on a table, return all matching items
     // - condition is an object with name: value pairs, by default EQ opeartor is used for comparison
     // - options may contain any valid native property if it starts with capital letter or special property:
-    //   - start or page - defines starting primary key when paginating
+    //   - start - defines starting primary key when paginating, can be a string/number for hash or an object with hash/range properties
     //   - consistent - set consistency level for the request
     //   - select - list of attributes to get only
     //   - total - return number of matching records
@@ -635,8 +635,8 @@ var aws = {
         if (options.consistent) {
             params.ConsistentRead = true;
         }
-        if (options.start || options.page) {
-            params.ExclusiveStartKey = self.toDynamoDB(options.start || options.page);
+        if (options.start) {
+            params.ExclusiveStartKey = self.toDynamoDB(options.start);
         }
         if (options.sort) {
             params.IndexName = options.sort;
@@ -654,14 +654,14 @@ var aws = {
             params.Select = "COUNT";
         }
         for (var name in condition) {
-            var args = condition[name];
+            var val = condition[name];
             var op = (options.ops || {})[name] || "eq";
             var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
             switch (cond.ComparisonOperator) {
             case 'BETWEEN':
-                if (args.length < 3) continue;
-                cond.AttributeValueList.push(self.toDynamoDB(args[1]));
-                cond.AttributeValueList.push(self.toDynamoDB(args[2]));
+                if (args.length < 2) continue;
+                cond.AttributeValueList.push(self.toDynamoDB(val[0]));
+                cond.AttributeValueList.push(self.toDynamoDB(val[1]));
                 break;
 
             case 'EQ':
@@ -670,7 +670,7 @@ var aws = {
             case 'GE':
             case 'GT':
             case 'BEGINS_WITH':
-                cond.AttributeValueList.push(self.toDynamoDB(args[1]));
+                cond.AttributeValueList.push(self.toDynamoDB(val));
                 break;
             }
             params.KeyConditions[name] = cond;
@@ -699,14 +699,14 @@ var aws = {
             params.ExclusiveStartKey = self.toDynamoDB(options.start);
         }
         for (var name in condition) {
-            var args = condition[name];
+            var val = condition[name];
             var op = (options.ops || {})[name] || "eq";
             var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
             switch (cond.ComparisonOperator) {
             case 'BETWEEN':
-                if (args.length < 3) continue;
-                cond.AttributeValueList.push(self.toDynamoDB(args[1]));
-                cond.AttributeValueList.push(self.toDynamoDB(args[2]));
+                if (args.length < 2) continue;
+                cond.AttributeValueList.push(self.toDynamoDB(val[0]));
+                cond.AttributeValueList.push(self.toDynamoDB(val[1]));
                 break;
 
             case 'EQ':
@@ -715,7 +715,7 @@ var aws = {
             case 'GE':
             case 'GT':
             case 'BEGINS_WITH':
-                cond.AttributeValueList.push(self.toDynamoDB(args[1]));
+                cond.AttributeValueList.push(self.toDynamoDB(val));
                 break;
             }
             params.ScanFilter[name] = cond;

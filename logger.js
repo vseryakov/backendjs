@@ -161,12 +161,16 @@ var logger = {
     // Make it one line to preserve space, syslog cannot output very long lines
     debug: function() {
         if (this.level < 1) return;
-        this.print('DEBUG', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+        var str = "";
+        for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
+        this.print('DEBUG', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
     },
 
     dev: function() {
         if (this.level < 2) return;
-        this.print('DEV', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+        var str = "";
+        for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
+        this.print('DEV', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
     },
 
     warn: function() {

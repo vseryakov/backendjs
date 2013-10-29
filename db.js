@@ -419,7 +419,7 @@ var db = {
                     return callback ? callback(err2, rows) : null;
                 }
                 if (req.filter) rows = rows.filter(function(row) { return req.filter(row, options); });
-                logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "");
+                logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", info);
                 if (callback) callback(err, rows, info);
             });
         });
@@ -1407,11 +1407,11 @@ var db = {
                     if (err) return callback(err, []);
                     var count = options.count || 0;
                     var items = item.Items;
-                    pool.last_evaluated_key = item.LastEvaluatedKey || "";
+                    pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : "";
                     count -= items.length;
                     // Keep retrieving items until we reach the end or our limit
                     async.until(
-                        function() { return pool.last_evaluated_key != "" || count > 0; },
+                        function() { return pool.last_evaluated_key == "" || count <= 0; },
                         function(next) {
                             options.start = pool.last_evaluated_key;
                             if (count < 100) options.count = count;

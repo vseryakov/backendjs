@@ -390,12 +390,24 @@ var api = {
                 break;
                 
             case "location/list":
+                var start = req.query._start;
+                var distance = core.toNumber(req.query.distance);
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-                req.query.distance = core.toNumber(req.query.distance);
-                if (req.query.distance <= 0) return self.sendReply(res, 400, "Distance is required");
-                var geo = self.prepareLocation(req.query.latitude, req.query.longitude);
-                db.select("location", { hash: geo.hash, range: geo.range.substr(0, 1) }, { pool: self.pool, start: req.query._start, count: req.query._count || 25 }, function(err, rows) {
-                    rows = rows.filter(function(x) { return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= req.query.distance });
+                if (distance <= 0) return self.sendReply(res, 400, "Distance is required");
+                // Preprare geo search key
+                var geo = self.prepareLocation(req.query.latitude, req.query.longitude, distance);
+                // Start comes as full geohash, split it into search hash and range
+                if (start) {
+                    start = { hash: start.substr(0, geo.hash.length), range: start.substr(geo.hash.length, geo.range.length) }
+                }
+                db.select("location", { hash: geo.hash, range: geo.range }, { pool: self.pool, ops: { range: "begins_with" }, start: start, count: req.query._count || 25 }, function(err, rows, info) {
+                    rows = rows.filter(function(x) { 
+                        return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= distance; 
+                    }).map(function(x) { 
+                        x.hash += x.range;
+                        delete x.range;
+                        return x;
+                    });
                     res.json(rows);
                 });
                 break;
@@ -510,11 +522,12 @@ var api = {
     },
     
     // Return object with geohash for given coordinates to be used for location search
-    prepareLocation: function(latitude, longitude) {
+    prepareLocation: function(latitude, longitude, distance) {
         var self = this;
-        var bits = this.geoRange.filter(function(x) { return x[1] > self.maxDistance })[0][0];
+        var kbits = this.geoRange.filter(function(x) { return x[1] > self.maxDistance })[0][0];
+        var hbits = distance ? this.geoRange.filter(function(x) { return x[1] > distance })[0][0] : 22;
         var geohash = backend.geoHashEncode(latitude, longitude);
-        return { hash: geohash.substr(0, bits), range: geohash.substr(bits), latitude: latitude, longitude: longitude };
+        return { hash: geohash.substr(0, kbits), range: geohash.substr(kbits, hbits - kbits), latitude: latitude, longitude: longitude };
     },
     
     // Prepare an account record for response, set required fields, icons

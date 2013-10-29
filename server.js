@@ -210,12 +210,12 @@ var server = {
     startWeb: function(callback) {
         var self = this;
 
-        // Setup IPC communication
-        core.ipcInit();
-
         if (cluster.isMaster) {
             core.role = 'server';
             process.title = core.name + ': server';
+
+            // Setup IPC communication
+            core.ipcInitServer();
 
             // REPL command prompt over TCP
             if (core.argv.indexOf("-repl") > 0) core.startRepl(core.replPort, core.replBind);
@@ -244,6 +244,9 @@ var server = {
         } else {
             core.role = 'web';
             process.title = core.name + ": web"
+
+            // Setup IPC communication
+            core.ipcInitClient();
 
             // Init API environment
             core.context.api.init(function(err) {

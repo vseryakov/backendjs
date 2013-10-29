@@ -369,80 +369,80 @@ var core = {
     // the database, all servers share the same database and update it directly. The eviction is done in 2 phases, first local process cache
     // is cleared and then it sends a broadcast to all servers in the cluster using nanomsg socket, other servers all subscribed to that
     // socket and listen for messages.
-    ipcInit: function() {
+    ipcInitServer: function() {
         var self = this;
 
         // Attach our message handler to all workers, process requests from workers
-        if (cluster.isMaster) {
-            backend.lruInit(self.lruMax);
-            
-            // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts 
-            // it to other connected servers via the same BUS socket
-            if (self.lruServer) {
-                var sock = backend.nnCreate(backend.AF_SP_RAW, backend.NN_BUS);
-                backend.nnBind(sock, self.lruServer);
-                backend.lruServer(0, sock, sock);
-            }
-            
-            // Send cache requests to the LRU host to be broadcasted to all other servers
-            if (self.lruHost) {
-                self.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
-                backend.nnConnect(self.lruSocket, self.lruHost);
-            }
-            
-            cluster.on('fork', function(worker) {
-                // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
-                worker.on('message', function(msg) {
-                    if (!msg) return false;
-                    logger.debug('LRU:', msg);
-                    switch (msg.cmd) {
-                    case 'keys':
-                        msg.value = backend.lruKeys();
-                        worker.send(msg);
-                        break;
-                        
-                    case 'get':
-                        if (msg.key) msg.value = backend.lruGet(msg.key);
-                        worker.send(msg);
-                        break;
-
-                    case 'put':
-                        if (msg.key && msg.value) backend.lruSet(msg.key, msg.value);
-                        if (msg.reply) worker.send({});
-                        if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key + "\1" + msg.value);
-                        break;
-
-                    case 'del':
-                        if (msg.key) backend.lruDel(msg.key);
-                        if (msg.reply) worker.send({});
-                        if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key);
-                        break;
-                        
-                    case 'clear':
-                        backend.lruClear();
-                        if (msg.reply) worker.send({});
-                        break;
-                    }
-                });
-            });
+        backend.lruInit(self.lruMax);
+        
+        // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts 
+        // it to other connected servers via the same BUS socket
+        if (self.lruServer) {
+            var sock = backend.nnCreate(backend.AF_SP_RAW, backend.NN_BUS);
+            backend.nnBind(sock, self.lruServer);
+            backend.lruServer(0, sock, sock);
         }
-
-        if (cluster.isWorker) {
-            // Event handler for the worker to process response and fire callback
-            process.on("message", function(msg) {
-                if (!msg.id) return;
-                if (self.ipcs[msg.id]) setImmediate(function() { 
-                    self.ipcs[msg.id].callback(msg); 
-                    delete self.ipcs[msg.id];
-                });
-                
+        
+        // Send cache requests to the LRU host to be broadcasted to all other servers
+        if (self.lruHost) {
+            self.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
+            backend.nnConnect(self.lruSocket, self.lruHost);
+        }
+        
+        cluster.on('fork', function(worker) {
+            // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
+            worker.on('message', function(msg) {
+                if (!msg) return false;
+                logger.debug('LRU:', msg);
                 switch (msg.cmd) {
-                case "heapsnapshot":
-                    backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
+                case 'keys':
+                    msg.value = backend.lruKeys();
+                    worker.send(msg);
+                    break;
+                    
+                case 'get':
+                    if (msg.key) msg.value = backend.lruGet(msg.key);
+                    worker.send(msg);
+                    break;
+
+                case 'put':
+                    if (msg.key && msg.value) backend.lruSet(msg.key, msg.value);
+                    if (msg.reply) worker.send({});
+                    if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key + "\1" + msg.value);
+                    break;
+
+                case 'del':
+                    if (msg.key) backend.lruDel(msg.key);
+                    if (msg.reply) worker.send({});
+                    if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key);
+                    break;
+                    
+                case 'clear':
+                    backend.lruClear();
+                    if (msg.reply) worker.send({});
                     break;
                 }
             });
-        }
+        });
+    },
+    
+    ipcInitClient: function() {
+        var self = this;
+
+        // Event handler for the worker to process response and fire callback
+        process.on("message", function(msg) {
+            if (!msg.id) return;
+            if (self.ipcs[msg.id]) setImmediate(function() { 
+                self.ipcs[msg.id].callback(msg); 
+                delete self.ipcs[msg.id];
+            });
+                
+            switch (msg.cmd) {
+            case "heapsnapshot":
+                backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
+                break;
+            }
+        });
     },
 
     // Send cache command to the master process via IPC messages, callback is used for commands that return value back
