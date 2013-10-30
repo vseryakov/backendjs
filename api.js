@@ -21,7 +21,7 @@ var backend = require(__dirname + '/backend');
 var api = {
 
     // No authentication for these urls
-    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html|txt|csv|json|plist)$|(^\/public\/)|(^\/image\/[a-z]+\/|^\/account\/add))/,
+    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html)$|(^\/public\/)|(^\/image\/[a-z]+\/|^\/account\/add))/,
 
     // Refuse access to these urls
     deny: null,
@@ -101,17 +101,15 @@ var api = {
     geoRange: [ [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]],
     
     // Config parameters
-    args: ["pool", 
-           "images-url",
-           "images-s3",
-           "access-log",
-           { name: "min-distance", type: "int" },
-           { name: "max-distance", type: "int", max: 40000, min: 1 },
-           { name: "backend", type: "bool" },
-           { name: "allow", type: "regexp" },
-           { name: "deny", type: "regexp" },
-           { name: "accesslog", type: "path" },
-           { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10 }],
+    args: [{ name: "pool", descr: "Database pool to use for API clients" }, 
+           { name: "images-url", descr: "URL where images are stored" },
+           { name: "images-s3", descr: "S3 bucket name where to store images" },
+           { name: "access-log", descr: "File for access logging" },
+           { name: "min-distance", type: "int", descr: "Min distance for location updates, if smaller updates will be ignored"  },
+           { name: "max-distance", type: "int", max: 40000, min: 1, descr: "Max distance for locations searches"  },
+           { name: "allow", type: "regexp", descr: "Regexp for URLs that dont need credentials" },
+           { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access"  },
+           { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 
     // Cutomization hooks/callbacks, always run within api context
     onInit: function() {},
@@ -148,7 +146,7 @@ var api = {
         this.app.use(function(req, res, next) {
             res.header('Server', core.name + '/' + core.version);
             res.header('Access-Control-Allow-Origin', '*');
-            res.header('Access-Control-Allow-Headers', 'accesskey,version,signature,expires,checksum');
+            res.header('Access-Control-Allow-Headers', 'v-signature');
             next();
         });
         this.app.use(this.accessLogger());
@@ -352,7 +350,7 @@ var api = {
                     core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
                     // Keep history of all changes
-                    db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.pool });
+                    if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.pool });
                 });
                 break;
                 
@@ -385,16 +383,16 @@ var api = {
                     });
                         
                     // Keep history of all changes
-                    db.add("history", { id: req.account.id, type: req.params[0], mtime: now, latitude: obj.latitude, longitude: obj.longitude }, { pool: self.pool });
+                    if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, lat: obj.latitude, lon: obj.longitude }, { pool: self.pool });
                 });
                 break;
                 
             case "location/list":
-                var start = req.query._start;
+                var start = req.query._start || "";
                 var distance = core.toNumber(req.query.distance);
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 if (distance <= 0) return self.sendReply(res, 400, "Distance is required");
-                // Preprare geo search key
+                // Prepare geo search key
                 var geo = self.prepareLocation(req.query.latitude, req.query.longitude, distance);
                 // Start comes as full geohash, split it into search hash and range
                 if (start) {
@@ -408,7 +406,8 @@ var api = {
                         delete x.range;
                         return x;
                     });
-                    res.json(rows);
+                    var last = info.last_evaluated_key;
+                    res.json({ geohash: geo.geohash, start: req.query._start, last: last ? last.hash + last.range : "",  items: rows });
                 });
                 break;
 
@@ -433,6 +432,7 @@ var api = {
                         self.sendReply(res, err);
                     });
                 });
+                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: id, ctype: type }, { pool: self.pool });
                 break;
 
             case "connection/del":
@@ -443,6 +443,7 @@ var api = {
                         self.sendReply(res, err);
                     });
                 });
+                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: req.query.id, ctype: req.query.type }, { pool: self.pool });
                 break;
 
             case "connection/list":
@@ -459,7 +460,7 @@ var api = {
                 });
                 break;
 
-            case "connection/reference/list":
+            case "connection/list/reference":
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
                 db.select("reference", { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, function(err, rows) {
@@ -473,7 +474,7 @@ var api = {
                 });
                 break;
                 
-            case "connection/list/accounts":
+            case "connection/list/account":
                 db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     var list = {}, ids = [];
@@ -527,12 +528,12 @@ var api = {
         var kbits = this.geoRange.filter(function(x) { return x[1] > self.maxDistance })[0][0];
         var hbits = distance ? this.geoRange.filter(function(x) { return x[1] > distance })[0][0] : 22;
         var geohash = backend.geoHashEncode(latitude, longitude);
-        return { hash: geohash.substr(0, kbits), range: geohash.substr(kbits, hbits - kbits), latitude: latitude, longitude: longitude };
+        return { hash: geohash.substr(0, kbits), range: geohash.substr(kbits, hbits - kbits), geohash: geohash, latitude: latitude, longitude: longitude };
     },
     
     // Prepare an account record for response, set required fields, icons
     prepareAccount: function(row) {
-        if (row.birthday) row.age = (Date.now() - core.toDate(row.birthday))/(86400000*365);
+        if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
         row.icon = this.imagesUrl + '/image/account/' + row.id;
     },
     
@@ -719,7 +720,7 @@ var api = {
             res._end = res.end;
             res.end = function(chunk, encoding) {
                 res._end(chunk, encoding);
-                if (!self.accesslog || req._skipLogging) return;
+                if (!self.accesslog || req._skipAccessLog) return;
                 var line = format(req, res);
                 if (!line) return;
                 self.accesslog.write(line);

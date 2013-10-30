@@ -344,7 +344,7 @@ case "$ARG" in
     $PREFIX/bin/node $NODE_ARGS $PREFIX/bin/backend -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
     ;;
 
-  pgpool)
+  pgpool-run)
     echo "Starting pgpool..."
     su - $LOCAL_USER -c "rsync -aq -e '$SSH_ARGS' $MASTER:$ROOT/etc/pgpool* $ROOT/etc"
     $PREFIX/bin/pgpool -m fast
@@ -412,7 +412,7 @@ case "$ARG" in
     # Additional options for tar
     TAR_ARGS="--ignore-failed-read --exclude-backup $TAR_ARGS"
     # Files and dirs to backup
-    TAR_FILES="/etc $ROOT/etc $ROOT/web $PREFIX /home $TAR_FILES"
+    TAR_FILES="/etc /home/$LOCAL_USER $ROOT/etc $ROOT/web $PREFIX $BACKUP_FILES"
     # PG directry on CentOS is separate
     [ -e $PG_PREFIX ] && TAR_FILES="$TAR_FILES $PG_PREFIX"
     # File extensions to exclude from backup
@@ -420,6 +420,8 @@ case "$ARG" in
     for ext in $TAR_EXCLUDE; do 
        TAR_ARGS="--exclude='*.$ext' $TAR_ARGS"
     done
+    mkdir -p $BACKUP
+    
     # Database backup if exists
     if [ "$BACKUP_DB" != "" -a -e $PG_DIR/base ]; then
        TAR_FILES="$TAR_FILES $PG_DIR/*.conf"
@@ -543,7 +545,7 @@ case "$ARG" in
     git clone https://github.com/joyent/node.git
     (cd node && git checkout v0.10 && ./configure --prefix=$PREFIX && make install)
 
-    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs mime
+    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs mime http-proxy
     
     git clone https://github.com/nanomsg/nanomsg.git
     (cd nanomsg && ./configure --prefix=$PREFIX && make install)

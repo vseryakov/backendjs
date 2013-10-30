@@ -18,6 +18,7 @@ var os = require('os');
 var stream = require('stream');
 var async = require('async');
 var printf = require('printf');
+var proxy = require('http-proxy');
 
 var server = {
     // Watcher process status
@@ -60,16 +61,16 @@ var server = {
     idleTime: 120,
 
     // Config parameters
-    args: [{ name: "max-processes", type: "number", min: 1, max: 4 }, 
-           { name: "max-workers", type: "number", min: 1, max: 4 }, 
-           { name: "idle-time", type: "number" }, 
-           { name: "crash-delay", type: "number", max: 30000 }, 
-           { name: "restart-delay", type: "number", max: 30000 },
-           { name: "job", type: "callback", value: "queueJob" },
-           { name: "jobs-primary", type: "bool" },
-           { name: "jobs-interval", type: "number", min: 60000, max: 900000 },
-           { name: "jobs-allow", type: "regexp" },
-           { name: "jobs-disallow", type: "regexp" }],
+    args: [{ name: "max-processes", type: "number", min: 1, max: 4, descr: "Max processes to launch for servers" }, 
+           { name: "max-workers", type: "number", min: 1, max: 4, descr: "Max number of worker processes to launch for jobs" }, 
+           { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" }, 
+           { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" }, 
+           { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
+           { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
+           { name: "jobs-primary", type: "bool", descr: "If specified this host executes jobs without the hostname, otherwise only jobs with matching hostname will be executed by this server" },
+           { name: "jobs-interval", type: "number", min: 60000, max: 900000, descr: "Interval between executing job queue" },
+           { name: "jobs-allow", type: "regexp", descr: "Regexp allowing jobs to be executed in format: type.job where type is: local,remote,server" },
+           { name: "jobs-disallow", type: "regexp", descr: "Regexp disallowing jobs to be executed in format: type.job where type is: local,remote,server" }],
     
     // Start the server process
     start: function() {
@@ -114,6 +115,11 @@ var server = {
             // Backend Web server
             if (process.argv.indexOf("-web") > 0) {
                 self.startWeb();
+            } else
+            
+            // HTTP proxy
+            if (process.argv.indexOf("-proxy") > 0) {
+                self.startProxy();
             }
         });
     },
@@ -146,8 +152,9 @@ var server = {
             core.role = 'master';
             process.title = core.name + ': master';
             
-            // Start web master process with web workers
+            // Start other master processes
             this.startWebProcess();
+            this.startWebProxy();
 
             // REPL command prompt over TCP
             if (core.argv.indexOf("-repl") > 0) core.startRepl(core.replPort, core.replBind);
@@ -257,7 +264,7 @@ var server = {
         }
     },
 
-    // Spawn web server from the master as a separate master with web workers, it i sused when web and master processes are running on the same server
+    // Spawn web server from the master as a separate master with web workers, it is used when web and master processes are running on the same server
     startWebProcess: function() { 
         if (core.argv.indexOf("-web") == -1) return;
         var params = [];
@@ -282,6 +289,43 @@ var server = {
         child.unref();
     },
 
+    // Spawn web proxy from the master as a separate master with web workers
+    startWebProxy: function() { 
+        if (core.argv.indexOf("-proxy") == -1) return;
+        var params = [];
+        var val = core.getArg("-proxy-port", core.port);
+        if (val) params.push("-port", val);
+        val = core.getArg("-proxy-bind");
+        if (val) params.push("-bind", val);
+        
+        var child = this.spawnProcess(params, ["-port", "-bind", "-master" ], { stdio: 'inherit' });
+        this.pids.push(child.pid);
+        child.on('exit', function (code, signal) {
+            logger.log('process terminated:', 'pid:', this.pid, name, 'code:', code, 'signal:', signal);
+            // Make sure all web servers are down before restating to avoid EADDRINUSE error condition
+            core.killBackend("proxy", function() {
+                self.respawn(function() { self.startWebProxy(); });
+            });
+        });
+        child.unref();
+    },
+    
+    // Start http proxy as standalone server process
+    startProxy: function() {
+        var self = this;
+        var config = null;
+        
+        try { config = JSON.parse(fs.readFileSync(path.join(core.path.etc, "proxy")).toString()); } catch (e) { logger.error('startProxy:', e); }
+        if (!config) return logger.error('startProxy:', 'no config file');
+
+        if (config.https) {
+            Object.keys(config.https).forEach(function (key) {
+                try { config.https[key] = fs.readFileSync(path.join(core.path.etc, config.https[key])); } catch(e) { logger.error('startProxy:', e) }
+            });
+        }
+        try { self.proxy = proxy.createServer(config).listen(core.port, core.bind); } catch(e) { logger.error('startProxy:', e) }
+    },
+    
     // Restart process with the same arguments and setup as a monitor for the spawn child
     startProcess: function() {
         var self = this;
@@ -547,7 +591,6 @@ var server = {
 
         // Common arguments for remote workers
         var args = ["-master", "-instance",
-                    "-db", core.backendDb || "",
                     "-backend-host", core.backendHost || "",
                     "-backend-key", core.backendKey || "",
                     "-backend-secret", core.backendSecret || "",
@@ -558,7 +601,7 @@ var server = {
             args.push("-job", new Buffer(JSON.stringify({ 'server.shutdown': { runlast: 1 } })).toString("base64"));
         }
         
-        // Launch arguments for the backend, must begin with -
+        // Command line arguments for the instance, must begin with -
         for (var p in options) {
             if (p[0] != '-') continue;
             args.push(p, options[p])

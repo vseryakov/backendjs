@@ -31,13 +31,14 @@ var db = {
               cacheColumns: function() { throw "no pool" }, value: function() {} },
               
     // Config parameters              
-    args: [{ name: "pool" },
-           { name: "sqlite-max", type: "number", min: 1, max: 100 },
-           { name: "sqlite-idle", type: "number", min: 1000, max: 86400000 },
-           { name: "pg-pool" },
-           { name: "pg-max", type: "number", min: 1, max: 100 },
-           { name: "pg-idle", type: "number", min: 1000, max: 86400000 },
-           { name: "ddb-pool" },
+    args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
+           { name: "no-db", type:" bool", descr: "Do not use other db pools except default sqlite" },
+           { name: "sqlite-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool" },
+           { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "pg-pool", descr: "PostgreSQL pool access url or options string" },
+           { name: "pg-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
+           { name: "pg-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "ddb-pool", descr: "DynamoDB endpoint url" },
     ],
 
     // Default tables
@@ -72,14 +73,16 @@ var db = {
         this.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
         
         // Optional pools for supported databases
-        ["pg", "ddb"].forEach(function(x) {
-            if (!self[x + 'Pool']) return;
-            self[x + 'InitPool']({ pool: x, db: self[x + 'Pool'], max: self[x + 'Max'], idle: self[x + 'Idle'] });
-        });
+        if (!self.noDb) {
+            ["pg", "ddb"].forEach(function(x) {
+                if (!self[x + 'Pool']) return;
+                self[x + 'InitPool']({ pool: x, db: self[x + 'Pool'], max: self[x + 'Max'], idle: self[x + 'Idle'] });
+            });
+        }
         
         // Initialize SQL pools
         async.forEachSeries(Object.keys(this.dbpool), function(pool, next) {
-            if (cluster.isWorker) {
+            if (cluster.isWorker || core.worker) {
                 db.cacheColumns({ pool: pool }, next);
             } else {
                 db.initTables({ pool: pool, tables: self.tables }, next);

@@ -48,6 +48,8 @@ var tests = {
         var email = core.random() + "@test.com";
         var secret = core.random();
         var bbox = [ 37.79, -122.505, 37.2, -122.0 ];  // San Francisco area
+        var latitude = core.randomNum(bbox[0], bbox[2]);
+        var longitude = core.randomNum(bbox[1], bbox[3]);
         
         async.series([
             function(next) {
@@ -65,7 +67,7 @@ var tests = {
                 });
             },
             function(next) {
-                var options = { email: email, secret: secret, query: { latitude: core.randomNum(bbox[0], bbox[2]), longitude: core.randomNum(bbox[1], bbox[3]), location: "San Francisco" } };
+                var options = { email: email, secret: secret, query: { latitude: latitude, longitude: longitude, location: "San Francisco" } };
                 core.sendRequest("/account/location/put", options, function(err, params) {
                     next(err);
                 });

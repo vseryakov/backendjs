@@ -18,7 +18,15 @@ var xml2json = require('xml2json');
 
 var aws = {
     name: 'aws',
-    args: [ "key", "secret", "region", "keypair", "image", "instance", "dynamodb-host", { name: "nometadata", type: "bool" }],
+    args: [ { name: "key", descr: "AWS access key" },
+            { name: "secret", descr: "AWS access secret" },
+            { name: "region", descr: "AWS region" },
+            { name: "keypair", descr: "AWS instance keypair name" },
+            { name: "image", descr: "AWS image id to be used for remote jobs" },
+            { name: "instance", descr: "AWS instance type" },
+            { name: "dynamodb-host", descr: "Custom DynamoDB host for local installations" },
+            { name: "nometadata", type: "bool", descr: "Skip retrieval from instance metadata" }],
+            
     region: 'us-east-1',
     s3: "s3.amazonaws.com",
     instance: "t1.micro",

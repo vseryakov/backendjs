@@ -87,39 +87,39 @@ var core = {
                  ],
 
     // Config parameters
-    args: [ { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); } },
-            { name: "log", type: "callback", value: function(v) { logger.setDebug(v); } },
-            { name: "logfile", type: "callback", value: function(v) { logger.setFile(v); } },
-            { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); } },
-            { name: "console", type: "callback", value: function() { core.logfile = null; logger.setFile(null);} },
-            { name: "home", type: "callback", value: "setHome" },
-            { name: "concurrency", type:"number", min: 1, max: 4 },
-            { name: "umask" },
-            { name: "uid", type: "number", min: 0, max: 9999 },
-            { name: "gid", type: "number", min: 0, max: 9999 },
-            { name: "port", type: "number", min: 0, max: 99999 },
-            { name: "bind" },
-            { name: "repl-port", type: "number", min: 0, max: 99999 },
-            { name: "repl-bind" },
-            { name: "repl-file" },
-            { name: "lru-max", type: "number" },
+    args: [ { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debuggng messages" },
+            { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev" },
+            { name: "logfile", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages" },
+            { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog" },
+            { name: "console", type: "callback", value: function() { core.logfile = null; logger.setFile(null);}, descr: "All logging goes to the console" },
+            { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, current dir if not specified" },
+            { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run att he same time inside one process" },
+            { name: "umask", descr: "Filesystem mask" },
+            { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after start if running as root" },
+            { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },
+            { name: "port", type: "number", min: 0, max: 99999, descr: "HTTP port to listen for the server" },
+            { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
+            { name: "repl-port", type: "number", min: 0, max: 99999, descr: "Port for REPL interface server" },
+            { name: "repl-bind", descr: "Listen only on specified address for REPL server" },
+            { name: "repl-file", descr: "User specified file for REPL history" },
+            { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache" },
             { name: "lru-server" },
             { name: "lru-host" },
-            { name: "no-cache", type:" bool" },
-            { name: "logwatcher-email" },
-            { name: "logwatcher-from" },
-            { name: "logwatcher-ignore" },
-            { name: "logwatcher-match" },
+            { name: "no-cache", type:" bool", descr: "Do not use LRU server, all gets will result in miss and puts will have no effect" },
+            { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
+            { name: "logwatcher-email", descr: "Email for the logwatcher notifications" },
+            { name: "logwatcher-from", descr: "Email to send logwatcher notifications from" },
+            { name: "logwatcher-ignore", descr: "Regexp with patterns that needs to be ignored by logwatcher process" },
+            { name: "logwatcher-match", descr: "Regexp patterns that match conditions for logwatcher notifications" },
             { name: "logwatcher-interval", type: "number", min: 300, max: 86400 },
-            { name: "user-agent", type: "push" },
-            { name: "backend-host" },
-            { name: "backend-key" },
-            { name: "backend-secret" },
-            { name: "backend-db" },
-            { name: "domain" },
-            { name: "instance", type: "bool" },
-            { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); } },
-            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); } }
+            { name: "user-agent", type: "push", descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers" },
+            { name: "backend-host", descr: "Host of the master backend" },
+            { name: "backend-key", descr: "Credentials key for the master backend access" },
+            { name: "backend-secret", descr: "Credentials secret for the master backend access" },
+            { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
+            { name: "instance", type: "bool", descr: "enables instance mode, means the backend is runnin on remote instance" },
+            { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace fcility, trap crashes and report the backtrace stack" },
+            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch directory for file changes and restart the server, for development" }
     ],
         
     // Inter-process messages
@@ -176,23 +176,17 @@ var core = {
                     self[p] = path.resolve(self.path[p]);
                     files.push(self[p]);
                 });
-                if (cluster.isWorker) return next();
+                
+                if (!cluster.isWorker && !self.worker) {
+                    // Create all subfolders
+                    files.forEach(function(dir) { self.mkdirSync(dir); });
 
-                // Create all subfolders
-                files.forEach(function(dir) {
-                    self.mkdirSync(dir);
-                });
-
-                // Make sure created files are owned by regular user, not the root
-                if (process.getuid() == 0) {
-                    files.push(path.join(self.path.spool, self.name + ".db"));
-                    files.forEach(function(f) { self.chownSync(f) });
+                    // Make sure created files are owned by regular user, not the root
+                    if (process.getuid() == 0) {
+                        files.push(path.join(self.path.spool, self.name + ".db"));
+                        files.forEach(function(f) { self.chownSync(f) });
+                    }
                 }
-                next();
-            },
-
-            // Local databases
-            function(next) {
                 db.init(next);
             },
 
