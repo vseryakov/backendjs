@@ -1010,9 +1010,12 @@ void jsonPrint(jsonValue *value, int ident)
     }
 }
 
+#define PI 3.14159265358979323846264338327950288
+#define DEG2RAD(degrees) (degrees * PI / 180)
+#define RAD2DEG(radians) (radians * 180 / PI)
+
 double vDistance(double lat1, double long1, double lat2, double long2)
 {
-	#define DEG2RAD(degrees) (degrees * 0.01745327) // degrees * pi over 180
 	double lat1rad = DEG2RAD(lat1);
 	double lat2rad = DEG2RAD(lat2);
 	return acos(sin(lat1rad) * sin(lat2rad) + cos(lat1rad) * cos(lat2rad) * cos(DEG2RAD(long2) - DEG2RAD(long1))) * 6378.1;
@@ -1020,14 +1023,46 @@ double vDistance(double lat1, double long1, double lat2, double long2)
 
 int vBearing(double lat1, double long1, double lat2, double long2)
 {
-	static double pi = 3.14159265358979323846264338327950288;
-	static double d2r = pi / 180;
+	static double d2r = PI / 180;
 	double dlong = (long2 - long1) * d2r;
 	//double dlat = (lat2 - lat1) * d2r;
 	double y = sin(dlong) * cos(lat2 * d2r);
 	double x = cos(lat1 * d2r) * sin(lat2 * d2r) - sin(lat1 * d2r) * cos(lat2 * d2r) * cos(dlong);
 	double b = atan2(y, x);
-	return (int)((b * 180 / pi) + 360) % 360;
+	return (int)((b * 180 / PI) + 360) % 360;
+}
+
+vector<double> vBoundingBox(double lat, double lon, double distance)
+{
+	double rad_dist = distance / 6378.1;
+
+	double MIN_LAT = DEG2RAD(-90);
+	double MAX_LAT = DEG2RAD(90);
+	double MIN_LON = DEG2RAD(-180);
+	double MAX_LON = DEG2RAD(180);
+
+	double min_lat = DEG2RAD(lat) - rad_dist;
+    double max_lat = DEG2RAD(lat) + rad_dist;
+    double min_lon, max_lon;
+
+    if (min_lat > MIN_LAT && max_lat < MAX_LAT) {
+        double delta_lon = asin(sin(rad_dist) / cos(lat));
+        min_lon = DEG2RAD(lon) - delta_lon;
+        if (min_lon < MIN_LON) min_lon += 2 * PI;
+        max_lon = DEG2RAD(lon) + delta_lon;
+        if (max_lon > MAX_LON) max_lon -= 2 * PI;
+    } else {
+    	min_lat = MAX(min_lat, MIN_LAT);
+    	max_lat = MIN(max_lat, MAX_LAT);
+    	min_lon = MIN_LON;
+    	max_lon = MAX_LON;
+    }
+    vector<double> rc;
+    rc.push_back(RAD2DEG(min_lat));
+    rc.push_back(RAD2DEG(min_lon));
+    rc.push_back(RAD2DEG(max_lat));
+    rc.push_back(RAD2DEG(max_lon));
+    return rc;
 }
 
 static int BITS[] = {16, 8, 4, 2, 1};

@@ -478,21 +478,17 @@ var core = {
 
     // Encode with additional symbols
     encodeURIComponent: function(str) {
-        return encodeURIComponent(str).replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
+        return encodeURIComponent(str || "").replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
     },
 
     // Convert text into captalized words
     toTitle: function(name) {
-        var t = "";
-        name.replace(/_/g, " ").split(/[ ]+/).forEach(function(x) {
-            t += x[0].toUpperCase() + x.substr(1) + " ";
-        });
-        return t.trim();
+        return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y[0].toUpperCase() + y.substr(1) + " "; }, "").trim();
     },
 
     // Convert into camelized form
     toCamel: function(name) {
-        return name.replace(/(?:[-_])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; })
+        return (name || "").replace(/(?:[-_])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; })
     },
     
     // Safe version, use 0 instead of NaN, handle booleans, if decimals specified, returns float

@@ -466,6 +466,22 @@ static Handle<Value> geoDistance(const Arguments& args)
    return scope.Close(Local<Number>::New(Number::New(vDistance(lat1, lon1, lat2, lon2))));
 }
 
+static Handle<Value> geoBoundingBox(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_NUMBER(0, lat1);
+   REQUIRE_ARGUMENT_NUMBER(1, lon1);
+   REQUIRE_ARGUMENT_NUMBER(2, distance);
+
+   vector<double> rc = vBoundingBox(lat1, lon1, distance);
+   Local<Array> result = Local<Array>::New(Array::New(rc.size()));
+   for (uint i = 0; i < rc.size(); i++) {
+	   result->Set(Integer::New(i), Local<Number>::New(Number::New(rc[i])));
+   }
+   return scope.Close(result);
+}
+
 void backend_init(Handle<Object> target)
 {
     HandleScope scope;
@@ -490,6 +506,7 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "uuid", uuid);
 
     NODE_SET_METHOD(target, "geoDistance", geoDistance);
+    NODE_SET_METHOD(target, "geoBoundingBox", geoBoundingBox);
     NODE_SET_METHOD(target, "geoHashEncode", geoHashEncode);
     NODE_SET_METHOD(target, "geoHashDecode", geoHashDecode);
     NODE_SET_METHOD(target, "geoHashAdjacent", geoHashAdjacent);

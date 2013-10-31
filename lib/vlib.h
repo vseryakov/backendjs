@@ -111,6 +111,7 @@ void vSetLogging(const char *level);
 // Returns distance between 2 coordinates
 double vDistance(double lat1, double long1, double lat2, double long2);
 int vBearing(double lat1, double long1, double lat2, double long2);
+vector<double> vBoundingBox(double lat, double lon, double distance);
 
 // Encode into GeoHash with given precision
 string vGeoHashEncode(double latitude, double longitude, uint precision = 12);
