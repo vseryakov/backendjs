@@ -406,6 +406,7 @@ var api = {
                         delete x.range;
                         return x;
                     });
+                    // Return back not just a list with rows but pagination info as well, stop only if last property is empty even if no rows returned
                     var last = info.last_evaluated_key;
                     res.json({ geohash: geo.geohash, start: req.query._start, last: last ? last.hash + last.range : "",  items: rows });
                 });
@@ -449,7 +450,7 @@ var api = {
             case "connection/list":
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
-                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, function(err, rows) {
+                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, ops: { type: "begins_with" }, select: req.query._columns }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     rows.forEach(function(row) {
                         var type = row.type.split(":");

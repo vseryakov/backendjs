@@ -509,7 +509,7 @@ case "$ARG" in
     [ ! -e .gitignore ] && echo ".DS_Store\n.settings\n.cproject\n.project\n*.swp\n*.*~\n*.[oa]\n*.so\n*.dylib\n*.node\n*.log\n.backendrc\n.history\ndata\nbin/rc.backend\n" > .gitignore
     [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
     [ ! -e bin/backend ] && echo "#!/bin/bash\nexec $PREFIX/bin/node main.js \$@\n" > bin/backend && chmod 755 bin/backend
-    [ ! -e web ] && ln -s $NODE_BACKEND/web
+    [ ! -e web ] && ln -s $NODE_BACKEND/web && (cd data && ln -s ../web)
     [ ! -e data/etc/config ] && echo "pg-pool=postgresql://postgres@127.0.0.1/backend\nddb-pool=http://localhost:8181\n" > data/etc/config
     [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
     [ ! -e Makefile ] && echo "#\n# Author: Vlad Seryakov vseryakov@gmail.com\n# Sep 2013\n#\n\nall:\n\nrun:\n\tbin/rc.backend run-dev\n\nput:\n\tbin/rc.backend put\n" > Makefile

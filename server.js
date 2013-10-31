@@ -292,7 +292,7 @@ var server = {
     // Spawn web proxy from the master as a separate master with web workers
     startWebProxy: function() { 
         if (core.argv.indexOf("-proxy") == -1) return;
-        var params = [];
+        var params = [ "-db-no-pools" ];
         var val = core.getArg("-proxy-port", core.port);
         if (val) params.push("-port", val);
         val = core.getArg("-proxy-bind");
@@ -314,6 +314,9 @@ var server = {
     startProxy: function() {
         var self = this;
         var config = null;
+        
+        core.role = 'proxy';
+        process.title = core.name + ": proxy"
         
         try { config = JSON.parse(fs.readFileSync(path.join(core.path.etc, "proxy")).toString()); } catch (e) { logger.error('startProxy:', e); }
         if (!config) return logger.error('startProxy:', 'no config file');
@@ -435,7 +438,8 @@ var server = {
         return spawn(process.argv[0], argv, opts);
     },
 
-    // Run a job
+    // Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process
+    // terminates.
     runJob: function(job) {
         var self = this;
 
@@ -569,7 +573,7 @@ var server = {
     },
 
     // Remote mode, launch remote instance to perform scraping or other tasks
-    // By default shutdown the instance after job finishes unles noshutdown is specified in the options
+    // By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the options
     launchJob: function(job, options, callback) {
         if (!job) return;
         if (typeof options == "function") callback = options, options = null;
@@ -714,8 +718,16 @@ var server = {
     },
 
     // Load crontab from JSON file as list of job specs:
-    // [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
-    // Cron format: 'second', 'minute', 'hour', 'dayOfMonth', 'month', 'dayOfWeek';
+    // - type - local, remote, server
+    //          local means spawn a worker to run the job function
+    //          remote means launch an AWS instance
+    //          server means run inside the master process, do not spawn a worker
+    // - cron - cron time interval spec: 'second' 'minute' 'hour' 'dayOfMonth' 'month' 'dayOfWeek'
+    // - job - a string as obj.method or an object with job name as property name and the value is an object with 
+    //         additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
+    // - args - additional arguments passwed to the backend in the command line for the remote jobs
+    // Example: [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
+    // 
     loadSchedules: function() {
         var self = this;
 

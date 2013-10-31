@@ -30,6 +30,9 @@ var aws = {
     region: 'us-east-1',
     s3: "s3.amazonaws.com",
     instance: "t1.micro",
+    
+    // Translation map for operators
+    opMap: { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' },
 
     // Initialization to be run inside core.init in master mode only
     initModule: function(next) {
@@ -664,6 +667,7 @@ var aws = {
         for (var name in condition) {
             var val = condition[name];
             var op = (options.ops || {})[name] || "eq";
+            if (this.opMap[op]) op = this.opMap[op];
             var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
             switch (cond.ComparisonOperator) {
             case 'BETWEEN':
@@ -709,6 +713,7 @@ var aws = {
         for (var name in condition) {
             var val = condition[name];
             var op = (options.ops || {})[name] || "eq";
+            if (this.opMap[op]) op = this.opMap[op];
             var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
             switch (cond.ComparisonOperator) {
             case 'BETWEEN':

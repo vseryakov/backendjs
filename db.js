@@ -29,10 +29,13 @@ var db = {
               get: function() { throw "no pool" }, free: function() { throw "no pool" }, 
               prepare: function() { throw "no pool" }, put: function() { throw "no pool" }, 
               cacheColumns: function() { throw "no pool" }, value: function() {} },
-              
+        
+    // Translation map for similar operators from different database drivers
+    opMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' },
+
     // Config parameters              
     args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
-           { name: "no-db", type:" bool", descr: "Do not use other db pools except default sqlite" },
+           { name: "no-pools", type:" bool", descr: "Do not use other db pools except default sqlite" },
            { name: "sqlite-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool" },
            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "pg-pool", descr: "PostgreSQL pool access url or options string" },
@@ -73,7 +76,7 @@ var db = {
         this.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
         
         // Optional pools for supported databases
-        if (!self.noDb) {
+        if (!self.noPools) {
             ["pg", "ddb"].forEach(function(x) {
                 if (!self[x + 'Pool']) return;
                 self[x + 'InitPool']({ pool: x, db: self[x + 'Pool'], max: self[x + 'Max'], idle: self[x + 'Idle'] });
@@ -576,6 +579,8 @@ var db = {
         if (!options.type) options.type = "string";
         var sql = "";
         var op = (options.op || "").toLowerCase();
+        if (this.opMap[op]) op = this.opMap[op];
+
         switch (op) {
         case "not in":
         case "in":

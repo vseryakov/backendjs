@@ -273,6 +273,14 @@ var core = {
         argv = argv.map(function(x) { return x.replace(/%20/g, ' ') });
         logger.dev('parseArgs:', argv.join(' '));
         
+        // Special case, display help for all args
+        if (this.argv.indexOf("--help") > -1) {
+            var args = [ [ '', core.args ] ];
+            Object.keys(this.context).forEach(function(n) { if (self.context[n].args) args.push([n, self.context[n].args]); })
+            args.forEach(function(x) { x[1].forEach(function(y) { if (y.name && y.descr) console.log(printf("%-40s", (x[0] ? x[0] + '-' : '') + y.name), y.descr); }); });
+            process.exit(0);
+        }
+        
         // Core parameters
         self.processArgs("core", self, argv);
         
