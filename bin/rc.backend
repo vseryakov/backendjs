@@ -265,7 +265,7 @@ case "$ARG" in
 
     # Permissions
     echo "Setting permissions..."
-    [ ! -f $ROOT ] && mkdir -p $ROOT/etc $ROOT/var $ROOT/log && chown $LOCAL_USER $ROOT
+    [ ! -f $ROOT ] && mkdir -p $ROOT/bin $ROOT/etc $ROOT/var $ROOT/log && chown $LOCAL_USER $ROOT
     touch /var/log/messages $ROOT/log/access.log 
     chmod -f g+r /var/log/messages $ROOT/log/access.log
     chown -fR $LOCAL_USER $PREFIX $ROOT/etc $ROOT/var $ROOT/log/access.log
@@ -341,9 +341,15 @@ case "$ARG" in
     export PATH=$PREFIX/bin:$PATH
 
     echo "Starting backend $BACKEND_ARGS ..."
-    $PREFIX/bin/node $NODE_ARGS $PREFIX/bin/backend -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
+    $PREFIX/bin/node $NODE_ARGS $ROOT/bin/backend -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
     ;;
 
+  repl)
+    set -e
+    [ -f $ROOT/bin/backend ] && exec $PREFIX/bin/node $NODE_ARGS $ROOT/bin/backend -home $ROOT -shell $@
+    [ -f bin/backend ] && exec $PREFIX/bin/node $NODE_ARGS bin/backend -home ./data -shell $@
+    ;;
+    
   pgpool-run)
     echo "Starting pgpool..."
     su - $LOCAL_USER -c "rsync -aq -e '$SSH_ARGS' $MASTER:$ROOT/etc/pgpool* $ROOT/etc"
@@ -351,11 +357,6 @@ case "$ARG" in
     killall -q pgpool
     rm -rf $ROOT/var/pgpool.pid
     $PREFIX/bin/pgpool -f $ROOT/etc/pgpool.conf -a $ROOT/etc/pgpool_hba.conf
-    ;;
-
-  repl)
-    cd $ROOT
-    $PREFIX/bin/node $NODE_ARGS -i -e "require('backend').shell()" $@
     ;;
 
   instance-idle)
@@ -476,7 +477,7 @@ case "$ARG" in
     ;;
     
   run-ddb)
-    (cd $ROOT/var && nohup java -Djava.library.path=$DDB_DIR -jar $DDB_DIR/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
+    (cd $ROOT/var && exec nohup java -Djava.library.path=$DDB_DIR -jar $DDB_DIR/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
     ;;
     
   stop-ddb)
@@ -495,36 +496,23 @@ case "$ARG" in
     fi
     ;;
   
-  put)
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$NODE_BACKEND
-    [ -e web ] && rsync -av -e ssh web/ $MASTER:$ROOT/web
-    [ -f bin/rc.backend ] && rsync -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
-    ;;
-    
-  init-dev)
+  init-app)
     [ ! -e $NODE_BACKEND/bin/rc.backend -a "$PLATFORM" = "Darwin" ] && PREFIX=/opt/local && NODE_BACKEND=$PREFIX/lib/node-backend
     [ ! -e $NODE_BACKEND/bin/rc.backend ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
     mkdir -p bin data/etc
     [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres" > .backendrc 
     [ ! -e .gitignore ] && echo ".DS_Store\n.settings\n.cproject\n.project\n*.swp\n*.*~\n*.[oa]\n*.so\n*.dylib\n*.node\n*.log\n.backendrc\n.history\ndata\nbin/rc.backend\n" > .gitignore
     [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
-    [ ! -e bin/backend ] && echo "#!/bin/bash\nexec $PREFIX/bin/node main.js \$@\n" > bin/backend && chmod 755 bin/backend
+    [ ! -e bin/backend ] && echo "#!/bin/bash\n\nMAIN=main.js\n[ -f bin/main.js ] && MAIN=bin/main.js\nexec $PREFIX/bin/node \$MAIN \$@\n" > bin/backend && chmod 755 bin/backend
     [ ! -e web ] && ln -s $NODE_BACKEND/web && (cd data && ln -s ../web)
     [ ! -e data/etc/config ] && echo "pg-pool=postgresql://postgres@127.0.0.1/backend\nddb-pool=http://localhost:8181\n" > data/etc/config
     [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
-    [ ! -e Makefile ] && echo "#\n# Author: Vlad Seryakov vseryakov@gmail.com\n# Sep 2013\n#\n\nall:\n\nrun:\n\tbin/rc.backend run-dev\n\nput:\n\tbin/rc.backend put\n" > Makefile
+    [ ! -e Makefile ] && echo "#\n# Author: Vlad Seryakov vseryakov@gmail.com\n# Sep 2013\n#\n\nall:\n\nrun:\n\tbin/rc.backend run-backend\n\nput:\n\tbin/rc.backend put-app\n\nshell:\n\tbin/rc.backend run-shell" > Makefile
     ;;
     
-  run-dev)
-    killall node
-    bin/backend -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
-    ;;
-    
-  clean-dev)
-    rm -rf *~ *.o *.a *.so *.dylib *.node *.log
-    [ -e node ] && rm -rf node/build
-    [ -f lib/Makefile ] && make -C lib clean
-    [ -f pg/Makefile ] && make -C pg clean
+  put-app)
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude bin/backend '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$ROOT/bin
+    [ -f web ] && rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
     ;;
     
   build-dev)
@@ -545,7 +533,7 @@ case "$ARG" in
     git clone https://github.com/joyent/node.git
     (cd node && git checkout v0.10 && ./configure --prefix=$PREFIX && make install)
 
-    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs mime http-proxy
+    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs http-proxy memcached redis
     
     git clone https://github.com/nanomsg/nanomsg.git
     (cd nanomsg && ./configure --prefix=$PREFIX && make install)
@@ -564,6 +552,10 @@ case "$ARG" in
     
     ;;
 
+  run-shell)
+    bin/backend -shell -home `pwd`/data $@
+    ;;
+
   init-backend)
     sudo chown -R $(whoami) $PREFIX
     mkdir -p bin lib node pg web data
@@ -571,6 +563,24 @@ case "$ARG" in
     (cd data && rm -rf web && ln -s ../web)
     echo "ROOT=./data" > .backendrc
     [ "$PLATFORM" = "Darwin" ] && echo "PREFIX=/opt/local\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres" >> .backendrc
+    ;;
+    
+  put-backend)
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$NODE_BACKEND
+    rsync -av -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
+    rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
+    ;;
+    
+  run-backend)
+    killall node
+    bin/backend -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    ;;
+    
+  clean-backend)
+    rm -rf *~ *.o *.a *.so *.dylib *.node *.log
+    [ -e node ] && rm -rf node/build
+    [ -f lib/Makefile ] && make -C lib clean
+    [ -f pg/Makefile ] && make -C pg clean
     ;;
     
   build-backend)

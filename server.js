@@ -3,6 +3,7 @@
 //  Sep 2013
 //
 
+var net = require('net');
 var cluster = require('cluster');
 var cron = require('cron');
 var path = require('path');
@@ -80,11 +81,16 @@ var server = {
         core.init(function() { 
             process.title = core.name + ": process";
             
+            // REPL shell
+            if (process.argv.indexOf("-shell") > 0) {
+                return core.createRepl();
+            }
+
             // Go to background
             if (process.argv.indexOf("-daemon") > 0) {
                 self.startDaemon();
             }
-
+            
             // Graceful shutdown, kill all children processes
             process.once('exit', function() {
                 self.exiting = true;
@@ -157,7 +163,7 @@ var server = {
             this.startWebProxy();
 
             // REPL command prompt over TCP
-            if (core.argv.indexOf("-repl") > 0) core.startRepl(core.replPort, core.replBind);
+            if (core.argv.indexOf("-repl") > 0) self.startRepl(core.replPort, core.replBind);
 
             // Setup background tasks
             this.loadSchedules();
@@ -225,7 +231,7 @@ var server = {
             core.ipcInitServer();
 
             // REPL command prompt over TCP
-            if (core.argv.indexOf("-repl") > 0) core.startRepl(core.replPort, core.replBind);
+            if (core.argv.indexOf("-repl") > 0) self.startRepl(core.replPort, core.replBind);
 
             // Worker process to handle all web requests
             for (var i = 0; i < this.maxProcesses; i++) {
@@ -369,6 +375,21 @@ var server = {
             });
         });
         this.startProcess();
+    },
+
+    // Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell
+    startRepl: function(port, bind) {
+        var self = this;
+        var repl = net.createServer(function(socket) {
+            self.repl = core.createRepl({ prompt: '> ', input: socket, output: socket, terminal: true, useGlobal: false });
+            self.repl.on('exit', function() { socket.end(); })
+            self.repl.context.socket = socket;
+        });
+        repl.on('error', function(err) {
+           logger.error('startRepl:', err);
+        });
+        repl.listen(port, bind || '0.0.0.0');
+        logger.debug('startRepl:', 'port:', port, 'bind:', bind || '0.0.0.0');
     },
 
     // Create daemon from the current process, restart node with -daemon removed in the background

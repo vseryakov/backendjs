@@ -4,7 +4,6 @@
 //
 
 var util = require('util');
-var net = require('net');
 var fs = require('fs');
 var repl = require('repl');
 var path = require('path');
@@ -20,6 +19,8 @@ var printf = require('printf');
 var async = require('async');
 var os = require('os');
 var emailjs = require('emailjs');
+var memcached = require('memcached');
+var redis = require("redis");
 
 // The primary object containing all config options and common functions
 var core = {
@@ -103,8 +104,13 @@ var core = {
             { name: "repl-bind", descr: "Listen only on specified address for REPL server" },
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache" },
-            { name: "lru-server" },
-            { name: "lru-host" },
+            { name: "lru-server", descr: "LRU server that acts as a NNBUS node to brosadcast cache messages to all connected backends" },
+            { name: "lru-host", descr: "Address of NNBUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
+            { name: "memcache-host", type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port..." },
+            { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
+            { name: "redis-host", descr: "Address to Redis server for cache messages" },
+            { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
+            { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
             { name: "no-cache", type:" bool", descr: "Do not use LRU server, all gets will result in miss and puts will have no effect" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-email", descr: "Email for the logwatcher notifications" },
@@ -224,13 +230,6 @@ var core = {
         });
     },
     
-    // Run console REPL shell
-    shell: function() {
-        this.run(function() {
-            this.createRepl();
-        });
-    },
-
     // Run modules init callbacks, called by master server and all settings will be available for worker processes
     initModules: function(callback) {
         var self = this;
@@ -304,9 +303,10 @@ var core = {
             if (!x.name) return;
             // Core sets global parameters, all others by module
             var cname = (name == "core" ? "" : "-" + name) + '-' + x.name;
+            if (argv.indexOf(cname) == -1) return;
             var key = self.toCamel(x.name);
             var val = self.getArg(cname, null, argv);
-            if (val == null) return;
+            if (val == null && x.type != "bool" && x.type != "callback") return;
             // Ignore the value if it is a parameter
             if (val && val[0] == '-') val = ""; 
             logger.dev("processArgs:", name, ":", key, "=", val);
@@ -431,6 +431,21 @@ var core = {
     ipcInitClient: function() {
         var self = this;
 
+        switch (this.cacheType || "") {
+        case "memcache":
+            self.memcacheClient = new memcached(self.memcacheHost, self.memcacheOptions || {});
+            self.ipcPutCache = function(k, v) { self.memcacheClient.set(k, v, 0); }
+            self.ipcDelCache = function(k) { self.memcacheClient.del(k); }
+            self.ipcGetCache = function(k, cb) { self.memcacheClient.get(k, function(e,v) { cb(v) }) }
+            break;
+            
+        case "redis":
+            self.redisClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
+            self.ipcPutCache = function(k, v) { self.redisClient.set(k, v, function() {}); }
+            self.ipcDelCache = function(k) { self.redisClient.del(k, function() {}); }
+            self.ipcGetCache = function(k, cb) { self.redisClient.get(k, function(e,v) { cb(v) }) }
+            break;
+        }
         // Event handler for the worker to process response and fire callback
         process.on("message", function(msg) {
             if (!msg.id) return;
@@ -901,7 +916,6 @@ var core = {
             });
         });
     },
-
 
     // Return argument value by name
     getArg: function(name, dflt, argv) {
@@ -1554,22 +1568,7 @@ var core = {
         this.context[name] = obj;
     },
 
-    // Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell
-    startRepl: function(port, bind) {
-        var self = this;
-        var server = net.createServer(function(socket) {
-            self.repl = self.createRepl({ prompt: '> ', input: socket, output: socket, terminal: true, useGlobal: false });
-            self.repl.on('exit', function() { socket.end(); })
-            self.repl.context.socket = socket;
-        });
-        server.on('error', function(err) {
-           logger.error('startRepl:', err);
-        });
-        server.listen(port, bind || '0.0.0.0');
-        logger.debug('startRepl:', 'port:', port, 'bind:', bind || '0.0.0.0');
-    },
-
-    // Create REPL intrface with all modules available
+    // Create REPL interface with all modules available
     createRepl: function(options) {
         var self = this;
         var r = repl.start(options || {});
