@@ -8,22 +8,20 @@
 ## Development environment (Mac OS X)  
 
  - git clone https://vseryakov@bitbucket.org/vseryakov/backend.git
- 
-     cd backend
- 
- - to install node.js and required modules if it is not installed
- 
-     bin/rc.backend build-dev
+ - cd backend
+ - to install node.js and required modules if it is not installed run
+   command:
+   
+      bin/rc.backend build-dev
 
- - to initialize environment for the backend development
+ - to initialize environment for the backend development run
+   command:
    
      bin/rc.backend init-backend
    
- - to compile the binary module
-
-     make
-
- - to run local server on port 8000
+ - to compile the binary module just type ```make```
+ - to run local server on port 8000 run
+   command:   
    
      make run
  
@@ -31,7 +29,7 @@
    This command line access allows to test and run all functions from all modules of the backend without running full server 
    similar to node.js REPL functionality. All modules are accessible from the command line.
    
-   make repl
+     # make repl
    
      > core.version  
      '2013.10.20.0'  
