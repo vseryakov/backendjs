@@ -26,14 +26,14 @@
         make run
  
  - to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.   
-   This command line access allows to test and run all functions from all modules of the backend without running full server 
+   This command line access allows you to test and run all functions from all modules of the backend without running full server 
    similar to node.js REPL functionality. All modules are accessible from the command line.
    
-    $ make repl
+       $ make repl
    
-    > core.version  
-    '2013.10.20.0'  
-    > logger.setDebug(2)  
+       &gt; core.version  
+        '2013.10.20.0'  
+       &gt; logger.setDebug(2)  
      
 ## Configuration
 

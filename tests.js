@@ -135,23 +135,26 @@ var tests = {
         var secret = core.random();
         var email = secret + "@test.com";
         var gender = ['m','f'][core.randomInt(0,1)];
+        var location = "Los Angeles";
         var area = [ 33.60503975233155, -117.72825045393661, 34.50336024766845, -118.75374954606342 ]; // Los Angeles 34.05420, -118.24100
         switch (core.getArg("-area")) {
-        case "SF": 
+        case "SF":
+            location = "San Francisco";
             area = [ 37.32833975233156, -122.86154379633437, 38.22666024766845, -121.96045620366564 ];  // San Francisco 37.77750, -122.41100
             break;
         case "SD": 
+            location = "San Diego";
             area = [ 32.26553975233155, -118.8279466261797, 33.163860247668445, -115.4840533738203 ]; // San Diego 32.71470, -117.15600
             break;
         }
+        var bday = new Date(core.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
         var latitude = core.randomNum(area[0], area[2]);
         var longitude = core.randomNum(area[1], area[3]);
         var name = core.toTitle(gender == 'm' ? males[core.randomInt(0, males.length - 1)] : females[core.randomInt(0, females.length - 1)]);
         
         async.series([
             function(next) {
-                var d = new Date(core.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
-                var query = { email: email, secret: secret, name: name, alias: name, gender: gender, birthday: core.strftime(d, "%Y-%m-%d") }
+                var query = { email: email, secret: secret, name: name, alias: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
                 core.sendRequest("/account/add", { query: query }, function(err, params) {
                     next(err);
                 });
@@ -164,7 +167,7 @@ var tests = {
                 });
             },
             function(next) {
-                var options = { email: email, secret: secret, query: { latitude: latitude, longitude: longitude, location: "San Francisco" } };
+                var options = { email: email, secret: secret, query: { latitude: latitude, longitude: longitude, location: location } };
                 core.sendRequest("/account/location/put", options, function(err, params) {
                     next(err);
                 });

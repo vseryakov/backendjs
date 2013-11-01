@@ -102,8 +102,8 @@ var api = {
     
     // Config parameters
     args: [{ name: "pool", descr: "Database pool to use for API clients" }, 
-           { name: "images-url", descr: "URL where images are stored" },
-           { name: "images-s3", descr: "S3 bucket name where to store images" },
+           { name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
+           { name: "images-s3", descr: "S3 bucket name where to image store instead of data/images directory on the filesystem" },
            { name: "access-log", descr: "File for access logging" },
            { name: "min-distance", type: "int", descr: "Min distance for location updates, if smaller updates will be ignored"  },
            { name: "max-distance", type: "int", max: 40000, min: 1, descr: "Max distance for locations searches"  },
@@ -388,6 +388,7 @@ var api = {
                 break;
                 
             case "location/list":
+                // Perform location search based on hash key that covers the whole region for our configured max distance
                 var start = req.query._start || "";
                 var distance = core.toNumber(req.query.distance);
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
@@ -396,22 +397,25 @@ var api = {
                 var geo = self.prepareLocation(req.query.latitude, req.query.longitude, distance);
                 // Start comes as full geohash, split it into search hash and range
                 if (start) {
-                    start = { hash: start.substr(0, geo.hash.length), range: start.substr(geo.hash.length, geo.range.length) }
+                    start = { hash: start.substr(0, geo.hash.length), range: start.substr(geo.hash.length) }
                 }
-                db.select("location", { hash: geo.hash, range: geo.range }, { pool: self.pool, ops: { range: "begins_with" }, start: start, count: req.query._count || 25 }, function(err, rows, info) {
-                    rows = rows.filter(function(x) { 
-                        return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= distance; 
-                    }).map(function(x) { 
-                        x.hash += x.range;
-                        delete x.range;
-                        return x;
-                    });
+                var options = { pool: self.pool, ReturnConsumedCapacity: 'TOTAL', ops: { range: "begins_with" }, start: start, count: req.query._count || 25 };
+                options.filter = function(x) { return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= distance; }
+                db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
+                    rows = rows.map(function(x) { delete x.hash; delete x.range; return x; });
                     // Return back not just a list with rows but pagination info as well, stop only if last property is empty even if no rows returned
                     var last = info.last_evaluated_key;
                     res.json({ geohash: geo.geohash, start: req.query._start, last: last ? last.hash + last.range : "",  items: rows });
                 });
                 break;
 
+            case "location/search":
+                // Perform location search based on adjacent neighbougrs
+                var distance = core.toNumber(req.query.distance);
+                if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
+                if (distance <= 0) return self.sendReply(res, 400, "Distance is required");
+                break;
+                
             case "connection/add":
             case "connection/put":
             case "connection/update":

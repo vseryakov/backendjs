@@ -125,7 +125,7 @@ var db = {
     //   - pool - pool name/type, of not specified sqlite is used
     //   - max - max number of clients to be allocated in the pool
     //   - idle - after how many milliseconds an idle client will be destroyed
-    // - cratecb - a callbacl to be called when actual database client needs to be created, the callback signature is
+    // - createcb - a callbacl to be called when actual database client needs to be created, the callback signature is
     //     function(options, callback) and will be called with first arg an error object and second arg is the database instance
     // - cachecb - a callback for caching database tables and columns
     // - valuecb - a callback that performs value transformation if necessary for the bind parameters
@@ -208,6 +208,14 @@ var db = {
             case "update": return self.sqlUpdate(table, obj, opts);
             case "del": return self.sqlDelete(table, obj, opts);
             }
+        }
+        // Execute a query, run filter if provided
+        pool.query = function(client, req, opts, callback) {
+            client.query(req.text, req.values || [], function(err, rows) {
+                if (err) return callback(err, rows);
+                if (opts.filter) rows = rows.filter(function(row) { return opts.filter(row, opts); });
+                callback(err, rows);
+            });
         }
         // Sqlite supports REPLACE INTO natively
         pool.put = function(table, obj, opts, callback) {
@@ -404,6 +412,7 @@ var db = {
     // - req - can be a string or an object with the following properties:
     //   - text - SQL statement or other query in the format of the native driver
     //   - values - parameter values for sql bindings or other driver specific data
+    // - options may have the following properties:
     //   - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
     // Callback is called with the following params:
     //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,last_evaluated_key
@@ -417,14 +426,13 @@ var db = {
         pool.get(function(err, client) {
             if (err) return callback ? callback(err, []) : null;
             var t1 = core.mnow();
-            client.query(req.text, req.values || [], function(err2, rows) {
+            pool.query(client, req, options, function(err2, rows) {
                 var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, last_evaluated_key: client.last_evaluated_key };
                 pool.free(client);
                 if (err2) {
                     logger.error("db.query:", pool.name, req.text, req.values, err2);
-                    return callback ? callback(err2, rows) : null;
+                    return callback ? callback(err2, rows, info) : null;
                 }
-                if (req.filter) rows = rows.filter(function(row) { return req.filter(row, options); });
                 logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", info);
                 if (callback) callback(err, rows, info);
             });
@@ -1371,18 +1379,19 @@ var db = {
         
         // Pass all parametetrs directly to the execute function
         pool.prepare = function(op, table, obj, opts) {
-            return { text: table, values: [op, obj, opts] };
+            return { text: table, op: op, values: obj };
         }
         
         // Simulate query as in SQL driver but performing AWS call, text will be a table name and values will be request options
-        pool.query = function(table, opts, callback) {
-            logger.log("query:", table ,opts)
+        pool.query = function(client, req, opts, callback) {
+            logger.log("query:", req, opts)
             var pool = this;
-            var obj = opts[1];
-            var options = core.extendObj(opts[2], "db", pool.db);
+            var table = req.text;
+            var obj = req.values;
+            var options = core.extendObj(opts, "db", pool.db);
             pool.last_evaluated_key = "";
             
-            switch(opts[0]) {
+            switch(req.op) {
             case "new":
                 var attrs = obj.filter(function(x) { return x.primary || x.hashindex }).
                                 map(function(x) { return [ x.name, x.type == "int" || x.type == "real" ? "N" : "S" ] }).
@@ -1414,24 +1423,25 @@ var db = {
                 aws.ddbQueryTable(table, keys, options, function(err, item) {
                     if (err) return callback(err, []);
                     var count = options.count || 0;
-                    var items = item.Items;
+                    var rows = options.filter ? item.Items.filter(function(row) { return options.filter(row, options); }) : item.Items;
                     pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : "";
-                    count -= items.length;
+                    count -= rows.length;
+                    
                     // Keep retrieving items until we reach the end or our limit
-                    async.until(
-                        function() { return pool.last_evaluated_key == "" || count <= 0; },
+                    async.until( 
+                        function() { return pool.last_evaluated_key == "" || count <= 0; }, 
                         function(next) {
                             options.start = pool.last_evaluated_key;
-                            if (count < 100) options.count = count;
                             aws.ddbQueryTable(table, keys, options, function(err, item) {
-                                count -= item.Items.length;
-                                items.push.apply(items, item.Items);
-                                pool.last_evaluated_key = item.LastEvaluatedKey || "";
+                                var items = options.filter ? item.Items.filter(function(row) { return options.filter(row, options); }) : item.Items;
+                                rows.push.apply(rows, items);
+                                pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : "";
+                                count -= items.length;
                                 next(err);
                             });                            
                         },
                         function(err) {
-                            callback(err, items);
+                            callback(err, rows);
                         });
                 });
                 break;

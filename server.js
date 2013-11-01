@@ -358,6 +358,7 @@ var server = {
         logger.debug('startWatcher:', core.watchdirs);
         var self = this;
    
+        if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname);
         core.watchdirs.forEach(function(dir) {
             core.watchFiles(dir, /\.js$/, function(file) {
                 if (self.watchTimer) clearTimeout(self.watchTimer);

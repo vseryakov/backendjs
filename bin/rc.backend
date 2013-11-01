@@ -517,7 +517,7 @@ case "$ARG" in
     
   run-dev)
     killall node
-    bin/backend -watch -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    bin/backend -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
     ;;
     
   clean-dev)

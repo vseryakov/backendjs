@@ -119,7 +119,7 @@ var core = {
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
             { name: "instance", type: "bool", descr: "enables instance mode, means the backend is runnin on remote instance" },
             { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace fcility, trap crashes and report the backtrace stack" },
-            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch directory for file changes and restart the server, for development" }
+            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development" }
     ],
         
     // Inter-process messages

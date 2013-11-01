@@ -142,7 +142,7 @@ var aws = {
                 if (!err) err = new Error(params.json.__type + ": " + (params.json.message || params.json.Message));
                 return callback ? callback(err, {}) : null;
             }
-            logger.debug('queryDDB:', action, 'finished:', core.mnow() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows');
+            logger.debug('queryDDB:', action, 'finished:', core.mnow() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', params.json.ConsumedCapacity || "");
             if (callback) callback(err, params.json);
         });
     },
