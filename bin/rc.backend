@@ -4,7 +4,6 @@
 #  Sep 2013
 #
 
-LOCK=/var/lock/backend           
 PREFIX=/usr/local
 ROOT=/data
 DOMAIN=localhost
@@ -25,7 +24,6 @@ DOMAIN=localhost
 [ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
 [ "$PG_USER" = "" ] && PG_USER=postgres
 [ "$DBNAME" = "" ] && DBNAME=backend
-[ "$DBDUMP" = "" ] && DBDUMP=backup-db.dump
 [ "$BACKUP" = "" ] && BACKUP=$ROOT/backup
 [ "$MASTER" = "" ] && MASTER=master.$DOMAIN
 [ "$IMAGES" = "" ] && IMAGES=img.$DOMAIN
@@ -467,15 +465,6 @@ case "$ARG" in
     killall postgres
     ;;  
     
-  import-pg)
-    -[ ! -f $DBDUMP ] && scp $MASTER:/data/backup/$DBDUMP .
-    $PG_PREFIX/bin/psql -q -U $PG_USER -c "DROP DATABASE $DBNAME" postgres
-    $PG_PREFIX/bin/psql -q -U $PG_USER -c "CREATE DATABASE $DBNAME" postgres
-    $PG_PREFIX/bin/psql -q -U $PG_USER -d $DBNAME -f sql/init.sql
-    $PG_PREFIX/bin/pg_restore -U $PG_USER -d $DBNAME $DBDUMP
-    $PG_PREFIX/bin/psql -q -U $PG_USER -d $DBNAME -f pg/backend_procs.sql
-    ;;
-    
   run-ddb)
     (cd $ROOT/var && exec nohup java -Djava.library.path=$DDB_DIR -jar $DDB_DIR/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
     ;;
@@ -597,6 +586,41 @@ case "$ARG" in
     ;;
     
   *)
-    echo "usage: $NAME {start|stop|restart|sync|sync-api|setup|backup|ntp|run|repl|init}"
+    echo "usage: $NAME command ..."
+    echo "  where command is:"
+    echo ""
+    echo "  start - start the backend server process, to be used in Linux system startup scripts /etc/init.d by symlinking rc.backend to one of:"
+    echo "    SXXbackend-init - startup script to be run very early to setup all required dependencies and directories, similar to rc.backend init"
+    echo "    SXXbackend - to start the backend server, similar to rc.backend run"
+    echo "  stop - stop the backend server"
+    echo "  restart - restart the backend server"
+    echo "  kill-web - kill Web worker processes so they will restart with possibly new node.js modules"
+    echo "  init - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
+    echo "  setup - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use" 
+    echo "  run - run the backend server process"
+    echo "  repl - start the backend REPL interface, the command line shell with all backend modules loaded"
+    echo "  pgpool-run - start PostgreSQL pgpool proxy, uses $ROOT/etc/pgpool config file"
+    echo "  instance-idle - to be run on instances, check for idleness, no jobs running then shutdown the host"
+    echo "  sync - synchronize the backend code from the master server, uses master.$DOMAIN and rsync over ssh"
+    echo "  sync-api - synchronize api directory from the master host, delete what is not on the master"
+    echo "  sync-images|sync-web - synchronize other directories from the master host, never delete anything from the local disk"
+    echo "  ntp - run ntpdate to keep local clock"
+    echo "  backup - run the backup script, store in $ROOT/backup"
+    echo "  init-pg - setup local PostgreSQL server for development, Mac OS X, install in $PG_PREFIX, data files in $PG_DIR"
+    echo "  run-pg - run local PostgreSQL server"
+    echo "  stop-pg - stop local PostgreSQL server"
+    echo "  run-ddb - run local DynamoDB server installed in $PREFIX/dynamodb"
+    echo "  stop-ddb - stop local DynamoDB server"
+    echo "  init-cassandra - install Cassandra server in $PREFIX/cassandra"
+    echo "  init-app - initialize environment for application based on the backend"
+    echo "  put-app - push application code to the master server via rsync and ssh"
+    echo "  build-dev - build all required software for the backend developemnt"
+    echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"
+    echo "  init-backend - init core backend environment, for the core developemnt only"
+    echo "  put-backend - push the vbackend code to the master server"
+    echo "  run-backend - run local backend server"
+    echo "  clean-backend - clean the source directory"
+    echo "  build-backend - compile all required modules and libraries"
+    ;;
 esac
 

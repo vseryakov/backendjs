@@ -62,6 +62,32 @@
    - tmp - temporary files
    - web - public files to be served by the web servers  
 
+## The backend utility: rc.backend
+
+  The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment 
+  and as well to be used in operations on production systems.  
+  
+  The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed. In addition
+  it supports symlinks with different name and uses it as a command to execute, for example:
+  
+        ln -s rc.backend ntp
+        ./ntp is now the same as rc.backend ntp
+        
+  Running without arguments will bring help screen with description of all available commands. 
+  To make configuration management flexible the utility supports several config files which are read during execution for additional environment variables.  
+  By default the utility is configured to be used on live Linux sytems in production without any config files, the default backend root directory is /data.
+  Under this root are all required directories required by the backend code and described above. 
+   
+  For development purposes and to be able to use the backend in regular user home directories the utility is trying to read the following config files:  
+    - /etc/backend/profile
+    - $ROOT/etc/profile
+    - $HOME/.backendrc
+    - .backendrc
+  
+  The required environment variables required by the tool are (with default values): PREFIX=/usr/local, ROOT=/data, DOMAIN=localhost.  
+  Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory.
+  
+  
 # Author
   Vlad Seryakov
 
