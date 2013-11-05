@@ -486,13 +486,13 @@ var aws = {
     // Update an item
     // - keys is an object with primary key attributes name and value.
     // - item is an object with properties where value can be:
-    //    - number/string/array - implies PUT action,
+    //    - number/string/array - action PUT, replace or add new value
     //    - null - action DELETE
-    //    - object in the form: { ADD: val } or { DELETE: val }
     // - options may contain any valid native property if it starts with capital letter or special properties:
+    //   - ops - an object with operators to be used for properties if other than PUT
     //   - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
     //     any other exact value to be checked against which corresponds to { Exists: true, Value: value }
-    // Example: ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male' }, { expected: { id: 1 } })
+    // Example: ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: 1 } })
     ddbUpdateItem: function(name, keys, item, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
@@ -520,23 +520,16 @@ var aws = {
                 case 'undefined':
                     params.AttributeUpdates[p] = { Action: 'DELETE' };
                     break;
+                    
                 case 'array':
                     if (!item[p].length) {
                         params.AttributeUpdates[p] = { Action: 'DELETE' };
                         break;
                     }
-                case 'string':
-                case 'number':
-                    params.AttributeUpdates[p] = { Action: 'PUT', Value: self.toDynamoDB(item[p]) };
-                    break;
-                case 'object':
-                    if (item[p].ADD) { 
-                        params.AttributeUpdates[p] = { Action: 'ADD', Value: self.toDynamoDB(item[p]) };
-                    } else
-                    if (item[p].DELETE) { 
-                        params.AttributeUpdates[p] = { Action: 'DELETE' };
-                        if (item[p] !== null) params.AttributeUpdates[p].Value = self.toDynamoDB(item[p]); 
-                    }
+                    
+                default:
+                    params.AttributeUpdates[p] = { Action: (options.ops || {})[p] || 'PUT' };
+                    if (item[p]) params.AttributeUpdates[p].Value = self.toDynamoDB(item[p]);
                     break;
             }
         }

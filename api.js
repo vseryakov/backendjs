@@ -50,6 +50,7 @@ var api = {
                    { name: "website" },
                    { name: "birthday", semipub: 1 },
                    { name: "gender", pub: 1 },
+                   { name: "icons" },
                    { name: "address" },
                    { name: "city" },
                    { name: "state" },
@@ -287,13 +288,13 @@ var api = {
         this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res) {
             logger.debug('account:', req.params[0], req.account, req.query);
             
+            var op = req.params[0].split('/').pop();
             switch (req.params[0]) {
             case "get":
                 db.get("account", { id: req.account.id }, { pool: self.pool }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     if (!rows.length) return self.sendReply(res, 404);
-                    self.prepareAccount(rows[0]);
-                    res.json(rows[0]);
+                    res.json(self.prepareAccount(rows[0]));
                 });
                 break;
 
@@ -316,9 +317,13 @@ var api = {
                 // the fly and we want to keep auth table very small
                 db.add("auth", req.query, { pool: self.pool, columns: db.convertColumns(self.tables.auth) }, function(err) {
                     if (err) return self.sendReply(res, err);
+                    ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
                     db.add("account", req.query, { pool: self.pool }, function(err) {
-                        if (err) db.del("auth", req.query, { pool: self.pool });
-                        self.sendReply(res, err);
+                        if (err) {
+                            db.del("auth", req.query, { pool: self.pool });
+                            return self.sendReply(res, err);
+                        }
+                        res.json(self.prepareAccount(req.query));
                     });
                 });
                 break;
@@ -328,9 +333,10 @@ var api = {
                 req.query.id = req.account.id;
                 req.query.email = req.account.email;
                 // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
-                ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+                ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
                 db.update("account", req.query, { pool: self.pool }, function(err) {
-                    self.sendReply(res, err);
+                    if (err) return self.sendReply(res, err);
+                    res.json(self.prepareAccount(req.query));
                 });
                 break;
 
@@ -353,6 +359,32 @@ var api = {
                     if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.pool });
                 });
                 break;
+
+            case "icon/del":
+            case "icon/put":
+                // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
+                var type = (req.body.type || req.query.type || '').substr(0, 1).toLowerCase();
+                self[op + 'Icon'](req, req.account.id, { prefix: 'account', type: type }, function(err) {
+                    if (err) return self.sendReply(res, err);
+                    
+                    // Get current acount icons
+                    db.get("account", { id: req.account.id }, { pool: self.pool, select: 'id,icons' }, function(err, rows) {
+                        if (err) return self.sendReply(res, err);
+                        // Just return current icons list if we updated the primary icon
+                        if (!type) return res.json(self.prepareAccount(rows[0]));
+                        
+                        // Add/remove given type from the list of icons
+                        rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + type);
+                        if (op == 'del') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
+                        
+                        var obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[0].icons };
+                        db.update("account", obj, { pool: self.pool }, function(err) {
+                            if (err) return self.sendReply(res, err);
+                            res.json(self.prepareAccount(rows[0]));
+                        });
+                    });
+                });
+                break;
                 
             case "location/put":
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
@@ -363,12 +395,12 @@ var api = {
                     // Skip if within minimal distance
                     var distance = backend.geoDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
                     logger.debug(req.params[0], req.account, req.query, 'distance:', distance);
-                    if (distance < self.minDistance) return self.sendReply(res, 200, "ignored, min distance: " + self.minDistance);
+                    if (distance < self.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + self.minDistance);
                     
                     var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: req.query.latitude, longitude: req.query.longitude, location: req.query.location };
                     db.update("account", obj, { pool: self.pool }, function(err) {
-                        self.sendReply(res, err);
-                        if (err) return;
+                        if (err) return self.sendReply(res, err);
+                        res.json(self.prepareAccount(obj));
                         
                         // Delete current location
                         var geo = self.prepareLocation(row.latitude, row.longitude);
@@ -441,7 +473,6 @@ var api = {
             case "connection/add":
             case "connection/put":
             case "connection/update":
-                var op = req.params[0].split("/").pop();
                 var id = req.query.id, type = req.query.type;
                 if (!id || !type) return self.sendReply(res, 400, "id and type are required");
                 if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
@@ -524,18 +555,6 @@ var api = {
                 db.add("history", req.query, { pool: self.pool });
                 break;
                 
-            case "icon/list":
-                // List all possible icons, this server may not have access to the files so it is up to the client to verify which icons exist
-                res.json(['a','b','c','d','e','f'].map(function(x) { return self.imagesUrl + '/image/account/' + req.account.id + '/' + x }));
-                break;
-                
-            case "icon/put":
-                // Add icon to the account, support up to 6 icons with types: a,b,c,d,e,f, primary icon type is ''
-                self.putIcon(req, req.account.id, { prefix: 'account', type: req.body.type || req.query.type || '' }, function(err) {
-                    self.sendReply(res, err);
-                });
-                break;
-                
             default:
                 self.sendReply(res, 400, "Invalid operation");
             }
@@ -555,6 +574,9 @@ var api = {
     prepareAccount: function(row) {
         if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
         row.icon = this.imagesUrl + '/image/account/' + row.id;
+        // List all available icons, this server may not have access to the files so it is up to the client to verify which icons exist
+        core.strSplitUnique(row.icons).forEach(function(x) { row['icon' + x] = self.imagesUrl + '/image/account/' + row.id + '/' + x });
+        return row;
     },
     
     // Collect accounts by id or list of ids
@@ -696,6 +718,26 @@ var api = {
             }
         } else {
             return callback(new Error("no icon"));
+        }
+    },
+    
+    // Delete an icon for account, .type defines icon prefix
+    delIcon: function(req, id, options, callback) {
+        if (typeof options == "function") callback = options, options = null;
+        if (!options) options = {};
+        
+        var icon = core.iconPath(id, options);
+        if (this.imagesS3) { 
+            var aws = core.context.aws;
+            aws.queryS3(this.imagesS3, icon, { method: "DELETE" }, function(err) {
+                logger.edebug(err, 'delIcon:', id, options);
+                if (callback) callback();
+            });
+        } else {
+            fs.unlink(icon, function(err) {
+                logger.edebug(err, 'delIcon:', id, options);
+                if (callback) callback();
+            });
         }
     },
     
