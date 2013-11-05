@@ -681,6 +681,7 @@ var server = {
         }, null, true);
         cj.type = obj.type;
         cj.host = obj.host;
+        cj.id = obj.id;
         this.crontab.push(cj);
     },
 
@@ -695,9 +696,17 @@ var server = {
         logger.debug('scheduleLaunchjob:', spec, util.inspect(obj, true, null));
         var cj = new cron.CronJob(spec, function() { self.doJob(this.type, job, obj.args)  }, null, true);
         cj.type = obj.type;
+        cj.id = obj.id;
         this.crontab.push(cj);
     },
 
+    // Execute a cronjob by name now
+    runCronjob: function(id) {
+        this.crontab.forEach(function(x) {
+           if (x.id == id) x._callback();
+        });
+    },
+    
     // Perform execution according to type
     doJob: function(type, job, options) {
         var self = this;
