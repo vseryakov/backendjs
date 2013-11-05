@@ -388,6 +388,7 @@ var api = {
                 break;
                 
             case "location/list":
+            case "location/list/account":
                 // Perform location search based on hash key that covers the whole region for our configured max distance
                 var start = req.query._start || "";
                 var distance = core.toNumber(req.query.distance);
@@ -402,10 +403,31 @@ var api = {
                 var options = { pool: self.pool, ReturnConsumedCapacity: 'TOTAL', ops: { range: "begins_with" }, start: start, count: req.query._count || 25 };
                 options.filter = function(x) { return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= distance; }
                 db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
-                    rows = rows.map(function(x) { delete x.hash; delete x.range; return x; });
+                    var list = {}, ids = [];
+                    rows = rows.map(function(row) { 
+                        delete row.hash;
+                        delete row.range;
+                        ids.push({ id: row.id });
+                        list[row.id] = row;
+                        return row;
+                    });
                     // Return back not just a list with rows but pagination info as well, stop only if last property is empty even if no rows returned
                     var last = info.last_evaluated_key;
-                    res.json({ geohash: geo.geohash, start: req.query._start, last: last ? last.hash + last.range : "",  items: rows });
+                    if (last) last = last.hash + last.range;
+                    
+                    if (req.params[0] == "location/list") {
+                        return res.json({ geohash: geo.geohash, start: req.query._start, last: last, items: rows });
+                    }
+            
+                    // Continue with retrieving accounts for the found candidates
+                    self.listAccounts(req, ids, { select: req.query._columns }, function(err, rows) {
+                        if (err) return self.sendReply(res, err);
+                        // Keep all connecton properties in separate object
+                        rows.forEach(function(row) {
+                            row.account = list[row.id];
+                        })
+                        res.json({ geohash: geo.geohash, start: req.query._start, last: last,  items: rows });
+                    });
                 });
                 break;
 
@@ -452,19 +474,36 @@ var api = {
                 break;
 
             case "connection/list":
+            case "connection/list/account":
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
                 db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, ops: { type: "begins_with" }, select: req.query._columns }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
+                    var list = {}, ids = [];
+                    // Collect account ids
                     rows.forEach(function(row) {
                         var type = row.type.split(":");
                         row.id = type[1];
                         row.type = type[0];
+                        ids.push({ id: row.id });
+                        list[row.id] = row;
                     });
-                    res.json(rows);
+                    if (req.params[0] == "connection/list") {
+                        return res.json(rows);
+                    }
+                    
+                    // Get all account records for the id list
+                    self.listAccounts(req, ids, { select: req.query._columns }, function(err, rows) {
+                        if (err) return self.sendReply(res, err);
+                        // Keep all connecton properties in separate object
+                        rows.forEach(function(row) {
+                            row.connection = list[row.id];
+                        })
+                        res.json(rows);
+                    });
                 });
                 break;
-
+                
             case "connection/list/reference":
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
@@ -478,31 +517,7 @@ var api = {
                     res.json(rows);
                 });
                 break;
-                
-            case "connection/list/account":
-                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, function(err, rows) {
-                    if (err) return self.sendReply(res, err);
-                    var list = {}, ids = [];
-                    // Collect account ids
-                    rows.forEach(function(row) {
-                        var type = row.type.split(":");
-                        row.id = type[1];
-                        row.type = type[0];
-                        ids.push({ id: row.id });
-                        list[row.id] = row;
-                    });
-                    // Get all account records for the id list
-                    self.listAccounts(req, ids, { select: req.query._columns }, function(err, rows) {
-                        if (err) return self.sendReply(res, err);
-                        // Keep all connecton properties in separate object
-                        rows.forEach(function(row) {
-                            row.connection = list[row.id];
-                        })
-                        res.json(rows);
-                    });
-                });
-                break;
-                
+            
             case "history/add":
                 self.sendReply(res);
                 req.query.mtime = now();
