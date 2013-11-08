@@ -96,7 +96,7 @@ var api = {
     // too many location updates with very high resolution is not required
     minDistance: 5,
     // Max distance in km for location searches
-    maxDistance: 200, 
+    maxDistance: 50, 
     
     // Geohash ranges for diffetent lenghts in km
     geoRange: [ [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]],
@@ -403,12 +403,12 @@ var api = {
                         res.json(self.prepareAccount(obj));
                         
                         // Delete current location
-                        var geo = self.prepareLocation(row.latitude, row.longitude);
+                        var geo = self.prepareGeohash(row.latitude, row.longitude, req.account);
                         geo.id = req.account.id;
                         db.del("location", geo, { pool: self.pool });
                         
                         // Insert new location
-                        geo = self.prepareLocation(req.query.latitude, req.query.longitude);
+                        geo = self.prepareGeohash(req.query.latitude, req.query.longitude, req.account);
                         geo.mtime = now;
                         geo.id = req.account.id;
                         db.put("location", geo, { pool: self.pool });
@@ -419,19 +419,18 @@ var api = {
                 });
                 break;
                 
-            case "location/list":
-            case "location/list/account":
+            case "location/search":
+            case "location/search/account":
                 // Perform location search based on hash key that covers the whole region for our configured max distance
-                var start = req.query._start || "";
-                var distance = core.toNumber(req.query.distance);
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-                if (distance <= 0) return self.sendReply(res, 400, "Distance is required");
+                // Limit the distance within our configured range
+                req.query.distance = core.toNumber(req.query.distance, 0, self.minDistance, self.minDistance, self.maxDistance);
                 // Prepare geo search key
-                var geo = self.prepareLocation(req.query.latitude, req.query.longitude, distance);
+                var geo = self.prepareGeohash(req.query.latitude, req.query.longitude, req.query);
                 // Start comes as full geohash, split it into search hash and range
-                if (start) {
-                    start = { hash: start.substr(0, geo.hash.length), range: start.substr(geo.hash.length) }
-                }
+                var start = req.query._start || "";
+                if (start) start = { hash: start.substr(0, geo.hash.length), range: start.substr(geo.hash.length) }
+                
                 var options = { pool: self.pool, ReturnConsumedCapacity: 'TOTAL', ops: { range: "begins_with" }, start: start, count: req.query._count || 25 };
                 options.filter = function(x) { return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= distance; }
                 db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
@@ -445,31 +444,29 @@ var api = {
                     });
                     // Return back not just a list with rows but pagination info as well, stop only if last property is empty even if no rows returned
                     var last = info.last_evaluated_key;
+                    // Combine last key hash and range into single geohash
                     if (last) last = last.hash + last.range;
                     
-                    if (req.params[0] == "location/list") {
-                        return res.json({ geohash: geo.geohash, start: req.query._start, last: last, items: rows });
-                    }
-            
-                    // Continue with retrieving accounts for the found candidates
-                    self.listAccounts(req, ids, { select: req.query._columns }, function(err, rows) {
-                        if (err) return self.sendReply(res, err);
-                        // Keep all connecton properties in separate object
-                        rows.forEach(function(row) {
-                            row.account = list[row.id];
-                        })
-                        res.json({ geohash: geo.geohash, start: req.query._start, last: last,  items: rows });
-                    });
+                    switch (op) {
+                    case "account":
+                        // Return accounts with locations
+                        self.listAccounts(req, ids, { select: req.query._columns }, function(err, rows) {
+                            if (err) return self.sendReply(res, err);
+                            // Keep all connecton properties in separate object
+                            rows.forEach(function(row) {
+                                row.account = list[row.id];
+                            })
+                            res.json({ geohash: geo.geohash, start: start, last: last, items: rows });
+                        });
+                        break;
+   
+                    default:
+                        // Return just locations
+                        res.json({ geohash: geo.geohash, start: start, last: last, items: rows });
+                    }            
                 });
                 break;
 
-            case "location/search":
-                // Perform location search based on adjacent neighbougrs
-                var distance = core.toNumber(req.query.distance);
-                if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-                if (distance <= 0) return self.sendReply(res, 400, "Distance is required");
-                break;
-                
             case "connection/add":
             case "connection/put":
             case "connection/update":
@@ -562,12 +559,15 @@ var api = {
     },
     
     // Return object with geohash for given coordinates to be used for location search
-    prepareLocation: function(latitude, longitude, distance) {
+    // options may contain the follwong properties:
+    // - distance - limit the range key by the minimum distance, this will reduce the range key length, 
+    //              if not specified the full geohash will be produced
+    prepareGeohash: function(latitude, longitude, options) {
         var self = this;
-        var kbits = this.geoRange.filter(function(x) { return x[1] > self.maxDistance })[0][0];
-        var hbits = distance ? this.geoRange.filter(function(x) { return x[1] > distance })[0][0] : 22;
+        var hbits = this.geoRange.filter(function(x) { return x[1] > self.maxDistance })[0][0];
+        var rbits = (options || {}).distance ? this.geoRange.filter(function(x) { return x[1] > options.distance })[0][0] : 22;
         var geohash = backend.geoHashEncode(latitude, longitude);
-        return { hash: geohash.substr(0, kbits), range: geohash.substr(kbits, hbits - kbits), geohash: geohash, latitude: latitude, longitude: longitude };
+        return { hash: geohash.substr(0, hbits), range: geohash.substr(hbits, rbits - hbits), geohash: geohash, latitude: latitude, longitude: longitude };
     },
     
     // Prepare an account record for response, set required fields, icons

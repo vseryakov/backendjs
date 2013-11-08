@@ -144,7 +144,6 @@ static void sqliteRankBM25(sqlite3_context *ctx, int argc, sqlite3_value **argv)
         int *lengths = averages + ncols;
         int *sequences = lengths + ncols;
 
-        // Calc phrase weights, ignore id(first column) because it may contain key words in some records
         for (int i = 0; i < nphrases; i++) {
             int *phrase = &matchinfo[2 + i * ncols * 3];
             tdocs += ndocs;
@@ -245,6 +244,39 @@ static void sqliteConcatFinal(sqlite3_context* ctx)
     }
 }
 
+// Manipulating arrays
+static void sqliteArray(sqlite3_context *ctx, int argc, sqlite3_value **argv)
+{
+    if (argc < 3) return;
+    const char *data = (const char *) sqlite3_value_text(argv[0]);
+    const char *op = (const char*) sqlite3_value_text(argv[1]);
+    const char *sep = (const char*) sqlite3_value_text(argv[2]);
+    if (!sep || !sep[0]) sep = ",";
+    if (!op || !op[0]) op = "add";
+
+    vector<string> items = strSplit(data ? data : "", sep);
+    if (!strcmp(op, "add") || !strcmp(op, "set")) {
+    	if (op[0] == 's') items.clear();
+    	for (int i = 3; i < argc; i++) {
+    		const char *val = (const char*) sqlite3_value_text(argv[i]);
+    		if (!val || !val[0]) continue;
+    		items.push_back(val);
+    	}
+    } else
+    if (!strcmp(op, "del")) {
+    	for (int i = 3; i < argc; i++) {
+    		const char *val = (const char*) sqlite3_value_text(argv[i]);
+    		if (!val || !val[0]) continue;
+    		auto it = std::find(items.begin(), items.end(), val);
+    		if (it != items.end()) items.erase(it);
+    	}
+    } else
+    if (!strcmp(op, "clear")) {
+    	items.clear();
+    }
+    sqlite3_result_text(ctx, toString(items, sep).c_str(), -1, SQLITE_TRANSIENT);
+}
+
 // Public interface to sqlite functions
 void vsqlite_init()
 {
@@ -258,6 +290,7 @@ void vsqlite_init()
 bool vsqlite_init_db(sqlite3 *handle, int (*progress)(void *))
 {
     if (!handle) return false;
+    sqlite3_create_function(handle, "array", -1, SQLITE_UTF8, 0, sqliteArray, 0, 0);
     sqlite3_create_function(handle, "regexp", 2, SQLITE_UTF8, 0, sqliteRegexp, 0, 0);
     sqlite3_create_function(handle, "concat", -1, SQLITE_UTF8, 0, NULL, sqliteConcatStep, sqliteConcatFinal);
     sqlite3_create_function(handle, "busy_timeout", 1, SQLITE_UTF8, 0, sqliteTimeout, 0, 0);
