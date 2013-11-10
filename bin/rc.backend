@@ -31,7 +31,8 @@ DOMAIN=localhost
 [ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
 [ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
 [ "$DDB_DIR" = "" ] && DDB_DIR=$PREFIX/dynamodb
-[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$PREFIX/lib/node/backend
+[ "$NODE_DIR" = "" ] && NODE_DIR=$PREFIX/lib/node
+[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_DIR/backend
 
 HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
@@ -504,7 +505,7 @@ case "$ARG" in
     [ -f web ] && rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
     ;;
     
-  build-dev)
+  build-src)
     set -e
     
     # Required macport packages
@@ -530,14 +531,14 @@ case "$ARG" in
     git clone https://code.google.com/p/leveldb
     (cd leveldb && make && cp -r include/leveldb $PREFIX/include && rm -rf $PREFIX/lib/libleveldb* && cp libleveldb* $PREFIX/lib)
     
-    git clone https://code.google.com/p/plv8js
-    make -C plv8js -f Makefile.v8 install 
-    
     mkdir -p ImageMagick
     curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
     tar -C ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz
     rm -rf ImageMagick.tar.gz
     (cd ImageMagick && ./configure --prefix=/opt/local && make install)
+    
+    git clone https://code.google.com/p/plv8js
+    make -C plv8js -f Makefile.v8 install 
     
     ;;
 
@@ -614,9 +615,9 @@ case "$ARG" in
     echo "  init-cassandra - install Cassandra server in $PREFIX/cassandra"
     echo "  init-app - initialize environment for application based on the backend"
     echo "  put-app - push application code to the master server via rsync and ssh"
-    echo "  build-dev - build all required software for the backend developemnt"
+    echo "  build-src - build all required software for the backend development, download in the local ./src folder, compile and install in $PREFIX"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"
-    echo "  init-backend - init core backend environment, for the core developemnt only"
+    echo "  init-backend - init core backend environment, for the core developemnt only, links NPM global backend module $NODE_BACKEND back to this sources"
     echo "  put-backend - push the vbackend code to the master server"
     echo "  run-backend - run local backend server"
     echo "  clean-backend - clean the source directory"

@@ -9,16 +9,16 @@
 
  - git clone https://vseryakov@bitbucket.org/vseryakov/backend.git
  - cd backend
- - to install node.js and required modules if it is not installed run  
-    command:
-   
-        bin/rc.backend build-dev
-
  - to initialize environment for the backend development run  
     command:
    
         bin/rc.backend init-backend
    
+ - to install node.js and required modules if not installed run  
+    command:
+   
+        bin/rc.backend build-src
+
  - to compile the binary module just type ```make```
  - to run local server on port 8000 run  
     command:

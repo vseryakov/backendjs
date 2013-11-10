@@ -18,4 +18,5 @@
 bin/sqlite3
 node/build**
 data
+src
 
