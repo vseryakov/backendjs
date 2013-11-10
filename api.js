@@ -363,11 +363,12 @@ var api = {
             case "icon/del":
             case "icon/put":
                 // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
-                var type = (req.body.type || req.query.type || '').substr(0, 1).toLowerCase();
+                // The type can be the whole url of the icon, we need to parse it and extract only type
+                var type = self.getIconType(req.account.id, req.body.type || req.query.type);
                 self[op + 'Icon'](req, req.account.id, { prefix: 'account', type: type }, function(err) {
                     if (err) return self.sendReply(res, err);
                     
-                    // Get current acount icons
+                    // Get current account icons
                     db.get("account", { id: req.account.id }, { pool: self.pool, select: 'id,icons' }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         // Just return current icons list if we updated the primary icon
@@ -674,6 +675,15 @@ var api = {
         });
     },
 
+    // Return type of the icon, this can be type itself or full icon url
+    getIconType: function(id, type) {
+        var d = (type || "").match(/\/image\/account\/([a-z0-9-]+)\/?(([a-z0-9])$|([a-z0-9]+)\?)?/);
+        if (d && d[1] == id) type = d[3] || d[4];
+        // Invalid icon type, by now it must be one letter or digit
+        if (type.length > 1) type = '';    
+        return type.toLowerCase();
+    },
+    
     // Return icon to the client
     getIcon: function(req, res, id, options) {
         var self = this;
