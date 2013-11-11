@@ -526,7 +526,7 @@ case "$ARG" in
     $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs http-proxy memcached redis
     
     git clone https://github.com/nanomsg/nanomsg.git
-    (cd nanomsg && ./configure --prefix=$PREFIX && make install)
+    (cd nanomsg && ./autogen.sh && ./configure --prefix=$PREFIX && make install)
     
     git clone https://code.google.com/p/leveldb
     (cd leveldb && make && cp -r include/leveldb $PREFIX/include && rm -rf $PREFIX/lib/libleveldb* && cp libleveldb* $PREFIX/lib)
@@ -538,7 +538,7 @@ case "$ARG" in
     (cd ImageMagick && ./configure --prefix=/opt/local && make install)
     
     git clone https://code.google.com/p/plv8js
-    make -C plv8js -f Makefile.v8 install 
+    #make -C plv8js -f Makefile.v8 install 
     
     ;;
 

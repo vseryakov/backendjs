@@ -433,7 +433,7 @@ var api = {
                 if (start) start = { hash: start.substr(0, geo.hash.length), range: start.substr(geo.hash.length) }
                 
                 var options = { pool: self.pool, ReturnConsumedCapacity: 'TOTAL', ops: { range: "begins_with" }, start: start, count: req.query._count || 25 };
-                options.filter = function(x) { return backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude) <= distance; }
+                options.filter = function(x) { x.distance = backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude); return x.distance <= distance; }
                 db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
                     var list = {}, ids = [];
                     rows = rows.map(function(row) { 
