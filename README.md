@@ -14,11 +14,21 @@
    
         bin/rc.backend init-backend
    
- - to install node.js and required modules if not installed run  
+ - to install node.js and required software run  
     command:
    
         bin/rc.backend build-src
 
+
+    it will create src/ in the current directory and install the following packages:
+     - node.js in $PREFIX/bin
+     - npm modules in $PREFIX/lib/node
+     - nanomsg library in $PREFIX/lib
+     - leveldb library in $PREFIX/lib
+     - ImageMagick in $PREFIX/lib
+     
+     By default $PREFIX point to /opt/local, it can be changed in .backendrc file
+     
  - to compile the binary module just type ```make```
  - to run local server on port 8000 run  
     command:
@@ -31,9 +41,9 @@
    
        $ make repl
    
-       &gt; core.version  
+       > core.version  
         '2013.10.20.0'  
-       &gt; logger.setDebug(2)  
+       > logger.setDebug(2)  
      
 ## Configuration
 
@@ -84,7 +94,11 @@
     - $HOME/.backendrc
     - .backendrc
   
-  The required environment variables required by the tool are (with default values): PREFIX=/usr/local, ROOT=/data, DOMAIN=localhost.  
+  The required environment variables required by the tool are (with default values): 
+   - PREFIX=/usr/local
+   - ROOT=/data
+   - DOMAIN=localhost
+
   Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory.
   
   

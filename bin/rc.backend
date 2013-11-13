@@ -264,6 +264,7 @@ case "$ARG" in
 
     # Permissions
     echo "Setting permissions..."
+    sed -i 's/requiretty/!requiretty/' /etc/sudoers
     [ ! -f $ROOT ] && mkdir -p $ROOT/bin $ROOT/etc $ROOT/var $ROOT/log && chown $LOCAL_USER $ROOT
     touch /var/log/messages $ROOT/log/access.log 
     chmod -f g+r /var/log/messages $ROOT/log/access.log
@@ -520,23 +521,30 @@ case "$ARG" in
     
     mkdir src && cd src
     
+    echo 'Installing node.js...'
     git clone https://github.com/joyent/node.git
     (cd node && git checkout v0.10 && ./configure --prefix=$PREFIX && make install)
-
+    
+    echo 'Installing node.js modules...'
+    echo -e "global=true\nnodedir=`pwd`/node" > $HOME/.npmrc
     $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs http-proxy memcached redis
     
+    echo 'Installing nanomsg...'
     git clone https://github.com/nanomsg/nanomsg.git
     (cd nanomsg && ./autogen.sh && ./configure --prefix=$PREFIX && make install)
     
+    echo 'Installing leveldb...'
     git clone https://code.google.com/p/leveldb
     (cd leveldb && make && cp -r include/leveldb $PREFIX/include && rm -rf $PREFIX/lib/libleveldb* && cp libleveldb* $PREFIX/lib)
     
+    echo 'Installing ImageMagick...'
     mkdir -p ImageMagick
     curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
     tar -C ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz
     rm -rf ImageMagick.tar.gz
     (cd ImageMagick && ./configure --prefix=/opt/local && make install)
     
+    echo 'Installing plv8js...'
     git clone https://code.google.com/p/plv8js
     #make -C plv8js -f Makefile.v8 install 
     

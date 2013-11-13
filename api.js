@@ -21,7 +21,7 @@ var backend = require(__dirname + '/backend');
 var api = {
 
     // No authentication for these urls
-    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html)$|(^\/public\/)|(^\/image\/[a-z]+\/|^\/account\/add))/,
+    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html)$|(^\/public\/)|(^\/images\/)|(^\/image\/[a-z]+\/|^\/account\/add))/,
 
     // Refuse access to these urls
     deny: null,
@@ -164,6 +164,11 @@ var api = {
             self.getIcon(req, res, req.params[1], { prefix: req.params[0], type: req.params[2] });
         });
 
+        // Direct access to the images by exact file name
+        this.app.all(/^\/images\/(.+)/, function(req, res) {
+            self.sendFile(req, res, path.join(core.path.images, req.params[0].replace(/\.\./g, "")));
+        });
+        
         // Managing accounts, basic functionality
         this.initAccount();
         
