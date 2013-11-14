@@ -32,6 +32,7 @@ struct Sock {
     // Socket read/write support
     uv_poll_t poll;
     Persistent<Function> callback;
+    Persistent<Object> context;
 
     // Peer for forwading
     struct Sock* peer;
@@ -64,6 +65,7 @@ struct Sock {
     }
 
     int ClosePoll() {
+    	if (!context.IsEmpty()) context.Dispose();
         if (!callback.IsEmpty()) callback.Dispose();
         if (poll.data) uv_poll_stop(&poll), poll.data = NULL;
         peer = NULL;
@@ -105,10 +107,23 @@ struct Sock {
         return 0;
     }
 
-    int SetCallback(Handle<Function> cb) {
+    int SetOption(int opt, int n) {
+    	int rc = nn_setsockopt(sock, type, opt, &n, sizeof(n));
+    	if (nn_slow(rc == -1)) return Close(rc);
+    	return 0;
+    }
+
+    int SetOption(int opt, string s) {
+    	int rc = nn_setsockopt(sock, type, opt, s.c_str(), 0);
+    	if (nn_slow(rc == -1)) return Close(rc);
+    	return 0;
+    }
+
+    int SetCallback(Handle<Function> cb, Handle<Object> ctx) {
         ClosePoll();
         if (rfd == -1 || cb.IsEmpty()) return 0;
         callback = Persistent<Function>::New(cb);
+        if (!ctx.IsEmpty()) context = Persistent<Object>::New(ctx);
         uv_poll_init(uv_default_loop(), &poll, rfd);
         uv_poll_start(&poll, UV_READABLE, HandleRead);
         poll.data = (void*)this;
@@ -122,18 +137,20 @@ struct Sock {
         char *buf;
         HandleScope scope;
         int n = nn_recv(s->sock, (void*)&buf, NN_MSG, NN_DONTWAIT);
+        Handle<Object> ctx = Context::GetCurrent()->Global();
+        if (!s->context.IsEmpty()) ctx = s->context;
         if (nn_slow(n == -1)) {
         	s->err = nn_errno();
             Local <Value> argv[2];
         	argv[0] = Exception::Error(String::New(nn_strerror(nn_errno())));
         	argv[1] = Local<Value>::New(Integer::New(s->sock));
-        	TRY_CATCH_CALL(Context::GetCurrent()->Global(), s->callback, 1, argv);
+        	TRY_CATCH_CALL(ctx, s->callback, 1, argv);
         } else {
             Local <Value> argv[3];
         	argv[0] = Local<Value>::New(Null());
         	argv[1] = Local<Value>::New(Integer::New(s->sock));
         	argv[2] = Local<String>::New(String::New(buf));
-        	TRY_CATCH_CALL(Context::GetCurrent()->Global(), s->callback, 3, argv);
+        	TRY_CATCH_CALL(ctx, s->callback, 3, argv);
         }
         nn_freemsg(buf);
     }
@@ -278,6 +295,28 @@ static Handle<Value> Bind(const Arguments& args)
     return scope.Close(Integer::New(rc));
 }
 
+static Handle<Value> SetOption(const Arguments& args)
+{
+    HandleScope scope;
+
+    REQUIRE_ARGUMENT_INT(0, n);
+    REQUIRE_ARGUMENT_INT(1, opt);
+    REQUIRE_ARGUMENT(2);
+    GETSOCK(n, sock);
+
+    int rc;
+    if (args[2]->IsString()) {
+    	REQUIRE_ARGUMENT_STRING(1, s);
+    	rc = sock->SetOption(opt, *s);
+    } else
+    if (args[2]->IsInt32()) {
+    	REQUIRE_ARGUMENT_INT(2, n);
+    	rc = sock->SetOption(opt, n);
+    }
+    if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(sock->err))));
+    return scope.Close(Integer::New(rc));
+}
+
 static Handle<Value> Subscribe(const Arguments& args)
 {
     HandleScope scope;
@@ -320,10 +359,11 @@ static Handle<Value> SetCallback(const Arguments& args)
     HandleScope scope;
 
     REQUIRE_ARGUMENT_INT(0, n);
-    OPTIONAL_ARGUMENT_FUNCTION(1, cb);
+    OPTIONAL_ARGUMENT_OBJECT(1, ctx);
+    OPTIONAL_ARGUMENT_FUNCTION(-1, cb);
     GETSOCK(n, sock);
 
-    int rc = sock->SetCallback(cb);
+    int rc = sock->SetCallback(cb, ctx);
     if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(sock->err))));
     return scope.Close(Integer::New(rc));
 }
@@ -399,6 +439,7 @@ void NanoMsgInit(Handle<Object> target)
     NODE_SET_METHOD(target, "nnSubscribe", Subscribe);
     NODE_SET_METHOD(target, "nnBind", Bind);
     NODE_SET_METHOD(target, "nnClose", Close);
+    NODE_SET_METHOD(target, "nnSetOption", SetOption);
     NODE_SET_METHOD(target, "nnConnect", Connect);
     NODE_SET_METHOD(target, "nnUnsubscribe", Unsubscribe);
     NODE_SET_METHOD(target, "nnSend", Send);
