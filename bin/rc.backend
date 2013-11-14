@@ -534,7 +534,7 @@ case "$ARG" in
     
     echo 'Installing node.js modules...'
     echo -e "global=true\nnodedir=`pwd`/node" > $HOME/.npmrc
-    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs http-proxy memcached redis
+    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs http-proxy memcached redis helenus
     
     echo 'Installing nanomsg...'
     git clone https://github.com/nanomsg/nanomsg.git
@@ -590,9 +590,9 @@ case "$ARG" in
     
   build-backend)
     set -e
-    [ ! -f node/build/Makefile -o node/binding.gyp -nt node/build/Makefile ] && $PREFIX/bin/npm build node
-    make -C node/build
-    [ -f node/build/Release/backend.node ] && mv node/build/Release/*.node .  
+    [ ! -f build/Makefile -o binding.gyp -nt build/Makefile ] && $PREFIX/bin/npm build .
+    make -C build
+    [ -f build/Release/backend.node ] && mv build/Release/*.node .  
 
     make -C lib sqlite3
     [ -f lib/sqlite3 ] && mkdir -p bin && mv lib/sqlite3 bin

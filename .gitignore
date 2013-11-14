@@ -16,7 +16,7 @@
 .history
 .project
 bin/sqlite3
-node/build**
+build**
 data
 src
 
