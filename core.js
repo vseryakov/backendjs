@@ -533,26 +533,137 @@ var core = {
         return d || new Date(0);
     },
     
-    // Convert value to the proper type by field, resulting value will be the same type as the field
-    toValue: function(field, value) {
-        switch (this.typeName(field)) {
+    // Convert value to the proper type
+    toValue: function(val, type) {
+        switch ((type || this.typeName(val))) {
         case 'array':
-            return value.split(',');
+            return Array.isArray(val) ? val : String(val).split(/[,\|]/);
+            
+        case "expr":
+        case "buffer":
+            return val;
 
-        case 'date':
-            return new Date(value);
+        case "real":
+        case "float":
+        case "double":
+            return core.toNumber(val, true);
 
-        case 'boolean':
-            return this.toBool(value);
+        case "int":
+        case "integer":
+        case "number":
+            return core.toNumber(val);
 
-        case 'number':
-            return this.toNumber(value);
+        case "bool":
+        case "boolean":
+            return core.toBool(val);
+
+        case "date":
+        case "time":
+            return this.toDate(val);
+
+        case "mtime":
+            return /^[0-9\.]+$/.test(value) ? this.toNumber(val) : (new Date(val));
 
         default:
-            return value;
+            return val;
         }
     },
 
+    // Evaluate expr, compare 2 values with optional type and opertion
+    isTrue: function(val1, val2, op, type) {
+        switch ((op ||"").toLowerCase()) {
+        case 'null':
+            if (v) return false;
+            break;
+            
+        case 'not null':
+            if (!v) return false;
+            break;
+            
+        case ">":
+        case "gt":
+            if (this.toValue(val1, type) <= this.toValue(val2, type)) return false;
+            break;
+            
+        case "<":
+        case "lt":
+            if (this.toValue(val1, type) >= this.toValue(val2, type)) return false;
+            break;
+
+        case ">=":
+        case "ge":
+            if (this.toValue(val1, type) < this.toValue(val2, type)) return false;
+            break;
+            
+        case "<=":
+        case "le":
+            if (this.toValue(val1, type) > this.toValue(val2, type)) return false;
+            break;
+            
+        case "between":
+        case "not between":
+            // If we cannot parse out 2 values, treat this as exact operator
+            var list = [];
+            switch (core.typeName(val2)) {
+            case "array":
+                list = val2;
+                break;
+
+            case "string":
+                // For number array allow to be separated by comma as well, either one but not to be mixed
+                if ((type == "number" || type == "int") && val2.indexOf(',') > -1) {
+                    list = val2.split(',');
+                    break;
+                } else
+                if (value.indexOf('|') > -1) {
+                    list = val2.split('|');
+                    break;
+                }
+            }
+            if (list.length > 1) {
+                if (this.toValue(val1, type) < this.toValue(list[0], type) || this.toValue(val1, type) > this.toValue(list[1], type)) return false;
+            } else {
+                if (this.toValue(val1, type) != this.toValue(val2, type)) return false;
+            }
+            break;
+            
+        case '~* any':
+        case '!~* any':
+            break;
+
+        case 'like%':
+        case "ilike%":
+        case "not like%":
+        case "not ilike%":
+            break;
+            
+        case "!~":
+        case "!~*":
+        case "iregexp":
+        case "not iregexp":
+            break;
+            
+        case "in":
+        case "not in":
+            break;
+            
+        case "~":
+        case "~*":
+        case "regexp":
+        case "not regexp":
+            break;
+            
+        case "!=":
+        case "<>":
+            if (this.toValue(val1, type) == this.toValue(val2, type)) return false;
+            break;
+            
+        default:
+            if (this.toValue(val1, type) != this.toValue(val2, type)) return false;
+        }
+        return true;
+    },
+    
     // Downloads file using HTTP and pass it to the callback if provided
     // - uri can be full URL or an object with parts of the url, same format as in url.format
     // - params can contain the following options:

@@ -46,6 +46,7 @@ var api = {
                    { name: "email", unique: 1 },
                    { name: "name" },
                    { name: "alias", pub: 1 },
+                   { name: "status", pub: 1 },
                    { name: "phone" },
                    { name: "website" },
                    { name: "birthday", semipub: 1 },
@@ -102,7 +103,9 @@ var api = {
     geoRange: [ [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]],
     
     // Config parameters
-    args: [{ name: "pool", descr: "Database pool to use for API clients" }, 
+    args: [{ name: "pool", descr: "Database pool to use for API clients" },
+           { name: "account-pool", descr: "Database pool to use for API clients account" },
+           { name: "history-pool", descr: "Database pool to use for API clients history" },
            { name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
            { name: "images-s3", descr: "S3 bucket name where to image store instead of data/images directory on the filesystem" },
            { name: "access-log", descr: "File for access logging" },
@@ -180,6 +183,8 @@ var api = {
 
         // Create account tables if dont exist
         core.context.db.initTables({ pool: self.pool, tables: self.tables }, callback);
+        if (self.accountPool) core.context.db.initTables({ pool: self.accountPool, tables: self.tables }, callback);
+        if (self.historyPool) core.context.db.initTables({ pool: self.historyPool, tables: self.tables }, callback);
     },
         
     // Perform authorization of the incoming request for access and permissions
@@ -241,7 +246,7 @@ var api = {
         }
 
         // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-        core.context.db.getCached("auth", { email: sig.id }, { pool: this.pool }, function(err, account) {
+        core.context.db.getCached("auth", { email: sig.id }, { pool: this.accountPool }, function(err, account) {
             if (err) return callback({ status: 500, message: String(err) });
             if (!account) return callback({ status: 404, message: "No account" });
 
@@ -296,7 +301,7 @@ var api = {
             var op = req.params[0].split('/').pop();
             switch (req.params[0]) {
             case "get":
-                db.get("account", { id: req.account.id }, { pool: self.pool }, function(err, rows) {
+                db.get("account", { id: req.account.id }, { pool: self.accountPool }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     if (!rows.length) return self.sendReply(res, 404);
                     res.json(self.prepareAccount(rows[0]));
@@ -311,6 +316,18 @@ var api = {
                 });
                 break;
                 
+            case "search":
+                // Search is limited to specific columns only
+                db.select("account", req.query, { pool: self.accountPool, select: req.query._columns }, function(err, rows) {
+                    if (err) return self.sendReply(res, err);
+                    rows.forEach(function(row) {
+                        self.prepareAccount(row);
+                        db.publicPrepare(rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
+                    });
+                    res.json(rows);
+                });
+                break;
+                
             case "add":
                 // Verify required fields
                 if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
@@ -320,10 +337,10 @@ var api = {
                 req.query.mtime = req.query.ctime = now;
                 // Add new auth record with only columns we support, no-SQL dbs can add any columns on 
                 // the fly and we want to keep auth table very small
-                db.add("auth", req.query, { pool: self.pool, columns: db.convertColumns(self.tables.auth) }, function(err) {
+                db.add("auth", req.query, { pool: self.accountPool, columns: db.convertColumns(self.tables.auth) }, function(err) {
                     if (err) return self.sendReply(res, err);
                     ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-                    db.add("account", req.query, { pool: self.pool }, function(err) {
+                    db.add("account", req.query, { pool: self.accountPool }, function(err) {
                         if (err) {
                             db.del("auth", req.query, { pool: self.pool });
                             return self.sendReply(res, err);
@@ -339,29 +356,29 @@ var api = {
                 req.query.email = req.account.email;
                 // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
                 ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-                db.update("account", req.query, { pool: self.pool }, function(err) {
+                db.update("account", req.query, { pool: self.accountPool }, function(err) {
                     if (err) return self.sendReply(res, err);
                     res.json(self.prepareAccount(req.query));
                 });
                 break;
 
             case "del":
-                db.del("auth", { email: req.account.email } , { pool: self.pool }, function(err) {
+                db.del("auth", { email: req.account.email } , { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
-                    db.del("account", { id: req.account.id } , { pool: self.pool });
+                    db.del("account", { id: req.account.id } , { pool: self.accountPool });
                 });
                 break;
                 
             case "secret/put":
                 if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-                db.put("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.pool }, function(err) {
+                db.put("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
                     self.sendReply(res, err);
                     core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
                     // Keep history of all changes
-                    if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.pool });
+                    if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.historyPool });
                 });
                 break;
 
@@ -374,7 +391,7 @@ var api = {
                     if (err) return self.sendReply(res, err);
                     
                     // Get current account icons
-                    db.get("account", { id: req.account.id }, { pool: self.pool, select: 'id,icons' }, function(err, rows) {
+                    db.get("account", { id: req.account.id }, { pool: self.accountPool, select: 'id,icons' }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         // Just return current icons list if we updated the primary icon
                         if (!type) return res.json(self.prepareAccount(rows[0]));
@@ -384,7 +401,7 @@ var api = {
                         if (op == 'del') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
                         
                         var obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[0].icons };
-                        db.update("account", obj, { pool: self.pool }, function(err) {
+                        db.update("account", obj, { pool: self.accountPool }, function(err) {
                             if (err) return self.sendReply(res, err);
                             res.json(self.prepareAccount(rows[0]));
                         });
@@ -421,12 +438,12 @@ var api = {
                     });
                         
                     // Keep history of all changes
-                    if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, lat: obj.latitude, lon: obj.longitude }, { pool: self.pool });
+                    if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, lat: obj.latitude, lon: obj.longitude }, { pool: self.historyPool });
                 });
                 break;
                 
             case "location/search":
-            case "location/search/account":
+            case "location/search/details":
                 // Perform location search based on hash key that covers the whole region for our configured max distance
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 // Limit the distance within our configured range
@@ -493,7 +510,7 @@ var api = {
                         self.sendReply(res, err);
                     });
                 });
-                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: id, ctype: type }, { pool: self.pool });
+                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: id, ctype: type }, { pool: self.historyPool });
                 break;
 
             case "connection/del":
@@ -504,11 +521,11 @@ var api = {
                         self.sendReply(res, err);
                     });
                 });
-                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: req.query.id, ctype: req.query.type }, { pool: self.pool });
+                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: req.query.id, ctype: req.query.type }, { pool: self.historyPool });
                 break;
 
             case "connection/list":
-            case "connection/list/account":
+            case "connection/list/details":
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
                 db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, ops: { type: "begins_with" }, select: req.query._columns }, function(err, rows) {
@@ -555,7 +572,7 @@ var api = {
             case "history/add":
                 self.sendReply(res);
                 req.query.mtime = now();
-                db.add("history", req.query, { pool: self.pool });
+                db.add("history", req.query, { pool: self.historyPool });
                 break;
                 
             default:
@@ -595,7 +612,7 @@ var api = {
         // pages in order to get all items until we reach our limit.
         var ids = core.strSplit(obj.id);
         ids = ids.length > 1 ? ids.map(function(x) { return { id: x } }) : { id: ids[0] };
-        db.select("account", ids, { pool: self.pool, select: cols }, function(err, rows) {
+        db.select("account", ids, { pool: self.accountPool, select: cols }, function(err, rows) {
             if (err) return callback(err, []);
             rows.forEach(function(row) {
                 self.prepareAccount(row);

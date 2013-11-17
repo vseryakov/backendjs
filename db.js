@@ -526,7 +526,7 @@ var db = {
         var cols = this.getColumns(options);
         return Object.keys(cols || {}).filter(function(x) { return cols[x].pub || cols[x].semipub });
     },
-
+    
     // Quote value to be used in SQL expressions
     sqlQuote: function(val) {
         return val == null || typeof val == "undefined" ? "NULL" : ("'" + String(val).replace(/'/g,"''") + "'")
@@ -1412,18 +1412,34 @@ var db = {
                 break;
                 
             case "get":
-                var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 aws.ddbGetItem(table, keys, options, function(err, item) {
                     callback(err, item.Item ? [item.Item] : []);
                 });
                 break;
 
             case "select":
-                var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                // Only primary key columns are allowed
+                var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 });
+                var keys = (options.keys || pool.dbkeys[table] || []).filter(function(x) { return other.indexOf(x) == -1 }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                // If we have other key columns we have to use custom filter
+                var filter = function(items) { 
+                    if (other.length > 0) {
+                        if (!options.ops) options.ops = {};
+                        if (!options.type) options.type = {};
+                        // Keep rows which satisfy all conditions
+                        items = items.filter(function(row) {
+                            return other.every(function(k) {
+                                return core.isTrue(row[k], obj[k], options.ops[k], options.type[k]);
+                            });
+                        });
+                    }
+                    return options.filter ? items.filter(function(row) { return options.filter(row, options); }) : items; 
+                }
                 aws.ddbQueryTable(table, keys, options, function(err, item) {
                     if (err) return callback(err, []);
                     var count = options.count || 0;
-                    var rows = options.filter ? item.Items.filter(function(row) { return options.filter(row, options); }) : item.Items;
+                    var rows = filter(item.Items);
                     pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : "";
                     count -= rows.length;
                     
@@ -1433,7 +1449,7 @@ var db = {
                         function(next) {
                             options.start = pool.last_evaluated_key;
                             aws.ddbQueryTable(table, keys, options, function(err, item) {
-                                var items = options.filter ? item.Items.filter(function(row) { return options.filter(row, options); }) : item.Items;
+                                var items = filter(item.Items);
                                 rows.push.apply(rows, items);
                                 pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : "";
                                 count -= items.length;
@@ -1487,7 +1503,7 @@ var db = {
                 break;
                 
             case "update":
-                var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 // Skip special columns, nulls, primary key columns. If we have specific list of allowed columns only keep those.
                 var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n] || (options.columns && !(n in options.columns)); } });
                 options.expected = keys;
@@ -1497,7 +1513,7 @@ var db = {
                 break;
 
             case "del":
-                var keys = (options.keys || pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 aws.ddbDeleteItem(table, keys, options, function(err, rc) {
                     callback(err, []);
                 });
