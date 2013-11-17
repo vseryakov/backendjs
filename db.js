@@ -1420,9 +1420,9 @@ var db = {
 
             case "select":
                 // Only primary key columns are allowed
-                var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 });
                 var keys = (options.keys || pool.dbkeys[table] || []).filter(function(x) { return other.indexOf(x) == -1 }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 // If we have other key columns we have to use custom filter
+                var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 });
                 var filter = function(items) { 
                     if (other.length > 0) {
                         if (!options.ops) options.ops = {};
