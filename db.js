@@ -1487,7 +1487,7 @@ var db = {
                 
             case "add":
                 // Add only listed columns if there is a .columns property specified
-                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
+                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || v === "" || (options.columns && !(n in options.columns)); } });
                 options.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
                 aws.ddbPutItem(table, o, options, function(err, rc) {
                     callback(err, []);
@@ -1496,7 +1496,7 @@ var db = {
 
             case "put":
                 // Add/put only listed columns if there is a .columns property specified
-                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || (options.columns && !(n in options.columns)); } });
+                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || v === "" || (options.columns && !(n in options.columns)); } });
                 aws.ddbPutItem(table, o, options, function(err, rc) {
                     callback(err, []);
                 });
@@ -1504,8 +1504,10 @@ var db = {
                 
             case "update":
                 var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                // Skip special columns, nulls, primary key columns. If we have specific list of allowed columns only keep those.
-                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || keys[n] || (options.columns && !(n in options.columns)); } });
+                // Skip special columns, primary key columns. If we have specific list of allowed columns only keep those.
+                // Keep nulls and empty strings, it means we have to delete this property.
+                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || keys[n] || (options.columns && !(n in options.columns)); },
+                                             _empty_to_null: 1 });
                 options.expected = keys;
                 aws.ddbUpdateItem(table, keys, o, options, function(err, rc) {
                     callback(err, []);

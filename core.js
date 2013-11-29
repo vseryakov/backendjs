@@ -1536,6 +1536,7 @@ var core = {
     // - filter is an object to skip properties that defined in it by name, 
     //   if filter's value is boolean, skip, if integer then skip if greater in length for string properties
     //   - _skip_null tells to skip all null properties
+    //   - _empty_to_null - convert empty strings into null objects
     //   - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
     // - props can be used to add additional properties to the new object
     cloneObj: function(obj, filter, props) {
@@ -1552,6 +1553,9 @@ var core = {
             return new Date(obj.getTime());
         case "regex":
             return new Regexp(this);
+        case "string":
+            if (filter._empty_to_null && obj === "") return null;
+            return obj;
         default:
             return obj;
         }

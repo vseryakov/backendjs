@@ -99,7 +99,7 @@ var api = {
     // Max distance in km for location searches
     maxDistance: 50, 
     
-    // Geohash ranges for diffetent lenghts in km
+    // Geohash ranges for different lenghts in km
     geoRange: [ [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]],
     
     // Config parameters
@@ -163,7 +163,7 @@ var api = {
 
         // Return images by prefix, id and possibly type, serves from local images folder, 
         // this is generic access without authentication, depends on self.allow regexp
-        this.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([a-z])?/, function(req, res) {
+        this.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([0-9])?/, function(req, res) {
             self.getIcon(req, res, req.params[1], { prefix: req.params[0], type: req.params[2] });
         });
 
@@ -335,7 +335,7 @@ var api = {
                 if (!req.query.email) return self.sendReply(res, 400, "email is required");
                 req.query.id = backend.uuid().replace(/-/g, '');
                 req.query.mtime = req.query.ctime = now;
-                // Add new auth record with only columns we support, no-SQL dbs can add any columns on 
+                // Add new auth record with only columns we support, noSQL db can add any columns on
                 // the fly and we want to keep auth table very small
                 db.add("auth", req.query, { pool: self.accountPool, columns: db.convertColumns(self.tables.auth) }, function(err) {
                     if (err) return self.sendReply(res, err);
@@ -356,7 +356,7 @@ var api = {
                 req.query.email = req.account.email;
                 // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
                 ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-                db.update("account", req.query, { pool: self.accountPool }, function(err) {
+                db.update("account", req.query, { pool: self.accountPool, columns: db.convertColumns(self.tables.account) }, function(err) {
                     if (err) return self.sendReply(res, err);
                     res.json(self.prepareAccount(req.query));
                 });
@@ -393,8 +393,6 @@ var api = {
                     // Get current account icons
                     db.get("account", { id: req.account.id }, { pool: self.accountPool, select: 'id,icons' }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
-                        // Just return current icons list if we updated the primary icon
-                        if (!type) return res.json(self.prepareAccount(rows[0]));
                         
                         // Add/remove given type from the list of icons
                         rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + type);
@@ -596,9 +594,10 @@ var api = {
     // Prepare an account record for response, set required fields, icons
     prepareAccount: function(row) {
         if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-        row.icon = this.imagesUrl + '/image/account/' + row.id;
-        // List all available icons, this server may not have access to the files so it is up to the client to verify which icons exist
-        core.strSplitUnique(row.icons).forEach(function(x) { row['icon' + x] = self.imagesUrl + '/image/account/' + row.id + '/' + x });
+        // List all available icons, on icon put, we save icon type in the icons property
+        core.strSplitUnique(row.icons).forEach(function(x) {
+            row['icon' + x] = self.imagesUrl + '/image/account/' + row.id + '/' + x;
+        });
         return row;
     },
     
@@ -699,11 +698,8 @@ var api = {
 
     // Return type of the icon, this can be type itself or full icon url
     getIconType: function(id, type) {
-        var d = (type || "").match(/\/image\/account\/([a-z0-9-]+)\/?(([a-z0-9])$|([a-z0-9]+)\?)?/);
-        if (d && d[1] == id) type = d[3] || d[4];
-        // Invalid icon type, by now it must be one letter or digit
-        if (type.length > 1) type = '';    
-        return type.toLowerCase();
+        var d = (type || "").match(/\/image\/account\/([a-z0-9-]+)\/?(([0-9])$|([0-9])\?)?/);
+        return d && d[1] == id ? (d[3] || d[4]) : "0";
     },
     
     // Return icon to the client
