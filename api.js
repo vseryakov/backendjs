@@ -69,7 +69,7 @@ var api = {
                    { name: "range", primary: 1 },                    // geohash(second part), the rest of the geohash
                    { name: "id" },
                    { name: "latitude", type: "real" },
-                   { name: "longitude", type: " real" },
+                   { name: "longitude", type: "real" },
                    { name: "mtime", type: "int" }],
 
        // All connections between accounts: like,dislike,friend...

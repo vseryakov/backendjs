@@ -7,7 +7,8 @@
   
 ## Development environment (Mac OS X)  
 
- - git clone https://vseryakov@bitbucket.org/vseryakov/backend.git
+ - git clone https://[your username]@bitbucket.org/vseryakov/backend.git
+ - SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
  - cd backend
  - to initialize environment for the backend development run  
     command:
