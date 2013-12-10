@@ -31,7 +31,7 @@ DOMAIN=localhost
 [ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
 [ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
 [ "$DDB_DIR" = "" ] && DDB_DIR=$PREFIX/dynamodb
-[ "$NODE_DIR" = "" ] && NODE_DIR=$PREFIX/lib/node
+[ "$NODE_DIR" = "" ] && NODE_DIR=$PREFIX/lib/node_modules
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_DIR/backend
 
 HOST=$(uname -n | awk -F. '{print $1}')
@@ -254,6 +254,7 @@ case "$ARG" in
     
     # Setup environment files
     echo "export PATH=$PREFIX/bin:$NODE_BACKEND/bin:$PG_PREFIX/bin:$PATH" > /etc/profile.d/backend.sh
+    echo "export NODE_PATH=$NODE_DIR" >> /etc/profile.d/backend.sh
     echo "$PREFIX/lib" > /etc/ld.so.conf.d/local.conf
     postfix reload
 
@@ -519,9 +520,6 @@ case "$ARG" in
     # Required macport packages
     port install pcre automake autoconf
     
-    # Combine node and global node_modules together 
-    (mkdir -p $PREFIX/lib/node && cd $PREFIX/lib && rm -rf node_modules && ln -sf node node_modules)
-
     # To support backtrace dump
     CFLAGS="-fno-omit-frame-pointer" 
     CXXFLAGS="-fno-omit-frame-pointer"

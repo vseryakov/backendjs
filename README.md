@@ -23,13 +23,16 @@
 
     it will create src/ in the current directory and install the following packages:
      - node.js in $PREFIX/bin
-     - npm modules in $PREFIX/lib/node
+     - npm modules in $PREFIX/lib/node_modules
      - nanomsg library in $PREFIX/lib
      - leveldb library in $PREFIX/lib
      - ImageMagick in $PREFIX/lib
      
      By default $PREFIX point to /opt/local, it can be changed in .backendrc file
      
+     Important: Add NODE_PATH=/opt/local/lib/node_modules to your environment in .profile or .bash_profile so 
+     node can find global modules
+
  - to compile the binary module just type ```make```
  - to run local server on port 8000 run  
     command:
