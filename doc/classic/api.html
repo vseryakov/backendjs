@@ -1,0 +1,2142 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>api.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0; maximum-scale=1.0; user-scalable=0;">
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+      <ul id="jump_to">
+        <li>
+          <a class="large" href="javascript:void(0);">Jump To &hellip;</a>
+          <a class="small" href="javascript:void(0);">+</a>
+          <div id="jump_wrapper">
+          <div id="jump_page">
+            
+              
+              <a class="source" href="api.html">
+                api.js
+              </a>
+            
+              
+              <a class="source" href="aws.html">
+                aws.js
+              </a>
+            
+              
+              <a class="source" href="core.html">
+                core.js
+              </a>
+            
+              
+              <a class="source" href="db.html">
+                db.js
+              </a>
+            
+              
+              <a class="source" href="index.html">
+                index.js
+              </a>
+            
+              
+              <a class="source" href="logger.html">
+                logger.js
+              </a>
+            
+              
+              <a class="source" href="server.html">
+                server.js
+              </a>
+            
+              
+              <a class="source" href="tests.html">
+                tests.js
+              </a>
+            
+          </div>
+        </li>
+      </ul>
+    
+    <ul class="sections">
+        
+          <li id="title">
+              <div class="annotation">
+                  <h1>api.js</h1>
+              </div>
+          </li>
+        
+        
+        
+        <li id="section-1">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-1">&#182;</a>
+              </div>
+              <p> Author: Vlad Seryakov vseryakov@gmail.com
+ Sep 2013</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="keyword">var</span> path = require(<span class="string">'path'</span>);
+<span class="keyword">var</span> util = require(<span class="string">'util'</span>);
+<span class="keyword">var</span> fs = require(<span class="string">'fs'</span>);
+<span class="keyword">var</span> http = require(<span class="string">'http'</span>);
+<span class="keyword">var</span> url = require(<span class="string">'url'</span>);
+<span class="keyword">var</span> crypto = require(<span class="string">'crypto'</span>);
+<span class="keyword">var</span> async = require(<span class="string">'async'</span>);
+<span class="keyword">var</span> express = require(<span class="string">'express'</span>);
+<span class="keyword">var</span> domain = require(<span class="string">'domain'</span>);
+<span class="keyword">var</span> core = require(__dirname + <span class="string">'/core'</span>);
+<span class="keyword">var</span> printf = require(<span class="string">'printf'</span>);
+<span class="keyword">var</span> logger = require(__dirname + <span class="string">'/logger'</span>);
+<span class="keyword">var</span> backend = require(__dirname + <span class="string">'/backend'</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-2">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-2">&#182;</a>
+              </div>
+              <p>HTTP API to the server from the clients</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="keyword">var</span> api = {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-3">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+              <p>No authentication for these urls</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    allow: <span class="regexp">/(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html)$|(^\/public\/)|(^\/images\/)|(^\/image\/[a-z]+\/|^\/account\/add))/</span>,</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+              <p>Refuse access to these urls</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    deny: <span class="literal">null</span>,</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <p>Where images are kept</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    imagesUrl: <span class="string">''</span>,
+    imagesS3: <span class="string">''</span>,
+    
+    tables: {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
+              </div>
+              <p>Authentication by email and secret</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        auth: [ { name: <span class="string">'email'</span>, primary: <span class="number">1</span> },
+                { name: <span class="string">'id'</span>, unique: <span class="number">1</span> },
+                { name: <span class="string">'secret'</span> },
+                { name: <span class="string">'api_deny'</span> },
+                { name: <span class="string">'api_allow'</span> },
+                { name: <span class="string">'account_allow'</span> },                        <span class="comment">// list of public columns</span>
+                { name: <span class="string">"expires"</span>, type: <span class="string">"int"</span> },
+                { name: <span class="string">"mtime"</span>, type: <span class="string">"int"</span> } ],</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-7">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-7">&#182;</a>
+              </div>
+              <p>Basic account information</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        account: [ { name: <span class="string">"id"</span>, primary: <span class="number">1</span>, pub: <span class="number">1</span> },
+                   { name: <span class="string">"email"</span>, unique: <span class="number">1</span> },
+                   { name: <span class="string">"name"</span> },
+                   { name: <span class="string">"alias"</span>, pub: <span class="number">1</span> },
+                   { name: <span class="string">"status"</span>, pub: <span class="number">1</span> },
+                   { name: <span class="string">"phone"</span> },
+                   { name: <span class="string">"website"</span> },
+                   { name: <span class="string">"birthday"</span>, semipub: <span class="number">1</span> },
+                   { name: <span class="string">"gender"</span>, pub: <span class="number">1</span> },
+                   { name: <span class="string">"icons"</span> },
+                   { name: <span class="string">"address"</span> },
+                   { name: <span class="string">"city"</span> },
+                   { name: <span class="string">"state"</span> },
+                   { name: <span class="string">"zipcode"</span> },
+                   { name: <span class="string">"country"</span> },
+                   { name: <span class="string">"latitude"</span>, type: <span class="string">"real"</span> },
+                   { name: <span class="string">"longitude"</span>, type: <span class="string">" real"</span> },
+                   { name: <span class="string">"location"</span> },
+                   { name: <span class="string">"ltime"</span>, type: <span class="string">"int"</span> },
+                   { name: <span class="string">"ctime"</span>, type: <span class="string">"int"</span> },
+                   { name: <span class="string">"mtime"</span>, type: <span class="string">"int"</span> } ],</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+              <p>Locations for all accounts to support distance searches</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>       location: [ { name: <span class="string">"hash"</span>, primary: <span class="number">1</span> },                     <span class="comment">// geohash(first part), the biggest radius expected</span>
+                   { name: <span class="string">"range"</span>, primary: <span class="number">1</span> },                    <span class="comment">// geohash(second part), the rest of the geohash</span>
+                   { name: <span class="string">"id"</span> },
+                   { name: <span class="string">"latitude"</span>, type: <span class="string">"real"</span> },
+                   { name: <span class="string">"longitude"</span>, type: <span class="string">"real"</span> },
+                   { name: <span class="string">"mtime"</span>, type: <span class="string">"int"</span> }],</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-9">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-9">&#182;</a>
+              </div>
+              <p>All connections between accounts: like,dislike,friend...</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>       connection: [ { name: <span class="string">"id"</span>, primary: <span class="number">1</span> },                    <span class="comment">// account_id</span>
+                     { name: <span class="string">"type"</span>, primary: <span class="number">1</span> },                  <span class="comment">// type:connection_id</span>
+                     { name: <span class="string">"state"</span> },
+                     { name: <span class="string">"mtime"</span>, type: <span class="string">"int"</span> }],</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-10">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-10">&#182;</a>
+              </div>
+              <p>References from other accounts, likes,dislikes...</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>       reference: [ { name: <span class="string">"id"</span>, primary: <span class="number">1</span> },                    <span class="comment">// connection_id</span>
+                    { name: <span class="string">"type"</span>, primary: <span class="number">1</span> },                  <span class="comment">// type:account_id</span>
+                    { name: <span class="string">"state"</span> },
+                    { name: <span class="string">"mtime"</span>, type: <span class="string">"int"</span> }],</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-11">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-11">&#182;</a>
+              </div>
+              <p>Keep historic data about an account, data can be JSON depending on the type</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>       history: [{ name: <span class="string">"id"</span>, primary: <span class="number">1</span> },
+                 { name: <span class="string">"mtime"</span>, type: <span class="string">"int"</span>, primary: <span class="number">1</span> },
+                 { name: <span class="string">"type"</span> } ]
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-12">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-12">&#182;</a>
+              </div>
+              <p>Upload limit, bytes</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    uploadLimit: <span class="number">10</span>*<span class="number">1024</span>*<span class="number">1024</span>,</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-13">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-13">&#182;</a>
+              </div>
+              <p>Minimal distance in km between updates of account location, this is to avoid 
+too many location updates with very high resolution is not required</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    minDistance: <span class="number">5</span>,</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-14">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-14">&#182;</a>
+              </div>
+              <p>Max distance in km for location searches</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    maxDistance: <span class="number">50</span>,</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-15">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-15">&#182;</a>
+              </div>
+              <p>Geohash ranges for different lenghts in km</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    geoRange: [ [<span class="number">8</span>, <span class="number">0.019</span>], [<span class="number">7</span>, <span class="number">0.076</span>], [<span class="number">6</span>, <span class="number">0.61</span>], [<span class="number">5</span>, <span class="number">2.4</span>], [<span class="number">4</span>, <span class="number">20</span>], [<span class="number">3</span>, <span class="number">78</span>], [<span class="number">2</span>, <span class="number">630</span>], [<span class="number">1</span>, <span class="number">2500</span>], [<span class="number">1</span>, <span class="number">99999</span>]],</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-16">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-16">&#182;</a>
+              </div>
+              <p>Config parameters</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    args: [{ name: <span class="string">"pool"</span>, descr: <span class="string">"Database pool to use for API clients"</span> },
+           { name: <span class="string">"account-pool"</span>, descr: <span class="string">"Database pool to use for API clients account"</span> },
+           { name: <span class="string">"history-pool"</span>, descr: <span class="string">"Database pool to use for API clients history"</span> },
+           { name: <span class="string">"images-url"</span>, descr: <span class="string">"URL where images are stored, for cases of central image server(s)"</span> },
+           { name: <span class="string">"images-s3"</span>, descr: <span class="string">"S3 bucket name where to image store instead of data/images directory on the filesystem"</span> },
+           { name: <span class="string">"access-log"</span>, descr: <span class="string">"File for access logging"</span> },
+           { name: <span class="string">"min-distance"</span>, type: <span class="string">"int"</span>, descr: <span class="string">"Min distance for location updates, if smaller updates will be ignored"</span>  },
+           { name: <span class="string">"max-distance"</span>, type: <span class="string">"int"</span>, max: <span class="number">40000</span>, min: <span class="number">1</span>, descr: <span class="string">"Max distance for locations searches"</span>  },
+           { name: <span class="string">"allow"</span>, type: <span class="string">"regexp"</span>, descr: <span class="string">"Regexp for URLs that dont need credentials"</span> },
+           { name: <span class="string">"deny"</span>, type: <span class="string">"regexp"</span>, descr: <span class="string">"Regexp for URLs that will be denied access"</span>  },
+           { name: <span class="string">"upload-limit"</span>, type: <span class="string">"number"</span>, min: <span class="number">1024</span>*<span class="number">1024</span>, max: <span class="number">1024</span>*<span class="number">1024</span>*<span class="number">10</span>, descr: <span class="string">"Max size for uploads, bytes"</span>  }],</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-17">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-17">&#182;</a>
+              </div>
+              <p>Cutomization hooks/callbacks, always run within api context</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    onInit: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>},</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-18">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-18">&#182;</a>
+              </div>
+              <p>Initialize API layer with the active HTTP server</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    init: <span class="function"><span class="keyword">function</span><span class="params">(callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-19">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-19">&#182;</a>
+              </div>
+              <p>Access log via file or syslog</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span> (logger.syslog) {
+            <span class="keyword">this</span>.accesslog = <span class="keyword">new</span> stream.Stream();
+            <span class="keyword">this</span>.accesslog.writable = <span class="literal">true</span>;
+            <span class="keyword">this</span>.accesslog.write = <span class="function"><span class="keyword">function</span><span class="params">(data)</span> {</span> logger.printSyslog(<span class="string">'info:local5'</span>, data); <span class="keyword">return</span> <span class="literal">true</span>; }
+        } <span class="keyword">else</span>
+        <span class="keyword">if</span> (<span class="keyword">this</span>.accessLog) {
+            <span class="keyword">this</span>.accesslog = fs.createWriteStream(path.join(core.path.log, <span class="keyword">this</span>.accessLog), { flags: <span class="string">'a'</span> });
+            <span class="keyword">this</span>.accesslog.on(<span class="string">'error'</span>, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span> logger.error(<span class="string">'accesslog:'</span>, err); })
+        } <span class="keyword">else</span> {
+            <span class="keyword">this</span>.accesslog = logger;
+        }
+
+        <span class="keyword">this</span>.app = express();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-20">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-20">&#182;</a>
+              </div>
+              <p>Wrap all calls in domain to catch exceptions</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.app.use(<span class="function"><span class="keyword">function</span><span class="params">(req, res, next)</span> {</span>
+            <span class="keyword">var</span> d = domain.create();
+            d.add(req);
+            d.add(res);
+            d.on(<span class="string">'error'</span>, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span> req.next(err); });
+            d.run(next);
+        });
+        <span class="keyword">this</span>.app.use(express.bodyParser({ uploadDir: core.path.tmp, keepExtensions: <span class="literal">true</span>, limit: self.uploadLimit }));
+        <span class="keyword">this</span>.app.use(express.methodOverride());
+        <span class="keyword">this</span>.app.use(express.cookieParser());
+        <span class="keyword">this</span>.app.use(<span class="function"><span class="keyword">function</span><span class="params">(req, res, next)</span> {</span>
+            res.header(<span class="string">'Server'</span>, core.name + <span class="string">'/'</span> + core.version);
+            res.header(<span class="string">'Access-Control-Allow-Origin'</span>, <span class="string">'*'</span>);
+            res.header(<span class="string">'Access-Control-Allow-Headers'</span>, <span class="string">'v-signature'</span>);
+            next();
+        });
+        <span class="keyword">this</span>.app.use(<span class="keyword">this</span>.accessLogger());
+        <span class="keyword">this</span>.app.use(<span class="function"><span class="keyword">function</span><span class="params">(req, res, next)</span> {</span> <span class="keyword">return</span> self.checkRequest(req, res, next); });
+        <span class="keyword">this</span>.app.use(express.static(path.resolve(core.path.web)));
+        <span class="keyword">this</span>.app.use(express.errorHandler({ dumpExceptions: <span class="literal">true</span>, showStack: <span class="literal">true</span> }));
+        <span class="keyword">this</span>.app.listen(core.port, core.bind, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+            <span class="keyword">if</span> (err) logger.error(<span class="string">'startExpress:'</span>, core.port, err);
+        });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-21">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-21">&#182;</a>
+              </div>
+              <p>Return images by prefix, id and possibly type, serves from local images folder, 
+this is generic access without authentication, depends on self.allow regexp</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.app.all(<span class="regexp">/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([0-9])?/</span>, <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            self.getIcon(req, res, req.params[<span class="number">1</span>], { prefix: req.params[<span class="number">0</span>], type: req.params[<span class="number">2</span>] });
+        });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-22">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-22">&#182;</a>
+              </div>
+              <p>Direct access to the images by exact file name</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.app.all(<span class="regexp">/^\/images\/(.+)/</span>, <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            self.sendFile(req, res, path.join(core.path.images, req.params[<span class="number">0</span>].replace(<span class="regexp">/\.\./g</span>, <span class="string">""</span>)));
+        });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-23">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-23">&#182;</a>
+              </div>
+              <p>Managing accounts, basic functionality</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.initAccount();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-24">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-24">&#182;</a>
+              </div>
+              <p>Provisioning access to the database</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.initBackend();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-25">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-25">&#182;</a>
+              </div>
+              <p>Post init or other application routes</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.onInit.call(<span class="keyword">this</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-26">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-26">&#182;</a>
+              </div>
+              <p>Create account tables if dont exist</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        core.context.db.initTables({ pool: self.pool, tables: self.tables }, callback);
+        <span class="keyword">if</span> (self.accountPool) core.context.db.initTables({ pool: self.accountPool, tables: self.tables }, callback);
+        <span class="keyword">if</span> (self.historyPool) core.context.db.initTables({ pool: self.historyPool, tables: self.tables }, callback);
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-27">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-27">&#182;</a>
+              </div>
+              <p>Perform authorization of the incoming request for access and permissions</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    checkRequest: <span class="function"><span class="keyword">function</span><span class="params">(req, res, next)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        self.checkAccess(req, <span class="function"><span class="keyword">function</span><span class="params">(rc1)</span> {</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-28">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-28">&#182;</a>
+              </div>
+              <p>Status is given, return an error or proceed to the next module</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="keyword">if</span> (rc1) <span class="keyword">return</span> (rc1.status == <span class="number">200</span> ? next() : res.json(rc1));</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-29">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-29">&#182;</a>
+              </div>
+              <p>Verify account access for signature</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            self.checkSignature(req, <span class="function"><span class="keyword">function</span><span class="params">(rc2)</span> {</span>
+                res.header(<span class="string">"cache-control"</span>, <span class="string">"no-cache"</span>);
+                res.header(<span class="string">"pragma"</span>, <span class="string">"no-cache"</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-30">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-30">&#182;</a>
+              </div>
+              <p>The account is verified, proceed with the request</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="keyword">if</span> (rc2.status == <span class="number">200</span>) <span class="keyword">return</span> next();</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-31">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-31">&#182;</a>
+              </div>
+              <p>Something is wrong, return an error</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                res.json(rc2.status, rc2);
+            });
+        });
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-32">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-32">&#182;</a>
+              </div>
+              <p>Perform URL based access checks
+Check access permissions, calls the callback with the following argument:</p>
+<ul>
+<li>nothing if checkSignature needs to be called</li>
+<li>an object with status: 200 to skip authorization and proceed with the next module</li>
+<li>an object with status other than 200 to return the status and stop request processing</li>
+</ul>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    checkAccess: <span class="function"><span class="keyword">function</span><span class="params">(req, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">this</span>.deny &amp;&amp; req.path.match(<span class="keyword">this</span>.deny)) <span class="keyword">return</span> callback({ status: <span class="number">401</span>, message: <span class="string">"Access denied"</span> });
+        <span class="keyword">if</span> (<span class="keyword">this</span>.allow &amp;&amp; req.path.match(<span class="keyword">this</span>.allow)) <span class="keyword">return</span> callback({ status: <span class="number">200</span>, message: <span class="string">""</span> });
+        callback();
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-33">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-33">&#182;</a>
+              </div>
+              <p>Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    checkSignature: <span class="function"><span class="keyword">function</span><span class="params">(req, callback)</span> {</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-34">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-34">&#182;</a>
+              </div>
+              <p>Make sure we will not crash on wrong object</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span> (!req || !req.headers) req = { headers: {} };
+        <span class="keyword">if</span> (!callback) callback = <span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x; }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-35">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-35">&#182;</a>
+              </div>
+              <p>Extract all signatuee components from the request</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">var</span> sig = core.parseSignature(req);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-36">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-36">&#182;</a>
+              </div>
+              <p>Show request in the log on demand for diagnostics</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span> (logger.level &gt;= <span class="number">1</span> || req.query._debug) {
+            logger.log(<span class="string">'checkSignature:'</span>, sig, <span class="string">'hdrs:'</span>, req.headers);
+        }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-37">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-37">&#182;</a>
+              </div>
+              <p>Sanity checks, required headers must be present and not empty</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span> (!sig.method || !sig.host || !sig.expires || !sig.id || !sig.signature) {
+            <span class="keyword">return</span> callback({ status: <span class="number">401</span>, message: <span class="string">"Invalid request: "</span> + (!sig.method ? <span class="string">"no method"</span> :
+                                                                           !sig.host ? <span class="string">"no host"</span> :
+                                                                           !sig.id ? <span class="string">"no email"</span> :
+                                                                           !sig.expires ? <span class="string">"no expires"</span> :
+                                                                           !sig.signature ? <span class="string">"no signature"</span> : <span class="string">""</span>) });
+        }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-38">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-38">&#182;</a>
+              </div>
+              <p>Make sure it is not expired, it may be milliseconds or ISO date</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span> (sig.expires &lt;= Date.now()) {
+            <span class="keyword">return</span> callback({ status: <span class="number">400</span>, message: <span class="string">"Expired request"</span> });
+        }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-39">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-39">&#182;</a>
+              </div>
+              <p>Verify if the access key is valid, they all are cached so a bad cache may result in rejects</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        core.context.db.getCached(<span class="string">"auth"</span>, { email: sig.id }, { pool: <span class="keyword">this</span>.accountPool }, <span class="function"><span class="keyword">function</span><span class="params">(err, account)</span> {</span>
+            <span class="keyword">if</span> (err) <span class="keyword">return</span> callback({ status: <span class="number">500</span>, message: String(err) });
+            <span class="keyword">if</span> (!account) <span class="keyword">return</span> callback({ status: <span class="number">404</span>, message: <span class="string">"No account"</span> });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-40">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-40">&#182;</a>
+              </div>
+              <p>Account expiration time</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="keyword">if</span> (account.expires &amp;&amp; account.expires &lt; Date.now()) {
+                <span class="keyword">return</span> callback({ status: <span class="number">404</span>, message: <span class="string">"Expired account"</span> });
+            }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-41">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-41">&#182;</a>
+              </div>
+              <p>Verify ACL regex if specified, test the whole query string as it appear in GET query line</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="keyword">if</span> (account.api_deny &amp;&amp; sig.url.match(account.api_deny)) {
+                <span class="keyword">return</span> callback({ status: <span class="number">401</span>, message: <span class="string">"Access denied"</span> });
+            }
+            <span class="keyword">if</span> (account.api_allow &amp;&amp; !sig.url.match(account.api_allow)) {
+                <span class="keyword">return</span> callback({ status: <span class="number">401</span>, message: <span class="string">"Not permitted"</span> });
+            }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-42">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-42">&#182;</a>
+              </div>
+              <p>Verify the signature with account secret</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="keyword">if</span> (!core.checkSignature(sig, account)) {
+                <span class="keyword">return</span> callback({ status: <span class="number">401</span>, message: <span class="string">"Bad signature, signed string is: "</span> + sig.str + <span class="string">", calculated signature is "</span> + sig.hash });
+            }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-43">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-43">&#182;</a>
+              </div>
+              <p>Deal with encrypted body, we have to decrypt it before checking checksum, use
+out account secret to decrypt</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="keyword">if</span> (req.body &amp;&amp; req.get(<span class="string">"content-encoding"</span>) == <span class="string">"encrypted"</span>) {
+                req.body = core.decrypt(account.secret, req.body);
+            }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-44">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-44">&#182;</a>
+              </div>
+              <p>Check body checksum now</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="keyword">if</span> (sig.checksum) {
+                <span class="keyword">var</span> chk = core.hash(<span class="keyword">typeof</span> req.body == <span class="string">"object"</span> ? JSON.stringify(req.body) : String(req.body));
+                <span class="keyword">if</span> (sig.checksum != chk) {
+                    <span class="keyword">return</span> callback({ status: <span class="number">401</span>, message: <span class="string">"Bad checksum, calculated checksum is "</span> + chk });
+                }
+            }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-45">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-45">&#182;</a>
+              </div>
+              <p>Save components of signature verification, it will be used later for profile password check as well</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            req.signature = sig;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-46">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-46">&#182;</a>
+              </div>
+              <p>Save current account in the request</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            req.account = account;
+            <span class="keyword">return</span> callback({ status: <span class="number">200</span>, message: <span class="string">"Ok"</span> });
+        });
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-47">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-47">&#182;</a>
+              </div>
+              <p>Account management</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    initAccount: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">var</span> now = core.now();
+        <span class="keyword">var</span> db = core.context.db;
+        
+        <span class="keyword">this</span>.app.all(<span class="regexp">/^\/account\/([a-z\/]+)$/</span>, <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            logger.debug(<span class="string">'account:'</span>, req.params[<span class="number">0</span>], req.account, req.query);
+            
+            <span class="keyword">var</span> op = req.params[<span class="number">0</span>].split(<span class="string">'/'</span>).pop();
+            <span class="keyword">switch</span> (req.params[<span class="number">0</span>]) {
+            <span class="keyword">case</span> <span class="string">"get"</span>:
+                db.get(<span class="string">"account"</span>, { id: req.account.id }, { pool: self.accountPool }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    <span class="keyword">if</span> (!rows.length) <span class="keyword">return</span> self.sendReply(res, <span class="number">404</span>);
+                    res.json(self.prepareAccount(rows[<span class="number">0</span>]));
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"list"</span>:
+                <span class="keyword">if</span> (!req.query.id) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"id is required"</span>);
+                self.listAccounts(req, req.query, { select: req.query._columns }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    res.json(rows);
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"search"</span>:</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-48">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-48">&#182;</a>
+              </div>
+              <p>Search is limited to specific columns only</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                db.select(<span class="string">"account"</span>, req.query, { pool: self.accountPool, select: req.query._columns }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    rows.forEach(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span>
+                        self.prepareAccount(row);
+                        db.publicPrepare(rows[<span class="number">0</span>], { columns: self.tables.account, allowed: req.account.account_allow });
+                    });
+                    res.json(rows);
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"add"</span>:</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-49">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-49">&#182;</a>
+              </div>
+              <p>Verify required fields</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="keyword">if</span> (!req.query.secret) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"secret is required"</span>);
+                <span class="keyword">if</span> (!req.query.name) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"name is required"</span>);
+                <span class="keyword">if</span> (!req.query.email) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"email is required"</span>);
+                req.query.id = backend.uuid().replace(<span class="regexp">/-/g</span>, <span class="string">''</span>);
+                req.query.mtime = req.query.ctime = now;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-50">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-50">&#182;</a>
+              </div>
+              <p>Add new auth record with only columns we support, noSQL db can add any columns on
+the fly and we want to keep auth table very small</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                db.add(<span class="string">"auth"</span>, req.query, { pool: self.accountPool, columns: db.convertColumns(self.tables.auth) }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    [<span class="string">"secret"</span>,<span class="string">"icons"</span>,<span class="string">"ctime"</span>,<span class="string">"ltime"</span>,<span class="string">"latitude"</span>,<span class="string">"longitude"</span>,<span class="string">"location"</span>].forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">delete</span> req.query[x] });
+                    db.add(<span class="string">"account"</span>, req.query, { pool: self.accountPool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                        <span class="keyword">if</span> (err) {
+                            db.del(<span class="string">"auth"</span>, req.query, { pool: self.pool });
+                            <span class="keyword">return</span> self.sendReply(res, err);
+                        }
+                        res.json(self.prepareAccount(req.query));
+                    });
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"update"</span>:
+                req.query.mtime = now;
+                req.query.id = req.account.id;
+                req.query.email = req.account.email;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-51">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-51">&#182;</a>
+              </div>
+              <p>Make sure we dont add extra properties in case of noSQL database or update columns we do not support here</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                [<span class="string">"secret"</span>,<span class="string">"icons"</span>,<span class="string">"ctime"</span>,<span class="string">"ltime"</span>,<span class="string">"latitude"</span>,<span class="string">"longitude"</span>,<span class="string">"location"</span>].forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">delete</span> req.query[x] });
+                db.update(<span class="string">"account"</span>, req.query, { pool: self.accountPool, columns: db.convertColumns(self.tables.account) }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    res.json(self.prepareAccount(req.query));
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"del"</span>:
+                db.del(<span class="string">"auth"</span>, { email: req.account.email } , { pool: self.accountPool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                    self.sendReply(res, err);
+                    core.ipcDelCache(<span class="string">"auth:"</span> + req.account.email);
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span>;
+                    db.del(<span class="string">"account"</span>, { id: req.account.id } , { pool: self.accountPool });
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"secret/put"</span>:
+                <span class="keyword">if</span> (!req.query.secret) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"secret is required"</span>);
+                db.put(<span class="string">"auth"</span>, { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                    self.sendReply(res, err);
+                    core.ipcDelCache(<span class="string">"auth:"</span> + req.account.email);
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-52">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-52">&#182;</a>
+              </div>
+              <p>Keep history of all changes</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    <span class="keyword">if</span> (req.query._history) db.add(<span class="string">"history"</span>, { id: req.account.id, type: req.params[<span class="number">0</span>], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.historyPool });
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"icon/del"</span>:
+            <span class="keyword">case</span> <span class="string">"icon/put"</span>:</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-53">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-53">&#182;</a>
+              </div>
+              <p>Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
+The type can be the whole url of the icon, we need to parse it and extract only type</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="keyword">var</span> type = self.getIconType(req.account.id, req.body.type || req.query.type);
+                self[op + <span class="string">'Icon'</span>](req, req.account.id, { prefix: <span class="string">'account'</span>, type: type }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-54">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-54">&#182;</a>
+              </div>
+              <p>Get current account icons</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    db.get(<span class="string">"account"</span>, { id: req.account.id }, { pool: self.accountPool, select: <span class="string">'id,icons'</span> }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                        <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-55">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-55">&#182;</a>
+              </div>
+              <p>Add/remove given type from the list of icons</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                        rows[<span class="number">0</span>].icons = core.strSplitUnique((rows[<span class="number">0</span>].icons || <span class="string">''</span>) + <span class="string">","</span> + type);
+                        <span class="keyword">if</span> (op == <span class="string">'del'</span>) rows[<span class="number">0</span>].icons = rows[<span class="number">0</span>].icons.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x != type } );
+                        
+                        <span class="keyword">var</span> obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[<span class="number">0</span>].icons };
+                        db.update(<span class="string">"account"</span>, obj, { pool: self.accountPool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                            <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                            res.json(self.prepareAccount(rows[<span class="number">0</span>]));
+                        });
+                    });
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"location/put"</span>:
+                <span class="keyword">if</span> (!req.query.latitude || !req.query.longitude) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"latitude/longitude are required"</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-56">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-56">&#182;</a>
+              </div>
+              <p>Get current location</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                db.get(<span class="string">"account"</span>, { id: req.account.id }, { pool: self.pool, select: <span class="string">'latitude,longitude'</span> }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    <span class="keyword">var</span> row = rows[<span class="number">0</span>];</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-57">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-57">&#182;</a>
+              </div>
+              <p>Skip if within minimal distance</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    <span class="keyword">var</span> distance = backend.geoDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
+                    logger.debug(req.params[<span class="number">0</span>], req.account, req.query, <span class="string">'distance:'</span>, distance);
+                    <span class="keyword">if</span> (distance &lt; self.minDistance) <span class="keyword">return</span> self.sendReply(res, <span class="number">305</span>, <span class="string">"ignored, min distance: "</span> + self.minDistance);
+                    
+                    <span class="keyword">var</span> obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: req.query.latitude, longitude: req.query.longitude, location: req.query.location };
+                    db.update(<span class="string">"account"</span>, obj, { pool: self.pool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                        <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                        res.json(self.prepareAccount(obj));</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-58">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-58">&#182;</a>
+              </div>
+              <p>Delete current location</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                        <span class="keyword">var</span> geo = self.prepareGeohash(row.latitude, row.longitude, req.account);
+                        geo.id = req.account.id;
+                        db.del(<span class="string">"location"</span>, geo, { pool: self.pool });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-59">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-59">&#182;</a>
+              </div>
+              <p>Insert new location</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                        geo = self.prepareGeohash(req.query.latitude, req.query.longitude, req.account);
+                        geo.mtime = now;
+                        geo.id = req.account.id;
+                        db.put(<span class="string">"location"</span>, geo, { pool: self.pool });
+                    });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-60">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-60">&#182;</a>
+              </div>
+              <p>Keep history of all changes</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    <span class="keyword">if</span> (req.query._history) db.add(<span class="string">"history"</span>, { id: req.account.id, type: req.params[<span class="number">0</span>], mtime: now, lat: obj.latitude, lon: obj.longitude }, { pool: self.historyPool });
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"location/search"</span>:
+            <span class="keyword">case</span> <span class="string">"location/search/details"</span>:</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-61">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-61">&#182;</a>
+              </div>
+              <p>Perform location search based on hash key that covers the whole region for our configured max distance</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="keyword">if</span> (!req.query.latitude || !req.query.longitude) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"latitude/longitude are required"</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-62">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-62">&#182;</a>
+              </div>
+              <p>Limit the distance within our configured range</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                req.query.distance = core.toNumber(req.query.distance, <span class="number">0</span>, self.minDistance, self.minDistance, self.maxDistance);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-63">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-63">&#182;</a>
+              </div>
+              <p>Prepare geo search key</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="keyword">var</span> geo = self.prepareGeohash(req.query.latitude, req.query.longitude, req.query);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-64">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-64">&#182;</a>
+              </div>
+              <p>Start comes as full geohash, split it into search hash and range</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="keyword">var</span> start = req.query._start || <span class="string">""</span>;
+                <span class="keyword">if</span> (start) start = { hash: start.substr(<span class="number">0</span>, geo.hash.length), range: start.substr(geo.hash.length) }
+                
+                <span class="keyword">var</span> options = { pool: self.pool, ReturnConsumedCapacity: <span class="string">'TOTAL'</span>, ops: { range: <span class="string">"begins_with"</span> }, start: start, count: req.query._count || <span class="number">25</span> };
+                options.filter = <span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> x.distance = backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude); <span class="keyword">return</span> x.distance &lt;= distance; }
+                db.select(<span class="string">"location"</span>, { hash: geo.hash, range: geo.range }, options, <span class="function"><span class="keyword">function</span><span class="params">(err, rows, info)</span> {</span>
+                    <span class="keyword">var</span> list = {}, ids = [];
+                    rows = rows.map(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span> 
+                        <span class="keyword">delete</span> row.hash;
+                        <span class="keyword">delete</span> row.range;
+                        ids.push({ id: row.id });
+                        list[row.id] = row;
+                        <span class="keyword">return</span> row;
+                    });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-65">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-65">&#182;</a>
+              </div>
+              <p>Return back not just a list with rows but pagination info as well, stop only if last property is empty even if no rows returned</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    <span class="keyword">var</span> last = info.last_evaluated_key;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-66">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-66">&#182;</a>
+              </div>
+              <p>Combine last key hash and range into single geohash</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    <span class="keyword">if</span> (last) last = last.hash + last.range;
+                    
+                    <span class="keyword">switch</span> (op) {
+                    <span class="keyword">case</span> <span class="string">"account"</span>:</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-67">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-67">&#182;</a>
+              </div>
+              <p>Return accounts with locations</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                        self.listAccounts(req, ids, { select: req.query._columns }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                            <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-68">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-68">&#182;</a>
+              </div>
+              <p>Keep all connecton properties in separate object</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                            rows.forEach(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span>
+                                row.account = list[row.id];
+                            })
+                            res.json({ geohash: geo.geohash, start: start, last: last, items: rows });
+                        });
+                        <span class="keyword">break</span>;
+   
+                    <span class="keyword">default</span>:</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-69">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-69">&#182;</a>
+              </div>
+              <p>Return just locations</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                        res.json({ geohash: geo.geohash, start: start, last: last, items: rows });
+                    }            
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"connection/add"</span>:
+            <span class="keyword">case</span> <span class="string">"connection/put"</span>:
+            <span class="keyword">case</span> <span class="string">"connection/update"</span>:
+                <span class="keyword">var</span> id = req.query.id, type = req.query.type;
+                <span class="keyword">if</span> (!id || !type) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"id and type are required"</span>);
+                <span class="keyword">if</span> (id == req.account.id) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"cannot connect to itself"</span>);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-70">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-70">&#182;</a>
+              </div>
+              <p>Override primary key properties, the rest of the properties will be added as is</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                req.query.id = req.account.id;
+                req.query.type = type + <span class="string">":"</span> + id;
+                req.query.mtime = now;
+                db[op](<span class="string">"connection"</span>, req.query, { pool: self.pool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-71">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-71">&#182;</a>
+              </div>
+              <p>Reverse reference to the same connection</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    req.query.id = id;
+                    req.query.type = type + <span class="string">":"</span>+ req.account.id;
+                    db[op](<span class="string">"reference"</span>, req.query, { pool: self.pool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                        <span class="keyword">if</span> (err) db.del(<span class="string">"connection"</span>, { id: req.account.id, type: type + <span class="string">":"</span> + id }, { pool: self.pool });
+                        self.sendReply(res, err);
+                    });
+                });
+                <span class="keyword">if</span> (req.query._history) db.add(<span class="string">"history"</span>, { id: req.account.id, type: req.params[<span class="number">0</span>], mtime: now, cid: id, ctype: type }, { pool: self.historyPool });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"connection/del"</span>:
+                <span class="keyword">if</span> (!req.query.id || !req.query.type) <span class="keyword">return</span> self.sendReply(res, <span class="number">400</span>, <span class="string">"id and type are required"</span>);
+                db.del(<span class="string">"connection"</span>, { id: req.account.id, type: req.query.type + <span class="string">":"</span> + req.query.id }, { pool: self.pool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    db.del(<span class="string">"reference"</span>, { id: req.query.id, type: req.query.type + <span class="string">":"</span> + req.account.id }, { pool: self.pool }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                        self.sendReply(res, err);
+                    });
+                });
+                <span class="keyword">if</span> (req.query._history) db.add(<span class="string">"history"</span>, { id: req.account.id, type: req.params[<span class="number">0</span>], mtime: now, cid: req.query.id, ctype: req.query.type }, { pool: self.historyPool });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"connection/list"</span>:
+            <span class="keyword">case</span> <span class="string">"connection/list/details"</span>:</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-72">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-72">&#182;</a>
+              </div>
+              <p>Only one connection record to be returned if id and type specified</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="keyword">if</span> (req.query.id &amp;&amp; req.query.type) req.query.type += <span class="string">":"</span> + req.query.id;
+                db.select(<span class="string">"connection"</span>, { id: req.account.id, type: req.query.type }, { pool: self.pool, ops: { type: <span class="string">"begins_with"</span> }, select: req.query._columns }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    <span class="keyword">var</span> list = {}, ids = [];</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-73">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-73">&#182;</a>
+              </div>
+              <p>Collect account ids</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    rows.forEach(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span>
+                        <span class="keyword">var</span> type = row.type.split(<span class="string">":"</span>);
+                        row.id = type[<span class="number">1</span>];
+                        row.type = type[<span class="number">0</span>];
+                        ids.push({ id: row.id });
+                        list[row.id] = row;
+                    });
+                    <span class="keyword">if</span> (req.params[<span class="number">0</span>] == <span class="string">"connection/list"</span>) {
+                        <span class="keyword">return</span> res.json(rows);
+                    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-74">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-74">&#182;</a>
+              </div>
+              <p>Get all account records for the id list</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                    self.listAccounts(req, ids, { select: req.query._columns }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                        <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-75">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-75">&#182;</a>
+              </div>
+              <p>Keep all connecton properties in separate object</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                        rows.forEach(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span>
+                            row.connection = list[row.id];
+                        })
+                        res.json(rows);
+                    });
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"connection/list/reference"</span>:</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-76">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-76">&#182;</a>
+              </div>
+              <p>Only one connection record to be returned if id and type specified</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>                <span class="keyword">if</span> (req.query.id &amp;&amp; req.query.type) req.query.type += <span class="string">":"</span> + req.query.id;
+                db.select(<span class="string">"reference"</span>, { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                    rows.forEach(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span>
+                        <span class="keyword">var</span> type = row.type.split(<span class="string">":"</span>);
+                        row.id = type[<span class="number">1</span>];
+                        row.type = type[<span class="number">0</span>];
+                    });
+                    res.json(rows);
+                });
+                <span class="keyword">break</span>;
+            
+            <span class="keyword">case</span> <span class="string">"history/add"</span>:
+                self.sendReply(res);
+                req.query.mtime = now();
+                db.add(<span class="string">"history"</span>, req.query, { pool: self.historyPool });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">default</span>:
+                self.sendReply(res, <span class="number">400</span>, <span class="string">"Invalid operation"</span>);
+            }
+        });
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-77">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-77">&#182;</a>
+              </div>
+              <p>Return object with geohash for given coordinates to be used for location search
+options may contain the follwong properties:</p>
+<ul>
+<li>distance - limit the range key by the minimum distance, this will reduce the range key length, <pre><code>       if not specified the full geohash will be produced</code></pre>
+</li>
+</ul>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    prepareGeohash: <span class="function"><span class="keyword">function</span><span class="params">(latitude, longitude, options)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">var</span> hbits = <span class="keyword">this</span>.geoRange.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x[<span class="number">1</span>] &gt; self.maxDistance })[<span class="number">0</span>][<span class="number">0</span>];
+        <span class="keyword">var</span> rbits = (options || {}).distance ? <span class="keyword">this</span>.geoRange.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x[<span class="number">1</span>] &gt; options.distance })[<span class="number">0</span>][<span class="number">0</span>] : <span class="number">22</span>;
+        <span class="keyword">var</span> geohash = backend.geoHashEncode(latitude, longitude);
+        <span class="keyword">return</span> { hash: geohash.substr(<span class="number">0</span>, hbits), range: geohash.substr(hbits, rbits - hbits), geohash: geohash, latitude: latitude, longitude: longitude };
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-78">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-78">&#182;</a>
+              </div>
+              <p>Prepare an account record for response, set required fields, icons</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    prepareAccount: <span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span>
+        <span class="keyword">if</span> (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(<span class="number">86400000</span>*<span class="number">365</span>));</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-79">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-79">&#182;</a>
+              </div>
+              <p>List all available icons, on icon put, we save icon type in the icons property</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        core.strSplitUnique(row.icons).forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span>
+            row[<span class="string">'icon'</span> + x] = self.imagesUrl + <span class="string">'/image/account/'</span> + row.id + <span class="string">'/'</span> + x;
+        });
+        <span class="keyword">return</span> row;
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-80">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-80">&#182;</a>
+              </div>
+              <p>Collect accounts by id or list of ids</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    listAccounts: <span class="function"><span class="keyword">function</span><span class="params">(req, obj, options, callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">var</span> pubcols = db.publicColumns(<span class="string">'account'</span>, { columns: self.tables.account });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-81">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-81">&#182;</a>
+              </div>
+              <p>Provided list of columns must be a subset of public columns</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">var</span> cols = obj._columns ? core.strSplit(options.select).filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> pubcols.indexOf(x) &gt; -<span class="number">1</span> }) : pubcols;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-82">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-82">&#182;</a>
+              </div>
+              <p>List of account ids can be provided to retrieve all accounts at once, for DynamoDB it means we may iterate over all 
+pages in order to get all items until we reach our limit.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">var</span> ids = core.strSplit(obj.id);
+        ids = ids.length &gt; <span class="number">1</span> ? ids.map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> { id: x } }) : { id: ids[<span class="number">0</span>] };
+        db.select(<span class="string">"account"</span>, ids, { pool: self.accountPool, select: cols }, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+            <span class="keyword">if</span> (err) <span class="keyword">return</span> callback(err, []);
+            rows.forEach(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span>
+                self.prepareAccount(row);
+                db.publicPrepare(rows[<span class="number">0</span>], { columns: self.tables.account, allowed: req.account.account_allow });
+            });
+            callback(<span class="literal">null</span>, rows);
+        });
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-83">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-83">&#182;</a>
+              </div>
+              <p>API for internal provisioning, by default supports access to all tables</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    initBackend: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-84">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-84">&#182;</a>
+              </div>
+              <p>Return current statistics</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.app.all(<span class="string">"/backend/stats"</span>, <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            res.json(db.getPool(self.pool).stats);
+        });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-85">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-85">&#182;</a>
+              </div>
+              <p>Load columns into the cache</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.app.all(<span class="regexp">/^\/backend\/columns$/</span>, <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            db.cacheColumns({ pool: self.pool }, <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>
+                res.json(db.getPool(self.pool).dbcolumns);
+            });
+        });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-86">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-86">&#182;</a>
+              </div>
+              <p>Return table columns</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.app.all(<span class="regexp">/^\/backend\/columns\/([a-z_0-9]+)$/</span>, <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            res.json(db.getColumns(req.params[<span class="number">0</span>], { pool: self.pool }));
+        });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-87">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-87">&#182;</a>
+              </div>
+              <p>Return table keys</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.app.all(<span class="regexp">/^\/backend\/keys\/([a-z_0-9]+)$/</span>, <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            res.json(db.getKeys(req.params[<span class="number">0</span>], { pool: self.pool }));
+        });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-88">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-88">&#182;</a>
+              </div>
+              <p>Basic operations on a table</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">this</span>.app.all(<span class="regexp">/^\/backend\/(select|get|add|put|update|del|replace)\/([a-z_0-9]+)$/</span>, <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            <span class="keyword">var</span> dbcols = db.getColumns(req.params[<span class="number">1</span>], { pool: self.pool });
+            <span class="keyword">if</span> (!dbcols) <span class="keyword">return</span> res.json([]);
+            <span class="keyword">var</span> options = {};</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-89">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-89">&#182;</a>
+              </div>
+              <p>Convert values into actual arrays if separated by pipes
+Set options from special properties</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>            <span class="keyword">for</span> (<span class="keyword">var</span> p <span class="keyword">in</span> req.query) {
+                <span class="keyword">if</span> (p[<span class="number">0</span>] != <span class="string">'_'</span> &amp;&amp; req.query[p].indexOf(<span class="string">"|"</span>) &gt; <span class="number">0</span>) req.query[p] = req.query[p].split(<span class="string">"|"</span>);
+                <span class="keyword">if</span> (p[<span class="number">0</span>] == <span class="string">'_'</span>) options[p.substr(<span class="number">1</span>)] = req.query[p];
+            }
+            options.pool = self.pool;
+            db[req.params[<span class="number">0</span>]](req.params[<span class="number">1</span>], req.query, options, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                <span class="keyword">return</span> self.sendReply(res, err);
+            });
+        });
+        
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-90">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-90">&#182;</a>
+              </div>
+              <p>Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    initTables: <span class="function"><span class="keyword">function</span><span class="params">(table, columns)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (!Array.isArray(columns)) <span class="keyword">return</span>;
+        <span class="keyword">if</span> (!self.tables[table]) self.tables[table] = []; 
+        columns.forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span>
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> x == <span class="string">"object"</span> &amp;&amp; x.name &amp;&amp; !self.tables[table].some(<span class="function"><span class="keyword">function</span><span class="params">(y)</span> {</span> <span class="keyword">return</span> y.name == x.name })) {
+                self.tables[table].push(x);
+            } 
+        });
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-91">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-91">&#182;</a>
+              </div>
+              <p>Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    sendReply: <span class="function"><span class="keyword">function</span><span class="params">(res, status, msg)</span> {</span>
+        <span class="keyword">if</span> (status <span class="keyword">instanceof</span> Error) msg = status, status = <span class="number">500</span>;
+        <span class="keyword">if</span> (!status) status = <span class="number">200</span>, msg = <span class="string">""</span>;
+        res.json(status, { status: status, message: String(msg || <span class="string">""</span>).replace(<span class="regexp">/SQLITE_CONSTRAINT:/g</span>, <span class="string">''</span>) });
+        <span class="keyword">return</span> <span class="literal">false</span>;
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-92">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-92">&#182;</a>
+              </div>
+              <p>Send file back to the client, res is Express response object</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    sendFile: <span class="function"><span class="keyword">function</span><span class="params">(req, res, file, redirect)</span> {</span>
+        fs.exists(file, <span class="function"><span class="keyword">function</span><span class="params">(yes)</span> {</span>
+            <span class="keyword">if</span> (req.method == <span class="string">'HEAD'</span>) <span class="keyword">return</span> res.send(yes ? <span class="number">200</span> : <span class="number">404</span>);
+            <span class="keyword">if</span> (yes) <span class="keyword">return</span> res.sendfile(file);
+            <span class="keyword">if</span> (redirect) <span class="keyword">return</span> res.redirect(redirect);
+            res.send(<span class="number">404</span>);
+        });
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-93">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-93">&#182;</a>
+              </div>
+              <p>Return type of the icon, this can be type itself or full icon url</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    getIconType: <span class="function"><span class="keyword">function</span><span class="params">(id, type)</span> {</span>
+        <span class="keyword">var</span> d = (type || <span class="string">""</span>).match(<span class="regexp">/\/image\/account\/([a-z0-9-]+)\/?(([0-9])$|([0-9])\?)?/</span>);
+        <span class="keyword">return</span> d &amp;&amp; d[<span class="number">1</span>] == id ? (d[<span class="number">3</span>] || d[<span class="number">4</span>]) : <span class="string">"0"</span>;
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-94">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-94">&#182;</a>
+              </div>
+              <p>Return icon to the client</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    getIcon: <span class="function"><span class="keyword">function</span><span class="params">(req, res, id, options)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        
+        <span class="keyword">var</span> icon = core.iconPath(id, options);
+        <span class="keyword">if</span> (<span class="keyword">this</span>.imagesS3) {
+            <span class="keyword">var</span> aws = core.context.aws;
+            aws.queryS3(<span class="keyword">this</span>.imagesS3, icon, options, <span class="function"><span class="keyword">function</span><span class="params">(err, params)</span> {</span>
+                <span class="keyword">if</span> (err) <span class="keyword">return</span> self.sendReply(res, err);
+                res.type(<span class="string">"image/"</span> + (options.ext || <span class="string">"jpeg"</span>)); 
+                res.send(<span class="number">200</span>, params.data);
+            });
+        } <span class="keyword">else</span> {
+            <span class="keyword">this</span>.sendFile(req, res, icon);
+        }
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-95">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-95">&#182;</a>
+              </div>
+              <p>Store an icon for account, .type defines icon prefix</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    putIcon: <span class="function"><span class="keyword">function</span><span class="params">(req, id, options, callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-96">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-96">&#182;</a>
+              </div>
+              <p>Multipart upload can provide more than one icon, file name can be accompanied by file_type property
+to define type for each icon</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span> (req.files) {
+            async.forEachSeries(Object.keys(req.files), <span class="function"><span class="keyword">function</span><span class="params">(f, next)</span> {</span>
+                <span class="keyword">var</span> opts = core.extendObj(options, <span class="string">'type'</span>, req.body[f + <span class="string">'_type'</span>]);
+                <span class="keyword">if</span> (self.imagesS3) {
+                    self.putIconS3(req.files[f].path, id, opts, next);
+                } <span class="keyword">else</span> {
+                    core.putIcon(req.files[f].path, id, opts, next);
+                }
+            }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                callback(err);
+            });
+        } <span class="keyword">else</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-97">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-97">&#182;</a>
+              </div>
+              <p>JSON object submitted with .icon property</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="keyword">if</span> (<span class="keyword">typeof</span> req.body == <span class="string">"object"</span>) {
+            req.body = <span class="keyword">new</span> Buffer(req.body.icon, <span class="string">"base64"</span>);
+            <span class="keyword">if</span> (self.imagesS3) {
+                self.putIconS3(req.body, id, options, callback);
+            } <span class="keyword">else</span> {
+                core.putIcon(req.body, id, options, callback);
+            }
+        } <span class="keyword">else</span> {
+            <span class="keyword">return</span> callback(<span class="keyword">new</span> Error(<span class="string">"no icon"</span>));
+        }
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-98">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-98">&#182;</a>
+              </div>
+              <p>Delete an icon for account, .type defines icon prefix</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    delIcon: <span class="function"><span class="keyword">function</span><span class="params">(req, id, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = <span class="literal">null</span>;
+        <span class="keyword">if</span> (!options) options = {};
+        
+        <span class="keyword">var</span> icon = core.iconPath(id, options);
+        <span class="keyword">if</span> (<span class="keyword">this</span>.imagesS3) { 
+            <span class="keyword">var</span> aws = core.context.aws;
+            aws.queryS3(<span class="keyword">this</span>.imagesS3, icon, { method: <span class="string">"DELETE"</span> }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                logger.edebug(err, <span class="string">'delIcon:'</span>, id, options);
+                <span class="keyword">if</span> (callback) callback();
+            });
+        } <span class="keyword">else</span> {
+            fs.unlink(icon, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                logger.edebug(err, <span class="string">'delIcon:'</span>, id, options);
+                <span class="keyword">if</span> (callback) callback();
+            });
+        }
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-99">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-99">&#182;</a>
+              </div>
+              <p>Same as putIcon but store the icon in the S3 bucket, icon can be a file or a buffer with image data</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    putIconS3: <span class="function"><span class="keyword">function</span><span class="params">(file, id, options, callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = <span class="literal">null</span>;
+        <span class="keyword">if</span> (!options) options = {};
+        
+        <span class="keyword">var</span> aws = core.context.aws;
+        <span class="keyword">var</span> icon = core.iconPath(id, options);
+        core.scaleIcon(file, <span class="string">""</span>, options, <span class="function"><span class="keyword">function</span><span class="params">(err, data)</span> {</span>
+            <span class="keyword">if</span> (err) <span class="keyword">return</span> callback ? callback(err) : <span class="literal">null</span>;
+            <span class="keyword">var</span> headers = { <span class="string">'content-type'</span>: <span class="string">'image/'</span> + (options.ext || <span class="string">"jpeg"</span>) };
+            aws.queryS3(self.imagesS3, icon, { method: <span class="string">"PUT"</span>, postdata: data, headers: headers }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                <span class="keyword">if</span> (callback) callback(err);
+            });
+        });
+    },</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-100">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-100">&#182;</a>
+              </div>
+              <p>Custom access logger</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    accessLogger: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+
+        <span class="keyword">var</span> format = <span class="function"><span class="keyword">function</span><span class="params">(req, res)</span> {</span>
+            <span class="keyword">var</span> now = <span class="keyword">new</span> Date();
+            <span class="keyword">return</span> (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : <span class="string">"-"</span>)) + <span class="string">" - "</span> +
+                   (logger.syslog ? <span class="string">"-"</span> : <span class="string">'['</span> +  now.toUTCString() + <span class="string">']'</span>) + <span class="string">" "</span> +
+                   req.method + <span class="string">" "</span> +
+                   (req.originalUrl || req.url) + <span class="string">" "</span> +
+                   <span class="string">"HTTP/"</span> + req.httpVersionMajor + <span class="string">'.'</span> + req.httpVersionMinor + <span class="string">" "</span> +
+                   res.statusCode + <span class="string">" "</span> +
+                   ((res._headers || {})[<span class="string">"content-length"</span>] || <span class="string">'-'</span>) + <span class="string">" - "</span> +
+                   (now - req._startTime) + <span class="string">" ms - "</span> +
+                   (req.headers[<span class="string">'user-agent'</span>] || <span class="string">"-"</span>) + <span class="string">" "</span> +
+                   (req.headers[<span class="string">'version'</span>] || <span class="string">"-"</span>) + <span class="string">" "</span> +
+                   (req.account ? req.account.email : <span class="string">"-"</span>) + <span class="string">"\n"</span>;
+        }
+
+        <span class="keyword">return</span> <span class="function"><span class="keyword">function</span> <span class="title">logger</span><span class="params">(req, res, next)</span> {</span>
+            req._startTime = <span class="keyword">new</span> Date;
+            res._end = res.end;
+            res.end = <span class="function"><span class="keyword">function</span><span class="params">(chunk, encoding)</span> {</span>
+                res._end(chunk, encoding);
+                <span class="keyword">if</span> (!self.accesslog || req._skipAccessLog) <span class="keyword">return</span>;
+                <span class="keyword">var</span> line = format(req, res);
+                <span class="keyword">if</span> (!line) <span class="keyword">return</span>;
+                self.accesslog.write(line);
+            }
+            next();
+        }
+    },
+
+}
+
+module.exports = api;
+core.addContext(<span class="string">'api'</span>, api);</pre></div></div>
+            
+        </li>
+        
+    </ul>
+  </div>
+</body>
+</html>

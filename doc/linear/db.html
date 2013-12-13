@@ -1,0 +1,2252 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>db.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="public/stylesheets/normalize.css" />
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="page">
+
+      <div class="header">
+        
+          <h1>db.js</h1>
+        
+
+        
+          <div class="toc">
+            <h3>Table of Contents</h3>
+            <ol>
+              
+                
+                <li>
+                  <a class="source" href="api.html">
+                    api.js
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="aws.html">
+                    aws.js
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="core.html">
+                    core.js
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="db.html">
+                    db.js
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="index.html">
+                    index.js
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="logger.html">
+                    logger.js
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="server.html">
+                    server.js
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="tests.html">
+                    tests.js
+                  </a>
+                </li>
+              
+            </ol>
+          </div>
+        
+      </div>
+
+      
+        
+        <p> Author: Vlad Seryakov vseryakov@gmail.com
+ Sep 2013</p>
+
+        
+          <div class='highlight'><pre><span class="keyword">var</span> util = require(<span class="string">'util'</span>);
+<span class="keyword">var</span> net = require(<span class="string">'net'</span>);
+<span class="keyword">var</span> fs = require(<span class="string">'fs'</span>);
+<span class="keyword">var</span> path = require(<span class="string">'path'</span>);
+<span class="keyword">var</span> backend = require(__dirname + <span class="string">'/backend'</span>);
+<span class="keyword">var</span> logger = require(__dirname + <span class="string">'/logger'</span>);
+<span class="keyword">var</span> core = require(__dirname + <span class="string">'/core'</span>);
+<span class="keyword">var</span> aws = require(__dirname + <span class="string">'/aws'</span>);
+<span class="keyword">var</span> cluster = require(<span class="string">'cluster'</span>);
+<span class="keyword">var</span> printf = require(<span class="string">'printf'</span>);
+<span class="keyword">var</span> gpool = require(<span class="string">'generic-pool'</span>);
+<span class="keyword">var</span> async = require(<span class="string">'async'</span>);
+<span class="keyword">var</span> os = require(<span class="string">'os'</span>);
+
+<span class="keyword">var</span> db = {
+    name: <span class="string">'db'</span>,</pre></div>
+        
+      
+        
+        <p>Default database pool for the backend</p>
+
+        
+          <div class='highlight'><pre>    pool: <span class="string">'sqlite'</span>,</pre></div>
+        
+      
+        
+        <p>Database connection pools, sqlite default pool is called sqlite, PostgreSQL default pool is pg, DynamoDB is ddb</p>
+
+        
+          <div class='highlight'><pre>    dbpool: {},
+    nopool: { name: <span class="string">'none'</span>, dbkeys: {}, dbcolumns: {}, unique: {}, 
+              get: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span> <span class="keyword">throw</span> <span class="string">"no pool"</span> }, free: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span> <span class="keyword">throw</span> <span class="string">"no pool"</span> }, 
+              prepare: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span> <span class="keyword">throw</span> <span class="string">"no pool"</span> }, put: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span> <span class="keyword">throw</span> <span class="string">"no pool"</span> }, 
+              cacheColumns: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span> <span class="keyword">throw</span> <span class="string">"no pool"</span> }, value: <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>} },</pre></div>
+        
+      
+        
+        <p>Translation map for similar operators from different database drivers</p>
+
+        
+          <div class='highlight'><pre>    opMap: { begins_with: <span class="string">'like%'</span>, eq: <span class="string">'='</span>, le: <span class="string">'&lt;='</span>, lt: <span class="string">'&lt;'</span>, ge: <span class="string">'&gt;='</span>, gt: <span class="string">'&gt;'</span> },</pre></div>
+        
+      
+        
+        <p>Config parameters              </p>
+
+        
+          <div class='highlight'><pre>    args: [{ name: <span class="string">"pool"</span>, descr: <span class="string">"Default pool to be used for db access without explicit pool specified"</span> },
+           { name: <span class="string">"no-pools"</span>, type:<span class="string">" bool"</span>, descr: <span class="string">"Do not use other db pools except default sqlite"</span> },
+           { name: <span class="string">"sqlite-max"</span>, type: <span class="string">"number"</span>, min: <span class="number">1</span>, max: <span class="number">100</span>, descr: <span class="string">"Max number of open connection for the pool"</span> },
+           { name: <span class="string">"sqlite-idle"</span>, type: <span class="string">"number"</span>, min: <span class="number">1000</span>, max: <span class="number">86400000</span>, descr: <span class="string">"Number of ms for a connection to be idle before being destroyed"</span> },
+           { name: <span class="string">"pg-pool"</span>, descr: <span class="string">"PostgreSQL pool access url or options string"</span> },
+           { name: <span class="string">"pg-max"</span>, type: <span class="string">"number"</span>, min: <span class="number">1</span>, max: <span class="number">100</span>, descr: <span class="string">"Max number of open connection for the pool"</span>  },
+           { name: <span class="string">"pg-idle"</span>, type: <span class="string">"number"</span>, min: <span class="number">1000</span>, max: <span class="number">86400000</span>, descr: <span class="string">"Number of ms for a connection to be idle before being destroyed"</span> },
+           { name: <span class="string">"ddb-pool"</span>, descr: <span class="string">"DynamoDB endpoint url"</span> },
+    ],</pre></div>
+        
+      
+        
+        <p>Default tables</p>
+
+        
+          <div class='highlight'><pre>    tables: { backend_property: [{ name: <span class="string">'name'</span>, primary: <span class="number">1</span> }, 
+                                 { name: <span class="string">'value'</span> }, 
+                                 { name: <span class="string">'mtime'</span> } ] ,
+                                 
+              backend_cookies: [ { name: <span class="string">'name'</span>, primary: <span class="number">1</span> }, 
+                                 { name: <span class="string">'domain'</span>, primary: <span class="number">1</span> }, 
+                                 { name: <span class="string">'path'</span>, primary: <span class="number">1</span> }, 
+                                 { name: <span class="string">'value'</span> }, 
+                                 { name: <span class="string">'expires'</span> } ],
+                                 
+              backend_queue: [ { name: <span class="string">'id'</span>, primary: <span class="number">1</span> },
+                               { name: <span class="string">'url'</span> }, 
+                               { name: <span class="string">'postdata'</span> }, 
+                               { name: <span class="string">'counter'</span>, type: <span class="string">'int'</span> }, 
+                               { name: <span class="string">'mtime'</span> } ],
+                               
+              backend_jobs: [ { name: <span class="string">'id'</span>, primary: <span class="number">1</span> }, 
+                              { name: <span class="string">'type'</span>, value: <span class="string">"local"</span> }, 
+                              { name: <span class="string">'host'</span>, value: <span class="string">''</span> }, 
+                              { name: <span class="string">'job'</span> }, 
+                              { name: <span class="string">'mtime'</span>, type: <span class="string">'int'</span>} ],
+    },</pre></div>
+        
+      
+        
+        <p>Initialize database pools</p>
+
+        
+          <div class='highlight'><pre>    init: <span class="function"><span class="keyword">function</span><span class="params">(callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;</pre></div>
+        
+      
+        
+        <p>Internal Sqlite database is always open</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">this</span>.sqliteInitPool({ pool: <span class="string">'sqlite'</span>, db: core.name, readonly: <span class="literal">false</span>, max: self.sqliteMax, idle: self.sqliteIdle });</pre></div>
+        
+      
+        
+        <p>Optional pools for supported databases</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">if</span> (!self.noPools) {
+            [<span class="string">"pg"</span>, <span class="string">"ddb"</span>].forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span>
+                <span class="keyword">if</span> (!self[x + <span class="string">'Pool'</span>]) <span class="keyword">return</span>;
+                self[x + <span class="string">'InitPool'</span>]({ pool: x, db: self[x + <span class="string">'Pool'</span>], max: self[x + <span class="string">'Max'</span>], idle: self[x + <span class="string">'Idle'</span>] });
+            });
+        }</pre></div>
+        
+      
+        
+        <p>Initialize SQL pools</p>
+
+        
+          <div class='highlight'><pre>        async.forEachSeries(Object.keys(<span class="keyword">this</span>.dbpool), <span class="function"><span class="keyword">function</span><span class="params">(pool, next)</span> {</span>
+            <span class="keyword">if</span> (cluster.isWorker || core.worker) {
+                db.cacheColumns({ pool: pool }, next);
+            } <span class="keyword">else</span> {
+                db.initTables({ pool: pool, tables: self.tables }, next);
+            }
+        }, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+            logger.debug(<span class="string">"db.init:"</span>, err);
+            <span class="keyword">if</span> (callback) callback(err);
+        });
+    },</pre></div>
+        
+      
+        
+        <p>Init the pool, create tables and columns
+options properties:</p>
+<ul>
+<li>tables - list of tables to create or upgrade</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    initTables: <span class="function"><span class="keyword">function</span><span class="params">(options, callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = {};
+        
+        self.cacheColumns(options, <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>
+            <span class="keyword">var</span> changes = <span class="number">0</span>;
+            async.forEachSeries(Object.keys(options.tables || {}), <span class="function"><span class="keyword">function</span><span class="params">(table, next)</span> {</span></pre></div>
+        
+      
+        
+        <p>We if have columns, SQL table must be checked for missing columns and indexes</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> (self.getColumns(table, options)) {
+                    self.upgrade(table, options.tables[table], options, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span> <span class="keyword">if</span> (rows) changes++; next() });
+                } <span class="keyword">else</span> {
+                    self.create(table, options.tables[table], options, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span> changes++; next() });
+                }
+            }, <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>
+                logger.debug(<span class="string">'db.initTables:'</span>, options.pool, <span class="string">'changes:'</span>, changes);
+                <span class="keyword">if</span> (!changes) <span class="keyword">return</span> callback ? callback() : <span class="literal">null</span>;
+                self.cacheColumns(options, callback);
+            });
+        });
+    },</pre></div>
+        
+      
+        
+        <p>Create a database pool</p>
+<ul>
+<li>options - an object defining the pool, the following properties define the pool:<ul>
+<li>pool - pool name/type, of not specified sqlite is used</li>
+<li>max - max number of clients to be allocated in the pool</li>
+<li>idle - after how many milliseconds an idle client will be destroyed</li>
+</ul>
+</li>
+<li>createcb - a callbacl to be called when actual database client needs to be created, the callback signature is
+  function(options, callback) and will be called with first arg an error object and second arg is the database instance</li>
+<li>cachecb - a callback for caching database tables and columns</li>
+<li>valuecb - a callback that performs value transformation if necessary for the bind parameters</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    initPool: <span class="function"><span class="keyword">function</span><span class="params">(options, createcb, cachecb, valuecb)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">if</span> (!options.pool) options.pool = <span class="string">"sqlite"</span>;
+        
+        <span class="keyword">var</span> pool = gpool.Pool({
+            name: options.pool,
+            max: options.max || <span class="number">1</span>,
+            idleTimeoutMillis: options.idle || <span class="number">86400</span> * <span class="number">1000</span>,
+
+            create: <span class="function"><span class="keyword">function</span><span class="params">(callback)</span> {</span>
+                createcb.call(self, options, <span class="function"><span class="keyword">function</span><span class="params">(err, client)</span> {</span>
+                    <span class="keyword">if</span> (!err) self.dbpool[options.pool].watch(client);
+                    callback(err, client);
+                });
+            },
+            validate: <span class="function"><span class="keyword">function</span><span class="params">(client)</span> {</span>
+                <span class="keyword">return</span> self.dbpool[<span class="keyword">this</span>.name].serial == client.pool_serial;
+            },
+            destroy: <span class="function"><span class="keyword">function</span><span class="params">(client)</span> {</span>
+                logger.log(<span class="string">'pool:'</span>, <span class="string">'destroy'</span>, client.pool_name, <span class="string">"#"</span>, client.pool_serial);
+                client.close(<span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span> logger.log(<span class="string">"pool: closed"</span>, client.pool_name, err || <span class="string">""</span>) });
+            },
+            log: <span class="function"><span class="keyword">function</span><span class="params">(str, level)</span> {</span>
+                <span class="keyword">if</span> (level == <span class="string">'info'</span>) logger.debug(<span class="string">'pool:'</span>, str);
+                <span class="keyword">if</span> (level == <span class="string">'warn'</span>) logger.log(<span class="string">'pool:'</span>, str);
+                <span class="keyword">if</span> (level == <span class="string">'error'</span>) logger.error(<span class="string">'pool:'</span>, str);
+            },            
+        });</pre></div>
+        
+      
+        
+        <p>Aquire a connection with error reporting</p>
+
+        
+          <div class='highlight'><pre>        pool.get = <span class="function"><span class="keyword">function</span><span class="params">(callback)</span> {</span>
+            <span class="keyword">this</span>.acquire(<span class="function"><span class="keyword">function</span><span class="params">(err, client)</span> {</span>
+                <span class="keyword">if</span> (err) logger.error(<span class="string">'pool:'</span>, err);
+                callback(err, client);
+            });
+        }</pre></div>
+        
+      
+        
+        <p>Release or destroy a client depending on the database watch counter</p>
+
+        
+          <div class='highlight'><pre>        pool.free = <span class="function"><span class="keyword">function</span><span class="params">(client)</span> {</span>
+            <span class="keyword">if</span> (<span class="keyword">this</span>.serial != client.pool_serial) {
+                <span class="keyword">this</span>.destroy(client);
+            } <span class="keyword">else</span> {
+                <span class="keyword">this</span>.release(client);
+            }
+        }</pre></div>
+        
+      
+        
+        <p>Watch for changes or syncs and reopen the database file</p>
+
+        
+          <div class='highlight'><pre>        pool.watch = <span class="function"><span class="keyword">function</span><span class="params">(client)</span> {</span>
+            <span class="keyword">var</span> me = <span class="keyword">this</span>;
+            <span class="keyword">if</span> (options.watch &amp;&amp; options.file &amp;&amp; !<span class="keyword">this</span>.serial) {
+                <span class="keyword">this</span>.serial = <span class="number">1</span>;
+                fs.watch(options.file, <span class="function"><span class="keyword">function</span><span class="params">(event, filename)</span> {</span>
+                    logger.log(<span class="string">'pool:'</span>, <span class="string">'changed'</span>, me.name, event, filename, options.file, <span class="string">"#"</span>, me.serial);
+                    me.serial++;
+                    me.destroyAllNow();
+                });
+            }</pre></div>
+        
+      
+        
+        <p>Mark the client with the current db pool serial number, if on release this number differs we
+need to destroy the client, not return to the pool</p>
+
+        
+          <div class='highlight'><pre>            client.pool_serial = <span class="keyword">this</span>.serial;
+            client.pool_name = <span class="keyword">this</span>.name;
+            logger.debug(<span class="string">'pool:'</span>, <span class="string">'open'</span>, <span class="keyword">this</span>.name, <span class="string">"#"</span>, <span class="keyword">this</span>.serial);
+        }</pre></div>
+        
+      
+        
+        <p>Call column caching callback with our pool name</p>
+
+        
+          <div class='highlight'><pre>        pool.cacheColumns = <span class="function"><span class="keyword">function</span><span class="params">(callback)</span> {</span>
+            cachecb.call(self, { pool: <span class="keyword">this</span>.name }, callback);
+        }</pre></div>
+        
+      
+        
+        <p>Prepare for execution, return an object with formatted or transformed query request for the database driver of this pool
+For SQL databases it creates a SQL statement with parameters</p>
+
+        
+          <div class='highlight'><pre>        pool.prepare = <span class="function"><span class="keyword">function</span><span class="params">(op, table, obj, opts)</span> {</span>
+            <span class="keyword">switch</span> (op) {
+            <span class="keyword">case</span> <span class="string">"new"</span>: <span class="keyword">return</span> self.sqlCreate(table, obj, opts);
+            <span class="keyword">case</span> <span class="string">"upgrade"</span>: <span class="keyword">return</span> self.sqlUpgrade(table, obj, opts);
+            <span class="keyword">case</span> <span class="string">"list"</span>: 
+            <span class="keyword">case</span> <span class="string">"select"</span>: <span class="keyword">return</span> self.sqlSelect(table, obj, opts);
+            <span class="keyword">case</span> <span class="string">"get"</span>: <span class="keyword">return</span> self.sqlSelect(table, obj, self.cloneObj(opts, {}, { count: <span class="number">1</span> }));
+            <span class="keyword">case</span> <span class="string">"add"</span>: <span class="keyword">return</span> self.sqlInsert(table, obj, opts);
+            <span class="keyword">case</span> <span class="string">"put"</span>: <span class="keyword">return</span> self.sqlInsert(table, obj, core.extendObj(opts || {}, <span class="string">'replace'</span>, <span class="number">1</span>));
+            <span class="keyword">case</span> <span class="string">"update"</span>: <span class="keyword">return</span> self.sqlUpdate(table, obj, opts);
+            <span class="keyword">case</span> <span class="string">"del"</span>: <span class="keyword">return</span> self.sqlDelete(table, obj, opts);
+            }
+        }</pre></div>
+        
+      
+        
+        <p>Execute a query, run filter if provided</p>
+
+        
+          <div class='highlight'><pre>        pool.query = <span class="function"><span class="keyword">function</span><span class="params">(client, req, opts, callback)</span> {</span>
+            client.query(req.text, req.values || [], <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                <span class="keyword">if</span> (err) <span class="keyword">return</span> callback(err, rows);
+                <span class="keyword">if</span> (opts.filter) rows = rows.filter(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span> <span class="keyword">return</span> opts.filter(row, opts); });
+                callback(err, rows);
+            });
+        }</pre></div>
+        
+      
+        
+        <p>Sqlite supports REPLACE INTO natively</p>
+
+        
+          <div class='highlight'><pre>        pool.put = <span class="function"><span class="keyword">function</span><span class="params">(table, obj, opts, callback)</span> {</span>
+            <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"add"</span>, table, obj, core.extendObj(opts || {}, <span class="string">'replace'</span>, <span class="number">1</span>));
+            self.query(req, options, callback);
+        }</pre></div>
+        
+      
+        
+        <p>Convert a value when using with parametrized statements or convert into appropriate database type</p>
+
+        
+          <div class='highlight'><pre>        pool.value = valuecb || <span class="function"><span class="keyword">function</span><span class="params">(val, opts)</span> {</span> <span class="keyword">return</span> val; }
+        pool.name = options.pool;
+        pool.serial = <span class="number">0</span>;
+        pool.dbcolumns = {};
+        pool.dbkeys = {};
+        pool.dbunique = {};
+        pool.sql = <span class="literal">true</span>;
+        pool.stats = { gets: <span class="number">0</span>, hits: <span class="number">0</span>, misses: <span class="number">0</span>, puts: <span class="number">0</span>, dels: <span class="number">0</span>, errs: <span class="number">0</span> };
+        <span class="keyword">this</span>.dbpool[options.pool] = pool;
+        logger.debug(<span class="string">'db.initPool:'</span>, pool.name);
+        <span class="keyword">return</span> pool;
+    },</pre></div>
+        
+      
+        
+        <p>Insert new object into the database</p>
+<ul>
+<li>obj - an object with properties for the record, primary key properties must be supplied</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    add: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;
+
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"add"</span>, table, obj, options);
+        <span class="keyword">this</span>.query(req, options, callback);
+    },</pre></div>
+        
+      
+        
+        <p>Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj</p>
+<ul>
+<li>obj - an object with record properties, primary key properties must be specified</li>
+<li>options - same properties as for .select method</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    put: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;</pre></div>
+        
+      
+        
+        <p>Custom handler for the operation</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> pool = <span class="keyword">this</span>.getPool(options);
+        <span class="keyword">if</span> (pool.put) <span class="keyword">return</span> pool.put(table, obj, options, callback);
+        
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"put"</span>, table, obj, options);
+        <span class="keyword">this</span>.query(req, options, callback);
+    },</pre></div>
+        
+      
+        
+        <p>Update existing object in the database.</p>
+<ul>
+<li>obj - is an actual record to be updated, primary key properties must be specified</li>
+<li>options - same properties as for .select method</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    update: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;
+
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"update"</span>, table, obj, options);
+        <span class="keyword">this</span>.query(req, options, callback);
+    },</pre></div>
+        
+      
+        
+        <p>Delete object in the database, no error if the object does not exist</p>
+<ul>
+<li>obj - an object with primary key properties only, other properties will be ignored</li>
+<li>options - same propetties as for .select method</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    del: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;
+
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"del"</span>, table, obj, options);
+        <span class="keyword">this</span>.query(req, options, callback);
+    },</pre></div>
+        
+      
+        
+        <p>Insert or update the object, check existence by the primary key or by othe keys specified.</p>
+<ul>
+<li>obj is a Javascript object with properties that correspond to the table columns</li>
+<li>options define additional flags that may<ul>
+<li>keys is list of column names to be used as primary key when looking for updating the record, if not specified
+then default primary keys for the table will be used</li>
+<li>check_mtime defines a column name to be used for checking modification time and skip if not modified, must be a date value</li>
+<li>check_data tell to verify every value in the given object with actual value in the database and skip update if the record is the same, if it is an array
+then check only specified columns</li>
+</ul>
+</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    replace: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = {};
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">if</span> (!options.keys || !options.keys.length) options.keys = self.getKeys(table, options) || [];
+        
+        <span class="keyword">var</span> select = <span class="string">"1"</span>;</pre></div>
+        
+      
+        
+        <p>Use mtime to check if we need to update this record</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">if</span> (options.check_mtime &amp;&amp; obj[options.check_mtime]) {
+            select = options.check_mtime;
+        } <span class="keyword">else</span></pre></div>
+        
+      
+        
+        <p>Check if values are different from existing value, skip if the records are the same by comparing every field</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">if</span> (options.check_data) {
+            <span class="keyword">var</span> cols = self.getColumns(table, options) || {};
+            <span class="keyword">var</span> list = Array.isArray(options.check_data) ? options.check_data : Object.keys(obj);
+            select = list.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x[<span class="number">0</span>] != <span class="string">"_"</span>  &amp;&amp; x != <span class="string">'mtime'</span> &amp;&amp; keys.indexOf(x) == -<span class="number">1</span> &amp;&amp; (x <span class="keyword">in</span> cols); }).join(<span class="string">','</span>);
+            <span class="keyword">if</span> (!select) select = <span class="string">"1"</span>;
+        }
+        
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"get"</span>, table, obj, { select: select });
+        <span class="keyword">if</span> (!req) {
+            <span class="keyword">if</span> (options.put_only) <span class="keyword">return</span> callback ? callback(<span class="literal">null</span>, []) : <span class="literal">null</span>;
+            <span class="keyword">return</span> self.add(table, obj, options, callback);
+        }</pre></div>
+        
+      
+        
+        <p>Create deep copy of the object so we have it complete inside the callback</p>
+
+        
+          <div class='highlight'><pre>        obj = <span class="keyword">this</span>.cloneObj(obj);
+
+        self.query(req, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+            <span class="keyword">if</span> (err) <span class="keyword">return</span> callback ? callback(err, []) : <span class="literal">null</span>;
+            
+            logger.debug(<span class="string">'db.replace:'</span>, req, result);
+            <span class="keyword">if</span> (rows.length) {</pre></div>
+        
+      
+        
+        <p>Skip update if specified or mtime is less or equal</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> (options.add_only || (select == options.check_mtime &amp;&amp; self.toDate(rows[<span class="number">0</span>][options.check_mtime]) &gt;= self.toDate(obj[options.check_mtime]))) {
+                    <span class="keyword">return</span> callback ? callback(<span class="literal">null</span>, []) : <span class="literal">null</span>;
+                }</pre></div>
+        
+      
+        
+        <p>Verify all fields by value</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> (options.check_data) {
+                    <span class="keyword">var</span> same = select == <span class="string">"1"</span> || Object.keys(rows[<span class="number">0</span>]).every(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> String(rows[<span class="number">0</span>][x]) == String(obj[x]) });</pre></div>
+        
+      
+        
+        <p>Nothing has changed</p>
+
+        
+          <div class='highlight'><pre>                    <span class="keyword">if</span> (same) <span class="keyword">return</span> callback ? callback(<span class="literal">null</span>, []) : <span class="literal">null</span>;
+                }
+                self.update(table, obj, keys, options, callback);
+            } <span class="keyword">else</span> {
+                <span class="keyword">if</span> (options.put_only) <span class="keyword">return</span> callback ? callback(<span class="literal">null</span>, []) : <span class="literal">null</span>;
+                self.add(table, obj, options, callback);
+            }
+        });
+    },</pre></div>
+        
+      
+        
+        <p>Select objects from the database that match supplied conditions.</p>
+<ul>
+<li>obj - can be an object with primary key propeties set for the condition, all matching records will be returned</li>
+<li>obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
+Options can use the following special propeties:<ul>
+<li>keys - a list of columns for condition or all primary keys</li>
+<li>ops - operators to use for comparison for properties, an object</li>
+<li>types - type mapping between supplied and actual column types, an object</li>
+<li>select - a list of columns or expressions to return or all columns</li>
+<li>start - start records ith this primary key</li>
+<li>count - how many records to return</li>
+<li>sort - sort by this column</li>
+<li>desc - if sorting, do in descending order</li>
+<li>page - starting page number for pagination, uses count to find actual record to start 
+On return, the callback can check third argument which is an object with the following properties:</li>
+</ul>
+</li>
+<li>affected_rows - how many records this operation affected</li>
+<li>inserted_oid - last created auto generated id</li>
+<li>last_evaluated_key - last processed primary key, this can be used later to continue 
+pagination by passing it as .start or .page property</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    select: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;
+
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(Array.isArray(obj) ? <span class="string">"list"</span> : <span class="string">"select"</span>, table, obj, options);
+        <span class="keyword">this</span>.query(req, options, callback);
+    },</pre></div>
+        
+      
+        
+        <p>Retrieve one record from the database 
+Options can use the following special properties:</p>
+<ul>
+<li>keys - a list of columns for condition or all primary keys</li>
+<li>select - a list of columns or expressions to return or *</li>
+<li>op - operators to use for comparison for properties</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    get: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;
+
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"get"</span>, table, obj, options);
+        <span class="keyword">this</span>.query(req, options, callback);
+    },</pre></div>
+        
+      
+        
+        <p>Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
+Options accept the same parameters as for the usual get action.
+Additional options:</p>
+<ul>
+<li>prefix - prefix to be used for the key instead of table:</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    getCached: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;
+        <span class="keyword">var</span> pool = <span class="keyword">this</span>.getPool(options);
+        pool.stats.gets++;
+        <span class="keyword">var</span> keys = options.keys || <span class="keyword">this</span>.getKeys(table, options) || [];
+        <span class="keyword">var</span> key = keys.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> obj[x]} ).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> obj[x] }).join(<span class="string">":"</span>);
+        <span class="keyword">var</span> prefix = options.prefix || table;
+        core.ipcGetCache(prefix + <span class="string">":"</span> + key, <span class="function"><span class="keyword">function</span><span class="params">(rc)</span> {</span></pre></div>
+        
+      
+        
+        <p>Cached value retrieved</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (rc) {
+                pool.stats.hits++;
+                <span class="keyword">return</span> callback ? callback(<span class="literal">null</span>, JSON.parse(rc)) : <span class="literal">null</span>;
+            }
+            pool.stats.misses++;</pre></div>
+        
+      
+        
+        <p>Retrieve account from the database, use the parameters like in Select function</p>
+
+        
+          <div class='highlight'><pre>            self.get(table, obj, options, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                <span class="keyword">if</span> (err) pool.stats.errs++;</pre></div>
+        
+      
+        
+        <p>Store in cache if no error</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> (rows.length &amp;&amp; !err) {
+                    pool.stats.puts++;
+                    core.ipcPutCache(prefix + <span class="string">":"</span> + key, core.stringify(rows[<span class="number">0</span>]));
+                }
+                callback(err, rows.length ? rows[<span class="number">0</span>] : <span class="literal">null</span>);
+            });
+        });
+   
+    },</pre></div>
+        
+      
+        
+        <p>Execute query using native database driver, the query is passed directly to the driver.</p>
+<ul>
+<li>req - can be a string or an object with the following properties:<ul>
+<li>text - SQL statement or other query in the format of the native driver</li>
+<li>values - parameter values for sql bindings or other driver specific data</li>
+</ul>
+</li>
+<li>options may have the following properties:<ul>
+<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
+Callback is called with the following params:</li>
+<li>callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,last_evaluated_key
+rows is always returned as a list, even in case of error it is an empty list</li>
+</ul>
+</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    query: <span class="function"><span class="keyword">function</span><span class="params">(req, options, callback)</span> {</span> 
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = {};
+        <span class="keyword">if</span> (core.typeName(req) != <span class="string">"object"</span>) req = { text: req };
+        <span class="keyword">if</span> (!req.text) <span class="keyword">return</span> callback ? callback(<span class="keyword">new</span> Error(<span class="string">"empty statement"</span>), []) : <span class="literal">null</span>;
+
+        <span class="keyword">var</span> pool = <span class="keyword">this</span>.getPool(options);
+        pool.get(<span class="function"><span class="keyword">function</span><span class="params">(err, client)</span> {</span>
+            <span class="keyword">if</span> (err) <span class="keyword">return</span> callback ? callback(err, []) : <span class="literal">null</span>;
+            <span class="keyword">var</span> t1 = core.mnow();
+            pool.query(client, req, options, <span class="function"><span class="keyword">function</span><span class="params">(err2, rows)</span> {</span>
+                <span class="keyword">var</span> info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, last_evaluated_key: client.last_evaluated_key };
+                pool.free(client);
+                <span class="keyword">if</span> (err2) {
+                    logger.error(<span class="string">"db.query:"</span>, pool.name, req.text, req.values, err2);
+                    <span class="keyword">return</span> callback ? callback(err2, rows, info) : <span class="literal">null</span>;
+                }
+                logger.debug(<span class="string">"db.query:"</span>, pool.name, (core.mnow() - t1), <span class="string">'ms'</span>, rows.length, <span class="string">'rows'</span>, req.text, req.values || <span class="string">""</span>, info);
+                <span class="keyword">if</span> (callback) callback(err, rows, info);
+            });
+        });
+    },</pre></div>
+        
+      
+        
+        <p>Create a table using column definitions represented as a list of objects. Each column definiton can
+contain the following properties:</p>
+<ul>
+<li>name - column name</li>
+<li>type - column type, one of: int, real, string or other supported type</li>
+<li>primary - column is part of the primary key</li>
+<li>unique - column is part of an unique key</li>
+<li>index - column is part of an index</li>
+<li>value - default value for the column</li>
+<li>pub - columns is public</li>
+<li>semipub - column is not public but still retrieved to support other public columns</li>
+<li>hashindex - index that consists from primary key hash and this column for range
+Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    create: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;
+
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"new"</span>, table, obj, options);
+        <span class="keyword">this</span>.query(req, options, callback);
+    },</pre></div>
+        
+      
+        
+        <p>Upgrade SQL table with missing columns from the definition list</p>
+
+        
+          <div class='highlight'><pre>    upgrade: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options,options = <span class="literal">null</span>;
+
+        <span class="keyword">var</span> req = <span class="keyword">this</span>.prepare(<span class="string">"upgrade"</span>, table, obj, options);
+        <span class="keyword">if</span> (!req.sql) <span class="keyword">return</span> callback ? callback() : <span class="literal">null</span>;
+        <span class="keyword">this</span>.query(req, options, callback);
+    },</pre></div>
+        
+      
+        
+        <p>Prepare for execution for the given operation: add, del, put, update,...
+Returns prepared object to be passed to the driver&#39;s .query method.</p>
+
+        
+          <div class='highlight'><pre>    prepare: <span class="function"><span class="keyword">function</span><span class="params">(op, table, obj, options)</span> {</span>
+        <span class="keyword">return</span> <span class="keyword">this</span>.getPool(options).prepare(op, table, obj, options);
+    },</pre></div>
+        
+      
+        
+        <p>Return possibly converted value to be used for inserting/updating values in the database, 
+is used for SQL parametrized statements</p>
+
+        
+          <div class='highlight'><pre>    value: <span class="function"><span class="keyword">function</span><span class="params">(options, val, vopts)</span> {</span>
+        <span class="keyword">return</span> <span class="keyword">this</span>.getPool(options).value(val, vopts);
+    },</pre></div>
+        
+      
+        
+        <p>Return database pool by name or default sqlite pool</p>
+
+        
+          <div class='highlight'><pre>    getPool: <span class="function"><span class="keyword">function</span><span class="params">(options)</span> {</span>
+        <span class="keyword">return</span> <span class="keyword">this</span>.dbpool[(options || {})[<span class="string">"pool"</span>] || <span class="string">"sqlite"</span>] || <span class="keyword">this</span>.nopool || {};
+    },</pre></div>
+        
+      
+        
+        <p>Return cached columns for a table or null, column is an object with column names and objects for definiton</p>
+
+        
+          <div class='highlight'><pre>    getColumns: <span class="function"><span class="keyword">function</span><span class="params">(table, options)</span> {</span>
+        <span class="keyword">return</span> <span class="keyword">this</span>.getPool(options).dbcolumns[table.toLowerCase()];
+    },</pre></div>
+        
+      
+        
+        <p>Return cached primary keys for a table or null</p>
+
+        
+          <div class='highlight'><pre>    getKeys: <span class="function"><span class="keyword">function</span><span class="params">(table, options)</span> {</span>
+        <span class="keyword">return</span> <span class="keyword">this</span>.getPool(options).dbkeys[table.toLowerCase()];
+    },</pre></div>
+        
+      
+        
+        <p>Reload all columns into the cache for the pool</p>
+
+        
+          <div class='highlight'><pre>    cacheColumns: <span class="function"><span class="keyword">function</span><span class="params">(options, callback)</span> {</span>
+        <span class="keyword">this</span>.getPool(options).cacheColumns(callback);
+    },</pre></div>
+        
+      
+        
+        <p>Convert column definition list used in db.create into the format used by internal db pool functions</p>
+
+        
+          <div class='highlight'><pre>    convertColumns: <span class="function"><span class="keyword">function</span><span class="params">(cols)</span> {</span>
+        <span class="keyword">return</span> (cols || []).reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y.name] = y; <span class="keyword">return</span> x }, {});
+    },</pre></div>
+        
+      
+        
+        <p>Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
+In adition, a custom list of allowed columns can be specified in the options.allowed property.</p>
+
+        
+          <div class='highlight'><pre>    publicPrepare: <span class="function"><span class="keyword">function</span><span class="params">(table, row, options)</span> {</span>
+        <span class="keyword">var</span> cols = options &amp;&amp; !<span class="keyword">this</span>.isEmpty(options.allowed) ? <span class="keyword">this</span>.strSplit(options.allowed) : <span class="keyword">this</span>.publicColumns(table, options);
+        <span class="keyword">if</span> (!cols.length) <span class="keyword">return</span> row;
+        <span class="keyword">for</span> (<span class="keyword">var</span> p <span class="keyword">in</span> row) {
+            <span class="keyword">if</span> (cols.indexOf(p) == -<span class="number">1</span>) <span class="keyword">delete</span> row[p];
+        }
+        <span class="keyword">return</span> row;
+    },</pre></div>
+        
+      
+        
+        <p>Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
+.pub property means public column
+.semipub means not allowed but must be returned for calculations in the select to produce another public column
+options may be used to define the column list as property columns instead of cached columns for a table</p>
+
+        
+          <div class='highlight'><pre>    publicColumns: <span class="function"><span class="keyword">function</span><span class="params">(table, options)</span> {</span>
+        <span class="keyword">if</span> (options &amp;&amp; Array.isArray(options.columns)) {
+            <span class="keyword">return</span> options.columns.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.pub || x.semipub }).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.name });
+        }
+        <span class="keyword">var</span> cols = <span class="keyword">this</span>.getColumns(options);
+        <span class="keyword">return</span> Object.keys(cols || {}).filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> cols[x].pub || cols[x].semipub });
+    },</pre></div>
+        
+      
+        
+        <p>Quote value to be used in SQL expressions</p>
+
+        
+          <div class='highlight'><pre>    sqlQuote: <span class="function"><span class="keyword">function</span><span class="params">(val)</span> {</span>
+        <span class="keyword">return</span> val == <span class="literal">null</span> || <span class="keyword">typeof</span> val == <span class="string">"undefined"</span> ? <span class="string">"NULL"</span> : (<span class="string">"'"</span> + String(val).replace(<span class="regexp">/'/g</span>,<span class="string">"''"</span>) + <span class="string">"'"</span>)
+    },</pre></div>
+        
+      
+        
+        <p>Return properly quoted value to be used directly in SQL expressions, format according to the type</p>
+
+        
+          <div class='highlight'><pre>    sqlValue: <span class="function"><span class="keyword">function</span><span class="params">(value, type, dflt, min, max)</span> {</span>
+        <span class="keyword">if</span> (value == <span class="string">"null"</span>) <span class="keyword">return</span> <span class="string">"NULL"</span>;
+        <span class="keyword">switch</span> ((type || core.typeName(value))) {
+        <span class="keyword">case</span> <span class="string">"expr"</span>:
+        <span class="keyword">case</span> <span class="string">"buffer"</span>:
+            <span class="keyword">return</span> value;
+
+        <span class="keyword">case</span> <span class="string">"real"</span>:
+        <span class="keyword">case</span> <span class="string">"float"</span>:
+        <span class="keyword">case</span> <span class="string">"double"</span>:
+            <span class="keyword">return</span> core.toNumber(value, <span class="literal">true</span>, dflt, min, max);
+
+        <span class="keyword">case</span> <span class="string">"int"</span>:
+        <span class="keyword">case</span> <span class="string">"integer"</span>:
+        <span class="keyword">case</span> <span class="string">"number"</span>:
+            <span class="keyword">return</span> core.toNumber(value, <span class="literal">null</span>, dflt, min, max);
+
+        <span class="keyword">case</span> <span class="string">"bool"</span>:
+        <span class="keyword">case</span> <span class="string">"boolean"</span>:
+            <span class="keyword">return</span> core.toBool(value);
+
+        <span class="keyword">case</span> <span class="string">"date"</span>:
+            <span class="keyword">return</span> <span class="keyword">this</span>.sqlQuote((<span class="keyword">new</span> Date(value)).toISOString());
+
+        <span class="keyword">case</span> <span class="string">"time"</span>:
+            <span class="keyword">return</span> <span class="keyword">this</span>.sqlQuote((<span class="keyword">new</span> Date(value)).toLocaleTimeString());
+
+        <span class="keyword">case</span> <span class="string">"mtime"</span>:
+            <span class="keyword">return</span> <span class="regexp">/^[0-9\.]+$/</span>.test(value) ? <span class="keyword">this</span>.toNumber(value, <span class="literal">null</span>, dflt, min, max) : <span class="keyword">this</span>.sqlQuote((<span class="keyword">new</span> Date(value)).toISOString());
+
+        <span class="keyword">default</span>:
+            <span class="keyword">return</span> <span class="keyword">this</span>.sqlQuote(value);
+        }
+    },</pre></div>
+        
+      
+        
+        <p>Return list in format to be used with SQL IN ()</p>
+
+        
+          <div class='highlight'><pre>    sqlValueIn: <span class="function"><span class="keyword">function</span><span class="params">(list, type)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (!Array.isArray(list) || !list.length) <span class="keyword">return</span> <span class="string">''</span>;
+        <span class="keyword">return</span> list.map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> self.sqlValue(x, type);}).join(<span class="string">","</span>);
+    },</pre></div>
+        
+      
+        
+        <p>Build SQL expressions for the column and value,
+ op - SQL operator, default is =
+      special operator null/not null is used to build IS NULL condition, value is ignored in this case
+ type - can be data, string, number, float, expr, default is string
+ dflt, min, max - are used for numeric values for validation of ranges
+ for type expr, options.expr contains sprintf-like formatted expression to be used as is with all &#39;%s&#39; substituted with actual value</p>
+
+        
+          <div class='highlight'><pre>    sqlExpr: <span class="function"><span class="keyword">function</span><span class="params">(name, value, options)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (!name || <span class="keyword">typeof</span> value == <span class="string">"undefined"</span>) <span class="keyword">return</span> <span class="string">""</span>;
+        <span class="keyword">if</span> (!options.type) options.type = <span class="string">"string"</span>;
+        <span class="keyword">var</span> sql = <span class="string">""</span>;
+        <span class="keyword">var</span> op = (options.op || <span class="string">""</span>).toLowerCase();
+        <span class="keyword">if</span> (<span class="keyword">this</span>.opMap[op]) op = <span class="keyword">this</span>.opMap[op];
+
+        <span class="keyword">switch</span> (op) {
+        <span class="keyword">case</span> <span class="string">"not in"</span>:
+        <span class="keyword">case</span> <span class="string">"in"</span>:
+            <span class="keyword">var</span> list = [];</pre></div>
+        
+      
+        
+        <p>Convert type into array</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">switch</span> (core.typeName(value)) {
+            <span class="keyword">case</span> <span class="string">"object"</span>:
+                <span class="keyword">for</span> (<span class="keyword">var</span> p <span class="keyword">in</span> value) list.push(value[p]);
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"array"</span>:
+                list = value;
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"string"</span>:</pre></div>
+        
+      
+        
+        <p>For number array allow to be separated by comma as well, either one but not to be mixed</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> ((options.type == <span class="string">"number"</span> || options.type == <span class="string">"int"</span>) &amp;&amp; value.indexOf(<span class="string">','</span>) &gt; -<span class="number">1</span>) {
+                    list = value.split(<span class="string">','</span>);
+                    <span class="keyword">break</span>;
+                } <span class="keyword">else</span>
+                <span class="keyword">if</span> (value.indexOf(<span class="string">'|'</span>) &gt; -<span class="number">1</span>) {
+                    list = value.split(<span class="string">'|'</span>);
+                    <span class="keyword">break</span>;
+                }
+
+            <span class="keyword">default</span>:
+                list.push(value);
+            }
+            <span class="keyword">if</span> (!list.length) <span class="keyword">break</span>;
+            sql += name + <span class="string">" "</span> + op + <span class="string">" ("</span> + self.sqlValueIn(list, options.type) + <span class="string">")"</span>;
+            <span class="keyword">break</span>;
+
+        <span class="keyword">case</span> <span class="string">"between"</span>:
+        <span class="keyword">case</span> <span class="string">"not between"</span>:</pre></div>
+        
+      
+        
+        <p>If we cannot parse out 2 values, treat this as exact operator</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">var</span> list = [];
+            <span class="keyword">switch</span> (core.typeName(value)) {
+            <span class="keyword">case</span> <span class="string">"array"</span>:
+                list = value;
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"string"</span>:</pre></div>
+        
+      
+        
+        <p>For number array allow to be separated by comma as well, either one but not to be mixed</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> ((options.type == <span class="string">"number"</span> || options.type == <span class="string">"int"</span>) &amp;&amp; value.indexOf(<span class="string">','</span>) &gt; -<span class="number">1</span>) {
+                    list = value.split(<span class="string">','</span>);
+                    <span class="keyword">break</span>;
+                } <span class="keyword">else</span>
+                <span class="keyword">if</span> (value.indexOf(<span class="string">'|'</span>) &gt; -<span class="number">1</span>) {
+                    list = value.split(<span class="string">'|'</span>);
+                    <span class="keyword">break</span>;
+                }
+            }
+            <span class="keyword">if</span> (list.length &gt; <span class="number">1</span>) {
+                sql += name + <span class="string">" "</span> + op + <span class="string">" "</span> + <span class="keyword">this</span>.sqlValue(list[<span class="number">0</span>], options.type) + <span class="string">" AND "</span> + <span class="keyword">this</span>.sqlValue(list[<span class="number">1</span>], options.type);
+            } <span class="keyword">else</span> {
+                sql += name + <span class="string">"="</span> + <span class="keyword">this</span>.sqlValue(value, options.type, options.value, options.min, options.max);
+            }
+            <span class="keyword">break</span>;
+
+        <span class="keyword">case</span> <span class="string">"null"</span>:
+        <span class="keyword">case</span> <span class="string">"not null"</span>:
+            sql += name + <span class="string">" IS "</span> + op;
+            <span class="keyword">break</span>;
+
+        <span class="keyword">case</span> <span class="string">'@@'</span>:
+            <span class="keyword">switch</span> (core.typeName(value)) {
+            <span class="keyword">case</span> <span class="string">"string"</span>:
+                <span class="keyword">if</span> (value.indexOf(<span class="string">'|'</span>) &gt; -<span class="number">1</span>) {
+                    value = value.split(<span class="string">'|'</span>);
+                } <span class="keyword">else</span> {
+                    sql += name + op + <span class="string">" plainto_tsquery('"</span> + (options.min || <span class="string">"english"</span>) + <span class="string">"',"</span> + <span class="keyword">this</span>.sqlQuote(value) + <span class="string">")"</span>;
+                    <span class="keyword">break</span>;
+                }
+
+            <span class="keyword">case</span> <span class="string">"array"</span>:
+                value = value.map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> <span class="string">"plainto_tsquery('"</span> + (options.min || <span class="string">"english"</span>) + <span class="string">"',"</span> + self.sqlQuote(x) + <span class="string">")"</span> }).join(<span class="string">'||'</span>);
+                sql += name + op + <span class="string">" ("</span> +  value + <span class="string">")"</span>;
+                <span class="keyword">break</span>;
+            }
+            <span class="keyword">break</span>;
+
+        <span class="keyword">case</span> <span class="string">'~* any'</span>:
+        <span class="keyword">case</span> <span class="string">'!~* any'</span>:
+            sql += <span class="keyword">this</span>.sqlQuote(value) + <span class="string">" "</span> + op + <span class="string">"("</span> + name + <span class="string">")"</span>;
+            <span class="keyword">break</span>;
+
+        <span class="keyword">case</span> <span class="string">'like%'</span>:
+        <span class="keyword">case</span> <span class="string">"ilike%"</span>:
+        <span class="keyword">case</span> <span class="string">"not like%"</span>:
+        <span class="keyword">case</span> <span class="string">"not ilike%"</span>:
+            value += <span class="string">'%'</span>;
+            op = op.substr(<span class="number">0</span>, op.length-<span class="number">1</span>);
+
+        <span class="keyword">case</span> <span class="string">'&gt;'</span>:
+        <span class="keyword">case</span> <span class="string">'&gt;='</span>:
+        <span class="keyword">case</span> <span class="string">'&lt;'</span>:
+        <span class="keyword">case</span> <span class="string">'&lt;='</span>:
+        <span class="keyword">case</span> <span class="string">'&lt;&gt;'</span>:
+        <span class="keyword">case</span> <span class="string">'!='</span>:
+        <span class="keyword">case</span> <span class="string">"not like"</span>:
+        <span class="keyword">case</span> <span class="string">"like"</span>:
+        <span class="keyword">case</span> <span class="string">"ilike"</span>:
+        <span class="keyword">case</span> <span class="string">"not ilike"</span>:
+        <span class="keyword">case</span> <span class="string">"not similar to"</span>:
+        <span class="keyword">case</span> <span class="string">"similar to"</span>:
+        <span class="keyword">case</span> <span class="string">"regexp"</span>:
+        <span class="keyword">case</span> <span class="string">"not regexp"</span>:
+        <span class="keyword">case</span> <span class="string">"~"</span>:
+        <span class="keyword">case</span> <span class="string">"~*"</span>:
+        <span class="keyword">case</span> <span class="string">"!~"</span>:
+        <span class="keyword">case</span> <span class="string">"!~*"</span>:
+        <span class="keyword">case</span> <span class="string">'match'</span>:
+            sql += name + <span class="string">" "</span> + op + <span class="string">" "</span> + <span class="keyword">this</span>.sqlValue(value, options.type, options.value, options.min, options.max);
+            <span class="keyword">break</span>;
+
+        <span class="keyword">case</span> <span class="string">"iregexp"</span>:
+        <span class="keyword">case</span> <span class="string">"not iregexp"</span>:
+            sql += <span class="string">"LOWER("</span> + name + <span class="string">") "</span> + (op[<span class="number">0</span>] == <span class="string">'n'</span> ? <span class="string">"NOT"</span> : <span class="string">""</span>) + <span class="string">" REGEXP "</span> + <span class="keyword">this</span>.sqlValue(value, options.type, options.value, options.min, options.max);
+            <span class="keyword">break</span>;
+            
+        <span class="keyword">case</span> <span class="string">'expr'</span>:
+            <span class="keyword">if</span> (options.expr) {
+                <span class="keyword">var</span> str = options.expr;
+                <span class="keyword">if</span> (value.indexOf(<span class="string">'|'</span>) &gt; -<span class="number">1</span>) value = value.split(<span class="string">'|'</span>);
+                str = str.replace(<span class="regexp">/%s/g</span>, <span class="keyword">this</span>.sqlValue(value, options.type, <span class="literal">null</span>, options.min, options.max));
+                str = str.replace(<span class="regexp">/%1/g</span>, <span class="keyword">this</span>.sqlValue(value[<span class="number">0</span>], options.type, <span class="literal">null</span>, options.min, options.max));
+                str = str.replace(<span class="regexp">/%2/g</span>, <span class="keyword">this</span>.sqlValue(value[<span class="number">1</span>], options.type, <span class="literal">null</span>, options.min, options.max));
+                sql += str;
+            }
+            <span class="keyword">break</span>;
+
+        <span class="keyword">default</span>:
+            sql += name + <span class="string">"="</span> + <span class="keyword">this</span>.sqlValue(value, options.type, options.value, options.min, options.max);
+            <span class="keyword">break</span>;
+        }
+        <span class="keyword">return</span> sql;
+    },</pre></div>
+        
+      
+        
+        <p>Return time formatted for SQL usage as ISO, if no date specified returns current time</p>
+
+        
+          <div class='highlight'><pre>    sqlTime: <span class="function"><span class="keyword">function</span><span class="params">(d)</span> {</span>
+        <span class="keyword">if</span> (d) {
+           <span class="keyword">try</span> { d = (<span class="keyword">new</span> Date(d)).toISOString() } <span class="keyword">catch</span>(e) { d = <span class="string">''</span> }
+        } <span class="keyword">else</span> {
+            d = (<span class="keyword">new</span> Date()).toISOString();
+        }
+        <span class="keyword">return</span> d;
+    },</pre></div>
+        
+      
+        
+        <p>Given columns definition object, build SQL query using values from the values object, all conditions are joined using AND,</p>
+<ul>
+<li>columns is a list of objects with the following properties:<ul>
+<li>name - column name, also this is the key to use in the values object to get value by</li>
+<li>col - actual column name to use in the SQL</li>
+<li>alias - optional table prefix if multiple tables involved</li>
+<li>value - default value</li>
+<li>type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr</li>
+<li>op - any valid SQL operation: =,&gt;,&lt;, between, like, not like, in, not in, ~*,.....</li>
+<li>group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)</li>
+<li>always - only use default value if true</li>
+<li>required - value default or supplied must be in the query, otherwise return empty SQL</li>
+<li>search - aditional name for a value, for cases when generic field is used for search but we search specific column</li>
+</ul>
+</li>
+<li>values - actual values for the condition as an object</li>
+<li>params if given will contain values for binding parameters</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    sqlFilter: <span class="function"><span class="keyword">function</span><span class="params">(columns, values, params)</span> {</span>
+        <span class="keyword">var</span> all = [], groups = {};
+        <span class="keyword">if</span> (!values) values = {};
+        <span class="keyword">if</span> (!params) params = [];
+        <span class="keyword">if</span> (core.typeName(columns) == <span class="string">"object"</span>) columns = [ columns ];
+        <span class="keyword">for</span> (<span class="keyword">var</span> i <span class="keyword">in</span> columns) {
+            <span class="keyword">var</span> name = columns[i].name;</pre></div>
+        
+      
+        
+        <p>Default value for this column</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">var</span> value = columns[i].value;</pre></div>
+        
+      
+        
+        <p>Can we use supplied value or use only default one</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (!columns[i].always) {
+                <span class="keyword">if</span> (values[name]) value = values[name];</pre></div>
+        
+      
+        
+        <p>In addition to exact field name there could be query alias to be used for this column in case of generic search field
+which should be applied for multiple columns, this is useful to search across multiple columns or use diferent formats</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">var</span> search = columns[i].search;
+                <span class="keyword">if</span> (search) {
+                    <span class="keyword">if</span> (!Array.isArray(columns[i].search)) search = [ search ];
+                    <span class="keyword">for</span> (<span class="keyword">var</span> j = <span class="number">0</span>; j &lt; search.length; j++) {
+                        <span class="keyword">if</span> (values[search[j]]) value = values[search[j]];
+                    }
+                }
+            }
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> value ==<span class="string">"undefined"</span> || (<span class="keyword">typeof</span> value == <span class="string">"string"</span> &amp;&amp; !value)) {</pre></div>
+        
+      
+        
+        <p>Required filed is missing, return empty query</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> (columns[i].required) <span class="keyword">return</span> <span class="string">""</span>;</pre></div>
+        
+      
+        
+        <p>Allow empty values excplicitely</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> (!columns[i].empty) <span class="keyword">continue</span>;
+            }</pre></div>
+        
+      
+        
+        <p>Uset actual column name now once we got the value</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (columns[i].col) name = columns[i].col;</pre></div>
+        
+      
+        
+        <p>Table prefix in case of joins</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (columns[i].alias) name = columns[i].alias + <span class="string">'.'</span> + name;</pre></div>
+        
+      
+        
+        <p>Wrap into COALESCE</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (<span class="keyword">typeof</span> columns[i].coalesce != <span class="string">"undefined"</span>) {
+                name = <span class="string">"COALESCE("</span> + name + <span class="string">","</span> + <span class="keyword">this</span>.sqlValue(columns[i].coalesce, columns[i].type) + <span class="string">")"</span>;
+            }
+            <span class="keyword">var</span> sql = <span class="string">""</span>;</pre></div>
+        
+      
+        
+        <p>Explicit skip of the parameter</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (columns[i].op == <span class="string">'skip'</span>) {
+                <span class="keyword">continue</span>;
+            } <span class="keyword">else</span></pre></div>
+        
+      
+        
+        <p>Add binding parameters</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (columns[i].op == <span class="string">'bind'</span>) {
+                sql = columns[i].expr.replace(<span class="string">'$#'</span>, <span class="string">'$'</span> + (params.length + <span class="number">1</span>));
+                params.push(value);
+            } <span class="keyword">else</span></pre></div>
+        
+      
+        
+        <p>Special case to handle NULL</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (columns[i].isnull &amp;&amp; (value == <span class="string">"null"</span> || value == <span class="string">"notnull"</span>)) {
+                sql = name + <span class="string">" IS "</span> + value.replace(<span class="string">'null'</span>, <span class="string">' NULL'</span>);
+            } <span class="keyword">else</span> {</pre></div>
+        
+      
+        
+        <p>Primary condition for the column</p>
+
+        
+          <div class='highlight'><pre>                sql = <span class="keyword">this</span>.sqlExpr(name, value, columns[i]);
+            }
+            <span class="keyword">if</span> (!sql) <span class="keyword">continue</span>;</pre></div>
+        
+      
+        
+        <p>If group specified, that means to combine all expressions inside that group with OR</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (columns[i].group) {
+                <span class="keyword">if</span> (!groups[columns[i].group]) groups[columns[i].group] = [];
+                groups[columns[i].group].push(sql);
+            } <span class="keyword">else</span> {
+                all.push(sql);
+            }
+        }
+        <span class="keyword">var</span> sql = all.join(<span class="string">" AND "</span>);
+        <span class="keyword">for</span> (<span class="keyword">var</span> p <span class="keyword">in</span> groups) {
+            <span class="keyword">var</span> g = groups[p].join(<span class="string">" OR "</span>);
+            <span class="keyword">if</span> (!g) <span class="keyword">continue</span>;
+            <span class="keyword">if</span> (sql) sql += <span class="string">" AND "</span>;
+            sql += <span class="string">"("</span> + g + <span class="string">")"</span>;
+        }
+        <span class="keyword">return</span> sql;
+    },</pre></div>
+        
+      
+        
+        <p>Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging</p>
+
+        
+          <div class='highlight'><pre>    sqlLimit: <span class="function"><span class="keyword">function</span><span class="params">(config, values)</span> {</span>
+        <span class="keyword">if</span> (!config) config = {};
+        <span class="keyword">if</span> (!values) values = {};
+        <span class="keyword">var</span> rc = <span class="string">""</span>;</pre></div>
+        
+      
+        
+        <p>Sorting column, multiple nested sort orders</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> orderby = <span class="string">""</span>;
+        [<span class="string">""</span>, <span class="string">"1"</span>, <span class="string">"2"</span>].forEach(<span class="function"><span class="keyword">function</span><span class="params">(p)</span> {</span>
+            <span class="keyword">var</span> sort = values[<span class="string">'_sort'</span> + p] || config[<span class="string">'sort'</span> + p] || <span class="string">""</span>;
+            <span class="keyword">var</span> desc = core.toBool(<span class="keyword">typeof</span> values[<span class="string">'_desc'</span> + p] != <span class="string">"undefined"</span> ? values[<span class="string">'_desc'</span> + p] : config[<span class="string">'desc'</span> + p]);
+            <span class="keyword">if</span> (config.names &amp;&amp; config.names.indexOf(sort) == -<span class="number">1</span>) sort = config[<span class="string">'sort'</span> + p] || <span class="string">""</span>;
+            <span class="keyword">if</span> (!sort) <span class="keyword">return</span>;</pre></div>
+        
+      
+        
+        <p>Replace by sorting expression</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (config.expr &amp;&amp; config.expr[sort]) sort = config.expr[sort];
+            orderby += (orderby ? <span class="string">","</span> : <span class="string">""</span>) + sort + (desc ? <span class="string">" DESC"</span> : <span class="string">""</span>);
+        });
+        <span class="keyword">if</span> (orderby) {
+            rc += <span class="string">" ORDER BY "</span> + orderby;
+        }</pre></div>
+        
+      
+        
+        <p>Limit clause</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> page = core.toNumber(values[<span class="string">'_page'</span>], <span class="literal">false</span>, config.page || <span class="number">0</span>, <span class="number">0</span>, <span class="number">999999</span>);
+        <span class="keyword">var</span> count = core.toNumber(values[<span class="string">'_count'</span>], <span class="literal">false</span>, config.count || <span class="number">50</span>, <span class="number">1</span>, config.max || <span class="number">1000</span>);
+        <span class="keyword">var</span> offset = core.toNumber(values[<span class="string">'_offset'</span>], <span class="literal">false</span>, config.offset || <span class="number">0</span>, <span class="number">0</span>, <span class="number">999999</span>);
+        <span class="keyword">if</span> (count) {
+            rc += <span class="string">" LIMIT "</span> + count;
+        }
+        <span class="keyword">if</span> (offset) {
+            rc += <span class="string">" OFFSET "</span> + offset;
+        } <span class="keyword">else</span>
+        <span class="keyword">if</span> (page &amp;&amp; count) {
+            rc += <span class="string">" OFFSET "</span> + ((page - <span class="number">1</span>) * count);
+        }
+        <span class="keyword">return</span> rc;
+    },</pre></div>
+        
+      
+        
+        <p>Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
+<ul>
+<li>obj - an object record properties</li>
+<li>keys - a list of primary key columns</li>
+<li>options may contains the following properties:<ul>
+<li>pool - pool to be used for driver specific functions</li>
+<li>ops - object for other comparison operators for primary key beside =</li>
+<li>types - type mapping for properties to be used in the condition</li>
+</ul>
+</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    sqlWhere: <span class="function"><span class="keyword">function</span><span class="params">(obj, keys, options)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (!options) options = {};</pre></div>
+        
+      
+        
+        <p>List of records to return by primary key</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">if</span> (Array.isArray(obj)) {
+            <span class="keyword">if</span> (keys.length == <span class="number">1</span>) {
+                <span class="keyword">return</span> keys[<span class="number">0</span>] + <span class="string">" IN ("</span> + <span class="keyword">this</span>.sqlValueIn(obj.map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x[keys[<span class="number">0</span>]] })) + <span class="string">")"</span>; 
+            }
+            <span class="keyword">return</span> obj.map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> <span class="string">"("</span> + keys.map(<span class="function"><span class="keyword">function</span><span class="params">(y)</span> {</span> <span class="keyword">return</span> y + <span class="string">"="</span> + self.sqlQuote(self.value(options, x[y])) }).join(<span class="string">" AND "</span>) + <span class="string">")"</span> }).join(<span class="string">" OR "</span>);
+        }</pre></div>
+        
+      
+        
+        <p>Regular object with conditions</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> where = [];
+        (keys || []).forEach(<span class="function"><span class="keyword">function</span><span class="params">(k)</span> {</span>
+            <span class="keyword">var</span> v = obj[k];
+            <span class="keyword">var</span> op = (options.ops || {})[k];
+            <span class="keyword">var</span> type = (options.type || {})[k];
+            <span class="keyword">if</span> (!op &amp;&amp; v == <span class="literal">null</span>) op = <span class="string">"null"</span>;
+            <span class="keyword">if</span> (!op &amp;&amp; Array.isArray(v)) op = <span class="string">"in"</span>;
+            <span class="keyword">var</span> sql = self.sqlExpr(k, v, { op: op, type: type });
+            <span class="keyword">if</span> (sql) where.push(sql);
+        });
+        <span class="keyword">return</span> where.join(<span class="string">" AND "</span>);
+    },</pre></div>
+        
+      
+        
+        <p>Create SQL table using column definition list with properties:</p>
+<ul>
+<li>name - column name</li>
+<li>type - type of the column, default is TEXT, options: int, real or other supported type</li>
+<li>value - default value for the column</li>
+<li>primary - part of the primary key</li>
+<li>unique - part of the unique key</li>
+<li>index - regular index</li>
+<li>hashindex - unique index that consist from primary key hash and range
+options may contains:</li>
+<li>types - type mapping, convert lowecase type into other type for any specific database</li>
+</ul>
+
+        
+          <div class='highlight'><pre>    sqlCreate: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = {};
+        <span class="keyword">if</span> (!options) options = {};
+        
+        <span class="function"><span class="keyword">function</span> <span class="title">items</span><span class="params">(name)</span> {</span> <span class="keyword">return</span> obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x[name] }).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.name }).join(<span class="string">','</span>); }
+        
+        <span class="keyword">var</span> sql = <span class="string">"CREATE TABLE IF NOT EXISTS "</span> + table + <span class="string">"("</span> + 
+                   obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.name }).
+                       map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> 
+                           <span class="keyword">return</span> x.name + <span class="string">" "</span> + 
+                           (<span class="function"><span class="keyword">function</span><span class="params">(t)</span> {</span> <span class="keyword">return</span> (options.types || {})[t] || t })(x.type || <span class="string">"text"</span>) + <span class="string">" "</span> + 
+                           (<span class="keyword">typeof</span> x.value != <span class="string">"undefined"</span> ? <span class="string">"DEFAULT "</span> + self.sqlValue(x.value, x.type) : <span class="string">""</span>) }).join(<span class="string">","</span>) + <span class="string">" "</span> +
+                   (<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x ? <span class="string">",PRIMARY KEY("</span> + x + <span class="string">")"</span> : <span class="string">""</span> })(items(<span class="string">'primary'</span>)) + <span class="string">");"</span>;</pre></div>
+        
+      
+        
+        <p>Create indexes</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> keys = obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(y)</span> {</span> <span class="keyword">return</span> y.primary }).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.name });
+        [<span class="string">""</span>,<span class="string">"1"</span>,<span class="string">"2"</span>].forEach(<span class="function"><span class="keyword">function</span><span class="params">(y)</span> {</span>
+            sql += (<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x ? <span class="string">"CREATE UNIQUE INDEX IF NOT EXISTS "</span> + table + <span class="string">"_udx"</span> + y + <span class="string">" ON "</span> + table + <span class="string">"("</span> + x + <span class="string">");"</span> : <span class="string">""</span> })(items(<span class="string">'unique'</span> + y));
+            sql += (<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x ? <span class="string">"CREATE INDEX IF NOT EXISTS "</span> + table + <span class="string">"_idx"</span> + y + <span class="string">" ON "</span> + table + <span class="string">"("</span> + x + <span class="string">");"</span> : <span class="string">""</span> })(items(<span class="string">'index'</span> + y));
+            <span class="keyword">if</span> (keys) sql += (<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x ? <span class="string">"CREATE UNIQUE INDEX IF NOT EXISTS "</span> + table + <span class="string">"_rdx"</span> + y + <span class="string">" ON "</span> + table + <span class="string">"("</span> + keys[<span class="number">0</span>] + <span class="string">","</span> + x + <span class="string">");"</span> : <span class="string">""</span> })(items(<span class="string">'hashindex'</span> + y));
+        });
+        
+        <span class="keyword">return</span> { text: sql, values: [] };
+    },</pre></div>
+        
+      
+        
+        <p>Create ALTER TABLE ADD COLUMN statements for missing columns</p>
+
+        
+          <div class='highlight'><pre>    sqlUpgrade: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options, callback)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = {};
+        <span class="keyword">if</span> (!options) options = {};
+        
+        <span class="function"><span class="keyword">function</span> <span class="title">items</span><span class="params">(name)</span> {</span> <span class="keyword">return</span> obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x[name] }).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.name }).join(<span class="string">','</span>); }
+        <span class="keyword">var</span> dbcols = <span class="keyword">this</span>.getColumns(table, options) || {};
+        <span class="keyword">var</span> sql = obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.name &amp;&amp; !(x.name <span class="keyword">in</span> dbcols) }).
+                      map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> 
+                          <span class="keyword">return</span> <span class="string">"ALTER TABLE "</span> + table + <span class="string">" ADD COLUMN "</span> + x.name + <span class="string">" "</span> + 
+                          (<span class="function"><span class="keyword">function</span><span class="params">(t)</span> {</span> <span class="keyword">return</span> (options.types || {})[t] || t })(x.type || <span class="string">"text"</span>) + <span class="string">" "</span> + 
+                          (<span class="keyword">typeof</span> x.value != <span class="string">"undefined"</span> ? <span class="string">"DEFAULT "</span> + self.sqlValue(x.value, x.type) : <span class="string">""</span>) }).join(<span class="string">";"</span>);
+        <span class="keyword">if</span> (sql) sql += <span class="string">";"</span>;</pre></div>
+        
+      
+        
+        <p>Create indexes</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> keys = obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(y)</span> {</span> <span class="keyword">return</span> y.primary }).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.name });
+        [<span class="string">""</span>,<span class="string">"1"</span>,<span class="string">"2"</span>].forEach(<span class="function"><span class="keyword">function</span><span class="params">(y)</span> {</span>
+            sql += (<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x ? <span class="string">"CREATE UNIQUE INDEX IF NOT EXISTS "</span> + table + <span class="string">"_udx"</span> + y + <span class="string">" ON "</span> + table + <span class="string">"("</span> + x + <span class="string">");"</span> : <span class="string">""</span> })(items(<span class="string">'unique'</span> + y));
+            sql += (<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x ? <span class="string">"CREATE INDEX IF NOT EXISTS "</span> + table + <span class="string">"_idx"</span> + y + <span class="string">" ON "</span> + table + <span class="string">"("</span> + x + <span class="string">");"</span> : <span class="string">""</span> })(items(<span class="string">'index'</span> + y));
+            <span class="keyword">if</span> (keys) sql += (<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x ? <span class="string">"CREATE UNIQUE INDEX IF NOT EXISTS "</span> + table + <span class="string">"_rdx"</span> + y + <span class="string">" ON "</span> + table + <span class="string">"("</span> + keys[<span class="number">0</span>] + <span class="string">","</span> + x + <span class="string">");"</span> : <span class="string">""</span> })(items(<span class="string">'hashindex'</span> + y));
+        });
+        
+        <span class="keyword">return</span> { text: sql, values: [] };
+    },</pre></div>
+        
+      
+        
+        <p>Select object from the database, .keys is a list of columns for condition, .select is list of columns or expressions to return</p>
+
+        
+          <div class='highlight'><pre>    sqlSelect: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options)</span> {</span>
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">var</span> keys = options.keys;
+        <span class="keyword">if</span> (!keys || !keys.length) keys = <span class="keyword">this</span>.getKeys(table, options) || [];</pre></div>
+        
+      
+        
+        <p>Requested columns, support only existing</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> dbcols = <span class="keyword">this</span>.getColumns(table, options) || {};
+        <span class="keyword">var</span> cols = options.total ? <span class="string">"COUNT(*) AS count"</span> :
+                   options.select ? options.select.split(<span class="string">","</span>).filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> <span class="regexp">/^[a-z0-9_]+$/</span>.test(x) &amp;&amp; x <span class="keyword">in</span> dbcols; }).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x }).join(<span class="string">","</span>) : <span class="string">""</span>;
+        <span class="keyword">if</span> (!cols) cols = <span class="string">"*"</span>;
+
+        <span class="keyword">var</span> where = <span class="keyword">this</span>.sqlWhere(obj, keys);
+        <span class="keyword">if</span> (where) where = <span class="string">" WHERE "</span> + where;
+        
+        <span class="keyword">var</span> req = { text: <span class="string">"SELECT "</span> + cols + <span class="string">" FROM "</span> + table + where };
+        <span class="keyword">if</span> (options.sort) req.text += <span class="string">" ORDER BY "</span> + options.sort + (options.desc ? <span class="string">" DESC "</span> : <span class="string">""</span>);
+        <span class="keyword">if</span> (options.count) req.text += <span class="string">" LIMIT "</span> + options.limit;
+
+        <span class="keyword">return</span> req;
+    },</pre></div>
+        
+      
+        
+        <p>Build SQL insert</p>
+
+        
+          <div class='highlight'><pre>    sqlInsert: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options)</span> {</span>
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">var</span> names = [], pnums = [], req = { values: [] }, i = <span class="number">1</span></pre></div>
+        
+      
+        
+        <p>Columns should exist prior to calling this</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> cols = <span class="keyword">this</span>.getColumns(table, options) || {};
+
+        <span class="keyword">for</span> (<span class="keyword">var</span> p <span class="keyword">in</span> obj) {
+            <span class="keyword">if</span> (!p || p[<span class="number">0</span>] == <span class="string">"_"</span> || (!options.nocolumns &amp;&amp; !(p <span class="keyword">in</span> cols))) <span class="keyword">continue</span>;</pre></div>
+        
+      
+        
+        <p>Filter not allowed columns or only allowed columns</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (options.skip_cols &amp;&amp; options.skip_cols.indexOf(p) &gt; -<span class="number">1</span>) <span class="keyword">continue</span>;
+            <span class="keyword">if</span> (options.allow_cols &amp;&amp; options.allow_cols.indexOf(p) == -<span class="number">1</span>) <span class="keyword">continue</span>;
+            <span class="keyword">var</span> v = obj[p];</pre></div>
+        
+      
+        
+        <p>Avoid int parse errors with empty strings</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (!v &amp;&amp; [<span class="string">"number"</span>,<span class="string">"json"</span>].indexOf(cols[p].type) &gt; -<span class="number">1</span>) v = <span class="literal">null</span>;</pre></div>
+        
+      
+        
+        <p>Ignore nulls, this way default value will be inserted if specified</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (<span class="keyword">typeof</span> v == <span class="string">"undefined"</span> || (v == <span class="literal">null</span> &amp;&amp; !options.add_nulls)) <span class="keyword">continue</span>;
+            names.push(p);
+            pnums.push(options.placeholder || (<span class="string">"$"</span> + i));
+            v = <span class="keyword">this</span>.value(options, v, cols[p]);
+            req.values.push(v);
+            i++;
+        }</pre></div>
+        
+      
+        
+        <p>No columns to insert, just exit, it is not an error, return empty result</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">if</span> (!names.length) {
+            logger.debug(<span class="string">'sqlInsert:'</span>, table, <span class="string">'nothing to do'</span>, obj, cols);
+            <span class="keyword">return</span> <span class="literal">null</span>;
+        }
+        req.text = (options.replace ? <span class="string">"REPLACE"</span> : <span class="string">"INSERT"</span>) + <span class="string">" INTO "</span> + table + <span class="string">"("</span> + names.join(<span class="string">","</span>) + <span class="string">") values("</span> + pnums.join(<span class="string">","</span>) + <span class="string">")"</span>;
+        <span class="keyword">if</span> (options.returning) req.text += <span class="string">" RETURNING "</span> + options.returning;
+        <span class="keyword">return</span> req;
+    },</pre></div>
+        
+      
+        
+        <p>Build SQL statement for update</p>
+
+        
+          <div class='highlight'><pre>    sqlUpdate: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options)</span> {</span>
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">var</span> sets = [], req = { values: [] }, i = <span class="number">1</span>;
+        <span class="keyword">var</span> cols = <span class="keyword">this</span>.getColumns(table, options) || {};
+        <span class="keyword">var</span> keys = options.keys;
+        <span class="keyword">if</span> (!keys || !keys.length) keys = <span class="keyword">this</span>.getKeys(table, options) || [];
+
+        <span class="keyword">for</span> (p <span class="keyword">in</span> obj) {
+            <span class="keyword">if</span> (!p || p[<span class="number">0</span>] == <span class="string">"_"</span> || (!options.nocolumns &amp;&amp; !(p <span class="keyword">in</span> cols)) || keys.indexOf(p) != -<span class="number">1</span>) <span class="keyword">continue</span>;
+            <span class="keyword">var</span> v = obj[p];</pre></div>
+        
+      
+        
+        <p>Filter not allowed columns or only allowed columns</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (options.skip_cols &amp;&amp; options.skip_cols.indexOf(p) &gt; -<span class="number">1</span>) <span class="keyword">continue</span>;
+            <span class="keyword">if</span> (options.allow_cols &amp;&amp; options.allow_cols.indexOf(p) == -<span class="number">1</span>) <span class="keyword">continue</span>;</pre></div>
+        
+      
+        
+        <p>Do not update primary columns</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (cols[p] &amp;&amp; cols[p].primary) <span class="keyword">continue</span>;</pre></div>
+        
+      
+        
+        <p>Avoid int parse errors with empty strings</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (!v &amp;&amp; [<span class="string">"number"</span>,<span class="string">"json"</span>].indexOf(cols[p].type) &gt; -<span class="number">1</span>) v = <span class="literal">null</span>;</pre></div>
+        
+      
+        
+        <p>Not defined fields are skipped but nulls can be triggered by a flag</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (<span class="keyword">typeof</span> v == <span class="string">"undefined"</span> || (v == <span class="literal">null</span> &amp;&amp; options.skip_null)) <span class="keyword">continue</span>;</pre></div>
+        
+      
+        
+        <p>Update only if the value is null, otherwise skip</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (options.skip_not_null &amp;&amp; options.skip_not_null.indexOf(p) &gt; -<span class="number">1</span>) {
+                sets.push(p + <span class="string">"=COALESCE("</span> + p + <span class="string">", $"</span> + i + <span class="string">")"</span>);
+            } <span class="keyword">else</span></pre></div>
+        
+      
+        
+        <p>Concat mode means append new value to existing, not overwrite</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">if</span> (options.concat &amp;&amp; options.concat.indexOf(p) &gt; -<span class="number">1</span>) {
+                sets.push(p + <span class="string">"=CONCAT("</span> + p + <span class="string">", $"</span> + i + <span class="string">")"</span>);
+            } <span class="keyword">else</span> {
+                sets.push(p + <span class="string">"="</span> + (options.placeholder || (<span class="string">"$"</span> + i)));
+            }
+            v = <span class="keyword">this</span>.value(options, v, cols[p]);
+            req.values.push(v);
+            i++;
+        }
+        <span class="keyword">var</span> where = <span class="keyword">this</span>.sqlWhere(obj, keys, options);
+        <span class="keyword">if</span> (!sets.length || !where) {</pre></div>
+        
+      
+        
+        <p>No keys or columns to update, just exit, it is not an error, return empty result</p>
+
+        
+          <div class='highlight'><pre>            logger.debug(<span class="string">'sqlUpdate:'</span>, table, <span class="string">'nothing to do'</span>, obj, keys);
+            <span class="keyword">return</span> <span class="literal">null</span>;
+        }
+        req.values = req.values.concat(w.values);
+        req.text = <span class="string">"UPDATE "</span> + table + <span class="string">" SET "</span> + sets.join(<span class="string">","</span>) + <span class="string">" WHERE "</span> + where;
+        <span class="keyword">if</span> (options.returning) req.text += <span class="string">" RETURNING "</span> + options.returning;
+        <span class="keyword">return</span> req;
+    },</pre></div>
+        
+      
+        
+        <p>Build SQL statement for delete</p>
+
+        
+          <div class='highlight'><pre>    sqlDelete: <span class="function"><span class="keyword">function</span><span class="params">(table, obj, options)</span> {</span>
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">var</span> keys = options.keys;
+        <span class="keyword">if</span> (!keys || !keys.length) keys = <span class="keyword">this</span>.getKeys(table, options) || [];
+        
+        <span class="keyword">var</span> where = <span class="keyword">this</span>.sqlWhere(obj, keys, options);
+        <span class="keyword">if</span> (!where) {</pre></div>
+        
+      
+        
+        <p>No keys or columns to update, just exit, it is not an error, return empty result</p>
+
+        
+          <div class='highlight'><pre>            logger.debug(<span class="string">'sqlUpdate:'</span>, table, <span class="string">'nothing to do'</span>, obj, keys);
+            <span class="keyword">return</span> <span class="literal">null</span>;
+        }
+        <span class="keyword">var</span> req = { text: <span class="string">"DELETE FROM "</span> + table + <span class="string">" WHERE "</span> + where };
+        <span class="keyword">if</span> (options.returning) req.text += <span class="string">" RETURNING "</span> + options.returning;
+        <span class="keyword">return</span> req;
+    },</pre></div>
+        
+      
+        
+        <p>Setup primary database access</p>
+
+        
+          <div class='highlight'><pre>    pgInitPool: <span class="function"><span class="keyword">function</span><span class="params">(options)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">if</span> (!options.pool) options.pool = <span class="string">"pg"</span>;
+        <span class="keyword">var</span> pool = <span class="keyword">this</span>.initPool(options, self.pgOpen, self.pgCacheColumns, self.pgValue);</pre></div>
+        
+      
+        
+        <p>No REPLACE INTO support, do it manually</p>
+
+        
+          <div class='highlight'><pre>        pool.put = <span class="function"><span class="keyword">function</span><span class="params">(table, obj, opts, callback)</span> {</span>
+            self.update(table, obj, keys, opts, <span class="function"><span class="keyword">function</span><span class="params">(err, rows, info)</span> {</span>
+                <span class="keyword">if</span> (err || info.affected_rows) <span class="keyword">return</span> callback ? callback(err, rows, info) : <span class="literal">null</span>; 
+                self.add(table, obj, opts, callback);
+            });
+        }
+        <span class="keyword">return</span> pool;
+    },</pre></div>
+        
+      
+        
+        <p>Open PostgreSQL connection, execute initial statements</p>
+
+        
+          <div class='highlight'><pre>    pgOpen: <span class="function"><span class="keyword">function</span><span class="params">(options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = <span class="literal">null</span>;
+        <span class="keyword">if</span> (!options) options = {};
+        
+        <span class="keyword">new</span> backend.PgSQLDatabase(options.db, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+            <span class="keyword">if</span> (err) {
+                logger.error(<span class="string">'pgOpen:'</span>, options, err);
+                <span class="keyword">return</span> callback ? callback(err) : <span class="literal">null</span>;
+            }
+            <span class="keyword">var</span> pg = <span class="keyword">this</span>;
+            pg.notify(<span class="function"><span class="keyword">function</span><span class="params">(msg)</span> {</span> logger.log(<span class="string">'notify:'</span>, msg) });</pre></div>
+        
+      
+        
+        <p>Execute initial statements to setup the environment, like pragmas</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">var</span> opts = Array.isArray(options.init) ? options.init : [];
+            async.forEachSeries(opts, <span class="function"><span class="keyword">function</span><span class="params">(sql, next)</span> {</span>
+                logger.debug(<span class="string">'pgOpen:'</span>, conninfo, sql);
+                pg.query(sql, next);
+            }, <span class="function"><span class="keyword">function</span><span class="params">(err2)</span> {</span>
+                logger.edebug(err2, <span class="string">'pgOpen:'</span>, options);
+                <span class="keyword">if</span> (callback) callback(err2, pg);
+            });
+        });
+    },</pre></div>
+        
+      
+        
+        <p>Always keep columns and primary keys in the cache</p>
+
+        
+          <div class='highlight'><pre>    pgCacheColumns: <span class="function"><span class="keyword">function</span><span class="params">(options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = <span class="literal">null</span>;
+        <span class="keyword">if</span> (!options) options = {};
+
+        <span class="keyword">var</span> pool = <span class="keyword">this</span>.getPool(options);
+        pool.get(<span class="function"><span class="keyword">function</span><span class="params">(err, client)</span> {</span>
+            <span class="keyword">if</span> (err) <span class="keyword">return</span> callback ? callback(err, []) : <span class="literal">null</span>;
+            
+            client.query(<span class="string">"SELECT c.table_name,c.column_name,LOWER(c.data_type) AS data_type,c.column_default,c.ordinal_position,c.is_nullable "</span> +
+                         <span class="string">"FROM information_schema.columns c,information_schema.tables t "</span> +
+                         <span class="string">"WHERE c.table_schema='public' AND c.table_name=t.table_name "</span> +
+                         <span class="string">"ORDER BY 5"</span>, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                pool.dbcolumns = {};
+                <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; rows.length; i++) {
+                    <span class="keyword">if</span> (!pool.dbcolumns[rows[i].table_name]) pool.dbcolumns[rows[i].table_name] = {};</pre></div>
+        
+      
+        
+        <p>Split type cast and ignore some functions in default value expressions</p>
+
+        
+          <div class='highlight'><pre>                    <span class="keyword">var</span> isserial = <span class="literal">false</span>, val = rows[i].column_default ? rows[i].column_default.replace(<span class="regexp">/'/g</span>,<span class="string">""</span>).split(<span class="string">"::"</span>)[<span class="number">0</span>] : <span class="literal">null</span>;
+                    <span class="keyword">if</span> (val &amp;&amp; val.indexOf(<span class="string">"nextval"</span>) == <span class="number">0</span>) val = <span class="literal">null</span>, isserial = <span class="literal">true</span>;
+                    <span class="keyword">if</span> (val &amp;&amp; val.indexOf(<span class="string">"ARRAY"</span>) == <span class="number">0</span>) val = val.replace(<span class="string">"ARRAY"</span>, <span class="string">""</span>).replace(<span class="string">"["</span>, <span class="string">"{"</span>).replace(<span class="string">"]"</span>, <span class="string">"}"</span>);
+                    <span class="keyword">var</span> type = <span class="string">""</span>;
+                    <span class="keyword">switch</span> (rows[i].data_type) {
+                    <span class="keyword">case</span> <span class="string">"array"</span>:
+                    <span class="keyword">case</span> <span class="string">"json"</span>:
+                        type = rows[i].data_type;
+                        <span class="keyword">break</span>;
+
+                    <span class="keyword">case</span> <span class="string">"numeric"</span>:
+                    <span class="keyword">case</span> <span class="string">"bigint"</span>:
+                    <span class="keyword">case</span> <span class="string">"real"</span>:
+                    <span class="keyword">case</span> <span class="string">"integer"</span>:
+                    <span class="keyword">case</span> <span class="string">"smallint"</span>:
+                    <span class="keyword">case</span> <span class="string">"double precision"</span>:
+                        type = <span class="string">"number"</span>;
+                        <span class="keyword">break</span>;
+
+                    <span class="keyword">case</span> <span class="string">"boolean"</span>:
+                        type = <span class="string">"bool"</span>;
+                        <span class="keyword">break</span>;
+
+                    <span class="keyword">case</span> <span class="string">"date"</span>:
+                    <span class="keyword">case</span> <span class="string">"time"</span>:
+                    <span class="keyword">case</span> <span class="string">"timestamp with time zone"</span>:
+                    <span class="keyword">case</span> <span class="string">"timestamp without time zone"</span>:
+                        type = <span class="string">"date"</span>;
+                        <span class="keyword">break</span>;
+                    }
+                    pool.dbcolumns[rows[i].table_name][rows[i].column_name] = { id: rows[i].ordinal_position, value: val, type: type, data_type: rows[i].data_type, isnull: rows[i].is_nullable == <span class="string">"YES"</span>, isserial: isserial };
+                }
+
+                client.query(<span class="string">"SELECT c.table_name,k.column_name,constraint_type "</span> +
+                             <span class="string">"FROM information_schema.table_constraints c,information_schema.key_column_usage k "</span>+
+                             <span class="string">"WHERE constraint_type IN ('PRIMARY KEY','UNIQUE') AND c.constraint_name=k.constraint_name"</span>, <span class="function"><span class="keyword">function</span><span class="params">(err, rows)</span> {</span>
+                    pool.dbkeys = {};
+                    pool.dbunique = {};
+                    <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; rows.length; i++) {
+                        <span class="keyword">var</span> col = pool.dbcolumns[rows[i].table_name][rows[i].column_name];
+                        <span class="keyword">switch</span> (rows[i].constraint_type) {
+                        <span class="keyword">case</span> <span class="string">"PRIMARY KEY"</span>:
+                            <span class="keyword">if</span> (!pool.dbkeys[rows[i].table_name]) pool.dbkeys[rows[i].table_name] = [];
+                            pool.dbkeys[rows[i].table_name].push(rows[i].column_name);
+                            <span class="keyword">if</span> (col) col.primary = <span class="literal">true</span>;
+                            <span class="keyword">break</span>;
+                            
+                        <span class="keyword">case</span> <span class="string">"UNIQUE"</span>:
+                            <span class="keyword">if</span> (!pool.dbunique[rows[i].table_name]) pool.dbunique[rows[i].table_name] = [];
+                            pool.dbunique[rows[i].table_name].push(rows[i].column_name);
+                            <span class="keyword">if</span> (col) col.unique = <span class="number">1</span>;
+                            <span class="keyword">break</span>;
+                        }
+                    }
+                    pool.free(client);
+                    <span class="keyword">if</span> (callback) callback(err);
+                });
+            });
+        });
+    },</pre></div>
+        
+      
+        
+        <p>Convert js array into db PostgreSQL array format: {..}</p>
+
+        
+          <div class='highlight'><pre>    pgValue: <span class="function"><span class="keyword">function</span><span class="params">(val, opts)</span> {</span>
+        <span class="function"><span class="keyword">function</span> <span class="title">toArray</span><span class="params">(v)</span> {</span>
+            <span class="keyword">return</span> <span class="string">'{'</span> + v.map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> Array.isArray(x) ? toArray(x) : <span class="keyword">typeof</span> x === <span class="string">'undefined'</span> || x === <span class="literal">null</span> ? <span class="string">'NULL'</span> : JSON.stringify(x);<span class="number">3</span> } ).join(<span class="string">','</span>) + <span class="string">'}'</span>;
+        }
+        <span class="keyword">switch</span> ((opts || {}).data_type || <span class="string">""</span>) {
+        <span class="keyword">case</span> <span class="string">"array"</span>:
+            <span class="keyword">if</span> (Buffer.isBuffer(val)) {
+                <span class="keyword">var</span> a = [];
+                <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; v.length; i++) a.push(v[i]);
+                val = a.join(<span class="string">','</span>);
+            } <span class="keyword">else</span>
+            <span class="keyword">if</span> (Array.isArray(val)) {
+                val = toArray(val);
+            }
+            <span class="keyword">if</span> (val &amp;&amp; val[<span class="number">0</span>] != <span class="string">"{"</span>) val = <span class="string">"{"</span> + v + <span class="string">"}"</span>;
+            <span class="keyword">break</span>;
+
+        <span class="keyword">default</span>:
+            <span class="keyword">if</span> (Buffer.isBuffer(val)) val = val.toJSON();
+            <span class="keyword">if</span> (Array.isArray(val)) val = String(val);
+        }
+        <span class="keyword">return</span> val;
+    },</pre></div>
+        
+      
+        
+        <p>Initialize local sqlite cache database by name, the db files are open in read only mode and are watched for changes,
+if new file got copied from the master, we reopen local database</p>
+
+        
+          <div class='highlight'><pre>    sqliteInitPool: <span class="function"><span class="keyword">function</span><span class="params">(options)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options.readonly == <span class="string">"undefined"</span>) options.readonly = <span class="literal">true</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options.temp_store == <span class="string">"undefined"</span>) options.temp_store = <span class="number">0</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options.cache_size == <span class="string">"undefined"</span>) options.cache_size = <span class="number">50000</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options.busy_timeout == <span class="string">"undefined"</span>) options.busy_timeout = -<span class="number">1</span>;
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options.read_uncommitted == <span class="string">"undefined"</span>) options.read_uncommitted = <span class="literal">true</span>;
+        
+        <span class="keyword">if</span> (!options.pool) options.pool = <span class="string">"sqlite"</span>;
+        options.file = path.join(options.path || core.path.spool, (options.db || name)  + <span class="string">".db"</span>);
+        <span class="keyword">return</span> <span class="keyword">this</span>.initPool(options, self.sqliteOpen, self.sqliteCacheColumns, self.sqliteValue);
+    },</pre></div>
+        
+      
+        
+        <p>Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
+with error as first argument and database object as second</p>
+
+        
+          <div class='highlight'><pre>    sqliteOpen: <span class="function"><span class="keyword">function</span><span class="params">(options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = <span class="literal">null</span>;
+        <span class="keyword">if</span> (!options) options = {};
+
+        <span class="keyword">new</span> backend.SQLiteDatabase(options.file, options.readonly ? backend.OPEN_READONLY : <span class="number">0</span>, <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+            <span class="keyword">if</span> (err) {</pre></div>
+        
+      
+        
+        <p>Do not report errors about not existing databases</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">if</span> (err.code != <span class="string">"SQLITE_CANTOPEN"</span> || !options.silent) logger.error(<span class="string">'sqliteOpen'</span>, options.file, err);
+                <span class="keyword">return</span> callback ? callback(err) : <span class="literal">null</span>;
+            }
+            <span class="keyword">var</span> db = <span class="keyword">this</span>;</pre></div>
+        
+      
+        
+        <p>Execute initial statements to setup the environment, like pragmas</p>
+
+        
+          <div class='highlight'><pre>            <span class="keyword">var</span> opts = [];
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> options.cache_size != <span class="string">"undefined"</span>) opts.push(<span class="string">"PRAGMA cache_size=-"</span> + options.cache_size);
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> options.temp_store != <span class="string">"undefined"</span>) opts.push(<span class="string">"PRAGMA temp_store="</span> + options.temp_store);
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> options.journal_mode != <span class="string">"undefined"</span>) opts.push(<span class="string">"PRAGMA journal_mode="</span> + options.journal_mode);
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> options.locking_mode != <span class="string">"undefined"</span>) opts.push(<span class="string">"PRAGMA locking_mode="</span> + options.locking_mode);
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> options.synchronous != <span class="string">"undefined"</span>) opts.push(<span class="string">"PRAGMA synchronous="</span> + options.synchronous);
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> options.read_uncommitted != <span class="string">"undefined"</span>) opts.push(<span class="string">"PRAGMA read_uncommitted="</span> + options.read_uncommitted);
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> options.busy_timeout != <span class="string">"undefined"</span>) opts.push(<span class="string">"SELECT busy_timeout("</span> + options.busy_timeout + <span class="string">")"</span>);
+            <span class="keyword">if</span> (Array.isArray(options.init)) opts = opts.concat(options.init);
+            async.forEachSeries(opts, <span class="function"><span class="keyword">function</span><span class="params">(sql, next)</span> {</span>
+                logger.debug(<span class="string">'sqliteOpen:'</span>, options.file, sql);
+                db.exec(sql, next);
+            }, <span class="function"><span class="keyword">function</span><span class="params">(err2)</span> {</span>
+                logger.edebug(err2, <span class="string">'sqliteOpen:'</span>, <span class="string">'init'</span>, options.file);
+                <span class="keyword">if</span> (callback) callback(err2, db);
+            });
+        });
+    },</pre></div>
+        
+      
+        
+        <p>Always keep columns and primary keys in the cache for the pool</p>
+
+        
+          <div class='highlight'><pre>    sqliteCacheColumns: <span class="function"><span class="keyword">function</span><span class="params">(options, callback)</span> {</span>
+        <span class="keyword">if</span> (<span class="keyword">typeof</span> options == <span class="string">"function"</span>) callback = options, options = <span class="literal">null</span>;
+        <span class="keyword">if</span> (!options) options = {};
+        
+        <span class="keyword">var</span> pool = <span class="keyword">this</span>.getPool(options);
+        pool.get(<span class="function"><span class="keyword">function</span><span class="params">(err, client)</span> {</span>
+            <span class="keyword">if</span> (err) <span class="keyword">return</span> callback ? callback(err, []) : <span class="literal">null</span>;
+            client.query(<span class="string">"SELECT name FROM sqlite_master WHERE type='table'"</span>, <span class="function"><span class="keyword">function</span><span class="params">(err2, tables)</span> {</span>
+                <span class="keyword">if</span> (err2) <span class="keyword">return</span> callback ? callback(err2) : <span class="literal">null</span>;
+                pool.dbcolumns = {};
+                pool.dbkeys = {};
+                pool.dbunique = {};
+                async.forEachSeries(tables, <span class="function"><span class="keyword">function</span><span class="params">(table, next)</span> {</span>
+                    client.query(<span class="string">"PRAGMA table_info("</span> + table.name + <span class="string">")"</span>, <span class="function"><span class="keyword">function</span><span class="params">(err3, rows)</span> {</span>
+                        <span class="keyword">if</span> (err3) <span class="keyword">return</span> next(err3);
+                        <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; rows.length; i++) {
+                            <span class="keyword">if</span> (!pool.dbcolumns[table.name]) pool.dbcolumns[table.name] = {};
+                            <span class="keyword">if</span> (!pool.dbkeys[table.name]) pool.dbkeys[table.name] = [];</pre></div>
+        
+      
+        
+        <p>Split type cast and ignore some functions in default value expressions</p>
+
+        
+          <div class='highlight'><pre>                            pool.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, value: rows[i].dflt_value, type: rows[i].type.toLowerCase(), data_type: rows[i].type, isnull: !rows[i].notnull, primary: rows[i].pk };
+                            <span class="keyword">if</span> (rows[i].pk) pool.dbkeys[table.name].push(rows[i].name);
+                        }
+                        client.query(<span class="string">"PRAGMA index_list("</span> + table.name + <span class="string">")"</span>, <span class="function"><span class="keyword">function</span><span class="params">(err4, indexes)</span> {</span>
+                            async.forEachSeries(indexes, <span class="function"><span class="keyword">function</span><span class="params">(idx, next2)</span> {</span>
+                                <span class="keyword">if</span> (!idx.unique) <span class="keyword">return</span> next2();
+                                client.query(<span class="string">"PRAGMA index_info("</span> + idx.name + <span class="string">")"</span>, <span class="function"><span class="keyword">function</span><span class="params">(err5, cols)</span> {</span>
+                                    cols.forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span>
+                                        <span class="keyword">var</span> col = pool.dbcolumns[table.name][x.name];
+                                        <span class="keyword">if</span> (!col || col.primary) <span class="keyword">return</span>; 
+                                        col.unique = <span class="number">1</span>;
+                                        <span class="keyword">if</span> (!pool.dbunique[table.name]) pool.dbunique[table.name] = [];
+                                        pool.dbunique[table.name].push(x.name);
+                                    });
+                                    next2();
+                                });
+                            }, <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>
+                                next();
+                            });
+                        });
+                    });
+                }, <span class="function"><span class="keyword">function</span><span class="params">(err4)</span> {</span>
+                    pool.free(client);
+                    <span class="keyword">if</span> (callback) callback(err4);
+                });
+            });
+        });
+    },</pre></div>
+        
+      
+        
+        <p>Convert into appropriate Sqlite format</p>
+
+        
+          <div class='highlight'><pre>    sqliteValue: <span class="function"><span class="keyword">function</span><span class="params">(val, opts)</span> {</span></pre></div>
+        
+      
+        
+        <p>Dates must be converted into seconds</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">if</span> (<span class="keyword">typeof</span> val == <span class="string">"object"</span> &amp;&amp; val.getTime) <span class="keyword">return</span> Math.round(val.getTime()/<span class="number">1000</span>);
+        <span class="keyword">return</span> val;
+    },</pre></div>
+        
+      
+        
+        <p>DynamoDB pool</p>
+
+        
+          <div class='highlight'><pre>    ddbInitPool: <span class="function"><span class="keyword">function</span><span class="params">(options)</span> {</span>
+        <span class="keyword">var</span> self = <span class="keyword">this</span>;
+        <span class="keyword">if</span> (!options) options = {};
+        <span class="keyword">if</span> (!options.pool) options.pool = <span class="string">"ddb"</span>;</pre></div>
+        
+      
+        
+        <p>Redefine pool but implement the same interface</p>
+
+        
+          <div class='highlight'><pre>        <span class="keyword">var</span> pool = { name: options.pool, db: options.db, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: <span class="number">0</span>, hits: <span class="number">0</span>, misses: <span class="number">0</span>, puts: <span class="number">0</span>, dels: <span class="number">0</span>, errs: <span class="number">0</span> } };
+        <span class="keyword">this</span>.dbpool[options.pool] = pool;
+        pool.last_evaluated_key = <span class="literal">null</span>;
+        pool.affected_rows = <span class="number">0</span>;
+        pool.inserted_oid = <span class="number">0</span>;
+        pool.get = <span class="function"><span class="keyword">function</span><span class="params">(callback)</span> {</span> callback(<span class="literal">null</span>, <span class="keyword">this</span>); }
+        pool.free = <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>}
+        pool.watch = <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span>}
+        pool.value = <span class="function"><span class="keyword">function</span><span class="params">(v)</span> {</span> <span class="keyword">return</span> v }
+
+        pool.cacheColumns = <span class="function"><span class="keyword">function</span><span class="params">(opts, callback)</span> {</span>
+            <span class="keyword">if</span> (<span class="keyword">typeof</span> opts == <span class="string">"function"</span>) callback = opts, opts = <span class="literal">null</span>;
+            <span class="keyword">var</span> pool = <span class="keyword">this</span>;
+            <span class="keyword">var</span> options = { db: pool.db };
+            
+            aws.ddbListTables(options, <span class="function"><span class="keyword">function</span><span class="params">(err, rc)</span> {</span>
+                <span class="keyword">if</span> (err) <span class="keyword">return</span> callback ? callback(err) : <span class="literal">null</span>;
+                pool.dbcolumns = {};
+                pool.dbkeys = {};
+                pool.dbunique = {};
+                async.forEachSeries(rc.TableNames, <span class="function"><span class="keyword">function</span><span class="params">(table, next)</span> {</span>
+                    aws.ddbDescribeTable(table, options, <span class="function"><span class="keyword">function</span><span class="params">(err, rc)</span> {</span>
+                        <span class="keyword">if</span> (err) <span class="keyword">return</span> next(err);
+                        rc.Table.AttributeDefinitions.forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span>
+                            <span class="keyword">if</span> (!pool.dbcolumns[table]) pool.dbcolumns[table] = {};
+                            <span class="keyword">var</span> type = x.AttributeType == <span class="string">"N"</span> ? <span class="string">"number"</span> : x.AttributeType.length == <span class="number">2</span> ? <span class="string">"array"</span> : <span class="string">"text"</span>;
+                            pool.dbcolumns[table][x.AttributeName] = { type: type, data_type: x.AttributeType };
+                        });
+                        rc.Table.KeySchema.forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span>
+                            <span class="keyword">if</span> (!pool.dbkeys[table]) pool.dbkeys[table] = [];
+                            pool.dbkeys[table].push(x.AttributeName);
+                            pool.dbcolumns[table][x.AttributeName].primary = <span class="number">1</span>;
+                        });
+                        (rc.Table.LocalSecondaryIndexes || []).forEach(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span>
+                            x.KeySchema.forEach(<span class="function"><span class="keyword">function</span><span class="params">(y)</span> {</span>
+                                <span class="keyword">if</span> (!pool.dbunique[table]) pool.dbunique[table] = [];
+                                pool.dbunique[table].push(y.AttributeName);
+                                pool.dbcolumns[table][y.AttributeName].index = <span class="number">1</span>;
+                            });
+                        });
+                        next();
+                    });
+                }, <span class="function"><span class="keyword">function</span><span class="params">(err2)</span> {</span>
+                    <span class="keyword">if</span> (callback) callback(err2);
+                });
+            });
+        }</pre></div>
+        
+      
+        
+        <p>Pass all parametetrs directly to the execute function</p>
+
+        
+          <div class='highlight'><pre>        pool.prepare = <span class="function"><span class="keyword">function</span><span class="params">(op, table, obj, opts)</span> {</span>
+            <span class="keyword">return</span> { text: table, op: op, values: obj };
+        }</pre></div>
+        
+      
+        
+        <p>Simulate query as in SQL driver but performing AWS call, text will be a table name and values will be request options</p>
+
+        
+          <div class='highlight'><pre>        pool.query = <span class="function"><span class="keyword">function</span><span class="params">(client, req, opts, callback)</span> {</span>
+            logger.log(<span class="string">"query:"</span>, req, opts)
+            <span class="keyword">var</span> pool = <span class="keyword">this</span>;
+            <span class="keyword">var</span> table = req.text;
+            <span class="keyword">var</span> obj = req.values;
+            <span class="keyword">var</span> options = core.extendObj(opts, <span class="string">"db"</span>, pool.db);
+            pool.last_evaluated_key = <span class="string">""</span>;
+            
+            <span class="keyword">switch</span>(req.op) {
+            <span class="keyword">case</span> <span class="string">"new"</span>:
+                <span class="keyword">var</span> attrs = obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.primary || x.hashindex }).
+                                map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> [ x.name, x.type == <span class="string">"int"</span> || x.type == <span class="string">"real"</span> ? <span class="string">"N"</span> : <span class="string">"S"</span> ] }).
+                                reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y[<span class="number">0</span>]] = y[<span class="number">1</span>]; <span class="keyword">return</span> x }, {});
+                <span class="keyword">var</span> keys = obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(x, i)</span> {</span> <span class="keyword">return</span> x.primary &amp;&amp; i &lt; <span class="number">2</span> }).
+                               map(<span class="function"><span class="keyword">function</span><span class="params">(x, i)</span> {</span> <span class="keyword">return</span> [ x.name, i ? <span class="string">'RANGE'</span> : <span class="string">'HASH'</span> ] }).
+                               reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y[<span class="number">0</span>]] = y[<span class="number">1</span>]; <span class="keyword">return</span> x }, {});
+                <span class="keyword">var</span> idxs = obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x.hashindex }).
+                               map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> [x.name, self.newObj(obj.filter(<span class="function"><span class="keyword">function</span><span class="params">(y)</span> {</span> <span class="keyword">return</span> y.primary })[<span class="number">0</span>].name, <span class="string">'HASH'</span>, x.name, <span class="string">'RANGE'</span>) ] }).
+                               reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y[<span class="number">0</span>]] = y[<span class="number">1</span>]; <span class="keyword">return</span> x }, {});
+                aws.ddbCreateTable(table, attrs, keys, idxs, options, <span class="function"><span class="keyword">function</span><span class="params">(err, item)</span> {</span>
+                    callback(err, item ? [item.Item] : []);
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"upgrade"</span>:
+                callback();
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"get"</span>:
+                <span class="keyword">var</span> keys = (pool.dbkeys[table] || []).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> [ x, obj[x] ] }).reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y[<span class="number">0</span>]] = y[<span class="number">1</span>]; <span class="keyword">return</span> x }, {});
+                aws.ddbGetItem(table, keys, options, <span class="function"><span class="keyword">function</span><span class="params">(err, item)</span> {</span>
+                    callback(err, item.Item ? [item.Item] : []);
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"select"</span>:</pre></div>
+        
+      
+        
+        <p>Only primary key columns are allowed</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">var</span> keys = (options.keys || pool.dbkeys[table] || []).filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> other.indexOf(x) == -<span class="number">1</span> }).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> [ x, obj[x] ] }).reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y[<span class="number">0</span>]] = y[<span class="number">1</span>]; <span class="keyword">return</span> x }, {});</pre></div>
+        
+      
+        
+        <p>If we have other key columns we have to use custom filter</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">var</span> other = (options.keys || []).filter(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> pool.dbkeys[table].indexOf(x) == -<span class="number">1</span> });
+                <span class="keyword">var</span> filter = <span class="function"><span class="keyword">function</span><span class="params">(items)</span> {</span> 
+                    <span class="keyword">if</span> (other.length &gt; <span class="number">0</span>) {
+                        <span class="keyword">if</span> (!options.ops) options.ops = {};
+                        <span class="keyword">if</span> (!options.type) options.type = {};</pre></div>
+        
+      
+        
+        <p>Keep rows which satisfy all conditions</p>
+
+        
+          <div class='highlight'><pre>                        items = items.filter(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span>
+                            <span class="keyword">return</span> other.every(<span class="function"><span class="keyword">function</span><span class="params">(k)</span> {</span>
+                                <span class="keyword">return</span> core.isTrue(row[k], obj[k], options.ops[k], options.type[k]);
+                            });
+                        });
+                    }
+                    <span class="keyword">return</span> options.filter ? items.filter(<span class="function"><span class="keyword">function</span><span class="params">(row)</span> {</span> <span class="keyword">return</span> options.filter(row, options); }) : items; 
+                }
+                aws.ddbQueryTable(table, keys, options, <span class="function"><span class="keyword">function</span><span class="params">(err, item)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> callback(err, []);
+                    <span class="keyword">var</span> count = options.count || <span class="number">0</span>;
+                    <span class="keyword">var</span> rows = filter(item.Items);
+                    pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : <span class="string">""</span>;
+                    count -= rows.length;</pre></div>
+        
+      
+        
+        <p>Keep retrieving items until we reach the end or our limit</p>
+
+        
+          <div class='highlight'><pre>                    async.until( 
+                        <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span> <span class="keyword">return</span> pool.last_evaluated_key == <span class="string">""</span> || count &lt;= <span class="number">0</span>; }, 
+                        <span class="function"><span class="keyword">function</span><span class="params">(next)</span> {</span>
+                            options.start = pool.last_evaluated_key;
+                            aws.ddbQueryTable(table, keys, options, <span class="function"><span class="keyword">function</span><span class="params">(err, item)</span> {</span>
+                                <span class="keyword">var</span> items = filter(item.Items);
+                                rows.push.apply(rows, items);
+                                pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : <span class="string">""</span>;
+                                count -= items.length;
+                                next(err);
+                            });                            
+                        },
+                        <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                            callback(err, rows);
+                        });
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"list"</span>:
+                <span class="keyword">var</span> req = {};
+                req[table] = obj.map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> { keys: x, select: options.select, consistent: options.consistent } });
+                aws.ddbBatchGetItem(req, options, <span class="function"><span class="keyword">function</span><span class="params">(err, item)</span> {</span>
+                    <span class="keyword">if</span> (err) <span class="keyword">return</span> callback(err, []);</pre></div>
+        
+      
+        
+        <p>Keep retrieving items until we get all items</p>
+
+        
+          <div class='highlight'><pre>                    <span class="keyword">var</span> moreKeys = item.UnprocessedKeys || <span class="literal">null</span>;
+                    <span class="keyword">var</span> items = item.Responses[table] || [];
+                    async.until(
+                        <span class="function"><span class="keyword">function</span><span class="params">()</span> {</span> <span class="keyword">return</span> moreKeys; },
+                        <span class="function"><span class="keyword">function</span><span class="params">(next)</span> {</span>
+                            options.RequestItems = moreKeys;
+                            aws.ddbBatchGetItem({}, options, <span class="function"><span class="keyword">function</span><span class="params">(err, item)</span> {</span>
+                                items.push.apply(items, item.Responses[table] || []);
+                                next(err);
+                            });                            
+                        },
+                        <span class="function"><span class="keyword">function</span><span class="params">(err)</span> {</span>
+                            callback(err, items);
+                        });
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"add"</span>:</pre></div>
+        
+      
+        
+        <p>Add only listed columns if there is a .columns property specified</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">var</span> o = core.cloneObj(obj, { _skip_cb: <span class="function"><span class="keyword">function</span><span class="params">(n,v)</span> {</span> <span class="keyword">return</span> n[<span class="number">0</span>] == <span class="string">'_'</span> || <span class="keyword">typeof</span> v == <span class="string">"undefined"</span> || v == <span class="literal">null</span> || v === <span class="string">""</span> || (options.columns &amp;&amp; !(n <span class="keyword">in</span> options.columns)); } });
+                options.expected = (pool.dbkeys[table] || []).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> x }).reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y] = <span class="literal">null</span>; <span class="keyword">return</span> x }, {});
+                aws.ddbPutItem(table, o, options, <span class="function"><span class="keyword">function</span><span class="params">(err, rc)</span> {</span>
+                    callback(err, []);
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"put"</span>:</pre></div>
+        
+      
+        
+        <p>Add/put only listed columns if there is a .columns property specified</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">var</span> o = core.cloneObj(obj, { _skip_cb: <span class="function"><span class="keyword">function</span><span class="params">(n,v)</span> {</span> <span class="keyword">return</span> n[<span class="number">0</span>] == <span class="string">'_'</span> || <span class="keyword">typeof</span> v == <span class="string">"undefined"</span> || v == <span class="literal">null</span> || v === <span class="string">""</span> || (options.columns &amp;&amp; !(n <span class="keyword">in</span> options.columns)); } });
+                aws.ddbPutItem(table, o, options, <span class="function"><span class="keyword">function</span><span class="params">(err, rc)</span> {</span>
+                    callback(err, []);
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">case</span> <span class="string">"update"</span>:
+                <span class="keyword">var</span> keys = (pool.dbkeys[table] || []).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> [ x, obj[x] ] }).reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y[<span class="number">0</span>]] = y[<span class="number">1</span>]; <span class="keyword">return</span> x }, {});</pre></div>
+        
+      
+        
+        <p>Skip special columns, primary key columns. If we have specific list of allowed columns only keep those.
+Keep nulls and empty strings, it means we have to delete this property.</p>
+
+        
+          <div class='highlight'><pre>                <span class="keyword">var</span> o = core.cloneObj(obj, { _skip_cb: <span class="function"><span class="keyword">function</span><span class="params">(n,v)</span> {</span> <span class="keyword">return</span> n[<span class="number">0</span>] == <span class="string">'_'</span> || <span class="keyword">typeof</span> v == <span class="string">"undefined"</span> || keys[n] || (options.columns &amp;&amp; !(n <span class="keyword">in</span> options.columns)); },
+                                             _empty_to_null: <span class="number">1</span> });
+                options.expected = keys;
+                aws.ddbUpdateItem(table, keys, o, options, <span class="function"><span class="keyword">function</span><span class="params">(err, rc)</span> {</span>
+                    callback(err, []);
+                });
+                <span class="keyword">break</span>;
+
+            <span class="keyword">case</span> <span class="string">"del"</span>:
+                <span class="keyword">var</span> keys = (pool.dbkeys[table] || []).map(<span class="function"><span class="keyword">function</span><span class="params">(x)</span> {</span> <span class="keyword">return</span> [ x, obj[x] ] }).reduce(<span class="function"><span class="keyword">function</span><span class="params">(x,y)</span> {</span> x[y[<span class="number">0</span>]] = y[<span class="number">1</span>]; <span class="keyword">return</span> x }, {});
+                aws.ddbDeleteItem(table, keys, options, <span class="function"><span class="keyword">function</span><span class="params">(err, rc)</span> {</span>
+                    callback(err, []);
+                });
+                <span class="keyword">break</span>;
+                
+            <span class="keyword">default</span>:
+                callback(<span class="keyword">new</span> Error(<span class="string">"invalid op"</span>))
+            }
+        }
+        <span class="keyword">return</span> pool;
+    },
+
+}
+
+module.exports = db;
+core.addContext(<span class="string">'db'</span>, db);</pre></div>
+        
+      
+      <div class="fleur">h</div>
+    </div>
+  </div>
+</body>
+</html>
