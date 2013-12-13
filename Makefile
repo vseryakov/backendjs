@@ -3,7 +3,7 @@
 #  Sep 2013
 #
 
-all: 
+all:
 	bin/rc.backend build-backend
 
 run:
@@ -17,4 +17,6 @@ repl:
 
 clean:
 	bin/rc.backend clean-backend
-	
+
+doc:
+	docco *.js
