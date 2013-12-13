@@ -142,7 +142,7 @@ var server = {
             try {
                 core.watchLogs();
             } catch(e) {
-                logger.errro('monitor:', e);
+                logger.error('monitor:', e);
             }
         }, 300000);
     },
