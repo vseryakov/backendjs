@@ -1535,7 +1535,7 @@ var core = {
     // Deep copy of an object,
     // - filter is an object to skip properties that defined in it by name, 
     //   if filter's value is boolean, skip, if integer then skip if greater in length for string properties
-    //   - _skip_null tells to skip all null properties
+    //   - _skip_null - to skip all null properties
     //   - _empty_to_null - convert empty strings into null objects
     //   - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
     // - props can be used to add additional properties to the new object

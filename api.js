@@ -84,6 +84,16 @@ var api = {
                     { name: "state" },
                     { name: "mtime", type: "int" }],
                      
+       // All accumulated counters for accounts
+       counter: [ { name: "id", primary: 1 },                        // account_id
+                  { name: "likes", type: "int", value: 0, pub: 1 },
+                  { name: "liked", type: "int", value: 0, pub: 1 },
+                  { name: "dislikes", type: "int", value: 0, pub: 1 },
+                  { name: "disliked", type: "int", value: 0, pub: 1 },
+                  { name: "followers", type: "int", value: 0, pub: 1 },
+                  { name: "followed", type: "int", value: 0, pub: 1 },
+                  { name: "mtime", type: "int" }],
+                                  
        // Keep historic data about an account, data can be JSON depending on the type
        history: [{ name: "id", primary: 1 },
                  { name: "mtime", type: "int", primary: 1 },
@@ -176,7 +186,10 @@ var api = {
         this.initAccountAPI();
         this.initConnectionAPI();
         this.initLocationAPI();
-        
+        this.initHistoryAPI();
+        this.initCounterAPI();
+        this.initIconAPI();
+
         // Provisioning access to the database
         this.initBackendAPI();
 
@@ -297,10 +310,9 @@ var api = {
         var now = core.now();
         var db = core.context.db;
         
-        this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res) {
-            logger.debug('account:', req.params[0], req.account, req.query);
+        this.app.all(/^\/account\/([a-z]+)$/, function(req, res) {
+            logger.debug(req.path, req.account.id, req.query);
             
-            var op = req.params[0].split('/').pop();
             switch (req.params[0]) {
             case "get":
                 db.get("account", { id: req.account.id }, { pool: self.accountPool }, function(err, rows) {
@@ -312,7 +324,7 @@ var api = {
 
             case "list":
                 if (!req.query.id) return self.sendReply(res, 400, "id is required");
-                self.listAccounts(req, req.query, { select: req.query._columns }, function(err, rows) {
+                self.listAccounts(req, req.query, { select: req.query._select }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     res.json(rows);
                 });
@@ -320,11 +332,11 @@ var api = {
                 
             case "search":
                 // Search is limited to specific columns only
-                db.select("account", req.query, { pool: self.accountPool, select: req.query._columns }, function(err, rows) {
+                db.select("account", req.query, { pool: self.accountPool, select: req.query._select }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     rows.forEach(function(row) {
                         self.prepareAccount(row);
-                        db.publicPrepare(rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
+                        db.publicPrepare('account', rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
                     });
                     res.json(rows);
                 });
@@ -347,6 +359,8 @@ var api = {
                             db.del("auth", req.query, { pool: self.pool });
                             return self.sendReply(res, err);
                         }
+                        // Even if it fails here it will be created on first usage
+                        db.add("counter", { id: req.query.id, mtime: now }, { pool: self.historyPool });
                         res.json(self.prepareAccount(req.query));
                     });
                 });
@@ -365,31 +379,48 @@ var api = {
                 break;
 
             case "del":
-                db.del("auth", { email: req.account.email } , { pool: self.accountPool }, function(err) {
+                db.del("auth", { email: req.account.email }, { pool: self.accountPool, cached: 1 }, function(err) {
                     self.sendReply(res, err);
-                    core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
-                    db.del("account", { id: req.account.id } , { pool: self.accountPool });
+                    db.del("account", { id: req.account.id }, { pool: self.accountPool });
                 });
                 break;
                 
-            case "secret/put":
+            case "secret":
                 if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-                db.put("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool }, function(err) {
+                db.put("auth", { email: req.account.email, secret: req.query.secret }, { pool: self.accountPool, cached: 1 }, function(err) {
                     self.sendReply(res, err);
-                    core.ipcDelCache("auth:" + req.account.email);
                     if (err) return;
                     // Keep history of all changes
-                    if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.historyPool });
+                    if (req.query._history) {
+                        db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) }, { pool: self.historyPool });
+                    }
                 });
                 break;
-
-            case "icon/del":
-            case "icon/put":
+            }
+        });
+    },
+    
+    // Connections management
+    initIconAPI: function() {
+        var self = this;
+        var now = core.now();
+        var db = core.context.db;
+            
+        this.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
+            logger.debug(req.path, req.account.id, req.query);
+                
+            switch (req.params[0]) {
+            case "get":
+                self.getIcon(req, res, req.account.id, { prefix: 'account', type: req.query.type });
+                break;
+                
+            case "del":
+            case "put":
                 // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
                 // The type can be the whole url of the icon, we need to parse it and extract only type
                 var type = self.getIconType(req.account.id, req.body.type || req.query.type);
-                self[op + 'Icon'](req, req.account.id, { prefix: 'account', type: type }, function(err) {
+                self[req.params[0] + 'Icon'](req, req.account.id, { prefix: 'account', type: type }, function(err) {
                     if (err) return self.sendReply(res, err);
                     
                     // Get current account icons
@@ -398,8 +429,8 @@ var api = {
                         
                         // Add/remove given type from the list of icons
                         rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + type);
-                        if (op == 'del') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
-                        
+                        if (req.params[0] == 'del') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
+                            
                         var obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[0].icons };
                         db.update("account", obj, { pool: self.accountPool }, function(err) {
                             if (err) return self.sendReply(res, err);
@@ -408,11 +439,60 @@ var api = {
                     });
                 });
                 break;
-                
-            case "history/add":
+            }
+        });
+    },
+        
+    // Connections management
+    initHistoryAPI: function() {
+        var self = this;
+        var now = core.now();
+        var db = core.context.db;
+
+        this.app.all(/^\/history\/([a-z]+)$/, function(req, res) {
+            logger.debug('history:', req.params[0], req.account, req.query);
+
+            switch (req.params[0]) {
+            case "add":
                 self.sendReply(res);
+                req.query.id = req.account.id;
                 req.query.mtime = now();
                 db.add("history", req.query, { pool: self.historyPool });
+                break;
+                    
+            case "get":
+                db.select("history", { id: req.account.id, type: req.query.type }, { pool: self.historyPool }, function(err, rows) {
+                    res.json(rows);
+                });
+                break;
+            }
+        });
+    },
+
+    // Counters management
+    initCounterAPI: function() {
+        var self = this;
+        var now = core.now();
+        var db = core.context.db;
+            
+        this.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
+            logger.debug(req.path, req.account.id, req.query);
+            
+            switch (req.params[0]) {
+            case "add":
+            case "put":
+            case "incr":
+                self.sendReply(res);
+                req.query.mtime = now();
+                req.query.id = req.account.id;
+                db[req.params[0]]("counter", req.query, { pool: self.historyPool, cached: 1 });
+                break;
+                
+            case "get":
+                db.getCached("counter", { id: req.query.id }, { pool: self.historyPool }, function(err, rows) {
+                    db.publicPrepare('counter', rows[0], { columns: self.tables.counter });
+                    res.json(rows[0]);
+                });
                 break;
                 
             default:
@@ -422,13 +502,13 @@ var api = {
     },
 
     // Connections management
-    initConnectionAPI: function() {
+    initConnectionAPI : function() {
         var self = this;
         var now = core.now();
         var db = core.context.db;
         
         this.app.all(/^\/connection\/([a-z]+)$/, function(req, res) {
-            logger.debug('connection:', req.params[0], req.account, req.query);
+            logger.debug(req.path, req.account.id, req.query);
             
             switch (req.params[0]) {
             case "add":
@@ -441,28 +521,51 @@ var api = {
                 req.query.id = req.account.id;
                 req.query.type = type + ":" + id;
                 req.query.mtime = now;
-                db[op]("connection", req.query, { pool: self.pool }, function(err) {
+                db[req.params[0]]("connection", req.query, { pool: self.pool }, function(err) {
                     if (err) return self.sendReply(res, err);
                     // Reverse reference to the same connection
                     req.query.id = id;
                     req.query.type = type + ":"+ req.account.id;
-                    db[op]("reference", req.query, { pool: self.pool }, function(err) {
+                    db[req.params[0]]("reference", req.query, { pool: self.pool }, function(err) {
                         if (err) db.del("connection", { id: req.account.id, type: type + ":" + id }, { pool: self.pool });
                         self.sendReply(res, err);
                     });
                 });
-                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: id, ctype: type }, { pool: self.historyPool });
+                
+                // Update history on connections update
+                if (req.query._history) {
+                    db.add("history", { id: req.account.id, type: req.path, mtime: now, cid: id, ctype: type }, { pool: self.historyPool });
+                }
+
+                // Update accumulated counter if we support this column and do it automatically
+                var col =  self.tables.counter[type];
+                if (col && col.incr) {
+                    db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type, 1), { pool: self.historyPool, cached: 1 });
+                    db.incr("counter", core.newObj('id', req.query.id, 'mtime', now, type, 1), { pool: self.historyPool, cached: 1});
+                }
                 break;
 
             case "del":
-                if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
-                db.del("connection", { id: req.account.id, type: req.query.type + ":" + req.query.id }, { pool: self.pool }, function(err) {
+                var id = req.query.id, type = req.query.type;
+                if (!id || !type) return self.sendReply(res, 400, "id and type are required");
+                db.del("connection", { id: req.account.id, type: type + ":" + id }, { pool: self.pool }, function(err) {
                     if (err) return self.sendReply(res, err);
-                    db.del("reference", { id: req.query.id, type: req.query.type + ":" + req.account.id }, { pool: self.pool }, function(err) {
+                    db.del("reference", { id: id, type: type + ":" + req.account.id }, { pool: self.pool }, function(err) {
                         self.sendReply(res, err);
                     });
                 });
-                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: req.query.id, ctype: req.query.type }, { pool: self.historyPool });
+                
+                // Update history on connections update
+                if (req.query._history) {
+                    db.add("history", { id: req.account.id, type: req.path, mtime: now, cid: id, ctype: type }, { pool: self.historyPool });
+                }
+                
+                // Update accumulated counter if we support this column and do it automatically
+                var col =  self.tables.counter[req.query.type];
+                if (col && col.incr) {
+                    db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type, -1), { pool: self.historyPool, cached: 1 });
+                    db.incr("counter", core.newObj('id', req.query.id, 'mtime', now, type, 1), { pool: self.historyPool, cached: 1 });
+                }
                 break;
 
             case "list":
@@ -470,14 +573,14 @@ var api = {
                 var table = req.params[0] == "list" ? "connection" : "reference";
                 // Only one connection record to be returned if id and type specified
                 if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
-                db.select(table, { id: req.account.id, type: req.query.type }, { pool: self.pool, ops: { type: "begins_with" }, select: req.query._columns }, function(err, rows) {
+                db.select(table, { id: req.account.id, type: req.query.type }, { pool: self.pool, ops: { type: "begins_with" }, select: req.query._select }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     // Collect account ids
                     rows = rows.map(function(row) { return row.type.split(":")[1]; });
                     if (!req.query._details) return res.json(rows);
                     
                     // Get all account records for the id list
-                    self.listAccounts(req, rows, { select: req.query._columns }, function(err, rows) {
+                    self.listAccounts(req, rows, { select: req.query._select }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         res.json(rows);
                     });
@@ -495,21 +598,22 @@ var api = {
         var db = core.context.db;
         
         this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
-            logger.debug('location:', req.params[0], req.account, req.query);
+            logger.debug(req.path, req.account.id, req.query);
             
             switch (req.params[0]) {
             case "put":
-                if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
+                var latitude = req.query.latitude, longitude = req.query.longitude;
+                if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 // Get current location
                 db.get("account", { id: req.account.id }, { pool: self.pool, select: 'latitude,longitude' }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     var row = rows[0];
                     // Skip if within minimal distance
-                    var distance = backend.geoDistance(row.latitude, row.longitude, req.query.latitude, req.query.longitude);
+                    var distance = backend.geoDistance(row.latitude, row.longitude, latitude, longitude);
                     logger.debug(req.params[0], req.account, req.query, 'distance:', distance);
                     if (distance < self.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + self.minDistance);
                     
-                    var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: req.query.latitude, longitude: req.query.longitude, location: req.query.location };
+                    var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
                     db.update("account", obj, { pool: self.pool }, function(err) {
                         if (err) return self.sendReply(res, err);
                         res.json(self.prepareAccount(obj));
@@ -520,30 +624,33 @@ var api = {
                         db.del("location", geo, { pool: self.pool });
                         
                         // Insert new location
-                        geo = self.prepareGeohash(req.query.latitude, req.query.longitude, req.account);
+                        geo = self.prepareGeohash(latitude, longitude, req.account);
                         geo.mtime = now;
                         geo.id = req.account.id;
                         db.put("location", geo, { pool: self.pool });
                     });
                         
                     // Keep history of all changes
-                    if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, lat: obj.latitude, lon: obj.longitude }, { pool: self.historyPool });
+                    if (req.query._history) {
+                        db.add("history", { id: req.account.id, type: req.path, mtime: now, lat: obj.latitude, lon: obj.longitude }, { pool: self.historyPool });
+                    }
                 });
                 break;
                 
             case "search":
+                var latitude = req.query.latitude, longitude = req.query.longitude;
                 // Perform location search based on hash key that covers the whole region for our configured max distance
-                if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
+                if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 // Limit the distance within our configured range
                 req.query.distance = core.toNumber(req.query.distance, 0, self.minDistance, self.minDistance, self.maxDistance);
                 // Prepare geo search key
-                var geo = self.prepareGeohash(req.query.latitude, req.query.longitude, req.query);
+                var geo = self.prepareGeohash(latitude, longitude, req.query);
                 // Start comes as full geohash, split it into search hash and range
                 var start = req.query._start || "";
                 if (start) start = { hash: start.substr(0, geo.hash.length), range: start.substr(geo.hash.length) }
                 
                 var options = { pool: self.pool, ReturnConsumedCapacity: 'TOTAL', ops: { range: "begins_with" }, start: start, count: req.query._count || 25 };
-                options.filter = function(x) { x.distance = backend.geoDistance(req.query.latitude, req.query.longitude, x.latitude, x.longitude); return x.distance <= distance; }
+                options.filter = function(x) { x.distance = backend.geoDistance(latitude, longitude, x.latitude, x.longitude); return x.distance <= distance; }
                 db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
                     var list = {}, ids = [];
                     rows = rows.map(function(row) { 
@@ -560,7 +667,7 @@ var api = {
                     
                     // Return accounts with locations
                     if (req.query._details) {
-                        self.listAccounts(req, ids, { select: req.query._columns }, function(err, rows) {
+                        self.listAccounts(req, ids, { select: req.query._select }, function(err, rows) {
                             if (err) return self.sendReply(res, err);
                             // Keep all connecton properties in separate object
                             rows.forEach(function(row) {
@@ -605,7 +712,7 @@ var api = {
         var self = this;
         var pubcols = db.publicColumns('account', { columns: self.tables.account });
         // Provided list of columns must be a subset of public columns
-        var cols = obj._columns ? core.strSplit(options.select).filter(function(x) { return pubcols.indexOf(x) > -1 }) : pubcols;
+        var cols = obj._select ? core.strSplit(options.select).filter(function(x) { return pubcols.indexOf(x) > -1 }) : pubcols;
         // List of account ids can be provided to retrieve all accounts at once, for DynamoDB it means we may iterate over all 
         // pages in order to get all items until we reach our limit.
         var ids = core.strSplit(obj.id);
@@ -614,7 +721,7 @@ var api = {
             if (err) return callback(err, []);
             rows.forEach(function(row) {
                 self.prepareAccount(row);
-                db.publicPrepare(rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
+                db.publicPrepare('account', rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
             });
             callback(null, rows);
         });
@@ -818,7 +925,7 @@ var api = {
         }
     },
 
-}
+};
 
 module.exports = api;
 core.addContext('api', api);

@@ -269,6 +269,18 @@ var db = {
         this.query(req, options, callback);
     },
 
+    // Counter operation, increase or decrease column values, similar to update but all specified columns except primary 
+    // key will be incremented, use negative value to decrease the value
+    // The record MUST exist already, this is update only
+    incr: function(table, obj, options, callback) {
+        if (typeof options == "function") callback = options,options = null;
+        if (!options) options = {};
+        if (!options.increment) options.increment = Object.keys(obj).filter(function(x) { return x != "mtime" });
+        
+        var req = this.prepare("update", table, obj, options);
+        this.query(req, options, callback);
+    },
+    
     // Delete object in the database, no error if the object does not exist
     // - obj - an object with primary key properties only, other properties will be ignored
     // - options - same propetties as for .select method
@@ -418,6 +430,7 @@ var db = {
     //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,last_evaluated_key
     //    rows is always returned as a list, even in case of error it is an empty list
     query: function(req, options, callback) { 
+        var self = this;
         if (typeof options == "function") callback = options, options = {};
         if (core.typeName(req) != "object") req = { text: req };
         if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
@@ -432,6 +445,10 @@ var db = {
                 if (err2) {
                     logger.error("db.query:", pool.name, req.text, req.values, err2);
                     return callback ? callback(err2, rows, info) : null;
+                }
+                // Cache notification in case of updates, we must have the request prepared by the db.prepare
+                if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
+                    self.clearCached(req.table, req.obj, options);
                 }
                 logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", info);
                 if (callback) callback(err, rows, info);
@@ -470,7 +487,12 @@ var db = {
     // Prepare for execution for the given operation: add, del, put, update,...
     // Returns prepared object to be passed to the driver's .query method.
     prepare: function(op, table, obj, options) {
-        return this.getPool(options).prepare(op, table, obj, options);
+        var req = this.getPool(options).prepare(op, table, obj, options);
+        // Pass original object for custom processing or callbacks
+        req.table = table;
+        req.obj = obj;
+        req.op = op;
+        return req;
     },
 
     // Return possibly converted value to be used for inserting/updating values in the database, 
@@ -484,11 +506,17 @@ var db = {
         return this.dbpool[(options || {})["pool"] || "sqlite"] || this.nopool || {};
     },
 
-    // Return cached columns for a table or null, column is an object with column names and objects for definiton
+    // Return cached columns for a table or null, columns is an object with column names and objects for definiton
     getColumns: function(table, options) {
         return this.getPool(options).dbcolumns[table.toLowerCase()];
     },
 
+    // Return the column definitoon for a table
+    getColumn: function(table, name, options) {
+        var dbcols = this.getColumns(table, options) || {};
+        return dbcols[name];
+    },
+    
     // Return cached primary keys for a table or null
     getKeys: function(table, options) {
         return this.getPool(options).dbkeys[table.toLowerCase()];
@@ -497,6 +525,12 @@ var db = {
     // Reload all columns into the cache for the pool
     cacheColumns: function(options, callback) {
         this.getPool(options).cacheColumns(callback);
+    },
+    
+    // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
+    clearCached: function(table, row, options) {
+        var key = table + (this.getKeys(table, options) || []).map(function(x) { return ":" + row[x] });
+        core.ipcDelCache(key);
     },
     
     // Convert column definition list used in db.create into the format used by internal db pool functions
@@ -730,7 +764,7 @@ var db = {
     // Return time formatted for SQL usage as ISO, if no date specified returns current time
     sqlTime: function(d) {
         if (d) {
-           try { d = (new Date(d)).toISOString() } catch(e) { d = '' }
+           try { d = (new Date(d)).toISOString() } catch(ex) { d = '' }
         } else {
             d = (new Date()).toISOString();
         }
@@ -1030,12 +1064,16 @@ var db = {
             // Not defined fields are skipped but nulls can be triggered by a flag
             if (typeof v == "undefined" || (v == null && options.skip_null)) continue;
             // Update only if the value is null, otherwise skip
-            if (options.skip_not_null && options.skip_not_null.indexOf(p) > -1) {
+            if (options.coalesce && options.coalesce.indexOf(p) > -1) {
                 sets.push(p + "=COALESCE(" + p + ", $" + i + ")");
             } else
             // Concat mode means append new value to existing, not overwrite
             if (options.concat && options.concat.indexOf(p) > -1) {
                 sets.push(p + "=CONCAT(" + p + ", $" + i + ")");
+            } else
+            // Incremental update
+            if (options.increment && options.increment.indexOf(p) > -1) {
+                sets.push(p + "=" + p + "+$" + i);
             } else {
                 sets.push(p + "=" + (options.placeholder || ("$" + i)));
             }
@@ -1390,6 +1428,8 @@ var db = {
             var obj = req.values;
             var options = core.extendObj(opts, "db", pool.db);
             pool.last_evaluated_key = "";
+            // Primary keys
+            var primary_keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             
             switch(req.op) {
             case "new":
@@ -1412,17 +1452,16 @@ var db = {
                 break;
                 
             case "get":
-                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                aws.ddbGetItem(table, keys, options, function(err, item) {
+                aws.ddbGetItem(table, primary_keys, options, function(err, item) {
                     callback(err, item.Item ? [item.Item] : []);
                 });
                 break;
 
             case "select":
-                // Only primary key columns are allowed
-                var keys = (options.keys || pool.dbkeys[table] || []).filter(function(x) { return other.indexOf(x) == -1 }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 // If we have other key columns we have to use custom filter
                 var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 });
+                // Only primary key columns are allowed
+                var keys = (options.keys || pool.dbkeys[table] || []).filter(function(x) { return other.indexOf(x) == -1 }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 var filter = function(items) { 
                     if (other.length > 0) {
                         if (!options.ops) options.ops = {};
@@ -1503,32 +1542,35 @@ var db = {
                 break;
                 
             case "update":
-                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                 // Skip special columns, primary key columns. If we have specific list of allowed columns only keep those.
                 // Keep nulls and empty strings, it means we have to delete this property.
-                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || keys[n] || (options.columns && !(n in options.columns)); },
+                var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || primary_keys[n] || (options.columns && !(n in options.columns)); },
                                              _empty_to_null: 1 });
-                options.expected = keys;
-                aws.ddbUpdateItem(table, keys, o, options, function(err, rc) {
+                options.expected = primary_keys;
+                // Increment counters, only specified columns will use ADD operation, they must be numbers
+                if (options.increment) {
+                    if (!options.ops) options.ops = {};
+                    options.increment.forEach(function(x) { options.ops[x] = 'ADD'; });
+                }
+                aws.ddbUpdateItem(table, primary_keys, o, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;
 
             case "del":
-                var keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-                aws.ddbDeleteItem(table, keys, options, function(err, rc) {
+                aws.ddbDeleteItem(table, primary_keys, options, function(err, rc) {
                     callback(err, []);
                 });
                 break;
                 
             default:
-                callback(new Error("invalid op"))
+                callback(new Error("invalid op"));
             }
         }
         return pool;
     },
 
-}
+};
 
 module.exports = db;
 core.addContext('db', db);
