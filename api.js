@@ -173,10 +173,12 @@ var api = {
         });
         
         // Managing accounts, basic functionality
-        this.initAccount();
+        this.initAccountAPI();
+        this.initConnectionAPI();
+        this.initLocationAPI();
         
         // Provisioning access to the database
-        this.initBackend();
+        this.initBackendAPI();
 
         // Post init or other application routes
         this.onInit.call(this);
@@ -290,7 +292,7 @@ var api = {
     },
 
     // Account management
-    initAccount: function() {
+    initAccountAPI: function() {
         var self = this;
         var now = core.now();
         var db = core.context.db;
@@ -407,7 +409,96 @@ var api = {
                 });
                 break;
                 
-            case "location/put":
+            case "history/add":
+                self.sendReply(res);
+                req.query.mtime = now();
+                db.add("history", req.query, { pool: self.historyPool });
+                break;
+                
+            default:
+                self.sendReply(res, 400, "Invalid operation");
+            }
+        });
+    },
+
+    // Connections management
+    initConnectionAPI: function() {
+        var self = this;
+        var now = core.now();
+        var db = core.context.db;
+        
+        this.app.all(/^\/connection\/([a-z]+)$/, function(req, res) {
+            logger.debug('connection:', req.params[0], req.account, req.query);
+            
+            switch (req.params[0]) {
+            case "add":
+            case "put":
+            case "update":
+                var id = req.query.id, type = req.query.type;
+                if (!id || !type) return self.sendReply(res, 400, "id and type are required");
+                if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
+                // Override primary key properties, the rest of the properties will be added as is
+                req.query.id = req.account.id;
+                req.query.type = type + ":" + id;
+                req.query.mtime = now;
+                db[op]("connection", req.query, { pool: self.pool }, function(err) {
+                    if (err) return self.sendReply(res, err);
+                    // Reverse reference to the same connection
+                    req.query.id = id;
+                    req.query.type = type + ":"+ req.account.id;
+                    db[op]("reference", req.query, { pool: self.pool }, function(err) {
+                        if (err) db.del("connection", { id: req.account.id, type: type + ":" + id }, { pool: self.pool });
+                        self.sendReply(res, err);
+                    });
+                });
+                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: id, ctype: type }, { pool: self.historyPool });
+                break;
+
+            case "del":
+                if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
+                db.del("connection", { id: req.account.id, type: req.query.type + ":" + req.query.id }, { pool: self.pool }, function(err) {
+                    if (err) return self.sendReply(res, err);
+                    db.del("reference", { id: req.query.id, type: req.query.type + ":" + req.account.id }, { pool: self.pool }, function(err) {
+                        self.sendReply(res, err);
+                    });
+                });
+                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: req.query.id, ctype: req.query.type }, { pool: self.historyPool });
+                break;
+
+            case "list":
+            case "reference":
+                var table = req.params[0] == "list" ? "connection" : "reference";
+                // Only one connection record to be returned if id and type specified
+                if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
+                db.select(table, { id: req.account.id, type: req.query.type }, { pool: self.pool, ops: { type: "begins_with" }, select: req.query._columns }, function(err, rows) {
+                    if (err) return self.sendReply(res, err);
+                    // Collect account ids
+                    rows = rows.map(function(row) { return row.type.split(":")[1]; });
+                    if (!req.query._details) return res.json(rows);
+                    
+                    // Get all account records for the id list
+                    self.listAccounts(req, rows, { select: req.query._columns }, function(err, rows) {
+                        if (err) return self.sendReply(res, err);
+                        res.json(rows);
+                    });
+                });
+                break;
+            }
+        });
+        
+    },
+    
+    // Geo locations management
+    initLocationAPI: function() {
+        var self = this;
+        var now = core.now();
+        var db = core.context.db;
+        
+        this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
+            logger.debug('location:', req.params[0], req.account, req.query);
+            
+            switch (req.params[0]) {
+            case "put":
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 // Get current location
                 db.get("account", { id: req.account.id }, { pool: self.pool, select: 'latitude,longitude' }, function(err, rows) {
@@ -440,8 +531,7 @@ var api = {
                 });
                 break;
                 
-            case "location/search":
-            case "location/search/details":
+            case "search":
                 // Perform location search based on hash key that covers the whole region for our configured max distance
                 if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
                 // Limit the distance within our configured range
@@ -468,9 +558,8 @@ var api = {
                     // Combine last key hash and range into single geohash
                     if (last) last = last.hash + last.range;
                     
-                    switch (op) {
-                    case "account":
-                        // Return accounts with locations
+                    // Return accounts with locations
+                    if (req.query._details) {
                         self.listAccounts(req, ids, { select: req.query._columns }, function(err, rows) {
                             if (err) return self.sendReply(res, err);
                             // Keep all connecton properties in separate object
@@ -479,102 +568,12 @@ var api = {
                             })
                             res.json({ geohash: geo.geohash, start: start, last: last, items: rows });
                         });
-                        break;
-   
-                    default:
+                    } else {
                         // Return just locations
                         res.json({ geohash: geo.geohash, start: start, last: last, items: rows });
                     }            
                 });
                 break;
-
-            case "connection/add":
-            case "connection/put":
-            case "connection/update":
-                var id = req.query.id, type = req.query.type;
-                if (!id || !type) return self.sendReply(res, 400, "id and type are required");
-                if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
-                // Override primary key properties, the rest of the properties will be added as is
-                req.query.id = req.account.id;
-                req.query.type = type + ":" + id;
-                req.query.mtime = now;
-                db[op]("connection", req.query, { pool: self.pool }, function(err) {
-                    if (err) return self.sendReply(res, err);
-                    // Reverse reference to the same connection
-                    req.query.id = id;
-                    req.query.type = type + ":"+ req.account.id;
-                    db[op]("reference", req.query, { pool: self.pool }, function(err) {
-                        if (err) db.del("connection", { id: req.account.id, type: type + ":" + id }, { pool: self.pool });
-                        self.sendReply(res, err);
-                    });
-                });
-                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: id, ctype: type }, { pool: self.historyPool });
-                break;
-
-            case "connection/del":
-                if (!req.query.id || !req.query.type) return self.sendReply(res, 400, "id and type are required");
-                db.del("connection", { id: req.account.id, type: req.query.type + ":" + req.query.id }, { pool: self.pool }, function(err) {
-                    if (err) return self.sendReply(res, err);
-                    db.del("reference", { id: req.query.id, type: req.query.type + ":" + req.account.id }, { pool: self.pool }, function(err) {
-                        self.sendReply(res, err);
-                    });
-                });
-                if (req.query._history) db.add("history", { id: req.account.id, type: req.params[0], mtime: now, cid: req.query.id, ctype: req.query.type }, { pool: self.historyPool });
-                break;
-
-            case "connection/list":
-            case "connection/list/details":
-                // Only one connection record to be returned if id and type specified
-                if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
-                db.select("connection", { id: req.account.id, type: req.query.type }, { pool: self.pool, ops: { type: "begins_with" }, select: req.query._columns }, function(err, rows) {
-                    if (err) return self.sendReply(res, err);
-                    var list = {}, ids = [];
-                    // Collect account ids
-                    rows.forEach(function(row) {
-                        var type = row.type.split(":");
-                        row.id = type[1];
-                        row.type = type[0];
-                        ids.push({ id: row.id });
-                        list[row.id] = row;
-                    });
-                    if (req.params[0] == "connection/list") {
-                        return res.json(rows);
-                    }
-                    
-                    // Get all account records for the id list
-                    self.listAccounts(req, ids, { select: req.query._columns }, function(err, rows) {
-                        if (err) return self.sendReply(res, err);
-                        // Keep all connecton properties in separate object
-                        rows.forEach(function(row) {
-                            row.connection = list[row.id];
-                        })
-                        res.json(rows);
-                    });
-                });
-                break;
-                
-            case "connection/list/reference":
-                // Only one connection record to be returned if id and type specified
-                if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
-                db.select("reference", { id: req.account.id, type: req.query.type }, { pool: self.pool, select: req.query._columns }, function(err, rows) {
-                    if (err) return self.sendReply(res, err);
-                    rows.forEach(function(row) {
-                        var type = row.type.split(":");
-                        row.id = type[1];
-                        row.type = type[0];
-                    });
-                    res.json(rows);
-                });
-                break;
-            
-            case "history/add":
-                self.sendReply(res);
-                req.query.mtime = now();
-                db.add("history", req.query, { pool: self.historyPool });
-                break;
-                
-            default:
-                self.sendReply(res, 400, "Invalid operation");
             }
         });
     },
@@ -622,7 +621,7 @@ var api = {
     },
     
     // API for internal provisioning, by default supports access to all tables
-    initBackend: function() {
+    initBackendAPI: function() {
         var self = this;
         
         // Return current statistics
