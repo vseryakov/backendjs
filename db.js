@@ -41,8 +41,13 @@ var db = {
            { name: "pg-pool", descr: "PostgreSQL pool access url or options string" },
            { name: "pg-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "pg-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "pg-tables", type: "list", descr: "PostgreSQL tables, list of tables that belong to pg pool" },
            { name: "ddb-pool", descr: "DynamoDB endpoint url" },
+           { name: "ddb-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to ddb pool" },
     ],
+    
+    // Pools by table name
+    pools: {},
 
     // Default tables
     tables: { backend_property: [{ name: 'name', primary: 1 }, 
@@ -77,9 +82,10 @@ var db = {
         
         // Optional pools for supported databases
         if (!self.noPools) {
-            ["pg", "ddb"].forEach(function(x) {
-                if (!self[x + 'Pool']) return;
-                self[x + 'InitPool']({ pool: x, db: self[x + 'Pool'], max: self[x + 'Max'], idle: self[x + 'Idle'] });
+            ["pg", "ddb"].forEach(function(pool) {
+                if (!self[pool + 'Pool']) return;
+                self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
+                (self[pool + 'Tables'] || []).forEach(function(y) { self.pools[y] = pool; });
             });
         }
         
@@ -252,7 +258,7 @@ var db = {
         if (typeof options == "function") callback = options,options = null;
         
         // Custom handler for the operation
-        var pool = this.getPool(options);
+        var pool = this.getPool(table, options);
         if (pool.put) return pool.put(table, obj, options, callback);
         
         var req = this.prepare("put", table, obj, options);
@@ -394,7 +400,7 @@ var db = {
     getCached: function(table, obj, options, callback) {
         var self = this;
         if (typeof options == "function") callback = options,options = null;
-        var pool = this.getPool(options);
+        var pool = this.getPool(table, options);
         pool.stats.gets++;
         var keys = options.keys || this.getKeys(table, options) || [];
         var key = keys.filter(function(x) { return obj[x]} ).map(function(x) { return obj[x] }).join(":");
@@ -435,7 +441,7 @@ var db = {
         if (core.typeName(req) != "object") req = { text: req };
         if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
 
-        var pool = this.getPool(options);
+        var pool = this.getPool(req.table, options);
         pool.get(function(err, client) {
             if (err) return callback ? callback(err, []) : null;
             var t1 = core.mnow();
@@ -487,7 +493,7 @@ var db = {
     // Prepare for execution for the given operation: add, del, put, update,...
     // Returns prepared object to be passed to the driver's .query method.
     prepare: function(op, table, obj, options) {
-        var req = this.getPool(options).prepare(op, table, obj, options);
+        var req = this.getPool(table, options).prepare(op, table, obj, options);
         // Pass original object for custom processing or callbacks
         req.table = table;
         req.obj = obj;
@@ -498,17 +504,17 @@ var db = {
     // Return possibly converted value to be used for inserting/updating values in the database, 
     // is used for SQL parametrized statements
     value: function(options, val, vopts) {
-        return this.getPool(options).value(val, vopts);
+        return this.getPool('', options).value(val, vopts);
     },
 
     // Return database pool by name or default sqlite pool
-    getPool: function(options) {
-        return this.dbpool[(options || {})["pool"] || "sqlite"] || this.nopool || {};
+    getPool: function(table, options) {
+        return this.dbpool[(options || {})["pool"] || this.pools[table || "default"] || this.pool] || this.nopool || {};
     },
 
     // Return cached columns for a table or null, columns is an object with column names and objects for definiton
     getColumns: function(table, options) {
-        return this.getPool(options).dbcolumns[table.toLowerCase()];
+        return this.getPool(table, options).dbcolumns[table.toLowerCase()];
     },
 
     // Return the column definitoon for a table
@@ -519,12 +525,12 @@ var db = {
     
     // Return cached primary keys for a table or null
     getKeys: function(table, options) {
-        return this.getPool(options).dbkeys[table.toLowerCase()];
+        return this.getPool(table, options).dbkeys[table.toLowerCase()];
     },
     
     // Reload all columns into the cache for the pool
     cacheColumns: function(options, callback) {
-        this.getPool(options).cacheColumns(callback);
+        this.getPool('', options).cacheColumns(callback);
     },
     
     // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
@@ -1156,7 +1162,7 @@ var db = {
         if (typeof options == "function") callback = options, options = null;
         if (!options) options = {};
 
-        var pool = this.getPool(options);
+        var pool = this.getPool('', options);
         pool.get(function(err, client) {
             if (err) return callback ? callback(err, []) : null;
             
@@ -1309,7 +1315,7 @@ var db = {
         if (typeof options == "function") callback = options, options = null;
         if (!options) options = {};
         
-        var pool = this.getPool(options);
+        var pool = this.getPool('', options);
         pool.get(function(err, client) {
             if (err) return callback ? callback(err, []) : null;
             client.query("SELECT name FROM sqlite_master WHERE type='table'", function(err2, tables) {

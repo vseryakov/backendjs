@@ -318,7 +318,7 @@ var core = {
                 ctx[key] = self.toNumber(val, x.decimals, x.value, x.min, x.max);
                 break;
             case "list":
-                ctx[key] = val.split(x.separator || ",").map(function(y) { return y.trim() });
+                ctx[key] = self.strSplitUnique(val, x.separator);
                 break;
             case "regexp":
                 ctx[key] = new RegExp(val);

@@ -794,7 +794,7 @@ var server = {
     submitJob: function(options, callback) {
         if (!options || !options.job) return logger.error('submitJob:', 'invalid job spec:', options);
         var job = JSON.stringify(options.job);
-        db.add("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { pool: core.dbPool, nocolumns: 1 }, function() {
+        db.add("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { nocolumns: 1 }, function() {
             if (callback) callback();
         });
     },
@@ -808,14 +808,14 @@ var server = {
         var hosts = [os.hostname(), os.hostname().split('.')[0]];
         // Primary job servers, run all jobs with empty host
         if (this.jobsPrimary) hosts.push("");
-        db.select("backend_jobs", { host: hosts }, { keys: ['host'], pool: core.dbPool }, function(err, rows) {
+        db.select("backend_jobs", { host: hosts }, { keys: ['host'] }, function(err, rows) {
             async.forEachSeries(rows, function(row, next) {
                 try { 
                     self.doJob(row.type, JSON.parse(row.job));
                 } catch(e) {
                     logger.error('processJobs:', e, row);
                 }
-                db.del('backend_jobs', row, { pool: core.dbPool }, function() { next() });
+                db.del('backend_jobs', row, function() { next() });
             }, function() {
                 if (rows.length) logger.log('processJobs:', rows.length, 'jobs');
                 if (callback) callback();
