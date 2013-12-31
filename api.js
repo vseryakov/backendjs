@@ -128,7 +128,8 @@ var api = {
     // Initialize API layer with the active HTTP server
     init: function(callback) {
         var self = this;
-
+        var db = core.context.db;
+        
         // Access log via file or syslog
         if (logger.syslog) {
             this.accesslog = new stream.Stream();
@@ -192,11 +193,9 @@ var api = {
 
         // Post init or other application routes
         this.onInit.call(this);
-
-        // Create account tables if dont exist
-        core.context.db.initTables({ tables: self.tables }, callback);
-        if (self.accountPool) core.context.db.initTables({ tables: self.tables }, callback);
-        if (self.historyPool) core.context.db.initTables({ tables: self.tables }, callback);
+        
+        // Create table in all db pools
+        db.initPoolTables(self.tables, callback);
     },
         
     // Perform authorization of the incoming request for access and permissions
@@ -644,8 +643,8 @@ var api = {
                 // Prepare geo search key
                 var geo = self.prepareGeohash(latitude, longitude, req.query);
                 // Start comes as full geohash, split it into search hash and range
-                var start = req.query._start || "";
-                if (start) start = { hash: start.substr(0, geo.hash.length), range: start.substr(geo.hash.length) }
+                var start = req.query._start;
+                if (start) start = core.toJson(start);
                 
                 var options = { ReturnConsumedCapacity: 'TOTAL', ops: { range: "begins_with" }, start: start, count: req.query._count || 25 };
                 options.filter = function(x) { x.distance = backend.geoDistance(latitude, longitude, x.latitude, x.longitude); return x.distance <= distance; }
@@ -658,10 +657,8 @@ var api = {
                         list[row.id] = row;
                         return row;
                     });
-                    // Return back not just a list with rows but pagination info as well, stop only if last property is empty even if no rows returned
-                    var last = info.last_evaluated_key;
-                    // Combine last key hash and range into single geohash
-                    if (last) last = last.hash + last.range;
+                    // Next batch of records passed as _start query parameter
+                    var next = info.next_page ? core.toBase64(info.next_page) : null;
                     
                     // Return accounts with locations
                     if (req.query._details) {
@@ -671,11 +668,11 @@ var api = {
                             rows.forEach(function(row) {
                                 row.account = list[row.id];
                             })
-                            res.json({ geohash: geo.geohash, start: start, last: last, items: rows });
+                            res.json({ geohash: geo.geohash, next: next, items: rows });
                         });
                     } else {
-                        // Return just locations
-                        res.json({ geohash: geo.geohash, start: start, last: last, items: rows });
+                        // Return back not just a list with rows but pagination info as well, stop only if next property is null even if no rows returned
+                        res.json({ geohash: geo.geohash, next: next, items: rows });
                     }            
                 });
                 break;

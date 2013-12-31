@@ -1132,7 +1132,7 @@ var core = {
         if (!key || !data) return '';
         var encrypt = crypto.createCipher(algorithm || 'aes192', key);
         var b64 = encrypt.update(String(data), 'utf8', 'base64');
-        try { b64 += encrypt.final('base64'); } catch(e) { hex = ''; logger.error('encrypt:', e); }
+        try { b64 += encrypt.final('base64'); } catch(e) { b64 = ''; logger.error('encrypt:', e); }
         return b64;
     },
 
@@ -1225,6 +1225,18 @@ var core = {
         return rc;
     },
 
+    // Stringify JSON into base64
+    toBase64: function(data) {
+    	return new Buffer(JSON.stringify(data)).toString("base64");	
+    },
+    
+    // Parse base64 into JSON
+    toJson: function(data) {
+    	var rc = "";
+    	try { rc = JSON.parse(new Buffer(data, "base64").toString()); } catch(e) {}
+    	return rc;
+    },
+    
     // Copy file and then remove the source, do not overwrite existing file
     moveFile: function(src, dst, overwrite, callback) {
         var self = this;

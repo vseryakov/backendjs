@@ -621,7 +621,7 @@ var server = {
                     "-backend-key", core.backendKey || "",
                     "-backend-secret", core.backendSecret || "",
                     "-jobname", Object.keys(job).join(","),
-                    "-job", new Buffer(JSON.stringify(job)).toString("base64") ];
+                    "-job", core.toBase64(job) ];
         
         if (!options.noshutdown) {
             args.push("-job", new Buffer(JSON.stringify({ 'server.shutdown': { runlast: 1 } })).toString("base64"));
@@ -648,7 +648,7 @@ var server = {
 
         case "string":
             try {
-                this.queue.push(JSON.parse(new Buffer(job, "base64").toString()));
+                this.queue.push(core.toJson(job));
             } catch(e) {
                 logger.error('queueJob:', e, job);
             }

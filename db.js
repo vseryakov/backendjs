@@ -90,26 +90,31 @@ var db = {
         }
         
         // Initialize SQL pools
-        async.forEachSeries(Object.keys(this.dbpool), function(pool, next) {
-            if (cluster.isWorker || core.worker) {
-                db.cacheColumns({ pool: pool }, next);
-            } else {
-                db.initTables({ pool: pool, tables: self.tables }, next);
-            }
+        this.initPoolTables(self.tables, callback);
+    },
+    
+    // Create tables in all pools
+    initPoolTables: function(tables, callback) {
+    	var self = this;
+    	async.forEachSeries(Object.keys(self.dbpool), function(pool, next) {
+        	self.initTables({ pool: pool, tables: tables }, next);
         }, function(err) {
-            logger.debug("db.init:", err);
             if (callback) callback(err);
         });
     },
     
     // Init the pool, create tables and columns
     // options properties:
+    // - pool - db pool to create the tables in
     // - tables - list of tables to create or upgrade
     initTables: function(options, callback) {
         var self = this;
         if (typeof options == "function") callback = options, options = {};
         
         self.cacheColumns(options, function() {
+        	if (cluster.isWorker || core.worker) {
+        		return callback ? callback(err) : null;
+        	}
             var changes = 0;
             async.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
                 // We if have columns, SQL table must be checked for missing columns and indexes
@@ -204,10 +209,16 @@ var db = {
         // For SQL databases it creates a SQL statement with parameters
         pool.prepare = function(op, table, obj, opts) {
             switch (op) {
+            case "list": 
+            case "select": 
+            	var req = self.sqlSelect(table, obj, opts);
+                // Support for pagination, for SQL this is the OFFSET for the next request
+                if (options.start && options.count) {
+                	this.pool.next_page = coe.toNumber(options.start) + core.toNumber(options.count);
+                }
+                return req;
             case "new": return self.sqlCreate(table, obj, opts);
             case "upgrade": return self.sqlUpgrade(table, obj, opts);
-            case "list": 
-            case "select": return self.sqlSelect(table, obj, opts);
             case "get": return self.sqlSelect(table, obj, self.cloneObj(opts, {}, { count: 1 }));
             case "add": return self.sqlInsert(table, obj, opts);
             case "put": return self.sqlInsert(table, obj, core.extendObj(opts || {}, 'replace', 1));
@@ -236,6 +247,7 @@ var db = {
         pool.dbkeys = {};
         pool.dbunique = {};
         pool.sql = true;
+        pool.next_page = null;
         pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
         this.dbpool[options.pool] = pool;
         logger.debug('db.initPool:', pool.name);
@@ -281,7 +293,7 @@ var db = {
     incr: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
         if (!options) options = {};
-        if (!options.increment) options.increment = Object.keys(obj).filter(function(x) { return x != "mtime" });
+        options.increment = Object.keys(obj).filter(function(x) { return x != "mtime" });
         
         var req = this.prepare("update", table, obj, options);
         this.query(req, options, callback);
@@ -372,8 +384,7 @@ var db = {
     // On return, the callback can check third argument which is an object with the following properties:
     // - affected_rows - how many records this operation affected
     // - inserted_oid - last created auto generated id
-    // - last_evaluated_key - last processed primary key, this can be used later to continue 
-    //   pagination by passing it as .start or .page property
+    // - next_page - next primary key or offset for pagination by passing it as .start property in the options
     select: function(table, obj, options, callback) {
         if (typeof options == "function") callback = options,options = null;
 
@@ -433,7 +444,7 @@ var db = {
     // - options may have the following properties:
     //   - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
     // Callback is called with the following params:
-    //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,last_evaluated_key
+    //  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,next_page
     //    rows is always returned as a list, even in case of error it is an empty list
     query: function(req, options, callback) { 
         var self = this;
@@ -446,7 +457,7 @@ var db = {
             if (err) return callback ? callback(err, []) : null;
             var t1 = core.mnow();
             pool.query(client, req, options, function(err2, rows) {
-                var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, last_evaluated_key: client.last_evaluated_key };
+                var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_page: client.next_page || pool.next_page };
                 pool.free(client);
                 if (err2) {
                     logger.error("db.query:", pool.name, req.text, req.values, err2);
@@ -864,34 +875,29 @@ var db = {
     },
 
     // Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging
-    sqlLimit: function(config, values) {
-        if (!config) config = {};
-        if (!values) values = {};
+    sqlLimit: function(options) {
+        if (!options) options = {};
         var rc = "";
 
         // Sorting column, multiple nested sort orders
         var orderby = "";
-        ["", "1", "2"].forEach(function(p) {
-            var sort = values['_sort' + p] || config['sort' + p] || "";
-            var desc = core.toBool(typeof values['_desc' + p] != "undefined" ? values['_desc' + p] : config['desc' + p]);
-            if (config.names && config.names.indexOf(sort) == -1) sort = config['sort' + p] || "";
+        ["", "1", "2"].forEach(function(x) {
+            var sort = options['sort' + x];
             if (!sort) return;
-            // Replace by sorting expression
-            if (config.expr && config.expr[sort]) sort = config.expr[sort];
+            var desc = core.toBool(options['desc' + x]);
             orderby += (orderby ? "," : "") + sort + (desc ? " DESC" : "");
         });
-        if (orderby) {
-            rc += " ORDER BY " + orderby;
-        }
+        if (orderby) rc += " ORDER BY " + orderby;
+        
         // Limit clause
-        var page = core.toNumber(values['_page'], false, config.page || 0, 0, 999999);
-        var count = core.toNumber(values['_count'], false, config.count || 50, 1, config.max || 1000);
-        var offset = core.toNumber(values['_offset'], false, config.offset || 0, 0, 999999);
+        var page = core.toNumber(options.page, false, 0, 0, 9999);
+        var count = core.toNumber(options.count, false, 50, 1, 9999);
+        var start = core.toNumber(options.start, false, 0, 0, 9999);
         if (count) {
             rc += " LIMIT " + count;
         }
-        if (offset) {
-            rc += " OFFSET " + offset;
+        if (start) {
+            rc += " OFFSET " + start;
         } else
         if (page && count) {
             rc += " OFFSET " + ((page - 1) * count);
@@ -1009,9 +1015,7 @@ var db = {
         var where = this.sqlWhere(obj, keys);
         if (where) where = " WHERE " + where;
         
-        var req = { text: "SELECT " + cols + " FROM " + table + where };
-        if (options.sort) req.text += " ORDER BY " + options.sort + (options.desc ? " DESC " : "");
-        if (options.count) req.text += " LIMIT " + options.limit;
+        var req = { text: "SELECT " + cols + " FROM " + table + where + this.sqlLimit(options) };
 
         return req;
     },
@@ -1375,7 +1379,7 @@ var db = {
         // Redefine pool but implement the same interface
         var pool = { name: options.pool, db: options.db, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
         this.dbpool[options.pool] = pool;
-        pool.last_evaluated_key = null;
+        pool.next_page = null;
         pool.affected_rows = 0;
         pool.inserted_oid = 0;
         pool.get = function(callback) { callback(null, this); }
@@ -1433,7 +1437,7 @@ var db = {
             var table = req.text;
             var obj = req.values;
             var options = core.extendObj(opts, "db", pool.db);
-            pool.last_evaluated_key = "";
+            pool.next_page = null;
             // Primary keys
             var primary_keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             
@@ -1485,18 +1489,18 @@ var db = {
                     if (err) return callback(err, []);
                     var count = options.count || 0;
                     var rows = filter(item.Items);
-                    pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : "";
+                    pool.next_page = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
                     count -= rows.length;
                     
                     // Keep retrieving items until we reach the end or our limit
                     async.until( 
-                        function() { return pool.last_evaluated_key == "" || count <= 0; }, 
+                        function() { return pool.next_page == null || count <= 0; }, 
                         function(next) {
-                            options.start = pool.last_evaluated_key;
+                            options.start = pool.next_page;
                             aws.ddbQueryTable(table, keys, options, function(err, item) {
                                 var items = filter(item.Items);
                                 rows.push.apply(rows, items);
-                                pool.last_evaluated_key = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : "";
+                                pool.next_page = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
                                 count -= items.length;
                                 next(err);
                             });                            
