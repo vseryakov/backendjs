@@ -121,7 +121,8 @@ db.initPoolTables = function(tables, callback)
 // options properties:
 // - pool - db pool to create the tables in
 // - tables - list of tables to create or upgrade
-db.initTables = function(options, callback) {
+db.initTables = function(options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     
@@ -154,7 +155,8 @@ db.initTables = function(options, callback) {
 //     function(options, callback) and will be called with first arg an error object and second arg is the database instance
 // - cachecb - a callback for caching database tables and columns
 // - valuecb - a callback that performs value transformation if necessary for the bind parameters
-db.initPool = function(options, createcb, cachecb, valuecb) {
+db.initPool = function(options, createcb, cachecb, valuecb) 
+{
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "sqlite";
@@ -271,7 +273,8 @@ db.initPool = function(options, createcb, cachecb, valuecb) {
     
 // Insert new object into the database
 // - obj - an object with properties for the record, primary key properties must be supplied
-db.add = function(table, obj, options, callback) {
+db.add = function(table, obj, options, callback) 
+{
     if (typeof options == "function") callback = options,options = null;
 
     var req = this.prepare("add", table, obj, options);
@@ -281,7 +284,8 @@ db.add = function(table, obj, options, callback) {
 // Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj
 // - obj - an object with record properties, primary key properties must be specified
 // - options - same properties as for .select method
-db.put = function(table, obj, options, callback) {
+db.put = function(table, obj, options, callback) 
+{
     if (typeof options == "function") callback = options,options = null;
     
     // Custom handler for the operation

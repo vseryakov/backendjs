@@ -58,171 +58,170 @@ var logger = {
     syslogMap: {},
     syslogLevels: {},
     syslogFacilities: {},
-
-    pad: function(n) {
-        if (n >= 0 && n < 10) return "0" + n
-        return n
-    },
-
-    prefix: function(level) {
-        var d = new Date()
-        return d.getFullYear() + "-" +
-               this.pad(d.getMonth()+1) + "-" +
-               this.pad(d.getDate()) + " " +
-               this.pad(d.getHours()) + ":" +
-               this.pad(d.getMinutes()) + ":" +
-               this.pad(d.getSeconds()) + "." +
-               this.pad(d.getMilliseconds()) +
-               " [" + process.pid + "] " +
-               level + ": "
-    },
-
-    // Set or close syslog mode
-    setSyslog: function (on) {
-        var self = this;
-        if (on) {
-            backend.syslogInit("backend", this.LOG_PID | this.LOG_CONS, this.LOG_LOCAL0);
-            this.print = this.printSyslog;
-            // Initialize map for facilities
-            this.syslogLevels = { test: this.LOG_DEBUG, dev: this.LOG_DEBUG, debug: this.LOG_DEBUG, warn: this.LOG_WARNING,
-                                  notice: this.LOG_NOTICE, info: this.LOG_INFO, error: this.LOG_ERROR,
-                                  emerg: this.LOG_EMERG, alert: this.LOG_ALERT, crit: this.LOG_CRIT };
-            this.syslogFacilities = { kern: this.LOG_KERN, user: this.LOG_USER, mail: this.LOG_MAIL,
-                                      daemon: this.LOG_DAEMON, auth: this.LOG_AUTH, syslog: this.LOG_SYSLOG,
-                                      lpr: this.LOG_LPR, news: this.LOG_NEWS, uucp: this.LOG_UUCP,
-                                      cron: this.LOG_CRON, authpriv: this.LOG_AUTHPRIV,
-                                      ftp: this.LOG_FTP, local0: this.LOG_LOCAL0, local1: this.LOG_LOCAL1,
-                                      locl2: this.LOG_LOCAL2, local3: this.LOG_LOCAL3, local4: this.LOG_LOCAL4,
-                                      local5: this.LOG_LOCAL5, local6: this.LOG_LOCAL6, local7: this.LOG_LOCAL7 };
-            this.syslogMap = {}
-            Object.keys(this.syslogLevels).forEach(function(l) {
-               Object.keys(self.syslogFacilities).forEach(function(f) {
-                   self.syslogMap[l + ':' + f] = self.syslogLevels[l] | self.syslogFacilities[f];
-               });
-            });
-        } else {
-            backend.syslogClose();
-            this.print = this.printStream;
-        }
-        this.syslog = on;
-    },
-
-    // Redirect logging into file
-    setFile: function(file) {
-        var self = this;
-        if (this.stream && this.stream != process.stdout) {
-            this.stream.destroySoon();
-        }
-        this.file = file;
-        if (this.file) {
-            this.stream = fs.createWriteStream(this.file, { flags: 'a' });
-            this.stream.on('error', function(err) {
-                process.stderr.write(String(err));
-                self.stream = process.stderr;
-            });
-            // Make sure the log file is owned by regular user to avoid crashes due to no permission of the log file
-            if (process.getuid() == 0) {
-                fs.chown(file, core.uid, core.gid, function(err) { self.error(file, e) });
-            }
-        } else {
-            this.stream = process.stdout;
-        }
-    },
-
-    setDebug: function(level) {
-        this.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
-        backend.logging(this.level + 2);
-    },
-    
-    // Assign output channel to system logger, default is stdout
-    setChannel: function(name) {
-        backend.loggingChannel(name);
-    },
-
-    // syslog allows facility to be specified after log level like info:local0 for LOG_LOCAL0
-    printSyslog: function(level, msg) {
-        var code = this.syslogMap[level];
-        backend.syslogSend(code || this.LOG_INFO, (code ? "" : level + ": ") + msg);
-    },
-
-    printStream: function(level, msg) {
-        this.stream.write(this.prefix(level) + msg + "\n");
-    },
-
-    printError: function() {
-        process.stderr.write(this.prefix("ERROR") + util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
-    },
-
-    log: function() {
-        if (this.level < 0) return;
-        this.print('INFO', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
-    },
-
-    // Make it one line to preserve space, syslog cannot output very long lines
-    debug: function() {
-        if (this.level < 1) return;
-        var str = "";
-        for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
-        this.print('DEBUG', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
-    },
-
-    dev: function() {
-        if (this.level < 2) return;
-        var str = "";
-        for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
-        this.print('DEV', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
-    },
-
-    warn: function() {
-        if (this.level < 0) return;
-        this.print('WARNING', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
-    },
-
-    error: function() {
-        this.print('ERROR', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
-    },
-
-    dump: function() {
-        this.stream.write(util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
-    },
-
-    // Display error if first argument is an Error object or debug
-    edebug: function() {
-        var args = Array.prototype.slice.call(arguments, 1)
-        if (arguments[0] instanceof Error) return this.error.apply(this, arguments);
-        this.debug.apply(this, args);
-    },
-
-    // Display error if first argument is an Error object or log
-    elog: function() {
-        var args = Array.prototype.slice.call(arguments, 1)
-        if (arguments[0] instanceof Error) return this.error.apply(this, arguments);
-        this.log.apply(this, args);
-    },
-
-    // Print stack backtrace as error
-    trace: function() {
-        var err = new Error('');
-        err.name = 'Trace';
-        Error.captureStackTrace(err, arguments.callee);
-        this.error(util.format.apply(this, arguments), err.stack);
-    },
-
-    // Default write handler
-    print: function() {
-        this.printStream.apply(this, arguments);
-    },
-
-    // Stream emulation
-    write: function(str) {
-        if (str) this.log(str);
-        return true;
-    },
-
-    end: function(str) {
-        if (str) this.log(str);
-    }
 }
 
 module.exports = logger;
 
+logger.pad = function(n) {
+    if (n >= 0 && n < 10) return "0" + n
+    return n
+}
+
+logger.prefix = function(level) {
+    var d = new Date()
+    return d.getFullYear() + "-" +
+           this.pad(d.getMonth()+1) + "-" +
+           this.pad(d.getDate()) + " " +
+           this.pad(d.getHours()) + ":" +
+           this.pad(d.getMinutes()) + ":" +
+           this.pad(d.getSeconds()) + "." +
+           this.pad(d.getMilliseconds()) +
+           " [" + process.pid + "] " +
+           level + ": "
+}
+
+// Set or close syslog mode
+logger.setSyslog = function (on) {
+    var self = this;
+    if (on) {
+        backend.syslogInit("backend", this.LOG_PID | this.LOG_CONS, this.LOG_LOCAL0);
+        self.print = this.printSyslog;
+        // Initialize map for facilities
+        self.syslogLevels = { test: this.LOG_DEBUG, dev: this.LOG_DEBUG, debug: this.LOG_DEBUG, warn: this.LOG_WARNING,
+                              notice: this.LOG_NOTICE, info: this.LOG_INFO, error: this.LOG_ERROR,
+                              emerg: this.LOG_EMERG, alert: this.LOG_ALERT, crit: this.LOG_CRIT };
+        self.syslogFacilities = { kern: this.LOG_KERN, user: this.LOG_USER, mail: this.LOG_MAIL,
+                                  daemon: this.LOG_DAEMON, auth: this.LOG_AUTH, syslog: this.LOG_SYSLOG,
+                                  lpr: this.LOG_LPR, news: this.LOG_NEWS, uucp: this.LOG_UUCP,
+                                  cron: this.LOG_CRON, authpriv: this.LOG_AUTHPRIV,
+                                  ftp: this.LOG_FTP, local0: this.LOG_LOCAL0, local1: this.LOG_LOCAL1,
+                                  locl2: this.LOG_LOCAL2, local3: this.LOG_LOCAL3, local4: this.LOG_LOCAL4,
+                                  local5: this.LOG_LOCAL5, local6: this.LOG_LOCAL6, local7: this.LOG_LOCAL7 };
+        self.syslogMap = {}
+        Object.keys(this.syslogLevels).forEach(function(l) {
+           Object.keys(self.syslogFacilities).forEach(function(f) {
+               self.syslogMap[l + ':' + f] = self.syslogLevels[l] | self.syslogFacilities[f];
+           });
+        });
+    } else {
+        backend.syslogClose();
+        self.print = this.printStream;
+    }
+    self.syslog = on;
+}
+
+// Redirect logging into file
+logger.setFile = function(file) {
+    var self = this;
+    if (this.stream && this.stream != process.stdout) {
+        this.stream.destroySoon();
+    }
+    self.file = file;
+    if (self.file) {
+    	self.stream = fs.createWriteStream(this.file, { flags: 'a' });
+    	self.stream.on('error', function(err) {
+            process.stderr.write(String(err));
+            self.stream = process.stderr;
+        });
+        // Make sure the log file is owned by regular user to avoid crashes due to no permission of the log file
+        if (process.getuid() == 0) {
+            fs.chown(file, core.uid, core.gid, function(err) { self.error(file, e) });
+        }
+    } else {
+    	self.stream = process.stdout;
+    }
+}
+
+logger.setDebug = function(level) {
+	var self = this;
+	self.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
+    backend.logging(self.level + 2);
+}
+
+// Assign output channel to system logger, default is stdout
+logger.setChannel = function(name) {
+    backend.loggingChannel(name);
+}
+// syslog allows facility to be specified after log level like info:local0 for LOG_LOCAL0
+logger.printSyslog = function(level, msg) {
+    var code = this.syslogMap[level];
+    backend.syslogSend(code || this.LOG_INFO, (code ? "" : level + ": ") + msg);
+}
+
+logger.printStream = function(level, msg) {
+    this.stream.write(this.prefix(level) + msg + "\n");
+}
+
+logger.printError = function() {
+    process.stderr.write(this.prefix("ERROR") + util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
+}
+
+logger.log = function() {
+    if (this.level < 0) return;
+    this.print('INFO', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+}
+
+// Make it one line to preserve space, syslog cannot output very long lines
+logger.debug = function() {
+    if (this.level < 1) return;
+    var str = "";
+    for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
+    this.print('DEBUG', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
+}
+
+logger.dev = function() {
+    if (this.level < 2) return;
+    var str = "";
+    for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
+    this.print('DEV', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
+}
+
+logger.warn = function() {
+    if (this.level < 0) return;
+    this.print('WARNING', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+}
+
+logger.error = function() {
+    this.print('ERROR', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+}
+
+logger.dump = function() {
+    this.stream.write(util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
+}
+
+// Display error if first argument is an Error object or debug
+logger.edebug = function() {
+    var args = Array.prototype.slice.call(arguments, 1)
+    if (arguments[0] instanceof Error) return this.error.apply(this, arguments);
+    this.debug.apply(this, args);
+}
+
+// Display error if first argument is an Error object or log
+logger.elog = function() {
+    var args = Array.prototype.slice.call(arguments, 1)
+    if (arguments[0] instanceof Error) return this.error.apply(this, arguments);
+    this.log.apply(this, args);
+}
+
+// Print stack backtrace as error
+logger.trace = function() {
+    var err = new Error('');
+    err.name = 'Trace';
+    Error.captureStackTrace(err, arguments.callee);
+    this.error(util.format.apply(this, arguments), err.stack);
+}
+
+// Default write handler
+logger.print = function() {
+    this.printStream.apply(this, arguments);
+}
+
+// Stream emulation
+logger.write = function(str) {
+    if (str) this.log(str);
+    return true;
+}
+
+logger.end = function(str) {
+    if (str) this.log(str);
+}
