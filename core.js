@@ -1693,9 +1693,11 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback) {
     });
 }
 
-// Adds reference to the object in the core for further access
-core.addContext = function(name, obj) {
-    this.context[name] = obj;
+// Adds reference to the objects in the core for further access, specify module name, module reference pairs
+core.addContext = function() {
+	for (var i = 0; i < arguments.length - 1; i+= 2) {
+		this.context[arguments[i]] = arguments[i + 1];
+	}
 }
 
 // Create REPL interface with all modules available

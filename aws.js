@@ -36,7 +36,6 @@ var aws = {
 }
 
 module.exports = aws;
-core.addContext('aws', aws);
 
 // Initialization to be run inside core.init in master mode only
 aws.initModule = function(next) 
@@ -697,7 +696,7 @@ aws.ddbQueryTable = function(name, condition, options, callback) {
 //   - start - defines starting primary key
 //   - ops - an object with operators to be used for properties if other than EQ.
 // Example: ddbScanTable("users", { id: 1, name: 'a' }, { op: { name: 'gt' }})
-daws.dbScanTable = function(name, condition, options, callback) {
+aws.dbScanTable = function(name, condition, options, callback) {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};

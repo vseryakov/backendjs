@@ -83,7 +83,6 @@ var db = {
 };
 
 module.exports = db;
-core.addContext('db', db);
 
 // Initialize database pools
 db.init = function(callback) 
@@ -103,15 +102,15 @@ db.init = function(callback)
         }
         
         // Initialize SQL pools
-        this.initPoolTables(self.tables, callback);
+        this.initTables(self.tables, callback);
 }
     
-    // Create tables in all pools
-db.initPoolTables = function(tables, callback) 
+// Create tables in all pools
+db.initTables = function(tables, callback) 
 {
 	var self = this;
 	async.forEachSeries(Object.keys(self.dbpool), function(pool, next) {
-    	self.initTables({ pool: pool, tables: tables }, next);
+    	self.initPoolTables(pool, tables, next);
 	}, function(err) {
         if (callback) callback(err);
     });
@@ -121,12 +120,14 @@ db.initPoolTables = function(tables, callback)
 // options properties:
 // - pool - db pool to create the tables in
 // - tables - list of tables to create or upgrade
-db.initTables = function(options, callback) 
+db.initPoolTables = function(pool, tables, callback) 
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    var options = { pool: pool, tables: tables };
     
+    self.getPool('', options).tables = tables;
     self.cacheColumns(options, function() {
+    	// Workers do not manage tables, only master process
     	if (cluster.isWorker || core.worker) {
     		return callback ? callback(err) : null;
     	}
@@ -139,7 +140,7 @@ db.initTables = function(options, callback)
                 self.create(table, options.tables[table], options, function(err, rows) { changes++; next() });
             }
     }, function() {
-            logger.debug('db.initTables:', options.pool, 'changes:', changes);
+            logger.debug('db.initPoolTables:', options.pool, 'changes:', changes);
             if (!changes) return callback ? callback() : null;
             self.cacheColumns(options, callback);
         });
@@ -151,11 +152,12 @@ db.initTables = function(options, callback)
 //   - pool - pool name/type, of not specified sqlite is used
 //   - max - max number of clients to be allocated in the pool
 //   - idle - after how many milliseconds an idle client will be destroyed
-// - createcb - a callbacl to be called when actual database client needs to be created, the callback signature is
+// - createcb - a callback to be called when actual database client needs to be created, the callback signature is
 //     function(options, callback) and will be called with first arg an error object and second arg is the database instance
 // - cachecb - a callback for caching database tables and columns
 // - valuecb - a callback that performs value transformation if necessary for the bind parameters
-db.initPool = function(options, createcb, cachecb, valuecb) 
+// - columncb - a callback that performs transformation of the values returned from the db into javascript
+db.initPool = function(options, createcb, cachecb, valuecb, columncb) 
 {
     var self = this;
     if (!options) options = {};
@@ -231,7 +233,7 @@ db.initPool = function(options, createcb, cachecb, valuecb)
         	var req = self.sqlSelect(table, obj, opts);
             // Support for pagination, for SQL this is the OFFSET for the next request
             if (options.start && options.count) {
-            	this.pool.next_page = coe.toNumber(options.start) + core.toNumber(options.count);
+            	this.pool.next_token = coe.toNumber(options.start) + core.toNumber(options.count);
             }
             return req;
         case "new": return self.sqlCreate(table, obj, opts);
@@ -247,7 +249,7 @@ db.initPool = function(options, createcb, cachecb, valuecb)
     pool.query = function(client, req, opts, callback) {
         client.query(req.text, req.values || [], function(err, rows) {
             if (err) return callback(err, rows);
-            if (opts.filter) rows = rows.filter(function(row) { return opts.filter(row, opts); });
+            if (opts && opts.filter) rows = rows.filter(function(row) { return opts.filter(row, opts); });
             callback(err, rows);
         });
     }
@@ -256,15 +258,16 @@ db.initPool = function(options, createcb, cachecb, valuecb)
         var req = this.prepare("add", table, obj, core.extendObj(opts || {}, 'replace', 1));
         self.query(req, options, callback);
     }
-    // Convert a value when using with parametrized statements or convert into appropriate database type
-    pool.value = valuecb || function(val, opts) { return val; }
+    pool.bindValue = valuecb;
+    pool.columnValue = columncb;
     pool.name = options.pool;
     pool.serial = 0;
+    pool.tables = {};
     pool.dbcolumns = {};
     pool.dbkeys = {};
     pool.dbunique = {};
     pool.sql = true;
-    pool.next_page = null;
+    pool.next_token = null;
     pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
     this.dbpool[options.pool] = pool;
     logger.debug('db.initPool:', pool.name);
@@ -407,7 +410,7 @@ db.replace = function(table, obj, options, callback)
 // On return, the callback can check third argument which is an object with the following properties:
 // - affected_rows - how many records this operation affected
 // - inserted_oid - last created auto generated id
-// - next_page - next primary key or offset for pagination by passing it as .start property in the options
+// - next_token - next primary key or offset for pagination by passing it as .start property in the options
 db.select = function(table, obj, options, callback) 
 {
     if (typeof options == "function") callback = options,options = null;
@@ -470,7 +473,7 @@ db.getCached = function(table, obj, options, callback)
 // - options may have the following properties:
 //   - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
 // Callback is called with the following params:
-//  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,next_page
+//  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,next_token
 //    rows is always returned as a list, even in case of error it is an empty list
 db.query = function(req, options, callback) 
 { 
@@ -484,11 +487,18 @@ db.query = function(req, options, callback)
         if (err) return callback ? callback(err, []) : null;
         var t1 = core.mnow();
         pool.query(client, req, options, function(err2, rows) {
-            var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_page: client.next_page || pool.next_page };
+            var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
             pool.free(client);
             if (err2) {
                 logger.error("db.query:", pool.name, req.text, req.values, err2);
                 return callback ? callback(err2, rows, info) : null;
+            }
+            // Process retruned values if we have custom column callback
+            if (pool.columnValue) {
+            	var cols = pool.dbcolumns[req.table.toLowerCase()] || {};
+            	rows.forEach(function(row) {
+            		for (var p in row) row[p] = pool.columnValue(row[p], cols[p]);
+            	});
             }
             // Cache notification in case of updates, we must have the request prepared by the db.prepare
             if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
@@ -542,13 +552,6 @@ db.prepare = function(op, table, obj, options)
     return req;
 }
 
-// Return possibly converted value to be used for inserting/updating values in the database, 
-// is used for SQL parametrized statements
-db.value = function(options, val, vopts) 
-{
-    return this.getPool('', options).value(val, vopts);
-}
-
 // Return database pool by name or default sqlite pool
 db.getPool = function(table, options) 
 {
@@ -572,6 +575,25 @@ db.getColumn = function(table, name, options)
 db.getKeys = function(table, options) 
 {
     return this.getPool(table, options).dbkeys[table.toLowerCase()];
+}
+
+// Return possibly converted value to be used for inserting/updating values in the database, 
+// is used for SQL parametrized statements
+// Parameters:
+//  - options - standard pool parameters with pool: property for specific pool
+//  - val - the Javascript value to convert into bind parameter
+//  - info - column definition for the value from the cached columns 
+db.getBindValue = function(table, options, val, info) 
+{
+	var cb = this.getPool(table, options).bindValue;
+	return cb ? cb(val, info) : val;
+}
+
+// Return transformed value for the column value returned by the database, same parameters as for getBindValue
+db.getColumnValue = function(table, options, val, info) 
+{
+	var cb = this.getPool(table, options).colValue;
+	return cb ? cb(val, info) : val;
 }
 
 // Reload all columns into the cache for the pool
@@ -959,7 +981,7 @@ db.sqlLimit = function(options)
 //   - pool - pool to be used for driver specific functions
 //   - ops - object for other comparison operators for primary key beside =
 //   - types - type mapping for properties to be used in the condition
-db.sqlWhere = function(obj, keys, options) 
+db.sqlWhere = function(table, obj, keys, options) 
 {
     var self = this;
     if (!options) options = {};
@@ -969,7 +991,7 @@ db.sqlWhere = function(obj, keys, options)
         if (keys.length == 1) {
             return keys[0] + " IN (" + this.sqlValueIn(obj.map(function(x) { return x[keys[0]] })) + ")"; 
         }
-        return obj.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.value(options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
+        return obj.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.getBindValue(table, options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
     }
     
     // Regular object with conditions
@@ -1063,7 +1085,7 @@ db.sqlSelect = function(table, obj, options)
                options.select ? options.select.split(",").filter(function(x) { return /^[a-z0-9_]+$/.test(x) && x in dbcols; }).map(function(x) { return x }).join(",") : "";
     if (!cols) cols = "*";
 
-    var where = this.sqlWhere(obj, keys);
+    var where = this.sqlWhere(table, obj, keys);
     if (where) where = " WHERE " + where;
     
     var req = { text: "SELECT " + cols + " FROM " + table + where + this.sqlLimit(options) };
@@ -1091,7 +1113,7 @@ db.sqlInsert = function(table, obj, options)
         if (typeof v == "undefined" || (v == null && !options.add_nulls)) continue;
         names.push(p);
         pnums.push(options.placeholder || ("$" + i));
-        v = this.value(options, v, cols[p]);
+        v = this.getBindValue(table, options, v, cols[p]);
         req.values.push(v);
         i++;
     }
@@ -1140,11 +1162,11 @@ db.sqlUpdate = function(table, obj, options)
         } else {
             sets.push(p + "=" + (options.placeholder || ("$" + i)));
         }
-        v = this.value(options, v, cols[p]);
+        v = this.getBindValue(table, options, v, cols[p]);
         req.values.push(v);
         i++;
     }
-    var where = this.sqlWhere(obj, keys, options);
+    var where = this.sqlWhere(table, obj, keys, options);
     if (!sets.length || !where) {
         // No keys or columns to update, just exit, it is not an error, return empty result
         logger.debug('sqlUpdate:', table, 'nothing to do', obj, keys);
@@ -1163,7 +1185,7 @@ db.sqlDelete = function(table, obj, options)
     var keys = options.keys;
     if (!keys || !keys.length) keys = this.getKeys(table, options) || [];
     
-    var where = this.sqlWhere(obj, keys, options);
+    var where = this.sqlWhere(table, obj, keys, options);
     if (!where) {
         // No keys or columns to update, just exit, it is not an error, return empty result
         logger.debug('sqlUpdate:', table, 'nothing to do', obj, keys);
@@ -1336,7 +1358,7 @@ db.sqliteInitPool = function(options)
     
     if (!options.pool) options.pool = "sqlite";
     options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
-    return this.initPool(options, self.sqliteOpen, self.sqliteCacheColumns, self.sqliteValue);
+    return this.initPool(options, self.sqliteOpen, self.sqliteCacheColumns, self.sqliteBindValue, self.sqliteColumnValue);
 }
 
 // Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
@@ -1377,6 +1399,7 @@ db.sqliteOpen = function(options, callback)
 // Always keep columns and primary keys in the cache for the pool
 db.sqliteCacheColumns = function(options, callback) 
 {
+	var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
     
@@ -1389,13 +1412,23 @@ db.sqliteCacheColumns = function(options, callback)
             pool.dbkeys = {};
             pool.dbunique = {};
             async.forEachSeries(tables, function(table, next) {
+            	// Merge column types from the Javascript definitions for data type conversion
+            	var js_table = self.convertColumns(pool.tables[table.name] || []);
+            	
                 client.query("PRAGMA table_info(" + table.name + ")", function(err3, rows) {
                     if (err3) return next(err3);
                     for (var i = 0; i < rows.length; i++) {
                         if (!pool.dbcolumns[table.name]) pool.dbcolumns[table.name] = {};
                         if (!pool.dbkeys[table.name]) pool.dbkeys[table.name] = [];
                         // Split type cast and ignore some functions in default value expressions
-                        pool.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, value: rows[i].dflt_value, type: rows[i].type.toLowerCase(), data_type: rows[i].type, isnull: !rows[i].notnull, primary: rows[i].pk };
+                        pool.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, 
+                        										     name: rows[i].name, 
+                        										     value: rows[i].dflt_value, 
+                        										     type: rows[i].type.toLowerCase(), 
+                        										     data_type: rows[i].type, 
+                        										     js_type: (js_table[rows[i].name] || {}).type || "", 
+                        										     isnull: !rows[i].notnull, 
+                        										     primary: rows[i].pk };
                         if (rows[i].pk) pool.dbkeys[table.name].push(rows[i].name);
                     }
                     client.query("PRAGMA index_list(" + table.name + ")", function(err4, indexes) {
@@ -1425,10 +1458,29 @@ db.sqliteCacheColumns = function(options, callback)
 }
 
 // Convert into appropriate Sqlite format
-db.sqliteValue = function(val, opts) 
+db.sqliteBindValue = function(val, info) 
 {
-    // Dates must be converted into seconds
-    if (typeof val == "object" && val.getTime) return Math.round(val.getTime()/1000);
+    switch ((info || {}).js_type || "") {
+    case "json":
+        // Save as JSON
+    	val = JSON.stringify(val);
+    	break;
+    	
+    default:
+        // Dates must be converted into seconds
+        if (typeof val == "object" && val.getTime) val = Math.round(val.getTime()/1000);
+    }
+    return val;
+}
+
+// Convert into appropriate Javascript format
+db.sqliteColumnValue = function(val, info) 
+{
+	switch ((info || {}).js_type || "") {
+	case "json":
+		try { val = JSON.parse(val); } catch (e) { val = null; }
+		break;
+	}
     return val;
 }
 
@@ -1442,13 +1494,12 @@ db.ddbInitPool = function(options)
     // Redefine pool but implement the same interface
     var pool = { name: options.pool, db: options.db, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
     this.dbpool[options.pool] = pool;
-    pool.next_page = null;
+    pool.next_token = null;
     pool.affected_rows = 0;
     pool.inserted_oid = 0;
     pool.get = function(callback) { callback(null, this); }
     pool.free = function() {}
     pool.watch = function() {}
-    pool.value = function(v) { return v }
 
     pool.cacheColumns = function(opts, callback) {
         if (typeof opts == "function") callback = opts, opts = null;
@@ -1500,7 +1551,7 @@ db.ddbInitPool = function(options)
         var table = req.text;
         var obj = req.values;
         var options = core.extendObj(opts, "db", pool.db);
-        pool.next_page = null;
+        pool.next_token = null;
         // Primary keys
         var primary_keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
         
@@ -1552,18 +1603,18 @@ db.ddbInitPool = function(options)
                 if (err) return callback(err, []);
                 var count = options.count || 0;
                 var rows = filter(item.Items);
-                pool.next_page = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
+                pool.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
                 count -= rows.length;
                 
                 // Keep retrieving items until we reach the end or our limit
                 async.until( 
-                    function() { return pool.next_page == null || count <= 0; }, 
+                    function() { return pool.next_token == null || count <= 0; }, 
                     function(next) {
-                        options.start = pool.next_page;
+                        options.start = pool.next_token;
                         aws.ddbQueryTable(table, keys, options, function(err, item) {
                             var items = filter(item.Items);
                             rows.push.apply(rows, items);
-                            pool.next_page = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
+                            pool.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
                             count -= items.length;
                             next(err);
                         });                            

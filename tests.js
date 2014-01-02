@@ -168,7 +168,7 @@ var tests = {
             },
             function(next) {
                 var options = { email: email, secret: secret, query: { latitude: latitude, longitude: longitude, location: location } };
-                core.sendRequest("/account/location/put", options, function(err, params) {
+                core.sendRequest("/location/put", options, function(err, params) {
                     next(err);
                 });
             },
@@ -177,35 +177,6 @@ var tests = {
                 core.sendRequest("/account/get", options, function(err, params) {
                     console.log('ACCOUNT:', params.obj);
                     next(err);
-                });
-            }
-        ],
-        function(err) {
-            callback(err)
-        });
-    },
-
-    locations: function(callback) {
-        var key = core.random() + "@test.com";
-        async.series([
-            function(next) {
-                core.sendRequest("/account/add?email=" + email + "&secret=" + secret + "&name=&birthday=" + core.strftime(""), function(data) {
-                    next();
-                });
-            },
-            function(next) {
-                call(key, "/account/get", function(data) {
-                    next();
-                });
-            },
-            function(next) {
-                call(key, "/account/location/put?latitude=10&longitude=-10&location=test", function(data) {
-                    next();
-                });
-            },
-            function(next) {
-                call(key, "/account/get", function(data) {
-                    next();
                 });
             }
         ],

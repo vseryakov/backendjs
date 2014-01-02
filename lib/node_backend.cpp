@@ -60,6 +60,36 @@ static Handle<Value> loggingChannel(const Arguments& args)
     return scope.Close(String::New(fp == stderr ? "stderr" : "stdout"));
 }
 
+string jsonStringify(Local<Value> obj)
+{
+    HandleScope scope;
+
+    Local<Value> argv[1] = { obj };
+    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::New("JSON"))->ToObject();
+    Handle<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(String::New("stringify")));
+
+    String::Utf8Value json(JSON_stringify->Call(JSON, 1, argv));
+    return *json;
+}
+
+Handle<Value> jsonParse(string str)
+{
+    HandleScope scope;
+
+    Local<Value> argv[1] = { Local<String>::New(String::New(str.c_str())) };
+    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::New("JSON"))->ToObject();
+    Handle<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::New("parse")));
+    Local<Value> val;
+    {
+    	TryCatch try_catch;
+    	val = JSON_parse->Call(JSON, 1, argv);
+    	if (try_catch.HasCaught()) {
+    		val = Local<Value>::New(Null());
+    	}
+    }
+    return scope.Close(val);
+}
+
 Handle<Value> toArray(vector<string> &list, int numeric)
 {
     HandleScope scope;

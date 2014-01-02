@@ -96,5 +96,8 @@ void LevelDBInit(Handle<Object> target);
 Handle<Value> toArray(vector<string> &list, int numeric = 0);
 Handle<Value> toArray(vector<pair<string,string> > &list);
 
+Handle<Value> jsonParse(string str);
+string jsonStringify(Local<Value> obj);
+
 #endif
 

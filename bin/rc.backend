@@ -131,7 +131,6 @@ case "$ARG" in
        echo "alias alog=\"tail -100 $ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
        echo 'alias brc="sudo /usr/local/bin/rc.backend"' >> .bashrc
-       echo 'alias asql="msqlite3 /data/var/account.db"' >> .bashrc
        echo 'alias bcp="rc.backend repl"' >> .bashrc
        echo 'alias ps="ps augx"' >> .bashrc
        echo 'alias mc="mc -b"' >> .bashrc
@@ -548,10 +547,6 @@ case "$ARG" in
     tar -C ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz
     rm -rf ImageMagick.tar.gz
     (cd ImageMagick && ./configure --prefix=/opt/local && make install)
-    
-    echo 'Installing plv8js...'
-    git clone https://code.google.com/p/plv8js
-    #make -C plv8js -f Makefile.v8 install 
     
     ;;
 

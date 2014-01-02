@@ -5,6 +5,8 @@
 
 #include "node_backend.h"
 
+#define SQLITE_JSON 99
+
 #define EXCEPTION(msg, errno, name) \
         Local<Value> name = Exception::Error(String::Concat(String::Concat(String::NewSymbol(sqlite_code_string(errno)),String::NewSymbol(": ")),String::New(msg))); \
         Local<Object> name ##_obj = name->ToObject(); \
@@ -327,7 +329,7 @@ static bool ParseParameters(Row &params, const Arguments& args, int idx)
     for (uint i = 0, pos = 1; i < array->Length(); i++, pos++) {
         Local<Value> source = array->Get(i);
 
-        if (source->IsString() || source->IsRegExp() || source->IsArray()) {
+        if (source->IsString() || source->IsRegExp()) {
             String::Utf8Value val(source->ToString());
             params.push_back(SQLiteField(pos, SQLITE_TEXT, 0, string(*val, val.length())));
         } else
@@ -350,6 +352,9 @@ static bool ParseParameters(Row &params, const Arguments& args, int idx)
         if (source->IsDate()) {
             params.push_back(SQLiteField(pos, SQLITE_FLOAT, source->NumberValue()));
         } else
+        if (source->IsObject()) {
+        	params.push_back(SQLiteField(pos, SQLITE_TEXT, 0, jsonStringify(source)));
+        } else
         if (source->IsUndefined()) {
             params.push_back(SQLiteField(pos));
         }
@@ -365,8 +370,10 @@ static void GetRow(Row &row, sqlite3_stmt* stmt)
         int type = sqlite3_column_type(stmt, i);
         int length = sqlite3_column_bytes(stmt, i);
         const char* name = sqlite3_column_name(stmt, i);
+        const char* dtype = sqlite3_column_decltype(stmt, i);
         const char* text;
 
+        if (dtype && !strcasecmp(dtype, "json")) type = SQLITE_JSON;
         switch (type) {
         case SQLITE_INTEGER:
             row.push_back(SQLiteField(name, type, sqlite3_column_int64(stmt, i)));
@@ -375,6 +382,7 @@ static void GetRow(Row &row, sqlite3_stmt* stmt)
             row.push_back(SQLiteField(name, type, sqlite3_column_double(stmt, i)));
             break;
         case SQLITE_TEXT:
+        case SQLITE_JSON:
             text = (const char*) sqlite3_column_text(stmt, i);
             row.push_back(SQLiteField(name, type, 0, string(text, length)));
             break;
@@ -399,9 +407,12 @@ static Local<Object> GetRow(sqlite3_stmt *stmt)
         int type = sqlite3_column_type(stmt, i);
         int length = sqlite3_column_bytes(stmt, i);
         const char* name = sqlite3_column_name(stmt, i);
+        const char* dtype = sqlite3_column_decltype(stmt, i);
         const char* text;
         Local<Value> value;
         Buffer *buffer;
+
+        if (dtype && !strcasecmp(dtype, "json")) type = SQLITE_JSON;
         switch (type) {
         case SQLITE_INTEGER:
             value = Local<Value>(Number::New(sqlite3_column_int64(stmt, i)));
@@ -411,6 +422,9 @@ static Local<Object> GetRow(sqlite3_stmt *stmt)
             break;
         case SQLITE_TEXT:
             value = Local<Value>(String::New((const char*) sqlite3_column_text(stmt, i)));
+            break;
+        case SQLITE_JSON:
+            value = Local<Value>::New(jsonParse(string((char*)sqlite3_column_text(stmt, i))));
             break;
         case SQLITE_BLOB:
             text = (const char*)sqlite3_column_blob(stmt, i);
@@ -436,6 +450,9 @@ static Local<Object> RowToJS(Row &row)
         Buffer *buffer;
         Local<Value> value;
         switch (field.type) {
+        case SQLITE_JSON:
+        	value = Local<Value>::New(jsonParse(field.svalue));
+        	break;
         case SQLITE_INTEGER:
             value = Local<Value>(Number::New(field.nvalue));
             break;

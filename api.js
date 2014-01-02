@@ -124,10 +124,10 @@ var api = {
 }
 
 module.exports = api;
-core.addContext('api', api);
 
 // Initialize API layer with the active HTTP server
-api.init = function(callback) {
+api.init = function(callback) 
+{
     var self = this;
     var db = core.context.db;
     
@@ -195,15 +195,16 @@ api.init = function(callback) {
     // Post init or other application routes
     self.onInit.call(this);
     
-    // Create table in all db pools
-    db.initPoolTables(self.tables, callback);
+    // Create tables in all db pools
+    db.initTables(self.tables, callback);
 }
 
 //Cutomization hooks/callbacks, always run within api context
 api.onInit = function() {}
        
 // Perform authorization of the incoming request for access and permissions
-api.checkRequest = function(req, res, next) {
+api.checkRequest = function(req, res, next) 
+{
     var self = this;
     self.checkAccess(req, function(rc1) {
         // Status is given, return an error or proceed to the next module
@@ -226,14 +227,16 @@ api.checkRequest = function(req, res, next) {
 // - nothing if checkSignature needs to be called
 // - an object with status: 200 to skip authorization and proceed with the next module
 // - an object with status other than 200 to return the status and stop request processing
-api.checkAccess = function(req, callback) {
+api.checkAccess = function(req, callback) 
+{
     if (this.deny && req.path.match(this.deny)) return callback({ status: 401, message: "Access denied" });
     if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
     callback();
 }
 
 // Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers
-api.checkSignature = function(req, callback) {
+api.checkSignature = function(req, callback) 
+{
     // Make sure we will not crash on wrong object
     if (!req || !req.headers) req = { headers: {} };
     if (!callback) callback = function(x) { return x; }
@@ -251,7 +254,7 @@ api.checkSignature = function(req, callback) {
         return callback({ status: 401, message: "Invalid request: " + (!sig.method ? "no method" :
                                                                        !sig.host ? "no host" :
                                                                        !sig.id ? "no email" :
-                                                                       !sig.expires ? "no expires" :
+                                                                       !sig.expires ? "no expiration" :
                                                                        !sig.signature ? "no signature" : "") });
     }
 
@@ -305,7 +308,8 @@ api.checkSignature = function(req, callback) {
 }
 
 // Account management
-api.initAccountAPI = function() {
+api.initAccountAPI = function()
+{
     var self = this;
     var now = core.now();
     var db = core.context.db;
@@ -332,7 +336,8 @@ api.initAccountAPI = function() {
             
         case "search":
             // Search is limited to specific columns only
-            db.select("account", req.query, { select: req.query._select }, function(err, rows) {
+        	var options = { select: req.query._select, start: req.query._start, count: req.query._count, sort: req.query._sort, desc: req.query._desc };
+            db.select("account", req.query, options, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 rows.forEach(function(row) {
                     self.prepareAccount(row);
@@ -402,7 +407,8 @@ api.initAccountAPI = function() {
 }
 
 // Connections management
-api.initIconAPI = function() {
+api.initIconAPI = function() 
+{
     var self = this;
     var now = core.now();
     var db = core.context.db;
@@ -444,7 +450,8 @@ api.initIconAPI = function() {
 }
     
 // Connections management
-api.initHistoryAPI = function() {
+api.initHistoryAPI = function()
+{
     var self = this;
     var now = core.now();
     var db = core.context.db;
@@ -470,7 +477,8 @@ api.initHistoryAPI = function() {
 }
 
 // Counters management
-api.initCounterAPI = function() {
+api.initCounterAPI = function()
+{
     var self = this;
     var now = core.now();
     var db = core.context.db;
@@ -502,7 +510,8 @@ api.initCounterAPI = function() {
 }
 
 // Connections management
-api.initConnectionAPI = function() {
+api.initConnectionAPI = function() 
+{
     var self = this;
     var now = core.now();
     var db = core.context.db;
@@ -574,7 +583,8 @@ api.initConnectionAPI = function() {
             var table = req.params[0] == "list" ? "connection" : "reference";
             // Only one connection record to be returned if id and type specified
             if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
-            db.select(table, { id: req.account.id, type: req.query.type }, { ops: { type: "begins_with" }, select: req.query._select }, function(err, rows) {
+            var options = { ops: { type: "begins_with" }, select: req.query._select };
+            db.select(table, { id: req.account.id, type: req.query.type }, options, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 // Collect account ids
                 rows = rows.map(function(row) { return row.type.split(":")[1]; });
@@ -593,7 +603,8 @@ api.initConnectionAPI = function() {
 }
 
 // Geo locations management
-api.initLocationAPI = function() {
+api.initLocationAPI = function() 
+{
     var self = this;
     var now = core.now();
     var db = core.context.db;
@@ -645,12 +656,8 @@ api.initLocationAPI = function() {
             // Limit the distance within our configured range
             req.query.distance = core.toNumber(req.query.distance, 0, self.minDistance, self.minDistance, self.maxDistance);
             // Prepare geo search key
-            var geo = self.prepareGeohash(latitude, longitude, req.query);
-            // Start comes as full geohash, split it into search hash and range
-            var start = req.query._start;
-            if (start) start = core.toJson(start);
-            
-            var options = { ReturnConsumedCapacity: 'TOTAL', ops: { range: "begins_with" }, start: start, count: req.query._count || 25 };
+            var geo = self.prepareGeohash(latitude, longitude, req.query);            
+            var options = { ops: { range: "GT" }, start: core.toJson(req.query._start), count: req.query._count || 25 };
             options.filter = function(x) { x.distance = backend.geoDistance(latitude, longitude, x.latitude, x.longitude); return x.distance <= distance; }
             db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
                 var list = {}, ids = [];
@@ -662,7 +669,7 @@ api.initLocationAPI = function() {
                     return row;
                 });
                 // Next batch of records passed as _start query parameter
-                var next = info.next_page ? core.toBase64(info.next_page) : null;
+                var next_token = info.next_token ? core.toBase64(info.next_token) : null;
                 
                 // Return accounts with locations
                 if (req.query._details) {
@@ -672,7 +679,7 @@ api.initLocationAPI = function() {
                         rows.forEach(function(row) {
                             row.account = list[row.id];
                         })
-                        res.json({ geohash: geo.geohash, next: next, items: rows });
+                        res.json({ geohash: geo.geohash, next_token: next_token, items: rows });
                     });
                 } else {
                     // Return back not just a list with rows but pagination info as well, stop only if next property is null even if no rows returned
@@ -688,7 +695,8 @@ api.initLocationAPI = function() {
 // options may contain the follwong properties:
 // - distance - limit the range key by the minimum distance, this will reduce the range key length, 
 //              if not specified the full geohash will be produced
-api.prepareGeohash = function(latitude, longitude, options) {
+api.prepareGeohash = function(latitude, longitude, options)
+{
     var self = this;
     var hbits = this.geoRange.filter(function(x) { return x[1] > self.maxDistance })[0][0];
     var rbits = (options || {}).distance ? this.geoRange.filter(function(x) { return x[1] > options.distance })[0][0] : 22;
@@ -697,7 +705,8 @@ api.prepareGeohash = function(latitude, longitude, options) {
 }
 
 // Prepare an account record for response, set required fields, icons
-api.prepareAccount = function(row) {
+api.prepareAccount = function(row)
+{
     if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     // List all available icons, on icon put, we save icon type in the icons property
     core.strSplitUnique(row.icons).forEach(function(x) {
@@ -707,7 +716,8 @@ api.prepareAccount = function(row) {
 }
 
 // Collect accounts by id or list of ids
-api.listAccounts = function(req, obj, options, callback) {
+api.listAccounts = function(req, obj, options, callback)
+{
     var self = this;
     var pubcols = db.publicColumns('account', { columns: self.tables.account });
     // Provided list of columns must be a subset of public columns
@@ -727,7 +737,8 @@ api.listAccounts = function(req, obj, options, callback) {
 }
 
 // API for internal provisioning, by default supports access to all tables
-api.initBackendAPI = function() {
+api.initBackendAPI = function() 
+{
     var self = this;
     
     // Return current statistics
@@ -772,7 +783,9 @@ api.initBackendAPI = function() {
 }
 
 // Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes
-api.initTables = function(table, columns) {
+// Used during initialization of the external modules which may add custom columns to the existing tables. 
+api.initTables = function(table, columns) 
+{
     var self = this;
     if (!Array.isArray(columns)) return;
     if (!self.tables[table]) self.tables[table] = []; 
@@ -784,7 +797,8 @@ api.initTables = function(table, columns) {
 }
 
 // Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back
-api.sendReply = function(res, status, msg) {
+api.sendReply = function(res, status, msg) 
+{
     if (status instanceof Error) msg = status, status = 500;
     if (!status) status = 200, msg = "";
     res.json(status, { status: status, message: String(msg || "").replace(/SQLITE_CONSTRAINT:/g, '') });
@@ -792,7 +806,8 @@ api.sendReply = function(res, status, msg) {
 }
 
 // Send file back to the client, res is Express response object
-api.sendFile = function(req, res, file, redirect) {
+api.sendFile = function(req, res, file, redirect) 
+{
     fs.exists(file, function(yes) {
         if (req.method == 'HEAD') return res.send(yes ? 200 : 404);
         if (yes) return res.sendfile(file);
@@ -802,13 +817,15 @@ api.sendFile = function(req, res, file, redirect) {
 }
 
 // Return type of the icon, this can be type itself or full icon url
-api.getIconType = function(id, type) {
+api.getIconType = function(id, type) 
+{
     var d = (type || "").match(/\/image\/account\/([a-z0-9-]+)\/?(([0-9])$|([0-9])\?)?/);
     return d && d[1] == id ? (d[3] || d[4]) : "0";
 }
 
 // Return icon to the client
-api.getIcon = function(req, res, id, options) {
+api.getIcon = function(req, res, id, options) 
+{
     var self = this;
     
     var icon = core.iconPath(id, options);
@@ -855,7 +872,8 @@ api.putIcon = function(req, id, options, callback) {
 }
 
 // Delete an icon for account, .type defines icon prefix
-api.delIcon = function(req, id, options, callback) {
+api.delIcon = function(req, id, options, callback) 
+{
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
     
@@ -875,7 +893,8 @@ api.delIcon = function(req, id, options, callback) {
 }
 
 // Same as putIcon but store the icon in the S3 bucket, icon can be a file or a buffer with image data
-api.putIconS3 = function(file, id, options, callback) {
+api.putIconS3 = function(file, id, options, callback)
+{
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -892,7 +911,8 @@ api.putIconS3 = function(file, id, options, callback) {
 }
 
 // Custom access logger
-api.accessLogger = function() {
+api.accessLogger = function() 
+{
     var self = this;
 
     var format = function(req, res) {

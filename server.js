@@ -75,7 +75,6 @@ var server = {
 }
 
 module.exports = server;
-core.addContext('server', server);
 
 // Start the server process
 server.start = function() 

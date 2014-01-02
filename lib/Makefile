@@ -41,8 +41,8 @@ SQLITE_FLAGS		+= -DSQLITE_USE_URI -DSQLITE_ENABLE_STAT3=1 -DSQLITE_ENABLE_FTS4=1
 CXXFLAGS		= $(SDK_FLAGS) $(SDK_INCLUDES) $(SQLITE_FLAGS)
 
 # Core sources
-SOURCES			+= vlog.cpp vsqlite.cpp vlib.cpp vunzip.cpp sqlite3.c
-HEADERS			+= vlog.h vsystem.h vsqlite.h vlib.h vunzip.h sqlite3.h
+SOURCES			+= vlog.cpp vsqlite.cpp vlib.cpp sqlite3.c
+HEADERS			+= vlog.h vsystem.h vsqlite.h vlib.h sqlite3.h
 
 # Resolve all objects
 OBJECTS			= $(addsuffix .o, $(basename $(SOURCES)))
