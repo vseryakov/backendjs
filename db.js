@@ -17,14 +17,18 @@ var gpool = require('generic-pool');
 var async = require('async');
 var os = require('os');
 
-// Database API, a thin abstraction layer on top of SQLite, PosytgreSQL, DynamoDB and Cassandra
-// The goal is not to abstract all db operations and provide unified access to all database but to make 
-// the API aplicable for most use cases for all suppoted database. All other specific operations must be 
-// perform using particular API of each database separately.
-// Basic operations are supported for all database and modelled for NoSQL usage but can be used in SQL 
-// databases as well, this means no SQL joins are supported by the API, only single table access. 
-// But the methiods support SQL statements so if NoSQL compatibility is not needed then using SQL directly could
-// make use of any SQL database specifics.
+// The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
+// The idea is not to introduce new abstraction layer on top of all databases but to make 
+// the API usable for common use cases. On the source code level access to all databases will be possible using
+// this API but any specific usage like SQL queries syntax or data types available only for some databases will not be
+// unified or automatically converted but passed to the database directly. Only conversion between Javascript types and  
+// database types is unified to some degree meaning Javascript data type will be converted into the corresponding 
+// data type supported by any particular database and vice versa.
+//
+// Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported 
+// by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
+// API call, all high level operations like add/put/del perform SQL generation for single table on the fly.
+
 var db = {
     name: 'db',
     
@@ -142,7 +146,9 @@ db.initPoolTables = function(pool, tables, callback)
     }, function() {
             logger.debug('db.initPoolTables:', options.pool, 'changes:', changes);
             if (!changes) return callback ? callback() : null;
-            self.cacheColumns(options, callback);
+            self.cacheColumns(options, function() {
+            	if (callback) callback();
+            });
         });
     });
 }
@@ -275,7 +281,7 @@ db.initPool = function(options, createcb, cachecb, valuecb, columncb)
 }
     
 // Insert new object into the database
-// - obj - an object with properties for the record, primary key properties must be supplied
+// - obj - an Javascript object with properties for the record, primary key properties must be supplied
 db.add = function(table, obj, options, callback) 
 {
     if (typeof options == "function") callback = options,options = null;
@@ -398,11 +404,11 @@ db.replace = function(table, obj, options, callback)
 // - obj - can be an object with primary key propeties set for the condition, all matching records will be returned
 // - obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
 // Options can use the following special propeties:
-//  - keys - a list of columns for condition or all primary keys
-//  - ops - operators to use for comparison for properties, an object
+//  - keys - a list of columns for condition or all primary keys will be used for query condition
+//  - ops - operators to use for comparison for properties, an object with column name and operator
 //  - types - type mapping between supplied and actual column types, an object
-//  - select - a list of columns or expressions to return or all columns
-//  - start - start records ith this primary key
+//  - select - a list of columns or expressions to return or all columns if not specified
+//  - start - start records with this primary key, this is the next_token passed by the previous query
 //  - count - how many records to return
 //  - sort - sort by this column
 //  - desc - if sorting, do in descending order
@@ -435,7 +441,7 @@ db.get = function(table, obj, options, callback)
 // Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
 // Options accept the same parameters as for the usual get action.
 // Additional options:
-// - prefix - prefix to be used for the key instead of table:
+// - prefix - prefix to be used for the key instead of table name
 db.getCached = function(table, obj, options, callback) 
 {
     var self = this;
@@ -473,8 +479,9 @@ db.getCached = function(table, obj, options, callback)
 // - options may have the following properties:
 //   - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
 // Callback is called with the following params:
-//  - callback(err, rows, info) where info holds inforamtion about the last query: inserted_oid,affected_rows,next_token
-//    rows is always returned as a list, even in case of error it is an empty list
+//  - callback(err, rows, info) where 
+//    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
+//    - rows is always returned as a list, even in case of error it is an empty list
 db.query = function(req, options, callback) 
 { 
     var self = this;
@@ -571,6 +578,16 @@ db.getColumn = function(table, name, options)
     return dbcols[name];
 }
 
+// Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped
+db.skipColumn = function(name, val, options, columns) 
+{ 
+	return !name || name[0] == '_' || typeof val == "undefined" || 
+			(options.skip_null && val === null) ||
+			(options.check_columns && !options.no_columns && (!columns || !columns[name])) || 	
+			(options.allow_columns && options.allow_columns.indexOf(name) == -1) ||
+			(options.skip_columns && options.skip_columns.indexOf(name) > -1);
+}
+
 // Return cached primary keys for a table or null
 db.getKeys = function(table, options) 
 {
@@ -599,7 +616,12 @@ db.getColumnValue = function(table, options, val, info)
 // Reload all columns into the cache for the pool
 db.cacheColumns = function(options, callback) 
 {
-    this.getPool('', options).cacheColumns(callback);
+	var self = this;
+    var pool = this.getPool('', options);
+    pool.cacheColumns(function() {
+    	self.mergeColumns(pool);
+    	if (callback) callback();
+    });
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
@@ -609,10 +631,20 @@ db.clearCached = function(table, row, options)
     core.ipcDelCache(key);
 }
 
-// Convert column definition list used in db.create into the format used by internal db pool functions
-db.convertColumns = function(cols) 
+// Merge Javascript column definitions with the db cached columns
+db.mergeColumns = function(pool)
 {
-    return (cols || []).reduce(function(x,y) { x[y.name] = y; return x }, {});
+	var tables = pool.tables;
+	var dbcolumns = pool.dbcolumns;
+	for (var table in tables) {
+		if (!dbcolumns[table]) dbcolumns[table] = {};
+		tables[table].forEach(function(col) {
+			if (!dbcolumns[table][col.name]) dbcolumns[table][col.name] = {};
+			for (var p in col) {
+				if (!dbcolumns[table][col.name][p]) dbcolumns[table][col.name][p] = col[p];
+			}
+		});
+	}
 }
 
 // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
@@ -1097,20 +1129,17 @@ db.sqlSelect = function(table, obj, options)
 db.sqlInsert = function(table, obj, options) 
 {
     if (!options) options = {};
+    if (typeof options.check_columns == "undefined") options.check_columns = 1;
     var names = [], pnums = [], req = { values: [] }, i = 1
     // Columns should exist prior to calling this
     var cols = this.getColumns(table, options) || {};
-
+    
     for (var p in obj) {
-        if (!p || p[0] == "_" || (!options.nocolumns && !(p in cols))) continue;
-        // Filter not allowed columns or only allowed columns
-        if (options.skip_cols && options.skip_cols.indexOf(p) > -1) continue;
-        if (options.allow_cols && options.allow_cols.indexOf(p) == -1) continue;
         var v = obj[p];
+        // Filter not allowed columns or only allowed columns
+        if (this.skipColumn(p, v, options, cols)) continue;
         // Avoid int parse errors with empty strings
         if (!v && ["number","json"].indexOf(cols[p].type) > -1) v = null;
-        // Ignore nulls, this way default value will be inserted if specified
-        if (typeof v == "undefined" || (v == null && !options.add_nulls)) continue;
         names.push(p);
         pnums.push(options.placeholder || ("$" + i));
         v = this.getBindValue(table, options, v, cols[p]);
@@ -1131,23 +1160,20 @@ db.sqlInsert = function(table, obj, options)
 db.sqlUpdate = function(table, obj, options) 
 {
     if (!options) options = {};
+    if (typeof options.check_columns == "undefined") options.check_columns = 1;
     var sets = [], req = { values: [] }, i = 1;
     var cols = this.getColumns(table, options) || {};
     var keys = options.keys;
     if (!keys || !keys.length) keys = this.getKeys(table, options) || [];
 
     for (p in obj) {
-        if (!p || p[0] == "_" || (!options.nocolumns && !(p in cols)) || keys.indexOf(p) != -1) continue;
         var v = obj[p];
         // Filter not allowed columns or only allowed columns
-        if (options.skip_cols && options.skip_cols.indexOf(p) > -1) continue;
-        if (options.allow_cols && options.allow_cols.indexOf(p) == -1) continue;
+        if (keys.indexOf(p) > -1 || this.skipColumn(p, v, options, cols)) continue;
         // Do not update primary columns
         if (cols[p] && cols[p].primary) continue;
         // Avoid int parse errors with empty strings
         if (!v && ["number","json"].indexOf(cols[p].type) > -1) v = null;
-        // Not defined fields are skipped but nulls can be triggered by a flag
-        if (typeof v == "undefined" || (v == null && options.skip_null)) continue;
         // Update only if the value is null, otherwise skip
         if (options.coalesce && options.coalesce.indexOf(p) > -1) {
             sets.push(p + "=COALESCE(" + p + ", $" + i + ")");
@@ -1358,7 +1384,7 @@ db.sqliteInitPool = function(options)
     
     if (!options.pool) options.pool = "sqlite";
     options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
-    return this.initPool(options, self.sqliteOpen, self.sqliteCacheColumns, self.sqliteBindValue, self.sqliteColumnValue);
+    return this.initPool(options, self.sqliteOpen, self.sqliteCacheColumns, self.sqliteBindValue);
 }
 
 // Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
@@ -1412,8 +1438,6 @@ db.sqliteCacheColumns = function(options, callback)
             pool.dbkeys = {};
             pool.dbunique = {};
             async.forEachSeries(tables, function(table, next) {
-            	// Merge column types from the Javascript definitions for data type conversion
-            	var js_table = self.convertColumns(pool.tables[table.name] || []);
             	
                 client.query("PRAGMA table_info(" + table.name + ")", function(err3, rows) {
                     if (err3) return next(err3);
@@ -1426,7 +1450,6 @@ db.sqliteCacheColumns = function(options, callback)
                         										     value: rows[i].dflt_value, 
                         										     type: rows[i].type.toLowerCase(), 
                         										     data_type: rows[i].type, 
-                        										     js_type: (js_table[rows[i].name] || {}).type || "", 
                         										     isnull: !rows[i].notnull, 
                         										     primary: rows[i].pk };
                         if (rows[i].pk) pool.dbkeys[table.name].push(rows[i].name);
@@ -1460,27 +1483,8 @@ db.sqliteCacheColumns = function(options, callback)
 // Convert into appropriate Sqlite format
 db.sqliteBindValue = function(val, info) 
 {
-    switch ((info || {}).js_type || "") {
-    case "json":
-        // Save as JSON
-    	val = JSON.stringify(val);
-    	break;
-    	
-    default:
-        // Dates must be converted into seconds
-        if (typeof val == "object" && val.getTime) val = Math.round(val.getTime()/1000);
-    }
-    return val;
-}
-
-// Convert into appropriate Javascript format
-db.sqliteColumnValue = function(val, info) 
-{
-	switch ((info || {}).js_type || "") {
-	case "json":
-		try { val = JSON.parse(val); } catch (e) { val = null; }
-		break;
-	}
+	// Dates must be converted into seconds
+	if (typeof val == "object" && val.getTime) val = Math.round(val.getTime()/1000);
     return val;
 }
 
@@ -1650,7 +1654,8 @@ db.ddbInitPool = function(options)
             
         case "add":
             // Add only listed columns if there is a .columns property specified
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || v === "" || (options.columns && !(n in options.columns)); } });
+        	var cols = pool.dbcolumns[table] || {};
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, cols); } });
             options.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
             aws.ddbPutItem(table, o, options, function(err, rc) {
                 callback(err, []);
@@ -1659,7 +1664,8 @@ db.ddbInitPool = function(options)
 
         case "put":
             // Add/put only listed columns if there is a .columns property specified
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || v == null || v === "" || (options.columns && !(n in options.columns)); } });
+        	var cols = pool.dbcolumns[table] || {};
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, cols); } });
             aws.ddbPutItem(table, o, options, function(err, rc) {
                 callback(err, []);
             });
@@ -1667,9 +1673,9 @@ db.ddbInitPool = function(options)
             
         case "update":
             // Skip special columns, primary key columns. If we have specific list of allowed columns only keep those.
+        	var cols = pool.dbcolumns[table] || {};
             // Keep nulls and empty strings, it means we have to delete this property.
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return n[0] == '_' || typeof v == "undefined" || primary_keys[n] || (options.columns && !(n in options.columns)); },
-                                         _empty_to_null: 1 });
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return primary_keys[n] || self.skipColumn(n, v, options, cols); }, _empty_to_null: 1 }); 
             options.expected = primary_keys;
             // Increment counters, only specified columns will use ADD operation, they must be numbers
             if (options.increment) {

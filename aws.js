@@ -44,7 +44,8 @@ aws.initModule = function(next)
 }
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
-aws.queryAWS = function(proto, method, host, path, obj, callback) {
+aws.queryAWS = function(proto, method, host, path, obj, callback)
+{
     var curTime = new Date();
     var formattedTime = curTime.toISOString().replace(/\.[0-9]+Z$/, 'Z');
     var sigValues = new Array();
@@ -85,14 +86,16 @@ aws.queryAWS = function(proto, method, host, path, obj, callback) {
 }
 
 // AWS EC2 API parameters
-aws.queryEC2 = function(action, obj, callback) {
+aws.queryEC2 = function(action, obj, callback) 
+{
     var req = { Action: action, Version: '2012-12-01' };
     for (var p in obj) req[p] = obj[p];
     this.queryAWS('http://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
 // Build version 4 signature headers
-aws.querySign = function(service, host, method, path, body, headers) {
+aws.querySign = function(service, host, method, path, body, headers) 
+{
     var now = new Date();
     var date = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
     var datetime = date.substr(0, 8);
@@ -119,7 +122,8 @@ aws.querySign = function(service, host, method, path, body, headers) {
 }
 
 // DynamoDB requests
-aws.queryDDB = function (action, obj, options, callback) {
+aws.queryDDB = function (action, obj, options, callback) 
+{
     if (typeof options == "function") callback = options, options = {};
     var start = core.mnow();
     var uri = options.db || ('https://dynamodb.' + this.region + '.amazonaws.com/');
@@ -152,7 +156,8 @@ aws.queryDDB = function (action, obj, options, callback) {
 }
 
 // Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well
-aws.signS3 = function(method, bucket, key, query, headers, expires) {
+aws.signS3 = function(method, bucket, key, query, headers, expires)
+{
     var curTime = new Date().toUTCString();
     if (!headers["x-amz-date"]) headers["x-amz-date"] = curTime;
     if (!headers["content-type"]) headers["content-type"] = "binary/octet-stream; charset=utf-8";
@@ -205,7 +210,8 @@ aws.signS3 = function(method, bucket, key, query, headers, expires) {
 // - expires - absolute time when this request is expires
 // - headers - HTTP headers to be sent with request
 // - file - file name where to save downloaded contents
-aws.queryS3 = function(bucket, key, options, callback) {
+aws.queryS3 = function(bucket, key, options, callback)
+{
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     if (!options.headers) options.headers = {};
@@ -217,7 +223,8 @@ aws.queryS3 = function(bucket, key, options, callback) {
 }
 
 // Run AWS instances with given arguments in user-data
-aws.runInstances = function(count, args, callback) {
+aws.runInstances = function(count, args, callback)
+{
     var self = this;
 
     if (!this.image) return callback ? callback(new Error("no imageId configured"), obj) : null;
@@ -249,7 +256,8 @@ aws.runInstances = function(count, args, callback) {
 
 // Retrieve instance meta data
 aws.getInstanceMeta = function(path, callback) {
-    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params) {
+    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params)
+    		{
         logger.debug('getInstanceMeta:', path, params.data, err || "");
         if (callback) callback(err, params.data);
     });
@@ -259,7 +267,8 @@ aws.getInstanceMeta = function(path, callback) {
 aws.getInstanceInfo = function(callback) {
     var self = this;
 
-    self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, idx) {
+    self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, idx) 
+    		{
         if (!err && idx) core.instanceIndex = core.toNumber(idx);
         self.getInstanceMeta("/latest/meta-data/instance-id", function(err2, id) {
             if (!err2 && id) core.instanceId = id;
@@ -269,7 +278,8 @@ aws.getInstanceInfo = function(callback) {
     });
 }
 
-aws.toDynamoDB = function(value, level) {
+aws.toDynamoDB = function(value, level) 
+{
     switch (core.typeName(value)) {
     case 'number':
         return { "N": value.toString() };
@@ -306,7 +316,8 @@ aws.toDynamoDB = function(value, level) {
     }
 }
 
-aws.fromDynamoDB = function(value) {
+aws.fromDynamoDB = function(value) 
+{
     var self = this;
     switch (core.typeName(value)) {
     case 'array':
@@ -351,7 +362,8 @@ aws.fromDynamoDB = function(value) {
 
 // Return list of tables in .TableNames property of the result
 // Example: { TableNames: [ name, ...] }
-aws.ddbListTables = function(options, callback) {
+aws.ddbListTables = function(options, callback) 
+{
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     this.queryDDB('ListTables', {}, options, callback);
@@ -359,7 +371,8 @@ aws.ddbListTables = function(options, callback) {
 
 // Return table definition and parameters in the result structure with property of the given table name
 // Example: { name: { AttributeDefinitions: [], KeySchema: [] ...} }
-aws.ddbDescribeTable = function(name, options, callback) {
+aws.ddbDescribeTable = function(name, options, callback) 
+{
     var params = { TableName: name };
     this.queryDDB('DescribeTable', params, options, function(err, rc) {
         logger.debug('DescribeTable:', name, util.inspect(rc, null, null));
@@ -374,7 +387,8 @@ aws.ddbDescribeTable = function(name, options, callback) {
 //   value in the same format as for primary keys, additional property _projection defines projection type for an index.
 // - options may contain any valid native property if it starts with capital letter.
 // Example: ddbCreateTable('users', {id:'S',mtime:'N',name:'S'}, {id:'HASH',name:'RANGE'}, {mtime:{mtime:"HASH",_projection:"ALL"}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});
-aws.ddbCreateTable = function(name, attrs, keys, indexes, options, callback) {
+aws.ddbCreateTable = function(name, attrs, keys, indexes, options, callback) 
+{
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { "TableName": name, "AttributeDefinitions": [], "KeySchema": [], "ProvisionedThroughput": {"ReadCapacityUnits": options.ReadCapacityUnits || 10, "WriteCapacityUnits": options.WriteCapacityUnits || 5 }};
@@ -419,12 +433,14 @@ aws.ddbCreateTable = function(name, attrs, keys, indexes, options, callback) {
     this.queryDDB('CreateTable', params, options, callback);
 }
 
-aws.ddbDeleteTable = function(name, options, callback) {
+aws.ddbDeleteTable = function(name, options, callback) 
+{
     var params = { TableName: name };
     this.queryDDB('DeleteTable', params, options, callback);
 }
 
-aws.ddbUpdateTable = function(name, rlimit, wlimit, options, callback) {
+aws.ddbUpdateTable = function(name, rlimit, wlimit, options, callback) 
+{
     var params = {"TableName": name, "ProvisionedThroughput": {"ReadCapacityUnits":rlimit,"WriteCapacityUnits":wlimit } };
     this.queryDDB('UpdateTable', params, options, callback);
 }
@@ -435,7 +451,8 @@ aws.ddbUpdateTable = function(name, rlimit, wlimit, options, callback) {
 // - options may contain any native property allowed in the request or special properties:
 //   - consistent - set consistency level for the request
 // Example: ddbGetItem("users", { id: 1, name: "john" }, { select: 'id,name' })
-aws.ddbGetItem = function(name, keys, options, callback) {
+aws.ddbGetItem = function(name, keys, options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -464,7 +481,8 @@ aws.ddbGetItem = function(name, keys, options, callback) {
 //   - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
 //     any other exact value to be checked against which corresponds to { Exists: true, Value: value }
 // Example: ddbPutItem("users", { id: 1, name: "john", mtime: 11233434 }, { expected: { name: null } })
-aws.ddbPutItem = function(name, item, options, callback) {
+aws.ddbPutItem = function(name, item, options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -497,7 +515,8 @@ aws.ddbPutItem = function(name, item, options, callback) {
 //   - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
 //     any other exact value to be checked against which corresponds to { Exists: true, Value: value }
 // Example: ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: 1 } })
-aws.ddbUpdateItem = function(name, keys, item, options, callback) {
+aws.ddbUpdateItem = function(name, keys, item, options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -547,7 +566,8 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback) {
 // - keys is an object with name: value for hash/range attributes
 // - options may contain any valid native property if it starts with capital letter.
 // Example: ddbDeleteItem("users", { id: 1, name: "john" }, {})
-aws.ddbDeleteItem = function(name, keys, options, callback) {
+aws.ddbDeleteItem = function(name, keys, options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -568,7 +588,8 @@ aws.ddbDeleteItem = function(name, keys, options, callback) {
 // - items is a list of objects with table name as property and list of operations, an operation can be PutRequest or DeleteRequest
 // - options may contain any valid native property if it starts with capital letter.
 // Example: { table: [ { PutRequest: { id: 1, name: "tt" } }, ] }
-aws.ddbBatchWriteItem = function(items, options, callback) {
+aws.ddbBatchWriteItem = function(items, options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -596,7 +617,8 @@ aws.ddbBatchWriteItem = function(items, options, callback) {
 // - items is list of objects with table name as property name and list of options for GetItem request
 // - options may contain any valid native property if it starts with capital letter.
 // Example: { users: [ { keys: { id: 1, name: "john" }, select: ['name','id'], consistent: true }, ...] }
-aws.ddbBatchGetItem = function(items, options, callback) {
+aws.ddbBatchGetItem = function(items, options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -696,7 +718,8 @@ aws.ddbQueryTable = function(name, condition, options, callback) {
 //   - start - defines starting primary key
 //   - ops - an object with operators to be used for properties if other than EQ.
 // Example: ddbScanTable("users", { id: 1, name: 'a' }, { op: { name: 'gt' }})
-aws.dbScanTable = function(name, condition, options, callback) {
+aws.dbScanTable = function(name, condition, options, callback)
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};

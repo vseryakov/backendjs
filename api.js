@@ -341,7 +341,7 @@ api.initAccountAPI = function()
                 if (err) return self.sendReply(res, err);
                 rows.forEach(function(row) {
                     self.prepareAccount(row);
-                    db.publicPrepare('account', rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
+                    db.publicPrepare('account', rows[0], { allowed: req.account.account_allow });
                 });
                 res.json(rows);
             });
@@ -356,7 +356,7 @@ api.initAccountAPI = function()
             req.query.mtime = req.query.ctime = now;
             // Add new auth record with only columns we support, noSQL db can add any columns on
             // the fly and we want to keep auth table very small
-            db.add("auth", req.query, { columns: db.convertColumns(self.tables.auth) }, function(err) {
+            db.add("auth", req.query, { check_columns: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
                 ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
                 db.add("account", req.query, function(err) {
@@ -377,7 +377,7 @@ api.initAccountAPI = function()
             req.query.email = req.account.email;
             // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
             ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-            db.update("account", req.query, { columns: db.convertColumns(self.tables.account) }, function(err) {
+            db.update("account", req.query, { check_columns: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
                 res.json(self.prepareAccount(req.query));
             });
@@ -498,7 +498,7 @@ api.initCounterAPI = function()
             
         case "get":
             db.getCached("counter", { id: req.query.id }, function(err, rows) {
-                db.publicPrepare('counter', rows[0], { columns: self.tables.counter });
+                db.publicPrepare('counter', rows[0]);
                 res.json(rows[0]);
             });
             break;
@@ -548,7 +548,7 @@ api.initConnectionAPI = function()
 
             // Update accumulated counter if we support this column and do it automatically
             if (req.params[0] != 'add') break;
-            var col =  self.tables.counter[req.query.type];
+            var col = db.getColumn("counter", req.query.type);
             if (col && col.incr) {
                 db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type, 1, 'r_' + type, 1), { cached: 1 });
                 db.incr("counter", core.newObj('id', req.query.id, 'mtime', now, type, 1, 'r_' + type, 1), { cached: 1 });
@@ -571,7 +571,7 @@ api.initConnectionAPI = function()
             }
             
             // Update accumulated counter if we support this column and do it automatically
-            var col =  self.tables.counter[req.query.type];
+            var col = db.getColumn("counter", req.query.type);
             if (col && col.incr) {
                 db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type, -1, 'r_' + type, -1), { cached: 1 });
                 db.incr("counter", core.newObj('id', req.query.id, 'mtime', now, type, -1, 'r_' + type, -1), { cached: 1 });
@@ -719,7 +719,7 @@ api.prepareAccount = function(row)
 api.listAccounts = function(req, obj, options, callback)
 {
     var self = this;
-    var pubcols = db.publicColumns('account', { columns: self.tables.account });
+    var pubcols = db.publicColumns('account');
     // Provided list of columns must be a subset of public columns
     var cols = obj._select ? core.strSplit(options.select).filter(function(x) { return pubcols.indexOf(x) > -1 }) : pubcols;
     // List of account ids can be provided to retrieve all accounts at once, for DynamoDB it means we may iterate over all 
@@ -730,7 +730,7 @@ api.listAccounts = function(req, obj, options, callback)
         if (err) return callback(err, []);
         rows.forEach(function(row) {
             self.prepareAccount(row);
-            db.publicPrepare('account', rows[0], { columns: self.tables.account, allowed: req.account.account_allow });
+            db.publicPrepare('account', rows[0], { allowed: req.account.account_allow });
         });
         callback(null, rows);
     });
