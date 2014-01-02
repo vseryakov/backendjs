@@ -225,22 +225,12 @@ core.init = function(callback) {
 // default environment or pass -home dir so the script will reuse same config and paths as the server
 // context can be specified for the callback, if no then it run in the core context
 // - require('backend').run(function() {}) is one example where this call is used as a shortcut for ad-hoc scripting
-core.run = function(callback) {
+core.run = function(callback) 
+{
     var self = this;
     if (!callback) return logger.error('run:', 'callback is required');
     this.init(function(err) {
         callback.call(self, err);
-    });
-}
-
-// Run modules init callbacks, called by master server and all settings will be available for worker processes
-core.initModules = function(callback) {
-    var self = this;
-    async.forEachSeries(Object.keys(self.context), function(ctx, next) {
-        ctx = self.context[ctx];
-        if (ctx.initModule) ctx.initModule.call(ctx, next); else next();
-    }, function() {
-        if (callback) callback();
     });
 }
 
@@ -249,7 +239,8 @@ core.initModules = function(callback) {
 // inherit current directory
 // Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling 
 // it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that. 
-core.setHome = function(home) {
+core.setHome = function(home) 
+{
 	var self = this;
     if ((home || self.home) && cluster.isMaster) {
         if (home) self.home = path.resolve(home);
@@ -265,7 +256,8 @@ core.setHome = function(home) {
 }
 
 // Parse command line arguments
-core.parseArgs = function(argv) {
+core.parseArgs = function(argv) 
+{
     var self = this;
     if (!argv || !argv.length) return;
 
@@ -298,7 +290,8 @@ core.parseArgs = function(argv) {
 // Config parameters defined in a module as a list of parameter names prefixed with module name, a parameters can be
 // a string which defines text parameter or an object with the properties: name, type, value, decimals, min, max, separator
 // type can be bool, number, list, json
-core.processArgs = function(name, ctx, argv) {
+core.processArgs = function(name, ctx, argv) 
+{
     var self = this;
     if (!ctx) return;
     if (!Array.isArray(ctx.args)) return;
@@ -352,7 +345,8 @@ core.processArgs = function(name, ctx, argv) {
 }
 
 // Parse local config file
-core.loadConfig = function(callback) {
+core.loadConfig = function(callback) 
+{
     var self = this;
 
     fs.readFile(path.join(self.path.etc, "config"), function(err, data) {
@@ -375,7 +369,8 @@ core.loadConfig = function(callback) {
 // the database, all servers share the same database and update it directly. The eviction is done in 2 phases, first local process cache
 // is cleared and then it sends a broadcast to all servers in the cluster using nanomsg socket, other servers all subscribed to that
 // socket and listen for messages.
-core.ipcInitServer = function() {
+core.ipcInitServer = function() 
+{
     var self = this;
 
     // Attach our message handler to all workers, process requests from workers
@@ -417,6 +412,12 @@ core.ipcInitServer = function() {
                 if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key + "\1" + msg.value);
                 break;
 
+            case 'incr':
+                if (msg.key && msg.value) backend.lruIncr(msg.key, msg.value);
+                if (msg.reply) worker.send({});
+                if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key + "\2" + msg.value);
+                break;
+                
             case 'del':
                 if (msg.key) backend.lruDel(msg.key);
                 if (msg.reply) worker.send({});
@@ -432,13 +433,15 @@ core.ipcInitServer = function() {
     });
 }
 
-core.ipcInitClient = function() {
+core.ipcInitClient = function() 
+{
     var self = this;
 
     switch (this.cacheType || "") {
     case "memcache":
         self.memcacheClient = new memcached(self.memcacheHost, self.memcacheOptions || {});
         self.ipcPutCache = function(k, v) { self.memcacheClient.set(k, v, 0); }
+        self.ipcIncrCache = function(k, v) { self.memcacheClient.incr(k, v, 0); }
         self.ipcDelCache = function(k) { self.memcacheClient.del(k); }
         self.ipcGetCache = function(k, cb) { self.memcacheClient.get(k, function(e,v) { cb(v) }); }
         break;
@@ -446,6 +449,7 @@ core.ipcInitClient = function() {
     case "redis":
         self.redisClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
         self.ipcPutCache = function(k, v) { self.redisClient.set(k, v, function() {}); }
+        self.ipcIncrCache = function(k, v) { self.redisClient.incr(k, v, function() {}); }
         self.ipcDelCache = function(k) { self.redisClient.del(k, function() {}); }
         self.ipcGetCache = function(k, cb) { self.redisClient.get(k, function(e,v) { cb(v) }); }
         break;
@@ -467,7 +471,8 @@ core.ipcInitClient = function() {
 }
 
 // Send cache command to the master process via IPC messages, callback is used for commands that return value back
-core.ipcSend = function(cmd, key, value, callback) {
+core.ipcSend = function(cmd, key, value, callback) 
+{
     var self = this;
     if (typeof value == "function") callback = value, value = '';
     var msg = { cmd: cmd, key: key, value: value };
@@ -480,38 +485,51 @@ core.ipcSend = function(cmd, key, value, callback) {
     process.send(msg);
 }
 
-core.ipcGetCache = function(key, callback) { 
+core.ipcGetCache = function(key, callback) 
+{ 
     if (this.noCache) return callback ? callback() : null;
     this.ipcSend("get", key, callback); 
 }
 
-core.ipcDelCache = function(key) { 
+core.ipcDelCache = function(key)
+{ 
     if (this.noCache) return;
     this.ipcSend("del", key); 
 }
 
-core.ipcPutCache = function(key, val) { 
+core.ipcPutCache = function(key, val) 
+{ 
     if (this.noCache) return;
     this.ipcSend("put", key, val); 
 }
 
+core.ipcIncrCache = function(key, val) 
+{ 
+    if (this.noCache) return;
+    this.ipcSend("incr", key, val); 
+}
+
 // Encode with additional symbols
-core.encodeURIComponent = function(str) {
+core.encodeURIComponent = function(str) 
+{
     return encodeURIComponent(str || "").replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
 }
 
 // Convert text into captalized words
-core.toTitle = function(name) {
+core.toTitle = function(name)
+{
     return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y[0].toUpperCase() + y.substr(1) + " "; }, "").trim();
 }
 
 // Convert into camelized form
-core.toCamel = function(name) {
+core.toCamel = function(name) 
+{
     return (name || "").replace(/(?:[-_])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; });
 }
 
 // Safe version, use 0 instead of NaN, handle booleans, if decimals specified, returns float
-core.toNumber = function(str, decimals, dflt, min, max) {
+core.toNumber = function(str, decimals, dflt, min, max) 
+{
     str = String(str);
     // Autodetect floating number
     if (typeof decimals == "undefined" || decimals == null) decimals = /^[0-9]+\.[0-9]+$/.test(str);
@@ -1222,26 +1240,30 @@ core.strSplit = function(str, sep) {
 }
 
 // Split as above but keep only unique items
-core.strSplitUnique = function(str, sep) {
+core.strSplitUnique = function(str, sep) 
+{
     var rc = [];
     this.strSplit(str, sep).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
     return rc;
 }
 
-// Stringify JSON into base64
-core.toBase64 = function(data) {
+// Stringify JSON into base64 string
+core.toBase64 = function(data) 
+{
 	return new Buffer(JSON.stringify(data)).toString("base64");	
 }
 
-// Parse base64 into JSON
-core.toJson = function(data) {
+// Parse base64 JSON into Javascript object
+core.toJson = function(data) 
+{
 	var rc = "";
 	try { rc = JSON.parse(new Buffer(data, "base64").toString()); } catch(e) {}
 	return rc;
 }
 
 // Copy file and then remove the source, do not overwrite existing file
-core.moveFile = function(src, dst, overwrite, callback) {
+core.moveFile = function(src, dst, overwrite, callback) 
+{
     var self = this;
     if (typeof overwrite == "function") callback = overwrite, overwrite = false;
 
@@ -1264,7 +1286,8 @@ core.moveFile = function(src, dst, overwrite, callback) {
 }
 
 // Copy file, overwrite is optional flag, by default do not overwrite
-core.copyFile = function(src, dst, overwrite, callback) {
+core.copyFile = function(src, dst, overwrite, callback) 
+{
     if (typeof overwrite == "function") callback = overwrite, overwrite = false;
 
     function copy(err) {

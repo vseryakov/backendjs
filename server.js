@@ -46,13 +46,10 @@ var server = {
     jobs: [],
     // Time of the last update on jobs and workers
     jobTime: 0,
+    // Interval between jobs scheduler
+    jobsInterval: 180000,
     // Schedules cron jobs
     crontab: [],
-
-    // Filter to allow only subset of jobs to run, regex
-    jobsAllow: null,
-    jobsDisallow: null,
-    jobsInterval: 180000,
 
     // Number of workers or web servers to launch
     maxWorkers: 1,
@@ -68,11 +65,9 @@ var server = {
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" }, 
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
-           { name: "jobs-primary", type: "bool", descr: "If specified this host executes jobs without the hostname, otherwise only jobs with matching hostname will be executed by this server" },
-           { name: "jobs-interval", type: "number", min: 60000, max: 900000, descr: "Interval between executing job queue" },
-           { name: "jobs-allow", type: "regexp", descr: "Regexp allowing jobs to be executed in format: type.job where type is: local,remote,server" },
-           { name: "jobs-disallow", type: "regexp", descr: "Regexp disallowing jobs to be executed in format: type.job where type is: local,remote,server" }],
-}
+           { name: "jobs-primary", type: "bool", descr: "If specified, this host executes jobs without the hostname, otherwise only jobs with matching hostname will be executed by this server" },
+           { name: "jobs-interval", type: "number", min: 60000, max: 900000, descr: "Interval between executing job queue" } ],
+};
 
 module.exports = server;
 
@@ -119,7 +114,7 @@ server.start = function()
 
         // Master server
         if (process.argv.indexOf("-master") > 0) {
-            core.initModules(function() { self.startMaster(); });
+            self.startMaster();
         } else
 
         // Backend Web server
@@ -482,7 +477,8 @@ server.spawnProcess = function(args, skip, opts)
 
 // Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process
 // terminates.
-server.runJob = function(job) {
+server.runJob = function(job) 
+{
     var self = this;
 
     for (var name in job) {
@@ -534,10 +530,11 @@ server.runJob = function(job) {
 //              order for this job to start, this implements chaining of jobs to be executed one after another
 //              but submitted at the same time
 //              Exampe: submit 3 jobs to run sequentially:
-//                'amazon.import'
-//                { 'imdb.sync': { runafter: 'amazon.import' } }
-//                { 'server.shutdown': { runafter: 'imdb.sync' } }
-server.execJob = function(job) {
+//                'scraper.import'
+//                { 'scraper.sync': { runafter: 'scraper.import' } }
+//                { 'server.shutdown': { runafter: 'scraper.sync' } }
+server.execJob = function(job) 
+{
     var self = this;
 
     if (cluster.isWorker) return logger.error('exec: can be called from the master only', job);
@@ -616,7 +613,8 @@ server.execJob = function(job) {
 
 // Remote mode, launch remote instance to perform scraping or other tasks
 // By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the options
-server.launchJob = function(job, options, callback) {
+server.launchJob = function(job, options, callback) 
+{
 	var self = this;
     if (!job) return;
     if (typeof options == "function") callback = options, options = null;
@@ -645,7 +643,7 @@ server.launchJob = function(job, options, callback) {
                 "-job", core.toBase64(job) ];
     
     if (!options.noshutdown) {
-        args.push("-job", new Buffer(JSON.stringify({ 'server.shutdown': { runlast: 1 } })).toString("base64"));
+        args.push("-job", core.toBase64({ 'server.shutdown': { runlast: 1 } }));
     }
     
     // Command line arguments for the instance, must begin with -
@@ -660,7 +658,8 @@ server.launchJob = function(job, options, callback) {
 // Run a job, the string is in the format:
 // object/method/name/value/name/value....
 // All spaces must be are replaced with %20 to be used in command line parameterrs
-server.queueJob = function(job) {
+server.queueJob = function(job) 
+{
     if (!job) return;
     switch (core.typeName(job)) {
     case "object":
@@ -668,27 +667,27 @@ server.queueJob = function(job) {
         break;
 
     case "string":
-        try {
-            this.queue.push(core.toJson(job));
-        } catch(e) {
-            logger.error('queueJob:', e, job);
-        }
+    	var o = core.toJson(job);
+    	if (!o) logger.error('queueJob:', 'invalid job', job);
+    	this.queue.push(o);
         break;
     }
 }
 
 // Process pending jobs, submit to idle workers
-server.execQueue = function() {
+server.execQueue = function() 
+{
     if (!this.queue.length) return;
     var job = this.queue.shift();
     if (!job) return;
     this.execJob(job);
 }
 
-// Create new cron job
+// Create a new cron job
 // Example: { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
 //          { "type": "local", "cron": "0 10 7 * * *", "job": "api.processQueue" } 
-server.scheduleCronjob = function(spec, obj) {
+server.scheduleCronjob = function(spec, obj) 
+{
     var self = this;
     var job = self.checkJob('local', obj.job);
     if (!job) return;
@@ -710,7 +709,8 @@ server.scheduleCronjob = function(spec, obj) {
 // For remote jobs additonal property args can be used in the cron object to define 
 // arguments to the instance backend process, properties must start with -
 // Example: { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
-server.scheduleLaunchjob = function(spec, obj) {
+server.scheduleLaunchjob = function(spec, obj) 
+{
     var self = this;
     var job = self.checkJob('remote', obj.job);
     if (!job) return;
@@ -722,14 +722,16 @@ server.scheduleLaunchjob = function(spec, obj) {
 }
 
 // Execute a cronjob by name now
-server.runCronjob = function(id) {
+server.runCronjob = function(id) 
+{
     this.crontab.forEach(function(x) {
        if (x.id == id) x._callback();
     });
 }
 
 // Perform execution according to type
-server.doJob = function(type, job, options) {
+server.doJob = function(type, job, options) 
+{
     var self = this;
     switch (type) {
     case 'remote':
@@ -747,26 +749,12 @@ server.doJob = function(type, job, options) {
 }
 
 // Verify job structure and permissions and return as an object if the job is a string
-// Permissions are checked against jobsAllow/jobsDisallow configuration parameters, see allowJob method
-server.checkJob = function(type, job) {
+server.checkJob = function(type, job) 
+{
     if (typeof job == "string") job = core.newObj(job, null);
     if (typeof job != "object") return null;
-    job = core.cloneObj(job);
-    for (var p in job) if (!this.allowJob(type, p)) delete job[p];
     if (!Object.keys(job).length) return null;
-    return job;
-}
-
-// Return true if given job can be run on this server, type is local or remote and will be prepended to the job spec so
-// the regexp can use the full spec or parts of it like : local.imdb.sync or remote.imdb.sync
-server.allowJob = function(type, name) {
-    var job = type + '.' + name;
-    if ((this.jobsDisallow && this.jobsDisallow.test(job)) || (this.jobsAllow && !this.jobsAllow.test(job))) {
-        logger.debug("allowJob:", "no", type, name, "rx:", this.jobsDisallow, this.jobsAllow);
-        return false;
-    }
-    logger.debug("allowJob:", "yes", type, name);
-    return true;
+    return core.cloneObj(job);
 }
 
 // Load crontab from JSON file as list of job specs:
@@ -780,7 +768,8 @@ server.allowJob = function(type, name) {
 // - args - additional arguments passwed to the backend in the command line for the remote jobs
 // Example: [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
 // 
-server.loadSchedules = function() {
+server.loadSchedules = function() 
+{
     var self = this;
 
     fs.readFile("etc/crontab", function(err, data) {
@@ -812,10 +801,11 @@ server.loadSchedules = function() {
 }
 
 // Submit job for execution, it will be saved in the server queue and the master will pick it up later
-server.submitJob = function(options, callback) {
+server.submitJob = function(options, callback) 
+{
     if (!options || !options.job) return logger.error('submitJob:', 'invalid job spec:', options);
-    var job = JSON.stringify(options.job);
-    db.add("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { nocolumns: 1 }, function() {
+    var job = core.toBase64(options.job);
+    db.add("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { no_columns: 1 }, function() {
         if (callback) callback();
     });
 }
@@ -823,7 +813,8 @@ server.submitJob = function(options, callback) {
 // Run submitted jobs, usually called from the crontab file in case of shared database, requires connection to the PG database
 // To run it from crontab add line(to run every 5 mins): 
 //    { type: "server", cron: "0 */5 * * * *", job: "server.processJobs" } 
-server.processJobs = function(options, callback) {
+server.processJobs = function(options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     var hosts = [os.hostname(), os.hostname().split('.')[0]];
@@ -832,7 +823,7 @@ server.processJobs = function(options, callback) {
     db.select("backend_jobs", { host: hosts }, { keys: ['host'] }, function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
             try { 
-                self.doJob(row.type, JSON.parse(row.job));
+                self.doJob(row.type, core.toJson(row.job));
             } catch(e) {
                 logger.error('processJobs:', e, row);
             }

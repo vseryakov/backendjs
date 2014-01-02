@@ -44,6 +44,10 @@ struct LRUStringCache {
         	lru.splice(lru.end(), lru, it->second.second);
         }
     }
+    void incr(const string& k, const string& v) {
+    	string o = get(k);
+    	set(k, vFmtStr("%lld", atoll(o.c_str()) + atoll(v.c_str())));
+    }
     void del(const string &k) {
         const LRUStringItems::iterator it = items.find(k);
         if (it == items.end()) return;
@@ -415,6 +419,17 @@ static Handle<Value> lruSet(const Arguments& args)
     return scope.Close(Undefined());
 }
 
+static Handle<Value> lruIncr(const Arguments& args)
+{
+    HandleScope scope;
+
+    REQUIRE_ARGUMENT_AS_STRING(0, key);
+    REQUIRE_ARGUMENT_AS_STRING(1, val);
+
+    _lru.set(*key, *val);
+    return scope.Close(Undefined());
+}
+
 static Handle<Value> lruDel(const Arguments& args)
 {
     HandleScope scope;
@@ -481,15 +496,19 @@ static void lruHandleRead(uv_poll_t *w, int status, int revents)
 
 	switch (d->type) {
 	case 0:
-		// Update or delete an item in the cache
-		val = strchr(buf, '\1');
+		// Update/delete/increment an item in the cache
+		val = strpbrk(buf, "\1\2");
 		if (!val) {
 			_lru.del(buf);
 		} else
 		if (!val[1]) {
 			_lru.del(string(buf, val - buf));
 		} else {
-			_lru.set(buf, val + 1);
+			if (*val == '\2') {
+				_lru.incr(buf, val + 1);
+			} else {
+				_lru.set(buf, val + 1);
+			}
 		}
 		// Send to another hop or broadcast to all servers, depends on the socket type
 		if (d->sock2 >= 0) {
@@ -565,6 +584,7 @@ void CacheInit(Handle<Object> target)
     NODE_SET_METHOD(target, "lruCount", lruCount);
     NODE_SET_METHOD(target, "lruSet", lruSet);
     NODE_SET_METHOD(target, "lruGet", lruGet);
+    NODE_SET_METHOD(target, "lruIncr", lruIncr);
     NODE_SET_METHOD(target, "lruDel", lruDel);
     NODE_SET_METHOD(target, "lruKeys", lruKeys);
     NODE_SET_METHOD(target, "lruClear", lruClear);

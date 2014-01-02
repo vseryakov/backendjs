@@ -133,7 +133,7 @@ db.initPoolTables = function(pool, tables, callback)
     self.cacheColumns(options, function() {
     	// Workers do not manage tables, only master process
     	if (cluster.isWorker || core.worker) {
-    		return callback ? callback(err) : null;
+    		return callback ? callback() : null;
     	}
         var changes = 0;
         async.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
@@ -430,10 +430,15 @@ db.select = function(table, obj, options, callback)
 //  - keys - a list of columns for condition or all primary keys
 //  - select - a list of columns or expressions to return or *
 //  - op - operators to use for comparison for properties
+//  - cached - if specified it runs getCached version
 db.get = function(table, obj, options, callback) 
 {
     if (typeof options == "function") callback = options,options = null;
 
+    if (options && options.cached) {
+    	delete options.cached;
+    	return self.getCached(table, obj, options, callback);
+    }
     var req = this.prepare("get", table, obj, options);
     this.query(req, options, callback);
 }

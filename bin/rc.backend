@@ -31,6 +31,7 @@ DOMAIN=localhost
 [ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
 [ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
 [ "$DDB_DIR" = "" ] && DDB_DIR=$PREFIX/dynamodb
+[ "$CDB_DIR" = "" ] && CDB_DIR=$ROOT/cassandra
 [ "$NODE_DIR" = "" ] && NODE_DIR=$PREFIX/lib/node_modules
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_DIR/backend
 
@@ -108,7 +109,7 @@ case "$ARG" in
     echo "Backend arguments: $BACKEND_ARGS"
 
     # System utilities
-    yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git man telnet catdoc jna
+    yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git man telnet jna
     yum -y remove sendmail
 
     # Add local user
@@ -246,11 +247,6 @@ case "$ARG" in
        alternatives --install /usr/bin/java java /usr/local/java/bin/java 20000
     fi
 
-    # Start PostgreSQL proxy
-    if [[ $BACKEND_ARGS = *-db-proxy* ]]; then
-       ($0 pgpool)
-    fi
-    
     # Setup environment files
     echo "export PATH=$PREFIX/bin:$NODE_BACKEND/bin:$PG_PREFIX/bin:$PATH" > /etc/profile.d/backend.sh
     echo "export NODE_PATH=$NODE_DIR" >> /etc/profile.d/backend.sh
@@ -273,6 +269,9 @@ case "$ARG" in
 
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
+    
+    # Disable atime on the filesystem
+    mount -o remount,noatime /
 
     # Setup startup scripts
     ln -sf $PREFIX/bin/rc.backend /etc/init.d/backend
@@ -318,8 +317,8 @@ case "$ARG" in
 
     # Install required packages and utilities
     yum -y install gcc-c++ make cmake autoconf automake libtool 
-    yum -y install postgresql93-devel libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel 
-    yum -y install blas-devel lapack-devel atlas-devel boost-devel boost-math ImageMagick-devel
+    yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel 
+    yum -y install ImageMagick-devel postgresql93-devel
 
     # Make sure instances are not running indefinetely
     rm -rf /etc/cron.hourly/instance-idle
@@ -414,8 +413,6 @@ case "$ARG" in
     TAR_ARGS="--ignore-failed-read --exclude-backup $TAR_ARGS"
     # Files and dirs to backup
     TAR_FILES="/etc /home/$LOCAL_USER $ROOT/etc $ROOT/web $PREFIX $BACKUP_FILES"
-    # PG directry on CentOS is separate
-    [ -e $PG_PREFIX ] && TAR_FILES="$TAR_FILES $PG_PREFIX"
     # File extensions to exclude from backup
     TAR_EXCLUDE="csv tsv xml list zip csv iso avi mp4 mkv m4v $TAR_EXCLUDE"
     for ext in $TAR_EXCLUDE; do 
@@ -424,8 +421,10 @@ case "$ARG" in
     mkdir -p $BACKUP
     
     # Database backup if exists
-    if [ "$BACKUP_DB" != "" -a -e $PG_DIR/base ]; then
+    if [ "$BACKUP_PG" != "" -a -e $PG_DIR/base ]; then
        TAR_FILES="$TAR_FILES $PG_DIR/*.conf"
+       # PG directry on CentOS is separate
+       [ -e $PG_PREFIX ] && TAR_FILES="$TAR_FILES $PG_PREFIX"
        $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_DB > $BACKUP/$FILE.dump
     fi
 
@@ -482,34 +481,42 @@ case "$ARG" in
     kill $(ps agx|grep dynamodb|grep -v grep|awk '{print $1}')
     ;;
       
-  init-cassandra)
-    if [ ! -d $ROOT/cassandra ]; then
-        mkdir -p $ROOT/cassandra/var $ROOT/cassandra/log
+  init-cdb)
+    if [ ! -d $CDB_DIR ]; then
+        mkdir -p $CDB_DIR/var $CDB_DIR/log
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
-        tar -C $ROOT/cassandra --strip-components=1 -xzf dsc.tar.gz
+        tar -C $CDB_DIR --strip-components=1 -xzf dsc.tar.gz
         rm -rf dsc.tar.gz
-        sed -i "s|/var/lib/cassandra/|$ROOT/cassandra/var/|g" $ROOT/cassandra/conf/*
-        sed -i "s|/var/log/cassandra/|$ROOT/cassandra/log/|g" $ROOT/cassandra/conf/*
-        chown -R $LOCAL_USER $ROOT/cassandra
+        sed -i "s|/var/lib/cassandra/|$CDB_DIR/var/|g" $CDB_DIR/conf/*
+        sed -i "s|/var/log/cassandra/|$CDB_DIR/log/|g" $CDB_DIR/conf/*
+        chown -R $LOCAL_USER $CDB_DIR
     fi
     ;;
   
+  run-cdb)
+    $CDB_DIR/bin/cassandra
+    ;;
+    
+  stop-cdb)
+    kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
+    ;;
+    
   init-app)
     [ ! -e $NODE_BACKEND/bin/rc.backend -a "$PLATFORM" = "Darwin" ] && PREFIX=/opt/local && NODE_BACKEND=$PREFIX/lib/node-backend
     [ ! -e $NODE_BACKEND/bin/rc.backend ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
     mkdir -p bin data/etc
-    [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres" > .backendrc 
+    [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres\nCDB_DIR=$PREFIX/cassandra" > .backendrc 
     [ ! -e .gitignore ] && echo ".DS_Store\n.settings\n.cproject\n.project\n*.swp\n*.*~\n*.[oa]\n*.so\n*.dylib\n*.node\n*.log\n.backendrc\n.history\ndata\nbin/rc.backend\n" > .gitignore
     [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
     [ ! -e bin/backend ] && echo "#!/bin/bash\n\nMAIN=main.js\n[ -f bin/main.js ] && MAIN=bin/main.js\nexec $PREFIX/bin/node \$MAIN \$@\n" > bin/backend && chmod 755 bin/backend
     [ ! -e web ] && ln -s $NODE_BACKEND/web && (cd data && ln -s ../web)
-    [ ! -e data/etc/config ] && echo "pg-pool=postgresql://postgres@127.0.0.1/backend\nddb-pool=http://localhost:8181\n" > data/etc/config
+    [ ! -e data/etc/config ] && echo "#pg-pool=postgresql://postgres@127.0.0.1/backend\n#ddb-pool=http://localhost:8181\n" > data/etc/config
     [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
     [ ! -e Makefile ] && echo "#\n# Author: Vlad Seryakov vseryakov@gmail.com\n# Sep 2013\n#\n\nall:\n\nrun:\n\tbin/rc.backend run-backend\n\nput:\n\tbin/rc.backend put-app\n\nshell:\n\tbin/rc.backend run-shell" > Makefile
     ;;
     
   put-app)
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude bin/backend '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$ROOT/bin
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude bin/backend '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node $MASTER:$ROOT/bin
     [ -f web ] && rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
     ;;
     
@@ -556,15 +563,15 @@ case "$ARG" in
 
   init-backend)
     sudo chown -R $(whoami) $PREFIX
-    mkdir -p bin lib node pg web data
+    mkdir -p bin lib node web data
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
     (cd data && rm -rf web && ln -s ../web)
     echo "ROOT=./data" > .backendrc
-    [ "$PLATFORM" = "Darwin" ] && echo "PREFIX=/opt/local\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres" >> .backendrc
+    [ "$PLATFORM" = "Darwin" ] && echo "PREFIX=/opt/local\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres\nCDB_DIR=$PREFIX/cassandra" >> .backendrc
     ;;
     
   put-backend)
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node pg $MASTER:$NODE_BACKEND
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node $MASTER:$NODE_BACKEND
     rsync -av -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
     rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
     ;;
@@ -577,7 +584,6 @@ case "$ARG" in
   clean-backend)
     rm -rf *~ *.o *.a *.so *.dylib *.node *.log build
     [ -f lib/Makefile ] && make -C lib clean
-    [ -f pg/Makefile ] && make -C pg clean
     ;;
     
   build-backend)
@@ -589,7 +595,6 @@ case "$ARG" in
     make -C lib sqlite3
     [ -f lib/sqlite3 ] && mkdir -p bin && mv lib/sqlite3 bin
 
-    [ -f pg/Makefile ] && make -C pg install PG_CONFIG=$PG_PREFIX/bin/pg_config
     exit 0
     ;;
     
@@ -620,7 +625,9 @@ case "$ARG" in
     echo "  init-ddb - install local DynamoDB server in $PREFIX/dynamodb"
     echo "  run-ddb - run local DynamoDB server installed in $PREFIX/dynamodb"
     echo "  stop-ddb - stop local DynamoDB server"
-    echo "  init-cassandra - install Cassandra server in $PREFIX/cassandra"
+    echo "  init-cdb - install Cassandra server in $PREFIX/cassandra"
+    echo "  run-cdb - run local Cassandra server installed in $PREFIX/cassandra"
+    echo "  stop-cdb - stop local Cassandra server"
     echo "  init-app - initialize environment for application based on the backend"
     echo "  put-app - push application code to the master server via rsync and ssh"
     echo "  build-src - build all required software for the backend development, download in the local ./src folder, compile and install in $PREFIX"

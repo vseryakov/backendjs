@@ -22,26 +22,20 @@ var aws = {
             { name: "secret", descr: "AWS access secret" },
             { name: "region", descr: "AWS region" },
             { name: "keypair", descr: "AWS instance keypair name" },
-            { name: "image", descr: "AWS image id to be used for remote jobs" },
-            { name: "instance", descr: "AWS instance type" },
+            { name: "image-id", descr: "AWS image id to be used for remote jobs" },
+            { name: "instance-type", descr: "AWS instance type" },
             { name: "dynamodb-host", descr: "Custom DynamoDB host for local installations" },
             { name: "nometadata", type: "bool", descr: "Skip retrieval from instance metadata" }],
             
     region: 'us-east-1',
     s3: "s3.amazonaws.com",
-    instance: "t1.micro",
+    instanceType: "t1.micro",
     
     // Translation map for operators
     opMap: { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' },
 }
 
 module.exports = aws;
-
-// Initialization to be run inside core.init in master mode only
-aws.initModule = function(next) 
-{
-    if (!this.nometadata) this.getInstanceInfo(next); else next();
-}
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
 aws.queryAWS = function(proto, method, host, path, obj, callback)
@@ -231,8 +225,8 @@ aws.runInstances = function(count, args, callback)
     
     var req = { MinCount: count,
                 MaxCount: count,
-                ImageId: this.image,
-                InstanceType: this.instance,
+                ImageId: this.imageId,
+                InstanceType: this.instanceType,
                 KeyName: this.keypair,
                 InstanceInitiatedShutdownBehavior: "terminate",
                 UserData: new Buffer(args).toString("base64") };
@@ -255,24 +249,24 @@ aws.runInstances = function(count, args, callback)
 }
 
 // Retrieve instance meta data
-aws.getInstanceMeta = function(path, callback) {
-    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params)
-    		{
+aws.getInstanceMeta = function(path, callback) 
+{
+    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params) {
         logger.debug('getInstanceMeta:', path, params.data, err || "");
         if (callback) callback(err, params.data);
     });
 }
 
-// Retrieve instance launch index from the meata data if running on AWS instance
-aws.getInstanceInfo = function(callback) {
+// Retrieve instance launch index from the meta data if running on AWS instance
+aws.getInstanceInfo = function(callback) 
+{
     var self = this;
 
-    self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, idx) 
-    		{
-        if (!err && idx) core.instanceIndex = core.toNumber(idx);
+    self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, idx) {
+        if (!err && idx) self.instanceIndex = core.toNumber(idx);
         self.getInstanceMeta("/latest/meta-data/instance-id", function(err2, id) {
-            if (!err2 && id) core.instanceId = id;
-            logger.log('getInstanceInfo:', self.name, 'id:', core.instanceId, 'index:', core.instanceIndex, '/', idx, err || err2 || "");
+            if (!err2 && id) self.instanceId = id;
+            logger.log('getInstanceInfo:', self.name, 'id:', self.instanceId, 'index:', self.instanceIndex, '/', idx, err || err2 || "");
             if (callback) callback();
         });
     });
