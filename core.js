@@ -167,13 +167,12 @@ core.init = function(callback) {
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
+        	self.parseArgs(process.argv);
             self.loadConfig(next);
         },
 
         // Create all directories, only master should do it once but we resolve absolute paths in any mode
         function(next) {
-            self.parseArgs(process.argv);
-            
             // Redirect system logging to stderr
             logger.setChannel("stderr");
             

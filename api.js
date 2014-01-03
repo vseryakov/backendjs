@@ -1,4 +1,5 @@
 //
+//
 //  Author: Vlad Seryakov vseryakov@gmail.com
 //  Sep 2013
 //
@@ -37,7 +38,6 @@ var api = {
                 { name: 'secret' },
                 { name: 'api_deny' },
                 { name: 'api_allow' },
-                { name: 'account_allow' },                        // list of public columns
                 { name: "expires", type: "int" },
                 { name: "mtime", type: "int" } ],
                  
@@ -51,7 +51,7 @@ var api = {
                    { name: "website" },
                    { name: "birthday", semipub: 1 },
                    { name: "gender", pub: 1 },
-                   { name: "icons" },
+                   { name: "icons", semipub: 1 },
                    { name: "address" },
                    { name: "city" },
                    { name: "state" },
@@ -197,6 +197,9 @@ api.init = function(callback)
     
     // Create tables in all db pools
     db.initTables(self.tables, callback);
+    
+    // Assign row handler for the account table
+    db.getPool('account').processRow = self.processAccountRow;
 }
 
 //Cutomization hooks/callbacks, always run within api context
@@ -322,13 +325,13 @@ api.initAccountAPI = function()
             db.get("account", { id: req.account.id }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 if (!rows.length) return self.sendReply(res, 404);
-                res.json(self.prepareAccount(rows[0]));
+                res.json(rows[0]);
             });
             break;
 
         case "list":
             if (!req.query.id) return self.sendReply(res, 400, "id is required");
-            self.listAccounts(req, req.query, { select: req.query._select }, function(err, rows) {
+            db.list("account", req.query, { select: req.query._select, public_columns: 1 }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 res.json(rows);
             });
@@ -336,13 +339,9 @@ api.initAccountAPI = function()
             
         case "search":
             // Search is limited to specific columns only
-        	var options = { select: req.query._select, start: req.query._start, count: req.query._count, sort: req.query._sort, desc: req.query._desc };
+        	var options = { select: req.query._select, start: req.query._start, count: req.query._count, sort: req.query._sort, desc: req.query._desc, public_columns: 1 };
             db.select("account", req.query, options, function(err, rows) {
                 if (err) return self.sendReply(res, err);
-                rows.forEach(function(row) {
-                    self.prepareAccount(row);
-                    db.publicPrepare('account', rows[0], { allowed: req.account.account_allow });
-                });
                 res.json(rows);
             });
             break;
@@ -366,7 +365,7 @@ api.initAccountAPI = function()
                     }
                     // Even if it fails here it will be created on first usage
                     db.add("counter", { id: req.query.id, mtime: now });
-                    res.json(self.prepareAccount(req.query));
+                    res.json(self.processAccountRow(req.query));
                 });
             });
             break;
@@ -379,7 +378,7 @@ api.initAccountAPI = function()
             ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
             db.update("account", req.query, { check_columns: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
-                res.json(self.prepareAccount(req.query));
+                res.json(self.processAccountRow(req.query));
             });
             break;
 
@@ -440,7 +439,7 @@ api.initIconAPI = function()
                     var obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[0].icons };
                     db.update("account", obj, function(err) {
                         if (err) return self.sendReply(res, err);
-                        res.json(self.prepareAccount(rows[0]));
+                        res.json(self.processAccountRow(rows[0]));
                     });
                 });
             });
@@ -497,8 +496,7 @@ api.initCounterAPI = function()
             break;
             
         case "get":
-            db.getCached("counter", { id: req.query.id }, function(err, rows) {
-                db.publicPrepare('counter', rows[0]);
+            db.getCached("counter", { id: req.query.id, public_columns: 1 }, function(err, rows) {
                 res.json(rows[0]);
             });
             break;
@@ -578,7 +576,7 @@ api.initConnectionAPI = function()
             }
             break;
 
-        case "list":
+        case "get":
         case "reference":
             var table = req.params[0] == "list" ? "connection" : "reference";
             // Only one connection record to be returned if id and type specified
@@ -591,7 +589,7 @@ api.initConnectionAPI = function()
                 if (!req.query._details) return res.json(rows);
                 
                 // Get all account records for the id list
-                self.listAccounts(req, rows, { select: req.query._select }, function(err, rows) {
+                db.list("account", rows, { select: req.query._select, public_columns: 1 }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     res.json(rows);
                 });
@@ -628,7 +626,7 @@ api.initLocationAPI = function()
                 var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
                 db.update("account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
-                    res.json(self.prepareAccount(obj));
+                    res.json(self.processAccount(obj));
                     
                     // Delete current location
                     var geo = self.prepareGeohash(row.latitude, row.longitude, req.account);
@@ -649,7 +647,7 @@ api.initLocationAPI = function()
             });
             break;
             
-        case "search":
+        case "get":
             var latitude = req.query.latitude, longitude = req.query.longitude;
             // Perform location search based on hash key that covers the whole region for our configured max distance
             if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
@@ -673,7 +671,7 @@ api.initLocationAPI = function()
                 
                 // Return accounts with locations
                 if (req.query._details) {
-                    self.listAccounts(req, ids, { select: req.query._select }, function(err, rows) {
+                	db.list("account", ids, { select: req.query._select, public_columns: 1 }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         // Keep all connecton properties in separate object
                         rows.forEach(function(row) {
@@ -705,35 +703,18 @@ api.prepareGeohash = function(latitude, longitude, options)
 }
 
 // Prepare an account record for response, set required fields, icons
-api.prepareAccount = function(row)
+api.processAccountRow = function(row, options, cols)
 {
-    if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+    if (row.birthday) {
+    	row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+    	delete row.birthday;
+    }
     // List all available icons, on icon put, we save icon type in the icons property
     core.strSplitUnique(row.icons).forEach(function(x) {
         row['icon' + x] = self.imagesUrl + '/image/account/' + row.id + '/' + x;
     });
+    delete row.icons;
     return row;
-}
-
-// Collect accounts by id or list of ids
-api.listAccounts = function(req, obj, options, callback)
-{
-    var self = this;
-    var pubcols = db.publicColumns('account');
-    // Provided list of columns must be a subset of public columns
-    var cols = obj._select ? core.strSplit(options.select).filter(function(x) { return pubcols.indexOf(x) > -1 }) : pubcols;
-    // List of account ids can be provided to retrieve all accounts at once, for DynamoDB it means we may iterate over all 
-    // pages in order to get all items until we reach our limit.
-    var ids = core.strSplit(obj.id);
-    ids = ids.length > 1 ? ids.map(function(x) { return { id: x } }) : { id: ids[0] };
-    db.select("account", ids, { select: cols }, function(err, rows) {
-        if (err) return callback(err, []);
-        rows.forEach(function(row) {
-            self.prepareAccount(row);
-            db.publicPrepare('account', rows[0], { allowed: req.account.account_allow });
-        });
-        callback(null, rows);
-    });
 }
 
 // API for internal provisioning, by default supports access to all tables

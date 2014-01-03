@@ -162,8 +162,7 @@ db.initPoolTables = function(pool, tables, callback)
 //     function(options, callback) and will be called with first arg an error object and second arg is the database instance
 // - cachecb - a callback for caching database tables and columns
 // - valuecb - a callback that performs value transformation if necessary for the bind parameters
-// - columncb - a callback that performs transformation of the values returned from the db into javascript
-db.initPool = function(options, createcb, cachecb, valuecb, columncb) 
+db.initPool = function(options, createcb, cachecb, valuecb) 
 {
     var self = this;
     if (!options) options = {};
@@ -265,7 +264,6 @@ db.initPool = function(options, createcb, cachecb, valuecb, columncb)
         self.query(req, options, callback);
     }
     pool.bindValue = valuecb;
-    pool.columnValue = columncb;
     pool.name = options.pool;
     pool.serial = 0;
     pool.tables = {};
@@ -425,6 +423,21 @@ db.select = function(table, obj, options, callback)
     this.query(req, options, callback);
 }
 
+// Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column
+db.list = function(table, obj, options, callback) 
+{
+	switch (core.typeName(obj)) {
+	case "string":
+		var keys = options.keys || this.getKeys(table, options) || [];
+		obj = core.strSplit(obj).map(function(x) { return core.newObj(keys[0], x) });
+	case "array":
+		break;
+	default:
+		return callback ? callback(new Error("invalid list"), []) : null;
+	}
+    this.select(table, obj, options, callback);
+}
+
 // Retrieve one record from the database 
 // Options can use the following special properties:
 //  - keys - a list of columns for condition or all primary keys
@@ -505,13 +518,19 @@ db.query = function(req, options, callback)
                 logger.error("db.query:", pool.name, req.text, req.values, err2);
                 return callback ? callback(err2, rows, info) : null;
             }
-            // Process retruned values if we have custom column callback
-            if (pool.columnValue) {
-            	var cols = pool.dbcolumns[req.table.toLowerCase()] || {};
-            	rows.forEach(function(row) {
-            		for (var p in row) row[p] = pool.columnValue(row[p], cols[p]);
-            	});
+            // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
+            // In adition, a custom list of allowed columns can be specified in the options.allow_columns property.
+            if (options && options.public_columns) {
+            	var cols = self.publicColumns(req.table, options);
+            	if (cols.length) {
+            		rows.forEach(function(row) {
+            			for (var p in row) 	if (cols.indexOf(p) == -1) delete row[p];
+            		});
+            	}
             }
+            // Convert values if we have custom column callback
+            self.processRows(pool, req.table, rows, options);
+            
             // Cache notification in case of updates, we must have the request prepared by the db.prepare
             if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
                 self.clearCached(req.table, req.obj, options);
@@ -652,29 +671,26 @@ db.mergeColumns = function(pool)
 	}
 }
 
-// Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-// In adition, a custom list of allowed columns can be specified in the options.allowed property.
-db.publicPrepare = function(table, row, options) 
-{
-    var cols = options && !this.isEmpty(options.allowed) ? this.strSplit(options.allowed) : this.publicColumns(table, options);
-    if (!cols.length) return row;
-    for (var p in row) {
-        if (cols.indexOf(p) == -1) delete row[p];
-    }
-    return row;
-}
-
 // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
-// .pub property means public column
-// .semipub means not allowed but must be returned for calculations in the select to produce another public column
-// options may be used to define the column list as property columns instead of cached columns for a table
+//  - .pub property means public column
+//  - .semipub means not allowed but must be returned for calculations in the select to produce another public column
+// options may be used to define the following properties:
+// - columns - list of public columns to be returned, overrides the public columns in the definition list
 db.publicColumns = function(table, options) 
 {
     if (options && Array.isArray(options.columns)) {
         return options.columns.filter(function(x) { return x.pub || x.semipub }).map(function(x) { return x.name });
     }
-    var cols = this.getColumns(options);
+    var cols = this.getColumns(table, options);
     return Object.keys(cols || {}).filter(function(x) { return cols[x].pub || cols[x].semipub });
+}
+
+// Call custom row handler for every row in the result, this assumes that pool.processRow callback has been assigned previously
+db.processRows = function(pool, table, rows, options) 
+{
+	if (!pool.processRow) return;
+	var cols = pool.dbcolumns[table.toLowerCase()] || {};
+	rows.forEach(function(row) { pool.processRow(row, options, cols); });
 }
 
 // Quote value to be used in SQL expressions
