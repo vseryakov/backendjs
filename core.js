@@ -88,12 +88,12 @@ var core = {
                  ],
 
     // Config parameters
-    args: [ { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debuggng messages" },
-            { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev" },
-            { name: "logfile", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages" },
-            { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog" },
-            { name: "console", type: "callback", value: function() { core.logfile = null; logger.setFile(null);}, descr: "All logging goes to the console" },
-            { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, current dir if not specified" },
+    args: [ { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debuggng messages", pass: 1 },
+            { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
+            { name: "logfile", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages", pass: 1 },
+            { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog", pass: 1 },
+            { name: "console", type: "callback", value: function() { core.logfile = null; logger.setFile(null);}, descr: "All logging goes to the console", pass: 1 },
+            { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, current dir if not specified", pass: 1 },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run att he same time inside one process" },
             { name: "umask", descr: "Filesystem mask" },
             { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after start if running as root" },
@@ -167,7 +167,8 @@ core.init = function(callback) {
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
-        	self.parseArgs(process.argv);
+        	// Initial args to run before the config file
+        	self.processArgs("core", self, process.argv, 1);
             self.loadConfig(next);
         },
 
@@ -175,6 +176,9 @@ core.init = function(callback) {
         function(next) {
             // Redirect system logging to stderr
             logger.setChannel("stderr");
+            
+            // Process all other arguments
+            self.parseArgs(process.argv);
             
             try { process.umask(self.umask); } catch(e) { logger.error("umask:", self.umask, e) }
 
@@ -289,12 +293,14 @@ core.parseArgs = function(argv)
 // Config parameters defined in a module as a list of parameter names prefixed with module name, a parameters can be
 // a string which defines text parameter or an object with the properties: name, type, value, decimals, min, max, separator
 // type can be bool, number, list, json
-core.processArgs = function(name, ctx, argv) 
+core.processArgs = function(name, ctx, argv, pass) 
 {
     var self = this;
     if (!ctx) return;
     if (!Array.isArray(ctx.args)) return;
     ctx.args.forEach(function(x) {
+    	// Process only equal to the given pass phase
+    	if (pass && x.pass != pass) return;
         if (typeof x == "string") x = { name: x };
         if (!x.name) return;
         // Core sets global parameters, all others by module
@@ -1148,7 +1154,8 @@ core.forEachLine = function(file, options, lineCallback, endCallback) {
     });
 }
 // Encrypt data with the given key code
-core.encrypt = function(key, data, algorithm) {
+core.encrypt = function(key, data, algorithm)
+{
     if (!key || !data) return '';
     var encrypt = crypto.createCipher(algorithm || 'aes192', key);
     var b64 = encrypt.update(String(data), 'utf8', 'base64');
@@ -1157,7 +1164,8 @@ core.encrypt = function(key, data, algorithm) {
 }
 
 // Decrypt data with the given key code
-core.decrypt = function(key, data, algorithm) {
+core.decrypt = function(key, data, algorithm) 
+{
     if (!key || !data) return '';
     var decrypt = crypto.createDecipher(algorithm || 'aes192', key);
     var msg = decrypt.update(String(data), 'base64', 'utf8');
@@ -1166,42 +1174,50 @@ core.decrypt = function(key, data, algorithm) {
 }
 
 // HMAC signing and base64 encoded, default algorithm is sha1
-core.sign = function (key, data, algorithm, encode) {
+core.sign = function (key, data, algorithm, encode) 
+{
     return crypto.createHmac(algorithm || "sha1", key).update(String(data), "utf8").digest(encode || "base64");
 }
 
 // Hash and base64 encoded, default algorithm is sha1
-core.hash = function (data, algorithm, encode) {
+core.hash = function (data, algorithm, encode) 
+{
     return crypto.createHash(algorithm || "sha1").update(String(data), "utf8").digest(encode || "base64");
 }
 
 // Generate random key, size if specified defines how many random bits to generate
-core.random = function(size) {
+core.random = function(size) 
+{
     return this.sign(crypto.randomBytes(64), crypto.randomBytes(size || 256), 'sha256').replace(/[=+%]/g, '');
 }
 
 // Return random integer between min and max inclusive
-core.randomInt = function(min, max) {
+core.randomInt = function(min, max) 
+{
     return min + (0 | Math.random() * (max - min + 1));
 }
 
 // Return number between min and max inclusive
-core.randomNum = function(min, max) {
+core.randomNum = function(min, max) 
+{
     return min + (Math.random() * (max - min));
 }
 
 // Return number of seconds for current time
-core.now = function() {
+core.now = function() 
+{
     return Math.round((new Date()).getTime()/1000);
 }
 
 // Shortcut for current time in milliseconds
-core.mnow = function() {
+core.mnow = function()
+{
     return (new Date()).getTime();
 }
 
 // Format date object
-core.strftime = function(date, fmt, utc) {
+core.strftime = function(date, fmt, utc) 
+{
     if (typeof date == "string") try { date = new Date(date); } catch(e) {}
     if (!date || isNaN(date)) return "";
     function zeropad(n) { return n > 9 ? n : '0' + n; }
@@ -1233,7 +1249,8 @@ core.strftime = function(date, fmt, utc) {
 }
 
 // Split string into array, ignore empty items
-core.strSplit = function(str, sep) {
+core.strSplit = function(str, sep) 
+{
     if (!str) return [];
     return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).map(function(x) { return x.trim() }).filter(function(x) { return x != '' });
 }

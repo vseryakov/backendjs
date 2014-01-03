@@ -237,13 +237,11 @@ db.initPool = function(options, createcb, cachecb, valuecb)
         case "select": 
         	var req = self.sqlSelect(table, obj, opts);
             // Support for pagination, for SQL this is the OFFSET for the next request
-            if (options.start && options.count) {
-            	this.pool.next_token = coe.toNumber(options.start) + core.toNumber(options.count);
-            }
+            if (opts.count) pool.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
             return req;
         case "new": return self.sqlCreate(table, obj, opts);
         case "upgrade": return self.sqlUpgrade(table, obj, opts);
-        case "get": return self.sqlSelect(table, obj, self.cloneObj(opts, {}, { count: 1 }));
+        case "get": return self.sqlSelect(table, obj, core.cloneObj(opts, {}, { count: 1 }));
         case "add": return self.sqlInsert(table, obj, opts);
         case "put": return self.sqlInsert(table, obj, core.extendObj(opts || {}, 'replace', 1));
         case "update": return self.sqlUpdate(table, obj, opts);
@@ -373,7 +371,7 @@ db.replace = function(table, obj, options, callback)
     }
 
     // Create deep copy of the object so we have it complete inside the callback
-    obj = this.cloneObj(obj);
+    obj = core.cloneObj(obj);
 
     self.query(req, function(err, rows) {
         if (err) return callback ? callback(err, []) : null;
@@ -567,7 +565,7 @@ db.upgrade = function(table, obj, options, callback)
     if (typeof options == "function") callback = options,options = null;
 
     var req = this.prepare("upgrade", table, obj, options);
-    if (!req.sql) return callback ? callback() : null;
+    if (!req.text) return callback ? callback() : null;
     this.query(req, options, callback);
 }
 
@@ -660,10 +658,9 @@ db.mergeColumns = function(pool)
 {
 	var tables = pool.tables;
 	var dbcolumns = pool.dbcolumns;
-	for (var table in tables) {
-		if (!dbcolumns[table]) dbcolumns[table] = {};
-		tables[table].forEach(function(col) {
-			if (!dbcolumns[table][col.name]) dbcolumns[table][col.name] = {};
+	for (var table in dbcolumns) {
+		(tables[table] || []).forEach(function(col) {
+			if (!dbcolumns[table][col.name]) dbcolumns[table][col.name] = { fake: 1 };
 			for (var p in col) {
 				if (!dbcolumns[table][col.name][p]) dbcolumns[table][col.name][p] = col[p];
 			}
@@ -758,7 +755,6 @@ db.sqlExpr = function(name, value, options)
     var sql = "";
     var op = (options.op || "").toLowerCase();
     if (this.opMap[op]) op = this.opMap[op];
-
     switch (op) {
     case "not in":
     case "in":
@@ -1046,7 +1042,6 @@ db.sqlWhere = function(table, obj, keys, options)
         }
         return obj.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.getBindValue(table, options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
     }
-    
     // Regular object with conditions
     var where = [];
     (keys || []).forEach(function(k) {
@@ -1107,7 +1102,7 @@ db.sqlUpgrade = function(table, obj, options, callback)
     
     function items(name) { return obj.filter(function(x) { return x[name] }).map(function(x) { return x.name }).join(','); }
     var dbcols = this.getColumns(table, options) || {};
-    var sql = obj.filter(function(x) { return x.name && !(x.name in dbcols) }).
+    var sql = obj.filter(function(x) { return x.name && (!(x.name in dbcols) || dbcols[x.name].fake) }).
                   map(function(x) { 
                       return "ALTER TABLE " + table + " ADD COLUMN " + x.name + " " + 
                       (function(t) { return (options.types || {})[t] || t })(x.type || "text") + " " + 
@@ -1121,7 +1116,6 @@ db.sqlUpgrade = function(table, obj, options, callback)
         sql += (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ");" : "" })(items('index' + y));
         if (keys) sql += (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_rdx" + y + " ON " + table + "(" + keys[0] + "," + x + ");" : "" })(items('hashindex' + y));
     });
-    
     return { text: sql, values: [] };
 }
 
@@ -1138,7 +1132,7 @@ db.sqlSelect = function(table, obj, options)
                options.select ? options.select.split(",").filter(function(x) { return /^[a-z0-9_]+$/.test(x) && x in dbcols; }).map(function(x) { return x }).join(",") : "";
     if (!cols) cols = "*";
 
-    var where = this.sqlWhere(table, obj, keys);
+    var where = this.sqlWhere(table, obj, keys, options);
     if (where) where = " WHERE " + where;
     
     var req = { text: "SELECT " + cols + " FROM " + table + where + this.sqlLimit(options) };
@@ -1219,7 +1213,6 @@ db.sqlUpdate = function(table, obj, options)
         logger.debug('sqlUpdate:', table, 'nothing to do', obj, keys);
         return null;
     }
-    req.values = req.values.concat(w.values);
     req.text = "UPDATE " + table + " SET " + sets.join(",") + " WHERE " + where;
     if (options.returning) req.text += " RETURNING " + options.returning;
     return req;
