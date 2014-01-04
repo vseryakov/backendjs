@@ -351,7 +351,7 @@ db.replace = function(table, obj, options, callback)
     if (!options) options = {};
     if (!options.keys || !options.keys.length) options.keys = self.getKeys(table, options) || [];
     
-    var select = "1";
+    var select = options.keys[0];
     // Use mtime to check if we need to update this record
     if (options.check_mtime && obj[options.check_mtime]) {
         select = options.check_mtime;
@@ -360,8 +360,8 @@ db.replace = function(table, obj, options, callback)
     if (options.check_data) {
         var cols = self.getColumns(table, options) || {};
         var list = Array.isArray(options.check_data) ? options.check_data : Object.keys(obj);
-        select = list.filter(function(x) { return x[0] != "_"  && x != 'mtime' && keys.indexOf(x) == -1 && (x in cols); }).join(',');
-        if (!select) select = "1";
+        select = list.filter(function(x) { return x[0] != "_"  && x != 'mtime' && options.keys.indexOf(x) == -1 && (x in cols); }).join(',');
+        if (!select) select = options.keys[0];
     }
     
     var req = this.prepare("get", table, obj, { select: select });
@@ -376,10 +376,10 @@ db.replace = function(table, obj, options, callback)
     self.query(req, function(err, rows) {
         if (err) return callback ? callback(err, []) : null;
         
-        logger.debug('db.replace:', req, result);
+        logger.debug('db.replace:', req, rows.length);
         if (rows.length) {
             // Skip update if specified or mtime is less or equal
-            if (options.add_only || (select == options.check_mtime && self.toDate(rows[0][options.check_mtime]) >= self.toDate(obj[options.check_mtime]))) {
+            if (options.add_only || (select == options.check_mtime && core.toDate(rows[0][options.check_mtime]) >= core.toDate(obj[options.check_mtime]))) {
                 return callback ? callback(null, []) : null;
             }
             // Verify all fields by value
@@ -388,7 +388,7 @@ db.replace = function(table, obj, options, callback)
                 // Nothing has changed
                 if (same) return callback ? callback(null, []) : null;
             }
-            self.update(table, obj, keys, options, callback);
+            self.update(table, obj, options, callback);
         } else {
             if (options.put_only) return callback ? callback(null, []) : null;
             self.add(table, obj, options, callback);
@@ -517,7 +517,6 @@ db.query = function(req, options, callback)
                 return callback ? callback(err2, rows, info) : null;
             }
             // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-            // In adition, a custom list of allowed columns can be specified in the options.allow_columns property.
             if (options && options.public_columns) {
             	var cols = self.publicColumns(req.table, options);
             	if (cols.length) {
@@ -606,8 +605,8 @@ db.skipColumn = function(name, val, options, columns)
 	return !name || name[0] == '_' || typeof val == "undefined" || 
 			(options.skip_null && val === null) ||
 			(options.check_columns && !options.no_columns && (!columns || !columns[name])) || 	
-			(options.allow_columns && options.allow_columns.indexOf(name) == -1) ||
-			(options.skip_columns && options.skip_columns.indexOf(name) > -1);
+			(options.skip_columns && options.skip_columns.indexOf(name) > -1) ||
+	        (options.select && options.select.indexOf(name) == -1);
 }
 
 // Return cached primary keys for a table or null
@@ -1122,15 +1121,21 @@ db.sqlUpgrade = function(table, obj, options, callback)
 // Select object from the database, .keys is a list of columns for condition, .select is list of columns or expressions to return
 db.sqlSelect = function(table, obj, options) 
 {
+	var self = this;
     if (!options) options = {};
     var keys = options.keys;
     if (!keys || !keys.length) keys = this.getKeys(table, options) || [];
     
     // Requested columns, support only existing
     var dbcols = this.getColumns(table, options) || {};
-    var cols = options.total ? "COUNT(*) AS count" :
-               options.select ? options.select.split(",").filter(function(x) { return /^[a-z0-9_]+$/.test(x) && x in dbcols; }).map(function(x) { return x }).join(",") : "";
-    if (!cols) cols = "*";
+    var cols = "*";
+    if (options.total) {
+    	cols = "COUNT(*) AS count";
+    } else {
+    	if (options.select) options.select = core.strSplitUnique(options.select);
+    	cols = Object.keys(dbcols).filter(function(x) { return !self.skipColumn(x, "", options, dbcols); }); 
+    	if (!cols) cols = "*";
+    }
 
     var where = this.sqlWhere(table, obj, keys, options);
     if (where) where = " WHERE " + where;
@@ -1191,15 +1196,15 @@ db.sqlUpdate = function(table, obj, options)
         if (!v && ["number","json"].indexOf(cols[p].type) > -1) v = null;
         // Update only if the value is null, otherwise skip
         if (options.coalesce && options.coalesce.indexOf(p) > -1) {
-            sets.push(p + "=COALESCE(" + p + ", $" + i + ")");
+            sets.push(p + "=COALESCE(" + p + ",$" + i + ")");
         } else
         // Concat mode means append new value to existing, not overwrite
         if (options.concat && options.concat.indexOf(p) > -1) {
-            sets.push(p + "=CONCAT(" + p + ", $" + i + ")");
+            sets.push(p + "=CONCAT(" + p + ",$" + i + ")");
         } else
         // Incremental update
         if (options.increment && options.increment.indexOf(p) > -1) {
-            sets.push(p + "=" + p + "+$" + i);
+            sets.push(p + "=COALESCE(" + p + ",0)+$" + i);
         } else {
             sets.push(p + "=" + (options.placeholder || ("$" + i)));
         }

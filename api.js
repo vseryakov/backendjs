@@ -108,10 +108,7 @@ var api = {
     minDistance: 5,
     // Max distance in km for location searches
     maxDistance: 50, 
-    
-    // Geohash ranges for different lenghts in km
-    geoRange: [ [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]],
-    
+   
     // Config parameters
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
            { name: "images-s3", descr: "S3 bucket name where to image store instead of data/images directory on the filesystem" },
@@ -629,12 +626,12 @@ api.initLocationAPI = function()
                     res.json(self.processAccount(obj));
                     
                     // Delete current location
-                    var geo = self.prepareGeohash(row.latitude, row.longitude, req.account);
+                    var geo = core.geoHash(row.latitude, row.longitude, { distance: req.account.distance, max: self.maxDistance });
                     geo.id = req.account.id;
                     db.del("location", geo);
                     
                     // Insert new location
-                    geo = self.prepareGeohash(latitude, longitude, req.account);
+                    geo = core.geoHash(latitude, longitude, { distance: req.account.distance, max: self.maxDistance });
                     geo.mtime = now;
                     geo.id = req.account.id;
                     db.put("location", geo);
@@ -654,7 +651,7 @@ api.initLocationAPI = function()
             // Limit the distance within our configured range
             req.query.distance = core.toNumber(req.query.distance, 0, self.minDistance, self.minDistance, self.maxDistance);
             // Prepare geo search key
-            var geo = self.prepareGeohash(latitude, longitude, req.query);            
+            var geo = core.geoHash(latitude, longitude, { distance: req.query.distance, max: self.maxDistance });            
             var options = { ops: { range: "GT" }, start: core.toJson(req.query._start), count: req.query._count || 25 };
             options.filter = function(x) { x.distance = backend.geoDistance(latitude, longitude, x.latitude, x.longitude); return x.distance <= distance; }
             db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
@@ -687,19 +684,6 @@ api.initLocationAPI = function()
             break;
         }
     });
-}
-
-// Return object with geohash for given coordinates to be used for location search
-// options may contain the follwong properties:
-// - distance - limit the range key by the minimum distance, this will reduce the range key length, 
-//              if not specified the full geohash will be produced
-api.prepareGeohash = function(latitude, longitude, options)
-{
-    var self = this;
-    var hbits = this.geoRange.filter(function(x) { return x[1] > self.maxDistance })[0][0];
-    var rbits = (options || {}).distance ? this.geoRange.filter(function(x) { return x[1] > options.distance })[0][0] : 22;
-    var geohash = backend.geoHashEncode(latitude, longitude);
-    return { hash: geohash.substr(0, hbits), range: geohash.substr(hbits, rbits - hbits), geohash: geohash, latitude: latitude, longitude: longitude };
 }
 
 // Prepare an account record for response, set required fields, icons

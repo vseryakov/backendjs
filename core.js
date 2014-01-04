@@ -1153,6 +1153,22 @@ core.forEachLine = function(file, options, lineCallback, endCallback) {
         });
     });
 }
+
+// Return object with geohash for given coordinates to be used for location search
+// options may contain the follwong properties:
+//   - distance - limit the range key by the minimum distance, this will reduce the range key length, 
+//              if not specified the full geohash will be produced
+//   - max - max distance for the search
+core.geoHash = function(latitude, longitude, options)
+{
+	// Geohash ranges for different lenghts in km
+	var range = [ [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]];
+	var hbits = range.filter(function(x) { return x[1] > (options.max || 25) })[0][0];
+	var rbits = options.distance ? range.filter(function(x) { return x[1] > options.distance })[0][0] : 22;
+	var geohash = backend.geoHashEncode(latitude, longitude);
+	return { hash: geohash.substr(0, hbits), range: geohash.substr(hbits, rbits - hbits), geohash: geohash, latitude: latitude, longitude: longitude };
+}
+
 // Encrypt data with the given key code
 core.encrypt = function(key, data, algorithm)
 {

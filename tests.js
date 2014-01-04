@@ -218,6 +218,7 @@ tests.db = function(callback)
 			        { name: "email", unique: 1 },
 			        { name: "alias", pub: 1 },
 			        { name: "birthday", semipub: 1 },
+			        { name: "num", type: "int" },
 			        { name: "json", type: "json" },
 			        { name: "mtime", type: "int" } ],	
 	};
@@ -239,31 +240,49 @@ tests.db = function(callback)
 	    	db.put("test", { id: id2, range: '1', email: id2, alias: id2, birthday: id2, mtime: now }, next);
 	    },
 	    function(next) {
-	    	db.get("test", { id: id }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id ? (err || "get:" + util.inspect(rows)) : 0);
+	    	db.incr("test", { id: id, range: '1', num: 1 }, function(err) {
+	    		db.incr("test", { id: id, range: '1', num: 1 }, function(err) {
+	    			db.incr("test", { id: id, range: '1', num: 0 }, next);
+	    		});
+	    	});
+	    },
+	    function(next) {
+	    	db.get("test", { id: id }, { skip_columns: ['email'] }, function(err, rows) {
+	    		next(err || rows.length!=1 || rows[0].id != id && !rows[0].email || rows[0].num != 2 ? (err || "err1:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	    	db.select("test", { id: id2, range: '1' }, { ops: { range: 'GT' }, select: 'id,range,mtime' }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].email || rows[0].range != '2' ? (err || "select:" + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].email || rows[0].range != '2' ? (err || "err2:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	    	db.select("test", { id: [id,id2] }, { select: 'id,mtime' }, function(err, rows) {
-	    		next(err || rows.length!=3 || rows[0].email ? (err || "select:" + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=3 || rows[0].email ? (err || "err3:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	    	db.list("test", String([id,id2]), { public_columns: 1, keys: ['id'] }, function(err, rows) {
-	    		next(err || rows.length!=3 || rows[0].email ? (err || "list:" + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=3 || rows[0].email ? (err || "err4:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
-	    	db.update("test", { id: id, email: id + "@test", mtime: now }, next);
+	    	db.update("test", { id: id, email: id + "@test", json: [1, 9], mtime: now }, function(err) {
+	    		db.replace("test", { id: id, email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
+	    	});
 	    },
 	    function(next) {
 	    	db.get("test", { id: id }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" ? (err || "email:" + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num == 9 || !Array.isArray(rows[0].json) ? (err || "err5:" + util.inspect(rows)) : 0);
+	    	});
+	    },
+	    function(next) {
+	    	now = core.now;
+	    	db.replace("test", { id: id, email: id + "@test", num: 9, mtime: now }, { check_data: 1 }, next);
+	    },
+	    function(next) {
+	    	db.get("test", { id: id }, function(err, rows) {
+	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num!=9 ? (err || "err6:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -284,12 +303,12 @@ tests.db = function(callback)
 	    function(next) {
 	    	db.select("test", { id: id2, range: '1' }, { ops: { range: 'GT' }, count: 2, select: 'id,range' }, function(err, rows, info) {
 	    		next_token = info.next_token;
-	    		next(err || rows.length!=2 || !info.next_token ? (err || "page1:" + util.inspect(rows, info)) : 0);
+	    		next(err || rows.length!=2 || !info.next_token ? (err || "err7:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	    function(next) {
 	    	db.select("test", { id: id2, range: '1' }, { ops: { range: 'GT' }, start: next_token, count: 2, select: 'id,range' }, function(err, rows, info) {
-	    		next(err || rows.length!=2 || !info.next_token ? (err || "page2:" + util.inspect(rows, info)) : 0);
+	    		next(err || rows.length!=2 || !info.next_token ? (err || "err8:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	],
