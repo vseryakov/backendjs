@@ -670,10 +670,11 @@ api.initLocationAPI = function()
                 if (req.query._details) {
                 	db.list("account", ids, { select: req.query._select, public_columns: 1 }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
-                        // Keep all connecton properties in separate object
+                        // Merge items
                         rows.forEach(function(row) {
-                            row.account = list[row.id];
-                        })
+                            var item = list[row.id];
+                            for (var p in item) row[p] = item[p];
+                        });
                         res.json({ geohash: geo.geohash, next_token: next_token, items: rows });
                     });
                 } else {
