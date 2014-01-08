@@ -65,11 +65,11 @@ var api = {
                    { name: "mtime", type: "int" } ],
                    
        // Locations for all accounts to support distance searches
-       location: [ { name: "hash", primary: 1 },                     // geohash(first part), the biggest radius expected
-                   { name: "range", primary: 1 },                    // geohash(second part), the rest of the geohash
-                   { name: "id" },
+       location: [ { name: "geohash", primary: 1 },                     // geohash(first part), the biggest radius expected
+                   { name: "georange", primary: 1 },                    // geohash(second part), the rest of the geohash
                    { name: "latitude", type: "real" },
                    { name: "longitude", type: "real" },
+                   { name: "id" },
                    { name: "mtime", type: "int" }],
 
        // All connections between accounts: like,dislike,friend...
@@ -626,12 +626,12 @@ api.initLocationAPI = function()
                     res.json(self.processAccount(obj));
                     
                     // Delete current location
-                    var geo = core.geoHash(row.latitude, row.longitude, { distance: req.account.distance, max: self.maxDistance });
+                    var geo = core.geoHash(row.latitude, row.longitude, { distance: req.account.distance, max_distance: self.maxDistance });
                     geo.id = req.account.id;
                     db.del("location", geo);
                     
                     // Insert new location
-                    geo = core.geoHash(latitude, longitude, { distance: req.account.distance, max: self.maxDistance });
+                    geo = core.geoHash(latitude, longitude, { distance: req.account.distance, max_distance: self.maxDistance });
                     geo.mtime = now;
                     geo.id = req.account.id;
                     db.put("location", geo);
@@ -651,8 +651,8 @@ api.initLocationAPI = function()
             // Limit the distance within our configured range
             req.query.distance = core.toNumber(req.query.distance, 0, self.minDistance, self.minDistance, self.maxDistance);
             // Prepare geo search key
-            var geo = core.geoHash(latitude, longitude, { distance: req.query.distance, max: self.maxDistance });            
-            var options = { ops: { range: "GT" }, start: core.toJson(req.query._start), count: req.query._count || 25 };
+            var geo = core.geoHash(latitude, longitude, { distance: req.query.distance, max_distance: self.maxDistance });            
+            var options = { ops: { range: "GT" }, start: core.toJson(req.query._start), select: req.query._select, count: req.query._count || 25 };
             options.filter = function(x) { x.distance = backend.geoDistance(latitude, longitude, x.latitude, x.longitude); return x.distance <= distance; }
             db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
                 var list = {}, ids = [];
@@ -679,7 +679,7 @@ api.initLocationAPI = function()
                     });
                 } else {
                     // Return back not just a list with rows but pagination info as well, stop only if next property is null even if no rows returned
-                    res.json({ geohash: geo.geohash, next: next, items: rows });
+                    res.json({ geohash: geo.geohash, next_token: next_token, items: rows });
                 }            
             });
             break;

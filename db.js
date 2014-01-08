@@ -436,6 +436,49 @@ db.list = function(table, obj, options, callback)
     this.select(table, obj, options, callback);
 }
 
+// Geo locations search, paginate all results until the end.
+// table must be defined with the following required columns:
+//  - geohash and georange as strings, this is the primary key
+//  - latitude and longitude as floating numbers
+// On first call, options must contain latitude and longitude of the center and optionally distance for the radius.
+// On return, the callback's third argument contains the object that must be provided for subsequent searches until rows array is empty.
+db.getLocations = function(table, options, callback)
+{
+	var latitude = options.latitude, longitude = options.longitude;
+    var distance = core.toNumber(options.distance, 0, 1, 2, 999);
+    if (!options.start) {
+    	var geo = core.geoHash(latitude, longitude, { distance: options.distance, max_distance: options.max_distance });
+    	for (var p in geo) options[p] = geo[p];
+    }
+    options.ops = { georange: "begins_with" };
+    options.skip_columns = ["geohash", "georange"];
+    var count = options.count || 50;
+    db.select(table, { geohash: options.geohash, georange: options.georange }, options, function(err, rows, info) {
+    	if (err) return callback ? callback(err, rows, options) : null;
+    	count -= rows.length;
+    	options.start = info.next_token;
+        async.until(
+                function() { return count <= 0 || options.neighbors.length == 0; }, 
+                function(next) {
+                	var hash = options.neighbors.shift();
+                	options.geohash = hash.substr(0, options.geohash.length);
+                	options.georange = hash.substr(options.geohash.length, options.georange.length);
+                	options.start = null;
+                	db.select(table, { geohash: options.geohash, georange: options.georange }, options, function(err, items, info) {
+                        rows.push.apply(rows, items);
+                        count -= items.length;
+                        options.start = info.next_token;
+                        next(err);
+                    });
+                }, function(err) {
+                	if (options.calc_distance) {
+                		rows.forEach(function(row) { row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude); });
+                	}
+                	if (callback) callback(err, rows, options);
+                });
+    });	
+}
+
 // Retrieve one record from the database 
 // Options can use the following special properties:
 //  - keys - a list of columns for condition or all primary keys
@@ -1641,10 +1684,9 @@ db.ddbInitPool = function(options)
                             count -= items.length;
                             next(err);
                         });                            
-                },
-                    function(err) {
-                        callback(err, rows);
-                    });
+                }, function(err) {
+                	callback(err, rows);
+                });
             });
             break;
 
@@ -1664,10 +1706,9 @@ db.ddbInitPool = function(options)
                             items.push.apply(items, item.Responses[table] || []);
                             next(err);
                         });                            
-                },
-                    function(err) {
-                        callback(err, items);
-                    });
+                }, function(err) {
+                	callback(err, items);
+                });
             });
             break;
             
