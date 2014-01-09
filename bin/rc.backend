@@ -32,12 +32,24 @@ DOMAIN=localhost
 [ "$PG_DIR" = "" ] && PG_DIR=$ROOT/postgres
 [ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
 [ "$PG_USER" = "" ] && PG_USER=postgres
-[ "$MONGO_DIR" = "" ] && MONGO_DIR=$ROOT/mongo
 [ "$NODE_DIR" = "" ] && NODE_DIR=$PREFIX/lib/node_modules
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_DIR/backend
 
 HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
+case "$PLATFORM" in
+  Linux)
+    [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
+    [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
+    # In multi-os environment have to sync by os type due to different dependencies in each distro
+    [ "$BACKEND_OS_TYPE" != "" ] && MASTER=$OS_TYPE-$MASTER
+    ;;
+    
+  Darwin)
+    OS_TYPE=macosx
+    ;;
+esac
+
 export PATH=$PREFIX/bin:$PG_PREFIX/bin:$PATH
 
 # If started without parameters use script name as a parameter
@@ -280,44 +292,39 @@ case "$ARG" in
     ln -sf $PREFIX/bin/rc.backend /etc/init.d/backend
     (cd /etc/rc3.d && ln -sf ../init.d/backend S25backend-init)
     (cd /etc/rc3.d && ln -sf ../init.d/backend S70backend)
+    
     # Sync time
     ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/ntp
 
-    # If we are running a web server we need possobly API static file
+    # Cleanup previous syncing scripts, we always setup from scratch
     find /etc/cron.hourly -name 'sync*' -type l -exec rm -f "{}" ";"
     find /etc/cron.d -name 'sync*' -type l -exec rm -f "{}" ";"
-    if [[ $BACKEND_ARGS != *-no-sync-master* ]]; then
-       echo "Syncing backend modules..."
-       if [[ $BACKEND_ARGS != *-no-sync-source* ]]; then
-          ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/sync
-       fi
+    
+    # Setup syncing scripts
+    for dir in $BACKEND_SYNC; do
+       echo "Syncing sync-$dir..."
+       ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/sync-$dir
+       ($0 sync-$dir)
+    done
 
-       if [[ $BACKEND_ARGS =~ \-(backend |web ) ]]; then
-          if [[ $BACKEND_ARGS != *-no-sync-api* ]]; then
-             echo "Syncing API data files..."
-             ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/sync-api
-             ($0 sync-api)
-          fi
-      
-          if [[ $BACKEND_ARGS != *-no-sync-web* ]]; then
-             echo "Syncing web files..."
-             ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/sync-web
-             ($0 sync-web)
-          fi
-       fi
-    fi
+    # Linux disto specific actions
+    case "$OS_TYPE" in 
+      centos)
+         if [ ! -f /etc/yum.repos.d/pgdg-93-centos.repo ]; then
+            echo "Setting up PostgreSQL repo..."
+            rpm -i http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
+         fi
 
-    # Recent postgresql version
-    if [ "$(grep CentOS /etc/issue)" != "" -a ! -f /etc/yum.repos.d/pgdg-93-centos.repo ]; then
-       echo "Setting up PostgreSQL repo..."
-       rpm -i http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
-    fi
+         if [ ! -f /etc/yum.repos.d/rpmforge.repo ]; then
+            echo "Setting up RPM Forge..."
+            rpm -i http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.x86_64.rpm
+         fi
+         ;;
 
-    if [ "$(grep CentOS /etc/issue)" != "" -a ! -f /etc/yum.repos.d/rpmforge.repo ]; then
-       echo "Setting up RPM Forge..."
-       rpm -i http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.x86_64.rpm
-    fi
-
+      amazon)
+         ;;
+    esac
+    
     # Install required packages and utilities
     yum -y install gcc-c++ make cmake autoconf automake libtool 
     yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel 
@@ -386,14 +393,19 @@ case "$ARG" in
     ldconfig
     ;;
 
-  sync-api)
-    mkdir -p $ROOT/${ARG:5}
-    su - $LOCAL_USER -c "rsync -aqFF --delete-after -e '$SSH_ARGS' $MASTER:$ROOT/${ARG:5}/ $ROOT/${ARG:5}"
-    ;;
-
-  sync-images|sync-web)
-    mkdir -p $ROOT/${ARG:5}
-    su - $LOCAL_USER -c "rsync -aqFF -e '$SSH_ARGS' $MASTER:$ROOT/${ARG:5}/ $ROOT/${ARG:5}"
+  sync-*)
+    dir=${ARG:5}
+    case "$dir" in
+      del-*)
+        dir=${dir:4}
+        args="--delete-after"
+        ;;
+      *)
+        args=""
+        ;;
+    esac
+    mkdir -p $ROOT/$dir
+    su - $LOCAL_USER -c "rsync -aqFF $args -e '$SSH_ARGS' $MASTER:$ROOT/$dir/ $ROOT/$dir"
     ;;
 
   ntp)
@@ -406,7 +418,7 @@ case "$ARG" in
     DAY=$(date +%d|sed 's/^0*//g')
     FILE=backup
     # Even days will have 1 appended to the backup file name
-    [ "$BACKUP_COPY_EVEN" != "" -a $(($DAY % 2)) -eq 0 ] && FILE="${FILE}1"
+    [ "$BACKUP_COPY" != "" -a $(($DAY % 2)) -eq 0 ] && FILE="${FILE}1"
     # Make backup copies daily/weekly...
     [ "$BACKUP_COPY_DAILY" != "" ] && FILE="$FILE$DAY"
     [ "$BACKUP_COPY_WEEKLY" != "" ] && FILE="$FILE$DOW"
@@ -416,8 +428,7 @@ case "$ARG" in
     TAR_ARGS="--ignore-failed-read --exclude-backup $TAR_ARGS"
     # Files and dirs to backup
     TAR_FILES="/etc /home/$LOCAL_USER $ROOT/etc $ROOT/web $PREFIX $BACKUP_FILES"
-    # File extensions to exclude from backup
-    TAR_EXCLUDE="csv tsv xml list zip csv iso avi mp4 mkv m4v $TAR_EXCLUDE"
+    # File extensions to exclude from the backup
     for ext in $TAR_EXCLUDE; do 
        TAR_ARGS="--exclude='*.$ext' $TAR_ARGS"
     done
@@ -428,7 +439,7 @@ case "$ARG" in
        TAR_FILES="$TAR_FILES $PG_DIR/*.conf"
        # PG directry on CentOS is separate
        [ -e $PG_PREFIX ] && TAR_FILES="$TAR_FILES $PG_PREFIX"
-       $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_DB > $BACKUP/$FILE.dump
+       $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_PG > $BACKUP/$FILE.dump
     fi
 
     # Filesystem backup
@@ -504,25 +515,6 @@ case "$ARG" in
     kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
     ;;
     
-  init-app)
-    [ ! -e $NODE_BACKEND/bin/rc.backend -a "$PLATFORM" = "Darwin" ] && PREFIX=/opt/local && NODE_BACKEND=$PREFIX/lib/node-backend
-    [ ! -e $NODE_BACKEND/bin/rc.backend ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
-    mkdir -p bin data/etc
-    [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres\nCDB_DIR=$PREFIX/cassandra" > .backendrc 
-    [ ! -e .gitignore ] && echo ".DS_Store\n.settings\n.cproject\n.project\n*.swp\n*.*~\n*.[oa]\n*.so\n*.dylib\n*.node\n*.log\n.backendrc\n.history\ndata\nbin/rc.backend\n" > .gitignore
-    [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
-    [ ! -e bin/backend ] && echo "#!/bin/bash\n\nMAIN=main.js\n[ -f bin/main.js ] && MAIN=bin/main.js\nexec $PREFIX/bin/node \$MAIN \$@\n" > bin/backend && chmod 755 bin/backend
-    [ ! -e web ] && ln -s $NODE_BACKEND/web && (cd data && ln -s ../web)
-    [ ! -e data/etc/config ] && echo "#pg-pool=postgresql://postgres@127.0.0.1/backend\n#ddb-pool=http://localhost:8181\n" > data/etc/config
-    [ ! -e main.js ] && echo "//\n// Author: Vlad Seryakov vseryakov@gmail.com\n// Sep 2013\n//\n\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
-    [ ! -e Makefile ] && echo "#\n# Author: Vlad Seryakov vseryakov@gmail.com\n# Sep 2013\n#\n\nall:\n\nrun:\n\tbin/rc.backend run-backend\n\nput:\n\tbin/rc.backend put-app\n\nshell:\n\tbin/rc.backend run-shell" > Makefile
-    ;;
-    
-  put-app)
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude bin/backend '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node $MASTER:$ROOT/bin
-    [ -f web ] && rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
-    ;;
-    
   build-src)
     set -e
     
@@ -565,6 +557,7 @@ case "$ARG" in
     ;;
 
   init-backend)
+    echo "Settings permissions for $PREFIX to $(whoami)..." 
     sudo chown -R $(whoami) $PREFIX
     mkdir -p bin lib node web data
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
@@ -601,6 +594,25 @@ case "$ARG" in
     exit 0
     ;;
     
+  init-app)
+    [ ! -e $NODE_BACKEND/bin/rc.backend -a "$PLATFORM" = "Darwin" ] && PREFIX=/opt/local && NODE_BACKEND=$PREFIX/lib/node-backend
+    [ ! -e $NODE_BACKEND/bin/rc.backend ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
+    mkdir -p bin data/etc
+    [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres\nCDB_DIR=$PREFIX/cassandra" > .backendrc 
+    [ ! -e .gitignore ] && echo ".DS_Store\n.settings\n.cproject\n.project\n*.swp\n*.*~\n*.[oa]\n*.so\n*.dylib\n*.node\n*.log\n.backendrc\n.history\ndata\nbin/rc.backend\n" > .gitignore
+    [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
+    [ ! -e bin/backend ] && echo "#!/bin/bash\n\nMAIN=main.js\n[ -f bin/main.js ] && MAIN=bin/main.js\nexec $PREFIX/bin/node \$MAIN \$@\n" > bin/backend && chmod 755 bin/backend
+    [ ! -e web ] && ln -s $NODE_BACKEND/web && (cd data && ln -s ../web)
+    [ ! -e data/etc/config ] && echo "#pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#dynamodb-pool=http://localhost:8181\n" > data/etc/config
+    [ ! -e main.js ] && echo "var backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
+    [ ! -e Makefile ] && echo "all:\n\nrun:\n\tbin/rc.backend run-backend\n\nput:\n\tbin/rc.backend put-app\n\nshell:\n\tbin/rc.backend run-shell" > Makefile
+    ;;
+    
+  put-app)
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* bin/backend lib node $MASTER:$ROOT/bin
+    [ -f web ] && rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
+    ;;
+    
   *)
     echo "usage: $NAME command ..."
     echo "  where command is:"
@@ -631,8 +643,6 @@ case "$ARG" in
     echo "  init-cdb - install Cassandra server in $PREFIX/cassandra"
     echo "  run-cdb - run local Cassandra server installed in $PREFIX/cassandra"
     echo "  stop-cdb - stop local Cassandra server"
-    echo "  init-app - initialize environment for application based on the backend"
-    echo "  put-app - push application code to the master server via rsync and ssh"
     echo "  build-src - build all required software for the backend development, download in the local ./src folder, compile and install in $PREFIX"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"
     echo "  init-backend - init core backend environment, for the core developemnt only, links NPM global backend module $NODE_BACKEND back to this sources"
@@ -640,6 +650,8 @@ case "$ARG" in
     echo "  run-backend - run local backend server"
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries"
+    echo "  init-app - initialize environment for application based on the backend"
+    echo "  put-app - push application code to the master server via rsync and ssh"
     ;;
 esac
 

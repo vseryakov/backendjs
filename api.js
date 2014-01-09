@@ -45,7 +45,7 @@ var api = {
         account: [ { name: "id", primary: 1, pub: 1 },
                    { name: "email", unique: 1 },
                    { name: "name" },
-                   { name: "alias", pub: 1 },
+                   { name: "alias", pub: 1, index: 1 },
                    { name: "status", pub: 1 },
                    { name: "phone" },
                    { name: "website" },
@@ -93,7 +93,7 @@ var api = {
                   { name: "r_follow", type: "int", value: 0, pub: 1 },
                   { name: "mtime", type: "int" }],
                                   
-       // Keep historic data about an account, data can be JSON depending on the type
+       // Keep historic data about an account activity
        history: [{ name: "id", primary: 1 },
                  { name: "mtime", type: "int", primary: 1 },
                  { name: "type" } ]
@@ -318,25 +318,23 @@ api.initAccountAPI = function()
         
         switch (req.params[0]) {
         case "get":
-            db.get("account", { id: req.account.id }, function(err, rows) {
-                if (err) return self.sendReply(res, err);
-                if (!rows.length) return self.sendReply(res, 404);
-                res.json(rows[0]);
-            });
-            break;
-
-        case "list":
-            if (!req.query.id) return self.sendReply(res, 400, "id is required");
-            db.list("account", req.query, { select: req.query._select, public_columns: 1 }, function(err, rows) {
-                if (err) return self.sendReply(res, err);
-                res.json(rows);
-            });
+        	if (!req.query.id) {
+        		db.get("account", { id: req.account.id }, function(err, rows) {
+        			if (err) return self.sendReply(res, err);
+        			if (!rows.length) return self.sendReply(res, 404);
+        			res.json(rows[0]);
+        		});
+        	} else {
+        		db.list("account", req.query, { select: req.query._select, public_columns: 1 }, function(err, rows) {
+        			if (err) return self.sendReply(res, err);
+        			res.json(rows);
+        		});
+        	}
             break;
             
         case "search":
-            // Search is limited to specific columns only
         	var options = { select: req.query._select, start: req.query._start, count: req.query._count, sort: req.query._sort, desc: req.query._desc, public_columns: 1 };
-            db.select("account", req.query, options, function(err, rows) {
+            db.search("account", req.query, options, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 res.json(rows);
             });
@@ -510,13 +508,14 @@ api.initConnectionAPI = function()
     var now = core.now();
     var db = core.context.db;
     
-    this.app.all(/^\/connection\/([a-z]+)$/, function(req, res) {
+    this.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
         logger.debug(req.path, req.account.id, req.query);
         
-        switch (req.params[0]) {
+        switch (req.params[1]) {
         case "add":
         case "put":
         case "update":
+        	var op = db[req.params[1]];
             var id = req.query.id, type = req.query.type;
             if (!id || !type) return self.sendReply(res, 400, "id and type are required");
             if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
@@ -524,12 +523,12 @@ api.initConnectionAPI = function()
             req.query.id = req.account.id;
             req.query.type = type + ":" + id;
             req.query.mtime = now;
-            db[req.params[0]]("connection", req.query, function(err) {
+            op("connection", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
                 // Reverse reference to the same connection
                 req.query.id = id;
                 req.query.type = type + ":"+ req.account.id;
-                db[req.params[0]]("reference", req.query, function(err) {
+                op("reference", req.query, function(err) {
                     if (err) db.del("connection", { id: req.account.id, type: type + ":" + id });
                     self.sendReply(res, err);
                 });
@@ -573,12 +572,10 @@ api.initConnectionAPI = function()
             break;
 
         case "get":
-        case "reference":
-            var table = req.params[0] == "list" ? "connection" : "reference";
             // Only one connection record to be returned if id and type specified
             if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
             var options = { ops: { type: "begins_with" }, select: req.query._select };
-            db.select(table, { id: req.account.id, type: req.query.type }, options, function(err, rows) {
+            db.select(req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 // Collect account ids
                 rows = rows.map(function(row) { return row.type.split(":")[1]; });
@@ -704,13 +701,13 @@ api.initBackendAPI = function()
     
     // Return current statistics
     this.app.all("/backend/stats", function(req, res) {
-        res.json(db.getPool(self.pool).stats);
+        res.json(db.getPool().stats);
     });
 
     // Load columns into the cache
     this.app.all(/^\/backend\/columns$/, function(req, res) {
         db.cacheColumns({}, function() {
-            res.json(db.getPool(self.pool).dbcolumns);
+            res.json(db.getPool().dbcolumns);
         });
     });
 
@@ -725,7 +722,7 @@ api.initBackendAPI = function()
     });
 
     // Basic operations on a table
-    this.app.all(/^\/backend\/(select|get|add|put|update|del|replace)\/([a-z_0-9]+)$/, function(req, res) {
+    this.app.all(/^\/backend\/(select|search|list|get|add|put|update|del|replace)\/([a-z_0-9]+)$/, function(req, res) {
         var dbcols = db.getColumns(req.params[1]);
         if (!dbcols) return res.json([]);
         var options = {};

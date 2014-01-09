@@ -16,6 +16,7 @@ var printf = require('printf');
 var gpool = require('generic-pool');
 var async = require('async');
 var os = require('os');
+var cassandra = require('helenus');
 
 // The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
 // The idea is not to introduce new abstraction layer on top of all databases but to make 
@@ -50,12 +51,20 @@ var db = {
            { name: "no-pools", type:" bool", descr: "Do not use other db pools except default sqlite" },
            { name: "sqlite-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool" },
            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "pg-pool", descr: "PostgreSQL pool access url or options string" },
-           { name: "pg-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
-           { name: "pg-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "pg-tables", type: "list", descr: "PostgreSQL tables, list of tables that belong to pg pool" },
-           { name: "ddb-pool", descr: "DynamoDB endpoint url" },
-           { name: "ddb-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to ddb pool" },
+           { name: "pgsql-pool", descr: "PostgreSQL pool access url or options string" },
+           { name: "pgsql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
+           { name: "pgsql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "pgsql-tables", type: "list", descr: "PostgreSQL tables, list of tables that belong to this pool only" },
+           { name: "dynamodb-pool", descr: "DynamoDB endpoint url" },
+           { name: "dynamodb-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to this pool only" },
+           { name: "mongodb-pool", descr: "MongoDB endpoint url" },
+           { name: "mongodb-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
+           { name: "mongodb-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "mongodb-tables", type: "list", descr: "MongoDB tables, list of tables that belong to this pool only" },
+           { name: "cassandra-pool", descr: "Casandra endpoint url" },
+           { name: "cassandra-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
+           { name: "cassandra-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "cassandra-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to this pool only" },
     ],
     
     // Pools by table name
@@ -98,14 +107,14 @@ db.init = function(callback)
         
 	// Optional pools for supported databases
 	if (!self.noPools) {
-		["pg", "ddb"].forEach(function(pool) {
+		["pgsql", "dynamodb"].forEach(function(pool) {
 			if (!self[pool + 'Pool']) return;
 			self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
                 (self[pool + 'Tables'] || []).forEach(function(y) { self.pools[y] = pool; });
             });
         }
         
-        // Initialize SQL pools
+        // Initialize all pools with common tables
         this.initTables(self.tables, callback);
 }
     
@@ -161,8 +170,7 @@ db.initPoolTables = function(pool, tables, callback)
 // - createcb - a callback to be called when actual database client needs to be created, the callback signature is
 //     function(options, callback) and will be called with first arg an error object and second arg is the database instance
 // - cachecb - a callback for caching database tables and columns
-// - valuecb - a callback that performs value transformation if necessary for the bind parameters
-db.initPool = function(options, createcb, cachecb, valuecb) 
+db.initPool = function(options, createcb, columnscb) 
 {
     var self = this;
     if (!options) options = {};
@@ -227,14 +235,15 @@ db.initPool = function(options, createcb, cachecb, valuecb)
     }
     // Call column caching callback with our pool name
     pool.cacheColumns = function(callback) {
-        cachecb.call(self, { pool: this.name }, callback);
+        columnscb.call(self, { pool: this.name }, callback);
     }
     // Prepare for execution, return an object with formatted or transformed query request for the database driver of this pool
     // For SQL databases it creates a SQL statement with parameters
     pool.prepare = function(op, table, obj, opts) {
         switch (op) {
         case "list": 
-        case "select": 
+        case "select":
+        case "search":
         	var req = self.sqlSelect(table, obj, opts);
             // Support for pagination, for SQL this is the OFFSET for the next request
             if (opts.count) pool.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
@@ -261,7 +270,6 @@ db.initPool = function(options, createcb, cachecb, valuecb)
         var req = this.prepare("add", table, obj, core.extendObj(opts || {}, 'replace', 1));
         self.query(req, options, callback);
     }
-    pool.bindValue = valuecb;
     pool.name = options.pool;
     pool.serial = 0;
     pool.tables = {};
@@ -269,13 +277,65 @@ db.initPool = function(options, createcb, cachecb, valuecb)
     pool.dbkeys = {};
     pool.dbunique = {};
     pool.sql = true;
+    pool.affected_rows = 0;
+    pool.inserted_oid = 0;
     pool.next_token = null;
     pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
     this.dbpool[options.pool] = pool;
     logger.debug('db.initPool:', pool.name);
     return pool;
 }
-    
+
+// Execute query using native database driver, the query is passed directly to the driver.
+//   - req - can be a string or an object with the following properties:
+//   - text - SQL statement or other query in the format of the native driver
+//   - values - parameter values for sql bindings or other driver specific data
+//   - options may have the following properties:
+//   - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
+// Callback is called with the following params:
+//   - callback(err, rows, info) where 
+//   - info is an object with information about the last query: inserted_oid,affected_rows,next_token
+//   - rows is always returned as a list, even in case of error it is an empty list
+db.query = function(req, options, callback) 
+{
+	 var self = this;
+	 if (typeof options == "function") callback = options, options = {};
+	 if (core.typeName(req) != "object") req = { text: req };
+	 if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
+
+	 var pool = this.getPool(req.table, options);
+	 pool.get(function(err, client) {
+	     if (err) return callback ? callback(err, []) : null;
+	     var t1 = core.mnow();
+	     pool.query(client, req, options, function(err2, rows) {
+	         var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
+	         pool.free(client);
+	         if (err2) {
+	             logger.error("db.query:", pool.name, req.text, req.values, err2);
+	             return callback ? callback(err2, rows, info) : null;
+	         }
+	         // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
+	         if (options && options.public_columns) {
+	         	var cols = self.publicColumns(req.table, options);
+	         	if (cols.length) {
+	         		rows.forEach(function(row) {
+	         			for (var p in row) 	if (cols.indexOf(p) == -1) delete row[p];
+	         		});
+	         	}
+	         }
+	         // Convert values if we have custom column callback
+	         self.processRows(pool, req.table, rows, options);
+	         
+	         // Cache notification in case of updates, we must have the request prepared by the db.prepare
+	         if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
+	             self.clearCached(req.table, req.obj, options);
+	         }
+	         logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", info);
+	         if (callback) callback(err, rows, info);
+	     });
+	 });
+}
+
 // Insert new object into the database
 // - obj - an Javascript object with properties for the record, primary key properties must be supplied
 db.add = function(table, obj, options, callback) 
@@ -436,6 +496,16 @@ db.list = function(table, obj, options, callback)
     this.select(table, obj, options, callback);
 }
 
+// Perform full text search on the given table, the database implementation may ignore table name completely
+// in case of global text index. Options takes same properties as in the select method.
+db.search = function(table, obj, options, callback) 
+{
+    if (typeof options == "function") callback = options,options = null;
+
+    var req = this.prepare("search", table, obj, options);
+    this.query(req, options, callback);
+}
+
 // Geo locations search, paginate all results until the end.
 // table must be defined with the following required columns:
 //  - geohash and georange as strings, this is the primary key, if georange contains : then the last part is 
@@ -541,56 +611,6 @@ db.getCached = function(table, obj, options, callback)
 
 }
 
-// Execute query using native database driver, the query is passed directly to the driver.
-// - req - can be a string or an object with the following properties:
-//   - text - SQL statement or other query in the format of the native driver
-//   - values - parameter values for sql bindings or other driver specific data
-// - options may have the following properties:
-//   - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
-// Callback is called with the following params:
-//  - callback(err, rows, info) where 
-//    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
-//    - rows is always returned as a list, even in case of error it is an empty list
-db.query = function(req, options, callback) 
-{ 
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (core.typeName(req) != "object") req = { text: req };
-    if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
-
-    var pool = this.getPool(req.table, options);
-    pool.get(function(err, client) {
-        if (err) return callback ? callback(err, []) : null;
-        var t1 = core.mnow();
-        pool.query(client, req, options, function(err2, rows) {
-            var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
-            pool.free(client);
-            if (err2) {
-                logger.error("db.query:", pool.name, req.text, req.values, err2);
-                return callback ? callback(err2, rows, info) : null;
-            }
-            // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-            if (options && options.public_columns) {
-            	var cols = self.publicColumns(req.table, options);
-            	if (cols.length) {
-            		rows.forEach(function(row) {
-            			for (var p in row) 	if (cols.indexOf(p) == -1) delete row[p];
-            		});
-            	}
-            }
-            // Convert values if we have custom column callback
-            self.processRows(pool, req.table, rows, options);
-            
-            // Cache notification in case of updates, we must have the request prepared by the db.prepare
-            if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
-                self.clearCached(req.table, req.obj, options);
-            }
-            logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", info);
-            if (callback) callback(err, rows, info);
-        });
-    });
-}
-
 // Create a table using column definitions represented as a list of objects. Each column definiton can
 // contain the following properties:
 // - name - column name
@@ -603,20 +623,20 @@ db.query = function(req, options, callback)
 // - semipub - column is not public but still retrieved to support other public columns
 // - hashindex - index that consists from primary key hash and this column for range
 // Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2
-db.create = function(table, obj, options, callback) 
+db.create = function(table, columns, options, callback) 
 {
     if (typeof options == "function") callback = options,options = null;
 
-    var req = this.prepare("new", table, obj, options);
+    var req = this.prepare("new", table, columns, options);
     this.query(req, options, callback);
 }
 
 // Upgrade SQL table with missing columns from the definition list
-db.upgrade = function(table, obj, options, callback) 
+db.upgrade = function(table, columns, options, callback) 
 {
     if (typeof options == "function") callback = options,options = null;
 
-    var req = this.prepare("upgrade", table, obj, options);
+    var req = this.prepare("upgrade", table, columns, options);
     if (!req.text) return callback ? callback() : null;
     this.query(req, options, callback);
 }
@@ -1295,12 +1315,13 @@ db.sqlDelete = function(table, obj, options)
 }
 
 // Setup primary database access
-db.pgInitPool = function(options) 
+db.pgsqlInitPool = function(options) 
 {
     var self = this;
     if (!options) options = {};
-    if (!options.pool) options.pool = "pg";
-    var pool = this.initPool(options, self.pgOpen, self.pgCacheColumns, self.pgValue);
+    if (!options.pool) options.pool = "pgsql";
+    var pool = this.initPool(options, self.pgsqlOpen, self.pgsqlCacheColumns);
+    pool.bindValue = self.pgsqlBindValue;
     // No REPLACE INTO support, do it manually
     pool.put = function(table, obj, opts, callback) {
         self.update(table, obj, keys, opts, function(err, rows, info) {
@@ -1312,14 +1333,14 @@ db.pgInitPool = function(options)
 }
 
 // Open PostgreSQL connection, execute initial statements
-db.pgOpen = function(options, callback) 
+db.pgsqlOpen = function(options, callback) 
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
     
     new backend.PgSQLDatabase(options.db, function(err) {
         if (err) {
-            logger.error('pgOpen:', options, err);
+            logger.error('pgsqlOpen:', options, err);
             return callback ? callback(err) : null;
         }
         var pg = this;
@@ -1328,17 +1349,17 @@ db.pgOpen = function(options, callback)
         // Execute initial statements to setup the environment, like pragmas
         var opts = Array.isArray(options.init) ? options.init : [];
         async.forEachSeries(opts, function(sql, next) {
-            logger.debug('pgOpen:', conninfo, sql);
+            logger.debug('pgsqlOpen:', conninfo, sql);
             pg.query(sql, next);
     }, function(err2) {
-            logger.edebug(err2, 'pgOpen:', options);
+            logger.edebug(err2, 'pgsqlOpen:', options);
             if (callback) callback(err2, pg);
         });
     });
 }
 
 // Always keep columns and primary keys in the cache
-db.pgCacheColumns = function(options, callback) 
+db.pgsqlCacheColumns = function(options, callback) 
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -1417,7 +1438,7 @@ db.pgCacheColumns = function(options, callback)
 }
 
 // Convert js array into db PostgreSQL array format: {..}
-db.pgValue = function(val, opts) 
+db.pgsqlBindValue = function(val, opts) 
 {
     function toArray(v) {
         return '{' + v.map(function(x) { return Array.isArray(x) ? toArray(x) : typeof x === 'undefined' || x === null ? 'NULL' : JSON.stringify(x);3 } ).join(',') + '}';
@@ -1456,7 +1477,9 @@ db.sqliteInitPool = function(options)
     
     if (!options.pool) options.pool = "sqlite";
     options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
-    return this.initPool(options, self.sqliteOpen, self.sqliteCacheColumns, self.sqliteBindValue);
+    var pool = this.initPool(options, self.sqliteOpen, self.sqliteCacheColumns);
+    pool.bindValue = self.sqliteBindValue;
+    return pool;
 }
 
 // Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
@@ -1561,11 +1584,11 @@ db.sqliteBindValue = function(val, info)
 }
 
 // DynamoDB pool
-db.ddbInitPool = function(options) 
+db.dynamodbInitPool = function(options) 
 {
     var self = this;
     if (!options) options = {};
-    if (!options.pool) options.pool = "ddb";
+    if (!options.pool) options.pool = "dynamodb";
 
     // Redefine pool but implement the same interface
     var pool = { name: options.pool, db: options.db, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
@@ -1658,6 +1681,7 @@ db.ddbInitPool = function(options)
             break;
 
         case "select":
+        case "search":
             // If we have other key columns we have to use custom filter
             var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 });
             // Only primary key columns are allowed
@@ -1768,4 +1792,39 @@ db.ddbInitPool = function(options)
         }
     }
     return pool;
+}
+
+// Cassandra pool
+db.cassandraInitPool = function(options) 
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "cassandra";
+    
+    var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
+    pool.prepare = function(op, table, obj, opts) {
+        return { text: table, op: op, values: obj };
+    }
+    
+    return pool;
+}
+
+db.cassandraOpen = function(options, callback) 
+{
+    var db = new helenus.ConnectionPool({ hosts: ['localhost:9160'],  keyspace: 'backend', user: 'test', password: 'test1233' });
+    db.on('error', function(err) { logger.error('cassandra:', err); });
+    db.connect(function(err, keyspace) { 
+        if (err) logger.error('cassandraOpen:', err);
+        if (callback) callback(err, db);
+    });
+    db.query = function(text, values, opts, callback) {
+        this.cql(text, values, opts, callback);
+    }
+}
+
+db.cassandraCacheColumns = function(options, callback) 
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
 }
