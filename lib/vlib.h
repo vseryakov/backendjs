@@ -119,6 +119,10 @@ string vGeoHashEncode(double latitude, double longitude, uint precision = 12);
 vector<double> vGeoHashDecode(string hash);
 // Return adjacent points, dir is one of top,left,right,bottom
 string vGeoHashAdjacent(string hash, string dir);
+// Return grid of all neighboring boxes around the center, steps defines how many boxes in each direction from the center
+// With steps = 1 the returned matrix is 3x3
+vector< vector<string> > vGeoHashGrid(string center, int steps = 1);
+vector<string> vGeoHashRow(string center, int steps);
 
 // Parse JSON text into object
 jsonValue *jsonParse(const char *source, int size = -1, string *errmsg = NULL);

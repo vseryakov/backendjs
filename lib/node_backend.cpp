@@ -512,30 +512,37 @@ static Handle<Value> geoBoundingBox(const Arguments& args)
    return scope.Close(result);
 }
 
-static Handle<Value> geoHashNeighbors(const Arguments& args)
+static Handle<Value> geoHashGrid(const Arguments& args)
 {
    HandleScope scope;
 
    REQUIRE_ARGUMENT_STRING(0, base);
+   OPTIONAL_ARGUMENT_NUMBER(1, steps);
+   if (steps <= 0) steps = 1;
 
-   Local<Array> result = Local<Array>::New(Array::New(9));
-   result->Set(Integer::New(0), Local<String>::New(String::New(*base)));
-   string hash = vGeoHashAdjacent(*base, "top");
-   result->Set(Integer::New(1), Local<String>::New(String::New(hash.c_str())));
-   hash = vGeoHashAdjacent(*base, "bottom");
-   result->Set(Integer::New(2), Local<String>::New(String::New(hash.c_str())));
-   hash = vGeoHashAdjacent(*base, "left");
-   result->Set(Integer::New(3), Local<String>::New(String::New(hash.c_str())));
-   hash = vGeoHashAdjacent(hash, "top");
-   result->Set(Integer::New(4), Local<String>::New(String::New(hash.c_str())));
-   hash = vGeoHashAdjacent(hash, "bottom");
-   result->Set(Integer::New(5), Local<String>::New(String::New(hash.c_str())));
-   hash = vGeoHashAdjacent(*base, "right");
-   result->Set(Integer::New(6), Local<String>::New(String::New(hash.c_str())));
-   hash = vGeoHashAdjacent(hash, "top");
-   result->Set(Integer::New(7), Local<String>::New(String::New(hash.c_str())));
-   hash = vGeoHashAdjacent(hash, "bottom");
-   result->Set(Integer::New(8), Local<String>::New(String::New(hash.c_str())));
+   vector< vector<string> > rc = vGeoHashGrid(*base, steps);
+   Local<Array> result = Local<Array>::New(Array::New());
+   for (uint j = 0, n = 0; j < rc[0].size(); j++) {
+       for (uint i = 0; i < rc.size(); i++) {
+           result->Set(Integer::New(n++), Local<String>::New(String::New(rc[i][j].c_str())));
+       }
+   }
+   return scope.Close(result);
+}
+
+static Handle<Value> geoHashRow(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, base);
+   OPTIONAL_ARGUMENT_NUMBER(1, steps);
+   if (steps <= 0) steps = 1;
+
+   vector<string> rc = vGeoHashRow(*base, steps);
+   Local<Array> result = Local<Array>::New(Array::New(rc.size()));
+   for (uint i = 0; i < rc.size(); i++) {
+       result->Set(Integer::New(i), Local<String>::New(String::New(rc[i].c_str())));
+   }
    return scope.Close(result);
 }
 
@@ -567,7 +574,8 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "geoHashEncode", geoHashEncode);
     NODE_SET_METHOD(target, "geoHashDecode", geoHashDecode);
     NODE_SET_METHOD(target, "geoHashAdjacent", geoHashAdjacent);
-    NODE_SET_METHOD(target, "geoHashNeighbors", geoHashNeighbors);
+    NODE_SET_METHOD(target, "geoHashGrid", geoHashGrid);
+    NODE_SET_METHOD(target, "geoHashRow", geoHashRow);
 
     CacheInit(target);
     SyslogInit(target);

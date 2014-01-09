@@ -438,9 +438,12 @@ db.list = function(table, obj, options, callback)
 
 // Geo locations search, paginate all results until the end.
 // table must be defined with the following required columns:
-//  - geohash and georange as strings, this is the primary key
+//  - geohash and georange as strings, this is the primary key, if georange contains : then the last part is 
+//    split and saved as property id in the record
 //  - latitude and longitude as floating numbers
 // On first call, options must contain latitude and longitude of the center and optionally distance for the radius.
+// Specific options properties:
+//   - calc_distance - calculate the distance between query and the actual position and save it in distance property for each record
 // On return, the callback's third argument contains the object that must be provided for subsequent searches until rows array is empty.
 db.getLocations = function(table, options, callback)
 {
@@ -451,7 +454,6 @@ db.getLocations = function(table, options, callback)
     	for (var p in geo) options[p] = geo[p];
     }
     options.ops = { georange: "begins_with" };
-    options.skip_columns = ["geohash", "georange"];
     var count = options.count || 50;
     db.select(table, { geohash: options.geohash, georange: options.georange }, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, options) : null;
@@ -471,9 +473,17 @@ db.getLocations = function(table, options, callback)
                         next(err);
                     });
                 }, function(err) {
-                	if (options.calc_distance) {
-                		rows.forEach(function(row) { row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude); });
-                	}
+                	// Split id from the georange if exisst
+                	rows.forEach(function(row) { 
+                		var colon = row.georange.indexOf(":");
+                		if (colon > 0) {
+                			row.id = row.georange.slice(colon + 1);
+                			row.georange = row.georange.slice(0, colon);
+                		}
+                		if (options.calc_distance) {
+                			row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude);
+                		}
+                	});
                 	if (callback) callback(err, rows, options);
                 });
     });	

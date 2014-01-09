@@ -1161,18 +1161,32 @@ core.forEachLine = function(file, options, lineCallback, endCallback) {
 core.geoHash = function(latitude, longitude, options)
 {
 	if (!options) options = {};
+	if (!options.max_distance) options.max_distance = 100;
+	
 	// Geohash ranges for different lenghts in km
-	var range = [ [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]];
-	var hbits = range.filter(function(x) { return x[1] > (options.max_distance || 100) })[0][0];
-	var rbits = options.distance ? range.filter(function(x) { return x[1] <= options.distance }).pop()[0] : 22;
+	var range = [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]];
+	var hbits = range.filter(function(x) { return x[1] > options.max_distance })[0][0];
+	var rbits = 12;
+	var steps = 1;
+	// Find how many bits we use for the range key and how many neighbors we need on each side from the center
+	if (options.distance) {
+		for (var i = 0; i < range.length; i++) {
+			if (options.distance < range[i][1]) {
+				rbits = range[i-1][0];
+				steps = range[i][1] / range[i-1][1];
+				logger.log(range[i], range[i-1], rbits, steps);
+				break;
+			}
+		}
+	}
 	var geohash = backend.geoHashEncode(latitude, longitude);
 	return { geohash: geohash.substr(0, hbits), 
 			 georange: geohash.substr(hbits, rbits - hbits), 
-			 neighbors: backend.geoHashNeighbors(geohash.substr(0, hbits + rbits - hbits)),
+			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, hbits + rbits - hbits), steps) : [],
 			 latitude: latitude, 
 			 longitude: longitude, 
-			 max_distance: options.max_distance || 100,
-			 distance: options.distance };
+			 distance: options.distane || 0,
+			 max_distance: options.max_distance };
 }
 
 // Encrypt data with the given key code

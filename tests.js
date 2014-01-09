@@ -44,7 +44,7 @@ tests.start = function(type)
 		process.exit(1);
 	}
 	this.start_time = core.mnow();
-	var count = core.getArgInt("-count", 1);
+	var count = core.getArgInt("-iterations", 1);
 	switch (core.getArg("-bbox")) {
 	case "SF":
 		location = "San Francisco";
@@ -138,7 +138,6 @@ tests.locations = function(callback)
 			       { name: "mtime", type: "int" } ],	
 	};
     var rows = core.getArgInt("-rows", 1);
-    var distance = core.getArgInt("-distance", 2);
     var options = {};
     
     async.series([
@@ -153,7 +152,7 @@ tests.locations = function(callback)
         	            var latitude = core.randomNum(bbox[0], bbox[2]);
         	            var longitude = core.randomNum(bbox[1], bbox[3]);
         	            var obj = core.geoHash(latitude, longitude);
-        	            obj.id = rows;
+        	            obj.georange += ":" + rows;
         		    	db.put("geo", obj, next2);
         		    },
         		    function(err) {
@@ -162,12 +161,10 @@ tests.locations = function(callback)
 
         },
         function(next) {
-            var latitude = core.randomNum(bbox[0], bbox[2]);
-            var longitude = core.randomNum(bbox[1], bbox[3]);
-            options.latitude = latitude;
-            options.longitude = longitude;
-            options.distance = distance;
-            options.count = 5;
+        	options.latitude = core.randomNum(bbox[0], bbox[2]);
+        	options.longitude = core.randomNum(bbox[1], bbox[3]);
+            options.distance = core.getArgInt("-distance", 2);
+            options.count = core.getArgInt("-count", 5);
             options.calc_distance = 1;
             db.getLocations("geo", options, function(err, rows, info) {
             	logger.debug('geo1:', rows.length, 'records', options, 'rows:', rows);

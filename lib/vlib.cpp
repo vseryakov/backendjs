@@ -1170,3 +1170,40 @@ string vGeoHashAdjacent(string hash, string dir)
 	return base;
 }
 
+vector<string> vGeoHashRow(string center, int steps)
+{
+    vector<string> rc;
+    rc.push_back(center);
+
+    string left = center, right = center;
+    for (int i = 0; i < steps; i++) {
+        string next = vGeoHashAdjacent(left, "left");
+        rc.push_back(next);
+        left = next;
+        next = vGeoHashAdjacent(right, "right");
+        rc.push_back(next);
+        right = next;
+    }
+    return rc;
+}
+
+vector< vector<string> > vGeoHashGrid(string center, int steps)
+{
+    vector< vector<string> > rc;
+
+    vector<string> col = vGeoHashRow(center, steps);
+    rc.push_back(col);
+    string top = center, bottom = center;
+
+    for (int i = 0; i < steps; i++) {
+        string next = vGeoHashAdjacent(top, "top");
+        col = vGeoHashRow(next, steps);
+        rc.push_back(col);
+        top = next;
+        next = vGeoHashAdjacent(bottom, "bottom");
+        col = vGeoHashRow(next, steps);
+        rc.push_back(col);
+        bottom = next;
+    }
+    return rc;
+}

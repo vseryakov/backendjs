@@ -65,11 +65,10 @@ var api = {
                    { name: "mtime", type: "int" } ],
                    
        // Locations for all accounts to support distance searches
-       location: [ { name: "geohash", primary: 1 },                     // geohash(first part), the biggest radius expected
-                   { name: "georange", primary: 1 },                    // geohash(second part), the rest of the geohash
+       location: [ { name: "geohash", primary: 1 },                // geohash(first part), the biggest radius expected
+                   { name: "georange", primary: 1 },               // geohash(second part), the rest of the geohash with :id appended
                    { name: "latitude", type: "real" },
                    { name: "longitude", type: "real" },
-                   { name: "id" },
                    { name: "mtime", type: "int" }],
 
        // All connections between accounts: like,dislike,friend...
@@ -614,10 +613,10 @@ api.initLocationAPI = function()
             // Get current location
             db.get("account", { id: req.account.id }, { select: 'latitude,longitude' }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
-                var row = rows[0];
+                req.account.latitude = rows[0].latitude;
+                req.account.longitude = rows[0].longitude;
                 // Skip if within minimal distance
-                var distance = backend.geoDistance(row.latitude, row.longitude, latitude, longitude);
-                logger.debug(req.params[0], req.account, req.query, 'distance:', distance);
+                var distance = backend.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
                 if (distance < self.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + self.minDistance);
                 
                 var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
@@ -626,60 +625,56 @@ api.initLocationAPI = function()
                     res.json(self.processAccount(obj));
                     
                     // Delete current location
-                    var geo = core.geoHash(row.latitude, row.longitude, { distance: req.account.distance, max_distance: self.maxDistance });
-                    geo.id = req.account.id;
+                    var geo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance, max_distance: self.maxDistance });
+                    geo.georange += ":" + req.account.id;
                     db.del("location", geo);
                     
                     // Insert new location
                     geo = core.geoHash(latitude, longitude, { distance: req.account.distance, max_distance: self.maxDistance });
                     geo.mtime = now;
-                    geo.id = req.account.id;
+                    geo.georange += ":" + req.account.id;
                     db.put("location", geo);
                 });
                     
                 // Keep history of all changes
                 if (req.query._history) {
-                    db.add("history", { id: req.account.id, type: req.path, mtime: now, lat: obj.latitude, lon: obj.longitude });
+                    db.add("history", { id: req.account.id, type: req.path, mtime: now, lat: latitude, lon: longitude });
                 }
             });
             break;
             
         case "get":
-            var latitude = req.query.latitude, longitude = req.query.longitude;
+            var options = { select: req.query._select, count: req.query._count || 25 };
             // Perform location search based on hash key that covers the whole region for our configured max distance
-            if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
+            if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
             // Limit the distance within our configured range
             req.query.distance = core.toNumber(req.query.distance, 0, self.minDistance, self.minDistance, self.maxDistance);
-            // Prepare geo search key
-            var geo = core.geoHash(latitude, longitude, { distance: req.query.distance, max_distance: self.maxDistance });            
-            var options = { ops: { range: "GT" }, start: core.toJson(req.query._start), select: req.query._select, count: req.query._count || 25 };
-            options.filter = function(x) { x.distance = backend.geoDistance(latitude, longitude, x.latitude, x.longitude); return x.distance <= distance; }
-            db.select("location", { hash: geo.hash, range: geo.range }, options, function(err, rows, info) {
-                var list = {}, ids = [];
-                rows = rows.map(function(row) { 
-                    delete row.hash;
-                    delete row.range;
-                    ids.push({ id: row.id });
-                    list[row.id] = row;
-                    return row;
-                });
-                // Next batch of records passed as _start query parameter
-                var next_token = info.next_token ? core.toBase64(info.next_token) : null;
-                
+            // Continue pagination using the search token
+            var token = core.toJson(req.query._token);   
+            if (token && token.geohash && token.georange) {
+            	if (token.latitude != req.query.latitude ||	token.longitude != req.query.longitude) return self.sendRepy(res, 400, "invalid token");
+            	options = token;
+            }
+            db.getLocations("location", options, function(err, rows, info) {
                 // Return accounts with locations
                 if (req.query._details) {
+                    var list = {}, ids = [];
+                    rows = rows.map(function(row) { 
+                        ids.push({ id: row.id });
+                        list[row.id] = row;
+                        return row;
+                    });
                 	db.list("account", ids, { select: req.query._select, public_columns: 1 }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
-                        // Merge items
+                        // Merge locations and accounts
                         rows.forEach(function(row) {
                             var item = list[row.id];
                             for (var p in item) row[p] = item[p];
                         });
-                        res.json({ geohash: geo.geohash, next_token: next_token, items: rows });
+                        res.json({ token: core.toBase64(info), rows: rows });
                     });
                 } else {
-                    // Return back not just a list with rows but pagination info as well, stop only if next property is null even if no rows returned
-                    res.json({ geohash: geo.geohash, next_token: next_token, items: rows });
+                    res.json({ token: core.toBase64(info), rows: rows });
                 }            
             });
             break;
