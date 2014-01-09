@@ -20,9 +20,6 @@ DOMAIN=localhost
 [ "$BACKEND_USER" = "" ] && BACKEND_USER=backend
 [ "$DISK" = "" ] && DISK=xvdb1
 [ "$LOGMAIL" = "" ] && LOGMAIL=logwatcher@$DOMAIN
-[ "$PG_DIR" = "" ] && PG_DIR=$ROOT/postgres
-[ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
-[ "$PG_USER" = "" ] && PG_USER=postgres
 [ "$DBNAME" = "" ] && DBNAME=backend
 [ "$BACKUP" = "" ] && BACKUP=$ROOT/backup
 [ "$MASTER" = "" ] && MASTER=master.$DOMAIN
@@ -32,6 +29,10 @@ DOMAIN=localhost
 [ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
 [ "$DDB_DIR" = "" ] && DDB_DIR=$PREFIX/dynamodb
 [ "$CDB_DIR" = "" ] && CDB_DIR=$ROOT/cassandra
+[ "$PG_DIR" = "" ] && PG_DIR=$ROOT/postgres
+[ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
+[ "$PG_USER" = "" ] && PG_USER=postgres
+[ "$MONGO_DIR" = "" ] && MONGO_DIR=$ROOT/mongo
 [ "$NODE_DIR" = "" ] && NODE_DIR=$PREFIX/lib/node_modules
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_DIR/backend
 
@@ -254,8 +255,10 @@ case "$ARG" in
     postfix reload
 
     # Disable firewall and SELinux
-    sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
-    chkconfig iptable off
+    if [ -f /etc/selinux/config ]; then
+        sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
+    fi
+    chkconfig iptables off
     service iptables stop
 
     # Permissions
@@ -280,7 +283,7 @@ case "$ARG" in
     # Sync time
     ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/ntp
 
-    # If we are running web server we need API databases
+    # If we are running a web server we need possobly API static file
     find /etc/cron.hourly -name 'sync*' -type l -exec rm -f "{}" ";"
     find /etc/cron.d -name 'sync*' -type l -exec rm -f "{}" ";"
     if [[ $BACKEND_ARGS != *-no-sync-master* ]]; then
