@@ -4,6 +4,7 @@
 //
 
 var util = require('util');
+var url = require('url');
 var net = require('net');
 var fs = require('fs');
 var path = require('path');
@@ -57,10 +58,6 @@ var db = {
            { name: "pgsql-tables", type: "list", descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "dynamodb-pool", descr: "DynamoDB endpoint url" },
            { name: "dynamodb-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to this pool only" },
-           { name: "mongodb-pool", descr: "MongoDB endpoint url" },
-           { name: "mongodb-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
-           { name: "mongodb-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "mongodb-tables", type: "list", descr: "MongoDB tables, list of tables that belong to this pool only" },
            { name: "cassandra-pool", descr: "Casandra endpoint url" },
            { name: "cassandra-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "cassandra-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
@@ -106,8 +103,8 @@ db.init = function(callback)
 	this.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
         
 	// Optional pools for supported databases
-	if (!self.noPools) {
-		["pgsql", "dynamodb"].forEach(function(pool) {
+	if (!this.noPools) {
+		this.args.filter(function(x) { return x.name.match(/\-pool$/) }).map(function(x) { return x.name.replace('-pool', '') }).forEach(function(pool) {
 			if (!self[pool + 'Pool']) return;
 			self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
                 (self[pool + 'Tables'] || []).forEach(function(y) { self.pools[y] = pool; });
@@ -240,22 +237,7 @@ db.initPool = function(options, createcb, columnscb)
     // Prepare for execution, return an object with formatted or transformed query request for the database driver of this pool
     // For SQL databases it creates a SQL statement with parameters
     pool.prepare = function(op, table, obj, opts) {
-        switch (op) {
-        case "list": 
-        case "select":
-        case "search":
-        	var req = self.sqlSelect(table, obj, opts);
-            // Support for pagination, for SQL this is the OFFSET for the next request
-            if (opts.count) pool.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
-            return req;
-        case "new": return self.sqlCreate(table, obj, opts);
-        case "upgrade": return self.sqlUpgrade(table, obj, opts);
-        case "get": return self.sqlSelect(table, obj, core.cloneObj(opts, {}, { count: 1 }));
-        case "add": return self.sqlInsert(table, obj, opts);
-        case "put": return self.sqlInsert(table, obj, core.extendObj(opts || {}, 'replace', 1));
-        case "update": return self.sqlUpdate(table, obj, opts);
-        case "del": return self.sqlDelete(table, obj, opts);
-        }
+        return self.sqlPrepare(op, table, obj, opts);
     }
     // Execute a query, run filter if provided
     pool.query = function(client, req, opts, callback) {
@@ -627,7 +609,7 @@ db.create = function(table, columns, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
 
-    var req = this.prepare("new", table, columns, options);
+    var req = this.prepare("create", table, columns, options);
     this.query(req, options, callback);
 }
 
@@ -760,6 +742,27 @@ db.processRows = function(pool, table, rows, options)
 	if (!pool.processRow) return;
 	var cols = pool.dbcolumns[table.toLowerCase()] || {};
 	rows.forEach(function(row) { pool.processRow(row, options, cols); });
+}
+
+// Prepare SQL statement for the given operation
+db.sqlPrepare = function(op, table, obj, opts) 
+{
+    switch (op) {
+    case "list": 
+    case "select":
+    case "search":
+        var req = this.sqlSelect(table, obj, opts);
+        // Support for pagination, for SQL this is the OFFSET for the next request
+        if (opts.count) pool.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
+        return req;
+    case "create": return this.sqlCreate(table, obj, opts);
+    case "upgrade": return this.sqlUpgrade(table, obj, opts);
+    case "get": return this.sqlSelect(table, obj, core.cloneObj(opts, {}, { count: 1 }));
+    case "add": return this.sqlInsert(table, obj, opts);
+    case "put": return this.sqlInsert(table, obj, core.extendObj(opts || {}, 'replace', 1));
+    case "update": return this.sqlUpdate(table, obj, opts);
+    case "del": return this.sqlDelete(table, obj, opts);
+    }
 }
 
 // Quote value to be used in SQL expressions
@@ -1655,7 +1658,7 @@ db.dynamodbInitPool = function(options)
         var primary_keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
         
         switch(req.op) {
-        case "new":
+        case "create":
             var attrs = obj.filter(function(x) { return x.primary || x.hashindex }).
                             map(function(x) { return [ x.name, x.type == "int" || x.type == "real" ? "N" : "S" ] }).
                             reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
@@ -1803,15 +1806,18 @@ db.cassandraInitPool = function(options)
     
     var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
     pool.prepare = function(op, table, obj, opts) {
-        return { text: table, op: op, values: obj };
+        switch (op) {
+        default:
+            return this.sqlPrepare(op, table, obj, opts);
+        }
     }
-    
     return pool;
 }
 
 db.cassandraOpen = function(options, callback) 
 {
-    var db = new helenus.ConnectionPool({ hosts: ['localhost:9160'],  keyspace: 'backend', user: 'test', password: 'test1233' });
+    var opts = url.parse(options.db);
+    var db = new helenus.ConnectionPool({ hosts: [opts.host],  keyspace: opts.path.substr(1), user: opts.auth.split(':')[0], password: opts.auth.split(':')[1] });
     db.on('error', function(err) { logger.error('cassandra:', err); });
     db.connect(function(err, keyspace) { 
         if (err) logger.error('cassandraOpen:', err);
