@@ -187,9 +187,10 @@ tests.db = function(callback)
 {
 	var self = this;
 	var tables = {
-			test: [ { name: "id", primary: 1, pub: 1 },
+	        test1: [ { name: "id", primary: 1, pub: 1 } ],
+			test2: [ { name: "id", primary: 1, pub: 1 },
 			        { name: "range", primary: 1 },
-			        { name: "email", unique: 1 },
+			        { name: "email" },
 			        { name: "alias", pub: 1 },
 			        { name: "birthday", semipub: 1 },
 			        { name: "num", type: "int" },
@@ -202,86 +203,111 @@ tests.db = function(callback)
 	var next_token = null;
 	async.series([
 	    function(next) {
+	        logger.log('TEST: create');
 	    	db.initTables(tables, next);
 	    },
 	    function(next) {
-	    	db.add("test", { id: id, range: '1', email: id, alias: id, birthday: id, mtime: now }, next);
+            logger.log('TEST: add1');
+            db.add("test1", { id: id }, function() {
+                db.add("test1", { id: id2 }, next);
+            });
+        },
+        function(next) {
+            logger.log('TEST: get add');
+            db.get("test1", { id: id }, function(err, rows) {
+                next(err || rows.length!=1 || rows[0].id != id);
+            });
+        },
+        function(next) {
+            logger.log('TEST: list');
+            db.list("test1", String([id,id2]), { public_columns: 1 }, function(err, rows) {
+                next(err || rows.length!=2 || rows[0].email ? (err || "err4:" + util.inspect(rows)) : 0);
+            });
+        },
+	    function(next) {
+	        logger.log('TEST: add2');
+	    	db.add("test2", { id: id, range: '1', email: id, alias: id, birthday: id, mtime: now }, next);
 	    },
 	    function(next) {
-	    	db.add("test", { id: id2, range: '2', email: id, alias: id, birthday: id, mtime: now }, next);
+	        logger.log('TEST: add3');
+	    	db.add("test2", { id: id2, range: '2', email: id, alias: id, birthday: id, mtime: now }, next);
 	    },
 	    function(next) {
-	    	db.put("test", { id: id2, range: '1', email: id2, alias: id2, birthday: id2, mtime: now }, next);
+	        logger.log('TEST: add4');
+	    	db.put("test2", { id: id2, range: '1', email: id2, alias: id2, birthday: id2, mtime: now }, next);
 	    },
 	    function(next) {
-	    	db.incr("test", { id: id, range: '1', num: 1 }, function(err) {
-	    		db.incr("test", { id: id, range: '1', num: 1 }, function(err) {
-	    			db.incr("test", { id: id, range: '1', num: 0 }, next);
+	        logger.log('TEST: incr');
+	    	db.incr("test2", { id: id, range: '1', num: 1 }, function(err) {
+	    		db.incr("test2", { id: id, range: '1', num: 1 }, function(err) {
+	    			db.incr("test2", { id: id, range: '1', num: 0 }, next);
 	    		});
 	    	});
 	    },
 	    function(next) {
-	    	db.get("test", { id: id }, { skip_columns: ['email'] }, function(err, rows) {
+	        logger.log('TEST: get after incr');
+	    	db.get("test2", { id: id, range: '1' }, { skip_columns: ['email'] }, function(err, rows) {
 	    		next(err || rows.length!=1 || rows[0].id != id && !rows[0].email || rows[0].num != 2 ? (err || "err1:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
-	    	db.select("test", { id: id2, range: '1' }, { ops: { range: 'GT' }, select: 'id,range,mtime' }, function(err, rows) {
+	        logger.log('TEST: select columns');
+	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'GT' }, select: 'id,range,mtime' }, function(err, rows) {
 	    		next(err || rows.length!=1 || rows[0].email || rows[0].range != '2' ? (err || "err2:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
-	    	db.select("test", { id: [id,id2] }, { select: 'id,mtime' }, function(err, rows) {
-	    		next(err || rows.length!=3 || rows[0].email ? (err || "err3:" + util.inspect(rows)) : 0);
+	        logger.log('TEST: update');
+	    	db.update("test2", { id: id, range: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
+	    	    logger.log('TEST: replace after update');
+	    		db.replace("test2", { id: id, range: '1', email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
 	    	});
 	    },
 	    function(next) {
-	    	db.list("test", String([id,id2]), { public_columns: 1, keys: ['id'] }, function(err, rows) {
-	    		next(err || rows.length!=3 || rows[0].email ? (err || "err4:" + util.inspect(rows)) : 0);
-	    	});
-	    },
-	    function(next) {
-	    	db.update("test", { id: id, email: id + "@test", json: [1, 9], mtime: now }, function(err) {
-	    		db.replace("test", { id: id, email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
-	    	});
-	    },
-	    function(next) {
-	    	db.get("test", { id: id }, function(err, rows) {
+	        logger.log('TEST: get after update');
+	    	db.get("test2", { id: id, range: '1' }, { consistent: true }, function(err, rows) {
 	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num == 9 || !Array.isArray(rows[0].json) ? (err || "err5:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
+	        logger.log('TEST: replace');
 	    	now = core.now;
-	    	db.replace("test", { id: id, email: id + "@test", num: 9, mtime: now }, { check_data: 1 }, next);
+	    	db.replace("test2", { id: id, range: '1', email: id + "@test", num: 9, mtime: now }, { check_data: 1 }, next);
 	    },
 	    function(next) {
-	    	db.get("test", { id: id }, function(err, rows) {
+	        logger.log('TEST: get after replace');
+	    	db.get("test2", { id: id, range: '1' }, { consistent: true }, function(err, rows) {
 	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num!=9 ? (err || "err6:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
-	    	db.del("test", { id: id2, range: '1' }, next);
+	        logger.log('TEST: del');
+	    	db.del("test2", { id: id2, range: '1' }, next);
 	    },
 	    function(next) {
-	    	db.get("test", { id: id2 }, function(err, rows) {
-	    		next(err || rows.length!=1 ? (err || "del:" + util.inspect(rows)) : 0);
+	        logger.log('TEST: get after del');
+	    	db.get("test2", { id: id2, range: '1' }, { consistent: true }, function(err, rows) {
+	    		next(err || rows.length!=0 ? (err || "del:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
+	        logger.log('TEST: put series');
 	    	async.forEachSeries([1,2,3,4,5,6,7,8,9,10], function(i, next2) {
-	    		db.put("test", { id: id2, range: i, email: id, alias: id, birthday: id, mtime: now }, next2);
+	    		db.put("test2", { id: id2, range: String(i), email: id, alias: id, birthday: id, mtime: now }, next2);
 	    	}, function(err) {
 	    		next(err);
 	    	});
 	    },
 	    function(next) {
-	    	db.select("test", { id: id2, range: '1' }, { ops: { range: 'GT' }, count: 2, select: 'id,range' }, function(err, rows, info) {
+	        logger.log('TEST: select range');
+	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'GT' }, count: 2, select: 'id,range' }, function(err, rows, info) {
 	    		next_token = info.next_token;
 	    		next(err || rows.length!=2 || !info.next_token ? (err || "err7:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	    function(next) {
-	    	db.select("test", { id: id2, range: '1' }, { ops: { range: 'GT' }, start: next_token, count: 2, select: 'id,range' }, function(err, rows, info) {
+	        logger.log('TEST: select next range');
+	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'GT' }, start: next_token, count: 2, select: 'id,range' }, function(err, rows, info) {
 	    		next(err || rows.length!=2 || !info.next_token ? (err || "err8:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },

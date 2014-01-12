@@ -464,7 +464,7 @@ aws.ddbGetItem = function(name, keys, options, callback)
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
     this.queryDDB('GetItem', params, options, function(err, rc) {
-        rc.Item = rc.Item ? self.fromDynamoDB(rc.Item) : {};
+        rc.Item = rc.Item ? self.fromDynamoDB(rc.Item) : null;
         if (callback) callback(err, rc);
     });
 }
@@ -546,7 +546,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
                 
             default:
                 params.AttributeUpdates[p] = { Action: (options.ops || {})[p] || 'PUT' };
-                if (item[p]) params.AttributeUpdates[p].Value = self.toDynamoDB(item[p]);
+                params.AttributeUpdates[p].Value = self.toDynamoDB(item[p]);
                 break;
         }
     }
@@ -608,9 +608,9 @@ aws.ddbBatchWriteItem = function(items, options, callback)
 }
 
 // Retrieve all items for given list of keys
-// - items is list of objects with table name as property name and list of options for GetItem request
+// - items is an object with table name as property name and list of options for GetItem request
 // - options may contain any valid native property if it starts with capital letter.
-// Example: { users: [ { keys: { id: 1, name: "john" }, select: ['name','id'], consistent: true }, ...] }
+// Example: { users: { keys: [{ id: 1, name: "john" },{ id: .., name: .. }], select: ['name','id'], consistent: true }, ... }
 aws.ddbBatchGetItem = function(items, options, callback) 
 {
     var self = this;
@@ -621,17 +621,16 @@ aws.ddbBatchGetItem = function(items, options, callback)
         if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
     }
     for (var p in items) {
-        if (!params.RequestItems[p]) params.RequestItems[p] = [];
-        items[p].forEach(function(x) {
-            var obj = {};
-            obj.Keys = self.toDynamoDB(obj.keys);
-            if (x.select) obj.AttributesToGet = core.strSplit(x.select);
-            if (x.consistent) obj.ConsistentRead = true;
-            params.RequestItems[p].push(obj);
-        });
+        var obj = {};
+        obj.Keys = items[p].keys.map(function(x) { return self.toDynamoDB(x); });
+        if (items[p].select) obj.AttributesToGet = core.strSplit(items[p].select);
+        if (items[p].consistent) obj.ConsistentRead = true;
+        params.RequestItems[p] = obj;
     }
     this.queryDDB('BatchGetItem', params, options, function(err, rc) {
-        rc.Responses = rc.Responses ? self.fromDynamoDB(rc.Responses) : [];
+        for (var p in rc.Responses) {
+            rc.Responses[p] = self.fromDynamoDB(rc.Responses[p]);
+        }
         if (callback) callback(err, rc);
     });
 }

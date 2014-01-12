@@ -44,6 +44,9 @@ var db = {
               prepare: function() { throw "no pool" }, put: function() { throw "no pool" }, 
               cacheColumns: function() { throw "no pool" }, value: function() {} },
         
+    // Pools by table name
+    tblpool: {},
+    
     // Translation map for similar operators from different database drivers
     opMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' },
 
@@ -52,6 +55,7 @@ var db = {
            { name: "no-pools", type:" bool", descr: "Do not use other db pools except default sqlite" },
            { name: "sqlite-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool" },
            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "sqlite-tables", type: "list", descr: "Sqlite tables, list of tables that belong to this pool only" },
            { name: "pgsql-pool", descr: "PostgreSQL pool access url or options string" },
            { name: "pgsql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "pgsql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
@@ -64,9 +68,6 @@ var db = {
            { name: "cassandra-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to this pool only" },
     ],
     
-    // Pools by table name
-    pools: {},
-
     // Default tables
     tables: { backend_property: [{ name: 'name', primary: 1 }, 
                                  { name: 'value' }, 
@@ -100,19 +101,20 @@ db.init = function(callback)
 	var self = this;
     
 	// Internal Sqlite database is always open
-	this.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
-        
+	self.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
+	(self['sqliteTables'] || []).forEach(function(y) { self.tblpool[y] = 'sqlite'; });
+	
 	// Optional pools for supported databases
-	if (!this.noPools) {
-		this.args.filter(function(x) { return x.name.match(/\-pool$/) }).map(function(x) { return x.name.replace('-pool', '') }).forEach(function(pool) {
+	if (!self.noPools) {
+	    self.args.filter(function(x) { return x.name.match(/\-pool$/) }).map(function(x) { return x.name.replace('-pool', '') }).forEach(function(pool) {
 			if (!self[pool + 'Pool']) return;
 			self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
-                (self[pool + 'Tables'] || []).forEach(function(y) { self.pools[y] = pool; });
-            });
-        }
+                (self[pool + 'Tables'] || []).forEach(function(y) { self.tblpool[y] = pool; });
+	    });
+	}
         
-        // Initialize all pools with common tables
-        this.initTables(self.tables, callback);
+	// Initialize all pools with common tables
+	self.initTables(self.tables, callback);
 }
     
 // Create tables in all pools
@@ -282,6 +284,7 @@ db.query = function(req, options, callback)
 {
 	 var self = this;
 	 if (typeof options == "function") callback = options, options = {};
+	 if (!options) options = {};
 	 if (core.typeName(req) != "object") req = { text: req };
 	 if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
 
@@ -638,7 +641,7 @@ db.prepare = function(op, table, obj, options)
 // Return database pool by name or default sqlite pool
 db.getPool = function(table, options) 
 {
-    return this.dbpool[(options || {})["pool"] || this.pools[table || "default"] || this.pool] || this.nopool || {};
+    return this.dbpool[(options || {})["pool"] || this.tblpool[table] || this.pool] || this.nopool;
 }
 
 // Return cached columns for a table or null, columns is an object with column names and objects for definiton
@@ -661,7 +664,7 @@ db.skipColumn = function(name, val, options, columns)
 			(options.skip_null && val === null) ||
 			(options.check_columns && !options.no_columns && (!columns || !columns[name])) || 	
 			(options.skip_columns && options.skip_columns.indexOf(name) > -1) ||
-	        (options.select && options.select.indexOf(name) == -1);
+	        (options.select && options.select.indexOf(name) == -1) ? true : false;
 }
 
 // Return cached primary keys for a table or null
@@ -745,23 +748,24 @@ db.processRows = function(pool, table, rows, options)
 }
 
 // Prepare SQL statement for the given operation
-db.sqlPrepare = function(op, table, obj, opts) 
+db.sqlPrepare = function(op, table, obj, options) 
 {
+    var pool = this.getPool(table, options);
     switch (op) {
     case "list": 
     case "select":
     case "search":
-        var req = this.sqlSelect(table, obj, opts);
+        var req = this.sqlSelect(table, obj, options);
         // Support for pagination, for SQL this is the OFFSET for the next request
-        if (opts.count) pool.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
+        if (options.count) pool.next_token = core.toNumber(options.start) + core.toNumber(options.count);
         return req;
-    case "create": return this.sqlCreate(table, obj, opts);
-    case "upgrade": return this.sqlUpgrade(table, obj, opts);
-    case "get": return this.sqlSelect(table, obj, core.cloneObj(opts, {}, { count: 1 }));
-    case "add": return this.sqlInsert(table, obj, opts);
-    case "put": return this.sqlInsert(table, obj, core.extendObj(opts || {}, 'replace', 1));
-    case "update": return this.sqlUpdate(table, obj, opts);
-    case "del": return this.sqlDelete(table, obj, opts);
+    case "create": return this.sqlCreate(table, obj, options);
+    case "upgrade": return this.sqlUpgrade(table, obj, options);
+    case "get": return this.sqlSelect(table, obj, core.cloneObj(options, {}, { count: 1 }));
+    case "add": return this.sqlInsert(table, obj, options);
+    case "put": return this.sqlInsert(table, obj, core.extendObj(options || {}, 'replace', 1));
+    case "update": return this.sqlUpdate(table, obj, options);
+    case "del": return this.sqlDelete(table, obj, options);
     }
 }
 
@@ -1595,7 +1599,7 @@ db.dynamodbInitPool = function(options)
 
     // Redefine pool but implement the same interface
     var pool = { name: options.pool, db: options.db, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
-    this.dbpool[options.pool] = pool;
+    self.dbpool[options.pool] = pool;
     pool.next_token = null;
     pool.affected_rows = 0;
     pool.inserted_oid = 0;
@@ -1648,7 +1652,6 @@ db.dynamodbInitPool = function(options)
     
     // Simulate query as in SQL driver but performing AWS call, text will be a table name and values will be request options
     pool.query = function(client, req, opts, callback) {
-        logger.log("query:", req, opts)
         var pool = this;
         var table = req.text;
         var obj = req.values;
@@ -1674,7 +1677,7 @@ db.dynamodbInitPool = function(options)
             break;
             
         case "upgrade":
-            callback();
+            callback(null, []);
             break;
             
         case "get":
@@ -1729,7 +1732,7 @@ db.dynamodbInitPool = function(options)
 
         case "list":
             var req = {};
-            req[table] = obj.map(function(x) { return { keys: x, select: options.select, consistent: options.consistent } });
+            req[table] = { keys: obj, select: options.select, consistent: options.consistent };
             aws.ddbBatchGetItem(req, options, function(err, item) {
                 if (err) return callback(err, []);
                 // Keep retrieving items until we get all items
@@ -1791,7 +1794,7 @@ db.dynamodbInitPool = function(options)
             break;
             
         default:
-            callback(new Error("invalid op"));
+            callback(new Error("invalid op"), []);
         }
     }
     return pool;
@@ -1805,6 +1808,7 @@ db.cassandraInitPool = function(options)
     if (!options.pool) options.pool = "cassandra";
     
     var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
+    // Reuse SQL generators for cases when CQL is the same
     pool.prepare = function(op, table, obj, opts) {
         switch (op) {
         default:
