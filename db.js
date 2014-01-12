@@ -17,7 +17,7 @@ var printf = require('printf');
 var gpool = require('generic-pool');
 var async = require('async');
 var os = require('os');
-var cassandra = require('helenus');
+var helenus = require('helenus');
 
 // The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
 // The idea is not to introduce new abstraction layer on top of all databases but to make 
@@ -1145,6 +1145,7 @@ db.sqlWhere = function(table, obj, keys, options)
 // - hashindex - unique index that consist from primary key hash and range
 // options may contains:
 // - types - type mapping, convert lowecase type into other type for any specific database
+// - nodefault - ignore default value if not supported
 db.sqlCreate = function(table, obj, options, callback) 
 {
     var self = this;
@@ -1158,7 +1159,7 @@ db.sqlCreate = function(table, obj, options, callback)
                    map(function(x) { 
                        return x.name + " " + 
                        (function(t) { return (options.types || {})[t] || t })(x.type || "text") + " " + 
-                       (typeof x.value != "undefined" ? "DEFAULT " + self.sqlValue(x.value, x.type) : "") }).join(",") + " " +
+                       (!options.nodefault && typeof x.value != "undefined" ? "DEFAULT " + self.sqlValue(x.value, x.type) : "") }).join(",") + " " +
                (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(items('primary')) + ");";
     
     // Create indexes
@@ -1665,7 +1666,7 @@ db.dynamodbInitPool = function(options)
             var attrs = obj.filter(function(x) { return x.primary || x.hashindex }).
                             map(function(x) { return [ x.name, x.type == "int" || x.type == "real" ? "N" : "S" ] }).
                             reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-            var keys = obj.filter(function(x, i) { return x.primary && i < 2 }).
+            var keys = obj.filter(function(x, i) { return x.primary }).
                            map(function(x, i) { return [ x.name, i ? 'RANGE' : 'HASH' ] }).
                            reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var idxs = obj.filter(function(x) { return x.hashindex }).
@@ -1808,12 +1809,8 @@ db.cassandraInitPool = function(options)
     if (!options.pool) options.pool = "cassandra";
     
     var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
-    // Reuse SQL generators for cases when CQL is the same
     pool.prepare = function(op, table, obj, opts) {
-        switch (op) {
-        default:
-            return this.sqlPrepare(op, table, obj, opts);
-        }
+        return self.cassandraPrepare(op, table, obj, opts);
     }
     return pool;
 }
@@ -1821,14 +1818,39 @@ db.cassandraInitPool = function(options)
 db.cassandraOpen = function(options, callback) 
 {
     var opts = url.parse(options.db);
-    var db = new helenus.ConnectionPool({ hosts: [opts.host],  keyspace: opts.path.substr(1), user: opts.auth.split(':')[0], password: opts.auth.split(':')[1] });
+    var db = new helenus.ConnectionPool({ hosts: [opts.host],  keyspace: opts.path.substr(1), user: opts.auth ? opts.auth.split(':')[0] : null, password: opts.auth ? opts.auth.split(':')[1] : null });
+    db.query = this.cassandraQuery;
     db.on('error', function(err) { logger.error('cassandra:', err); });
     db.connect(function(err, keyspace) { 
         if (err) logger.error('cassandraOpen:', err);
         if (callback) callback(err, db);
     });
-    db.query = function(text, values, opts, callback) {
-        this.cql(text, values, opts, callback);
+}
+
+db.cassandraQuery = function(text, values, options, callback) 
+{
+    if (typeof options == "function") callback = options, options = null;
+    this.cql(text, values, function(err, results) {
+        if (err || !results) return callback ? callback(err, []) : null;
+        var rows = [];
+        results.forEach(function(row) {
+            var obj = {};
+            row.forEach(function(name, value, ts, ttl) {
+                obj[name] = value;
+                if (ts) obj["_timestamp"] = ts;
+                if (ttl) obj["_ttl"] = ttl;
+            });
+            rows.push(obj);
+        });
+        if (callback) callback(err, rows);
+    });
+}
+
+db.cassandraPrepare = function(op, table, obj, options) 
+{
+    switch (op) {
+    case "create": return this.sqlCreate(table, obj, core.extendObj(options, "nodefault", 1));
+    default: return this.sqlPrepare(op, table, obj, options);
     }
 }
 
@@ -1837,4 +1859,51 @@ db.cassandraCacheColumns = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
+    
+    var pool = this.getPool('', options);
+    pool.get(function(err, client) {
+        if (err) return callback ? callback(err, []) : null;
+        
+        client.query("SELECT * FROM system.schema_columns WHERE keyspace_name = ?", [client.keyspace], function(err, rows) {
+            pool.dbcolumns = {};
+            for (var i = 0; i < rows.length; i++) {
+                if (!pool.dbcolumns[rows[i].columnfamily_name]) pool.dbcolumns[rows[i].columnfamily_name] = {};
+                var data_type = rows[i].validator.replace(/[\(\)]/g,".").split(".").pop().replace("Type", "").toLowerCase();
+                var type = "";
+                switch (data_type) {
+                case "decimal":
+                case "float":
+                case "int32":
+                case "long":
+                case "double":
+                case "countercolumn":
+                    type = "number";
+                    break;
+
+                case "boolean":
+                    type = "bool";
+                    break;
+
+                case "date":
+                case "timestamp":
+                    type = "date";
+                    break;
+                }
+                var d = rows[i].validator.match(/(ListType|SetType|MapType)/);
+                if (d) type = d[1].replace("Type", "").toLowerCase();
+                var col = { id: i, type: type, data_type: data_type };
+                switch(rows[i].type) {
+                case "partition_key":
+                case "clustering_key":
+                    if (!pool.dbkeys[rows[i].columnfamily_name]) pool.dbkeys[rows[i].columnfamily_name] = [];
+                    pool.dbkeys[rows[i].columnfamily_name].push(rows[i].column_name);
+                    if (col) col.primary = true;
+                    break;
+                }
+                pool.dbcolumns[rows[i].columnfamily_name][rows[i].column_name] = col
+            }
+            pool.free(client);
+            if (callback) callback(err);
+        });
+    });
 }
