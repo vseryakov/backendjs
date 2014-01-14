@@ -33,70 +33,70 @@ var api = {
     
     tables: { 
         // Authentication by email and secret
-        auth: [ { name: 'email', primary: 1 },
-                { name: 'id', unique: 1 },
-                { name: 'secret' },
-                { name: 'api_deny' },
-                { name: 'api_allow' },
-                { name: "expires", type: "int" },
-                { name: "mtime", type: "int" } ],
+        auth: { email: { primary: 1 },
+                id: { unique: 1 },
+                secret: {},
+                api_deny: {},
+                api_allow: {},
+                expires: { type: "int" },
+                mtime: { type: "int" } },
                  
         // Basic account information
-        account: [ { name: "id", primary: 1, pub: 1 },
-                   { name: "email", unique: 1 },
-                   { name: "name" },
-                   { name: "alias", pub: 1, index: 1 },
-                   { name: "status", pub: 1 },
-                   { name: "phone" },
-                   { name: "website" },
-                   { name: "birthday", semipub: 1 },
-                   { name: "gender", pub: 1 },
-                   { name: "icons", semipub: 1 },
-                   { name: "address" },
-                   { name: "city" },
-                   { name: "state" },
-                   { name: "zipcode" },
-                   { name: "country" },
-                   { name: "latitude", type: "real" },
-                   { name: "longitude", type: " real" },
-                   { name: "location" },
-                   { name: "ltime", type: "int" },
-                   { name: "ctime", type: "int" },
-                   { name: "mtime", type: "int" } ],
+        account: { id: { primary: 1, pub: 1 },
+                   email: { unique: 1 },
+                   name: {},
+                   alias: { pub: 1, index: 1 },
+                   status: { pub: 1 },
+                   phone: {},
+                   website: {},
+                   birthday: { semipub: 1 },
+                   gender: { pub: 1 },
+                   icons: { semipub: 1 },
+                   address: {},
+                   city: {},
+                   state: {},
+                   zipcode: {},
+                   country: {},
+                   latitude: { type: "real" },
+                   longitude: { type: " real" },
+                   location: {},
+                   ltime: { type: "int" },
+                   ctime: { type: "int" },
+                   mtime: { type: "int" } },
                    
        // Locations for all accounts to support distance searches
-       location: [ { name: "geohash", primary: 1 },                // geohash(first part), the biggest radius expected
-                   { name: "georange", primary: 1 },               // geohash(second part), the rest of the geohash with :id appended
-                   { name: "latitude", type: "real" },
-                   { name: "longitude", type: "real" },
-                   { name: "mtime", type: "int" }],
+       location: { geohash: { primary: 1 },                // geohash(first part), the biggest radius expected
+                   georange: { primary: 1 },               // geohash(second part), the rest of the geohash with :id appended
+                   latitude: { type: "real" },
+                   longitude: { type: "real" },
+                   mtime: { type: "int" }},
 
        // All connections between accounts: like,dislike,friend...
-       connection: [ { name: "id", primary: 1 },                    // account_id
-                     { name: "type", primary: 1 },                  // type:connection_id
-                     { name: "state" },
-                     { name: "mtime", type: "int" }],
+       connection: { id: { primary: 1 },                    // account_id
+                     type: { primary: 1 },                  // type:connection_id
+                     state: {},
+                     mtime: { type: "int" }},
                    
        // References from other accounts, likes,dislikes...
-       reference: [ { name: "id", primary: 1 },                    // connection_id
-                    { name: "type", primary: 1 },                  // type:account_id
-                    { name: "state" },
-                    { name: "mtime", type: "int" }],
+       reference: { id: { primary: 1 },                    // connection_id
+                    type: { primary: 1 },                  // type:account_id
+                    state: {},
+                    mtime: { type: "int" }},
                      
        // All accumulated counters for accounts
-       counter: [ { name: "id", primary: 1 },                                         // account_id
-                  { name: "like", type: "int", value: 0, pub: 1, incr: 1 },           // who i liked
-                  { name: "r_like", type: "int", value: 0, pub: 1 },                  // reversed like, who liked me
-                  { name: "dislike", type: "int", value: 0, pub: 1, incr: 1 },
-                  { name: "r_dislike", type: "int", value: 0, pub: 1 },
-                  { name: "follow", type: "int", value: 0, pub: 1, incr: 1 },
-                  { name: "r_follow", type: "int", value: 0, pub: 1 },
-                  { name: "mtime", type: "int" }],
+       counter: { id: { primary: 1 },                                         // account_id
+                  like: { type: "counter", value: 0, pub: 1, incr: 1 },       // who i liked
+                  r_like: { type: "counter", value: 0, pub: 1 },              // reversed like, who liked me
+                  dislike: { type: "counter", value: 0, pub: 1, incr: 1 },
+                  r_dislike: { type: "counter", value: 0, pub: 1 },
+                  follow: { type: "counter", value: 0, pub: 1, incr: 1 },
+                  r_follow: { type: "counter", value: 0, pub: 1 },
+                  mtime: { type: "int" }},
                                   
        // Keep historic data about an account activity
-       history: [{ name: "id", primary: 1 },
-                 { name: "mtime", type: "int", primary: 1 },
-                 { name: "type" } ]
+       history: { id: { primary: 1 },
+                  mtime: { type: "int", primary: 1 },
+                  type: {} }
     },
     
     // Upload limit, bytes

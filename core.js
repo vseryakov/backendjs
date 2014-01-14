@@ -1357,7 +1357,8 @@ core.copyFile = function(src, dst, overwrite, callback)
 }
 
 // Run theprocess and return all output to the callback
-core.runProcess = function(cmd, callback) {
+core.runProcess = function(cmd, callback) 
+{
     exec(cmd, function (err, stdout, stderr) {
         if (err) logger.error('getProcessOutput:', cmd, err);
         if (callback) callback(stdout, stderr);
@@ -1365,7 +1366,8 @@ core.runProcess = function(cmd, callback) {
 }
 
 // Kill all backend processes that match name and not the current process
-core.killBackend = function(name, callback) {
+core.killBackend = function(name, callback)
+{
     var self = this;
     self.runProcess("ps agx", function(stdout) {
         stdout.split("\n").
@@ -1378,7 +1380,8 @@ core.killBackend = function(name, callback) {
 }
 
 // Shutdown the machine now
-core.shutdown = function() {
+core.shutdown = function() 
+{
     exec("/sbin/halt", function(err, stdout, stderr) {
         logger.log('shutdown:', stdout || "", stderr || "", err || "");
     });
@@ -1387,7 +1390,8 @@ core.shutdown = function() {
 // Non-exception version, returns empty object,
 // mtime is 0 in case file does not exist or number of seconds of last modified time
 // mdate is a Date object with last modified time
-core.statSync = function(file) {
+core.statSync = function(file)
+{
     var stat = { size: 0, mtime: 0, mdate: "", isFile: function() {return false}, isDirectory: function() {return false} }
     try {
         stat = fs.statSync(file);
@@ -1400,7 +1404,8 @@ core.statSync = function(file) {
 }
 
 // Return list of files than match filter recursively starting with given path
-core.findFileSync = function(file, filter) {
+core.findFileSync = function(file, filter) 
+{
     var list = [];
     try {
         var stat = this.statSync(file);
@@ -1425,7 +1430,8 @@ core.findFileSync = function(file, filter) {
 }
 
 // Recursively create all directries, return 1 if created
-core.makePathSync = function(dir) {
+core.makePathSync = function(dir) 
+{
     var list = path.normalize(dir).split("/");
     for (var i = 0, dir = ''; i < list.length; i++) {
         dir += list[i] + '/';
@@ -1441,7 +1447,8 @@ core.makePathSync = function(dir) {
 }
 
 // Async version, stops on first error
-core.makePath = function(dir, callback) {
+core.makePath = function(dir, callback) 
+{
     var list = path.normalize(dir).split("/");
     var full = "";
     async.forEachSeries(list, function(d, next) {
@@ -1459,7 +1466,8 @@ core.makePath = function(dir, callback) {
 }
 
 // Change file owner do not report errors about non existent files
-core.chownSync = function(file) {
+core.chownSync = function(file)
+{
     try {
         fs.chownSync(file, this.uid, this.gid);
     } catch(e) {
@@ -1468,14 +1476,16 @@ core.chownSync = function(file) {
 }
 
 // Create a directory if does not exist
-core.mkdirSync = function(dir) {
+core.mkdirSync = function(dir) 
+{
     if (!fs.existsSync(dir)) {
         try { fs.mkdirSync(dir) } catch(e) { logger.error('mkdirSync:', dir, e); }
     }
 }
 
 // Drop root privileges and switch to regular user
-core.dropPrivileges = function() {
+core.dropPrivileges = function() 
+{
     if (process.getuid() == 0) {
         logger.debug('init: switching to', core.uid, core.gid);
         try { process.setgid(core.gid); } catch(e) { logger.error('setgid:', core.gid, e); }
@@ -1484,13 +1494,15 @@ core.dropPrivileges = function() {
 }
 
 // Set or reset a timer
-core.setTimeout = function(name, callback, timeout) {
+core.setTimeout = function(name, callback, timeout) 
+{
     if (this.timers[name]) clearTimeout(this.timers[name]);
     this.timers[name] = setTimeout(callback, timeout);    
 }
 
 // Full path to the icon, perform necessary hashing and sharding, id can be a number or any string
-core.iconPath = function(id, options) {
+core.iconPath = function(id, options) 
+{
     if (!options) options = {};
     // Convert into string and remove all chars except numbers, this will support UUIDs as well as regulat integers
     id = String(id).replace(/[^0-9]/g, '');
@@ -1503,7 +1515,8 @@ core.iconPath = function(id, options) {
 // - type - type for the icon, prepended to the icon id
 // - prefix - where to store all scaled icons
 // - verify - check if the original icon is the same as at the source
-core.getIcon = function(uri, id, options, callback) {
+core.getIcon = function(uri, id, options, callback) 
+{
     var self = this;
 
     if (typeof options == "function") callback = options, options = null;
@@ -1591,7 +1604,8 @@ core.scaleIcon = function(infile, outfile, options, callback) {
 }
 
 // Return object type, try to detect any distinguished type
-core.typeName = function(v) {
+core.typeName = function(v) 
+{
     var t = typeof(v);
     if (v === null) return "null";
     if (t !== "object") return t;
@@ -1603,7 +1617,8 @@ core.typeName = function(v) {
 }
 
 // Return true of the given value considered empty
-core.isEmpty = function(val) {
+core.isEmpty = function(val) 
+{
     switch (this.typeName(val)) {
     case "null":
     case "undefined": 
@@ -1629,7 +1644,8 @@ core.isEmpty = function(val) {
 //   - _empty_to_null - convert empty strings into null objects
 //   - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
 // - props can be used to add additional properties to the new object
-core.cloneObj = function(obj, filter, props) {
+core.cloneObj = function(obj, filter, props) 
+{
     var rc = {};
     switch (this.typeName(obj)) {
     case "object":
@@ -1669,33 +1685,38 @@ core.cloneObj = function(obj, filter, props) {
 }
 
 // Return new object using arguments as name value pairs for new object properties
-core.newObj = function() {
+core.newObj = function() 
+{
     var obj = {};
     for (var i = 0; i < arguments.length - 1; i += 2) obj[arguments[i]] = arguments[i + 1];
     return obj;
 }
 
 // Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
-core.extendObj = function() {
-    if (typeof arguments[0] != "object") return;
+core.extendObj = function() 
+{
+    if (!arguments[0]) arguments[0] = {}
     for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
     return arguments[0];
 }
 
 // Delete properties from the object, first arg is an object, the rest are properties to be deleted
-core.delObj = function() {
-    if (typeof arguments[0] != "object") return;
+core.delObj = function() 
+{
+    if (!arguments[0] || typeof arguments[0] != "object") return;
     for (var i = 1; i < arguments.length; i++) delete arguments[0][arguments[i]];
     return arguments[0];
 }
 
 // JSON stringify without empty properties
-core.stringify = function(obj) {
+core.stringify = function(obj) 
+{
     return JSON.stringify(this.cloneObj(obj, { _skip_null: 1, _skip_cb: function(n,v) { return v == "" } }));
 }
 
 // Return cookies that match given domain
-core.cookieGet = function(domain, callback) {
+core.cookieGet = function(domain, callback) 
+{
     this.context.db.select("backend_cookies", {}, function(err, rows) {
         var cookies = [];
         rows.forEach(function(cookie) {

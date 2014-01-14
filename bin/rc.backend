@@ -132,10 +132,9 @@ case "$ARG" in
        echo "$LOCAL_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/backend
        mkdir -p /home/$LOCAL_USER/.ssh
        cd /home/$LOCAL_USER
-       ln -s /data
-       ln -s /usr/local
-       ln -s /usr/local/lib/node
-       ln -s /usr/local/lib/node/backend
+       ln -s $ROOT
+       ln -s $PREFIX
+       ln -s $NODE_BACKEND
        echo "StrictHostKeyChecking no" >> .ssh/config
        cp /home/ec2-user/.ssh/authorized_keys .ssh
        chown -R $LOCAL_USER .ssh
@@ -144,8 +143,8 @@ case "$ARG" in
        echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
        echo "alias alog=\"tail -100 $ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
-       echo 'alias brc="sudo /usr/local/bin/rc.backend"' >> .bashrc
-       echo 'alias bcp="rc.backend repl"' >> .bashrc
+       echo 'alias brc="sudo $PREFIX/bin/rc.backend"' >> .bashrc
+       echo 'alias bcp="$PREFIX/bin/rc.backend repl"' >> .bashrc
        echo 'alias ps="ps augx"' >> .bashrc
        echo 'alias mc="mc -b"' >> .bashrc
        echo 'alias pps="psql -A -c \"select * from pg_stat_activity where state='active'\""' >> .bashrc
@@ -261,7 +260,7 @@ case "$ARG" in
     fi
 
     # Setup environment files
-    echo "export PATH=$PREFIX/bin:$NODE_BACKEND/bin:$PG_PREFIX/bin:$PATH" > /etc/profile.d/backend.sh
+    echo "export PATH=$ROOT/bin;$PREFIX/bin:$NODE_BACKEND/bin:$PG_PREFIX/bin:$CDB_DIR/bin;$PATH" > /etc/profile.d/backend.sh
     echo "export NODE_PATH=$NODE_DIR" >> /etc/profile.d/backend.sh
     echo "$PREFIX/lib" > /etc/ld.so.conf.d/local.conf
     postfix reload
@@ -359,15 +358,6 @@ case "$ARG" in
     [ -f bin/backend ] && exec $PREFIX/bin/node $NODE_ARGS bin/backend -home ./data -shell $@
     ;;
     
-  pgpool-run)
-    echo "Starting pgpool..."
-    su - $LOCAL_USER -c "rsync -aq -e '$SSH_ARGS' $MASTER:$ROOT/etc/pgpool* $ROOT/etc"
-    $PREFIX/bin/pgpool -m fast
-    killall -q pgpool
-    rm -rf $ROOT/var/pgpool.pid
-    $PREFIX/bin/pgpool -f $ROOT/etc/pgpool.conf -a $ROOT/etc/pgpool_hba.conf
-    ;;
-
   instance-idle)
     uptime=$(</proc/uptime)
     uptime=${uptime%%.*}
@@ -480,7 +470,7 @@ case "$ARG" in
     killall postgres
     ;;  
     
-  init-ddb)
+  get-ddb)
     mkdir -p $DDB_DIR
     curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz
     tar -C $DDB_DIR --strip-components=1 -xzf ddb.tar.gz
@@ -495,7 +485,7 @@ case "$ARG" in
     kill $(ps agx|grep dynamodb|grep -v grep|awk '{print $1}')
     ;;
       
-  init-cdb)
+  get-cdb)
     if [ ! -d $CDB_DIR ]; then
         mkdir -p $CDB_DIR/var $CDB_DIR/log
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
@@ -507,6 +497,12 @@ case "$ARG" in
     fi
     ;;
   
+  init-cdb)
+    ($0 run-cdb)
+    echo "create keyspace backend with replication = {'class': 'SimpleStrategy' , 'replication_factor': 0 };" > /tmp/cql
+    $CDB_DIR/bin/cqlsh -f /tmp/cql
+    ;;
+    
   run-cdb)
     $CDB_DIR/bin/cassandra
     ;;
@@ -603,7 +599,7 @@ case "$ARG" in
     [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
     [ ! -e bin/backend ] && echo "#!/bin/bash\n\nMAIN=main.js\n[ -f bin/main.js ] && MAIN=bin/main.js\nexec $PREFIX/bin/node \$MAIN \$@\n" > bin/backend && chmod 755 bin/backend
     [ ! -e web ] && ln -s $NODE_BACKEND/web && (cd data && ln -s ../web)
-    [ ! -e data/etc/config ] && echo "#pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#dynamodb-pool=http://localhost:8181\n" > data/etc/config
+    [ ! -e data/etc/config ] && echo "#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > data/etc/config
     [ ! -e main.js ] && echo "var backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
     [ ! -e Makefile ] && echo "all:\n\nrun:\n\tbin/rc.backend run-backend\n\nput:\n\tbin/rc.backend put-app\n\nshell:\n\tbin/rc.backend run-shell" > Makefile
     ;;
@@ -627,7 +623,6 @@ case "$ARG" in
     echo "  setup - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use" 
     echo "  run - run the backend server process"
     echo "  repl - start the backend REPL interface, the command line shell with all backend modules loaded"
-    echo "  pgpool-run - start PostgreSQL pgpool proxy, uses $ROOT/etc/pgpool config file"
     echo "  instance-idle - to be run on instances, check for idleness, no jobs running then shutdown the host"
     echo "  sync - synchronize the backend code from the master server, uses master.$DOMAIN and rsync over ssh"
     echo "  sync-api - synchronize api directory from the master host, delete what is not on the master"
@@ -637,10 +632,11 @@ case "$ARG" in
     echo "  init-pg - setup local PostgreSQL server for development, Mac OS X, install in $PG_PREFIX, data files in $PG_DIR"
     echo "  run-pg - run local PostgreSQL server"
     echo "  stop-pg - stop local PostgreSQL server"
-    echo "  init-ddb - install local DynamoDB server in $PREFIX/dynamodb"
+    echo "  get-ddb - install local DynamoDB server in $PREFIX/dynamodb"
     echo "  run-ddb - run local DynamoDB server installed in $PREFIX/dynamodb"
     echo "  stop-ddb - stop local DynamoDB server"
-    echo "  init-cdb - install Cassandra server in $PREFIX/cassandra"
+    echo "  get-cdb - install Cassandra server in $PREFIX/cassandra"
+    echo "  init-cdb - run Cassandra server and create backend keyspace"
     echo "  run-cdb - run local Cassandra server installed in $PREFIX/cassandra"
     echo "  stop-cdb - stop local Cassandra server"
     echo "  build-src - build all required software for the backend development, download in the local ./src folder, compile and install in $PREFIX"

@@ -64,8 +64,11 @@ tests.start = function(type)
 	    	self[type](next);
 	    },
 	    function(err) {
-	    	if (err) logger.error(self.name, "failed:", type, err);
-	    	logger.log(self.name, "stopped:", type, core.mnow() - self.start_time, "ms");
+	    	if (err) {
+	    	    logger.error(self.name, "failed:", type, err);
+	    	} else {
+	    	    logger.log(self.name, "stopped:", type, core.mnow() - self.start_time, "ms");
+	    	}
 	    	process.exit(0);
 	    });
 };
@@ -130,12 +133,13 @@ tests.locations = function(callback)
 {
 	var self = this;
 	var tables = {
-			geo: [ { name: "id", pub: 1 },
-			       { name: "geohash", primary: 1 },
-			       { name: "georange", primary: 1 },
-                   { name: "latitude", type: "real" },
-                   { name: "longitude", type: " real" },
-			       { name: "mtime", type: "int" } ],	
+			geo: { id: { pub: 1 },
+			       geohash: { primary: 1 },
+			       georange: { primary: 1 },
+                   latitude: { type: "real" },
+                   longitude: { type: "real" },
+			       mtime: { type: "int" } 
+			},	
 	};
     var rows = core.getArgInt("-rows", 1);
     var options = {};
@@ -187,15 +191,17 @@ tests.db = function(callback)
 {
 	var self = this;
 	var tables = {
-	        test1: [ { name: "id", primary: 1, pub: 1 } ],
-			test2: [ { name: "id", primary: 1, pub: 1 },
-			        { name: "range", primary: 1 },
-			        { name: "email" },
-			        { name: "alias", pub: 1 },
-			        { name: "birthday", semipub: 1 },
-			        { name: "num", type: "int" },
-			        { name: "json", type: "json" },
-			        { name: "mtime", type: "int" } ],	
+	        test1: { id: { primary: 1, pub: 1 } },
+			test2: { id: { primary: 1, pub: 1 },
+			         range: { primary: 1 },
+			         email: { },
+			         alias: { pub: 1 },
+			         birthday: { semipub: 1 },
+			         json: { type: "json" },
+			         num: { type: "int" },
+			         mtime: { type: "int" } },	
+			test3: { id : { primary: 1 },
+			         num: { type: "counter", value: 0 } },
 	};
 	var now = core.now();
 	var id = core.random(64);
@@ -213,6 +219,10 @@ tests.db = function(callback)
             });
         },
         function(next) {
+            logger.log('TEST: put1');
+            db.put("test3", { id: id, num: 0 }, next);
+        },
+        function(next) {
             logger.log('TEST: get add');
             db.get("test1", { id: id }, function(err, rows) {
                 next(err || rows.length!=1 || rows[0].id != id);
@@ -226,34 +236,34 @@ tests.db = function(callback)
         },
 	    function(next) {
 	        logger.log('TEST: add2');
-	    	db.add("test2", { id: id, range: '1', email: id, alias: id, birthday: id, mtime: now }, next);
+	    	db.add("test2", { id: id, range: '1', email: id, alias: id, birthday: id, num: 0, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: add3');
-	    	db.add("test2", { id: id2, range: '2', email: id, alias: id, birthday: id, mtime: now }, next);
+	    	db.add("test2", { id: id2, range: '2', email: id, alias: id, birthday: id, num: 0, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: add4');
-	    	db.put("test2", { id: id2, range: '1', email: id2, alias: id2, birthday: id2, mtime: now }, next);
+	    	db.put("test2", { id: id2, range: '1', email: id2, alias: id2, birthday: id2, num: 0, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: incr');
-	    	db.incr("test2", { id: id, range: '1', num: 1 }, function(err) {
-	    		db.incr("test2", { id: id, range: '1', num: 1 }, function(err) {
-	    			db.incr("test2", { id: id, range: '1', num: 0 }, next);
+	    	db.incr("test3", { id: id, num: 1 }, { mtime: 1 }, function(err) {
+	    		db.incr("test3", { id: id, num: 1 }, function(err) {
+	    		    db.incr("test3", { id: id, num: -1 }, next);
 	    		});
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: get after incr');
-	    	db.get("test2", { id: id, range: '1' }, { skip_columns: ['email'] }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id && !rows[0].email || rows[0].num != 2 ? (err || "err1:" + util.inspect(rows)) : 0);
+	    	db.get("test3", { id: id }, function(err, rows) {
+	    		next(err || rows.length!=1 || rows[0].id != id && rows[0].num != 1 ? (err || "err1:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: select columns');
 	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'GT' }, select: 'id,range,mtime' }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].email || rows[0].range != '2' ? (err || "err2:" + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].email || rows[0].range != '2' ? (err || "err3:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -271,13 +281,13 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: replace');
-	    	now = core.now;
+	    	now = core.now();
 	    	db.replace("test2", { id: id, range: '1', email: id + "@test", num: 9, mtime: now }, { check_data: 1 }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: get after replace');
-	    	db.get("test2", { id: id, range: '1' }, { consistent: true }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num!=9 ? (err || "err6:" + util.inspect(rows)) : 0);
+	    	db.get("test2", { id: id, range: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, rows) {
+	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 ? (err || "err6:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -315,6 +325,45 @@ tests.db = function(callback)
 	function(err) {
 		callback(err);
 	});
+}
+
+tests.leveldb = function(callback)
+{
+    var ldb = null;
+    async.series([
+        function(next) {
+            new backend.backend.LevelDB(core.path.spool + "/ldb", { create_if_missing: true }, function(err) {
+                ldb = this;
+                next(err);
+            });
+        },
+        function(next) {
+            for (var i = 0; i < 100; i++) {
+                ldb.putSync(String(i), String(i));
+            }
+            next();
+        },
+        function(next) {
+            async.forEachSeries([100,101,102,103], function(i, next) {
+                ldb.put(String(i), String(i), next);
+            }, function(err) {
+                next(err);
+            });
+        },
+        function(next) {
+            ldb.get("1", function(err, val) {
+                next(err || val != "1" ? (err || "err1:" + util.inspect(val)) : 0);
+            });
+        },
+        function(next) {
+            ldb.all("100", "104", function(err, list) {
+                next(err || list.length != 4 ? (err || "err2:" + util.inspect(list)) : 0);
+            });
+        },
+    ],
+    function(err) {
+        callback(err);
+    });    
 }
 
 // By default use data/ inside the source tree, if used somewhere else, config or command line parameter should be used for home
