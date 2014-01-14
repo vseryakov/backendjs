@@ -252,6 +252,7 @@ db.initPool = function(options, createcb, columnscb)
         if (!req.values) req.values = [];
         if (!Array.isArray(req.text)) {
             client.query(req.text, req.values, function(err, rows) {
+                pool.nextToken(req, rows, opts);
                 if (!err && opts && opts.filter) rows = rows.filter(function(row) { return opts.filter(row, opts); });
                 callback(err, rows);
             });
@@ -260,6 +261,7 @@ db.initPool = function(options, createcb, columnscb)
             async.forEachSeries(req.text, function(text, next) {
                 client.query(text, req.values, function(err, rc) { rows = rc; next(err); });
             }, function(err) {
+                pool.nextToken(req, rows, opts);
                 if (!err && opts && opts.filter) rows = rows.filter(function(row) { return opts.filter(row, opts); });
                 callback(err, rows);
             });
@@ -269,6 +271,10 @@ db.initPool = function(options, createcb, columnscb)
     pool.put = function(table, obj, opts, callback) {
         var req = this.prepare("add", table, obj, core.extendObj(opts, "replace", 1));
         self.query(req, opts, callback);
+    }
+    // Support for pagination, for SQL this is the OFFSET for the next request
+    pool.nextToken = function(req, rows, opts) {
+        if (opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
     }
     pool.name = options.pool;
     pool.serial = 0;
@@ -422,7 +428,7 @@ db.replace = function(table, obj, options, callback)
     } else
     // Check if values are different from existing value, skip if the records are the same by comparing every field
     if (options.check_data) {
-        var cols = self.getColumns(table, options) || {};
+        var cols = self.getColumns(table, options);
         var list = Array.isArray(options.check_data) ? options.check_data : Object.keys(obj);
         select = list.filter(function(x) { return x[0] != "_"  && x != 'mtime' && options.keys.indexOf(x) == -1 && (x in cols); }).join(',');
         if (!select) select = options.keys[0];
@@ -696,21 +702,20 @@ db.getOptions = function(table, options)
 // Return cached columns for a table or null, columns is an object with column names and objects for definiton
 db.getColumns = function(table, options) 
 {
-    return this.getPool(table, options).dbcolumns[table.toLowerCase()];
+    return this.getPool(table, options).dbcolumns[table.toLowerCase()] || {};
 }
 
 // Return the column definitoon for a table
 db.getColumn = function(table, name, options) 
 {
-    var dbcols = this.getColumns(table, options) || {};
-    return dbcols[name];
+    return this.getColumns(table, options)[name];
 }
 
 // Return list of selected or allowed onhly columns, empty list of no condition given
 db.getSelectedColumns = function(table, options)
 {
     var self = this;
-    var cols = this.getColumns(table, options) || {};
+    var cols = this.getColumns(table, options);
     if (options.select) options.select = core.strSplitUnique(options.select);
     var select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols); });
     return select.length ? select : null;
@@ -800,7 +805,7 @@ db.publicColumns = function(table, options)
         return options.columns.filter(function(x) { return x.pub || x.semipub }).map(function(x) { return x.name });
     }
     var cols = this.getColumns(table, options);
-    return Object.keys(cols || {}).filter(function(x) { return cols[x].pub || cols[x].semipub });
+    return Object.keys(cols).filter(function(x) { return cols[x].pub || cols[x].semipub });
 }
 
 // Call custom row handler for every row in the result, this assumes that pool.processRow callback has been assigned previously
@@ -818,11 +823,7 @@ db.sqlPrepare = function(op, table, obj, options)
     switch (op) {
     case "list": 
     case "select":
-    case "search":
-        var req = this.sqlSelect(table, obj, options);
-        // Support for pagination, for SQL this is the OFFSET for the next request
-        if (options.count) pool.next_token = core.toNumber(options.start) + core.toNumber(options.count);
-        return req;
+    case "search": return this.sqlSelect(table, obj, options);
     case "create": return this.sqlCreate(table, obj, options);
     case "upgrade": return this.sqlUpgrade(table, obj, options);
     case "get": return this.sqlSelect(table, obj, core.extendObj(options, "count", 1));
@@ -1260,7 +1261,7 @@ db.sqlUpgrade = function(table, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
 
-    var dbcols = this.getColumns(table, options) || {};
+    var dbcols = this.getColumns(table, options);
     rc = Object.keys(obj).filter(function(x) { return (!(x in dbcols) || dbcols[x].fake) }).
             map(function(x) { 
                 return "ALTER TABLE " + table + " ADD " + x + " " + 
@@ -1292,7 +1293,6 @@ db.sqlSelect = function(table, obj, options)
     if (where) where = " WHERE " + where;
     
     var req = { text: "SELECT " + select + " FROM " + table + where + this.sqlLimit(options) };
-
     return req;
 }
 
@@ -1303,7 +1303,7 @@ db.sqlInsert = function(table, obj, options)
     if (typeof options.check_columns == "undefined") options.check_columns = 1;
     var names = [], pnums = [], req = { values: [] }, i = 1
     // Columns should exist prior to calling this
-    var cols = this.getColumns(table, options) || {};
+    var cols = this.getColumns(table, options);
     
     for (var p in obj) {
         var v = obj[p];
@@ -1311,7 +1311,7 @@ db.sqlInsert = function(table, obj, options)
         // Filter not allowed columns or only allowed columns
         if (this.skipColumn(p, v, options, cols)) continue;
         // Avoid int parse errors with empty strings
-        if (v == "" && ["number","json"].indexOf(col.db_type) > -1) v = null;
+        if (v === "" && ["number","json"].indexOf(col.db_type) > -1) v = null;
         names.push(p);
         pnums.push(options.placeholder || ("$" + i));
         v = this.getBindValue(table, options, v, col);
@@ -1346,7 +1346,7 @@ db.sqlUpdate = function(table, obj, options)
         // Do not update primary columns
         if (col.primary) continue;
         // Avoid int parse errors with empty strings
-        if (v == "" && ["number","json"].indexOf(col.db_type) > -1) v = null;
+        if (v === "" && ["number","json"].indexOf(col.db_type) > -1) v = null;
         var placeholder = (options.placeholder || ("$" + i));
         // Update only if the value is null, otherwise skip
         if (options.coalesce && options.coalesce.indexOf(p) > -1) {
@@ -1357,7 +1357,7 @@ db.sqlUpdate = function(table, obj, options)
             sets.push(p + "=" + (options.noconcat ? p + "+" + placeholder : "CONCAT(" + p + "," + placeholder + ")"));
         } else
         // Incremental update
-        if (options.increment && options.increment.indexOf(p) > -1) {
+        if ((col.type === "counter") || (options.increment && options.increment.indexOf(p) > -1)) {
             sets.push(p + "=" + (options.nocoalesce ? p : "COALESCE(" + p + ",0)") + "+" + placeholder);
         } else {
             sets.push(p + "=" + placeholder);
@@ -1885,10 +1885,16 @@ db.cassandraInitPool = function(options)
     var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
     pool.dboptions = { types: { json: "text" }, placeholder: "?", nocoalesce: 1, noconcat: 1, nodefaults: 1, nonulls: 1, nomultisql: 1 };
     pool.bindValue = self.cassandraBindValue;
+    pool.processRow = self.cassandraProcessRow;
     // No REPLACE INTO support but UPDATE creates new record if no primary key exists
     pool.put = function(table, obj, opts, callback) {
         self.update(table, obj, opts, callback);
     };
+    pool.nextToken = function(req, rows, opts) {
+        if (!rows.length) return;
+        var keys = this.dbkeys[req.table.toLowerCase()] || [];
+        this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
+    }
     return pool;
 }
 
