@@ -318,7 +318,7 @@ tests.db = function(callback)
 	    function(next) {
 	        logger.log('TEST: select next range');
 	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'GT' }, start: next_token, count: 2, select: 'id,range' }, function(err, rows, info) {
-	    		next(err || rows.length!=2 || !info.next_token ? (err || "err8:" + util.inspect(rows, info)) : 0);
+	    		next(err || rows.length!=2 || rows[0].range !='3' || !info.next_token ? (err || "err8:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	],

@@ -389,7 +389,7 @@ db.incr = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
-    options.increment = Object.keys(obj);
+    options.counter = Object.keys(obj);
 
     var req = this.prepare("incr", table, obj, options);
     this.query(req, options, callback);
@@ -890,7 +890,7 @@ db.sqlValueIn = function(list, type)
 //  op - SQL operator, default is =
 //       special operator null/not null is used to build IS NULL condition, value is ignored in this case
 //  type - can be data, string, number, float, expr, default is string
-//  dflt, min, max - are used for numeric values for validation of ranges
+//  value, min, max - are used for numeric values for validation of ranges
 //  for type expr, options.expr contains sprintf-like formatted expression to be used as is with all '%s' substituted with actual value
 db.sqlExpr = function(name, value, options) 
 {
@@ -1061,8 +1061,8 @@ db.sqlTime = function(d)
 //   - always - only use default value if true
 //   - required - value default or supplied must be in the query, otherwise return empty SQL
 //   - search - aditional name for a value, for cases when generic field is used for search but we search specific column
-// - values - actual values for the condition as an object
-// - params if given will contain values for binding parameters
+// - values - actual values for the condition as an object, usually req.query
+// - params - if given will contain values for binding parameters
 db.sqlFilter = function(columns, values, params) 
 {
     var all = [], groups = {};
@@ -1357,7 +1357,7 @@ db.sqlUpdate = function(table, obj, options)
             sets.push(p + "=" + (options.noconcat ? p + "+" + placeholder : "CONCAT(" + p + "," + placeholder + ")"));
         } else
         // Incremental update
-        if ((col.type === "counter") || (options.increment && options.increment.indexOf(p) > -1)) {
+        if ((col.type === "counter") || (options.counter && options.counter.indexOf(p) > -1)) {
             sets.push(p + "=" + (options.nocoalesce ? p : "COALESCE(" + p + ",0)") + "+" + placeholder);
         } else {
             sets.push(p + "=" + placeholder);
@@ -1856,7 +1856,7 @@ db.dynamodbInitPool = function(options)
             options.expected = primary_keys;
             // Increment counters, only specified columns will use ADD operation, they must be numbers
             if (!options.ops) options.ops = {};
-            if (options.increment) options.increment.forEach(function(x) { options.ops[x] = 'ADD'; });
+            if (options.counter) options.counter.forEach(function(x) { options.ops[x] = 'ADD'; });
             aws.ddbUpdateItem(table, primary_keys, o, options, function(err, rc) {
                 callback(err, []);
             });
@@ -1894,6 +1894,19 @@ db.cassandraInitPool = function(options)
         if (!rows.length) return;
         var keys = this.dbkeys[req.table.toLowerCase()] || [];
         this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
+    }
+    pool.prepare = function(op, table, obj, opts) {
+        switch (op) {
+        case "search":
+        case "select":
+            // Pagination, start must be a token returned by the previous query, this assumes that options.ops stays the same as well
+            if (Array.isArray(opts.start) && typeof opts.start[0] == "object") {
+                obj = core.cloneObj(obj);
+                opts.start.forEach(function(x) { for (var p in x) obj[p] = x[p]; });
+            }
+            break;
+        }
+        return self.sqlPrepare(op, table, obj, opts);
     }
     return pool;
 }
