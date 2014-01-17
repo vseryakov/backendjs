@@ -65,8 +65,8 @@ var api = {
                    mtime: { type: "int" } },
                    
        // Locations for all accounts to support distance searches
-       location: { geohash: { primary: 1 },                // geohash(first part), the biggest radius expected
-                   georange: { primary: 1 },               // geohash(second part), the rest of the geohash with :id appended
+       location: { geohash: { primary: 1 },                // geohash, the first part, biggest radius expected
+                   georange: { primary: 1 },               // georange:id, the second part, the rest of the geohash
                    latitude: { type: "real" },
                    longitude: { type: "real" },
                    mtime: { type: "int" }},
@@ -83,6 +83,12 @@ var api = {
                     state: {},
                     mtime: { type: "int" }},
                      
+       // Messages between accounts
+       message : { id: { primary: 1 },                    // Account sent to 
+                   mtime: { type: "int", primary: 1 },    // mtime:sender, the current timestamp in seconds and the sender
+                   text: {},                              // Text of the message 
+                   icon: {}},                             // Icon base64 or url
+       
        // All accumulated counters for accounts
        counter: { id: { primary: 1 },                                         // account_id
                   like: { type: "counter", value: 0, pub: 1, incr: 1 },       // who i liked
@@ -91,6 +97,8 @@ var api = {
                   r_dislike: { type: "counter", value: 0, pub: 1 },
                   follow: { type: "counter", value: 0, pub: 1, incr: 1 },
                   r_follow: { type: "counter", value: 0, pub: 1 },
+                  msg_count: { type: "counter", value: 0 },
+                  msg_read: { type: "counter", value: 0 },
                   mtime: { type: "int" }},
                                   
        // Keep historic data about an account activity
@@ -184,6 +192,7 @@ api.init = function(callback)
     self.initHistoryAPI();
     self.initCounterAPI();
     self.initIconAPI();
+    self.initMessageAPI();
 
     // Provisioning access to the database
     self.initBackendAPI();
@@ -442,6 +451,50 @@ api.initIconAPI = function()
     });
 }
     
+// Messaging management
+api.initMessageAPI = function() 
+{
+    var self = this;
+    var now = core.now();
+    var db = core.context.db;
+        
+    this.app.all(/^\/message\/([a-z]+)$/, function(req, res) {
+        logger.debug(req.path, req.account.id, req.query);
+            
+        switch (req.params[0]) {
+        case "image":
+            self.getIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime });
+            break;
+            
+        case "get":
+            if (!req.query.mtime) req.query.mtime = 0;
+            var options = { ops: { type: "GT" }, select: req.query._select, total: req.query._total, start: core.toJson(req.query._start) };
+            db.select("message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows, info) {
+                if (err) return self.sendReply(res, err);
+                if (info.next_token) res.header("Next-Token", core.toBase64(info.next_token));
+                res.json(rows);
+            });
+            break;
+            
+        case "add":
+            if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
+            if (!req.query.text && !req.query.icon) return self.sendReply(res, 400, "text or icon is required");
+            req.query.mtime = req.query.sender + ":" + now;
+            self.putIcon(req, req.account.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
+                if (err) return self.sendReply(res, err);
+                // Icon supplied, we have full path to it, save the url in the message
+                if (icon) req.query.icon = self.imagesUrl + '/message/image/' + req.account.id + '/' + req.query.mtime;
+                db.add("message", req.query, {}, function(err, rows) {
+                    if (err) return self.sendReply(res, err);
+                    db.incr("counter", { id: req.account.id, msg_count: 1 }, { cached: 1, mtime: 1 });
+                    res.json(rows);
+                });
+            });
+            break;
+        }
+    });
+}
+
 // Connections management
 api.initHistoryAPI = function()
 {
@@ -456,7 +509,7 @@ api.initHistoryAPI = function()
         case "add":
             self.sendReply(res);
             req.query.id = req.account.id;
-            req.query.mtime = now();
+            req.query.mtime = now;
             db.add("history", req.query);
             break;
                 
@@ -484,7 +537,7 @@ api.initCounterAPI = function()
         case "put":
         case "incr":
             self.sendReply(res);
-            req.query.mtime = now();
+            req.query.mtime = now;
             req.query.id = req.account.id;
             db[req.params[0]]("counter", req.query, { cached: 1 });
             break;
@@ -574,9 +627,10 @@ api.initConnectionAPI = function()
         case "get":
             // Only one connection record to be returned if id and type specified
             if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
-            var options = { ops: { type: "begins_with" }, select: req.query._select };
-            db.select(req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows) {
+            var options = { ops: { type: "begins_with" }, select: req.query._select, total: req.query._total, start: core.toJson(req.query._start) };
+            db.select(req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
+                if (info.next_token) res.header("Next-Token", core.toBase64(info.next_token));
                 // Collect account ids
                 rows = rows.map(function(row) { return row.type.split(":")[1]; });
                 if (!req.query._details) return res.json(rows);
@@ -800,32 +854,40 @@ api.getIcon = function(req, res, id, options)
 }
 
 // Store an icon for account, .type defines icon prefix
-api.putIcon = function(req, id, options, callback) {
+api.putIcon = function(req, id, options, callback) 
+{
     var self = this;
     // Multipart upload can provide more than one icon, file name can be accompanied by file_type property
     // to define type for each icon
     if (req.files) {
         async.forEachSeries(Object.keys(req.files), function(f, next) {
             var opts = core.extendObj(options, 'type', req.body[f + '_type']);
-            if (self.imagesS3) {
-                self.putIconS3(req.files[f].path, id, opts, next);
-            } else {
-                core.putIcon(req.files[f].path, id, opts, next);
-            }
+            self.storeIcon(req.files[f].path, id, opts, next);
         }, function(err) {
             callback(err);
         });
     } else 
     // JSON object submitted with .icon property
     if (typeof req.body == "object") {
-        req.body = new Buffer(req.body.icon, "base64");
-        if (self.imagesS3) {
-            self.putIconS3(req.body, id, options, callback);
-        } else {
-            core.putIcon(req.body, id, options, callback);
-        }
+        var icon = new Buffer(req.body.icon, "base64");
+        this.storeIcon(icon, id, options, callback);
+    } else
+    // Query base64 encoded parameter
+    if (req.query.icon) {
+        var icon = new Buffer(req.query.icon, "base64");
+        this.storeIcon(icon, id, options, callback);
     } else {
-        return callback(new Error("no icon"));
+        return callback();
+    }
+}
+
+// Place the icon data to the destination
+api.storeIcon = function(icon, id, options, calback) 
+{
+    if (this.imagesS3) {
+        this.putIconS3(icon, id, options, callback);
+    } else {
+        core.putIcon(icon, id, options, callback);
     }
 }
 
@@ -863,7 +925,7 @@ api.putIconS3 = function(file, id, options, callback)
         if (err) return callback ? callback(err) : null;
         var headers = { 'content-type': 'image/' + (options.ext || "jpeg") };
         aws.queryS3(self.imagesS3, icon, { method: "PUT", postdata: data, headers: headers }, function(err) {
-            if (callback) callback(err);
+            if (callback) callback(err, icon);
         });
     });
 }

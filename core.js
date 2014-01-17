@@ -1576,16 +1576,16 @@ core.putIcon = function(file, id, options, callback) {
     if (!options) options = {};
     logger.debug('putIcon:', id, file, options);
 
-    var image = self.iconPath(id, options);
+    var icon = self.iconPath(id, options);
     
     // Filesystem based icon storage, verify local disk
-    fs.exists(image, function(yes) {
+    fs.exists(icon, function(yes) {
         // Exists and we do not need to rescale
         if (yes && !options.force) return callback();
         // Make new scaled icon
-        self.scaleIcon(file, image, options, function(err) {
-            logger.edebug(err, "putIcon:", id, file, options);
-            if (callback) callback(err);
+        self.scaleIcon(file, icon, options, function(err) {
+            logger.edebug(err, "putIcon:", id, file, 'path:', icon, options);
+            if (callback) callback(err, icon);
         });
     });
 }
