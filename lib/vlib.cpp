@@ -514,7 +514,7 @@ bool vMakePath(string path)
 {
     string dir;
     vector<string> list = strSplit(path, "/");
-    for (uint i = 0; i < list.size(); i++) {
+    for (uint i = 0; i < list.size() - 1; i++) {
         dir += list[i] + '/';
         if (mkdir(dir.c_str(), 0755)) {
             if (errno != EEXIST) {

@@ -413,7 +413,7 @@ api.initAccountAPI = function()
             // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
             // The type can be the whole url of the icon, we need to parse it and extract only type
             var type = self.getIconType(req.account.id, req.body.type || req.query.type);
-            var op = req.params[0].replace('/i', 'Icon');
+            var op = req.params[0].replace('/i', 'I');
             self[op](req, req.account.id, { prefix: 'account', type: type }, function(err) {
                 if (err) return self.sendReply(res, err);
                 
@@ -784,13 +784,14 @@ api.initLocationAPI = function()
 // Prepare an account record for response, set required fields, icons
 api.processAccountRow = function(row, options, cols)
 {
+    var self = this;
     if (row.birthday) {
     	row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     	delete row.birthday;
     }
     // List all available icons, on icon put, we save icon type in the icons property
     core.strSplitUnique(row.icons).forEach(function(x) {
-        row['icon' + x] = self.imagesUrl + '/image/account/' + row.id + '/' + x;
+        row['icon' + x] = core.context.api.imagesUrl + '/image/account/' + row.id + '/' + x;
     });
     delete row.icons;
     return row;
@@ -913,7 +914,7 @@ api.putIcon = function(req, id, options, callback)
     var self = this;
     // Multipart upload can provide more than one icon, file name can be accompanied by file_type property
     // to define type for each icon
-    if (req.files) {
+    if (req.files && Object.keys(req.files).length) {
         async.forEachSeries(Object.keys(req.files), function(f, next) {
             var opts = core.extendObj(options, 'type', req.body[f + '_type']);
             self.storeIcon(req.files[f].path, id, opts, next);
@@ -922,7 +923,7 @@ api.putIcon = function(req, id, options, callback)
         });
     } else 
     // JSON object submitted with .icon property
-    if (typeof req.body == "object") {
+    if (typeof req.body == "object" && req.body.icon) {
         var icon = new Buffer(req.body.icon, "base64");
         this.storeIcon(icon, id, options, callback);
     } else
@@ -936,7 +937,7 @@ api.putIcon = function(req, id, options, callback)
 }
 
 // Place the icon data to the destination
-api.storeIcon = function(icon, id, options, calback) 
+api.storeIcon = function(icon, id, options, callback) 
 {
     if (this.imagesS3) {
         this.putIconS3(icon, id, options, callback);

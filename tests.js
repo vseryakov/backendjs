@@ -82,7 +82,8 @@ tests.account = function(callback)
     var latitude = core.randomNum(bbox[0], bbox[2]);
     var longitude = core.randomNum(bbox[1], bbox[3]);
     var name = core.toTitle(gender == 'm' ? males[core.randomInt(0, males.length - 1)] : females[core.randomInt(0, females.length - 1)]);
-    
+    var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
+
     async.series([
         function(next) {
             var query = { email: email, secret: secret, name: name, alias: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
@@ -107,7 +108,26 @@ tests.account = function(callback)
             core.sendRequest("/account/get", options, function(err, params) {
                 next(err || !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params)) : 0);
             });
-        }
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { secret: "test" } };
+            core.sendRequest("/account/put/secret", options, function(err, params) {
+                secret = "test";
+                next(err);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { icon: icon }  }
+            core.sendRequest("/account/put/icon", options, function(err, params) {
+                next(err);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret }
+            core.sendRequest("/account/get", options, function(err, params) {
+                next(err || !params.obj || !params.obj.icon0 ? (err || "err1:" + util.inspect(params)) : 0);
+            });
+        },
     ],
     function(err) {
         callback(err);
