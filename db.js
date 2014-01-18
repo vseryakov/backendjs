@@ -600,10 +600,8 @@ db.getCached = function(table, obj, options, callback)
     options = this.getOptions(table, options);
     var pool = this.getPool(table, options);
     pool.stats.gets++;
-    var keys = options.keys || this.getKeys(table, options) || [];
-    var key = keys.filter(function(x) { return obj[x]} ).map(function(x) { return obj[x] }).join(":");
-    var prefix = options.prefix || table;
-    core.ipcGetCache(prefix + ":" + key, function(rc) {
+    var key = this.getCachedKey(table, obj, options);
+    core.ipcGetCache(key, function(rc) {
         // Cached value retrieved
         if (rc) {
             pool.stats.hits++;
@@ -616,12 +614,25 @@ db.getCached = function(table, obj, options, callback)
             // Store in cache if no error
             if (rows.length && !err) {
                 pool.stats.puts++;
-                core.ipcPutCache(prefix + ":" + key, core.stringify(rows[0]));
+                core.ipcPutCache(key, core.stringify(rows[0]));
             }
             callback(err, rows.length ? rows[0] : null);
         });
     });
 
+}
+
+// Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
+db.clearCached = function(table, obj, options)
+{
+    core.ipcDelCache(this.getCachedKey(table, obj, options));
+}
+
+db.getCachedKey = function(table, obj, options)
+{
+    var prefix = options.prefix || table;
+    var keys = options.keys || this.getKeys(table, options) || [];
+    return prefix + (this.getKeys(table, options) || []).map(function(x) { return ":" + obj[x] });
 }
 
 // Create a table using column definitions represented as a list of objects. Each column definiton can
@@ -750,13 +761,6 @@ db.cacheColumns = function(options, callback)
     	self.mergeColumns(pool);
     	if (callback) callback();
     });
-}
-
-// Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
-db.clearCached = function(table, row, options)
-{
-    var key = table + (this.getKeys(table, options) || []).map(function(x) { return ":" + row[x] });
-    core.ipcDelCache(key);
 }
 
 // Merge Javascript column definitions with the db cached columns
@@ -1004,6 +1008,12 @@ db.sqlExpr = function(name, value, options)
         sql += "LOWER(" + name + ") " + (op[0] == 'n' ? "NOT" : "") + " REGEXP " + this.sqlValue(value, options.type, options.value, options.min, options.max);
         break;
         
+    case 'begins_with':
+        sql += name + " >= " + this.sqlQuote(value);
+        var val = String(value)[0];
+        sql += " AND " + name + " < " + this.sqlQuote(String.fromCharCode(String(value).charCodeAt(0) + 1));
+        break;
+        
     case 'expr':
         if (options.expr) {
             var str = options.expr;
@@ -1221,24 +1231,6 @@ db.sqlCreate = function(table, obj, options, callback)
     return { text: options.nomultisql && rc.length ? rc : rc.join(";") };
 }
 
-db.sqlCreateIndexes = function(table, obj, options)
-{
-    var rc = [];
-    var keys = Object.keys(obj).filter(function(y) { return obj[y].primary });
-    function items(name) { return Object.keys(obj).filter(function(x) { return obj[x][name] }).join(','); }
-    
-    ["","1","2"].forEach(function(y) {
-        var sql = (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_udx" + y + " ON " + table + "(" + x + ")" : "" })(items('unique' + y));
-        if (sql) rc.push(sql);
-        sql = (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ")" : "" })(items('index' + y));
-        if (sql) rc.push(sql);
-        if (!keys) return; 
-        sql = (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_rdx" + y + " ON " + table + "(" + keys[0] + "," + x + ")" : "" })(items('hashindex' + y));
-        if (sql) rc.push(sql);
-    });
-    return rc;
-}
-
 // Create ALTER TABLE ADD COLUMN statements for missing columns
 db.sqlUpgrade = function(table, obj, options, callback) 
 {
@@ -1255,6 +1247,24 @@ db.sqlUpgrade = function(table, obj, options, callback)
             filter(function(x) { return x });
     
     return { text: options.nomultisql && rc.length ? rc : rc.join(";") };
+}
+
+db.sqlCreateIndexes = function(table, obj, options)
+{
+    var rc = [];
+    var keys = Object.keys(obj).filter(function(y) { return obj[y].primary });
+    function items(name) { return Object.keys(obj).filter(function(x) { return obj[x][name] }).join(','); }
+    
+    ["","1","2"].forEach(function(y) {
+        var sql = (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_udx" + y + " ON " + table + "(" + x + ")" : "" })(items('unique' + y));
+        if (sql) rc.push(sql);
+        sql = (function(x) { return x ? "CREATE INDEX IF NOT EXISTS " + table + "_idx" + y + " ON " + table + "(" + x + ")" : "" })(items('index' + y));
+        if (sql) rc.push(sql);
+        if (!keys) return; 
+        sql = (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_rdx" + y + " ON " + table + "(" + keys[0] + "," + x + ")" : "" })(items('hashindex' + y));
+        if (sql) rc.push(sql);
+    });
+    return rc;
 }
 
 // Select object from the database, .keys is a list of columns for condition, .select is list of columns or expressions to return
@@ -1872,8 +1882,8 @@ db.cassandraInitPool = function(options)
     if (!options.pool) options.pool = "cassandra";
     
     var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
-    pool.dboptions = core.mergeObj(pool.dboptions, { types: { json: "text", real: "double" }, 
-                                                     opsMap: { begins_with: ">="}, 
+    pool.dboptions = core.mergeObj(pool.dboptions, { types: { json: "text", real: "double", counter: "counter" }, 
+                                                     opsMap: { begins_with: "begins_with" }, 
                                                      placeholder: "?", 
                                                      nocoalesce: 1, 
                                                      noconcat: 1, 

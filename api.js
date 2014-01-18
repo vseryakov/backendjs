@@ -585,8 +585,8 @@ api.initCounterAPI = function()
             break;
             
         case "get":
-            db.getCached("counter", { id: req.query.id, public_columns: 1 }, function(err, rows) {
-                res.json(rows[0]);
+            db.getCached("counter", { id: req.query.id || req.account.id }, { public_columns: 1 }, function(err, row) {
+                res.json(row);
             });
             break;
             
@@ -610,7 +610,6 @@ api.initConnectionAPI = function()
         case "add":
         case "put":
         case "update":
-        	var op = db[req.params[1]];
             var id = req.query.id, type = req.query.type;
             if (!id || !type) return self.sendReply(res, 400, "id and type are required");
             if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
@@ -618,12 +617,12 @@ api.initConnectionAPI = function()
             req.query.id = req.account.id;
             req.query.type = type + ":" + id;
             req.query.mtime = now;
-            op("connection", req.query, function(err) {
+            db[req.params[1]]("connection", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
                 // Reverse reference to the same connection
                 req.query.id = id;
                 req.query.type = type + ":"+ req.account.id;
-                op("reference", req.query, function(err) {
+                db[req.params[1]]("reference", req.query, function(err) {
                     if (err) db.del("connection", { id: req.account.id, type: type + ":" + id });
                     self.sendReply(res, err);
                 });
@@ -635,11 +634,11 @@ api.initConnectionAPI = function()
             }
 
             // Update accumulated counter if we support this column and do it automatically
-            if (req.params[0] != 'add') break;
-            var col = db.getColumn("counter", req.query.type);
+            if (req.params[1] != 'add') break;
+            var col = db.getColumn("counter", type);
             if (col && col.incr) {
                 db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type, 1, 'r_' + type, 1), { cached: 1 });
-                db.incr("counter", core.newObj('id', req.query.id, 'mtime', now, type, 1, 'r_' + type, 1), { cached: 1 });
+                db.incr("counter", core.newObj('id', id, 'mtime', now, type, 1, 'r_' + type, 1), { cached: 1 });
             }
             break;
 
@@ -662,19 +661,23 @@ api.initConnectionAPI = function()
             var col = db.getColumn("counter", req.query.type);
             if (col && col.incr) {
                 db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type, -1, 'r_' + type, -1), { cached: 1 });
-                db.incr("counter", core.newObj('id', req.query.id, 'mtime', now, type, -1, 'r_' + type, -1), { cached: 1 });
+                db.incr("counter", core.newObj('id', id, 'mtime', now, type, -1, 'r_' + type, -1), { cached: 1 });
             }
             break;
 
         case "get":
-            // Only one connection record to be returned if id and type specified
-            if (req.query.id && req.query.type) req.query.type += ":" + req.query.id;
+            if (!req.query.type) return self.sendReply(res, 400, "type is required");
+            req.query.type += ":" + (req.query.id || "");
             var options = { ops: { type: "begins_with" }, select: req.query._select, total: req.query._total, start: core.toJson(req.query._start) };
             db.select(req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 if (info.next_token) res.header("Next-Token", core.toBase64(info.next_token));
-                // Collect account ids
-                rows = rows.map(function(row) { return row.type.split(":")[1]; });
+                // Split type and reference id
+                rows.forEach(function(row) {
+                    var type = row.type.split(":");
+                    row.type = type[0];
+                    row.id = type[1];
+                });
                 if (!req.query._details) return res.json(rows);
                 
                 // Get all account records for the id list

@@ -75,6 +75,7 @@ tests.start = function(type)
 
 tests.account = function(callback) 
 {
+    var id = core.random();
 	var secret = core.random();
     var email = secret + "@test.com";
     var gender = ['m','f'][core.randomInt(0,1)];
@@ -106,7 +107,7 @@ tests.account = function(callback)
         function(next) {
             var options = { email: email, secret: secret }
             core.sendRequest("/account/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params)) : 0);
+                next(err || !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -125,7 +126,40 @@ tests.account = function(callback)
         function(next) {
             var options = { email: email, secret: secret }
             core.sendRequest("/account/get", options, function(err, params) {
-                next(err || !params.obj || !params.obj.icon0 ? (err || "err1:" + util.inspect(params)) : 0);
+                next(err || !params.obj || !params.obj.icon0 ? (err || "err1:" + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { id: id, type: "like" }  }
+            core.sendRequest("/connection/add", options, function(err, params) {
+                options = { email: email, secret: secret, query: { id: core.random(), type: "like" }  }
+                core.sendRequest("/connection/add", options, function(err, params) {
+                    next(err);
+                });
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { type: "like" } }
+            core.sendRequest("/connection/get", options, function(err, params) {
+                next(err || !params.obj || params.obj.length!=2 ? (err || "err2:" + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret }
+            core.sendRequest("/counter/get", options, function(err, params) {
+                next(err || !params.obj || params.obj.like!=2 ? (err || "err3:" + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { id: id, type: "like" }  }
+            core.sendRequest("/connection/del", options, function(err, params) {
+                next(err);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { type: "like" } }
+            core.sendRequest("/connection/get", options, function(err, params) {
+                next(err || !params.obj || params.obj.length!=1 ? (err || "err4:" + util.inspect(params.obj)) : 0);
             });
         },
     ],
@@ -287,10 +321,16 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: select columns');
-	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'GT' }, select: 'id,range,mtime' }, function(err, rows) {
+	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'gt' }, select: 'id,range,mtime' }, function(err, rows) {
 	    		next(err || rows.length!=1 || rows[0].email || rows[0].range != '2' ? (err || "err3:" + util.inspect(rows)) : 0);
 	    	});
 	    },
+	    function(next) {
+            logger.log('TEST: select columns2');
+            db.select("test2", { id: id2, range: '1' }, { ops: { range: 'begins_with' }, select: 'id,range,mtime' }, function(err, rows) {
+                next(err || rows.length!=1 || rows[0].email || rows[0].range != '1' ? (err || "err3:" + util.inspect(rows)) : 0);
+            });
+        },
 	    function(next) {
 	        logger.log('TEST: update');
 	    	db.update("test2", { id: id, range: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
@@ -335,14 +375,14 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: select range');
-	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'GT' }, count: 2, select: 'id,range' }, function(err, rows, info) {
+	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'gt' }, count: 2, select: 'id,range' }, function(err, rows, info) {
 	    		next_token = info.next_token;
 	    		next(err || rows.length!=2 || !info.next_token ? (err || "err7:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: select next range');
-	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'GT' }, start: next_token, count: 2, select: 'id,range' }, function(err, rows, info) {
+	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'gt' }, start: next_token, count: 2, select: 'id,range' }, function(err, rows, info) {
 	    		next(err || rows.length!=2 || rows[0].range !='3' || !info.next_token ? (err || "err8:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
