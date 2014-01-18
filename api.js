@@ -22,7 +22,7 @@ var backend = require(__dirname + '/backend');
 var api = {
 
     // No authentication for these urls
-    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html)$|(^\/public\/)|(^\/images\/)|(^\/image\/[a-z]+\/|^\/account\/add))/,
+    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html)$|(^\/public\/)|(^\/images\/)|(^\/image\/account\/|^\/account\/add))/,
 
     // Refuse access to these urls
     deny: null,
@@ -85,7 +85,8 @@ var api = {
                      
        // Messages between accounts
        message : { id: { primary: 1 },                    // Account sent to 
-                   mtime: { type: "int", primary: 1 },    // mtime:sender, the current timestamp in seconds and the sender
+                   mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
+                   status: {},                            // Status flags: R - read 
                    text: {},                              // Text of the message 
                    icon: {}},                             // Icon base64 or url
        
@@ -97,8 +98,6 @@ var api = {
                   r_dislike: { type: "counter", value: 0, pub: 1 },
                   follow: { type: "counter", value: 0, pub: 1, incr: 1 },
                   r_follow: { type: "counter", value: 0, pub: 1 },
-                  msg_count: { type: "counter", value: 0 },
-                  msg_read: { type: "counter", value: 0 },
                   mtime: { type: "int" }},
                                   
        // Keep historic data about an account activity
@@ -322,7 +321,7 @@ api.initAccountAPI = function()
     var now = core.now();
     var db = core.context.db;
     
-    this.app.all(/^\/account\/([a-z]+)$/, function(req, res) {
+    this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res) {
         logger.debug(req.path, req.account.id, req.query);
         
         switch (req.params[0]) {
@@ -393,7 +392,7 @@ api.initAccountAPI = function()
             });
             break;
             
-        case "secret":
+        case "put/secret":
             if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
             db.put("auth", { email: req.account.email, secret: req.query.secret }, { cached: 1 }, function(err) {
                 self.sendReply(res, err);
@@ -404,31 +403,18 @@ api.initAccountAPI = function()
                 }
             });
             break;
-        }
-    });
-}
-
-// Connections management
-api.initIconAPI = function() 
-{
-    var self = this;
-    var now = core.now();
-    var db = core.context.db;
-        
-    this.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
-        logger.debug(req.path, req.account.id, req.query);
             
-        switch (req.params[0]) {
-        case "get":
+        case "get/icon":
             self.getIcon(req, res, req.account.id, { prefix: 'account', type: req.query.type });
             break;
             
-        case "del":
-        case "put":
+        case "put/icon":
+        case "del/icon":
             // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
             // The type can be the whole url of the icon, we need to parse it and extract only type
             var type = self.getIconType(req.account.id, req.body.type || req.query.type);
-            self[req.params[0] + 'Icon'](req, req.account.id, { prefix: 'account', type: type }, function(err) {
+            var op = req.params[0].replace('/i', 'Icon');
+            self[op](req, req.account.id, { prefix: 'account', type: type }, function(err) {
                 if (err) return self.sendReply(res, err);
                 
                 // Get current account icons
@@ -437,7 +423,7 @@ api.initIconAPI = function()
                     
                     // Add/remove given type from the list of icons
                     rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + type);
-                    if (req.params[0] == 'del') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
+                    if (op == 'delIcon') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
                         
                     var obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[0].icons };
                     db.update("account", obj, function(err) {
@@ -450,12 +436,42 @@ api.initIconAPI = function()
         }
     });
 }
+
+// Generic icon management
+api.initIconAPI = function() 
+{
+    var self = this;
+    var now = core.now();
+    var db = core.context.db;
+        
+    this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9]+)$/, function(req, res) {
+        logger.debug(req.path, req.account.id, req.query.type);
+            
+        switch (req.params[0]) {
+        case "get":
+            self.getIcon(req, res, req.account.id, { prefix: req.params[1], type: req.query.type });
+            break;
+            
+        case "del":
+        case "put":
+            var type = self.getIconType(req.account.id, req.body.type || req.query.type);
+            self[req.params[0] + 'Icon'](req, req.account.id, { prefix: req.params[1], type: type }, function(err) {
+                if (err) return self.sendReply(res, err);
+                req.query.type = type;
+                req.query.prefix = req.params[1];
+                req.query.icon = self.imagesUrl + '/image/' + req.params[1] + '/' + req.account.id + '/' + type;
+                res.json(req.query);
+            });
+            break;
+        }
+    });
+}
     
 // Messaging management
 api.initMessageAPI = function() 
 {
     var self = this;
-    var now = core.now();
+    var now = core.mnow();
     var db = core.context.db;
         
     this.app.all(/^\/message\/([a-z]+)$/, function(req, res) {
@@ -463,7 +479,7 @@ api.initMessageAPI = function()
             
         switch (req.params[0]) {
         case "image":
-            self.getIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime });
+            self.getIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
             break;
             
         case "get":
@@ -471,23 +487,36 @@ api.initMessageAPI = function()
             var options = { ops: { type: "GT" }, select: req.query._select, total: req.query._total, start: core.toJson(req.query._start) };
             db.select("message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
+                // Send next token in the header so we keep the response as a simple list
                 if (info.next_token) res.header("Next-Token", core.toBase64(info.next_token));
+                rows.forEach(function(row) {
+                    var mtime = row.mtime.split(":");
+                    row.mtime = mtime[0];
+                    row.sender = mtime[1];
+                });
                 res.json(rows);
+            });
+            break;
+            
+        case "read":
+            if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
+            if (!req.query.mtime) return self.sendReply(res, 400, "mtime is required");
+            req.query.mtime += ":" + req.query.sender;
+            db.update("message", { id: req.account.id, mtime: req.query.mtime, status: "R" }, {}, function(err, rows) {
+                self.sendReply(res, err);
             });
             break;
             
         case "add":
             if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
             if (!req.query.text && !req.query.icon) return self.sendReply(res, 400, "text or icon is required");
-            req.query.mtime = req.query.sender + ":" + now;
+            req.query.mtime = now + ":" + req.query.sender;
             self.putIcon(req, req.account.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
                 if (err) return self.sendReply(res, err);
                 // Icon supplied, we have full path to it, save the url in the message
-                if (icon) req.query.icon = self.imagesUrl + '/message/image/' + req.account.id + '/' + req.query.mtime;
+                if (icon) req.query.icon = '/message/image?sender=' + req.query.sender + '&mtime=' + now;
                 db.add("message", req.query, {}, function(err, rows) {
-                    if (err) return self.sendReply(res, err);
-                    db.incr("counter", { id: req.account.id, msg_count: 1 }, { cached: 1, mtime: 1 });
-                    res.json(rows);
+                    self.sendReply(res, err);
                 });
             });
             break;
