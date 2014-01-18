@@ -97,7 +97,9 @@ var api = {
                   dislike: { type: "counter", value: 0, pub: 1, incr: 1 },
                   r_dislike: { type: "counter", value: 0, pub: 1 },
                   follow: { type: "counter", value: 0, pub: 1, incr: 1 },
-                  r_follow: { type: "counter", value: 0, pub: 1 }},
+                  r_follow: { type: "counter", value: 0, pub: 1 },
+                  msg_count: { type: "counter", value: 0 },
+                  msg_read: { type: "counter", value: 0 }},
                                   
        // Keep historic data about an account activity
        history: { id: { primary: 1 },
@@ -431,6 +433,9 @@ api.initAccountAPI = function()
                 });
             });
             break;
+            
+        default:
+            self.sendReply(res, 400);
         }
     });
 }
@@ -461,6 +466,9 @@ api.initIconAPI = function()
                 res.json(req.query);
             });
             break;
+
+        default:
+            self.sendReply(res, 400);
         }
     });
 }
@@ -502,6 +510,7 @@ api.initMessageAPI = function()
             req.query.mtime += ":" + req.query.sender;
             db.update("message", { id: req.account.id, mtime: req.query.mtime, status: "R" }, {}, function(err, rows) {
                 self.sendReply(res, err);
+                if (!err) db.incr("counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
             });
             break;
             
@@ -515,9 +524,13 @@ api.initMessageAPI = function()
                 if (icon) req.query.icon = '/message/image?sender=' + req.query.sender + '&mtime=' + now;
                 db.add("message", req.query, {}, function(err, rows) {
                     self.sendReply(res, err);
+                    if (!err) db.incr("counter", { id: req.account.id, msg_count: 1 }, { cached: 1 });
                 });
             });
             break;
+
+        default:
+            self.sendReply(res, 400);
         }
     });
 }
@@ -545,6 +558,9 @@ api.initHistoryAPI = function()
                 res.json(rows);
             });
             break;
+
+        default:
+            self.sendReply(res, 400);
         }
     });
 }
@@ -560,7 +576,6 @@ api.initCounterAPI = function()
         logger.debug(req.path, req.account.id, req.query);
         
         switch (req.params[0]) {
-        case "add":
         case "put":
         case "incr":
             self.sendReply(res);
@@ -576,7 +591,7 @@ api.initCounterAPI = function()
             break;
             
         default:
-            self.sendReply(res, 400, "Invalid operation");
+            self.sendReply(res, 400);
         }
     });
 }
@@ -669,6 +684,9 @@ api.initConnectionAPI = function()
                 });
             });
             break;
+
+        default:
+            self.sendReply(res, 400);
         }
     });
     
@@ -756,6 +774,9 @@ api.initLocationAPI = function()
                 }            
             });
             break;
+
+        default:
+            self.sendReply(res, 400);
         }
     });
 }

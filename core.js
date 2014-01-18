@@ -1708,6 +1708,29 @@ core.delObj = function()
     return arguments[0];
 }
 
+// Merge obj with the options, all options properties override existing in the obj
+core.mergeObj = function(obj, options) 
+{
+    if (!options) options = {};
+    for (var p in obj) {
+        var val = obj[p];
+        switch (core.typeName(val)) {
+        case "object":
+            if (!options[p]) options[p] = {};
+            for (var c in val) {
+                if (!options[p][c]) options[p][c] = val[c];
+            }
+            break;
+        case "null":
+        case "undefined":
+            break;
+        default:
+            if (!options[p]) options[p] = val;
+        }
+    }
+    return options;
+}
+
 // JSON stringify without empty properties
 core.stringify = function(obj) 
 {

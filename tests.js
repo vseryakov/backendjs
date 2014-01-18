@@ -97,9 +97,15 @@ tests.account = function(callback)
             });
         },
         function(next) {
+            var options = { email: email, secret: secret, query: { alias: "test" + name } };
+            core.sendRequest("/account/update", options, function(err, params) {
+                next(err);
+            });
+        },
+        function(next) {
             var options = { email: email, secret: secret }
             core.sendRequest("/account/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.name != name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params)) : 0);
+                next(err || !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params)) : 0);
             });
         }
     ],
@@ -120,7 +126,7 @@ tests.s3icon = function(callback)
 	});
 }
     
-tests.cookies = function(callback) 
+tests.cookie = function(callback) 
 {
 	core.httpGet('http://www.google.com', { cookies: true }, function(err, params) {
 		console.log('COOKIES:', params.cookies);
@@ -128,7 +134,7 @@ tests.cookies = function(callback)
 	});
 }
 
-tests.locations = function(callback) 
+tests.location = function(callback) 
 {
 	var self = this;
 	var tables = {

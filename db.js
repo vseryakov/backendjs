@@ -47,9 +47,6 @@ var db = {
     // Pools by table name
     tblpool: {},
     
-    // Translation map for similar operators from different database drivers
-    opMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' },
-
     // Config parameters              
     args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type:" bool", descr: "Do not use other db pools except default sqlite" },
@@ -281,7 +278,9 @@ db.initPool = function(options, createcb, columnscb)
     pool.name = options.pool;
     pool.serial = 0;
     pool.tables = {};
-    pool.dboptions = { types: { counter: "int" } };
+    // Translation map for similar operators from different database drivers
+    pool.dboptions = { types: { counter: "int" }, 
+                       opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } },
     pool.dbcolumns = {};
     pool.dbkeys = {};
     pool.dbunique = {};
@@ -536,7 +535,7 @@ db.getLocations = function(table, options, callback)
     	var geo = core.geoHash(latitude, longitude, { distance: options.distance, max_distance: options.max_distance });
     	for (var p in geo) options[p] = geo[p];
     }
-    options.ops = { georange: "begins_with" };
+    options.ops = { georange: "ge" };
     var count = options.count || 50;
     db.select(table, { geohash: options.geohash, georange: options.georange }, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, options) : null;
@@ -681,25 +680,8 @@ db.getPool = function(table, options)
 // Return combined options for the pool including global pool options  
 db.getOptions = function(table, options) 
 {
-    if (!options) options = {};
     var pool = this.getPool(table, options);
-    for (var p in pool.dboptions) {
-        var val = pool.dboptions[p];
-        switch (core.typeName(val)) {
-        case "object":
-            if (!options[p]) options[p] = {};
-            for (var c in val) {
-                if (!options[p][c]) options[p][c] = val[c];
-            }
-            break;
-        case "null":
-        case "undefined":
-            break;
-        default:
-            if (!options[p]) options[p] = val;
-        }
-    }
-    return options;
+    return core.mergeObj(pool.dboptions, options);
 }
 
 // Return cached columns for a table or null, columns is an object with column names and objects for definiton
@@ -902,7 +884,6 @@ db.sqlExpr = function(name, value, options)
     if (!options.type) options.type = "string";
     var sql = "";
     var op = (options.op || "").toLowerCase();
-    if (this.opMap[op]) op = this.opMap[op];
     switch (op) {
     case "not in":
     case "in":
@@ -1200,6 +1181,7 @@ db.sqlWhere = function(table, obj, keys, options)
         var type = (options.types || {})[k];
         if (!op && v == null) op = "null";
         if (!op && Array.isArray(v)) op = "in";
+        if (options.opsMap && options.opsMap[op]) op = options.opsMap[op];
         var sql = self.sqlExpr(k, v, { op: op, type: type });
         if (sql) where.push(sql);
     });
@@ -1890,7 +1872,14 @@ db.cassandraInitPool = function(options)
     if (!options.pool) options.pool = "cassandra";
     
     var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
-    pool.dboptions = { types: { json: "text", real: "double" }, placeholder: "?", nocoalesce: 1, noconcat: 1, nodefaults: 1, nonulls: 1, nomultisql: 1 };
+    pool.dboptions = core.mergeObj(pool.dboptions, { types: { json: "text", real: "double" }, 
+                                                     opsMap: { begins_with: ">="}, 
+                                                     placeholder: "?", 
+                                                     nocoalesce: 1, 
+                                                     noconcat: 1, 
+                                                     nodefaults: 1, 
+                                                     nonulls: 1, 
+                                                     nomultisql: 1 });
     pool.bindValue = self.cassandraBindValue;
     pool.processRow = self.cassandraProcessRow;
     // No REPLACE INTO support but UPDATE creates new record if no primary key exists
