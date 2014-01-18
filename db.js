@@ -131,11 +131,13 @@ db.initTables = function(tables, callback)
 // Init the pool, create tables and columns
 // options properties:
 // - pool - db pool to create the tables in
-// - tables - list of tables to create or upgrade
+// - tables - an object with list of tables to create or upgrade
 db.initPoolTables = function(name, tables, callback) 
 {
     var self = this;
     var options = { pool: name, tables: tables };
+    
+    logger.log('initPoolTables:', name, Object.keys(tables));
     
     // Add tables to the list of all tables this pool supports
     var pool = self.getPool('', options);
@@ -662,6 +664,7 @@ db.prepare = function(op, table, obj, options)
         if (typeof options.mtime == "string") obj[options.mtime] = core.now(); else obj.mtime = core.now();
     }
     var req = this.getPool(table, options).prepare(op, table, obj, options);
+    if (!req) return req;
     // Pass original object for custom processing or callbacks
     req.table = table;
     req.obj = obj;
@@ -1312,6 +1315,8 @@ db.sqlInsert = function(table, obj, options)
         if (this.skipColumn(p, v, options, cols)) continue;
         // Avoid int parse errors with empty strings
         if (v === "" && ["number","json"].indexOf(col.db_type) > -1) v = null;
+        // Pass number as number, some databases strict about this
+        if (v && col.db_type == "number" && typeof v != "number") v = core.toNumber(v);
         names.push(p);
         pnums.push(options.placeholder || ("$" + i));
         v = this.getBindValue(table, options, v, col);
@@ -1347,6 +1352,8 @@ db.sqlUpdate = function(table, obj, options)
         if (col.primary) continue;
         // Avoid int parse errors with empty strings
         if (v === "" && ["number","json"].indexOf(col.db_type) > -1) v = null;
+        // Pass number as number, some databases strict about this
+        if (v && col.db_type == "number" && typeof v != "number") v = core.toNumber(v);
         var placeholder = (options.placeholder || ("$" + i));
         // Update only if the value is null, otherwise skip
         if (options.coalesce && options.coalesce.indexOf(p) > -1) {
@@ -1883,7 +1890,7 @@ db.cassandraInitPool = function(options)
     if (!options.pool) options.pool = "cassandra";
     
     var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
-    pool.dboptions = { types: { json: "text" }, placeholder: "?", nocoalesce: 1, noconcat: 1, nodefaults: 1, nonulls: 1, nomultisql: 1 };
+    pool.dboptions = { types: { json: "text", real: "double" }, placeholder: "?", nocoalesce: 1, noconcat: 1, nodefaults: 1, nonulls: 1, nomultisql: 1 };
     pool.bindValue = self.cassandraBindValue;
     pool.processRow = self.cassandraProcessRow;
     // No REPLACE INTO support but UPDATE creates new record if no primary key exists

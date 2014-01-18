@@ -73,7 +73,7 @@ tests.start = function(type)
 	    });
 };
 
-tests.accounts = function(callback) 
+tests.account = function(callback) 
 {
 	var secret = core.random();
     var email = secret + "@test.com";
@@ -99,8 +99,7 @@ tests.accounts = function(callback)
         function(next) {
             var options = { email: email, secret: secret }
             core.sendRequest("/account/get", options, function(err, params) {
-                console.log('ACCOUNT:', params.obj);
-                next(err);
+                next(err || !params.obj || params.obj.name != name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params)) : 0);
             });
         }
     ],

@@ -58,7 +58,7 @@ var api = {
                    zipcode: {},
                    country: {},
                    latitude: { type: "real" },
-                   longitude: { type: " real" },
+                   longitude: { type: "real" },
                    location: {},
                    ltime: { type: "int" },
                    ctime: { type: "int" },
@@ -97,8 +97,7 @@ var api = {
                   dislike: { type: "counter", value: 0, pub: 1, incr: 1 },
                   r_dislike: { type: "counter", value: 0, pub: 1 },
                   follow: { type: "counter", value: 0, pub: 1, incr: 1 },
-                  r_follow: { type: "counter", value: 0, pub: 1 },
-                  mtime: { type: "int" }},
+                  r_follow: { type: "counter", value: 0, pub: 1 }},
                                   
        // Keep historic data about an account activity
        history: { id: { primary: 1 },
@@ -199,11 +198,10 @@ api.init = function(callback)
     // Post init or other application routes
     self.onInit.call(this);
     
-    // Create tables in all db pools
-    db.initTables(self.tables, callback);
-    
     // Assign row handler for the account table
     db.getPool('account').processRow = self.processAccountRow;
+    
+    db.initTables(this.tables, callback);
 }
 
 //Cutomization hooks/callbacks, always run within api context
@@ -322,7 +320,7 @@ api.initAccountAPI = function()
     var db = core.context.db;
     
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res) {
-        logger.debug(req.path, req.account.id, req.query);
+        logger.debug(req.path, req.account, req.query);
         
         switch (req.params[0]) {
         case "get":
@@ -365,8 +363,8 @@ api.initAccountAPI = function()
                         db.del("auth", req.query);
                         return self.sendReply(res, err);
                     }
-                    // Even if it fails here it will be created on first usage
-                    db.add("counter", { id: req.query.id, mtime: now });
+                    // Some dbs require the record to exist, just make one with default values
+                    db.put("counter", { id: req.query.id, like: 0 });
                     res.json(self.processAccountRow(req.query));
                 });
             });
@@ -702,7 +700,7 @@ api.initLocationAPI = function()
                 var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
                 db.update("account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
-                    res.json(self.processAccount(obj));
+                    res.json(self.processAccountRow(obj));
                     
                     // Delete current location
                     var geo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance, max_distance: self.maxDistance });
@@ -823,9 +821,15 @@ api.initBackendAPI = function()
     
 }
 
+// Called in the master process to create/upgrade API related tables
+api.initTables = function(callback)
+{
+    core.context.db.initTables(this.tables, callback);
+}
+
 // Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes
 // Used during initialization of the external modules which may add custom columns to the existing tables. 
-api.initTables = function(table, columns) 
+api.updateTables = function(table, columns) 
 {
     var self = this;
     if (!Array.isArray(columns)) return;

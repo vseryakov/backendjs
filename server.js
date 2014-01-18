@@ -235,10 +235,12 @@ server.startWeb = function(callback)
         // REPL command prompt over TCP
         if (core.argv.indexOf("-repl") > 0) self.startRepl(core.replPort, core.replBind);
 
-        // Worker process to handle all web requests
-        for (var i = 0; i < this.maxProcesses; i++) {
-            cluster.fork();
-        }
+        // Create tables and spawn Web workers
+        core.context.api.initTables(function(err) {
+            for (var i = 0; i < self.maxProcesses; i++) {
+                cluster.fork();
+            }
+        });
 
         // Frontend server tasks
         setInterval(function() {
