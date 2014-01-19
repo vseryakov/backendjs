@@ -279,7 +279,7 @@ db.initPool = function(options, createcb, columnscb)
     pool.serial = 0;
     pool.tables = {};
     // Translation map for similar operators from different database drivers
-    pool.dboptions = { types: { counter: "int" }, 
+    pool.dboptions = { types: { counter: "int", bigint: "int" }, 
                        opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } },
     pool.dbcolumns = {};
     pool.dbkeys = {};
@@ -1736,7 +1736,7 @@ db.dynamodbInitPool = function(options)
         switch(req.op) {
         case "create":
             var attrs = Object.keys(obj).filter(function(x) { return obj[x].primary || obj[x].hashindex }).
-                               map(function(x) { return [ x, ["int","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
+                               map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).

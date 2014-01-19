@@ -98,12 +98,12 @@ var api = {
                   r_dislike: { type: "counter", value: 0, pub: 1 },
                   follow: { type: "counter", value: 0, pub: 1, incr: 1 },
                   r_follow: { type: "counter", value: 0, pub: 1 },
-                  msg_count: { type: "counter", value: 0 },
-                  msg_read: { type: "counter", value: 0 }},
+                  msg_count: { type: "counter", value: 0 },                    // total msgs received
+                  msg_read: { type: "counter", value: 0 }},                    // total msgs read 
                                   
        // Keep historic data about an account activity
        history: { id: { primary: 1 },
-                  mtime: { type: "int", primary: 1 },
+                  mtime: { type: "bigint", primary: 1 },
                   type: {} }
     },
     
@@ -539,7 +539,7 @@ api.initMessageAPI = function()
 api.initHistoryAPI = function()
 {
     var self = this;
-    var now = core.now();
+    var now = core.mnow();
     var db = core.context.db;
 
     this.app.all(/^\/history\/([a-z]+)$/, function(req, res) {
@@ -554,7 +554,7 @@ api.initHistoryAPI = function()
             break;
                 
         case "get":
-            db.select("history", { id: req.account.id, type: req.query.type }, function(err, rows) {
+            db.select("history", { id: req.account.id, mtime: req.query.mtime || 0 }, { count: req.query._count, start: req.query._start, ops: { mtime: 'gt' } }, function(err, rows) {
                 res.json(rows);
             });
             break;
@@ -871,7 +871,7 @@ api.sendReply = function(res, status, msg)
 {
     if (status instanceof Error) msg = status, status = 500;
     if (!status) status = 200, msg = "";
-    res.json(status, { status: status, message: String(msg || "").replace(/SQLITE_CONSTRAINT:/g, '') });
+    res.json(status, { status: status, message: String(msg || "") });
     return false;
 }
 

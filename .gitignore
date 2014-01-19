@@ -15,8 +15,9 @@
 .cproject
 .history
 .project
+node_modules
 bin/sqlite3
-build**
+build
 data
 src
 docs

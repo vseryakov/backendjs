@@ -7,16 +7,18 @@
 
 ## Development environment (Mac OS X)
 
+ - By default $PREFIX points to /opt/local, it can be changed in the .backendrc file after the backend is initialized
  - git clone https://[your username]@bitbucket.org/vseryakov/backend.git
  - SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
  - cd backend
- - to initialize environment for the backend development run
-    command:
+ - to initialize environment for the backend development run the following
+   command, it will set permissions of $PREFIX to the current user, this is required to support 
+   global NPM modules as well but $PREFIX can point to any other directory, not only to /opt/local. If $PREFIX
+   needs to be changed, create .backendrc file and assing PREFIX=path before running the commad below
 
         bin/rc.backend init-backend
 
- - to install node.js and required software run
-    command:
+ - to install node.js and required software run command:
 
         bin/rc.backend build-src
 
@@ -28,18 +30,15 @@
      - leveldb library in $PREFIX/lib
      - ImageMagick in $PREFIX/lib
 
-     By default $PREFIX point to /opt/local, it can be changed in .backendrc file
-
-     Important: Add NODE_PATH=/opt/local/lib/node_modules to your environment in .profile or .bash_profile so
-     node can find global modules
+     Important: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+     node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
 
  - If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:
 
         npm install -g docco
 
  - to compile the binary module just type ```make```
- - to run local server on port 8000 run
-    command:
+ - to run local server on port 8000 run command:
 
         make run
 
