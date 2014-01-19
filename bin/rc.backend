@@ -42,7 +42,7 @@ case "$PLATFORM" in
     OS_TYPE=macosx
     [ "$ROOT" = "" ] && ROOT=/opt/local
     [ "$PREFIX" = "" ] && PREFIX=/opt/local
-    [ "$PG_PREFIX = ""] && PG_PREFIX=$PREFIX/lib/postgresql93 && PG_DIR=$PREFIX/var/db/postgres
+    [ "$PG_PREFIX" = "" ] && PG_PREFIX=$PREFIX/lib/postgresql93 && PG_DIR=$PREFIX/var/db/postgres
     ;;
 esac
 
@@ -564,8 +564,9 @@ case "$ARG" in
     mkdir -p web data/etc
     echo "Creating default config file in data/etc/config..."
     echo "#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > data/etc/config
-    echo "Making global backend module accessible in $NODE_BACKEND"
+    echo "Making global backend module accessible in $NODE_BACKEND..."
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
+    rm -rf $PREFIX/bin/rc.backend && ln -s $(pwd) $NODE_BACKEND/bin/rc.backend $PREFIX/rc.backend
     (cd data && rm -rf web && ln -s ../web)
     ;;
     
@@ -577,7 +578,7 @@ case "$ARG" in
     
   run-backend)
     killall node
-    bin/backend -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -server-role backend -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    bin/backend -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
     ;;
     
   clean-backend)
@@ -595,21 +596,12 @@ case "$ARG" in
     ;;
     
   init-app)
-    [ ! -e $NODE_BACKEND/bin/rc.backend ] && echo "ERROR: Backend module is not installed in $NODE_BACKEND" && exit
-    mkdir -p bin data/etc
+    NAME=${2:-app}
+    mkdir -p etc
     [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres\nCDB_DIR=$PREFIX/cassandra" > .backendrc 
-    [ ! -e .gitignore ] && echo ".DS_Store\n.settings\n.cproject\n.project\n*.swp\n*.*~\n*.[oa]\n*.so\n*.dylib\n*.node\n*.log\n.backendrc\n.history\ndata\nbin/rc.backend\n" > .gitignore
-    [ ! -e bin/rc.backend ] && ln -s $NODE_BACKEND/bin/rc.backend bin/rc.backend
-    [ ! -e bin/backend ] && echo "#!/bin/bash\n\nMAIN=main.js\n[ -f bin/main.js ] && MAIN=bin/main.js\nexec $PREFIX/bin/node \$MAIN \$@\n" > bin/backend && chmod 755 bin/backend
-    [ ! -e web ] && ln -s $NODE_BACKEND/web && (cd data && ln -s ../web)
-    [ ! -e data/etc/config ] && echo "#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > data/etc/config
-    [ ! -e main.js ] && echo "var backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > main.js
-    [ ! -e Makefile ] && echo "all:\n\nrun:\n\tbin/rc.backend run-backend\n\nput:\n\tbin/rc.backend put-app\n\nshell:\n\tbin/rc.backend run-shell" > Makefile
-    ;;
-    
-  put-app)
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* bin/backend lib node $MASTER:$ROOT/bin
-    [ -f web ] && rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
+    [ ! -e $NAME.sh ] && echo "#!/bin/bash\n\nexec $PREFIX/bin/node $NAME.js \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e data/etc/config ] && echo "#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > etc/config
+    [ ! -e $NAME.js ] && echo "#\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > $NAME.js
     ;;
     
   *)
@@ -648,9 +640,8 @@ case "$ARG" in
     echo "  put-backend - push the vbackend code to the master server"
     echo "  run-backend - run local backend server"
     echo "  clean-backend - clean the source directory"
-    echo "  build-backend - compile all required modules and libraries"
-    echo "  init-app - initialize environment for application based on the backend"
-    echo "  put-app - push application code to the master server via rsync and ssh"
+    echo "  build-backend - compile all required modules and libraries for the bakend development(node.js, libs)"
+    echo "  init-app - create app skeleton for an application based on the backend"
     ;;
 esac
 

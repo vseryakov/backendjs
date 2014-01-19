@@ -1,22 +1,74 @@
-# Backend for node.js
+# Backend framework for node.js
+
+- General purpose backend framework based on the Express web server.
+- Supports Sqlite, PostgreSQL, DynamoDB, Cassandra databases.
+- Supports account, connection, location, messaging and icons API via HTTP(S)
+- Supports server only operations with crontab scheduling for local and remote(AWS) jobs
+- Authentication is based on signed requests using API key and secret
+- Runs web server as separate process to utilize multipke CPU cores
+- Supports several cache modes(Redis, memcached, local cache) for the database operations
+- Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API 
+- ImageMagick is compiled as C++ module for image scaling
+- nanomsg interface for messaging between processes and servers
 
 ## Installation
 
-  Default settings are to be run on Linux instance with /data as the root for
-  backend config and all other files
+  npm install node-backend
+  
+### Usage example
 
-## Development environment (Mac OS X)
+- Create file main.js with the following contents:
+```javascript
+var backend = require('node-backend');
 
- - By default $PREFIX points to /opt/local, it can be changed in the .backendrc file after the backend is initialized
+backend.api.onInit = function() {
+    // Add more properties(columns) to the base account table
+    this.initTables("account", [{ name: "facebook_id", type: "int" },
+                                { name: "facebook_email" },
+                                { name: "facebook_mtime", type: "int" }]);
+
+    // Register custom API query path
+    this.app.get('/test', function(req, res) { res.json({ msg: "Test" }); });
+
+};
+
+backend.server.start();
+```
+
+- run the file as 
+
+       node main.js -port 8000 -web -console
+
+- go to http://localhost:8000/test to test new endpoint
+
+- go to http://localhost:8000/api.html for the Web console to test API requests
+
+## Default API endpoints provided by the backend
+
+### Accounts
+### Connections
+### Locations
+### Messages
+### Icons
+### Counters
+### History
+
+# Backend framework development (Mac OS X, developers only)
+
  - git clone https://[your username]@bitbucket.org/vseryakov/backend.git
  - SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
  - cd backend
- - to initialize environment for the backend development run the following
-   command, it will set permissions of $PREFIX to the current user, this is required to support 
-   global NPM modules as well but $PREFIX can point to any other directory, not only to /opt/local. If $PREFIX
-   needs to be changed, create .backendrc file and assing PREFIX=path before running the commad below
+ - to initialize environment for the backend development it needs to set permissions for $PREFIX(default is opt/local)
+   to the current user, this is required to support global NPM modules. 
+   - If $PREFIX needs to be changed, create .backendrc file and assing PREFIX=path, for example
+   
+        echo "PREFIX=$HOME/local" > .backendrc
+        
+        
+   - now run the init command to prepare the environment, bin/rc.backend will source .backendrc
 
         bin/rc.backend init-backend
+
 
  - to install node.js and required software run command:
 
@@ -24,7 +76,7 @@
 
 
     it will create src/ in the current directory and install the following packages:
-     - node.js in $PREFIX/bin
+     - node.js 0.10 in $PREFIX/bin
      - npm modules in $PREFIX/lib/node_modules
      - nanomsg library in $PREFIX/lib
      - leveldb library in $PREFIX/lib
@@ -52,7 +104,7 @@
         '2013.10.20.0'
        > logger.setDebug(2)
 
-## Configuration
+## Backend configuration
 
  The backend directory structure is the following:
 
@@ -62,7 +114,7 @@
         Example:
 
             debug=1
-            api-pool=ddb
+            db-pool=ddb
             db-ddb-pool=http://localhost:9000
             db-pg-pool=postgresql://postgres@127.0.0.1/backend
 
@@ -75,7 +127,7 @@
    - images - all images to be served by the API server
      - account - account specific images
    - var - runtime files and db files
-     - backend.db - common sqlite database, always created and opened by the backend
+     - backend.db - generic sqlite database, always created and opened by the backend
    - tmp - temporary files
    - web - public files to be served by the web servers
 
@@ -92,6 +144,7 @@
 
   Running without arguments will bring help screen with description of all available commands.
   To make configuration management flexible the utility supports several config files which are read during execution for additional environment variables.
+  
   By default the utility is configured to be used on live Linux sytems in production without any config files, the default backend root directory is /data.
   Under this root are all required directories required by the backend code and described above.
 

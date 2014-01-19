@@ -43,7 +43,7 @@ var core = {
     home: process.env.BACKEND_HOME || '',
 
     // Various folders, by default relative paths are used
-    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", log: "log" },
+    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: __dirname + "/web", log: "log" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logfile: null,
