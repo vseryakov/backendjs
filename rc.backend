@@ -598,6 +598,14 @@ case "$ARG" in
     exit 0
     ;;
 
+  clean-deps)
+    [ ! -d deps/node ] && make -C deps/node clean
+    [ ! -d deps/nanomsg ] && make -C deps/nanomsg clean
+    [ ! -d deps/leveldb ] && make -C deps/leveldb clean
+    [ ! -d deps/snappy-1.1.1 ] && make -C deps/snappy-1.1.1 clean
+    [ ! -d deps/ImageMagick ] && make -C deps/ImageMagick clean
+    ;;
+    
   npm-deps)
     $PREFIX/bin/npm install $(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))')
     ;;
@@ -642,6 +650,7 @@ case "$ARG" in
     echo "  run-cdb - run local Cassandra server installed in $PREFIX/cassandra"
     echo "  stop-cdb - stop local Cassandra server"
     echo "  build-deps - build all required software for the backend binary module"
+    echo "  clean-deps - clean dependencies binary and object files"
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"
     echo "  init-backend - init core backend environment, for the core developemnt only, links NPM global backend module $NODE_BACKEND back to this sources"

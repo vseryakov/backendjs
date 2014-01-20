@@ -339,7 +339,7 @@ db.query = function(req, options, callback)
 	         if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
 	             self.clearCached(req.table, req.obj, options);
 	         }
-	         logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", info, options);
+	         logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
 	         if (callback) callback(err, rows, info);
 	     });
 	 });
@@ -523,7 +523,8 @@ db.search = function(table, obj, options, callback)
 //  - geohash and georange as strings, this is the primary key, if georange contains : then the last part is 
 //    split and saved as property id in the record
 //  - latitude and longitude as floating numbers
-// On first call, options must contain latitude and longitude of the center and optionally distance for the radius.
+// On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
+// the next_token returned by the previous call
 // Specific options properties:
 //   - calc_distance - calculate the distance between query and the actual position and save it in distance property for each record
 // On return, the callback's third argument contains the object that must be provided for subsequent searches until rows array is empty.
@@ -535,10 +536,10 @@ db.getLocations = function(table, options, callback)
     	var geo = core.geoHash(latitude, longitude, { distance: options.distance, max_distance: options.max_distance });
     	for (var p in geo) options[p] = geo[p];
     }
-    options.ops = { georange: "ge" };
+    options.ops = { georange: "begins_with" };
     var count = options.count || 50;
-    db.select(table, { geohash: options.geohash, georange: options.georange }, options, function(err, rows, info) {
-    	if (err) return callback ? callback(err, rows, options) : null;
+    db.select(table, { geohash: options.geohash, georange: options.georange.split(":")[0] }, options, function(err, rows, info) {
+    	if (err) return callback ? callback(err, rows, info) : null;
     	count -= rows.length;
     	options.start = info.next_token;
         async.until(
@@ -1010,8 +1011,7 @@ db.sqlExpr = function(name, value, options)
         
     case 'begins_with':
         sql += name + " >= " + this.sqlQuote(value);
-        var val = String(value)[0];
-        sql += " AND " + name + " < " + this.sqlQuote(String.fromCharCode(String(value).charCodeAt(0) + 1));
+        sql += " AND " + name + " < " + this.sqlQuote(String.fromCharCode(value.charCodeAt(value.length-1) + 1));
         break;
         
     case 'expr':

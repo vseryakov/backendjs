@@ -207,8 +207,12 @@ tests.location = function(callback)
 			       mtime: { type: "int" } 
 			},	
 	};
-    var rows = core.getArgInt("-rows", 1);
-    var options = {};
+    var rows = core.getArgInt("-rows", 10);
+    var latitude = core.randomNum(bbox[0], bbox[2])
+    var longitude = core.randomNum(bbox[1], bbox[3])
+    var distance = core.getArgInt("-distance", 2)
+    var count = core.getArgInt("-count", 5)
+    var token = null, rc = {};
     
     async.series([
         function(next) {
@@ -231,20 +235,18 @@ tests.location = function(callback)
 
         },
         function(next) {
-        	options.latitude = core.randomNum(bbox[0], bbox[2]);
-        	options.longitude = core.randomNum(bbox[1], bbox[3]);
-            options.distance = core.getArgInt("-distance", 2);
-            options.count = core.getArgInt("-count", 5);
-            options.calc_distance = 1;
+            var options = { latitude: latitude, longitude: longitude, distance: distance, count: count, calc_distance: 1 };
             db.getLocations("geo", options, function(err, rows, info) {
-            	logger.debug('geo1:', rows.length, 'records', options, 'rows:', rows);
-                next(err);
+            	token = info;
+            	rows.forEach(function(x) { rc[x.geohash + x.georange] = x.id })
+                next(err || rows.length!=5 ? (err || "err1:" + util.inspect(rows)) : 0);
             });
         },
         function(next) {
-            db.getLocations("geo", options, function(err, rows, info) {
-            	logger.debug('geo2:', rows.length, 'records', options, 'rows:', rows);
-                next(err);
+            db.getLocations("geo", token, function(err, rows, info) {
+                var rc2 = {}
+                rows.forEach(function(x) { rc2[x.geohash + x.georange] = x.id })
+                next(err || rows.length!=5 || Object.keys(rc).some(function(x) { return rc2[x] }) ? (err || "err2:" + util.inspect(rows) + " RC:" + util.inspect(rc) + " RC2:" + util.inspect(rc2)) : 0);
             });
         }
     ],

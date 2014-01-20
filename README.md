@@ -14,9 +14,14 @@
 ## Installation
 
 ### Requirements
+These libraries must be installed using your system package management or other tools
 - PostgresSQL client libraries
-- ImageMagick
 - PCRE regexp library
+
+Refer to your distribution package manager for exact names, some examples are:
+On Mac: port install postgresql93 pcre
+On Linux: apt-get install postgresql pcre
+          yum install postgresql pcre
 
 ### NPM installation
 ``` 
@@ -64,16 +69,20 @@
  - git clone https://[your username]@bitbucket.org/vseryakov/backend.git
  - SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
  - cd backend
- - to initialize environment for the backend development it needs to set permissions for $PREFIX(default is opt/local)
+ - to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
    to the current user, this is required to support global NPM modules. 
-   - If $PREFIX needs to be changed, create .backendrc file and assing PREFIX=path, for example
+
+ - If $PREFIX needs to be changed, create .backendrc file and assing PREFIX=path, for example
 ```
-     echo "PREFIX=$HOME/local" > .backendrc
+   echo "PREFIX=$HOME/local" > .backendrc
 ```   
+
+ - __Important__: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+   node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
      
-   - now run the init command to prepare the environment, bin/rc.backend will source .backendrc
+ - now run the init command to prepare the environment, bin/rc.backend will source .backendrc
 ```
-     rc.backend init-backend
+   rc.backend init-backend
 ```
 
  - to install node.js in $PREFIX/bin if not installed already run command:
@@ -81,13 +90,11 @@
    rc.backend build-node
 ```
 
-- if node.js is installed, make sure all require modules are installed:
+- if node.js is installed, make sure all required modules are installed, thi sis required because we did not installed the 
+  backend via npm with all dependencies:
 ```
   rc.backend npm-deps
 ``` 
-
-  Important: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-  node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
 
  - If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:
 ```
@@ -132,6 +139,7 @@
 ```
    - images - all images to be served by the API server
      - account - account specific images
+     - message - message specific icons
    - var - runtime files and db files
      - backend.db - generic sqlite database, always created and opened by the backend
    - tmp - temporary files
@@ -142,28 +150,36 @@
   The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
   and as well to be used in operations on production systems.
 
+
   The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed. In addition
   it supports symlinks with different name and uses it as a command to execute, for example:
-  ```
+```
   ln -s rc.backend ntp
   ./ntp is now the same as rc.backend ntp
-  ```
+```
+
   Running without arguments will bring help screen with description of all available commands.
   To make configuration management flexible the utility supports several config files which are read during execution for additional environment variables.
+
   
   By default the utility is configured to be used on live Linux sytems in production without any config files, the default backend root directory is /data.
   Under this root are all required directories required by the backend code and described above.
 
+
   For development purposes and to be able to use the backend in regular user home directories the utility is trying to read the following config files:
+  
     - /etc/backend/profile
     - $ROOT/etc/profile
     - $HOME/.backendrc
     - .backendrc
 
+
   The required environment variables required by the tool are (with default values):
+  
    - PREFIX=/usr/local
    - ROOT=/data
    - DOMAIN=localhost
+
 
   Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory.
 
