@@ -26,7 +26,7 @@
 ## Usage example
 
 - Create file main.js with the following contents:
-  ```javascript
+```javascript
   var backend = require('node-backend');
 
   backend.api.onInit = function() {
@@ -39,12 +39,12 @@
       this.app.get('/test', function(req, res) { res.json({ msg: "Test" }); });
   };
   backend.server.start();
-  ```
+```
 
 - run the file as 
-  ```
+```
   node main.js -port 8000 -web -console
-  ```     
+```     
 - go to http://localhost:8000/test to test new endpoint
 
 - go to http://localhost:8000/api.html for the Web console to test API requests
@@ -72,44 +72,44 @@
 ```   
      
    - now run the init command to prepare the environment, bin/rc.backend will source .backendrc
-     ```
+```
      rc.backend init-backend
-     ```
+```
 
  - to install node.js in $PREFIX/bin if not installed already run command:
-   ```
+```
    rc.backend build-node
-   ```
+```
 
 - if node.js is installed, make sure all require modules are installed:
-  ```
+```
   rc.backend npm-deps
-  ``` 
+``` 
 
   Important: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
   node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
 
  - If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:
-   ```
+```
    npm install -g docco
-   ```
+```
    
  - to compile the binary module and all required dependencies just type ```make```
  
  - to run local server on port 8000 run command:
-   ``` 
+``` 
    make run
-   ```
+```
  - to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
    similar to node.js REPL functionality. All modules are accessible from the command line.
-   ```
+```
    $ make shell
 
    > core.version
     '2013.10.20.0'
    > logger.setDebug(2)
-   ```
+```
 ## Backend configuration
 
  The backend directory structure is the following:
@@ -118,18 +118,18 @@
    - etc
       - config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
         Example:
-        ```
+```
         debug=1
         db-pool=ddb
         db-ddb-pool=http://localhost:9000
         db-pg-pool=postgresql://postgres@127.0.0.1/backend
-        ```
+```
      - crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
         Example:
-        ```
+```
         [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
           { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
-        ```
+```
    - images - all images to be served by the API server
      - account - account specific images
    - var - runtime files and db files
