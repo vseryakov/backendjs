@@ -16,7 +16,7 @@ var domain = require('domain');
 var core = require(__dirname + '/core');
 var printf = require('printf');
 var logger = require(__dirname + '/logger');
-var backend = require(__dirname + '/backend');
+var backend = require(__dirname + '/build/backend');
 
 // HTTP API to the server from the clients
 var api = {

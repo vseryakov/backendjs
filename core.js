@@ -12,7 +12,7 @@ var url = require('url');
 var http = require('http');
 var https = require('https');
 var exec = require('child_process').exec;
-var backend = require(__dirname + '/backend');
+var backend = require(__dirname + '/build/backend');
 var logger = require(__dirname + '/logger');
 var cluster = require('cluster');
 var printf = require('printf');
@@ -162,6 +162,8 @@ core.init = function(callback) {
     self.hostname = host[0];
     self.domain = host.length > 2 ? host.slice(1).join('.') : self.hostname;
 
+    // Path to the ImageMagick config files
+    backend.setClientPath(__dirname);
     var db = self.context.db;
     
     // Serialize initialization procedure, run each function one after another

@@ -16,10 +16,9 @@
                     "http-proxy": "",
                     "memcached": "",
                     "redis": "",
-                    "helenus": "",
-                    "xmlrpc": "" },
+                    "helenus": "" },
   "engines": { "node": ">= 0.10" },
   "scripts": {
-    "postinstall": "[ -f build/Release/backend.node ] && mv build/Release/*.node . || (exit 0)"
+    "postinstall": "[ -f build/Release/backend.node ] && mv build/Release/backend.node build || (exit 0)"
   }
 }

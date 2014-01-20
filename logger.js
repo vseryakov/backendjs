@@ -5,7 +5,7 @@
 
 var util = require('util');
 var fs = require('fs');
-var backend = require(__dirname + '/backend');
+var backend = require(__dirname + '/build/backend');
 
 // Simple logger utility for debugging
 var logger = {

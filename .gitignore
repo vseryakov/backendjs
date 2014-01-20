@@ -16,8 +16,9 @@
 .history
 .project
 node_modules
-bin/sqlite3
 build
 data
-src
 docs
+deps
+etc
+bin

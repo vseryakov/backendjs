@@ -13,37 +13,43 @@
 
 ## Installation
 
-  npm install node-backend
+### Requirements
+- PostgresSQL client libraries
+- ImageMagick
+- PCRE regexp library
+
+### NPM installation
+   ``` 
+   npm install node-backend
+   ```
   
-### Usage example
+## Usage example
 
 - Create file main.js with the following contents:
-```javascript
-var backend = require('node-backend');
+  ```javascript
+  var backend = require('node-backend');
 
-backend.api.onInit = function() {
-    // Add more properties(columns) to the base account table
-    this.initTables("account", [{ name: "facebook_id", type: "int" },
-                                { name: "facebook_email" },
-                                { name: "facebook_mtime", type: "int" }]);
+  backend.api.onInit = function() {
+      // Add more properties(columns) to the base account table
+      this.initTables("account", [{ name: "facebook_id", type: "int" },
+                                  { name: "facebook_email" },
+                                  { name: "facebook_mtime", type: "int" }]);
 
-    // Register custom API query path
-    this.app.get('/test', function(req, res) { res.json({ msg: "Test" }); });
-
-};
-
-backend.server.start();
-```
+      // Register custom API query path
+      this.app.get('/test', function(req, res) { res.json({ msg: "Test" }); });
+  };
+  backend.server.start();
+  ```
 
 - run the file as 
-
-       node main.js -port 8000 -web -console
-
+  ```
+  node main.js -port 8000 -web -console
+  ```     
 - go to http://localhost:8000/test to test new endpoint
 
 - go to http://localhost:8000/api.html for the Web console to test API requests
 
-## Default API endpoints provided by the backend
+## API endpoints provided by the backend
 
 ### Accounts
 ### Connections
@@ -61,49 +67,49 @@ backend.server.start();
  - to initialize environment for the backend development it needs to set permissions for $PREFIX(default is opt/local)
    to the current user, this is required to support global NPM modules. 
    - If $PREFIX needs to be changed, create .backendrc file and assing PREFIX=path, for example
-   
-        echo "PREFIX=$HOME/local" > .backendrc
-        
-        
+     ```
+     echo "PREFIX=$HOME/local" > .backendrc
+     ```   
+     
    - now run the init command to prepare the environment, bin/rc.backend will source .backendrc
+     ```
+     rc.backend init-backend
+     ```
 
-        bin/rc.backend init-backend
+ - to install node.js in $PREFIX/bin if not installed already run command:
+   ```
+   rc.backend build-node
+   ```
 
+- if node.js is installed, make sure all require modules are installed:
+  ```
+  rc.backend npm-deps
+  ``` 
 
- - to install node.js and required software run command:
-
-        bin/rc.backend build-src
-
-
-    it will create src/ in the current directory and install the following packages:
-     - node.js 0.10 in $PREFIX/bin
-     - npm modules in $PREFIX/lib/node_modules
-     - nanomsg library in $PREFIX/lib
-     - leveldb library in $PREFIX/lib
-     - ImageMagick in $PREFIX/lib
-
-     Important: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-     node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
+  Important: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+  node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
 
  - If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:
-
-        npm install -g docco
-
- - to compile the binary module just type ```make```
+   ```
+   npm install -g docco
+   ```
+   
+ - to compile the binary module and all required dependencies just type ```make```
+ 
  - to run local server on port 8000 run command:
-
-        make run
-
+   ``` 
+   make run
+   ```
  - to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
    similar to node.js REPL functionality. All modules are accessible from the command line.
+   ```
+   $ make shell
 
-       $ make repl
-
-       > core.version
-        '2013.10.20.0'
-       > logger.setDebug(2)
-
+   > core.version
+    '2013.10.20.0'
+   > logger.setDebug(2)
+   ```
 ## Backend configuration
 
  The backend directory structure is the following:
@@ -112,18 +118,18 @@ backend.server.start();
    - etc
       - config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
         Example:
-
-            debug=1
-            db-pool=ddb
-            db-ddb-pool=http://localhost:9000
-            db-pg-pool=postgresql://postgres@127.0.0.1/backend
-
+        ```
+        debug=1
+        db-pool=ddb
+        db-ddb-pool=http://localhost:9000
+        db-pg-pool=postgresql://postgres@127.0.0.1/backend
+        ```
      - crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
         Example:
-
-            [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
-              { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
-
+        ```
+        [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
+          { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
+        ```
    - images - all images to be served by the API server
      - account - account specific images
    - var - runtime files and db files
@@ -138,10 +144,10 @@ backend.server.start();
 
   The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed. In addition
   it supports symlinks with different name and uses it as a command to execute, for example:
-
-        ln -s rc.backend ntp
-        ./ntp is now the same as rc.backend ntp
-
+  ```
+  ln -s rc.backend ntp
+  ./ntp is now the same as rc.backend ntp
+  ```
   Running without arguments will bring help screen with description of all available commands.
   To make configuration management flexible the utility supports several config files which are read during execution for additional environment variables.
   

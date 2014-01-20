@@ -19,16 +19,20 @@
            "HAVE_GMTIME_R=1",
            "HAVE_STRERROR_R=1",
            "HAVE_READLINE=1"
+           "MAGICKCORE_HDRI_ENABLE=0",
+           "MAGICKCORE_QUANTUM_DEPTH=16"
         ],
         "include_dirs": [
            ".",
            "lib",
+           "include",
+           "build/include",
+           "build/include/ImageMagick-6",
            "/opt/local/include",
            "<!@(pg_config --includedir)",
         ],
         "libraries": [
-           "-L/opt/local/lib -L<!@(pg_config --libdir) -lleveldb -lpq -lpcre -lnanomsg",
-           "<!@(Wand-config --libs)"
+           "-L/opt/local/lib -Llib -L<!@(pg_config --libdir) -lMagickCore-6.Q16 -lMagickWand-6.Q16 -lleveldb -lsnappy -lnanomsg -lpq -lpcre",
         ],
         "sources": [
            "lib/node_backend.cpp",
@@ -52,7 +56,6 @@
                 "OTHER_CFLAGS": [
                    "-g",
                    "-fno-omit-frame-pointer",
-                   "<!@(Wand-config --cflags)"
                 ],
              }
            }],
@@ -67,7 +70,6 @@
              "cflags": [
                 "-g",
                 "-fno-omit-frame-pointer",
-                "<!@(Wand-config --cflags)",
                 "-rdynamic"
              ]
            }]

@@ -180,6 +180,13 @@ tests.s3icon = function(callback)
 	});
 }
     
+tests.icon = function(callback) 
+{
+    api.putIcon({ body: {}, files: { 1: { path: "../web/img/loading.gif" } } }, 1, { prefix: "account" }, function(err) {
+        callback(err);
+    });
+}
+
 tests.cookie = function(callback) 
 {
 	core.httpGet('http://www.google.com', { cookies: true }, function(err, params) {

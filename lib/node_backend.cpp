@@ -546,6 +546,15 @@ static Handle<Value> geoHashRow(const Arguments& args)
    return scope.Close(result);
 }
 
+static Handle<Value> setClientPath(const Arguments& args)
+{
+   HandleScope scope;
+
+   OPTIONAL_ARGUMENT_STRING(0, path);
+
+   return scope.Close(Local<String>::New(String::New(SetClientPath(*path))));
+}
+
 void backend_init(Handle<Object> target)
 {
     HandleScope scope;
@@ -564,6 +573,7 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "countWords", countWords);
     NODE_SET_METHOD(target, "countAllWords", countAllWords);
 
+    NODE_SET_METHOD(target, "setClientPath", setClientPath);
     NODE_SET_METHOD(target, "resizeImage", resizeImage);
     NODE_SET_METHOD(target, "resizeImageSync", resizeImageSync);
 

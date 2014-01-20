@@ -354,15 +354,9 @@ case "$ARG" in
     export PATH=$PREFIX/bin:$PATH
 
     echo "Starting backend $BACKEND_ARGS ..."
-    $PREFIX/bin/node $NODE_ARGS $ROOT/bin/backend -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
+    $PREFIX/bin/node $NODE_ARGS $ROOT/bin/run.js -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
     ;;
 
-  repl)
-    set -e
-    [ -f $ROOT/bin/backend ] && exec $PREFIX/bin/node $NODE_ARGS $ROOT/bin/backend -home $ROOT -shell $@
-    [ -f bin/backend ] && exec $PREFIX/bin/node $NODE_ARGS bin/backend -home ./data -shell $@
-    ;;
-    
   instance-idle)
     uptime=$(</proc/uptime)
     uptime=${uptime%%.*}
@@ -515,46 +509,9 @@ case "$ARG" in
   stop-cdb)
     kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
     ;;
-    
-  build-src)
-    set -e
-    
-    # Required macport packages
-    port install pcre automake autoconf
-    
-    # To support backtrace dump
-    CFLAGS="-fno-omit-frame-pointer" 
-    CXXFLAGS="-fno-omit-frame-pointer"
-    
-    mkdir src && cd src
-    
-    echo 'Installing node.js...'
-    git clone https://github.com/joyent/node.git
-    (cd node && git checkout v0.10 && ./configure --prefix=$PREFIX && make install)
-    
-    echo 'Installing node.js modules...'
-    echo -e "global=true\nnodedir=`pwd`/node" > $HOME/.npmrc
-    $PREFIX/bin/npm install node-expat cheerio printf async cron express generic-pool xml2json emailjs http-proxy memcached redis helenus
-    
-    echo 'Installing nanomsg...'
-    git clone https://github.com/nanomsg/nanomsg.git
-    (cd nanomsg && ./autogen.sh && ./configure --prefix=$PREFIX && make install)
-    
-    echo 'Installing leveldb...'
-    git clone https://code.google.com/p/leveldb
-    (cd leveldb && make && cp -r include/leveldb $PREFIX/include && rm -rf $PREFIX/lib/libleveldb* && cp libleveldb* $PREFIX/lib)
-    
-    echo 'Installing ImageMagick...'
-    mkdir -p ImageMagick
-    curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
-    tar -C ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz
-    rm -rf ImageMagick.tar.gz
-    (cd ImageMagick && ./configure --prefix=/opt/local && make install)
-    
-    ;;
-
+  
   run-shell)
-    bin/backend -shell -home `pwd`/data $@
+    run.js -shell -home `pwd`/data $@
     ;;
 
   init-backend)
@@ -566,19 +523,19 @@ case "$ARG" in
     echo "#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > data/etc/config
     echo "Making global backend module accessible in $NODE_BACKEND..."
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
-    rm -rf $PREFIX/bin/rc.backend && ln -s $(pwd) $NODE_BACKEND/bin/rc.backend $PREFIX/rc.backend
+    rm -rf $PREFIX/bin/rc.backend && ln -s $(pwd) $NODE_BACKEND/rc.backend $PREFIX/bin/rc.backend
     (cd data && rm -rf web && ln -s ../web)
     ;;
     
   put-backend)
     rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node $MASTER:$NODE_BACKEND
-    rsync -av -e "ssh -l $BACKEND_USER" bin/backend bin/rc.backend $MASTER:$PREFIX/bin
+    rsync -av -e "ssh -l $BACKEND_USER" backend rc.backend $MASTER:$PREFIX/bin
     rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
     ;;
     
   run-backend)
     killall node
-    bin/backend -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    run.js -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
     ;;
     
   clean-backend)
@@ -589,10 +546,60 @@ case "$ARG" in
   build-backend)
     set -e
     [ ! -f build/Makefile -o binding.gyp -nt build/Makefile ] && $PREFIX/bin/npm build .
+    [ ! -d build/include ] && ($0 build-deps)
     make -C build
-    [ -f build/Release/backend.node ] && mv build/Release/*.node .  
-
+    [ -f build/Release/backend.node ] && mv build/Release/*.node build  
     exit 0
+    ;;
+    
+  build-node)
+    mkdir -p deps && cd deps
+    
+    if [ ! -d node ]; then
+       git clone -b v0.10 https://github.com/joyent/node.git
+       echo -e "global=true\nnodedir=`pwd`/node" > $HOME/.npmrc
+       CFLAGS="-fno-omit-frame-pointer" 
+       CXXFLAGS="-fno-omit-frame-pointer"
+       ./configure --prefix=$PREFIX
+    fi
+    (cd node && git pull && make install clean)
+    ;;
+    
+  build-deps)
+    set -e
+    PREFIX=$(pwd)/build
+    mkdir -p deps && cd deps
+    
+    if [ ! -d nanomsg ]; then
+       git clone https://github.com/nanomsg/nanomsg.git
+       (cd nanomsg && [ ! -f Makefile ] && ./autogen.sh && ./configure --prefix=$PREFIX --enable-static --disable-shared)
+    fi
+    (cd nanomsg && git pull && make install)
+    
+    if [ ! -d snappy-1.1.1 ]; then
+       curl -OL https://snappy.googlecode.com/files/snappy-1.1.1.tar.gz
+       tar -xzf snappy-1.1.1.tar.gz && rm -rf snappy-1.1.1.tar.gz
+       (cd snappy-1.1.1 && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
+    fi   
+    (cd snappy-1.1.1 && make install)
+    
+    if [ ! -d leveldb ]; then
+       git clone https://code.google.com/p/leveldb
+    fi   
+    (cd leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY -I$PREFIX/include" libleveldb.a && cp -r include/leveldb $PREFIX/include && cp *.a $PREFIX/lib)
+
+    if [ ! -d ImageMagick ]; then
+       mkdir -p ImageMagick
+       curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
+       tar -C ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
+       (cd ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --without-x --without-magick-plus-plus --disable-installed --disable-shared --disable-perl --without-xml) 
+    fi
+    (cd ImageMagick && make install)
+    exit 0
+    ;;
+
+  npm-deps)
+    $PREFIX/bin/npm install $(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))')
     ;;
     
   init-app)
@@ -617,7 +624,7 @@ case "$ARG" in
     echo "  init - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
     echo "  setup - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use" 
     echo "  run - run the backend server process"
-    echo "  repl - start the backend REPL interface, the command line shell with all backend modules loaded"
+    echo "  run-shell - start the backend REPL interface, the command line shell with all backend modules loaded"
     echo "  instance-idle - to be run on instances, check for idleness, no jobs running then shutdown the host"
     echo "  sync - synchronize the backend code from the master server, uses master.$DOMAIN and rsync over ssh"
     echo "  sync-api - synchronize api directory from the master host, delete what is not on the master"
@@ -634,14 +641,15 @@ case "$ARG" in
     echo "  init-cdb - run Cassandra server and create backend keyspace"
     echo "  run-cdb - run local Cassandra server installed in $PREFIX/cassandra"
     echo "  stop-cdb - stop local Cassandra server"
-    echo "  build-src - build all required software for the backend development, download in the local ./src folder, compile and install in $PREFIX"
+    echo "  build-deps - build all required software for the backend binary module"
+    echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"
     echo "  init-backend - init core backend environment, for the core developemnt only, links NPM global backend module $NODE_BACKEND back to this sources"
-    echo "  put-backend - push the vbackend code to the master server"
+    echo "  put-backend - push the backend code to the master server, $MASTER"
     echo "  run-backend - run local backend server"
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the bakend development(node.js, libs)"
-    echo "  init-app - create app skeleton for an application based on the backend"
+    echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
     ;;
 esac
 

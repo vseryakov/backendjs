@@ -4,19 +4,19 @@
 #
 
 all:
-	bin/rc.backend build-backend
+	./rc.backend build-backend
 
 run:
-	bin/rc.backend run-backend
+	./rc.backend run-backend
 
 put:
-	bin/rc.backend put-backend
+	./rc.backend put-backend
 
-repl:
-	bin/rc.backend repl
+shell:
+	./rc.backend run-shell
 
 clean:
-	bin/rc.backend clean-backend
+	./rc.backend clean-backend
 
 doc:
 	docco *.js
