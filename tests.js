@@ -212,9 +212,15 @@ tests.location = function(callback)
     var longitude = core.randomNum(bbox[1], bbox[3])
     var distance = core.getArgInt("-distance", 2)
     var count = core.getArgInt("-count", 5)
-    var token = null, rc = {};
+    var token = null, rc = {}, rc2 = {};
+    bbox = backend.backend.geoBoundingBox(latitude, longitude, distance);
     
     async.series([
+        function(next) {
+            async.forEachSeries(Object.keys(tables), function(t, next2) {
+                db.drop(t, next2);
+            }, next);
+        },
         function(next) {
         	db.initTables(tables, next);
         },
@@ -238,15 +244,16 @@ tests.location = function(callback)
             var options = { latitude: latitude, longitude: longitude, distance: distance, count: count, calc_distance: 1 };
             db.getLocations("geo", options, function(err, rows, info) {
             	token = info;
-            	rows.forEach(function(x) { rc[x.geohash + x.georange] = x.id })
+            	rows.forEach(function(x) { rc[x.geohash + x.georange] = x.distance })
                 next(err || rows.length!=5 ? (err || "err1:" + util.inspect(rows)) : 0);
             });
         },
         function(next) {
+            logger.log('TOKEN:', token)
             db.getLocations("geo", token, function(err, rows, info) {
-                var rc2 = {}
-                rows.forEach(function(x) { rc2[x.geohash + x.georange] = x.id })
-                next(err || rows.length!=5 || Object.keys(rc).some(function(x) { return rc2[x] }) ? (err || "err2:" + util.inspect(rows) + " RC:" + util.inspect(rc) + " RC2:" + util.inspect(rc2)) : 0);
+                rows.forEach(function(x) { rc2[x.geohash + x.georange] = x.distance })
+                var same = Object.keys(rc).filter(function(x) { return rc2[x] });
+                next(err || rows.length!=5 || same.length ? (err || "err2: " + (Object.keys(rc).length + rows.length) + " rows SAME: " + same + " RC2:" + util.inspect(rc2) + " RC1:" + util.inspect(rc)) : 0);
             });
         }
     ],
@@ -276,6 +283,12 @@ tests.db = function(callback)
 	var id2 = core.random(128);
 	var next_token = null;
 	async.series([
+	    function(next) {
+	         logger.log('TEST: drop');
+	         async.forEachSeries(Object.keys(tables), function(t, next2) {
+	             db.drop(t, next2);
+	         }, next);
+	    },
 	    function(next) {
 	        logger.log('TEST: create');
 	    	db.initTables(tables, next);

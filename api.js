@@ -163,7 +163,7 @@ api.init = function(callback)
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
-        res.header('Access-Control-Allow-Headers', 'v-signature');
+        res.header('Access-Control-Allow-Headers', 'b-signature,b-next-token');
         next();
     });
     self.app.use(this.accessLogger());
@@ -435,7 +435,7 @@ api.initAccountAPI = function()
             break;
             
         default:
-            self.sendReply(res, 400);
+            self.sendReply(res, 400, "Invalid command");
         }
     });
 }
@@ -468,7 +468,7 @@ api.initIconAPI = function()
             break;
 
         default:
-            self.sendReply(res, 400);
+            self.sendReply(res, 400, "Invalid command");
         }
     });
 }
@@ -494,7 +494,7 @@ api.initMessageAPI = function()
             db.select("message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 // Send next token in the header so we keep the response as a simple list
-                if (info.next_token) res.header("Next-Token", core.toBase64(info.next_token));
+                if (info.next_token) res.header("b-next-token", core.toBase64(info.next_token));
                 rows.forEach(function(row) {
                     var mtime = row.mtime.split(":");
                     row.mtime = mtime[0];
@@ -530,7 +530,7 @@ api.initMessageAPI = function()
             break;
 
         default:
-            self.sendReply(res, 400);
+            self.sendReply(res, 400, "Invalid command");
         }
     });
 }
@@ -560,7 +560,7 @@ api.initHistoryAPI = function()
             break;
 
         default:
-            self.sendReply(res, 400);
+            self.sendReply(res, 400, "Invalid command");
         }
     });
 }
@@ -591,7 +591,7 @@ api.initCounterAPI = function()
             break;
             
         default:
-            self.sendReply(res, 400);
+            self.sendReply(res, 400, "Invalid command");
         }
     });
 }
@@ -671,7 +671,7 @@ api.initConnectionAPI = function()
             var options = { ops: { type: "begins_with" }, select: req.query._select, total: req.query._total, start: core.toJson(req.query._start) };
             db.select(req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                if (info.next_token) res.header("Next-Token", core.toBase64(info.next_token));
+                if (info.next_token) res.header("b-next-token", core.toBase64(info.next_token));
                 // Split type and reference id
                 rows.forEach(function(row) {
                     var type = row.type.split(":");
@@ -689,7 +689,7 @@ api.initConnectionAPI = function()
             break;
 
         default:
-            self.sendReply(res, 400);
+            self.sendReply(res, 400, "Invalid command");
         }
     });
     
@@ -763,6 +763,7 @@ api.initLocationAPI = function()
                         list[row.id] = row;
                         return row;
                     });
+                    res.header('b-next-token', core.toBase64(info));
                 	db.list("account", ids, { select: req.query._select, public_columns: 1 }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         // Merge locations and accounts
@@ -770,16 +771,16 @@ api.initLocationAPI = function()
                             var item = list[row.id];
                             for (var p in item) row[p] = item[p];
                         });
-                        res.json({ token: core.toBase64(info), rows: rows });
+                        res.json(rows);
                     });
                 } else {
-                    res.json({ token: core.toBase64(info), rows: rows });
+                    res.json(rows);
                 }            
             });
             break;
 
         default:
-            self.sendReply(res, 400);
+            self.sendReply(res, 400, "Invalid command");
         }
     });
 }

@@ -553,48 +553,48 @@ case "$ARG" in
     ;;
     
   build-node)
-    mkdir -p deps && cd deps
+    mkdir -p deps
     
-    if [ ! -d node ]; then
-       git clone -b v0.10 https://github.com/joyent/node.git
+    if [ ! -d deps/node ]; then
+       (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
        echo -e "global=true\nnodedir=`pwd`/node" > $HOME/.npmrc
        CFLAGS="-fno-omit-frame-pointer" 
        CXXFLAGS="-fno-omit-frame-pointer"
-       ./configure --prefix=$PREFIX
+       (cd deps/node && ./configure --prefix=$PREFIX)
     fi
-    (cd node && git pull && make install clean)
+    (cd deps/node && git pull && make install clean)
     ;;
     
   build-deps)
     set -e
     PREFIX=$(pwd)/build
-    mkdir -p deps && cd deps
+    mkdir -p deps
     
-    if [ ! -d nanomsg ]; then
-       git clone https://github.com/nanomsg/nanomsg.git
-       (cd nanomsg && [ ! -f Makefile ] && ./autogen.sh && ./configure --prefix=$PREFIX --enable-static --disable-shared)
+    if [ ! -d deps/nanomsg ]; then
+       (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
+       (cd deps/nanomsg && [ ! -f Makefile ] && ./autogen.sh && ./configure --prefix=$PREFIX --enable-static --disable-shared)
     fi
-    (cd nanomsg && git pull && make install)
+    (cd deps/nanomsg && git pull && make install)
     
-    if [ ! -d snappy-1.1.1 ]; then
+    if [ ! -d deps/snappy-1.1.1 ]; then
        curl -OL https://snappy.googlecode.com/files/snappy-1.1.1.tar.gz
-       tar -xzf snappy-1.1.1.tar.gz && rm -rf snappy-1.1.1.tar.gz
-       (cd snappy-1.1.1 && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
+       tar -C deps -xzf snappy-1.1.1.tar.gz && rm -rf snappy-1.1.1.tar.gz
+       (cd deps/snappy-1.1.1 && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
     fi   
-    (cd snappy-1.1.1 && make install)
+    (cd deps/snappy-1.1.1 && make install)
     
-    if [ ! -d leveldb ]; then
-       git clone https://code.google.com/p/leveldb
+    if [ ! -d deps/leveldb ]; then
+       (cd deps && git clone https://code.google.com/p/leveldb)
     fi   
-    (cd leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY -I$PREFIX/include" libleveldb.a && cp -r include/leveldb $PREFIX/include && cp *.a $PREFIX/lib)
+    (cd deps/leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY -I$PREFIX/include" libleveldb.a && cp -r include/leveldb $PREFIX/include && cp *.a $PREFIX/lib)
 
-    if [ ! -d ImageMagick ]; then
-       mkdir -p ImageMagick
+    if [ ! -d deps/ImageMagick ]; then
+       mkdir -p deps/ImageMagick
        curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
-       tar -C ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
-       (cd ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --without-x --without-magick-plus-plus --disable-installed --disable-shared --disable-perl --without-xml) 
+       tar -C deps/ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
+       (cd deps/ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --without-x --without-magick-plus-plus --disable-installed --disable-shared --disable-perl --without-xml) 
     fi
-    (cd ImageMagick && make install)
+    (cd deps/ImageMagick && make install)
     exit 0
     ;;
 

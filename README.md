@@ -15,13 +15,14 @@
 
 ### Requirements
 These libraries must be installed using your system package management or other tools
-- PostgresSQL client libraries
-- PCRE regexp library
+
+ - PostgresSQL client libraries
+ - PCRE regexp library
 
 Refer to your distribution package manager for exact names, some examples are:
-On Mac: port install postgresql93 pcre
-On Linux: apt-get install postgresql pcre
-          yum install postgresql pcre
+
+ - On Mac: port install postgresql93 pcre
+ - On Linux: apt-get install postgresql pcre or yum install postgresql pcre
 
 ### NPM installation
 ``` 
@@ -125,18 +126,20 @@ On Linux: apt-get install postgresql pcre
    - etc
       - config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
         Example:
-```
+        ```
         debug=1
         db-pool=ddb
         db-ddb-pool=http://localhost:9000
         db-pg-pool=postgresql://postgres@127.0.0.1/backend
-```
-     - crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
+        ```
+
+      - crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
         Example:
-```
+        ```
         [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
           { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
-```
+        ```
+
    - images - all images to be served by the API server
      - account - account specific images
      - message - message specific icons
@@ -176,9 +179,9 @@ On Linux: apt-get install postgresql pcre
 
   The required environment variables required by the tool are (with default values):
   
-   - PREFIX=/usr/local
-   - ROOT=/data
-   - DOMAIN=localhost
+    - PREFIX=/usr/local
+    - ROOT=/data
+    - DOMAIN=localhost
 
 
   Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory.

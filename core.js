@@ -919,16 +919,18 @@ core.httpGet = function(uri, params, callback) {
 
 // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
 // Host passed here must be the actual host where the request will be sent
-core.signUrl = function(accesskey, secret, host, uri, expires) {
+core.signUrl = function(accesskey, secret, host, uri, expires) 
+{
     var hdrs = this.signRequest(accesskey, secret, "GET", host, uri, "", expires);
-    return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&v-signature=" + encodeURIComponent(hdrs['v-signature']);
+    return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&b-signature=" + encodeURIComponent(hdrs['b-signature']);
 }
 
 // Sign HTTP request for the API server:
 // url must include all query parametetrs already encoded and ready to be sent
 // expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
 // checksum is SHA1 digest of the POST content, optional
-core.signRequest = function(id, secret, method, host, uri, expires, checksum) {
+core.signRequest = function(id, secret, method, host, uri, expires, checksum) 
+{
     var now = Date.now();
     if (!expires) expires = now + 30000;
     if (expires < now) expires += now;
@@ -936,18 +938,19 @@ core.signRequest = function(id, secret, method, host, uri, expires, checksum) {
     var qpath = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
     var str = String(method) + "\n" + String(host) + "\n" + String(qpath) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(checksum || "");
-    return { 'v-signature': '1;;' + String(id) + ';' + this.sign(String(secret), str) + ';' + expires + ';' + String(checksum || "") + ';;' };
+    return { 'b-signature': '1;;' + String(id) + ';' + this.sign(String(secret), str) + ';' + expires + ';' + String(checksum || "") + ';;' };
 }
 
 // Parse incomomg request for signature and return all pieces wrapped in an object, this object
 // will be used by checkSignature function for verification against an account
-core.parseSignature = function(req) {
+core.parseSignature = function(req) 
+{
     var rc = { version: 1, expires: 0, checksum: "", password: "" };
     // Input parameters, convert to empty string if not present
     rc.url = req.originalUrl || req.url || "/";
     rc.method = req.method || "";
     rc.host = (req.headers.host || "").split(':')[0];
-    rc.signature = req.query['v-signature'] || req.headers['v-signature'] || "";
+    rc.signature = req.query['b-signature'] || req.headers['b-signature'] || "";
     var d = String(rc.signature).match(/([^;]+);([^;]*);([^;]+);([^;]+);([^;]+);([^;]*);([^;]*);/);
     if (!d) return rc;
     rc.mode = this.toNumber(d[1]);
@@ -956,12 +959,13 @@ core.parseSignature = function(req) {
     rc.signature = d[4];
     rc.expires = this.toNumber(d[5]);
     rc.checksum = d[6] || "";
-    rc.url = req.url.replace(/v-signature=([^& ]+)/g, "");
+    rc.url = req.url.replace(/b-signature=([^& ]+)/g, "");
     return rc;
 }
 
 // Verify signature with given account, signature is an object reurned by parseSignature
-core.checkSignature = function(sig, account) {
+core.checkSignature = function(sig, account) 
+{
     var q = sig.url.split("?");
     var qpath = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
@@ -990,7 +994,8 @@ core.checkSignature = function(sig, account) {
 // - queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
 // - rowid - unique record id to be used in case of queue management
 // - checksum - calculate checksum from the data
-core.sendRequest = function(uri, options, callback) {
+core.sendRequest = function(uri, options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -1043,7 +1048,8 @@ core.sendRequest = function(uri, options, callback) {
 }
 
 // Send all pending updates from the queue table
-core.processQueue = function(callback) {
+core.processQueue = function(callback) 
+{
     var self = this;
     var db = self.context.db;
     
@@ -1058,22 +1064,26 @@ core.processQueue = function(callback) {
 }
 
 // Return argument value by name
-core.getArg = function(name, dflt, argv) {
+core.getArg = function(name, dflt, argv) 
+{
     argv = argv || this.argv;
     var idx = argv.indexOf(name);
     return idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : (typeof dflt == "undefined" ? "" : dflt);
 }
 
-core.getArgFlag = function(name, dflt) {
+core.getArgFlag = function(name, dflt) 
+{
     return this.argv.indexOf(name) > -1 ? true : (typeof dflt != "undefined" ? dflt : false);
 }
 
-core.getArgInt = function(name, dflt) {
+core.getArgInt = function(name, dflt) 
+{
     return this.toNumber(this.getArg(name, dflt));
 }
 
 // Send email
-core.sendmail = function(from, to, subject, text, callback) {
+core.sendmail = function(from, to, subject, text, callback) 
+{
     var server = emailjs.server.connect();
     server.send({ text: text || '', from: from, to: to + ",", subject: subject || ''}, function(err, message) {
          if (err) logger.error('sendmail:', err);
@@ -1089,7 +1099,8 @@ core.sendmail = function(from, to, subject, text, callback) {
 // - limit - number of lines to process and exit
 // - progress - if > 0 report how many lines processed so far evert specified lines
 // - until - skip lines until this regexp matches
-core.forEachLine = function(file, options, lineCallback, endCallback) {
+core.forEachLine = function(file, options, lineCallback, endCallback) 
+{
     if (!options) options = {};
     var buffer = new Buffer(4096);
     var data = '';
@@ -1176,7 +1187,6 @@ core.geoHash = function(latitude, longitude, options)
 			if (options.distance < range[i][1]) {
 				rbits = range[i-1][0];
 				steps = range[i][1] / range[i-1][1];
-				logger.log(range[i], range[i-1], rbits, steps);
 				break;
 			}
 		}

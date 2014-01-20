@@ -124,23 +124,28 @@ db.initTables = function(tables, callback)
         if (callback) callback(err);
     });
 }
-    
-// Init the pool, create tables and columns
-// options properties:
-// - pool - db pool to create the tables in
+
+// Init the pool, create tables and columns:
+// - name - db pool to create the tables in
 // - tables - an object with list of tables to create or upgrade
 db.initPoolTables = function(name, tables, callback) 
 {
     var self = this;
-    var options = { pool: name, tables: tables };
     
     logger.log('initPoolTables:', name, Object.keys(tables));
     
     // Add tables to the list of all tables this pool supports
-    var pool = self.getPool('', options);
+    var pool = self.getPool('', { pool: name });
     if (!pool.tables) pool.tables = {};
-    for (var p in tables) pool.tables[p] = tables[p];
-    
+    // Only keep tables this pool supports, ignore other tables configured for any particular pool
+    var ptables = {}
+    for (var p in tables) {
+        if (this.getPool(p).name != name) continue;
+        pool.tables[p] = tables[p];
+        ptables[p] = tables[p];
+    }
+
+    var options = { pool: name, tables: ptables };
     self.cacheColumns(options, function() {
     	// Workers do not manage tables, only master process
     	if (cluster.isWorker || core.worker) {
@@ -339,6 +344,7 @@ db.query = function(req, options, callback)
 	         if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
 	             self.clearCached(req.table, req.obj, options);
 	         }
+	         logger.log(req.text)
 	         logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
 	         if (callback) callback(err, rows, info);
 	     });
@@ -536,20 +542,24 @@ db.getLocations = function(table, options, callback)
     	var geo = core.geoHash(latitude, longitude, { distance: options.distance, max_distance: options.max_distance });
     	for (var p in geo) options[p] = geo[p];
     }
-    options.ops = { georange: "begins_with" };
     var count = options.count || 50;
+    options.nrows = count;
+    options.ops = { georange: "begins_with" };
     db.select(table, { geohash: options.geohash, georange: options.georange.split(":")[0] }, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;
+        logger.log('SELECT:', options.geohash, options.georange, rows.map(function(x) { return x.georange}));
     	count -= rows.length;
     	options.start = info.next_token;
         async.until(
                 function() { return count <= 0 || options.neighbors.length == 0; }, 
                 function(next) {
                 	var hash = options.neighbors.shift();
+                	options.count = count;
                 	options.geohash = hash.substr(0, options.geohash.length);
                 	options.georange = hash.substr(options.geohash.length, options.georange.length);
                 	options.start = null;
                 	db.select(table, { geohash: options.geohash, georange: options.georange }, options, function(err, items, info) {
+                        logger.log('NEXT:', options.geohash, options.georange, items.map(function(x) { return x.georange}))
                         rows.push.apply(rows, items);
                         count -= items.length;
                         options.start = info.next_token;
@@ -567,6 +577,8 @@ db.getLocations = function(table, options, callback)
                 			row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude);
                 		}
                 	});
+                	// Restore original count because we pass this whole options object on the next run
+                	options.count = options.nrows;
                 	if (callback) callback(err, rows, options);
                 });
     });	
@@ -656,7 +668,7 @@ db.create = function(table, columns, options, callback)
     this.query(req, options, callback);
 }
 
-// Upgrade SQL table with missing columns from the definition list
+// Upgrade a table with missing columns from the definition list
 db.upgrade = function(table, columns, options, callback) 
 {
     if (typeof options == "function") callback = options,options = {};
@@ -664,6 +676,26 @@ db.upgrade = function(table, columns, options, callback)
     var req = this.prepare("upgrade", table, columns, options);
     if (!req.text) return callback ? callback() : null;
     this.query(req, options, callback);
+}
+
+// Drop a table 
+db.drop = function(table, options, callback) 
+{
+    var self = this;
+    if (typeof options == "function") callback = options,options = {};
+    options = this.getOptions(table, options);
+    var req = this.prepare("drop", table, {}, options);
+    if (!req.text) return callback ? callback() : null;
+    this.query(req, options, function(err, rows, info) {
+        // Clear table cache
+        if (!err) {
+            var pool = self.getPool(table, options);
+            delete pool.dbcolumns[table];
+            delete pool.dbkeys[table];
+            delete pool.tables[table];
+        }
+        if (callback) callback(err, rows, info);
+    });
 }
 
 // Prepare for execution for the given operation: add, del, put, update,...
@@ -816,6 +848,7 @@ db.sqlPrepare = function(op, table, obj, options)
     case "search": return this.sqlSelect(table, obj, options);
     case "create": return this.sqlCreate(table, obj, options);
     case "upgrade": return this.sqlUpgrade(table, obj, options);
+    case "drop": return this.sqlDrop(table, obj, options);
     case "get": return this.sqlSelect(table, obj, core.extendObj(options, "count", 1));
     case "add": return this.sqlInsert(table, obj, options);
     case "put": return this.sqlInsert(table, obj, options);
@@ -1010,8 +1043,8 @@ db.sqlExpr = function(name, value, options)
         break;
         
     case 'begins_with':
-        sql += name + " >= " + this.sqlQuote(value);
-        sql += " AND " + name + " < " + this.sqlQuote(String.fromCharCode(value.charCodeAt(value.length-1) + 1));
+        sql += name + " > " + this.sqlQuote(value.substr(0, value.length-1) + String.fromCharCode(value.charCodeAt(value.length-1) - 1));
+        sql += " AND " + name + " < " + this.sqlQuote(value.substr(0, value.length-1) + String.fromCharCode(value.charCodeAt(value.length-1) + 1));
         break;
         
     case 'expr':
@@ -1265,6 +1298,15 @@ db.sqlCreateIndexes = function(table, obj, options)
         if (sql) rc.push(sql);
     });
     return rc;
+}
+
+db.sqlDrop = function(table, obj, options)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    
+    return { text: "DROP TABLE IF EXISTS " + table };
 }
 
 // Select object from the database, .keys is a list of columns for condition, .select is list of columns or expressions to return
@@ -1751,6 +1793,12 @@ db.dynamodbInitPool = function(options)
             
         case "upgrade":
             callback(null, []);
+            break;
+            
+        case "drop":
+            aws.ddbDeleteTable(table, options, function() {
+                callback(err, []);
+            });
             break;
             
         case "get":
