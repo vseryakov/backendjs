@@ -19,9 +19,9 @@
 - PCRE regexp library
 
 ### NPM installation
-   ``` 
+``` 
    npm install node-backend
-   ```
+```
   
 ## Usage example
 
@@ -67,9 +67,9 @@
  - to initialize environment for the backend development it needs to set permissions for $PREFIX(default is opt/local)
    to the current user, this is required to support global NPM modules. 
    - If $PREFIX needs to be changed, create .backendrc file and assing PREFIX=path, for example
-     ```
+```
      echo "PREFIX=$HOME/local" > .backendrc
-     ```   
+```   
      
    - now run the init command to prepare the environment, bin/rc.backend will source .backendrc
      ```
