@@ -1,4 +1,6 @@
 + *.js
 + *.json
-+ *.node
++ build
++ lib
++ web
 - *

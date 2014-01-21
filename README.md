@@ -19,59 +19,80 @@
 
 These libraries must be installed using your system package management or other tools
 
- - PostgresSQL client libraries
- - PCRE regexp library
+- PostgresSQL client libraries
+- PCRE regexp library
 
 Refer to your distribution package manager for exact names, some examples are:
 
- - On Mac: port install postgresql93 pcre
- - On Linux: apt-get install postgresql pcre or yum install postgresql pcre
+- On Mac: port install postgresql93 pcre
+- On Linux: apt-get install postgresql pcre or yum install postgresql pcre
 
 ### NPM installation
-``` 
-   npm install node-backend
-```
+ 
+     npm install node-backend
+
   
-## Usage
+## Quick start
 
-The backend framework is a tool, not a turn-key solution but it provides hooks and easy to use
-functions for common operations. And of course this is node.js, all Javascript functions are available.
+* Run default backend without any custom extensions, by default it will use embedded Sqlite database and listen on port 8000
 
-Once the server started, it creates all required tables in the default database confgured by the -db-pool
-config parameter or sqlite by default and listens on the configured port or port 80 by default. There is
-the Web console available for testing the API. All requests must be signed, the core module and 
-Javascript module based on jQuery(web/js/backend.js) can be used to make API requests, see the API
-endpoints section below for details.
+     rc.backend run-backend
+     
+* Now go to http://localhost:8000/api.html for the Web console to test API requests, cancel for login prompt on the first call.
+  For this example let's create couple of accounts, type and execute the following URLs in the Web console
+  
+     /account/add?name=test1&secret=test1&email=test1@test.com
+     /account/add?name=test2&secret=test2&email=test2@test.com
+     /account/add?name=test3&secret=test3&email=test3@test.com
 
-- To see all command line arguments for the server you can run the following command:
-```
-node -e "require('backend').core.help()"
-```
+* Now login with any of the accounts, click on the Login link at the top right corner of the Web console.
+  If not error messages appeared after login, try to get your current account details:
+  
+     /account/get
+     
+* To see all public fields for accounts just execute
 
-- Create file main.js with the following contents:
-```javascript
-  var backend = require('node-backend');
+     /account/search
 
-  // Customize the API server with additional tables, endpoints or other features
-  backend.api.onInit = function() {
-      // Add more properties/columns to the base account table (optional)
-      this.initTables("account", [{ name: "facebook_id", type: "int" },
-                                  { name: "facebook_email" } ]);
+* To make custom server just create file main.js with the following contents:
 
-      // Register custom API endpoint
-      this.app.get('/test', function(req, res) { res.json({ msg: "Test" }); });
-  };
-  // Start the server
-  backend.server.start();
-```
+        var backend = require('backend');
 
-- run the file as 
-```
-  node main.js -port 8000 -web -console
-```     
-- go to http://localhost:8000/test to test new endpoint
+        // Add more properties/columns to the base account table which we need to keep for our social site
+        backend.api.registerTables({ account: { 
+                                        facebook_id: { type: "int", pub: 1 } 
+                                   } 
+        });
 
-- go to http://localhost:8000/api.html for the Web console to test API requests
+        // Customize the API server with additional tables, endpoints or other features
+        backend.api.onInit = function() {
+
+            // Register custom API endpoint, return FB status 
+            this.app.get('/fbstatus', function(req, res) { 
+                
+                // Retrieve our current account record, req.account contains our authenticated account id
+                backend.db.get("account", { id: req.account.id }, function(err, rows) {
+                
+                    // Ask Facebook about us
+                    var url = "https://graph.facebook.com/" + rows[0].facebook_id;
+                    backend.core.httpGet(url, function(err, params) {
+                        res.json(params.data);
+                    })
+                }); 
+            });
+        };
+        // Start the server
+        backend.server.start();
+
+* Run the file now directly:
+
+     node main.js -port 8000 -web -console
+
+* Lets update our Facebook id
+
+     /account/update?facebook_id=5
+     
+* Go to http://localhost:8000/fbstatus to see what Facebook tels about this user
 
 ## API endpoints provided by the backend
 
@@ -83,124 +104,114 @@ node -e "require('backend').core.help()"
 ### Counters
 ### History
 
+## Backend configuration and directory structure
+
+When the backend server starts and no -home argument passed in the command line the backend setups required 
+environment in the ~/.backend directory.
+ 
+The backend directory structure is the following:
+
+* etc/config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
+  Example:
+
+        debug=1
+        db-pool=ddb
+        db-ddb-pool=http://localhost:9000
+        db-pg-pool=postgresql://postgres@127.0.0.1/backend
+
+
+* etc/crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
+  Example:
+
+         [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
+           { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
+
+
+* etc/proxy - HTTP proxy config file, same format as in http-proxy npm package
+  Example:
+        
+        { "target" : { "host": "localhost", "port": 8001 } }
+            
+* etc/profile - shell script loaded by the rc.backend utility to customize env variables  
+            
+* images - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
+* var - database files created by the server
+* tmp - temporary files
+
+## The backend provisioning utility: rc.backend
+
+The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
+and as well to be used in operations on production systems.
+Running without arguments will bring help screen with description of all available commands.
+
+The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed. In addition
+it supports symlinks with different name and uses it as a command to execute, for example:
+
+     ln -s rc.backend ntp
+     ./ntp is now the same as rc.backend ntp
+
+On startup the rc.backend tries to load and source the following config files:
+  
+      /data/etc/profile
+      /etc/backend.profile
+      /usr/local/etc/backend.profile
+      $HOME/.backend/etc/profile
+
+Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or 
+customize the running environment, these should be regular shell scripts using bash syntax.
+
 # Backend framework development (Mac OS X, developers only)
 
- - git clone https://[your username]@bitbucket.org/vseryakov/backend.git
- - SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
- - cd backend
- - to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
+* git clone https://[your username]@bitbucket.org/vseryakov/backend.git
+* SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
+* cd backend
+* to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
    to the current user, this is required to support global NPM modules. 
 
- - If $PREFIX needs to be changed, create .backendrc file and assing PREFIX=path, for example
-```
-   echo "PREFIX=$HOME/local" > .backendrc
-```   
+* If $PREFIX needs to be changed, create ~/.backend/etc/config file and assign PREFIX=path, for example:
 
- - __Important__: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+     echo "PREFIX=$HOME/local" > .backendrc
+   
+
+* __Important__: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
    node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
      
- - now run the init command to prepare the environment, bin/rc.backend will source .backendrc
-```
-   rc.backend init-backend
-```
+* now run the init command to prepare the environment, bin/rc.backend will source .backendrc
 
- - to install node.js in $PREFIX/bin if not installed already run command:
-```
-   rc.backend build-node
-```
+     rc.backend init-backend
+
+
+* to install node.js in $PREFIX/bin if not installed already run command:
+
+     rc.backend build-node
+
 
 - if node.js is installed, make sure all required modules are installed, thi sis required because we did not installed the 
   backend via npm with all dependencies:
-```
-  rc.backend npm-deps
-``` 
 
- - If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:
-```
-   npm install -g docco
-```
-   
- - to compile the binary module and all required dependencies just type ```make```
+     rc.backend npm-deps
  
- - to run local server on port 8000 run command:
-``` 
-   make run
-```
- - to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
+
+* If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:
+
+     npm install -g docco
+
+   
+* to compile the binary module and all required dependencies just type ```make```
+ 
+* to run local server on port 8000 run command:
+ 
+     make run
+
+* to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
    similar to node.js REPL functionality. All modules are accessible from the command line.
-```
-   $ make shell
 
-   > core.version
-    '2013.10.20.0'
-   > logger.setDebug(2)
-```
-## Backend configuration
+     $ make shell
 
- The backend directory structure is the following:
-
- - data/ - root directory for the backend
-   - etc
-      - config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
-        Example:
-        - debug=1
-        - db-pool=ddb
-        - db-ddb-pool=http://localhost:9000
-        - db-pg-pool=postgresql://postgres@127.0.0.1/backend
-
-      - crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
-        Example:
-
-           [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
-             { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
-
-
-   - images - all images to be served by the API server
-     - account - account images
-     - message - message icons
-   - var - runtime files and db files
-     - backend.db - generic sqlite database, always created and opened by the backend
-   - tmp - temporary files
-   - web - public files to be served by the web servers
-
-## The backend utility: rc.backend
-
-  The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
-  and as well to be used in operations on production systems.
-
-
-  The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed. In addition
-  it supports symlinks with different name and uses it as a command to execute, for example:
-```
-  ln -s rc.backend ntp
-  ./ntp is now the same as rc.backend ntp
-```
-
-  Running without arguments will bring help screen with description of all available commands.
-  To make configuration management flexible the utility supports several config files which are read during execution for additional environment variables.
-
-  
-  By default the utility is configured to be used on live Linux sytems in production without any config files, the default backend root directory is /data.
-  Under this root are all required directories required by the backend code and described above.
-
-
-  For development purposes and to be able to use the backend in regular user home directories the utility is trying to read the following config files:
-  
-    /etc/backend/profile
-    $ROOT/etc/profile
-    $HOME/.backendrc
-    .backendrc
-
-
-  The required environment variables required by the tool are (with default values):
-  
-    PREFIX=/usr/local
-    ROOT=/data
-    DOMAIN=localhost
-
-
-  Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory.
+     > core.version
+      '2013.10.20.0'
+     > logger.setDebug(2)
 
 
 # Author

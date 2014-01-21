@@ -46,7 +46,7 @@ var api = {
                    email: { unique: 1 },
                    name: {},
                    alias: { pub: 1, index: 1 },
-                   status: { pub: 1 },
+                   status: {},
                    phone: {},
                    website: {},
                    birthday: { semipub: 1 },
@@ -188,17 +188,15 @@ api.init = function(callback)
 
     // Provisioning access to the database
     self.initBackendAPI();
-
-    // Post init or other application routes
-    self.onInit.call(this);
     
     // Assign row handler for the account table
     db.getPool('account').processRow = self.processAccountRow;
     
-    db.initTables(this.tables, callback);
+    // Post init or other application routes
+    self.onInit.call(self, callback);
 }
 
-//Cutomization hooks/callbacks, always run within api context
+// Cutomization hooks/callbacks, always run within api context
 api.onInit = function() {}
        
 // Perform authorization of the incoming request for access and permissions
@@ -783,8 +781,8 @@ api.processAccountRow = function(row, options, cols)
     var self = this;
     if (row.birthday) {
     	row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-    	delete row.birthday;
     }
+    delete row.birthday;
     // List all available icons, on icon put, we save icon type in the icons property
     core.strSplitUnique(row.icons).forEach(function(x) {
         row['icon' + x] = core.context.api.imagesUrl + '/image/account/' + row.id + '/' + x;
@@ -847,16 +845,15 @@ api.initTables = function(callback)
 
 // Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes
 // Used during initialization of the external modules which may add custom columns to the existing tables. 
-api.updateTables = function(table, columns) 
+api.registerTables = function(tables) 
 {
     var self = this;
-    if (!Array.isArray(columns)) return;
-    if (!self.tables[table]) self.tables[table] = []; 
-    columns.forEach(function(x) {
-        if (typeof x == "object" && x.name && !self.tables[table].some(function(y) { return y.name == x.name })) {
-            self.tables[table].push(x);
-        } 
-    });
+    for (var p in tables) {
+        if (!self.tables[p]) self.tables[p] = {}; 
+        for (var c in tables[p]) {
+            if (!self.tables[p][c]) self.tables[p][c] = tables[p][c];
+        }
+    }
 }
 
 // Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back

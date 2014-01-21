@@ -1,23 +1,49 @@
 {
-  "version": "1.0.0",
+  "version": "0.9.0",
   "author": "Vlad Seryakov",
   "name": "backend",
   "description": "Backend framework",
   "main": "index",
-  "dependencies": { "printf" : "",
-                    "node-expat": "",
-                    "async": "",
-                    "cron": "",
-                    "express": "",
-                    "generic-pool": "",
-                    "emailjs": "",
-                    "cheerio": "",
-                    "xml2json": "",
-                    "http-proxy": "",
-                    "memcached": "",
-                    "redis": "",
-                    "helenus": "" },
-  "engines": { "node": ">= 0.10" },
+  "preferGlobal": "true",
+  "repository": {
+    "type": "git",
+    "url": "https://bitbucket.org/vseryakov/backend.git"
+  },
+  "dependencies": { 
+    "printf" : "",
+    "node-expat": "",
+    "async": "",
+    "cron": "",
+    "express": "",
+    "generic-pool": "",
+    "emailjs": "",
+    "cheerio": "",
+    "xml2json": "",
+    "http-proxy": "",
+    "memcached": "",
+    "redis": "",
+    "helenus": "" 
+  },
+  "keywords": [
+    "database",
+    "API",
+    "DynamoDB",
+    "Cassandra",
+    "Sqlite",
+    "PostgreSQL",
+    "location",
+    "instance",
+    "jobs",
+    "cron",
+    "geohash"
+  ],
+  "engines": { 
+    "node": ">= 0.10" 
+  },
+  "license": "BSD-3-Clause",
+  "bin": {
+    "rc.backend": "./rc.backend"
+  },
   "scripts": {
     "postinstall": "[ -f build/Release/backend.node ] && mv build/Release/backend.node build || (exit 0)"
   }

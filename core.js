@@ -40,7 +40,7 @@ var core = {
     instance: false,
 
     // Home directory, current by default, must be absolute path
-    home: process.env.BACKEND_HOME || '',
+    home: process.env.HOME + '/.backend',
 
     // Various folders, by default relative paths are used
     path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: __dirname + "/web", log: "log" },
@@ -169,10 +169,9 @@ module.exports = core;
 core.init = function(callback) 
 {
     var self = this;
-
-    // Assume current dir as our home
-    self.setHome();
-
+    // Default home as absolute path
+    self.setHome(self.home);
+    
     // Find our IP address
     var intf = os.networkInterfaces();
     Object.keys(intf).forEach(function(x) {
@@ -275,6 +274,7 @@ core.setHome = function(home)
     if ((home || self.home) && cluster.isMaster) {
         if (home) self.home = path.resolve(home);
         try {
+            self.makePath(self.home);
             process.chdir(self.home);
         } catch(e) {
             logger.error('setHome: cannot set home directory', self.home, e);
@@ -1461,7 +1461,7 @@ core.findFileSync = function(file, filter)
     return list;
 }
 
-// Recursively create all directries, return 1 if created
+// Recursively create all directories, return 1 if created
 core.makePathSync = function(dir) 
 {
     var list = path.normalize(dir).split("/");

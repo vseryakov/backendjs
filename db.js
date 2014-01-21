@@ -330,7 +330,7 @@ db.query = function(req, options, callback)
 	         }
 	         // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
 	         if (options && options.public_columns) {
-	         	var cols = self.publicColumns(req.table, options);
+	         	var cols = self.getPublicColumns(req.table, options);
 	         	if (cols.length) {
 	         		rows.forEach(function(row) {
 	         			for (var p in row) 	if (cols.indexOf(p) == -1) delete row[p];
@@ -646,7 +646,7 @@ db.getCachedKey = function(table, obj, options)
 // - index - column is part of an index
 // - value - default value for the column
 // - pub - columns is public
-// - semipub - column is not public but still retrieved to support other public columns
+// - semipub - column is not public but still retrieved to support other public columns, must be deleted after use
 // - hashindex - index that consists from primary key hash and this column for range
 // Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2
 db.create = function(table, columns, options, callback) 
@@ -729,13 +729,14 @@ db.getColumn = function(table, name, options)
     return this.getColumns(table, options)[name];
 }
 
-// Return list of selected or allowed onhly columns, empty list of no condition given
+// Return list of selected or allowed only columns, empty list of no condition given
 db.getSelectedColumns = function(table, options)
 {
     var self = this;
     var cols = this.getColumns(table, options);
+    var pub = this.getPublicColumns(table, options);
     if (options.select) options.select = core.strSplitUnique(options.select);
-    var select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols); });
+    var select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols) || (options.public_columns && pub.indexOf(x) == -1); });
     return select.length ? select : null;
 }
 
@@ -810,7 +811,7 @@ db.mergeColumns = function(pool)
 //  - .semipub means not allowed but must be returned for calculations in the select to produce another public column
 // options may be used to define the following properties:
 // - columns - list of public columns to be returned, overrides the public columns in the definition list
-db.publicColumns = function(table, options) 
+db.getPublicColumns = function(table, options) 
 {
     if (options && Array.isArray(options.columns)) {
         return options.columns.filter(function(x) { return x.pub || x.semipub }).map(function(x) { return x.name });

@@ -4,15 +4,13 @@
 #  Sep 2013
 #
 
-PREFIX=/usr/local
-ROOT=/data
 DOMAIN=localhost
 
 # Host specific settings and environment variables
-[ -f /etc/backend/profile ] && . /etc/backend/profile
-[ -f $ROOT/etc/profile ] && . $ROOT/etc/profile
-[ -f $HOME/.backendrc ] && . $HOME/.backendrc
-[ -f .backendrc ] && . .backendrc
+[ -f /data/etc/profile ] && . /data/etc/profile
+[ -f /etc/backend.profile ] && . /etc/backend.profile
+[ -f /usr/local/etc/backend.profile ] && . /usr/local/etc/backend.profile
+[ -f ~/.backend/etc/profile ] && . ~/.backend/etc/profile
 
 # Make sure we have defaults set
 [ "$LOCAL_UID" = "" ] && LOCAL_UID=777
@@ -36,26 +34,30 @@ case "$PLATFORM" in
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
     # In multi-os environment have to sync by os type due to different dependencies in each distro
     [ "$BACKEND_OS_TYPE" != "" ] && MASTER=$OS_TYPE-$MASTER
+    KILLALL="killall -qr"
     ;;
     
   Darwin)
     OS_TYPE=macosx
-    [ "$ROOT" = "" ] && ROOT=/opt/local
     [ "$PREFIX" = "" ] && PREFIX=/opt/local
     [ "$PG_PREFIX" = "" ] && PG_PREFIX=$PREFIX/lib/postgresql93 && PG_DIR=$PREFIX/var/db/postgres
+    KILLALL="killall -m"
     ;;
 esac
 
 # Set paths after we know OS type and possible custom settings
+[ "$ROOT" = "" ] && ROOT=~/.backend
+[ "$PREFIX" = "" ] && PREFIX=/usr/local
 [ "$BACKUP" = "" ] && BACKUP=$ROOT/backup
+[ "$CDB_PREFIX" = "" ] && CDB_PREFIX=$PREFIX/cassandra
 [ "$CDB_DIR" = "" ] && CDB_DIR=$ROOT/cassandra
 [ "$PG_DIR" = "" ] && PG_DIR=$ROOT/postgres
 [ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
-[ "$DDB_DIR" = "" ] && DDB_DIR=$PREFIX/dynamodb
-[ "$NODE_DIR" = "" ] && NODE_DIR=$PREFIX/lib/node_modules
-[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_DIR/backend
+[ "$DDB_PREFIX" = "" ] && DDB_PREFIX=$PREFIX/dynamodb
+[ "$NODE_PATH" = "" ] && NODE_PATH=$PREFIX/lib/node_modules
+[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/backend
 
-export PATH=$PREFIX/bin:$PG_PREFIX/bin:$PATH
+export PATH=$PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 
 # If started without parameters use script name as a parameter
 NAME=$(echo $0 | awk -F/ '{print $NF}')
@@ -74,27 +76,30 @@ case "$ARG" in
     esac
     ;;
 
-  stop)
-    killall -qr '^backend' node
-    killall -qr '^backend' node
-    ;;
-
   restart)
     $0 stop
     sleep 2
     $0 start
     ;;
 
-  kill-web)
-    killall -qr 'backend: web'
+  stop)
+    $KILLALL 'backend:'
+    $KILLALL 'backend:'
+    exit 0
     ;;
   
+  stop-web)
+    $KILLALL 'backend: web'
+    $KILLALL 'backend: web'
+    exit 0
+    ;;
+
   init)
     echo "Initializing backend..."
-    # Update to the latest code
+    # Update to the latest code if necessary
     ($0 sync)
 
-    # Restart itself with new code to continue init
+    # Restart itself with new code to continue the init sequence
     ($0 setup)
     ;;
 	
@@ -102,7 +107,7 @@ case "$ARG" in
     # Combine with command line arguments if running manually
     BACKEND_ARGS="$BACKEND_ARGS $@"
 
-    # Mount data disk, for cases when all configs are on this disk bootstrap profile 
+    # Mount data disk, for cases when all configs are on this disk so the bootstrap profile 
     # must be located somewhere else like home or etc
     if [ "$(grep $ROOT /proc/mounts)" = "" -a "$(grep $DISK /proc/diskstats)" != "" ] ; then
       echo "Mounting $ROOT to $DISK ..."
@@ -149,14 +154,12 @@ case "$ARG" in
        echo "alias alog=\"tail -100 $ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
        echo 'alias brc="sudo $PREFIX/bin/rc.backend"' >> .bashrc
-       echo 'alias bcp="$PREFIX/bin/rc.backend repl"' >> .bashrc
+       echo 'alias bcp="$PREFIX/bin/rc.backend run-shell"' >> .bashrc
        echo 'alias ps="ps augx"' >> .bashrc
        echo 'alias mc="mc -b"' >> .bashrc
-       echo 'alias pps="psql -A -c \"select * from pg_stat_activity where state='active'\""' >> .bashrc
        echo 'ulimit -c unlimited' >> .bash_profile
        echo 'export JAVA_HOME=/usr' >> .bash_profile
        echo 'export EC2_HOME=/usr/local/ec2' >> .bash_profile
-       echo -e 'export PGDATABASE=backend\nexport PGUSER=postgres' >> .bash_profile
     fi
 
     # Allow only pubkey auth
@@ -265,10 +268,11 @@ case "$ARG" in
     fi
 
     # Setup environment files
-    echo "export PATH=$ROOT/bin;$PREFIX/bin:$NODE_BACKEND/bin:$PG_PREFIX/bin:$CDB_DIR/bin;$PATH" > /etc/profile.d/backend.sh
-    echo "export NODE_PATH=$NODE_DIR" >> /etc/profile.d/backend.sh
+    echo "export PATH=$ROOT/bin:$PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:$PATH" > /etc/profile.d/backend.sh
+    echo "export NODE_PATH=$NODE_PATH" >> /etc/profile.d/backend.sh
     echo "$PREFIX/lib" > /etc/ld.so.conf.d/local.conf
     postfix reload
+    ldconfig
 
     # Disable firewall and SELinux
     if [ -f /etc/selinux/config ]; then
@@ -311,7 +315,13 @@ case "$ARG" in
        ($0 sync-$dir)
     done
 
-    # Linux disto specific actions
+    # Make sure instances are not running indefinetely
+    rm -rf /etc/cron.hourly/instance-idle
+    if [[ $BACKEND_ARGS =~ \-(instance ) ]]; then
+       ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/instance-idle
+    fi
+
+    # Linux distro specific actions
     case "$OS_TYPE" in 
       centos)
          if [ ! -f /etc/yum.repos.d/pgdg-93-centos.repo ]; then
@@ -332,27 +342,15 @@ case "$ARG" in
     # Install required packages and utilities
     yum -y install gcc-c++ make cmake autoconf automake libtool 
     yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel 
-    yum -y install ImageMagick-devel postgresql93-devel
+    yum -y install postgresql93-devel
 
-    # Make sure instances are not running indefinetely
-    rm -rf /etc/cron.hourly/instance-idle
-    if [[ $BACKEND_ARGS =~ \-(instance ) ]]; then
-       ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/instance-idle
-    fi
     ;;
 
   run)
     # Additional arguments via EC2 instance user data
     BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
-    if [[ $BACKEND_ARGS = *-no-server* ]]; then
-       exit
-    fi
+    [[ $BACKEND_ARGS = *-no-server* ]] && exit
  
-    # Setup environment and paths
-    ldconfig
-    ulimit -c unlimited -n 8196
-    export PATH=$PREFIX/bin:$PATH
-
     echo "Starting backend $BACKEND_ARGS ..."
     $PREFIX/bin/node $NODE_ARGS $NODE_BACKEND/server.js -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
     ;;
@@ -470,14 +468,14 @@ case "$ARG" in
     ;;  
     
   get-ddb)
-    mkdir -p $DDB_DIR
+    mkdir -p $DDB_PREFIX
     curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz
-    tar -C $DDB_DIR --strip-components=1 -xzf ddb.tar.gz
+    tar -C $DDB_PREFIX --strip-components=1 -xzf ddb.tar.gz
     rm -rf ddb.tar.gz
     ;;
     
   run-ddb)
-    (cd $ROOT/var && exec nohup java -Djava.library.path=$DDB_DIR -jar $DDB_DIR/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
+    (cd $ROOT/var && exec nohup java -Djava.library.path=$DDB_PREFIX -jar $DDB_PREFIX/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
     ;;
     
   stop-ddb)
@@ -485,46 +483,40 @@ case "$ARG" in
     ;;
       
   get-cdb)
-    if [ ! -d $CDB_DIR ]; then
-        mkdir -p $CDB_DIR/var $CDB_DIR/log
+    if [ ! -d $CDB_PREFIX ]; then
+        mkdir -p $CDB_PREFIX $CDB_DIR/var $CDB_DIR/log
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
-        tar -C $CDB_DIR --strip-components=1 -xzf dsc.tar.gz
+        tar -C $CDB_PREFIX --strip-components=1 -xzf dsc.tar.gz
         rm -rf dsc.tar.gz
-        sed -i "s|/var/lib/cassandra/|$CDB_DIR/var/|g" $CDB_DIR/conf/*
-        sed -i "s|/var/log/cassandra/|$CDB_DIR/log/|g" $CDB_DIR/conf/*
-        chown -R $LOCAL_USER $CDB_DIR
+        sed -i "s|/var/lib/cassandra/|$CDB_DIR/var/|g" $CDB_PREFIX/conf/*
+        sed -i "s|/var/log/cassandra/|$CDB_DIR/log/|g" $CDB_PREFIX/conf/*
+        chown -R $LOCAL_USER $CDB_DIR $CDB_PREFIX
     fi
     ;;
   
   init-cdb)
     ($0 run-cdb)
-    echo "create keyspace backend with replication = {'class': 'SimpleStrategy' , 'replication_factor': 0 };" > /tmp/cql
-    $CDB_DIR/bin/cqlsh -f /tmp/cql
+    echo "create keyspace backend with replication = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
+    $CDB_PREFIX/bin/cqlsh -f /tmp/cql
     ;;
     
   run-cdb)
-    $CDB_DIR/bin/cassandra
+    $CDB_PREFIX/bin/cassandra
     ;;
     
   stop-cdb)
     kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
     ;;
-  
-  run-shell)
-    $PREFIX/bin/node server.js -shell -home `pwd`/data $@
-    ;;
-
+      
   init-backend)
     echo "Settings permissions for $PREFIX to $(whoami)..."
-    sudo chown -R $(whoami) /opt/local
-    echo "ROOT=./data" > .backendrc
-    mkdir -p web data/etc
-    echo "Creating default config file in data/etc/config..."
-    echo "#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > data/etc/config
+    sudo chown -R $(whoami) $PREFIX
+    mkdir -p $ROOT/etc
+    echo "Creating default config file in $ROOT/etc/config..."
+    echo "#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $ROOT/etc/config
     echo "Making global backend module accessible in $NODE_BACKEND..."
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
     rm -rf $PREFIX/bin/rc.backend && ln -s $(pwd) $NODE_BACKEND/rc.backend $PREFIX/bin/rc.backend
-    (cd data && rm -rf web && ln -s ../web)
     ;;
     
   put-backend)
@@ -535,9 +527,21 @@ case "$ARG" in
     
   run-backend)
     killall node
-    $PREFIX/bin/node server.js -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    SCRIPT=$NODE_BACKEND/server.js
+    [ -f server.js ] && SCRIPT=server.js
+    $PREFIX/bin/node $SCRIPT -watch `pwd` -debug -home $ROOT -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
     ;;
     
+  run-shell)
+    SCRIPT=$NODE_BACKEND/server.js
+    [ -f server.js ] && SCRIPT=server.js
+    $PREFIX/bin/node server.js -shell -home $ROOT $@
+    ;;
+
+  show-help)
+    $PREFIX/bin/node -e "require('backend').core.help()"
+    ;;
+
   clean-backend)
     rm -rf *~ *.o *.a *.so *.dylib *.node *.log build
     [ -f lib/Makefile ] && make -C lib clean
@@ -612,11 +616,14 @@ case "$ARG" in
     
   init-app)
     NAME=${2:-app}
-    mkdir -p etc
-    [ ! -e .backendrc ] && echo "ROOT=./\nPREFIX=$PREFIX\nPG_PREFIX=\$PREFIX/lib/postgresql93\nPG_DIR=\$PREFIX/var/db/postgres\nCDB_DIR=$PREFIX/cassandra" > .backendrc 
+    mkdir -p $ROOT/etc
     [ ! -e $NAME.sh ] && echo "#!/bin/bash\n\nexec $PREFIX/bin/node $NAME.js \$@\n" > $NAME.sh && chmod 755 $NAME.sh
-    [ ! -e data/etc/config ] && echo "#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > etc/config
+    [ ! -e $ROOT/etc/config ] && echo "#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $ROOT/etc/config
     [ ! -e $NAME.js ] && echo "#\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > $NAME.js
+    ;;
+    
+  show)
+    set
     ;;
     
   *)
@@ -626,9 +633,9 @@ case "$ARG" in
     echo "  start - start the backend server process, to be used in Linux system startup scripts /etc/init.d by symlinking rc.backend to one of:"
     echo "    SXXbackend-init - startup script to be run very early to setup all required dependencies and directories, similar to rc.backend init"
     echo "    SXXbackend - to start the backend server, similar to rc.backend run"
-    echo "  stop - stop the backend server"
     echo "  restart - restart the backend server"
-    echo "  kill-web - kill Web worker processes so they will restart with possibly new node.js modules"
+    echo "  stop - stop the backend server"
+    echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
     echo "  init - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
     echo "  setup - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use" 
     echo "  run - run the backend server process"
@@ -656,6 +663,7 @@ case "$ARG" in
     echo "  init-backend - init core backend environment, for the core developemnt only, links NPM global backend module $NODE_BACKEND back to this sources"
     echo "  put-backend - push the backend code to the master server, $MASTER"
     echo "  run-backend - run local backend server"
+    echo "  show-help - show all backend command line and config parameters"
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the bakend development(node.js, libs)"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
