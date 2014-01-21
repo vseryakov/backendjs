@@ -65,8 +65,8 @@ var api = {
                    mtime: { type: "int" } },
                    
        // Locations for all accounts to support distance searches
-       location: { geohash: { primary: 1 },                // geohash, the first part, biggest radius expected
-                   georange: { primary: 1 },               // georange:id, the second part, the rest of the geohash
+       location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
+                   id: { primary: 1 },                     // account id, part of the primary key for pagination
                    latitude: { type: "real" },
                    longitude: { type: "real" },
                    mtime: { type: "int" }},
@@ -110,18 +110,10 @@ var api = {
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
     
-    // Minimal distance in km between updates of account location, this is to avoid 
-    // too many location updates with very high resolution is not required
-    minDistance: 5,
-    // Max distance in km for location searches
-    maxDistance: 50, 
-   
     // Config parameters
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
            { name: "images-s3", descr: "S3 bucket name where to image store instead of data/images directory on the filesystem" },
            { name: "access-log", descr: "File for access logging" },
-           { name: "min-distance", type: "int", descr: "Min distance for location updates, if smaller updates will be ignored"  },
-           { name: "max-distance", type: "int", max: 40000, min: 1, descr: "Max distance for locations searches"  },
            { name: "allow", type: "regexp", descr: "Regexp for URLs that dont need credentials" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access"  },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
@@ -716,7 +708,7 @@ api.initLocationAPI = function()
                 req.account.longitude = rows[0].longitude;
                 // Skip if within minimal distance
                 var distance = backend.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
-                if (distance < self.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + self.minDistance);
+                if (distance < core.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + core.minDistance);
                 
                 var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
                 db.update("account", obj, function(err) {
@@ -724,14 +716,14 @@ api.initLocationAPI = function()
                     res.json(self.processAccountRow(obj));
                     
                     // Delete current location
-                    var geo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance, max_distance: self.maxDistance });
-                    geo.georange += ":" + req.account.id;
+                    var geo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance });
+                    geo.id = req.account.id;
                     db.del("location", geo);
                     
                     // Insert new location
-                    geo = core.geoHash(latitude, longitude, { distance: req.account.distance, max_distance: self.maxDistance });
+                    geo = core.geoHash(latitude, longitude, { distance: req.account.distance });
+                    geo.id = req.account.id;
                     geo.mtime = now;
-                    geo.georange += ":" + req.account.id;
                     db.put("location", geo);
                 });
                     
@@ -747,10 +739,10 @@ api.initLocationAPI = function()
             // Perform location search based on hash key that covers the whole region for our configured max distance
             if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
             // Limit the distance within our configured range
-            req.query.distance = core.toNumber(req.query.distance, 0, self.minDistance, self.minDistance, self.maxDistance);
+            req.query.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
             // Continue pagination using the search token
             var token = core.toJson(req.query._token);   
-            if (token && token.geohash && token.georange) {
+            if (token && token.geohash) {
             	if (token.latitude != req.query.latitude ||	token.longitude != req.query.longitude) return self.sendRepy(res, 400, "invalid token");
             	options = token;
             }

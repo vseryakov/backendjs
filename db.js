@@ -344,7 +344,6 @@ db.query = function(req, options, callback)
 	         if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
 	             self.clearCached(req.table, req.obj, options);
 	         }
-	         logger.log(req.text)
 	         logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
 	         if (callback) callback(err, rows, info);
 	     });
@@ -526,7 +525,7 @@ db.search = function(table, obj, options, callback)
 
 // Geo locations search, paginate all results until the end.
 // table must be defined with the following required columns:
-//  - geohash and georange as strings, this is the primary key, if georange contains : then the last part is 
+//  - geohash and id as strings, this is the primary key
 //    split and saved as property id in the record
 //  - latitude and longitude as floating numbers
 // On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
@@ -537,50 +536,40 @@ db.search = function(table, obj, options, callback)
 db.getLocations = function(table, options, callback)
 {
 	var latitude = options.latitude, longitude = options.longitude;
-    var distance = core.toNumber(options.distance, 0, 1, 2, 999);
-    if (!options.start) {
-    	var geo = core.geoHash(latitude, longitude, { distance: options.distance, max_distance: options.max_distance });
+    var distance = core.toNumber(options.distance, 0, 2, 1, 999);
+    var count = core.toNumber(options.count, 0, 50, 0, 250);
+    if (!options.geohash) {
+    	var geo = core.geoHash(latitude, longitude, { distance: distance });
     	for (var p in geo) options[p] = geo[p];
     }
-    var count = options.count || 50;
+    options.start = null;
     options.nrows = count;
-    options.ops = { georange: "begins_with" };
-    db.select(table, { geohash: options.geohash, georange: options.georange.split(":")[0] }, options, function(err, rows, info) {
+    options.sort = "id";
+    options.ops = { id: "gt" };
+    db.select(table, { geohash: options.geohash, id: options.id || "" }, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;
-        logger.log('SELECT:', options.geohash, options.georange, rows.map(function(x) { return x.georange}));
     	count -= rows.length;
-    	options.start = info.next_token;
         async.until(
-                function() { return count <= 0 || options.neighbors.length == 0; }, 
-                function(next) {
-                	var hash = options.neighbors.shift();
-                	options.count = count;
-                	options.geohash = hash.substr(0, options.geohash.length);
-                	options.georange = hash.substr(options.geohash.length, options.georange.length);
-                	options.start = null;
-                	db.select(table, { geohash: options.geohash, georange: options.georange }, options, function(err, items, info) {
-                        logger.log('NEXT:', options.geohash, options.georange, items.map(function(x) { return x.georange}))
-                        rows.push.apply(rows, items);
-                        count -= items.length;
-                        options.start = info.next_token;
-                        next(err);
-                    });
-                }, function(err) {
-                	// Split id from the georange if exisst
-                	rows.forEach(function(row) { 
-                		var colon = row.georange.indexOf(":");
-                		if (colon > 0) {
-                			row.id = row.georange.slice(colon + 1);
-                			row.georange = row.georange.slice(0, colon);
-                		}
-                		if (options.calc_distance) {
-                			row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude);
-                		}
-                	});
-                	// Restore original count because we pass this whole options object on the next run
-                	options.count = options.nrows;
-                	if (callback) callback(err, rows, options);
+            function() { return count <= 0 || options.neighbors.length == 0; }, 
+            function(next) {
+                options.id = "";
+                options.count = count;
+                options.geohash = options.neighbors.shift();
+                db.select(table, { geohash: options.geohash, id: options.id }, options, function(err, items, info) {
+                    rows.push.apply(rows, items);
+                    count -= items.length;
+                    next(err);
                 });
+            }, function(err) {
+                if (options.calc_distance) {
+                    rows.forEach(function(row) { row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude); });
+                }
+                // Restore original count because we pass this whole options object on the next run
+                options.count = options.nrows;
+                // Make the last row our next starting point
+                if (rows.length) options.id = rows[rows.length -1].id;
+                if (callback) callback(err, rows, options);
+            });
     });	
 }
 
@@ -1796,7 +1785,7 @@ db.dynamodbInitPool = function(options)
             break;
             
         case "drop":
-            aws.ddbDeleteTable(table, options, function() {
+            aws.ddbDeleteTable(table, options, function(err) {
                 callback(err, []);
             });
             break;
@@ -1827,6 +1816,8 @@ db.dynamodbInitPool = function(options)
                 }
                 return options.filter ? items.filter(function(row) { return options.filter(row, options); }) : items; 
             }
+            // Do not use index name if it is a primary key
+            if (options.sort && Object.keys(keys).indexOf(options.sort) > -1) options.sort = null;
             options.select = self.getSelectedColumns(table, options);
             aws.ddbQueryTable(table, keys, options, function(err, item) {
                 if (err) return callback(err, []);

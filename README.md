@@ -126,23 +126,21 @@ Refer to your distribution package manager for exact names, some examples are:
    - etc
       - config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
         Example:
-        ```
-        debug=1
-        db-pool=ddb
-        db-ddb-pool=http://localhost:9000
-        db-pg-pool=postgresql://postgres@127.0.0.1/backend
-        ```
+        - debug=1
+        - db-pool=ddb
+        - db-ddb-pool=http://localhost:9000
+        - db-pg-pool=postgresql://postgres@127.0.0.1/backend
 
       - crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
         Example:
-        ```
-        [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
-          { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
-        ```
+
+           [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
+             { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
+
 
    - images - all images to be served by the API server
-     - account - account specific images
-     - message - message specific icons
+     - account - account images
+     - message - message icons
    - var - runtime files and db files
      - backend.db - generic sqlite database, always created and opened by the backend
    - tmp - temporary files
@@ -171,17 +169,17 @@ Refer to your distribution package manager for exact names, some examples are:
 
   For development purposes and to be able to use the backend in regular user home directories the utility is trying to read the following config files:
   
-    - /etc/backend/profile
-    - $ROOT/etc/profile
-    - $HOME/.backendrc
-    - .backendrc
+    /etc/backend/profile
+    $ROOT/etc/profile
+    $HOME/.backendrc
+    .backendrc
 
 
   The required environment variables required by the tool are (with default values):
   
-    - PREFIX=/usr/local
-    - ROOT=/data
-    - DOMAIN=localhost
+    PREFIX=/usr/local
+    ROOT=/data
+    DOMAIN=localhost
 
 
   Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory.

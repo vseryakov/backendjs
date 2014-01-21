@@ -199,9 +199,8 @@ tests.location = function(callback)
 {
 	var self = this;
 	var tables = {
-			geo: { id: { pub: 1 },
-			       geohash: { primary: 1 },
-			       georange: { primary: 1 },
+			geo: { geohash: { primary: 1 },
+			       id: { primary: 1, pub: 1 },
                    latitude: { type: "real" },
                    longitude: { type: "real" },
 			       mtime: { type: "int" } 
@@ -210,15 +209,15 @@ tests.location = function(callback)
     var rows = core.getArgInt("-rows", 10);
     var latitude = core.randomNum(bbox[0], bbox[2])
     var longitude = core.randomNum(bbox[1], bbox[3])
-    var distance = core.getArgInt("-distance", 2)
+    var distance = core.getArgInt("-distance", 25)
     var count = core.getArgInt("-count", 5)
-    var token = null, rc = {}, rc2 = {};
+    var token = null, rc = [], rc2 = [];
     bbox = backend.backend.geoBoundingBox(latitude, longitude, distance);
     
     async.series([
         function(next) {
             async.forEachSeries(Object.keys(tables), function(t, next2) {
-                db.drop(t, next2);
+                db.drop(t, function() { next2() });
             }, next);
         },
         function(next) {
@@ -232,7 +231,8 @@ tests.location = function(callback)
         	            var latitude = core.randomNum(bbox[0], bbox[2]);
         	            var longitude = core.randomNum(bbox[1], bbox[3]);
         	            var obj = core.geoHash(latitude, longitude);
-        	            obj.georange += ":" + rows;
+        	            obj.id = String(rows);
+        	            rc.push(obj.geohash + obj.id);
         		    	db.put("geo", obj, next2);
         		    },
         		    function(err) {
@@ -244,16 +244,19 @@ tests.location = function(callback)
             var options = { latitude: latitude, longitude: longitude, distance: distance, count: count, calc_distance: 1 };
             db.getLocations("geo", options, function(err, rows, info) {
             	token = info;
-            	rows.forEach(function(x) { rc[x.geohash + x.georange] = x.distance })
+            	rows.forEach(function(x) { rc2.push(x.geohash + x.id)})
                 next(err || rows.length!=5 ? (err || "err1:" + util.inspect(rows)) : 0);
             });
         },
         function(next) {
             logger.log('TOKEN:', token)
             db.getLocations("geo", token, function(err, rows, info) {
-                rows.forEach(function(x) { rc2[x.geohash + x.georange] = x.distance })
-                var same = Object.keys(rc).filter(function(x) { return rc2[x] });
-                next(err || rows.length!=5 || same.length ? (err || "err2: " + (Object.keys(rc).length + rows.length) + " rows SAME: " + same + " RC2:" + util.inspect(rc2) + " RC1:" + util.inspect(rc)) : 0);
+                rows.forEach(function(x) { rc2.push(x.geohash + x.id)})
+                rc.sort();
+                rc2.sort();
+                rc = rc.join(",");
+                rc2 = rc2.join(",");
+                next(err || rows.length!=5 || rc != rc2 ? (err || "err2: " + util.inspect(rows) + ":" + rc + ":" + rc2) : 0);
             });
         }
     ],

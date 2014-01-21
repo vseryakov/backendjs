@@ -123,11 +123,18 @@ var core = {
             { name: "backend-key", descr: "Credentials key for the master backend access" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access" },
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
+            { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius)" },
+            { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request" },
             { name: "instance", type: "bool", descr: "enables instance mode, means the backend is runnin on remote instance" },
             { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace fcility, trap crashes and report the backtrace stack" },
             { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development" }
     ],
         
+    // Geo min distance for the hash key, km
+    minDistance: 5,
+    // Max searchable distance, km
+    maxDistance: 50,
+    
     // Inter-process messages
     ipcs: {},
     ipcId: 1,
@@ -144,7 +151,8 @@ var core = {
 module.exports = core;
 
 // Main intialization, must be called prior to perform any actions
-core.init = function(callback) {
+core.init = function(callback) 
+{
     var self = this;
 
     // Assume current dir as our home
@@ -549,12 +557,14 @@ core.toNumber = function(str, decimals, dflt, min, max)
 }
 
 // Return true if value represents true condition
-core.toBool = function(val) {
+core.toBool = function(val) 
+{
     return !val || val == "false" || val == "FALSE" || val == "f" || val == "F" || val == "0" ? false : true;
 }
 
 // Return Date object for given text or numeric date represantation, for invalid date returns 1969
-core.toDate = function(val) {
+core.toDate = function(val) 
+{
     var d = null;
     // Assume it is seconds which we use for most mtime columns, convert to milliseconds
     if (typeof val == "number" && val < 2147483647) val *= 1000;
@@ -563,7 +573,8 @@ core.toDate = function(val) {
 }
 
 // Convert value to the proper type
-core.toValue = function(val, type) {
+core.toValue = function(val, type) 
+{
     switch ((type || this.typeName(val))) {
     case 'array':
         return Array.isArray(val) ? val : String(val).split(/[,\|]/);
@@ -599,7 +610,8 @@ core.toValue = function(val, type) {
 }
 
 // Evaluate expr, compare 2 values with optional type and opertion
-core.isTrue = function(val1, val2, op, type) {
+core.isTrue = function(val1, val2, op, type) 
+{
     switch ((op ||"").toLowerCase()) {
     case 'null':
         if (v) return false;
@@ -714,7 +726,8 @@ core.isTrue = function(val1, val2, op, type) {
 //  - mtime - Date object with the last modified time of the requested file
 //  - size - size of the response body or file
 // Note: SIDE EFFECT: params object is modified in place so many options will be changed/removed or added
-core.httpGet = function(uri, params, callback) {
+core.httpGet = function(uri, params, callback) 
+{
     var self = this;
     if (typeof params == "function") callback = params, params = null;
     if (!params) params = {};
@@ -1170,35 +1183,21 @@ core.forEachLine = function(file, options, lineCallback, endCallback)
 // Return object with geohash for given coordinates to be used for location search
 // options may contain the follwong properties:
 //   - distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted
-//   - max_distance - max distance for the search, defines hash key size and must be common for all candidates
 core.geoHash = function(latitude, longitude, options)
 {
+    var self = this;
 	if (!options) options = {};
-	if (!options.max_distance) options.max_distance = 100;
+	if (options.distance && options.distance < this.minDistance) options.distance = this.minDistance;
 	
 	// Geohash ranges for different lenghts in km
-	var range = [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20], [3, 78], [2, 630], [1, 2500], [1, 99999]];
-	var hbits = range.filter(function(x) { return x[1] > options.max_distance })[0][0];
-	var rbits = 12;
-	var steps = 1;
-	// Find how many bits we use for the range key and how many neighbors we need on each side from the center
-	if (options.distance) {
-		for (var i = 0; i < range.length; i++) {
-			if (options.distance < range[i][1]) {
-				rbits = range[i-1][0];
-				steps = range[i][1] / range[i-1][1];
-				break;
-			}
-		}
-	}
+	var range = [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999]];
+	var size = range.filter(function(x) { return x[1] > self.minDistance })[0];
 	var geohash = backend.geoHashEncode(latitude, longitude);
-	return { geohash: geohash.substr(0, hbits), 
-			 georange: geohash.substr(hbits, rbits - hbits), 
-			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, hbits + rbits - hbits), steps) : [],
+	return { geohash: geohash.substr(0, size[0]), 
+			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, size[0]), Math.floor(options.distance / size[1])).slice(1) : [],
 			 latitude: latitude, 
 			 longitude: longitude, 
-			 distance: options.distane || 0,
-			 max_distance: options.max_distance };
+			 distance: options.distance || 0 };
 }
 
 // Encrypt data with the given key code
@@ -1582,7 +1581,8 @@ core.getIcon = function(uri, id, options, callback)
 // - prefix - top level subdirectory under images/
 // - force - to rescale even if it already exists
 // - width, height, filter, ext, quality for backend.resizeImage function
-core.putIcon = function(file, id, options, callback) {
+core.putIcon = function(file, id, options, callback) 
+{
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -1606,7 +1606,8 @@ core.putIcon = function(file, id, options, callback) {
 // - infile can be a string with file name or a Buffer with actual image data
 // - outfle is not empty is a file naem where to store scaled image or if empty the new image contents will be returned in the callback
 // - options can specify image extension in .ext, width/height/filter/quality
-core.scaleIcon = function(infile, outfile, options, callback) {
+core.scaleIcon = function(infile, outfile, options, callback) 
+{
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     backend.resizeImage(infile, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, outfile, function(err, data) {
@@ -1770,7 +1771,8 @@ core.cookieGet = function(domain, callback)
 
 // Save new cookies arrived in the request, 
 // merge with existing cookies from the jar which is a list of cookies before the request
-core.cookieSave = function(cookiejar, setcookies, hostname, callback) {
+core.cookieSave = function(cookiejar, setcookies, hostname, callback) 
+{
     var self = this;
     var cookies = !setcookies ? [] : Array.isArray(setcookies) ? setcookies : String(setcookies).split(/[:](?=\s*[a-zA-Z0-9_\-]+\s*[=])/g);
     logger.debug('cookieSave:', cookiejar, 'SET:', cookies);
@@ -1825,14 +1827,16 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback) {
 }
 
 // Adds reference to the objects in the core for further access, specify module name, module reference pairs
-core.addContext = function() {
+core.addContext = function() 
+{
 	for (var i = 0; i < arguments.length - 1; i+= 2) {
 		this.context[arguments[i]] = arguments[i + 1];
 	}
 }
 
 // Create REPL interface with all modules available
-core.createRepl = function(options) {
+core.createRepl = function(options) 
+{
     var self = this;
     var r = repl.start(options || {});
     r.context.core = this;
@@ -1865,7 +1869,8 @@ core.createRepl = function(options) {
 }
 // Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
 // This function is not async-safe, it uses sync calls
-core.watchTmp = function(dirs, secs, pattern) {
+core.watchTmp = function(dirs, secs, pattern) 
+{
     var self = this;
     var now = core.now();
     (dirs || []).forEach(function(dir) {
@@ -1883,7 +1888,8 @@ core.watchTmp = function(dirs, secs, pattern) {
 }
 
 // Watch files in a dir for changes and call the callback
-core.watchFiles = function(dir, pattern, callback) {
+core.watchFiles = function(dir, pattern, callback) 
+{
     logger.debug('watchFiles:', dir, pattern);
     fs.readdirSync(dir).filter(function(file) { 
         return file.match(pattern);
@@ -1902,7 +1908,8 @@ core.watchFiles = function(dir, pattern, callback) {
 }
 
 // Watch log files for errors and report via email
-core.watchLogs = function(callback) {
+core.watchLogs = function(callback) 
+{
     var self = this;
 
     // Need email to send
