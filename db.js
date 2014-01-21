@@ -132,7 +132,7 @@ db.initPoolTables = function(name, tables, callback)
 {
     var self = this;
     
-    logger.log('initPoolTables:', name, Object.keys(tables));
+    logger.debug('initPoolTables:', name, Object.keys(tables));
     
     // Add tables to the list of all tables this pool supports
     var pool = self.getPool('', { pool: name });

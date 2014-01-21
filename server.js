@@ -641,11 +641,11 @@ server.launchJob = function(job, options, callback)
                 "-backend-host", core.backendHost || "",
                 "-backend-key", core.backendKey || "",
                 "-backend-secret", core.backendSecret || "",
-                "-jobname", Object.keys(job).join(","),
-                "-job", core.toBase64(job) ];
+                "-server-jobname", Object.keys(job).join(","),
+                "-server-job", core.toBase64(job) ];
     
     if (!options.noshutdown) {
-        args.push("-job", core.toBase64({ 'server.shutdown': { runlast: 1 } }));
+        args.push("-server-job", core.toBase64({ 'server.shutdown': { runlast: 1 } }));
     }
     
     // Command line arguments for the instance, must begin with -

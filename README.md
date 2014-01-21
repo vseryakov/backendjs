@@ -2,18 +2,21 @@
 
 - General purpose backend framework based on the Express web server.
 - Supports Sqlite, PostgreSQL, DynamoDB, Cassandra databases.
-- Supports account, connection, location, messaging and icons API via HTTP(S)
-- Supports server only operations with crontab scheduling for local and remote(AWS) jobs
-- Authentication is based on signed requests using API key and secret
-- Runs web server as separate process to utilize multipke CPU cores
+- Provides accounts, connections, locations, messaging and icons API over HTTP, aka Web services
+- Supports crontab-like scheduling for local and remote(AWS) jobs
+- Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests
+- Runs web server as separate processes to utilize multiple CPU cores
 - Supports several cache modes(Redis, memcached, local cache) for the database operations
 - Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API 
-- ImageMagick is compiled as C++ module for image scaling
+- ImageMagick is compiled as C++ module for in-process image scaling
 - nanomsg interface for messaging between processes and servers
+- REPL(command line) interface for debugging and looking into server internals
+- Geohash based location searches supported by all databases 
 
 ## Installation
 
 ### Requirements
+
 These libraries must be installed using your system package management or other tools
 
  - PostgresSQL client libraries
@@ -29,21 +32,36 @@ Refer to your distribution package manager for exact names, some examples are:
    npm install node-backend
 ```
   
-## Usage example
+## Usage
+
+The backend framework is a tool, not a turn-key solution but it provides hooks and easy to use
+functions for common operations. And of course this is node.js, all Javascript functions are available.
+
+Once the server started, it creates all required tables in the default database confgured by the -db-pool
+config parameter or sqlite by default and listens on the configured port or port 80 by default. There is
+the Web console available for testing the API. All requests must be signed, the core module and 
+Javascript module based on jQuery(web/js/backend.js) can be used to make API requests, see the API
+endpoints section below for details.
+
+- To see all command line arguments for the server you can run the following command:
+```
+node -e "require('backend').core.help()"
+```
 
 - Create file main.js with the following contents:
 ```javascript
   var backend = require('node-backend');
 
+  // Customize the API server with additional tables, endpoints or other features
   backend.api.onInit = function() {
-      // Add more properties(columns) to the base account table
+      // Add more properties/columns to the base account table (optional)
       this.initTables("account", [{ name: "facebook_id", type: "int" },
-                                  { name: "facebook_email" },
-                                  { name: "facebook_mtime", type: "int" }]);
+                                  { name: "facebook_email" } ]);
 
-      // Register custom API query path
+      // Register custom API endpoint
       this.app.get('/test', function(req, res) { res.json({ msg: "Test" }); });
   };
+  // Start the server
   backend.server.start();
 ```
 

@@ -88,7 +88,8 @@ var core = {
                  ],
 
     // Config parameters
-    args: [ { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debuggng messages", pass: 1 },
+    args: [ { name: "help", type: "callback", value: function() { core.help() }, descr: "Print help and exit" },
+            { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debuggng messages", pass: 1 },
             { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
             { name: "logfile", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages", pass: 1 },
             { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog", pass: 1 },
@@ -98,10 +99,24 @@ var core = {
             { name: "umask", descr: "Filesystem mask" },
             { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after start if running as root" },
             { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },
-            { name: "port", type: "number", min: 0, max: 99999, descr: "HTTP port to listen for the server" },
+            { name: "port", type: "number", min: 0, max: 99999, descr: "HTTP port to listen for the servers, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
-            { name: "repl-port", type: "number", min: 0, max: 99999, descr: "Port for REPL interface server" },
-            { name: "repl-bind", descr: "Listen only on specified address for REPL server" },
+            { name: "daemon", type: "none", descr: "Daemonize the process, go to the background" },
+            { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands" },
+            { name: "repl", type: "none", descr: "Initialize REPL interface to be accesed via TCP port" },
+            { name: "watch", type: "none", descr: "For development, while the server is running restart it if any of the source files got changed" },
+            { name: "monitor", type: "none", descr: "For production, monitor the server processes and restart if crashed or exited" },
+            { name: "master", type: "none", descr: "Start the master server" },
+            { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file" },
+            { name: "proxy-port", type: "none", descr: "Proxy server port" },
+            { name: "proxy-bind", type: "none", descr: "Proxy server listen address" },
+            { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port" },
+            { name: "web-port", type: "none", descr: "Web server port" },
+            { name: "web-bind", type: "none", descr: "Web server listen address" },
+            { name: "web-repl-port", type: "none", descr: "Web server REPL port" },
+            { name: "web-repl-bind", type: "none", descr: "Web server REPL listen address" },
+            { name: "repl-port", type: "number", min: 0, max: 99999, descr: "Port for REPL interface server, global default" },
+            { name: "repl-bind", descr: "Listen only on specified address for REPL server, global default" },
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache" },
             { name: "lru-server", descr: "LRU server that acts as a NNBUS node to brosadcast cache messages to all connected backends" },
@@ -173,6 +188,8 @@ core.init = function(callback)
     // Path to the ImageMagick config files
     backend.setClientPath(__dirname);
     var db = self.context.db;
+    
+    logger.log(process.argv)
     
     // Serialize initialization procedure, run each function one after another
     async.series([
@@ -281,15 +298,7 @@ core.parseArgs = function(argv)
     argv = argv.map(function(x) { return x.replace(/%20/g, ' ') });
     logger.dev('parseArgs:', argv.join(' '));
     
-    // Special case, display help for all args
-    if (this.argv.indexOf("--help") > -1) {
-        var args = [ [ '', core.args ] ];
-        Object.keys(this.context).forEach(function(n) { if (self.context[n].args) args.push([n, self.context[n].args]); })
-        args.forEach(function(x) { x[1].forEach(function(y) { if (y.name && y.descr) console.log(printf("%-40s", (x[0] ? x[0] + '-' : '') + y.name), y.descr); }); });
-        process.exit(0);
-    }
-    
-    // Core parameters
+   // Core parameters
     self.processArgs("core", self, argv);
     
     // Run registered handlers for each module
@@ -323,6 +332,8 @@ core.processArgs = function(name, ctx, argv, pass)
         if (val && val[0] == '-') val = ""; 
         logger.dev("processArgs:", name, ":", key, "=", val);
         switch (x.type || "") {
+        case "none":
+            break;
         case "bool":
             ctx[key] = !val ? true : self.toBool(val);
             break;
@@ -357,6 +368,16 @@ core.processArgs = function(name, ctx, argv, pass)
             ctx[key] = val;
         }
     });
+}
+
+// Print help about command line arguments and exit
+core.help = function() 
+{
+    var self = this;
+    var args = [ [ '', core.args ] ];
+    Object.keys(this.context).forEach(function(n) { if (self.context[n].args) args.push([n, self.context[n].args]); })
+    args.forEach(function(x) { x[1].forEach(function(y) { if (y.name && y.descr) console.log(printf("%-40s", (x[0] ? x[0] + '-' : '') + y.name), y.descr); }); });
+    process.exit(0);
 }
 
 // Parse local config file
