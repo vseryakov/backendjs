@@ -354,7 +354,7 @@ case "$ARG" in
     export PATH=$PREFIX/bin:$PATH
 
     echo "Starting backend $BACKEND_ARGS ..."
-    $PREFIX/bin/node $NODE_ARGS $ROOT/bin/run.js -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
+    $PREFIX/bin/node $NODE_ARGS $NODE_BACKEND/server.js -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
     ;;
 
   instance-idle)
@@ -511,7 +511,7 @@ case "$ARG" in
     ;;
   
   run-shell)
-    run.js -shell -home `pwd`/data $@
+    $PREFIX/bin/node server.js -shell -home `pwd`/data $@
     ;;
 
   init-backend)
@@ -535,7 +535,7 @@ case "$ARG" in
     
   run-backend)
     killall node
-    run.js -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    $PREFIX/bin/node server.js -watch `pwd` -debug -home `pwd`/data -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
     ;;
     
   clean-backend)
