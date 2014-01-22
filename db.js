@@ -312,7 +312,7 @@ db.initPool = function(options, createcb, columnscb)
 db.query = function(req, options, callback) 
 {
 	 var self = this;
-	 if (typeof options == "function") callback = options, options = {};
+	 if (typeof options == "function") callback = options, options = null;
 	 if (!options) options = {};
 	 if (core.typeName(req) != "object") req = { text: req };
 	 if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
@@ -339,9 +339,8 @@ db.query = function(req, options, callback)
 	         }
 	         // Convert values if we have custom column callback
 	         self.processRows(pool, req.table, rows, options);
-	         
 	         // Cache notification in case of updates, we must have the request prepared by the db.prepare
-	         if (options && options.cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
+	         if (options && options.cached && req.table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
 	             self.clearCached(req.table, req.obj, options);
 	         }
 	         logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
@@ -695,13 +694,7 @@ db.prepare = function(op, table, obj, options)
     if (options.mtime) {
         if (typeof options.mtime == "string") obj[options.mtime] = core.now(); else obj.mtime = core.now();
     }
-    var req = this.getPool(table, options).prepare(op, table, obj, options);
-    if (!req) return req;
-    // Pass original object for custom processing or callbacks
-    req.table = table;
-    req.obj = obj;
-    req.op = op;
-    return req;
+    return this.getPool(table, options).prepare(op, table, obj, options);
 }
 
 // Return database pool by name or default sqlite pool
@@ -824,6 +817,7 @@ db.getPublicColumns = function(table, options)
 db.processRows = function(pool, table, rows, options) 
 {
 	if (!pool.processRow) return;
+
 	var cols = pool.dbcolumns[table.toLowerCase()] || {};
 	rows.forEach(function(row) { pool.processRow(row, options, cols); });
 }
@@ -832,20 +826,47 @@ db.processRows = function(pool, table, rows, options)
 db.sqlPrepare = function(op, table, obj, options) 
 {
     var pool = this.getPool(table, options);
+    var req = null;
     switch (op) {
     case "list": 
     case "select":
-    case "search": return this.sqlSelect(table, obj, options);
-    case "create": return this.sqlCreate(table, obj, options);
-    case "upgrade": return this.sqlUpgrade(table, obj, options);
-    case "drop": return this.sqlDrop(table, obj, options);
-    case "get": return this.sqlSelect(table, obj, core.extendObj(options, "count", 1));
-    case "add": return this.sqlInsert(table, obj, options);
-    case "put": return this.sqlInsert(table, obj, options);
-    case "incr": return this.sqlUpdate(table, obj, options);
-    case "update": return this.sqlUpdate(table, obj, options);
-    case "del": return this.sqlDelete(table, obj, options);
+    case "search": 
+        req = this.sqlSelect(table, obj, options);
+        break;
+    case "create": 
+        req = this.sqlCreate(table, obj, options);
+        break;
+    case "upgrade": 
+        req = this.sqlUpgrade(table, obj, options);
+        break;
+    case "drop": 
+        req = this.sqlDrop(table, obj, options);
+        break;
+    case "get": 
+        req = this.sqlSelect(table, obj, core.extendObj(options, "count", 1));
+        break;
+    case "add": 
+        req = this.sqlInsert(table, obj, options);
+        break;
+    case "put": 
+        req = this.sqlInsert(table, obj, options);
+        break;
+    case "incr": 
+        req = this.sqlUpdate(table, obj, options);
+        break;
+    case "update": 
+        req = this.sqlUpdate(table, obj, options);
+        break;
+    case "del": 
+        req = this.sqlDelete(table, obj, options);
+        break;
     }
+    // Pass original object for custom processing or callbacks
+    if (!req) req = {};
+    req.table = table;
+    req.obj = obj;
+    req.op = op;
+    return req;
 }
 
 // Quote value to be used in SQL expressions
@@ -1752,14 +1773,14 @@ db.dynamodbInitPool = function(options)
     
     // Pass all parametetrs directly to the execute function
     pool.prepare = function(op, table, obj, opts) {
-        return { text: table, op: op, values: obj };
+        return { text: table, op: op, table: table, obj: obj };
     }
     
     // Simulate query as in SQL driver but performing AWS call, text will be a table name and values will be request options
     pool.query = function(client, req, opts, callback) {
         var pool = this;
         var table = req.text;
-        var obj = req.values;
+        var obj = req.obj;
         var options = core.extendObj(opts, "db", pool.db);
         pool.next_token = null;
         // Primary keys

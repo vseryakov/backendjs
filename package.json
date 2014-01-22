@@ -45,6 +45,8 @@
     "rc.backend": "./rc.backend"
   },
   "scripts": {
-    "postinstall": "[ -f build/Release/backend.node ] && mv build/Release/backend.node build || (exit 0)"
+    "preinstall": "([ ! -d build/include ] && ./rc.backend build-deps) || (exit 0)",
+    "install": "node-gyp configure build",
+    "postinstall": "([ -f build/Release/backend.node ] && mv build/Release/backend.node build) || (exit 0)"
   }
 }

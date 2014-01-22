@@ -13,6 +13,7 @@ var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
 var domain = require('domain');
+var measured = require('measured');
 var core = require(__dirname + '/core');
 var printf = require('printf');
 var logger = require(__dirname + '/logger');
@@ -140,6 +141,9 @@ api.init = function(callback)
         self.accesslog = logger;
     }
 
+    // Performsnce statistics
+    self.measured = measured.createCollection();
+    
     self.app = express();
     // Wrap all calls in domain to catch exceptions
     self.app.use(function(req, res, next) {
@@ -156,6 +160,7 @@ api.init = function(callback)
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Allow-Headers', 'b-signature,b-next-token');
+        self.measured.meter('requestsPerSecond').mark();
         next();
     });
     self.app.use(this.accessLogger());
@@ -333,7 +338,7 @@ api.initAccountAPI = function()
         case "search":
         	var options = { select: req.query._select, 
         	                start: core.toJson(req.query._start), 
-        	                count: core.toNumber(req.query._count) || 50, 
+        	                count: core.toNumber(req.query._count, 0, 50), 
         	                sort: req.query._sort, 
         	                desc: req.query._desc, 
         	                public_columns: 1 };
@@ -391,7 +396,7 @@ api.initAccountAPI = function()
             
         case "put/secret":
             if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-            db.put("auth", { email: req.account.email, secret: req.query.secret }, { cached: 1 }, function(err) {
+            db.update("auth", { email: req.account.email, secret: req.query.secret }, { cached: 1 }, function(err) {
                 self.sendReply(res, err);
                 if (err) return;
                 // Keep history of all changes
@@ -422,7 +427,7 @@ api.initAccountAPI = function()
                     rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + type);
                     if (op == 'delIcon') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
                         
-                    var obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[0].icons };
+                    var obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[0].icons.join(",") };
                     db.update("account", obj, function(err) {
                         if (err) return self.sendReply(res, err);
                         res.json(self.processAccountRow(rows[0]));
@@ -551,7 +556,7 @@ api.initHistoryAPI = function()
             break;
                 
         case "get":
-            db.select("history", { id: req.account.id, mtime: req.query.mtime || 0 }, { count: req.query._count, start: req.query._start, ops: { mtime: 'gt' } }, function(err, rows) {
+            db.select("history", { id: req.account.id, mtime: req.query.mtime || 0 }, { count: core.toNumber(req.query._count, 0, 150), start: req.query._start, ops: { mtime: 'gt' } }, function(err, rows) {
                 res.json(rows);
             });
             break;
@@ -740,7 +745,7 @@ api.initLocationAPI = function()
             break;
             
         case "get":
-            var options = { select: req.query._select, count: req.query._count || 25 };
+            var options = { select: req.query._select, count: core.toNumber(req.query._count, 0, 25) };
             // Perform location search based on hash key that covers the whole region for our configured max distance
             if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
             // Limit the distance within our configured range

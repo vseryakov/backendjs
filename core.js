@@ -184,11 +184,7 @@ core.init = function(callback)
     self.hostname = host[0];
     self.domain = host.length > 2 ? host.slice(1).join('.') : self.hostname;
 
-    // Path to the ImageMagick config files
-    backend.setClientPath(__dirname);
     var db = self.context.db;
-    
-    logger.log(process.argv)
     
     // Serialize initialization procedure, run each function one after another
     async.series([
@@ -893,7 +889,7 @@ core.httpGet = function(uri, params, callback)
           if (params.stream) try { params.stream.end(params.onfinish); } catch(e) {}
           params.fd = 0;
 
-          logger.debug("httpGet: end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '');
+          logger.dev("httpGet: end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '');
 
           // Retry the same request
           if (params.retries && (res.statusCode < 200 || res.statusCode >= 400)) {

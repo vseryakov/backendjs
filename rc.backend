@@ -529,7 +529,7 @@ case "$ARG" in
     killall node
     SCRIPT=$NODE_BACKEND/server.js
     [ -f server.js ] && SCRIPT=server.js
-    $PREFIX/bin/node $SCRIPT -watch `pwd` -debug -home $ROOT -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS
+    $PREFIX/bin/node $SCRIPT -watch `pwd` -debug -home $ROOT -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS $@
     ;;
     
   run-shell)
@@ -549,42 +549,46 @@ case "$ARG" in
     
   build-backend)
     set -e
-    [ ! -f build/Makefile -o binding.gyp -nt build/Makefile ] && $PREFIX/bin/npm build .
-    [ ! -d build/include ] && ($0 build-deps)
-    make -C build
-    [ -f build/Release/backend.node ] && mv build/Release/*.node build  
+    if [ ! -f build/Makefile -o binding.gyp -nt build/Makefile ]; then
+      $PREFIX/bin/npm build .
+    else  
+      $PREFIX/bin/npm run-script preinstall
+      make -C build
+      $PREFIX/bin/npm run-script postinstall
+    fi  
     exit 0
     ;;
     
   build-node)
-    mkdir -p deps
-    
     if [ ! -d deps/node ]; then
+       mkdir -p deps
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
        echo "global=true\nnodedir=`pwd`/deps/node" > $HOME/.npmrc
        CFLAGS="-fno-omit-frame-pointer" 
        CXXFLAGS="-fno-omit-frame-pointer"
-       (cd deps/node && ./configure --prefix=$PREFIX)
     fi
+    (cd deps/node && [ ! -f Makefile ] && ./configure --prefix=$PREFIX)
     (cd deps/node && git pull && make install clean)
     ;;
     
   build-deps)
     set -e
     PREFIX=$(pwd)/build
+    PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
     mkdir -p deps
     
     if [ ! -d deps/nanomsg ]; then
        (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
-       (cd deps/nanomsg && [ ! -f Makefile ] && ./autogen.sh && ./configure --prefix=$PREFIX --enable-static --disable-shared)
+       (cd deps/nanomsg && [ ! -f configure ] && ./autogen.sh)
     fi
+    (cd deps/nanomsg && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
     (cd deps/nanomsg && git pull && make install)
     
     if [ ! -d deps/snappy-1.1.1 ]; then
        curl -OL https://snappy.googlecode.com/files/snappy-1.1.1.tar.gz
        tar -C deps -xzf snappy-1.1.1.tar.gz && rm -rf snappy-1.1.1.tar.gz
-       (cd deps/snappy-1.1.1 && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
     fi   
+    (cd deps/snappy-1.1.1 && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
     (cd deps/snappy-1.1.1 && make install)
     
     if [ ! -d deps/leveldb ]; then
@@ -596,8 +600,12 @@ case "$ARG" in
        mkdir -p deps/ImageMagick
        curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
        tar -C deps/ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
-       (cd deps/ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --without-x --without-magick-plus-plus --disable-installed --disable-shared --disable-perl --without-xml) 
     fi
+    CFLAGS="-I$PREFIX/include"
+    LDFLAGS="-L$PREFIX/lib"
+    [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include"
+    [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/locall/lib" && CFLAGS="$CFLAGS -I/usr/local/include" 
+    (cd deps/ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS") 
     (cd deps/ImageMagick && make install)
     exit 0
     ;;
@@ -607,7 +615,6 @@ case "$ARG" in
     [ ! -d deps/nanomsg ] && make -C deps/nanomsg clean
     [ ! -d deps/leveldb ] && make -C deps/leveldb clean
     [ ! -d deps/snappy-1.1.1 ] && make -C deps/snappy-1.1.1 clean
-    [ ! -d deps/ImageMagick ] && make -C deps/ImageMagick clean
     ;;
     
   npm-deps)
@@ -657,6 +664,8 @@ case "$ARG" in
     echo "  run-cdb - run local Cassandra server installed in $PREFIX/cassandra"
     echo "  stop-cdb - stop local Cassandra server"
     echo "  build-deps - build all required software for the backend binary module"
+    echo "  build-node - build node and install in $PREFIX"
+    echo "  build-imagemagick - build ImageMagick and install in $PREFIX"
     echo "  clean-deps - clean dependencies binary and object files"
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"

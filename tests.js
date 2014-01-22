@@ -105,16 +105,16 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { email: email, secret: secret }
-            core.sendRequest("/account/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params.obj)) : 0);
-            });
-        },
-        function(next) {
             var options = { email: email, secret: secret, query: { secret: "test" } };
             core.sendRequest("/account/put/secret", options, function(err, params) {
                 secret = "test";
                 next(err);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret }
+            core.sendRequest("/account/get", options, function(err, params) {
+                next(err || !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -126,7 +126,7 @@ tests.account = function(callback)
         function(next) {
             var options = { email: email, secret: secret }
             core.sendRequest("/account/get", options, function(err, params) {
-                next(err || !params.obj || !params.obj.icon0 ? (err || "err1:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.icon0 ? (err || "err2:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -141,13 +141,13 @@ tests.account = function(callback)
         function(next) {
             var options = { email: email, secret: secret, query: { type: "like" } }
             core.sendRequest("/connection/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.length!=2 ? (err || "err2:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.length!=2 ? (err || "err3:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
             var options = { email: email, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.like!=2 ? (err || "err3:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.like!=2 ? (err || "err4:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -159,7 +159,7 @@ tests.account = function(callback)
         function(next) {
             var options = { email: email, secret: secret, query: { type: "like" } }
             core.sendRequest("/connection/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.length!=1 ? (err || "err4:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.length!=1 ? (err || "err5:" + util.inspect(params.obj)) : 0);
             });
         },
     ],
@@ -455,9 +455,6 @@ tests.leveldb = function(callback)
         callback(err);
     });    
 }
-
-// By default use data/ inside the source tree, if used somewhere else, config or command line parameter should be used for home
-core.parseArgs(["-home", "data"]);
 
 backend.run(function() {
     tests.start(core.getArg("-cmd"));
