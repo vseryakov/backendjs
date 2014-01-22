@@ -167,37 +167,6 @@ var Backend = {
         return text;
     },
     
-    // Formatting of date
-    strftime: function(date, fmt, utc) {
-        if (typeof date == "string") try { date = new Date(date) } catch(e) {};
-        if (!date || isNaN(date)) return "";
-        function zeropad(n) { return n > 9 ? n : '0' + n; }
-        var handlers = {
-            a : function(t) { return [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ][utc ? t.getUTCDay() : t.getDay()] },
-            A : function(t) { return [ 'Sunday', 'Monday', 'Tuedsay', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ][utc ? t.getUTCDay() : t.getDay()] },
-            b : function(t) { return [ 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' ][utc ? t.getUTCMonth() : t.getMonth()] },
-            B : function(t) { return [ 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December' ][utc ? t.getUTCMonth() : t.getMonth()] },
-            c : function(t) { return utc ? t.toUTCString() : t.toString() },
-            d : function(t) { return zeropad(utc ? t.getUTCDate() : t.getDate()) },
-            H : function(t) { return zeropad(utc ? t.getUTCHours() : t.getHours()) },
-            I : function(t) { return zeropad(((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) },
-            m : function(t) { return zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1) }, // month-1
-            M : function(t) { return zeropad(utc ? t.getUTCMinutes() : t.getMinutes()) },
-            p : function(t) { return this.H(t) < 12 ? 'AM' : 'PM'; },
-            S : function(t) { return zeropad(utc ? t.getUTCSeconds() : t.getSeconds()) },
-            w : function(t) { return utc ? t.getUTCDay() : t.getDay() }, // 0..6 == sun..sat
-            y : function(t) { return zeropad(this.Y(t) % 100); },
-            Y : function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
-            t : function(t) { return t.getTime() },
-            u : function(t) { return Math.floor(t.getTime()/1000) },
-            '%' : function(t) { return '%' },
-        };
-        for (var h in handlers) {
-            fmt = fmt.replace('%' + h, handlers[h](date));
-        }
-        return fmt;
-    },
-
     // Simple debugging function that outputs arguments in the error console
     debug: function() {
         if (!console || !console.log) return;

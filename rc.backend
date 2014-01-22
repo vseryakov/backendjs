@@ -561,7 +561,7 @@ case "$ARG" in
     
     if [ ! -d deps/node ]; then
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
-       echo -e "global=true\nnodedir=`pwd`/node" > $HOME/.npmrc
+       echo "global=true\nnodedir=`pwd`/deps/node" > $HOME/.npmrc
        CFLAGS="-fno-omit-frame-pointer" 
        CXXFLAGS="-fno-omit-frame-pointer"
        (cd deps/node && ./configure --prefix=$PREFIX)

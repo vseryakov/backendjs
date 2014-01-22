@@ -331,9 +331,16 @@ api.initAccountAPI = function()
             break;
             
         case "search":
-        	var options = { select: req.query._select, start: req.query._start, count: req.query._count, sort: req.query._sort, desc: req.query._desc, public_columns: 1 };
-            db.search("account", req.query, options, function(err, rows) {
+        	var options = { select: req.query._select, 
+        	                start: core.toJson(req.query._start), 
+        	                count: core.toNumber(req.query._count) || 50, 
+        	                sort: req.query._sort, 
+        	                desc: req.query._desc, 
+        	                public_columns: 1 };
+            db.search("account", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
+                // Send next token in the header so we keep the response as a simple list
+                if (info.next_token) res.header("b-next-token", core.toBase64(info.next_token));
                 res.json(rows);
             });
             break;
