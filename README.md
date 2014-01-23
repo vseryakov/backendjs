@@ -3,36 +3,22 @@
 General purpose backend framework.
 
 Features:
-* Exposes itself a set of Web service APIs over HTTP(S) using Express framework.
-* Supports Sqlite, PostgreSQL, DynamoDB, Cassandra databases.
-* Provides accounts, connections, locations, messaging and icons APIs
-* Supports crontab-like scheduling for local and remote(AWS) jobs
-* Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests
-* Runs web server as separate processes to utilize multiple CPU cores
-* Supports several cache modes(Redis, memcached, local cache) for the database operations
-* Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API 
-* ImageMagick is compiled as C++ module for in-process image scaling
-* nanomsg interface for messaging between processes and servers
-* REPL(command line) interface for debugging and looking into server internals
-* Geohash based location searches supported by all databases 
+
+* Exposes a set of Web service APIs over HTTP(S) using Express framework.
+* Supports Sqlite, PostgreSQL, DynamoDB, Cassandra databases, easily extendable to support any kind of database.
+* Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
+* Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.
+* Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
+* Runs web server as separate processes to utilize multiple CPU cores.
+* Supports several cache modes(Redis, memcached, local cache) for the database operations.
+* Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API. 
+* ImageMagick is compiled as C++ module for in-process image scaling.
+* nanomsg interface for messaging between processes and servers.
+* REPL(command line) interface for debugging and looking into server internals.
+* Geohash based location searches supported by all databases drivers.
 
 # Installation
 
-## Requirements
-
-These libraries must be installed using your system package management or other tools
-
-* PostgresSQL client libraries
-* PCRE regexp library
-* ImageMagick
-
-Refer to your distribution package manager for exact names, some examples are:
-
-* On Mac: port install postgresql93 pcre ImageMagick
-* On Linux: yum install postgresql pcre ImageMagick-devel
-
-## NPM installation
- 
         npm install node-backend
 
   

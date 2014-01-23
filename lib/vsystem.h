@@ -89,6 +89,27 @@
 #include <queue>
 using namespace std;
 
+#ifdef UNICODE
+typedef wchar_t TCHAR;
+#define _tcslen     wcslen
+#define _tcscspn    wcscspn
+#define _tcsstr     wcsstr
+#define _tcsncpy    wcsncpy
+#define _tcschr     wcschr
+define  _tcsncmp    wcsncmp
+#define _tcsspn     wcsspn
+#else
+typedef char TCHAR;
+#define _tcslen     strlen
+#define _tcscspn    strcspn
+#define _tcsstr     strstr
+#define _tcsncpy    strncpy
+#define _tcschr     strchr
+#define _tcsncmp    strncmp
+#define _tcsspn     strspn
+#endif
+#define _T(x) (x)
+
 #ifdef PG_EXTENSION
 extern "C" {
 #include "postgres.h"

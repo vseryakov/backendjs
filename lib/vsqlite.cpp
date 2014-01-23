@@ -22,7 +22,6 @@
 //
 
 #include "vsqlite.h"
-#include <pcre.h>
 #include <stdint.h>
 
 // Convenience function to enable logging
@@ -38,40 +37,7 @@ static void sqliteRegexp(sqlite3_context *ctx, int argc, sqlite3_value **argv)
     if (argc < 2) return;
     const char *pattern = (const char *) sqlite3_value_text(argv[0]);
     const char *text = (const char*) sqlite3_value_text(argv[1]);
-    if (!pattern || !text) return;
-
-    char *err = NULL;
-    int offset, errcode;
-    pcre *rx = pcre_compile2(pattern, PCRE_UTF8|PCRE_CASELESS, &errcode, (const char **) &err, &offset, NULL);
-    if (!rx) {
-        sqlite3_result_error(ctx, err, strlen(err));
-        return;
-    }
-    errcode = pcre_exec(rx, NULL, text, strlen(text), 0, 0, NULL, 0);
-    if (errcode < 0) {
-        char *errmsg;
-        switch (errcode) {
-        case PCRE_ERROR_NOMATCH:
-            sqlite3_result_int(ctx, 0);
-            break;
-
-        case PCRE_ERROR_NOMEMORY:
-            sqlite3_result_error_nomem(ctx);
-            break;
-
-        default:
-            errmsg = sqlite3_mprintf("pcre_exec: Error code %d\n", errcode);
-            if (!errmsg) {
-                sqlite3_result_error_nomem(ctx);
-            } else {
-                sqlite3_result_error(ctx, errmsg, strlen(errmsg));
-            }
-            sqlite3_free(errmsg);
-        }
-    } else {
-        sqlite3_result_int(ctx, 1);
-    }
-    pcre_free(rx);
+    if (pattern && text) sqlite3_result_int(ctx, strRegexp(pattern, text));
 }
 
 // The Matchinfo Function

@@ -18,7 +18,8 @@
            "HAVE_LOCALTIME_R=1",
            "HAVE_GMTIME_R=1",
            "HAVE_STRERROR_R=1",
-           "HAVE_READLINE=1"
+           "HAVE_READLINE=1",
+           "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)"
         ],
         "include_dirs": [
            ".",
@@ -30,8 +31,7 @@
         ],
         "libraries": [
            "-L/opt/local/lib -Llib -lleveldb -lsnappy -lnanomsg -lpcre",
-           "-L<!@(pg_config --libdir) -lpq",
-           "$(shell ./bin/MagickWand-config --libs)",
+           "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"
         ],
         "sources": [
@@ -46,7 +46,8 @@
            "lib/vsqlite.cpp",
            "lib/vlog.cpp",
            "lib/vlib.cpp",
-           "lib/sqlite3.c"
+           "lib/sqlite3.c",
+           "lib/regexp.cpp"
         ],
         "conditions": [
            [ 'OS=="mac"', {
@@ -56,6 +57,7 @@
                 "OTHER_CFLAGS": [
                    "-g",
                    "-fno-omit-frame-pointer",
+                   "$(shell pkg-config --silence-errors --cflags libpq)",
                    "$(shell ./bin/MagickWand-config --cflags)"
                 ],
              }
@@ -64,6 +66,7 @@
              "cflags_cc+": [
                 "-g",
                 "-fno-omit-frame-pointer",
+                "$(shell pkg-config --silence-errors --cflags libpq)",
                 "$(shell ./bin/MagickWand-config --cflags)",
                 "-frtti",
                 "-fexceptions",

@@ -141,7 +141,7 @@ api.init = function(callback)
         self.accesslog = logger;
     }
 
-    // Performsnce statistics
+    // Performance statistics
     self.measured = measured.createCollection();
     
     self.app = express();

@@ -3,6 +3,7 @@
 //  October 2007
 
 #include "vlib.h"
+#include "regexp.h"
 
 static uint32_t _crc32[256] = {
     0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9,
@@ -660,6 +661,13 @@ vector<string> strSplit(const string str, const string delim, const string quote
         i = j + 1;
     }
     return rc;
+}
+
+bool strRegexp(const char *pattern, const char *str, bool nocase)
+{
+    CRegExp regexp;
+    if (regexp.RegComp(pattern) != 0) return regexp.RegFind(str) != -1;
+    return false;
 }
 
 void vSetLogging(const char *level)

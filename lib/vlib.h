@@ -80,6 +80,8 @@ string toString(const vector<string> &list, const string delim = " ");
 string toString(vector<string> *list, const string delim = " ");
 bool strEqual(const string &a, const string &b);
 
+bool strRegexp(const char *pattern, const char *str, bool nocase = true);
+
 // sprintf like
 string vFmtStr(string, ...);
 string vFmtStrV(string fmt, va_list ap);
