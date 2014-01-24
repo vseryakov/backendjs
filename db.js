@@ -57,6 +57,10 @@ var db = {
            { name: "pgsql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "pgsql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "pgsql-tables", type: "list", descr: "PostgreSQL tables, list of tables that belong to this pool only" },
+           { name: "mysql-pool", descr: "MySQL pool access url in the format: myql://user:pass@host/db" },
+           { name: "mysql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
+           { name: "mysql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "mysql-tables", type: "list", descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "dynamodb-pool", descr: "DynamoDB endpoint url" },
            { name: "dynamodb-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "cassandra-pool", descr: "Casandra endpoint url" },
@@ -283,11 +287,12 @@ db.initPool = function(options, createcb)
     pool.serial = 0;
     pool.tables = {};
     // Translation map for similar operators from different database drivers
-    pool.dboptions = { types: { counter: "int", bigint: "int" }, 
+    pool.dboptions = { typesMap: { counter: "int", bigint: "int" }, 
                        opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } },
     pool.dbcolumns = {};
     pool.dbkeys = {};
-    pool.dbunique = {};
+    pool.dbuniques = {};
+    pool.dbindexes = {};
     pool.sql = true;
     pool.affected_rows = 0;
     pool.inserted_oid = 0;
@@ -476,7 +481,8 @@ db.replace = function(table, obj, options, callback)
 // Options can use the following special propeties:
 //  - keys - a list of columns for condition or all primary keys will be used for query condition
 //  - ops - operators to use for comparison for properties, an object with column name and operator
-//  - types - type mapping between supplied and actual column types, an object
+//  - opsMap - operator mapping between supplied operators and actual operators supported by the db
+//  - typesMap - type mapping between supplied and actual column types, an object
 //  - select - a list of columns or expressions to return or all columns if not specified
 //  - start - start records with this primary key, this is the next_token passed by the previous query
 //  - count - how many records to return
@@ -771,6 +777,9 @@ db.getColumnValue = function(table, options, val, info)
 db.cacheColumns = function(options, callback) 
 {
 	var self = this;
+	if (typeof options == "function") callback = options, options = null;
+	if (!options) options = {};
+	
     var pool = this.getPool('', options);
     pool.cacheColumns.call(pool, options, function() {
     	self.mergeColumns(pool);
@@ -818,7 +827,7 @@ db.processRows = function(pool, table, rows, options)
 	if (!pool.processRow) return;
 
 	var cols = pool.dbcolumns[table.toLowerCase()] || {};
-	rows.forEach(function(row) { pool.processRow(row, options, cols); });
+	rows.forEach(function(row) { pool.processRow.call(pool, row, options, cols); });
 }
 
 // Cache columns using the information_schema 
@@ -828,16 +837,17 @@ db.sqlCacheColumns = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    self.get(function(err, client) {
+    var pool = this.getPool('', options);
+    pool.get(function(err, client) {
         if (err) return callback ? callback(err, []) : null;
         
         client.query("SELECT c.table_name,c.column_name,LOWER(c.data_type) AS data_type,c.column_default,c.ordinal_position,c.is_nullable " +
                      "FROM information_schema.columns c,information_schema.tables t " +
                      "WHERE c.table_schema='public' AND c.table_name=t.table_name " +
                      "ORDER BY 5", function(err, rows) {
-            self.dbcolumns = {};
+            pool.dbcolumns = {};
             for (var i = 0; i < rows.length; i++) {
-                if (!self.dbcolumns[rows[i].table_name]) self.dbcolumns[rows[i].table_name] = {};
+                if (!pool.dbcolumns[rows[i].table_name]) pool.dbcolumns[rows[i].table_name] = {};
                 // Split type cast and ignore some functions in default value expressions
                 var isserial = false, val = rows[i].column_default ? rows[i].column_default.replace(/'/g,"").split("::")[0] : null;
                 if (val && val.indexOf("nextval") == 0) val = null, isserial = true;
@@ -869,31 +879,32 @@ db.sqlCacheColumns = function(options, callback)
                     db_type = "date";
                     break;
                 }
-                self.dbcolumns[rows[i].table_name][rows[i].column_name] = { id: rows[i].ordinal_position, value: val, db_type: db_type, data_type: rows[i].data_type, isnull: rows[i].is_nullable == "YES", isserial: isserial };
+                pool.dbcolumns[rows[i].table_name][rows[i].column_name] = { id: rows[i].ordinal_position, value: val, db_type: db_type, data_type: rows[i].data_type, isnull: rows[i].is_nullable == "YES", isserial: isserial };
             }
 
             client.query("SELECT c.table_name,k.column_name,constraint_type " +
                          "FROM information_schema.table_constraints c,information_schema.key_column_usage k "+
                          "WHERE c.table_schema='public' AND constraint_type IN ('PRIMARY KEY','UNIQUE') AND c.constraint_name=k.constraint_name", function(err, rows) {
-                self.dbkeys = {};
-                self.dbunique = {};
+                pool.dbkeys = {};
+                pool.dbuniques = {};
+                pool.dbindexes = {};
                 for (var i = 0; i < rows.length; i++) {
-                    var col = self.dbcolumns[rows[i].table_name][rows[i].column_name];
+                    var col = pool.dbcolumns[rows[i].table_name][rows[i].column_name];
                     switch (rows[i].constraint_type) {
                     case "PRIMARY KEY":
-                        if (!self.dbkeys[rows[i].table_name]) self.dbkeys[rows[i].table_name] = [];
-                        self.dbkeys[rows[i].table_name].push(rows[i].column_name);
+                        if (!pool.dbkeys[rows[i].table_name]) pool.dbkeys[rows[i].table_name] = [];
+                        pool.dbkeys[rows[i].table_name].push(rows[i].column_name);
                         if (col) col.primary = true;
                         break;
                         
                     case "UNIQUE":
-                        if (!self.dbunique[rows[i].table_name]) self.dbunique[rows[i].table_name] = [];
-                        self.dbunique[rows[i].table_name].push(rows[i].column_name);
+                        if (!pool.dbuniques[rows[i].table_name]) pool.dbuniques[rows[i].table_name] = [];
+                        pool.dbuniques[rows[i].table_name].push(rows[i].column_name);
                         if (col) col.unique = 1;
                         break;
                     }
                 }
-                self.free(client);
+                pool.free(client);
                 if (callback) callback(err);
             });
         });
@@ -1289,8 +1300,9 @@ db.sqlLimit = function(options)
 // - keys - a list of primary key columns
 // - options may contains the following properties:
 //   - pool - pool to be used for driver specific functions
-//   - ops - object for other comparison operators for primary key beside =
-//   - types - type mapping for properties to be used in the condition
+//   - ops - object for comparison operators for primary key, default is equal operator
+//   - opsMap - operator mapping into supported by the database
+//   - typesMap - type mapping for properties to be used in the condition
 db.sqlWhere = function(table, obj, keys, options) 
 {
     var self = this;
@@ -1308,12 +1320,12 @@ db.sqlWhere = function(table, obj, keys, options)
     // Regular object with conditions
     var where = [];
     (keys || []).forEach(function(k) {
-        var v = obj[k];
-        var op = (options.ops || {})[k];
-        var type = (options.types || {})[k];
+        var v = obj[k], op = "", type = "";
+        if (options.ops && options.ops[k]) op = options.ops[k];
         if (!op && v == null) op = "null";
         if (!op && Array.isArray(v)) op = "in";
         if (options.opsMap && options.opsMap[op]) op = options.opsMap[op];
+        if (options.typesMap && options.typesMap[k]) type = options.typesMap[k];
         var sql = self.sqlExpr(k, v, { op: op, type: type });
         if (sql) where.push(sql);
     });
@@ -1327,56 +1339,50 @@ db.sqlWhere = function(table, obj, keys, options)
 // - primary - part of the primary key
 // - unique - part of the unique key
 // - index - regular index
-// - hashindex - unique index that consist from primary key hash and range
+// - len - max length of the column
+// - keylen - length for the indexed columns (MySQL) 
+// - hashindex - unique index that consist from primary key column and this column as a range (DynamoDB)
 // - notnull - true if should be NOT NULL
 // options may contains:
 // - upgrade - perform alter table instead of create
-// - types - type mapping, convert lowecase type into other type for any specific database
-// - nodefaults - ignore default value if not supported
-// - nonulls - NOT NULL restriction is not supported
+// - typesMap - type mapping, convert lowecase type into other type supported by any specific database
+// - nodefaults - ignore default value if not supported (Cassandra)
+// - nonulls - NOT NULL restriction is not supported (Cassandra)
 // - nomultisql - return as a list, the driver does not support multiple SQL commands
-db.sqlCreate = function(table, obj, options, callback) 
+// - nolengths - ignore column length for columns (Cassandra)
+// - keylengths - must provide column length for TEXT/BLOB columns in the index definitions (MySQL)
+db.sqlCreate = function(table, obj, options) 
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    function items(name) { return Object.keys(obj).filter(function(x) { return obj[x][name] }).join(','); }
+    function items(name) { return Object.keys(obj).filter(function(x) { return obj[x][name] + (!options.nolengths && obj[x].keylen ? "(" + obj[x].keylen + ") " : " ")  }).join(','); }
     
-    var rc = ["CREATE TABLE IF NOT EXISTS " + table + "(" +
-              Object.keys(obj).map(function(x) { 
-                return x + " " + 
-                    (function(t) { return (options.types || {})[t] || t })(obj[x].type || "text") + " " + 
-                    (!options.nonulls && obj[x].notnull ? "NOT NULL" : "") + " " +
-                    (!options.nodefaults && typeof obj[x].value != "undefined" ? "DEFAULT " + self.sqlValue(obj[x].value, obj[x].type) : "") }).join(",") + " " +
-                    (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(items('primary')) + ")" ];
-    
-    return { text: options.nomultisql && rc.length ? rc : rc.join(";") };
-}
+    var pool = this.getPool(table, options);
+    var dbcols = pool.dbcolumns[table] || {};
 
-// Create ALTER TABLE ADD COLUMN statements for missing columns
-db.sqlUpgrade = function(table, obj, options, callback) 
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
+    if (!options.upgrade) {
+        
+        var rc = ["CREATE TABLE IF NOT EXISTS " + table + "(" +
+                  Object.keys(obj).
+                      map(function(x) { 
+                          return x + " " + 
+                              (function(t) { return (options.typesMap || {})[t] || t })(obj[x].type || "text") + (!options.nolengths && obj[x].len ? " (" + obj[x].len + ") " : " ") + 
+                              (!options.nonulls && obj[x].notnull ? " NOT NULL " : " ") + 
+                              (!options.noauto && obj[x].auto ? " AUTO_INCREMENT " : " ") +
+                              (!options.nodefaults && typeof obj[x].value != "undefined" ? "DEFAULT " + self.sqlValue(obj[x].value, obj[x].type) : "") }).join(",") + " " +
+                      (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(items('primary')) + ")" ];
+        
+    } else {
+        
+        rc = Object.keys(obj).filter(function(x) { return (!(x in dbcols) || dbcols[x].fake) }).
+                map(function(x) { 
+                    return "ALTER TABLE " + table + " ADD " + x + " " + 
+                        (function(t) { return (options.typesMap || {})[t] || t })(obj[x].type || "text") + (!options.nolengths && obj[x].len ? " (" + obj[x].len + ") " : " ") +
+                        (!options.nodefaults && typeof obj[x].value != "undefined" ? "DEFAULT " + self.sqlValue(obj[x].value, obj[x].type) : "") }).
+                filter(function(x) { return x });
+    }
 
-    var dbcols = this.getColumns(table, options);
-    rc = Object.keys(obj).filter(function(x) { return (!(x in dbcols) || dbcols[x].fake) }).
-            map(function(x) { 
-                return "ALTER TABLE " + table + " ADD " + x + " " + 
-                    (function(t) { return (options.types || {})[t] || t })(obj[x].type || "text") + " " + 
-                    (!options.nodefaults && typeof obj[x].value != "undefined" ? "DEFAULT " + self.sqlValue(obj[x].value, obj[x].type) : "") }).
-            filter(function(x) { return x });
-    
-    return { text: options.nomultisql && rc.length ? rc : rc.join(";") };
-}
-
-db.sqlCreateIndexes = function(table, obj, options)
-{
-    var rc = [];
     var keys = Object.keys(obj).filter(function(y) { return obj[y].primary });
-    function items(name) { return Object.keys(obj).filter(function(x) { return obj[x][name] }).join(','); }
-    
     ["","1","2"].forEach(function(y) {
         var sql = (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_udx" + y + " ON " + table + "(" + x + ")" : "" })(items('unique' + y));
         if (sql) rc.push(sql);
@@ -1386,15 +1392,18 @@ db.sqlCreateIndexes = function(table, obj, options)
         sql = (function(x) { return x ? "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_rdx" + y + " ON " + table + "(" + keys[0] + "," + x + ")" : "" })(items('hashindex' + y));
         if (sql) rc.push(sql);
     });
-    return rc;
+    
+    return { text: options.nomultisql && rc.length ? rc : rc.join(";") };
+}
+
+// Create ALTER TABLE ADD COLUMN statements for missing columns
+db.sqlUpgrade = function(table, obj, options) 
+{
+    return this.sqlCreate(table, obj, core.cloneObj(options || {}, "upgrade", 1));
 }
 
 db.sqlDrop = function(table, obj, options)
 {
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
-    
     return { text: "DROP TABLE IF EXISTS " + table };
 }
 
@@ -1610,6 +1619,7 @@ db.sqliteInitPool = function(options)
     if (!options.pool) options.pool = "sqlite";
     options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
     var pool = this.initPool(options, self.sqliteOpen);
+    pool.dboptions = core.mergeObj(pool.dboptions, { nolengths: 1 });
     pool.cacheColumns = self.sqliteCacheColumns;
     pool.bindValue = self.sqliteBindValue;
     return pool;
@@ -1663,7 +1673,8 @@ db.sqliteCacheColumns = function(options, callback)
             if (err2) return callback ? callback(err2) : null;
             self.dbcolumns = {};
             self.dbkeys = {};
-            self.dbunique = {};
+            self.dbuniques = {};
+            self.dbindexes = {};
             async.forEachSeries(tables, function(table, next) {
             	
                 client.query("PRAGMA table_info(" + table.name + ")", function(err3, rows) {
@@ -1672,25 +1683,23 @@ db.sqliteCacheColumns = function(options, callback)
                         if (!self.dbcolumns[table.name]) self.dbcolumns[table.name] = {};
                         if (!self.dbkeys[table.name]) self.dbkeys[table.name] = [];
                         // Split type cast and ignore some functions in default value expressions
-                        self.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, 
-                        										     name: rows[i].name, 
-                        										     value: rows[i].dflt_value, 
-                        										     db_type: rows[i].type.toLowerCase(), 
-                        										     data_type: rows[i].type, 
-                        										     isnull: !rows[i].notnull, 
-                        										     primary: rows[i].pk };
+                        self.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, name: rows[i].name, value: rows[i].dflt_value, db_type: rows[i].type.toLowerCase(), data_type: rows[i].type, isnull: !rows[i].notnull, primary: rows[i].pk };
                         if (rows[i].pk) self.dbkeys[table.name].push(rows[i].name);
                     }
                     client.query("PRAGMA index_list(" + table.name + ")", function(err4, indexes) {
                         async.forEachSeries(indexes, function(idx, next2) {
-                            if (!idx.unique) return next2();
                             client.query("PRAGMA index_info(" + idx.name + ")", function(err5, cols) {
                                 cols.forEach(function(x) {
                                     var col = self.dbcolumns[table.name][x.name];
                                     if (!col || col.primary) return; 
-                                    col.unique = 1;
-                                    if (!self.dbunique[table.name]) self.dbunique[table.name] = [];
-                                    self.dbunique[table.name].push(x.name);
+                                    if (idx.unique) {
+                                        col.unique = 1;
+                                        if (!self.dbuniques[table.name]) self.dbuniques[table.name] = [];
+                                        self.dbuniques[table.name].push(x.name);
+                                    } else {
+                                        if (!self.dbindexes[table.name]) self.dbindexes[table.name] = [];
+                                        self.dbindexes[table.name].push(x.name);
+                                    }
                                 });
                                 next2();
                             });
@@ -1721,6 +1730,10 @@ db.mysqlInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "mysql";
     var pool = this.initPool(options, self.mysqlOpen);
+    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { json: "text" }, 
+                                                     placeholder: "?", 
+                                                     keylengths: 1,
+                                                     nomultisql: 1 });
     return pool;
 }
 
@@ -1742,7 +1755,7 @@ db.dynamodbInitPool = function(options)
     if (!options.pool) options.pool = "dynamodb";
 
     // Redefine pool but implement the same interface
-    var pool = { name: options.pool, db: options.db, dboptions: {}, dbcolumns: {}, dbkeys: {}, dbunique: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
+    var pool = { name: options.pool, db: options.db, dboptions: {}, dbcolumns: {}, dbkeys: {}, dbuniques: {}, dbindxes: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
     self.dbpool[options.pool] = pool;
     pool.next_token = null;
     pool.affected_rows = 0;
@@ -1760,7 +1773,8 @@ db.dynamodbInitPool = function(options)
             if (err) return callback ? callback(err) : null;
             pool.dbcolumns = {};
             pool.dbkeys = {};
-            pool.dbunique = {};
+            pool.dbuniques = {};
+            pool.dbindexes = {};
             async.forEachSeries(rc.TableNames, function(table, next) {
                 aws.ddbDescribeTable(table, options, function(err, rc) {
                     if (err) return next(err);
@@ -1776,8 +1790,8 @@ db.dynamodbInitPool = function(options)
                     });
                     (rc.Table.LocalSecondaryIndexes || []).forEach(function(x) {
                         x.KeySchema.forEach(function(y) {
-                            if (!pool.dbunique[table]) pool.dbunique[table] = [];
-                            pool.dbunique[table].push(y.AttributeName);
+                            if (!pool.dbuniques[table]) pool.dbuniques[table] = [];
+                            pool.dbuniques[table].push(y.AttributeName);
                             pool.dbcolumns[table][y.AttributeName].index = 1;
                         });
                     });
@@ -1961,13 +1975,14 @@ db.cassandraInitPool = function(options)
     if (!options.pool) options.pool = "cassandra";
     
     var pool = this.initPool(options, self.cassandraOpen);
-    pool.dboptions = core.mergeObj(pool.dboptions, { types: { json: "text", real: "double", counter: "counter" }, 
+    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { json: "text", real: "double", counter: "counter" }, 
                                                      opsMap: { begins_with: "begins_with" }, 
                                                      placeholder: "?", 
                                                      nocoalesce: 1, 
                                                      noconcat: 1, 
                                                      nodefaults: 1, 
                                                      nonulls: 1, 
+                                                     nolengths: 1,
                                                      nomultisql: 1 });
     pool.bindValue = self.cassandraBindValue;
     pool.processRow = self.cassandraProcessRow;

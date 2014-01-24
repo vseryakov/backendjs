@@ -1668,14 +1668,24 @@ core.isEmpty = function(val)
 }
 
 // Deep copy of an object,
-// - filter is an object to skip properties that defined in it by name, 
+// - first argument is the object to clone
+// - second argument can be an object that acts as a filter to skip properties by name, 
 //   if filter's value is boolean, skip, if integer then skip if greater in length for string properties
-//   - _skip_null - to skip all null properties
-//   - _empty_to_null - convert empty strings into null objects
-//   - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
-// - props can be used to add additional properties to the new object
-core.cloneObj = function(obj, filter, props) 
+//     - _skip_null - to skip all null properties
+//     - _empty_to_null - convert empty strings into null objects
+//     - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
+//   if the second arg is not an object then it is assumed that filter is not given and the argument is treated as additional property
+// - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
+// Example: core.cloneObj({ 1: 2 }, { 1: 1 }, "3", 3, "4", 4)
+//          core.cloneObj({1 : 2 }, "3", 3, "4", 4)
+core.cloneObj = function() 
 {
+    var obj = arguments[0];
+    var filter = {}, idx = 1;
+    if (this.typeName(arguments[1]) == "object") {
+        idx = 2;
+        filter = arguments[1];
+    }
     var rc = {};
     switch (this.typeName(obj)) {
     case "object":
@@ -1695,7 +1705,6 @@ core.cloneObj = function(obj, filter, props)
     default:
         return obj;
     }
-    if (!filter) filter = {};
     for (var p in obj) {
         switch (this.typeName(filter[p])) {
         case "undefined":
@@ -1710,7 +1719,7 @@ core.cloneObj = function(obj, filter, props)
         if (filter._skip_cb && filter._skip_cb(p, obj[p])) continue;
         rc[p] = this.cloneObj(obj[p], filter);
     }
-    for (var p in props) rc[p] = props[p];
+    for (var i = idx; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;
 }
 
