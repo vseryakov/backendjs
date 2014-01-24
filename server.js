@@ -413,7 +413,7 @@ server.startDaemon = function()
     self.errlog.writable = true;
     self.errlog.write = function(data) { logger.error(data); return true; }
 
-    spawn(process.argv[0], argv, { stdio: [ 'ignore', errlog, errlog ], detached: true });
+    spawn(process.argv[0], argv, { stdio: [ 'ignore', self.errlog, self.errlog ], detached: true });
     process.exit(0);
 }
 

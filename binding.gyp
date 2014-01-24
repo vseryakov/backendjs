@@ -26,11 +26,11 @@
            "lib",
            "include",
            "build/include",
-           "/opt/local/include",
-           "<!@(pg_config --includedir)"
+           "/opt/local/include"
         ],
         "libraries": [
            "-L/opt/local/lib -Llib -lleveldb -lsnappy -lnanomsg -lpcre",
+           "$(shell /opt/local/lib/mysql56/bin/mysql_config --libs_r)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"
         ],
@@ -41,6 +41,7 @@
            "lib/node_syslog.cpp",
            "lib/node_nanomsg.cpp",
            "lib/node_pgsql.cpp",
+           "lib/node_mysql.cpp",
            "lib/node_leveldb.cpp",
            "lib/node_cache.cpp",
            "lib/vsqlite.cpp",
@@ -57,6 +58,7 @@
                 "OTHER_CFLAGS": [
                    "-g",
                    "-fno-omit-frame-pointer",
+                   "$(shell /opt/local/lib/mysql56/bin/mysql_config --cflags)",
                    "$(shell pkg-config --silence-errors --cflags libpq)",
                    "$(shell ./bin/MagickWand-config --cflags)"
                 ],
@@ -66,6 +68,7 @@
              "cflags_cc+": [
                 "-g",
                 "-fno-omit-frame-pointer",
+                "$(shell mysql_config --cflags)",
                 "$(shell pkg-config --silence-errors --cflags libpq)",
                 "$(shell ./bin/MagickWand-config --cflags)",
                 "-frtti",

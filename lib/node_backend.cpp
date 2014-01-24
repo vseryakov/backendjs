@@ -582,6 +582,7 @@ void backend_init(Handle<Object> target)
     SyslogInit(target);
     SQLiteInit(target);
     PgSQLInit(target);
+    MysqlInit(target);
     LevelDBInit(target);
     NanoMsgInit(target);
 }

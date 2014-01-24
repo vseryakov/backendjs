@@ -18,9 +18,6 @@ DOMAIN=localhost
 [ "$BACKEND_USER" = "" ] && BACKEND_USER=backend
 [ "$DISK" = "" ] && DISK=xvdb1
 [ "$LOGMAIL" = "" ] && LOGMAIL=logwatcher@$DOMAIN
-[ "$DBNAME" = "" ] && DBNAME=backend
-[ "$MASTER" = "" ] && MASTER=master.$DOMAIN
-[ "$IMAGES" = "" ] && IMAGES=img.$DOMAIN
 [ "$MAX_IDLETIME" = "" ] && MAX_IDLETIME=900
 [ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
 [ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
@@ -41,6 +38,7 @@ case "$PLATFORM" in
     OS_TYPE=macosx
     [ "$PREFIX" = "" ] && PREFIX=/opt/local
     [ "$PG_PREFIX" = "" ] && PG_PREFIX=$PREFIX/lib/postgresql93 && PG_DIR=$PREFIX/var/db/postgres
+    [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=$PREFIX/lib/mysql56 && MYSQL_DIR=$PREFIX/var/db/mysql56
     KILLALL="killall -m"
     ;;
 esac
@@ -51,11 +49,14 @@ esac
 [ "$BACKUP" = "" ] && BACKUP=$ROOT/backup
 [ "$CDB_PREFIX" = "" ] && CDB_PREFIX=$PREFIX/cassandra
 [ "$CDB_DIR" = "" ] && CDB_DIR=$ROOT/cassandra
-[ "$PG_DIR" = "" ] && PG_DIR=$ROOT/postgres
 [ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
+[ "$PG_DIR" = "" ] && PG_DIR=$ROOT/postgres
+[ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$ROOT/mysql
+[ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=/usr
 [ "$DDB_PREFIX" = "" ] && DDB_PREFIX=$PREFIX/dynamodb
 [ "$NODE_PATH" = "" ] && NODE_PATH=$PREFIX/lib/node_modules
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/backend
+[ "$MASTER" != "" ] && MASTER=$MASTER.$DOMAIN
 
 export PATH=$PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 
@@ -67,11 +68,11 @@ case "$ARG" in
   start)
     case "$NAME" in
       *backend-init)
-          $0 init
+          $0 init-server
           ;;
 
-      *backend)
-          $0 run
+      *backend-run)
+          $0 run-server
           ;;
     esac
     ;;
@@ -100,10 +101,10 @@ case "$ARG" in
     ($0 sync)
 
     # Restart itself with new code to continue the init sequence
-    ($0 setup)
+    ($0 setup-server)
     ;;
 	
-  setup)
+  setup-server)
     # Combine with command line arguments if running manually
     BACKEND_ARGS="$BACKEND_ARGS $@"
 
@@ -299,7 +300,7 @@ case "$ARG" in
     # Setup startup scripts
     ln -sf $PREFIX/bin/rc.backend /etc/init.d/backend
     (cd /etc/rc3.d && ln -sf ../init.d/backend S25backend-init)
-    (cd /etc/rc3.d && ln -sf ../init.d/backend S70backend)
+    (cd /etc/rc3.d && ln -sf ../init.d/backend S70backend-run)
     
     # Sync time
     ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/ntp
@@ -316,9 +317,9 @@ case "$ARG" in
     done
 
     # Make sure instances are not running indefinetely
-    rm -rf /etc/cron.hourly/instance-idle
+    rm -rf /etc/cron.hourly/check-idle
     if [[ $BACKEND_ARGS =~ \-(instance ) ]]; then
-       ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/instance-idle
+       ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/check-idle
     fi
 
     # Linux distro specific actions
@@ -346,7 +347,7 @@ case "$ARG" in
 
     ;;
 
-  run)
+  run-server)
     # Additional arguments via EC2 instance user data
     BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
     [[ $BACKEND_ARGS = *-no-server* ]] && exit
@@ -355,7 +356,7 @@ case "$ARG" in
     $PREFIX/bin/node $NODE_ARGS $NODE_BACKEND/server.js -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
     ;;
 
-  instance-idle)
+  check-idle)
     uptime=$(</proc/uptime)
     uptime=${uptime%%.*}
     if [ $uptime -gt $MAX_IDLETIME ]; then
@@ -374,6 +375,7 @@ case "$ARG" in
 
   sync)
     # Sync code from the master
+    [ "$MASTER" = "" ] && exit
     su - $LOCAL_USER -c "rsync -aq --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/bin/ $PREFIX/bin"
     su - $LOCAL_USER -c "rsync -aq --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/include/ $PREFIX/include"
     su - $LOCAL_USER -c "rsync -aqFF --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/lib/ $PREFIX/lib"
@@ -381,6 +383,7 @@ case "$ARG" in
     ;;
 
   sync-*)
+    [ "$MASTER" = "" ] && exit
     dir=${ARG:5}
     case "$dir" in
       del-*)
@@ -448,14 +451,14 @@ case "$ARG" in
     ;;
 
   init-pg)
-    if [ ! -d $PGDIR ]; then
+    if [ ! -d $PG_DIR ]; then
        mkdir -p $PG_DIR
        $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
        sed -i '' "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf 
        sed -i '' "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf 
        $PG_PREFIX/bin/postgres -F -D $PG_DIR &
        sleep 3
-       $PG_PREFIX/bin/createdb -U $PG_USER $DBNAME
+       $PG_PREFIX/bin/createdb -U $PG_USER backend
     fi   
     ;;
       
@@ -467,6 +470,21 @@ case "$ARG" in
     killall postgres
     ;;  
     
+  init-mysql)
+    if [ ! -d $MYSQL_DIR ]; then
+       mkdir -p $MYSQL_DIR
+       echo "[client]\nuser=root\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" > ~/.my.cnf
+       $MYSQL_PREFIX/bin/mysql_install_db
+       $MYSQL_PREFIX/bin/mysqld &
+       sleep 3
+       $MYSQL_PREFIX/bin/mysql -u root -e "DELETE FROM user WHERE user='';" mysql
+    fi   
+    ;;
+      
+  stop-mysql)
+    killall mysqld
+    ;;
+        
   get-ddb)
     mkdir -p $DDB_PREFIX
     curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz
@@ -520,6 +538,7 @@ case "$ARG" in
     ;;
     
   put-backend)
+    [ "$MASTER" = "" ] && exit
     rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node $MASTER:$NODE_BACKEND
     rsync -av -e "ssh -l $BACKEND_USER" backend rc.backend $MASTER:$PREFIX/bin
     rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
@@ -638,19 +657,17 @@ case "$ARG" in
     echo "  where command is:"
     echo ""
     echo "  start - start the backend server process, to be used in Linux system startup scripts /etc/init.d by symlinking rc.backend to one of:"
-    echo "    SXXbackend-init - startup script to be run very early to setup all required dependencies and directories, similar to rc.backend init"
-    echo "    SXXbackend - to start the backend server, similar to rc.backend run"
+    echo "    SXXbackend-init - startup script to be run very early to setup all required dependencies and directories, similar to rc.backend init-server"
+    echo "    SXXbackend-run - to start the backend server, similar to rc.backend run-server"
     echo "  restart - restart the backend server"
     echo "  stop - stop the backend server"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
-    echo "  init - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
-    echo "  setup - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use" 
-    echo "  run - run the backend server process"
-    echo "  run-shell - start the backend REPL interface, the command line shell with all backend modules loaded"
-    echo "  instance-idle - to be run on instances, check for idleness, no jobs running then shutdown the host"
-    echo "  sync - synchronize the backend code from the master server, uses master.$DOMAIN and rsync over ssh"
-    echo "  sync-api - synchronize api directory from the master host, delete what is not on the master"
-    echo "  sync-images|sync-web - synchronize other directories from the master host, never delete anything from the local disk"
+    echo "  init-server - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
+    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use (Amazon AMI, CentOS)" 
+    echo "  run-server - run the backend server process"
+    echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
+    echo "  sync - synchronize the backend code from the master server, uses '$MASTER.$DOMAIN' hostname to rsync over ssh"
+    echo "  sync-* - synchronize other directories from the master host, * must be a single word representing a folder inside the backend root"
     echo "  ntp - run ntpdate to keep local clock"
     echo "  backup - run the backup script, store in $ROOT/backup"
     echo "  init-pg - setup local PostgreSQL server for development, Mac OS X, install in $PG_PREFIX, data files in $PG_DIR"

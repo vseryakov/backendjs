@@ -110,22 +110,4 @@ typedef char TCHAR;
 #endif
 #define _T(x) (x)
 
-#ifdef PG_EXTENSION
-extern "C" {
-#include "postgres.h"
-#include "fmgr.h"
-#include "funcapi.h"
-#include "executor/executor.h"
-#include "access/heapam.h"
-#include "access/htup.h"
-#if PG_VERSION_NUM >= 90300
-#include "access/htup_details.h"
-#endif
-#include "catalog/pg_type.h"
-#include "utils/lsyscache.h"
-#include "utils/typcache.h"
-#include "utils/array.h"
-}
-#endif
-
 #endif

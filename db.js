@@ -177,8 +177,7 @@ db.initPoolTables = function(name, tables, callback)
 //   - idle - after how many milliseconds an idle client will be destroyed
 // - createcb - a callback to be called when actual database client needs to be created, the callback signature is
 //     function(options, callback) and will be called with first arg an error object and second arg is the database instance, required
-// - columnscb - a callback for caching database tables and columns, required
-db.initPool = function(options, createcb, columnscb) 
+db.initPool = function(options, createcb) 
 {
     var self = this;
     if (!options) options = {};
@@ -242,8 +241,8 @@ db.initPool = function(options, createcb, columnscb)
         logger.debug('pool:', 'open', this.name, "#", this.serial);
     }
     // Call column caching callback with our pool name
-    pool.cacheColumns = function(callback) {
-        columnscb.call(self, { pool: this.name }, callback);
+    pool.cacheColumns = function(opts, callback) {
+        self.sqlCacheColumns(opts, callback);
     }
     // Prepare for execution, return an object with formatted or transformed query request for the database driver of this pool
     // For SQL databases it creates a SQL statement with parameters
@@ -773,7 +772,7 @@ db.cacheColumns = function(options, callback)
 {
 	var self = this;
     var pool = this.getPool('', options);
-    pool.cacheColumns(function() {
+    pool.cacheColumns.call(pool, options, function() {
     	self.mergeColumns(pool);
     	if (callback) callback();
     });
@@ -820,6 +819,85 @@ db.processRows = function(pool, table, rows, options)
 
 	var cols = pool.dbcolumns[table.toLowerCase()] || {};
 	rows.forEach(function(row) { pool.processRow(row, options, cols); });
+}
+
+// Cache columns using the information_schema 
+db.sqlCacheColumns = function(options, callback) 
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    self.get(function(err, client) {
+        if (err) return callback ? callback(err, []) : null;
+        
+        client.query("SELECT c.table_name,c.column_name,LOWER(c.data_type) AS data_type,c.column_default,c.ordinal_position,c.is_nullable " +
+                     "FROM information_schema.columns c,information_schema.tables t " +
+                     "WHERE c.table_schema='public' AND c.table_name=t.table_name " +
+                     "ORDER BY 5", function(err, rows) {
+            self.dbcolumns = {};
+            for (var i = 0; i < rows.length; i++) {
+                if (!self.dbcolumns[rows[i].table_name]) self.dbcolumns[rows[i].table_name] = {};
+                // Split type cast and ignore some functions in default value expressions
+                var isserial = false, val = rows[i].column_default ? rows[i].column_default.replace(/'/g,"").split("::")[0] : null;
+                if (val && val.indexOf("nextval") == 0) val = null, isserial = true;
+                if (val && val.indexOf("ARRAY") == 0) val = val.replace("ARRAY", "").replace("[", "{").replace("]", "}");
+                var db_type = "";
+                switch (rows[i].data_type) {
+                case "array":
+                case "json":
+                    db_type = rows[i].data_type;
+                    break;
+
+                case "numeric":
+                case "bigint":
+                case "real":
+                case "integer":
+                case "smallint":
+                case "double precision":
+                    db_type = "number";
+                    break;
+
+                case "boolean":
+                    db_type = "bool";
+                    break;
+
+                case "date":
+                case "time":
+                case "timestamp with time zone":
+                case "timestamp without time zone":
+                    db_type = "date";
+                    break;
+                }
+                self.dbcolumns[rows[i].table_name][rows[i].column_name] = { id: rows[i].ordinal_position, value: val, db_type: db_type, data_type: rows[i].data_type, isnull: rows[i].is_nullable == "YES", isserial: isserial };
+            }
+
+            client.query("SELECT c.table_name,k.column_name,constraint_type " +
+                         "FROM information_schema.table_constraints c,information_schema.key_column_usage k "+
+                         "WHERE c.table_schema='public' AND constraint_type IN ('PRIMARY KEY','UNIQUE') AND c.constraint_name=k.constraint_name", function(err, rows) {
+                self.dbkeys = {};
+                self.dbunique = {};
+                for (var i = 0; i < rows.length; i++) {
+                    var col = self.dbcolumns[rows[i].table_name][rows[i].column_name];
+                    switch (rows[i].constraint_type) {
+                    case "PRIMARY KEY":
+                        if (!self.dbkeys[rows[i].table_name]) self.dbkeys[rows[i].table_name] = [];
+                        self.dbkeys[rows[i].table_name].push(rows[i].column_name);
+                        if (col) col.primary = true;
+                        break;
+                        
+                    case "UNIQUE":
+                        if (!self.dbunique[rows[i].table_name]) self.dbunique[rows[i].table_name] = [];
+                        self.dbunique[rows[i].table_name].push(rows[i].column_name);
+                        if (col) col.unique = 1;
+                        break;
+                    }
+                }
+                self.free(client);
+                if (callback) callback(err);
+            });
+        });
+    });
 }
 
 // Prepare SQL statement for the given operation
@@ -1453,7 +1531,7 @@ db.pgsqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
-    var pool = this.initPool(options, self.pgsqlOpen, self.pgsqlCacheColumns);
+    var pool = this.initPool(options, self.pgsqlOpen);
     pool.bindValue = self.pgsqlBindValue;
     // No REPLACE INTO support, do it manually
     pool.put = function(table, obj, opts, callback) {
@@ -1487,85 +1565,6 @@ db.pgsqlOpen = function(options, callback)
     }, function(err2) {
             logger.edebug(err2, 'pgsqlOpen:', options);
             if (callback) callback(err2, pg);
-        });
-    });
-}
-
-// Always keep columns and primary keys in the cache
-db.pgsqlCacheColumns = function(options, callback) 
-{
-    if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
-
-    var pool = this.getPool('', options);
-    pool.get(function(err, client) {
-        if (err) return callback ? callback(err, []) : null;
-        
-        client.query("SELECT c.table_name,c.column_name,LOWER(c.data_type) AS data_type,c.column_default,c.ordinal_position,c.is_nullable " +
-                     "FROM information_schema.columns c,information_schema.tables t " +
-                     "WHERE c.table_schema='public' AND c.table_name=t.table_name " +
-                     "ORDER BY 5", function(err, rows) {
-            pool.dbcolumns = {};
-            for (var i = 0; i < rows.length; i++) {
-                if (!pool.dbcolumns[rows[i].table_name]) pool.dbcolumns[rows[i].table_name] = {};
-                // Split type cast and ignore some functions in default value expressions
-                var isserial = false, val = rows[i].column_default ? rows[i].column_default.replace(/'/g,"").split("::")[0] : null;
-                if (val && val.indexOf("nextval") == 0) val = null, isserial = true;
-                if (val && val.indexOf("ARRAY") == 0) val = val.replace("ARRAY", "").replace("[", "{").replace("]", "}");
-                var db_type = "";
-                switch (rows[i].data_type) {
-                case "array":
-                case "json":
-                    db_type = rows[i].data_type;
-                    break;
-
-                case "numeric":
-                case "bigint":
-                case "real":
-                case "integer":
-                case "smallint":
-                case "double precision":
-                    db_type = "number";
-                    break;
-
-                case "boolean":
-                    db_type = "bool";
-                    break;
-
-                case "date":
-                case "time":
-                case "timestamp with time zone":
-                case "timestamp without time zone":
-                    db_type = "date";
-                    break;
-                }
-                pool.dbcolumns[rows[i].table_name][rows[i].column_name] = { id: rows[i].ordinal_position, value: val, db_type: db_type, data_type: rows[i].data_type, isnull: rows[i].is_nullable == "YES", isserial: isserial };
-            }
-
-            client.query("SELECT c.table_name,k.column_name,constraint_type " +
-                         "FROM information_schema.table_constraints c,information_schema.key_column_usage k "+
-                         "WHERE constraint_type IN ('PRIMARY KEY','UNIQUE') AND c.constraint_name=k.constraint_name", function(err, rows) {
-                pool.dbkeys = {};
-                pool.dbunique = {};
-                for (var i = 0; i < rows.length; i++) {
-                    var col = pool.dbcolumns[rows[i].table_name][rows[i].column_name];
-                    switch (rows[i].constraint_type) {
-                    case "PRIMARY KEY":
-                        if (!pool.dbkeys[rows[i].table_name]) pool.dbkeys[rows[i].table_name] = [];
-                        pool.dbkeys[rows[i].table_name].push(rows[i].column_name);
-                        if (col) col.primary = true;
-                        break;
-                        
-                    case "UNIQUE":
-                        if (!pool.dbunique[rows[i].table_name]) pool.dbunique[rows[i].table_name] = [];
-                        pool.dbunique[rows[i].table_name].push(rows[i].column_name);
-                        if (col) col.unique = 1;
-                        break;
-                    }
-                }
-                pool.free(client);
-                if (callback) callback(err);
-            });
         });
     });
 }
@@ -1610,7 +1609,8 @@ db.sqliteInitPool = function(options)
     
     if (!options.pool) options.pool = "sqlite";
     options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
-    var pool = this.initPool(options, self.sqliteOpen, self.sqliteCacheColumns);
+    var pool = this.initPool(options, self.sqliteOpen);
+    pool.cacheColumns = self.sqliteCacheColumns;
     pool.bindValue = self.sqliteBindValue;
     return pool;
 }
@@ -1657,41 +1657,40 @@ db.sqliteCacheColumns = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
     
-    var pool = this.getPool('', options);
-    pool.get(function(err, client) {
+    self.get(function(err, client) {
         if (err) return callback ? callback(err, []) : null;
         client.query("SELECT name FROM sqlite_master WHERE type='table'", function(err2, tables) {
             if (err2) return callback ? callback(err2) : null;
-            pool.dbcolumns = {};
-            pool.dbkeys = {};
-            pool.dbunique = {};
+            self.dbcolumns = {};
+            self.dbkeys = {};
+            self.dbunique = {};
             async.forEachSeries(tables, function(table, next) {
             	
                 client.query("PRAGMA table_info(" + table.name + ")", function(err3, rows) {
                     if (err3) return next(err3);
                     for (var i = 0; i < rows.length; i++) {
-                        if (!pool.dbcolumns[table.name]) pool.dbcolumns[table.name] = {};
-                        if (!pool.dbkeys[table.name]) pool.dbkeys[table.name] = [];
+                        if (!self.dbcolumns[table.name]) self.dbcolumns[table.name] = {};
+                        if (!self.dbkeys[table.name]) self.dbkeys[table.name] = [];
                         // Split type cast and ignore some functions in default value expressions
-                        pool.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, 
+                        self.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, 
                         										     name: rows[i].name, 
                         										     value: rows[i].dflt_value, 
                         										     db_type: rows[i].type.toLowerCase(), 
                         										     data_type: rows[i].type, 
                         										     isnull: !rows[i].notnull, 
                         										     primary: rows[i].pk };
-                        if (rows[i].pk) pool.dbkeys[table.name].push(rows[i].name);
+                        if (rows[i].pk) self.dbkeys[table.name].push(rows[i].name);
                     }
                     client.query("PRAGMA index_list(" + table.name + ")", function(err4, indexes) {
                         async.forEachSeries(indexes, function(idx, next2) {
                             if (!idx.unique) return next2();
                             client.query("PRAGMA index_info(" + idx.name + ")", function(err5, cols) {
                                 cols.forEach(function(x) {
-                                    var col = pool.dbcolumns[table.name][x.name];
+                                    var col = self.dbcolumns[table.name][x.name];
                                     if (!col || col.primary) return; 
                                     col.unique = 1;
-                                    if (!pool.dbunique[table.name]) pool.dbunique[table.name] = [];
-                                    pool.dbunique[table.name].push(x.name);
+                                    if (!self.dbunique[table.name]) self.dbunique[table.name] = [];
+                                    self.dbunique[table.name].push(x.name);
                                 });
                                 next2();
                             });
@@ -1701,7 +1700,7 @@ db.sqliteCacheColumns = function(options, callback)
                     });
                 });
         }, function(err4) {
-                pool.free(client);
+                self.free(client);
                 if (callback) callback(err4);
             });
         });
@@ -1714,6 +1713,25 @@ db.sqliteBindValue = function(val, info)
 	// Dates must be converted into seconds
 	if (typeof val == "object" && val.getTime) val = Math.round(val.getTime()/1000);
     return val;
+}
+
+db.mysqlInitPool = function(options) 
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "mysql";
+    var pool = this.initPool(options, self.mysqlOpen);
+    return pool;
+}
+
+db.mysqlOpen = function(options, callback) 
+{
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    new backend.MysqlDatabase(options.db, function(err) {
+        if (callback) callback(err, this);
+    });
 }
 
 // DynamoDB pool
@@ -1942,7 +1960,7 @@ db.cassandraInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "cassandra";
     
-    var pool = this.initPool(options, self.cassandraOpen, self.cassandraCacheColumns);
+    var pool = this.initPool(options, self.cassandraOpen);
     pool.dboptions = core.mergeObj(pool.dboptions, { types: { json: "text", real: "double", counter: "counter" }, 
                                                      opsMap: { begins_with: "begins_with" }, 
                                                      placeholder: "?", 
@@ -1953,6 +1971,7 @@ db.cassandraInitPool = function(options)
                                                      nomultisql: 1 });
     pool.bindValue = self.cassandraBindValue;
     pool.processRow = self.cassandraProcessRow;
+    pool.cacheColumns = self.cassandraCacheColumns;
     // No REPLACE INTO support but UPDATE creates new record if no primary key exists
     pool.put = function(table, obj, opts, callback) {
         self.update(table, obj, opts, callback);
@@ -2035,15 +2054,14 @@ db.cassandraCacheColumns = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
     
-    var pool = this.getPool('', options);
-    pool.get(function(err, client) {
+    self.get(function(err, client) {
         if (err) return callback ? callback(err, []) : null;
         
         client.query("SELECT * FROM system.schema_columns WHERE keyspace_name = ?", [client.keyspace], function(err, rows) {
-            pool.dbcolumns = {};
-            pool.dbkeys = {};
+            self.dbcolumns = {};
+            self.dbkeys = {};
             for (var i = 0; i < rows.length; i++) {
-                if (!pool.dbcolumns[rows[i].columnfamily_name]) pool.dbcolumns[rows[i].columnfamily_name] = {};
+                if (!self.dbcolumns[rows[i].columnfamily_name]) self.dbcolumns[rows[i].columnfamily_name] = {};
                 var data_type = rows[i].validator.replace(/[\(\)]/g,".").split(".").pop().replace("Type", "").toLowerCase();
                 var db_type = "";
                 switch (data_type) {
@@ -2072,14 +2090,14 @@ db.cassandraCacheColumns = function(options, callback)
                 switch(rows[i].type) {
                 case "partition_key":
                 case "clustering_key":
-                    if (!pool.dbkeys[rows[i].columnfamily_name]) pool.dbkeys[rows[i].columnfamily_name] = [];
-                    pool.dbkeys[rows[i].columnfamily_name].push(rows[i].column_name);
+                    if (!self.dbkeys[rows[i].columnfamily_name]) self.dbkeys[rows[i].columnfamily_name] = [];
+                    self.dbkeys[rows[i].columnfamily_name].push(rows[i].column_name);
                     if (col) col.primary = true;
                     break;
                 }
-                pool.dbcolumns[rows[i].columnfamily_name][rows[i].column_name] = col;
+                self.dbcolumns[rows[i].columnfamily_name][rows[i].column_name] = col;
             }
-            pool.free(client);
+            self.free(client);
             if (callback) callback(err);
         });
     });

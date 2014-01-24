@@ -29,7 +29,8 @@ Features:
         rc.backend run-backend
        
      
-* Now go to http://localhost:8000/api.html for the Web console to test API requests, cancel for login prompt on the first call.
+* Now go to http://localhost:8000/api.html for the Web console to test API requests, cancel the login popup after the
+  page is loaded, we do not have yet any account credentials.
   For this example let's create couple of accounts, type and execute the following URLs in the Web console
   
         /account/add?name=test1&secret=test1&email=test1@test.com
@@ -38,7 +39,7 @@ Features:
       
 
 * Now login with any of the accounts, click on the Login link at the top right corner of the Web console.
-  If not error messages appeared after login, try to get your current account details:
+  If no error message appeared after the login, try to get your current account details:
   
         /account/get
       
@@ -59,12 +60,12 @@ Features:
         });
 
         // Customize the API server with additional tables, endpoints or other features
-        backend.api.onInit = function() {
+        backend.api.initApplication = function() {
 
             // Register custom API endpoint, return FB status 
             this.app.get('/fbstatus', function(req, res) { 
                 
-                // Retrieve our current account record, req.account contains our authenticated account id
+                // Retrieve our current account record, req.account is an object containing our authenticated account 
                 backend.db.get("account", { id: req.account.id }, function(err, rows) {
                 
                     // Ask Facebook about us
@@ -142,9 +143,9 @@ The backend directory structure is the following:
   Example:
 
         debug=1
-        db-pool=ddb
-        db-ddb-pool=http://localhost:9000
-        db-pg-pool=postgresql://postgres@127.0.0.1/backend
+        db-pool=dynamodb
+        db-dynamodb-pool=http://localhost:9000
+        db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 
 
 * etc/crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:

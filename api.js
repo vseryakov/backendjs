@@ -23,7 +23,10 @@ var backend = require(__dirname + '/build/backend');
 var api = {
 
     // No authentication for these urls
-    allow: /(^\/$|[a-zA-Z0-9\.-]+\.(gif|png|jpg|js|ico|css|html)$|(^\/public\/)|(^\/images\/)|(^\/image\/account\/|^\/account\/add))/,
+    allow: ["^$", "^[a-zA-Z0-9\\.-]+\\.(gif|png|jpg|js|css|html)$", 
+            "^/public/", 
+            "^/account/add", 
+            "^/image/account/" ],
 
     // Refuse access to these urls
     deny: null,
@@ -108,6 +111,10 @@ var api = {
                   type: {} }
     },
     
+    // Security handler by endpoint, similar to global checkAccess handler
+    access: {
+    },
+    
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
     
@@ -165,22 +172,27 @@ api.init = function(callback)
     });
     self.app.use(this.accessLogger());
     self.app.use(function(req, res, next) { return self.checkRequest(req, res, next); });
+    
+    // Assign custom middleware just after the security handler
+    self.initMiddleware.call(self);
+    
+    // Server from default web location in the package or from application specific location
     self.app.use(express.static(path.resolve(core.path.web)));
+    self.app.use(express.static(path.resolve(__dirname + "/web")));
+    
     self.app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
     self.app.listen(core.port, core.bind, function(err) {
         if (err) logger.error('startExpress:', core.port, err);
     });
 
-    // Return images by prefix, id and possibly type, serves from local images folder, 
-    // this is generic access without authentication, depends on self.allow regexp
+    // Return images by prefix, id and possibly type
     self.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([0-9])?/, function(req, res) {
         self.getIcon(req, res, req.params[1], { prefix: req.params[0], type: req.params[2] });
     });
-
-    // Direct access to the images by exact file name
-    self.app.all(/^\/images\/(.+)/, function(req, res) {
-        self.sendFile(req, res, path.join(core.path.images, req.params[0].replace(/\.\./g, "")));
-    });
+    
+    // Convert allow/deny lists into single regexp
+    if (this.allow) this.allow = new RegExp(this.allow.map(function(x){return "(" + x + ")"}).join("|"));
+    if (this.deny) this.deny = new RegExp(this.deny.map(function(x){return "(" + x + ")"}).join("|"));
     
     // Managing accounts, basic functionality
     self.initAccountAPI();
@@ -197,12 +209,13 @@ api.init = function(callback)
     // Assign row handler for the account table
     db.getPool('account').processRow = self.processAccountRow;
     
-    // Post init or other application routes
-    self.onInit.call(self, callback);
+    // Custom application logic
+    self.initApplication.call(self, callback);
 }
 
 // Cutomization hooks/callbacks, always run within api context
-api.onInit = function() {}
+api.initApplication = function() {}
+api.initMiddleware = function() {}
        
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, next) 
@@ -210,7 +223,11 @@ api.checkRequest = function(req, res, next)
     var self = this;
     self.checkAccess(req, function(rc1) {
         // Status is given, return an error or proceed to the next module
-        if (rc1) return (rc1.status == 200 ? next() : res.json(rc1));
+        if (rc1) {
+            if (rc1.status == 200) return next();
+            if (rc1.status) res.json(rc1.status, rc1);
+            return;
+        }
 
         // Verify account access for signature
         self.checkSignature(req, function(rc2) {
@@ -219,7 +236,7 @@ api.checkRequest = function(req, res, next)
             // The account is verified, proceed with the request
             if (rc2.status == 200) return next();
             // Something is wrong, return an error
-            res.json(rc2.status, rc2);
+            if (rc2.status) res.json(rc2.status, rc2);
         });
     });
 }
@@ -228,11 +245,15 @@ api.checkRequest = function(req, res, next)
 // Check access permissions, calls the callback with the following argument:
 // - nothing if checkSignature needs to be called
 // - an object with status: 200 to skip authorization and proceed with the next module
-// - an object with status other than 200 to return the status and stop request processing
+// - an object with status 0 means response has been sent, just stop
+// - an object with status other than 0 or 200 to return the status and stop request processing
 api.checkAccess = function(req, callback) 
 {
     if (this.deny && req.path.match(this.deny)) return callback({ status: 401, message: "Access denied" });
     if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
+    // Call custom access handler for the endpoint
+    var path = req.path.split("/")[1];
+    if (path && this.access[path]) return this.access[path].call(this, req, callback);
     callback();
 }
 
@@ -301,9 +322,8 @@ api.checkSignature = function(req, callback)
                 return callback({ status: 401, message: "Bad checksum, calculated checksum is " + chk });
             }
         }
-        // Save components of signature verification, it will be used later for profile password check as well
+        // Save account and signature in the request, it will be used later
         req.signature = sig;
-        // Save current account in the request
         req.account = account;
         return callback({ status: 200, message: "Ok" });
     });
@@ -863,9 +883,18 @@ api.registerTables = function(tables)
     for (var p in tables) {
         if (!self.tables[p]) self.tables[p] = {}; 
         for (var c in tables[p]) {
-            if (!self.tables[p][c]) self.tables[p][c] = tables[p][c];
+            // Override columns
+            for (var k in tables[p][c]) {
+                self.tables[p][c][k] = tables[p][c][k];
+            }
         }
     }
+}
+
+// Register a handler to check access for given endpoint, it work the same way as the global accessCheck function
+api.registerAccessCheck = function(path, callback)
+{
+    this.access.path = callback;
 }
 
 // Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back
