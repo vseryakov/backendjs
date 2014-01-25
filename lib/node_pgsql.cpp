@@ -343,11 +343,10 @@ Handle<Value> PgSQLDatabase::Query(const Arguments& args)
     if (!cb.IsEmpty()) db->callback[CB_QUERY] = Persistent < Function > ::New(cb);
 
     db->Clear();
-
     if (nparams) {
-        int nvalues = 0;
+        int nvalues = nparams;
         char* values[nvalues];
-        for (int i = 0; i < nvalues; i++) {
+        for (int i = 0; i < nparams; i++) {
             String::Utf8Value str(params->Get(i)->ToString());
             values[i] = strdup(*str);
         }
@@ -462,6 +461,10 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
             case 16: // bool
             	value = Local<Value>::New(Boolean::New(val[0] == 't' ? true : false));
             	break;
+
+            case 114: // json
+                value = Local<Value>::New(jsonParse(string(val)));
+                break;
 
             case 700: // float32
             case 701: // float64

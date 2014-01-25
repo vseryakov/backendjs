@@ -147,7 +147,7 @@ tests.account = function(callback)
         function(next) {
             var options = { email: email, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.like!=2 ? (err || "err4:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.like0!=2 ? (err || "err4:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -160,6 +160,12 @@ tests.account = function(callback)
             var options = { email: email, secret: secret, query: { type: "like" } }
             core.sendRequest("/connection/get", options, function(err, params) {
                 next(err || !params.obj || params.obj.length!=1 ? (err || "err5:" + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret }
+            core.sendRequest("/counter/get", options, function(err, params) {
+                next(err || !params.obj || params.obj.like0!=1 ? (err || "err6:" + util.inspect(params.obj)) : 0);
             });
         },
     ],
@@ -277,6 +283,7 @@ tests.db = function(callback)
 			         birthday: { semipub: 1 },
 			         json: { type: "json" },
 			         num: { type: "int" },
+			         num2: { type: "real" },
 			         mtime: { type: "int" } },	
 			test3: { id : { primary: 1 },
 			         num: { type: "counter", value: 0 } },
@@ -284,6 +291,7 @@ tests.db = function(callback)
 	var now = core.now();
 	var id = core.random(64);
 	var id2 = core.random(128);
+    var num2 = core.randomNum(bbox[0], bbox[2]);
 	var next_token = null;
 	async.series([
 	    function(next) {
@@ -298,13 +306,20 @@ tests.db = function(callback)
 	    },
 	    function(next) {
             logger.log('TEST: add1');
-            db.add("test1", { id: id }, function() {
+            db.add("test1", { id: id }, function(err) {
+                if (err) return next(err);
                 db.add("test1", { id: id2 }, next);
             });
         },
         function(next) {
             logger.log('TEST: put1');
             db.put("test3", { id: id, num: 0 }, next);
+        },
+        function(next) {
+            logger.log('TEST: get add');
+            db.get("test3", { id: id }, function(err, rows) {
+                next(err || rows.length!=1 || rows[0].id != id);
+            });
         },
         function(next) {
             logger.log('TEST: get add');
@@ -320,20 +335,22 @@ tests.db = function(callback)
         },
 	    function(next) {
 	        logger.log('TEST: add2');
-	    	db.add("test2", { id: id, id2: '1', email: id, alias: id, birthday: id, num: 0, mtime: now }, next);
+	    	db.add("test2", { id: id, id2: '1', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: add3');
-	    	db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 0, mtime: now }, next);
+	    	db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: add4');
-	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 0, mtime: now }, next);
+	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 0, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: incr');
 	    	db.incr("test3", { id: id, num: 1 }, { mtime: 1 }, function(err) {
+	    	    if (err) return next(err);
 	    		db.incr("test3", { id: id, num: 1 }, function(err) {
+	    		    if (err) return next(err);
 	    		    db.incr("test3", { id: id, num: -1 }, next);
 	    		});
 	    	});
@@ -346,19 +363,20 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: select columns');
-	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,mtime' }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' ? (err || "err3:" + util.inspect(rows)) : 0);
+	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
+	    		next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2 ? (err || "err3:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
             logger.log('TEST: select columns2');
-            db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,mtime' }, function(err, rows) {
-                next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' ? (err || "err3:" + util.inspect(rows)) : 0);
+            db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
+                next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2 ? (err || "err3:" + util.inspect(rows)) : 0);
             });
         },
 	    function(next) {
 	        logger.log('TEST: update');
 	    	db.update("test2", { id: id, id2: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
+	    	    if (err) return next(err);
 	    	    logger.log('TEST: replace after update');
 	    		db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
 	    	});

@@ -474,7 +474,7 @@ case "$ARG" in
   init-mysql)
     if [ ! -d $MYSQL_DIR ]; then
        mkdir -p $MYSQL_DIR
-       echo "[client]\nuser=root\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" > ~/.my.cnf
+       echo "[client]\nuser=root\ndatabase=backend\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" > ~/.my.cnf
        $MYSQL_PREFIX/bin/mysql_install_db
        $MYSQL_PREFIX/bin/mysqld &
        sleep 3

@@ -284,18 +284,13 @@ db.initPool = function(options, createcb)
         }  else {
             var rows = [];
             async.forEachSeries(req.text, function(text, next) {
-                client.query(text, function(err, rc) { rows = rc; next(err); });
+                client.query(text, function(err, rc) { if (rc) rows = rc; next(err); });
             }, function(err) {
                 pool.nextToken(req, rows, opts);
                 if (!err && opts && opts.filter) rows = rows.filter(function(row) { return opts.filter(row, opts); });
                 callback(err, rows);
             });
         }
-    }
-    // Sqlite supports REPLACE INTO natively and this is the default pool
-    pool.put = function(table, obj, opts, callback) {
-        var req = this.prepare("add", table, obj, core.extendObj(opts, "replace", 1));
-        self.query(req, opts, callback);
     }
     // Support for pagination, for SQL this is the OFFSET for the next request
     pool.nextToken = function(req, rows, opts) {
@@ -389,6 +384,7 @@ db.put = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
+    
     // Custom handler for the operation
     var pool = this.getPool(table, options);
     if (pool.put) return pool.put(table, obj, options, callback);
@@ -432,7 +428,7 @@ db.del = function(table, obj, options, callback)
     this.query(req, options, callback);
 }
 
-// Add/update the object, check existence by the primary key or by othe keys specified.
+// Add/update the object, check existence by the primary key or by other keys specified.
 // - obj is a Javascript object with properties that correspond to the table columns
 // - options define additional flags that may
 //   - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
@@ -865,8 +861,8 @@ db.sqlCacheColumns = function(options, callback)
         
         client.query("SELECT c.table_name,c.column_name,LOWER(c.data_type) AS data_type,c.column_default,c.ordinal_position,c.is_nullable " +
                      "FROM information_schema.columns c,information_schema.tables t " +
-                     "WHERE c.table_schema NOT IN('information_schema','performance_schema','mysql','pg_catalog') AND c.table_name=t.table_name " +
-                     "ORDER BY 5", [options.schema || ""], function(err, rows) {
+                     "WHERE c.table_schema NOT IN ('information_schema','performance_schema','mysql','pg_catalog') AND c.table_name=t.table_name " +
+                     "ORDER BY 5", function(err, rows) {
             pool.dbcolumns = {};
             for (var i = 0; i < rows.length; i++) {
                 if (!pool.dbcolumns[rows[i].table_name]) pool.dbcolumns[rows[i].table_name] = {};
@@ -936,7 +932,7 @@ db.sqlPrepare = function(op, table, obj, options)
         req = this.sqlInsert(table, obj, options);
         break;
     case "put": 
-        req = this.sqlInsert(table, obj, options);
+        req = this.sqlInsert(table, obj, core.extendObj(options, "replace", !options.noReplace));
         break;
     case "incr": 
         req = this.sqlUpdate(table, obj, options);
@@ -1537,7 +1533,7 @@ db.pgsqlInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
     var pool = this.initPool(options, self.pgsqlOpen);
-    pool.dboptions = core.mergeObj(pool.dboptions, { noIfExists: 1 });
+    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { real: "numeric" }, noIfExists: 1, noReplace: 1 });
     pool.bindValue = self.pgsqlBindValue;
     pool.cacheIndexes = self.pgsqlCacheIndexes;
     // No REPLACE INTO support, do it manually
@@ -1596,9 +1592,13 @@ db.pgsqlCacheIndexes = function(options, callback)
 db.pgsqlBindValue = function(val, opts) 
 {
     function toArray(v) {
-        return '{' + v.map(function(x) { return Array.isArray(x) ? toArray(x) : typeof x === 'undefined' || x === null ? 'NULL' : JSON.stringify(x);3 } ).join(',') + '}';
+        return '{' + v.map(function(x) { return Array.isArray(x) ? toArray(x) : typeof x === 'undefined' || x === null ? 'NULL' : JSON.stringify(x); } ).join(',') + '}';
     }
-    switch ((opts || {}).data_type || "") {
+    switch (opts && opts.data_type ? opts.data_type : "") {
+    case "json":
+        val = JSON.stringify(val);
+        break;
+        
     case "array":
         if (Buffer.isBuffer(val)) {
             var a = [];
@@ -1812,7 +1812,8 @@ db.dynamodbInitPool = function(options)
     pool.get = function(callback) { callback(null, this); }
     pool.free = function() {}
     pool.watch = function() {}
-
+    pool.cacheIndexes = function(opts, callback) { callback() }
+    
     pool.cacheColumns = function(opts, callback) {
         var pool = this;
         var options = { db: pool.db };
@@ -1874,7 +1875,7 @@ db.dynamodbInitPool = function(options)
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var idxs = Object.keys(obj).filter(function(x) { return obj[x].index }).
-                              map(function(x) { return [x, self.newObj(Object.keys(obj).filter(function(y) { return obj[y].primary })[0], 'HASH', x, 'RANGE') ] }).
+                              map(function(x) { return [x, core.newObj(Object.keys(obj).filter(function(y) { return obj[y].primary })[0], 'HASH', x, 'RANGE') ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
                 callback(err, item ? [item.Item] : []);
@@ -2030,6 +2031,7 @@ db.cassandraInitPool = function(options)
                                                      noDefaults: 1, 
                                                      noNulls: 1, 
                                                      noLengths: 1,
+                                                     noReplace: 1,
                                                      noMultiSQL: 1 });
     pool.bindValue = self.cassandraBindValue;
     pool.processRow = self.cassandraProcessRow;
@@ -2071,9 +2073,9 @@ db.cassandraOpen = function(options, callback)
     });
 }
 
-db.cassandraQuery = function(text, values, options, callback) 
+db.cassandraQuery = function(text, values, callback) 
 {
-    if (typeof options == "function") callback = options, options = null;
+    if (typeof values == "function") callback = values, values = null;
     try {
         this.cql(text, core.cloneObj(values), function(err, results) {
             if (err || !results) return callback ? callback(err, []) : null;

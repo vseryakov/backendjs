@@ -303,7 +303,7 @@ err:
                 type = MYSQL_TYPE_DOUBLE;
                 break;
             case MYSQL_TYPE_DOUBLE:
-                dval = *((float *) bind[i].buffer);
+                dval = *((double *) bind[i].buffer);
                 type = MYSQL_TYPE_DOUBLE;
                 break;
             case MYSQL_TYPE_LONGLONG:

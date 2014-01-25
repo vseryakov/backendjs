@@ -95,13 +95,13 @@ var api = {
                    icon: {}},                             // Icon base64 or url
        
        // All accumulated counters for accounts
-       counter: { id: { primary: 1 },                                         // account_id
-                  like: { type: "counter", value: 0, pub: 1, incr: 1 },       // who i liked
-                  r_like: { type: "counter", value: 0, pub: 1 },              // reversed like, who liked me
-                  dislike: { type: "counter", value: 0, pub: 1, incr: 1 },
-                  r_dislike: { type: "counter", value: 0, pub: 1 },
-                  follow: { type: "counter", value: 0, pub: 1, incr: 1 },
-                  r_follow: { type: "counter", value: 0, pub: 1 },
+       counter: { id: { primary: 1 },                                           // account_id
+                  like0: { type: "counter", value: 0, pub: 1, incr: 1 },        // who i liked
+                  like1: { type: "counter", value: 0, pub: 1 },                 // reversed like, who liked me
+                  dislike0: { type: "counter", value: 0, pub: 1, incr: 1 },
+                  dislike1: { type: "counter", value: 0, pub: 1 },
+                  follow0: { type: "counter", value: 0, pub: 1, incr: 1 },
+                  follow1: { type: "counter", value: 0, pub: 1 },
                   msg_count: { type: "counter", value: 0 },                    // total msgs received
                   msg_read: { type: "counter", value: 0 }},                    // total msgs read 
                                   
@@ -210,11 +210,13 @@ api.init = function(callback)
     db.getPool('account').processRow = self.processAccountRow;
     
     // Custom application logic
-    self.initApplication.call(self, callback);
+    self.initApplication.call(self, function() {
+        self.initTables(callback);
+    });
 }
 
 // Cutomization hooks/callbacks, always run within api context
-api.initApplication = function() {}
+api.initApplication = function(callback) { callback() }
 api.initMiddleware = function() {}
        
 // Perform authorization of the incoming request for access and permissions
@@ -388,7 +390,7 @@ api.initAccountAPI = function()
                         return self.sendReply(res, err);
                     }
                     // Some dbs require the record to exist, just make one with default values
-                    db.put("counter", { id: req.query.id, like: 0 });
+                    db.put("counter", { id: req.query.id, like0: 0 });
                     res.json(self.processAccountRow(req.query));
                 });
             });
@@ -657,10 +659,10 @@ api.initConnectionAPI = function()
 
             // Update accumulated counter if we support this column and do it automatically
             if (req.params[1] != 'add') break;
-            var col = db.getColumn("counter", type);
+            var col = db.getColumn("counter", type + '0');
             if (col && col.incr) {
-                db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type, 1, 'r_' + type, 1), { cached: 1 });
-                db.incr("counter", core.newObj('id', id, 'mtime', now, type, 1, 'r_' + type, 1), { cached: 1 });
+                db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
+                db.incr("counter", core.newObj('id', id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
             }
             break;
 
@@ -680,10 +682,10 @@ api.initConnectionAPI = function()
             }
             
             // Update accumulated counter if we support this column and do it automatically
-            var col = db.getColumn("counter", req.query.type);
+            var col = db.getColumn("counter", req.query.type + "0");
             if (col && col.incr) {
-                db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type, -1, 'r_' + type, -1), { cached: 1 });
-                db.incr("counter", core.newObj('id', id, 'mtime', now, type, -1, 'r_' + type, -1), { cached: 1 });
+                db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
+                db.incr("counter", core.newObj('id', id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
             }
             break;
 
