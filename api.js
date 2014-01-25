@@ -38,7 +38,7 @@ var api = {
     tables: { 
         // Authentication by email and secret
         auth: { email: { primary: 1 },
-                id: { unique: 1 },
+                id: {},
                 secret: {},
                 api_deny: {},
                 api_allow: {},
@@ -49,7 +49,7 @@ var api = {
         account: { id: { primary: 1, pub: 1 },
                    email: { unique: 1 },
                    name: {},
-                   alias: { pub: 1, index: 1 },
+                   alias: { pub: 1 },
                    status: {},
                    phone: {},
                    website: {},
@@ -91,7 +91,7 @@ var api = {
        message : { id: { primary: 1 },                    // Account sent to 
                    mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
                    status: {},                            // Status flags: R - read 
-                   text: {},                              // Text of the message 
+                   text: { type: "text" },                // Text of the message 
                    icon: {}},                             // Icon base64 or url
        
        // All accumulated counters for accounts

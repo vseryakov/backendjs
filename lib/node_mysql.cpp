@@ -45,7 +45,7 @@ public:
         string sparam;
         int iparam;
         int64_t inserted_id;
-        int changes;
+        int affected_rows;
         vector<Row> rows;
 
         Baton(MysqlDatabase* db_, Handle<Function> cb_, string s = "", int i = 0): db(db_), status(0), sparam(s), iparam(i) {
@@ -83,6 +83,9 @@ public:
     static void Work_Close(uv_work_t* req);
     static void Work_AfterClose(uv_work_t* req);
 
+    int64_t inserted_id;
+    int affected_rows;
+
     MYSQL *handle;
     int timeout;
     int retries;
@@ -113,10 +116,10 @@ public:
         Row params;
         vector<Row> rows;
         int64_t inserted_id;
-        int changes;
+        int affected_rows;
         string sql;
 
-        Baton(MysqlStatement* stmt_, Handle<Function> cb_): stmt(stmt_), inserted_id(0), changes(0), sql(stmt->sql)  {
+        Baton(MysqlStatement* stmt_, Handle<Function> cb_): stmt(stmt_), inserted_id(0), affected_rows(0), sql(stmt->sql)  {
             stmt->Ref();
             request.data = this;
             callback = Persistent < Function > ::New(cb_);
@@ -128,7 +131,7 @@ public:
         }
     };
 
-    MysqlStatement(MysqlDatabase* db_, string sql_ = string()): ObjectWrap(), db(db_), handle(NULL), meta(NULL), sql(sql_), status(0) {
+    MysqlStatement(MysqlDatabase* db_, string sql_ = string()): ObjectWrap(), db(db_), handle(NULL), meta(NULL), sql(sql_), status(0), ncolumns(0) {
         db->Ref();
         _stmts[this] = 0;
         memset(bind, 0, sizeof(bind));
@@ -156,6 +159,7 @@ public:
         if (mysql_stmt_prepare(handle, (const char*)sql.c_str(), sql.size())) goto err;
 
         ncolumns = mysql_stmt_field_count(handle);
+        LogDev("%s, ncols=%d, nparams=%d", sql.c_str(), ncolumns, mysql_stmt_param_count(handle));
         if (ncolumns > 0) {
             meta = mysql_stmt_result_metadata(handle);
             if (!meta) goto err;
@@ -227,13 +231,129 @@ err:
         return false;
     }
 
+    bool Bind(Row &params) {
+        LogDev("%s, params=%d", sql.c_str(), mysql_stmt_param_count(handle));
+        if (!params.size() || !mysql_stmt_param_count(handle)) return true;
+        mysql_stmt_reset(handle);
+
+        MYSQL_BIND pbind[MYSQL_MAX_BIND];
+        memset(pbind, 0, sizeof(pbind));
+
+        for (uint i = 0; i < params.size(); i++) {
+            MysqlField &field = params[i];
+            switch (field.type) {
+            case MYSQL_TYPE_LONG:
+                pbind[i].buffer = (char*)&field.ivalue;
+                break;
+            case MYSQL_TYPE_DOUBLE:
+                pbind[i].buffer = (char*)&field.nvalue;
+                break;
+            case MYSQL_TYPE_STRING:
+                pbind[i].buffer = (void*)field.svalue.c_str();
+                pbind[i].buffer_length = field.svalue.size();
+                break;
+            case MYSQL_TYPE_BLOB:
+                pbind[i].buffer = (void*)field.svalue.c_str();
+                pbind[i].buffer_length = field.svalue.size();
+                break;
+            case MYSQL_TYPE_NULL:
+                break;
+            }
+            pbind[i].buffer_type = (enum_field_types)field.type;
+        }
+        if (mysql_stmt_bind_param(handle, pbind)) {
+            status = mysql_stmt_errno(handle);
+            message = string(mysql_stmt_error(handle));
+            return false;
+        }
+        return true;
+    }
+
+    void GetRow(Row &row) {
+        row.clear();
+
+        for (int i = 0; i < ncolumns; i++) {
+            char *name = meta->fields[i].name;
+            int type = meta->fields[i].type;
+            if (nulls[i]) {
+                row.push_back(MysqlField(name));
+                continue;
+            }
+            string sval;
+            double dval = 0;
+            MYSQL_TIME tval;
+            switch (type) {
+            case MYSQL_TYPE_NULL:
+            case MYSQL_TYPE_TINY:
+                dval = *((signed char *) bind[i].buffer);
+                type = MYSQL_TYPE_LONG;
+                break;
+            case MYSQL_TYPE_YEAR:
+            case MYSQL_TYPE_SHORT:
+                dval = *((short *) bind[i].buffer);
+                type = MYSQL_TYPE_LONG;
+                break;
+            case MYSQL_TYPE_LONG:
+            case MYSQL_TYPE_INT24:
+                dval = *((int32_t *) bind[i].buffer);
+                type = MYSQL_TYPE_LONG;
+                break;
+            case MYSQL_TYPE_FLOAT:
+                dval = *((float *) bind[i].buffer);
+                type = MYSQL_TYPE_DOUBLE;
+                break;
+            case MYSQL_TYPE_DOUBLE:
+                dval = *((float *) bind[i].buffer);
+                type = MYSQL_TYPE_DOUBLE;
+                break;
+            case MYSQL_TYPE_LONGLONG:
+                dval = *((long long *) bind[i].buffer);
+                type = MYSQL_TYPE_DOUBLE;
+                break;
+            case MYSQL_TYPE_DATE:
+            case MYSQL_TYPE_TIME:
+            case MYSQL_TYPE_DATETIME:
+            case MYSQL_TYPE_NEWDATE:
+            case MYSQL_TYPE_TIMESTAMP:
+            case MYSQL_TYPE_TIMESTAMP2:
+            case MYSQL_TYPE_DATETIME2:
+            case MYSQL_TYPE_TIME2:
+                tval = *((MYSQL_TIME *) bind[i].buffer);
+                sval = vFmtStr("%04d-%02d-%02d %02d:%02d:%02d GMT", tval.year, tval.month, tval.day, tval.hour, tval.minute, tval.second);
+                type = MYSQL_TYPE_STRING;
+                break;
+            case MYSQL_TYPE_BLOB:
+            case MYSQL_TYPE_TINY_BLOB:
+            case MYSQL_TYPE_MEDIUM_BLOB:
+            case MYSQL_TYPE_LONG_BLOB:
+                sval = string((char*)bind[i].buffer, lengths[i]);
+                type = meta->fields[i].flags & BINARY_FLAG ? MYSQL_TYPE_BLOB : MYSQL_TYPE_STRING;
+                break;
+            case MYSQL_TYPE_SET:
+                break;
+            case MYSQL_TYPE_DECIMAL:
+            case MYSQL_TYPE_VARCHAR:
+            case MYSQL_TYPE_BIT:
+            case MYSQL_TYPE_NEWDECIMAL:
+            case MYSQL_TYPE_ENUM:
+            case MYSQL_TYPE_VAR_STRING:
+            case MYSQL_TYPE_STRING:
+            case MYSQL_TYPE_GEOMETRY:
+            default:
+                sval = string((char*)bind[i].buffer, lengths[i]);
+                type = meta->fields[i].flags & BINARY_FLAG ? MYSQL_TYPE_BLOB : MYSQL_TYPE_STRING;
+            }
+            row.push_back(MysqlField(name, type, dval, sval));
+        }
+    }
+
     bool Execute() {
         status = mysql_stmt_execute(handle);
         if (!status) {
             if (mysql_stmt_field_count(handle)) {
                 status = mysql_stmt_bind_result(handle, bind);
-                if (!status) status = mysql_stmt_store_result(handle);
             }
+            if (!status) status = mysql_stmt_store_result(handle);
         }
         if (status) {
             status = mysql_stmt_errno(handle);
@@ -242,7 +362,7 @@ err:
         }
         return true;
     }
-    Handle<Value> querySync(const Arguments& args);
+    Handle<Value> querySync(const Arguments& args, int idx = 0);
 
     static Handle<Value> Finalize(const Arguments& args);
 
@@ -382,45 +502,6 @@ void MysqlDatabase::Init(Handle<Object> target)
     target->Set(String::NewSymbol("MysqlDatabase"), constructor_template->GetFunction());
 }
 
-static bool BindParameters(Row &params, MysqlStatement *stmt)
-{
-    if (!params.size()) return true;
-
-    mysql_stmt_reset(stmt->handle);
-
-    MYSQL_BIND pbind[MYSQL_MAX_BIND];
-    memset(pbind, 0, sizeof(pbind));
-
-    for (uint i = 0; i < params.size(); i++) {
-        MysqlField &field = params[i];
-        switch (field.type) {
-        case MYSQL_TYPE_LONG:
-            pbind[i].buffer = (char*)&field.ivalue;
-            break;
-        case MYSQL_TYPE_DOUBLE:
-            pbind[i].buffer = (char*)&field.nvalue;
-            break;
-        case MYSQL_TYPE_STRING:
-            pbind[i].buffer = (void*)field.svalue.c_str();
-            pbind[i].buffer_length = field.svalue.size();
-            break;
-        case MYSQL_TYPE_BLOB:
-            pbind[i].buffer = (void*)field.svalue.c_str();
-            pbind[i].buffer_length = field.svalue.size();
-            break;
-        case MYSQL_TYPE_NULL:
-            break;
-        }
-        pbind[i].buffer_type = (enum_field_types)field.type;
-    }
-    if (mysql_stmt_bind_param(stmt->handle, pbind)) {
-        stmt->status = mysql_stmt_errno(stmt->handle);
-        stmt->message = string(mysql_stmt_error(stmt->handle));
-        return false;
-    }
-    return true;
-}
-
 static bool ParseParameters(Row &params, const Arguments& args, int idx)
 {
     HandleScope scope;
@@ -461,85 +542,6 @@ static bool ParseParameters(Row &params, const Arguments& args, int idx)
         }
     }
     return true;
-}
-
-static void GetRow(Row &row, MysqlStatement *stmt)
-{
-    row.clear();
-
-    for (int i = 0; i < stmt->ncolumns; i++) {
-        char *name = stmt->meta->fields[i].name;
-        int type = stmt->meta->fields[i].type;
-        if (stmt->nulls[i]) {
-            row.push_back(MysqlField(name));
-            continue;
-        }
-        string sval;
-        double dval = 0;
-        MYSQL_TIME tval;
-        switch (type) {
-        case MYSQL_TYPE_NULL:
-        case MYSQL_TYPE_TINY:
-            dval = *((signed char *) stmt->bind[i].buffer);
-            type = MYSQL_TYPE_LONG;
-            break;
-        case MYSQL_TYPE_YEAR:
-        case MYSQL_TYPE_SHORT:
-            dval = *((short *) stmt->bind[i].buffer);
-            type = MYSQL_TYPE_LONG;
-            break;
-        case MYSQL_TYPE_LONG:
-        case MYSQL_TYPE_INT24:
-            dval = *((int32_t *) stmt->bind[i].buffer);
-            type = MYSQL_TYPE_LONG;
-            break;
-        case MYSQL_TYPE_FLOAT:
-            dval = *((float *) stmt->bind[i].buffer);
-            type = MYSQL_TYPE_DOUBLE;
-            break;
-        case MYSQL_TYPE_DOUBLE:
-            dval = *((float *) stmt->bind[i].buffer);
-            type = MYSQL_TYPE_DOUBLE;
-            break;
-        case MYSQL_TYPE_LONGLONG:
-            dval = *((long long *) stmt->bind[i].buffer);
-            type = MYSQL_TYPE_DOUBLE;
-            break;
-        case MYSQL_TYPE_DATE:
-        case MYSQL_TYPE_TIME:
-        case MYSQL_TYPE_DATETIME:
-        case MYSQL_TYPE_NEWDATE:
-        case MYSQL_TYPE_TIMESTAMP:
-        case MYSQL_TYPE_TIMESTAMP2:
-        case MYSQL_TYPE_DATETIME2:
-        case MYSQL_TYPE_TIME2:
-            tval = *((MYSQL_TIME *) stmt->bind[i].buffer);
-            sval = vFmtStr("%04d-%02d-%02d %02d:%02d:%02d GMT", tval.year, tval.month, tval.day, tval.hour, tval.minute, tval.second);
-            type = MYSQL_TYPE_STRING;
-            break;
-        case MYSQL_TYPE_BLOB:
-        case MYSQL_TYPE_TINY_BLOB:
-        case MYSQL_TYPE_MEDIUM_BLOB:
-        case MYSQL_TYPE_LONG_BLOB:
-            sval = string((char*)stmt->bind[i].buffer, stmt->lengths[i]);
-            type = MYSQL_TYPE_BLOB;
-            break;
-        case MYSQL_TYPE_SET:
-            break;
-        case MYSQL_TYPE_DECIMAL:
-        case MYSQL_TYPE_VARCHAR:
-        case MYSQL_TYPE_BIT:
-        case MYSQL_TYPE_NEWDECIMAL:
-        case MYSQL_TYPE_ENUM:
-        case MYSQL_TYPE_VAR_STRING:
-        case MYSQL_TYPE_STRING:
-        case MYSQL_TYPE_GEOMETRY:
-        default:
-            sval = string((char*)stmt->bind[i].buffer, stmt->lengths[i]);
-            type = MYSQL_TYPE_STRING;
-        }
-        row.push_back(MysqlField(name, type, dval, sval));
-    }
 }
 
 static Local<Object> RowToJS(Row &row)
@@ -586,14 +588,14 @@ Handle<Value> MysqlDatabase::InsertedOidGetter(Local<String> str, const Accessor
 {
     HandleScope scope;
     MysqlDatabase* db = ObjectWrap::Unwrap < MysqlDatabase > (accessor.This());
-    return Integer::New(db->handle ? mysql_insert_id(db->handle) : 0);
+    return Integer::New(db->inserted_id);
 }
 
 Handle<Value> MysqlDatabase::AffectedRowsGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     MysqlDatabase* db = ObjectWrap::Unwrap < MysqlDatabase > (accessor.This());
-    return Integer::New(db->handle ? mysql_affected_rows(db->handle) : 0);
+    return Integer::New(db->affected_rows);
 }
 
 Handle<Value> MysqlDatabase::New(const Arguments& args)
@@ -651,10 +653,12 @@ void MysqlDatabase::Work_Open(uv_work_t* req)
     char *home = getenv("HOME");
     if (!home) home = (char*)".";
     string conf = vFmtStr("%s/.my.cnf", home);
+    my_bool reconnect = true;
 
     baton->db->handle = mysql_init(NULL);
     mysql_options(baton->db->handle, MYSQL_READ_DEFAULT_FILE, conf.c_str());
     mysql_options(baton->db->handle, MYSQL_READ_DEFAULT_GROUP, "client");
+    mysql_options(baton->db->handle, MYSQL_OPT_RECONNECT, &reconnect);
     baton->status = mysql_real_connect(baton->db->handle, host, user, pass, db, atoi(port?port:"0"), sock, baton->iparam) ? 0 : -1;
     if (baton->status != 0) {
         baton->message = string(mysql_error(baton->db->handle));
@@ -746,7 +750,7 @@ Handle<Value> MysqlDatabase::QuerySync(const Arguments& args)
 
     Local<Object> obj = Local<Object>::New(MysqlStatement::Create(db, *sql));
     MysqlStatement* stmt = ObjectWrap::Unwrap < MysqlStatement > (obj);
-    Local<Value> rc = Local<Value>::New(stmt->querySync(args));
+    Local<Value> rc = Local<Value>::New(stmt->querySync(args, 1));
 
     return scope.Close(rc);
 }
@@ -809,7 +813,7 @@ void MysqlDatabase::Work_Exec(uv_work_t* req)
         mysql_free_result(result);
     } else {
         baton->inserted_id = mysql_insert_id(baton->db->handle);
-        baton->changes = mysql_affected_rows(baton->db->handle);
+        baton->affected_rows = mysql_affected_rows(baton->db->handle);
     }
 }
 
@@ -818,8 +822,8 @@ void MysqlDatabase::Work_AfterExec(uv_work_t* req)
     HandleScope scope;
     Baton* baton = static_cast<Baton*>(req->data);
 
-    baton->db->handle_->Set(String::NewSymbol("inserted_oid"), Local < Integer > (Integer::New(baton->inserted_id)));
-    baton->db->handle_->Set(String::NewSymbol("affected_rows"), Local < Integer > (Integer::New(baton->changes)));
+    baton->db->inserted_id = baton->inserted_id;
+    baton->db->affected_rows = baton->affected_rows;
 
     if (!baton->callback.IsEmpty() && baton->callback->IsFunction()) {
         if (baton->status != 0) {
@@ -948,15 +952,15 @@ Handle<Value> MysqlStatement::QuerySync(const Arguments& args)
     return stmt->querySync(args);
 }
 
-Handle<Value> MysqlStatement::querySync(const Arguments& args)
+Handle<Value> MysqlStatement::querySync(const Arguments& args, int idx)
 {
     HandleScope scope;
 
     OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
-
     op = "querySync";
+
     Baton baton(this, callback);
-    ParseParameters(baton.params, args, 0);
+    ParseParameters(baton.params, args, idx);
     Prepare();
     if (status != 0) {
         return ThrowException(Exception::Error(String::New(message.c_str())));
@@ -965,6 +969,8 @@ Handle<Value> MysqlStatement::querySync(const Arguments& args)
     if (status != 0) {
         return ThrowException(Exception::Error(String::New(message.c_str())));
     }
+    db->inserted_id = baton.inserted_id;
+    db->affected_rows = baton.affected_rows;
     Local<Array> result(Array::New(baton.rows.size()));
     for (uint i = 0; i < baton.rows.size(); i++) {
         result->Set(i, RowToJS(baton.rows[i]));
@@ -978,9 +984,10 @@ Handle<Value> MysqlStatement::Query(const Arguments& args)
     MysqlStatement* stmt = ObjectWrap::Unwrap < MysqlStatement > (args.This());
 
     OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    stmt->op = "query";
+
     Baton* baton = new Baton(stmt, callback);
     ParseParameters(baton->params, args, 0);
-    stmt->op = "query";
     uv_queue_work(uv_default_loop(), &baton->request, Work_Query, (uv_after_work_cb)Work_AfterQuery);
     return args.This();
 }
@@ -989,12 +996,14 @@ void MysqlStatement::Work_Query(uv_work_t* req)
 {
     Baton* baton = static_cast<Baton*>(req->data);
 
-    if (BindParameters(baton->params, baton->stmt)) {
+    if (baton->stmt->Bind(baton->params)) {
         if (baton->stmt->Execute()) {
-            while ((baton->stmt->status = mysql_stmt_fetch(baton->stmt->handle)) != MYSQL_NO_DATA) {
-                Row row;
-                GetRow(row, baton->stmt);
-                baton->rows.push_back(row);
+            if (baton->stmt->meta) {
+                while (!(baton->stmt->status = mysql_stmt_fetch(baton->stmt->handle))) {
+                    Row row;
+                    baton->stmt->GetRow(row);
+                    baton->rows.push_back(row);
+                }
             }
             if (baton->stmt->status != 0 && baton->stmt->status != MYSQL_NO_DATA) {
                 baton->stmt->message = string(mysql_stmt_error(baton->stmt->handle));
@@ -1002,17 +1011,18 @@ void MysqlStatement::Work_Query(uv_work_t* req)
             } else {
                 baton->stmt->status = 0;
             }
+            baton->inserted_id = mysql_insert_id(baton->stmt->db->handle);
+            baton->affected_rows = mysql_affected_rows(baton->stmt->db->handle);
         }
     }
+    baton->stmt->Finalize();
 }
 
 void MysqlStatement::Work_QueryPrepare(uv_work_t* req)
 {
     Baton* baton = static_cast<Baton*>(req->data);
 
-    if (!baton->stmt->Prepare()) return;
-    Work_Query(req);
-    baton->stmt->Finalize();
+    if (baton->stmt->Prepare()) Work_Query(req);
 }
 
 void MysqlStatement::Work_AfterQuery(uv_work_t* req)
@@ -1020,8 +1030,8 @@ void MysqlStatement::Work_AfterQuery(uv_work_t* req)
     HandleScope scope;
     Baton* baton = static_cast<Baton*>(req->data);
 
-    baton->stmt->handle_->Set(String::NewSymbol("lastID"), Local < Integer > (Integer::New(baton->inserted_id)));
-    baton->stmt->handle_->Set(String::NewSymbol("changes"), Local < Integer > (Integer::New(baton->changes)));
+    baton->stmt->db->inserted_id = baton->inserted_id;
+    baton->stmt->db->affected_rows = baton->affected_rows;
 
     if (!baton->callback.IsEmpty() && baton->callback->IsFunction()) {
         if (baton->stmt->status != 0) {

@@ -1846,6 +1846,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
     });
     async.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
+        if (!rec.id) rec.id = core.digest(rec.name + ':' + rec.domain + ':' + rec.path);
         self.context.db.put("backend_cookies", rec, function() { next() });
     }, function() {
         if (callback) callback();

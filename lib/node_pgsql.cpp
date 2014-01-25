@@ -469,6 +469,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
             	value = Local<Value>(Number::New(atof(val)));
             	break;
 
+            case 1003: // name
             case 1008: // regproc
             case 1009: // text
             case 1014: // char

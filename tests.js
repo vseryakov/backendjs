@@ -271,7 +271,7 @@ tests.db = function(callback)
 	var tables = {
 	        test1: { id: { primary: 1, pub: 1 } },
 			test2: { id: { primary: 1, pub: 1 },
-			         range: { primary: 1 },
+			         id2: { primary: 1 },
 			         email: { },
 			         alias: { pub: 1 },
 			         birthday: { semipub: 1 },
@@ -320,15 +320,15 @@ tests.db = function(callback)
         },
 	    function(next) {
 	        logger.log('TEST: add2');
-	    	db.add("test2", { id: id, range: '1', email: id, alias: id, birthday: id, num: 0, mtime: now }, next);
+	    	db.add("test2", { id: id, id2: '1', email: id, alias: id, birthday: id, num: 0, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: add3');
-	    	db.add("test2", { id: id2, range: '2', email: id, alias: id, birthday: id, num: 0, mtime: now }, next);
+	    	db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 0, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: add4');
-	    	db.put("test2", { id: id2, range: '1', email: id2, alias: id2, birthday: id2, num: 0, mtime: now }, next);
+	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 0, mtime: now }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: incr');
@@ -346,69 +346,69 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: select columns');
-	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'gt' }, select: 'id,range,mtime' }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].email || rows[0].range != '2' ? (err || "err3:" + util.inspect(rows)) : 0);
+	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,mtime' }, function(err, rows) {
+	    		next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' ? (err || "err3:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
             logger.log('TEST: select columns2');
-            db.select("test2", { id: id2, range: '1' }, { ops: { range: 'begins_with' }, select: 'id,range,mtime' }, function(err, rows) {
-                next(err || rows.length!=1 || rows[0].email || rows[0].range != '1' ? (err || "err3:" + util.inspect(rows)) : 0);
+            db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,mtime' }, function(err, rows) {
+                next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' ? (err || "err3:" + util.inspect(rows)) : 0);
             });
         },
 	    function(next) {
 	        logger.log('TEST: update');
-	    	db.update("test2", { id: id, range: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
+	    	db.update("test2", { id: id, id2: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
 	    	    logger.log('TEST: replace after update');
-	    		db.replace("test2", { id: id, range: '1', email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
+	    		db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: get after update');
-	    	db.get("test2", { id: id, range: '1' }, { consistent: true }, function(err, rows) {
+	    	db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, rows) {
 	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num == 9 || !Array.isArray(rows[0].json) ? (err || "err5:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: replace');
 	    	now = core.now();
-	    	db.replace("test2", { id: id, range: '1', email: id + "@test", num: 9, mtime: now }, { check_data: 1 }, next);
+	    	db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, mtime: now }, { check_data: 1 }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: get after replace');
-	    	db.get("test2", { id: id, range: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, rows) {
+	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, rows) {
 	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 ? (err || "err6:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: del');
-	    	db.del("test2", { id: id2, range: '1' }, next);
+	    	db.del("test2", { id: id2, id2: '1' }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: get after del');
-	    	db.get("test2", { id: id2, range: '1' }, { consistent: true }, function(err, rows) {
+	    	db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, rows) {
 	    		next(err || rows.length!=0 ? (err || "del:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: put series');
 	    	async.forEachSeries([1,2,3,4,5,6,7,8,9,10], function(i, next2) {
-	    		db.put("test2", { id: id2, range: String(i), email: id, alias: id, birthday: id, mtime: now }, next2);
+	    		db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, mtime: now }, next2);
 	    	}, function(err) {
 	    		next(err);
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: select range');
-	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'gt' }, count: 2, select: 'id,range' }, function(err, rows, info) {
+	        logger.log('TEST: select id2');
+	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, count: 2, select: 'id,id2' }, function(err, rows, info) {
 	    		next_token = info.next_token;
 	    		next(err || rows.length!=2 || !info.next_token ? (err || "err7:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: select next range');
-	    	db.select("test2", { id: id2, range: '1' }, { ops: { range: 'gt' }, start: next_token, count: 2, select: 'id,range' }, function(err, rows, info) {
-	    		next(err || rows.length!=2 || rows[0].range !='3' || !info.next_token ? (err || "err8:" + util.inspect(rows, info)) : 0);
+	        logger.log('TEST: select next id2');
+	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, start: next_token, count: 2, select: 'id,id2' }, function(err, rows, info) {
+	    		next(err || rows.length!=2 || rows[0].id2 !='3' || !info.next_token ? (err || "err8:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	],

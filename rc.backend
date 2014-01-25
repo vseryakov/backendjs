@@ -8,9 +8,10 @@ DOMAIN=localhost
 
 # Host specific settings and environment variables
 [ -f /data/etc/profile ] && . /data/etc/profile
-[ -f /etc/backend.profile ] && . /etc/backend.profile
-[ -f /usr/local/etc/backend.profile ] && . /usr/local/etc/backend.profile
+[ -f /etc/backendrc ] && . /etc/backendrc
+[ -f /usr/local/etc/backendrc ] && . /usr/local/etc/backendrc
 [ -f ~/.backend/etc/profile ] && . ~/.backend/etc/profile
+[ -f ~/.backendrc ] && . ~/.backendrc
 
 # Make sure we have defaults set
 [ "$LOCAL_UID" = "" ] && LOCAL_UID=777

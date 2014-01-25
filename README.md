@@ -183,9 +183,10 @@ it supports symlinks with different name and uses it as a command to execute, fo
 On startup the rc.backend tries to load and source the following config files:
   
         /data/etc/profile
-        /etc/backend.profile
-        /usr/local/etc/backend.profile
+        /etc/backendrc
+        /usr/local/etc/backendrc
         $HOME/.backend/etc/profile
+        $HOME/.backencrc
 
 
 Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or 
