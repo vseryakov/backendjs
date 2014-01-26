@@ -114,8 +114,12 @@ var api = {
                      data: {} }
     },
     
-    // Security handler by endpoint, similar to global checkAccess handler
+    // Authentication handlers to grant access to the endpoint before checking for signature
     access: {
+    },
+    
+    // Authorization handlers after the account has been authenticated
+    authorize: {
     },
     
     // Upload limit, bytes
@@ -132,6 +136,7 @@ var api = {
            { name: "session-age", type:" int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "allow", type: "regexp", descr: "Regexp for URLs that dont need credentials" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access"  },
+           { name: "backend-access", type: "list", descr: "List of account ids that can access provisioning /backend endpoint, if not configured all can access it" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
 
@@ -241,13 +246,18 @@ api.initApplication = function(callback) { callback() }
 api.initMiddleware = function() {}
        
 // Perform authorization of the incoming request for access and permissions
-api.checkRequest = function(req, res, next) 
+api.checkRequest = function(req, res, callback) 
 {
     var self = this;
+    // Prepare path parts for access checkes later
+    var paths = req.path.substr(1).split("/");
+    if (paths.length > 0) req.endpoint1 = paths[0];
+    if (paths.length > 1) req.endpoint2 = paths[0] + '/' + paths[1];
+    
     self.checkAccess(req, function(rc1) {
         // Status is given, return an error or proceed to the next module
         if (rc1) {
-            if (rc1.status == 200) return next();
+            if (rc1.status == 200) return callback();
             if (rc1.status) res.json(rc1.status, rc1);
             return;
         }
@@ -256,10 +266,14 @@ api.checkRequest = function(req, res, next)
         self.checkSignature(req, function(rc2) {
             res.header("cache-control", "no-cache");
             res.header("pragma", "no-cache");
-            // The account is verified, proceed with the request
-            if (rc2.status == 200) return next();
             // Something is wrong, return an error
-            if (rc2.status) res.json(rc2.status, rc2);
+            if (rc2 && rc2.status != 200) return res.json(rc2.status, rc2);
+            
+            // The account is verified, proceed with the request
+            self.checkAuthorization(req, function(rc3) {
+                if (rc3 && rc3.status != 200) return res.json(rc3.status, rc3);
+                callback();
+            });
         });
     });
 }
@@ -275,14 +289,16 @@ api.checkAccess = function(req, callback)
     if (this.deny && req.path.match(this.deny)) return callback({ status: 401, message: "Access denied" });
     if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
     // Call custom access handler for the endpoint, only 1 and 2 parths are used
-    req.paths = req.path.substr(1).split("/");
-    if (req.paths.length > 1) {
-        var path = req.paths[0] + '/' + req.paths[1];
-        if (this.access[path]) return this.access[path].call(this, req, callback);
-    }
-    if (req.paths.length > 0 && this.access[req.paths[0]]) {
-        return this.access[req.paths[0]].call(this, req, callback);
-    }
+    if (req.endpoint2 && this.access[req.endpoint2]) return this.access[req.endpoint2].call(this, req, callback);
+    if (req.endpoint1 && this.access[req.endpoint1]) return this.access[req.endpoint1].call(this, req, callback);
+    callback();
+}
+
+// Perform authorization chedks after the account been authenticated
+api.checkAuthorization = function(req, callback) 
+{
+    if (req.endpoint2 && this.authorize[req.endpoint2]) return this.authorize[req.endpoint2].call(this, req, callback);
+    if (req.endpoint1 && this.authorize[req.endpoint1]) return this.authorize[req.endpoint1].call(this, req, callback);
     callback();
 }
 
@@ -879,12 +895,23 @@ api.processAccountRow = function(row, options, cols)
 api.initBackendAPI = function() 
 {
     var self = this;
+    var db = core.context.db;
+    
+    // Make sure if configured only authorized can access this endpoint
+    self.authorize.backend = function(req, callback) {
+        if (!self.backendAccess || self.backendAccess.indexOf(req.account.id) > -1) return callback();
+        callback({ status: 401, message: "Not authorized" });
+    }
     
     // Return current statistics
     this.app.all("/backend/stats", function(req, res) {
         res.json(db.getPool().stats);
     });
 
+    this.app.all("/backend/metrics", function(req, res) {
+        res.json(self.measured);
+    });
+    
     // Load columns into the cache
     this.app.all(/^\/backend\/columns$/, function(req, res) {
         db.cacheColumns({}, function() {
@@ -903,7 +930,7 @@ api.initBackendAPI = function()
     });
 
     // Basic operations on a table
-    this.app.all(/^\/backend\/(select|search|list|get|add|put|update|del|replace)\/([a-z_0-9]+)$/, function(req, res) {
+    this.app.all(/^\/backend\/(select|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
         var dbcols = db.getColumns(req.params[1]);
         if (!dbcols) return res.json([]);
         var options = {};
@@ -915,7 +942,8 @@ api.initBackendAPI = function()
         }
         options.pool = self.pool;
         db[req.params[0]](req.params[1], req.query, options, function(err, rows) {
-            return self.sendReply(res, err);
+            if (err) return self.sendReply(res, err);
+            res.json(rows);
         });
     });
     
