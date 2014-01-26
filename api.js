@@ -363,6 +363,11 @@ api.initAccountAPI = function()
         		db.get("bk_account", { id: req.account.id }, function(err, rows) {
         			if (err) return self.sendReply(res, err);
         			if (!rows.length) return self.sendReply(res, 404);
+        			// Setup cookies if requested
+        			if (req.query._cookie) {
+        			    var sig = core.signRequest(req.account.email || req.account.key, req.account.secret, "", req.headers.host, "", { version: 4, expires: self.sessionAge });
+        			    res.setHeader("Set-Cookie", "bk-signature=" + sig["bk-signature"] + ";Path=" + sig["bk-path"] + ";Domain=" + sig["bk-domain"] + ";Max-Age=" + sig["bk-max-age"])
+        			}
         			res.json(rows[0]);
         		});
         	} else {
@@ -373,21 +378,6 @@ api.initAccountAPI = function()
         	}
             break;
             
-        case "search":
-        	var options = { select: req.query._select, 
-        	                start: core.toJson(req.query._start), 
-        	                count: core.toNumber(req.query._count, 0, 50), 
-        	                sort: req.query._sort, 
-        	                desc: req.query._desc, 
-        	                public_columns: 1 };
-            db.search("bk_account", req.query, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                // Send next token in the header so we keep the response as a simple list
-                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
-                res.json(rows);
-            });
-            break;
-            
         case "add":
             // Verify required fields
             if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
@@ -395,7 +385,7 @@ api.initAccountAPI = function()
             if (!req.query.email) return self.sendReply(res, 400, "email is required");
             req.query.id = backend.uuid().replace(/-/g, '');
             req.query.mtime = req.query.ctime = now;
-            // Add new auth record with only columns we support, noSQL db can add any columns on the fly and we want to keep auth table very small
+            // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
             var auth = { key: req.query.email, id: req.query.id, secret: req.query.secret };
             // On account creation we determine how we will authenticate later, the client must sign using valid signature mode and 
             // after that the same mode must be used for all requests
@@ -436,6 +426,21 @@ api.initAccountAPI = function()
                 self.sendReply(res, err);
                 if (err) return;
                 db.del("bk_account", { id: req.account.id });
+            });
+            break;
+            
+        case "search":
+            var options = { select: req.query._select, 
+                            start: core.toJson(req.query._start), 
+                            count: core.toNumber(req.query._count, 0, 50), 
+                            sort: req.query._sort, 
+                            desc: req.query._desc, 
+                            public_columns: 1 };
+            db.search("bk_account", req.query, options, function(err, rows, info) {
+                if (err) return self.sendReply(res, err);
+                // Send next token in the header so we keep the response as a simple list
+                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
+                res.json(rows);
             });
             break;
             

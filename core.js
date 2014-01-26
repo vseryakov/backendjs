@@ -831,7 +831,7 @@ core.httpGet = function(uri, params, callback)
     
     // Sign request using internal backend credentials
     if (params.sign) {
-        var headers = this.signRequest(params.email, params.secret, options.method, options.hostname, options.path, 0, options.checksum);
+        var headers = this.signRequest(params.email, params.secret, options.method, options.hostname, options.path, { checksum: options.checksum });
         for (var p in headers) options.headers[p] = headers[p];
     }
     
@@ -953,26 +953,52 @@ core.httpGet = function(uri, params, callback)
 
 // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
 // Host passed here must be the actual host where the request will be sent
-core.signUrl = function(accesskey, secret, host, uri, expires) 
+core.signUrl = function(accesskey, secret, host, uri, options) 
 {
-    var hdrs = this.signRequest(accesskey, secret, "GET", host, uri, "", expires);
+    var hdrs = this.signRequest(accesskey, secret, "GET", host, uri, options);
     return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
 }
 
 // Sign HTTP request for the API server:
 // url must include all query parametetrs already encoded and ready to be sent
-// expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
-// checksum is SHA1 digest of the POST content, optional
-core.signRequest = function(id, secret, method, host, uri, expires, checksum) 
+// options may con tains the following:
+//   - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
+//   - checksum is SHA1 digest of the POST content, optional
+//   - version is 1-4, version number defining how the signature will be signed
+core.signRequest = function(id, secret, method, host, uri, options) 
 {
+    if (!options) options = {};
     var now = Date.now();
+    var expires = options.expires || 0;
     if (!expires) expires = now + 30000;
     if (expires < now) expires += now;
     var q = String(uri || "/").split("?");
     var qpath = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-    var str = String(method) + "\n" + String(host) + "\n" + String(qpath) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(checksum || "");
-    return { 'bk-signature': '1;;' + String(id) + ';' + this.sign(String(secret), str) + ';' + expires + ';' + String(checksum || "") + ';;' };
+    var rc = {};
+    switch (options.version || 1) {
+    case 2:
+        secret = this.sign(String(secret), String(id));
+        break;
+        
+    case 3:
+        secret = this.sign(String(secret), String(id));
+        id = this.sign(secret, String(id));
+        break;
+        
+    case 4:
+        secret = this.sign(String(secret), String(id));
+        id = this.sign(secret, String(id));
+        query = method = qpath = "ALL";
+        rc['bk-domain'] = host = String(host).split(".").slice(1).join(".");
+        rc['bk-max-age'] = Math.floor((expires - now)/1000);
+        rc['bk-expires'] = expires;
+        rc['bk-path'] = "/"; 
+        break;
+    }
+    var str = String(method) + "\n" + String(host) + "\n" + String(qpath) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.checksum || "");
+    rc['bk-signature'] = (options.version || 1) + '|' + (options.appdata || "") + '|' + String(id) + '|' + this.sign(String(secret), str) + '|' + expires + '|' + String(options.checksum || "") + '||';
+    return rc; 
 }
 
 // Parse incomomg request for signature and return all pieces wrapped in an object, this object
@@ -988,16 +1014,17 @@ core.parseSignature = function(req)
     // Input parameters, convert to empty string if not present
     rc.url = req.originalUrl || req.url || "/";
     rc.method = req.method || "";
-    rc.host = (req.headers.host || "").split(':')[0];
+    rc.host = (req.headers.host || "").split(':').shift();
     rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || req.cookies['bk-signature'] || "";
-    var d = String(rc.signature).match(/([^;]+);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);/);
+    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\}]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|/);
     if (!d) return rc;
     rc.mode = this.toNumber(d[1]);
     rc.version = d[2] || "";
-    rc.id = d[3];
-    rc.signature = d[4];
+    rc.id = d[3] || "";
+    rc.signature = d[4] || "";
     rc.expires = this.toNumber(d[5]);
     rc.checksum = d[6] || "";
+    // Strip the signature from the url
     rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
     return rc;
 }
@@ -1011,14 +1038,14 @@ core.checkSignature = function(sig, account)
     sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires + "\n" + sig.checksum;
     switch (sig.mode) {
     case 1:
-        // Simple signing with real secret and email
         sig.hash = this.sign(account.secret, sig.str);
         return sig.signature == sig.hash;
         
+    case 4:
+        sig.str = "ALL" + "\n" + sig.host.split(".").slice(1).join(".") + "\n" + "ALL" + "\n" + "ALL" + "\n" + sig.expires + "\n" + sig.checksum;
+        
     case 2:
     case 3:
-    case 4:
-        // All methods use not the real secret for signing but a HMAC of the real secret and email
         sig.hash = this.sign(this.sign(account.secret, account.email), sig.str);
         return sig.signature == sig.hash;
     }

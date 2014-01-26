@@ -83,7 +83,7 @@ All requests to the API server must be signed with account email/secret pair.
         - Line6: The checksum or empty string, followed by a newline.
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
     * Form B-Signature HTTP header as the following:
-        - The header string consist of multiple fields separated by semicolon ;
+        - The header string consist of multiple fields separated by pipe |
             - Field1: Signature version, 1,2,3,4, the difference is what kind of secret is used for signing the canonical string:
               for version 1, the original secret is used, for version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret
             - Field2: Application version or other ap specific data
