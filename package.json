@@ -23,7 +23,8 @@
     "memcached": "",
     "redis": "",
     "measured": "",
-    "helenus": "" 
+    "helenus": "",
+    "consolidate": ""
   },
   "keywords": [
     "database",

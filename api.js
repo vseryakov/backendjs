@@ -12,6 +12,7 @@ var url = require('url');
 var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
+var consolidate = require('consolidate');
 var domain = require('domain');
 var measured = require('measured');
 var core = require(__dirname + '/core');
@@ -127,6 +128,7 @@ var api = {
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
            { name: "images-s3", descr: "S3 bucket name where to image store instead of data/images directory on the filesystem" },
            { name: "access-log", descr: "File for access logging" },
+           { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
            { name: "session-age", type:" int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "allow", type: "regexp", descr: "Regexp for URLs that dont need credentials" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access"  },
@@ -186,9 +188,18 @@ api.init = function(callback)
     // Assign custom middleware just after the security handler
     self.initMiddleware.call(self);
     
+    // Templating engine setup
+    self.app.engine('html', consolidate[self.templating || 'ejs']);
+    self.app.set('view engine', 'html');
+    // Use app specific views path if created even if it is empty
+    self.app.set('views', fs.existsSync(core.path.web + "/views") ? core.path.web + "/view" : __dirname + '/views');
+ 
     // Server from default web location in the package or from application specific location
-    self.app.use(express.static(path.resolve(core.path.web)));
+    self.app.use(express.static(core.path.web));
     self.app.use(express.static(path.resolve(__dirname + "/web")));
+    
+    self.app.set('views');
+    self.app.set('view engine', 'ejs');
     
     self.app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
     self.app.listen(core.port, core.bind, function(err) {
