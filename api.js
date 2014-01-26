@@ -23,9 +23,9 @@ var backend = require(__dirname + '/build/backend');
 var api = {
 
     // No authentication for these urls
-    allow: ["^$", "^[a-zA-Z0-9\\.-]+\\.(gif|png|jpg|js|css|html)$", 
+    allow: [".+\\.(gif|png|jpg|js|css|html)$", 
             "^/public/", 
-            "^/account/add", 
+            "^/account/add$", 
             "^/image/account/" ],
 
     // Refuse access to these urls
@@ -36,79 +36,81 @@ var api = {
     imagesS3: '',
     
     tables: { 
-        // Authentication by email and secret
-        auth: { email: { primary: 1 },
-                id: {},
-                secret: {},
-                api_deny: {},
-                api_allow: {},
-                expires: { type: "int" },
-                mtime: { type: "int" } },
+        // Authentication by email or id, when key is email, then email is empty
+        bk_auth: { key: { primary: 1 },
+                   id: {},
+                   email: {},
+                   secret: {},
+                   api_deny: {},
+                   api_allow: {},
+                   expires: { type: "int" },
+                   mtime: { type: "int" } },
                  
         // Basic account information
-        account: { id: { primary: 1, pub: 1 },
-                   email: { unique: 1 },
-                   name: {},
-                   alias: { pub: 1 },
-                   status: {},
-                   phone: {},
-                   website: {},
-                   birthday: { semipub: 1 },
-                   gender: { pub: 1 },
-                   icons: { semipub: 1 },
-                   address: {},
-                   city: {},
-                   state: {},
-                   zipcode: {},
-                   country: {},
-                   latitude: { type: "real" },
-                   longitude: { type: "real" },
-                   location: {},
-                   ltime: { type: "int" },
-                   ctime: { type: "int" },
-                   mtime: { type: "int" } },
+        bk_account: { id: { primary: 1, pub: 1 },
+                      email: { unique: 1 },
+                      name: {},
+                      alias: { pub: 1 },
+                      status: {},
+                      phone: {},
+                      website: {},
+                      birthday: { semipub: 1 },
+                      gender: { pub: 1 },
+                      icons: { semipub: 1 },
+                      address: {},
+                      city: {},
+                      state: {},
+                      zipcode: {},
+                      country: {},
+                      latitude: { type: "real" },
+                      longitude: { type: "real" },
+                      location: {},
+                      ltime: { type: "int" },
+                      ctime: { type: "int" },
+                      mtime: { type: "int" } },
                    
        // Locations for all accounts to support distance searches
-       location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
-                   id: { primary: 1 },                     // account id, part of the primary key for pagination
-                   latitude: { type: "real" },
-                   longitude: { type: "real" },
-                   mtime: { type: "int" }},
+       bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
+                      id: { primary: 1 },                     // account id, part of the primary key for pagination
+                      latitude: { type: "real" },
+                      longitude: { type: "real" },
+                      mtime: { type: "int" }},
 
        // All connections between accounts: like,dislike,friend...
-       connection: { id: { primary: 1 },                    // account_id
-                     type: { primary: 1 },                  // type:connection_id
-                     state: {},
-                     mtime: { type: "int" }},
+       bk_connection: { id: { primary: 1 },                    // account_id
+                        type: { primary: 1 },                  // type:connection_id
+                        state: {},
+                        mtime: { type: "int" }},
                    
        // References from other accounts, likes,dislikes...
-       reference: { id: { primary: 1 },                    // connection_id
-                    type: { primary: 1 },                  // type:account_id
-                    state: {},
-                    mtime: { type: "int" }},
+       bk_reference: { id: { primary: 1 },                    // connection_id
+                       type: { primary: 1 },                  // type:account_id
+                       state: {},
+                       mtime: { type: "int" }},
                      
        // Messages between accounts
-       message : { id: { primary: 1 },                    // Account sent to 
-                   mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
-                   status: {},                            // Status flags: R - read 
-                   text: { type: "text" },                // Text of the message 
-                   icon: {}},                             // Icon base64 or url
+       bk_message : { id: { primary: 1 },                    // Account sent to 
+                      mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
+                      status: {},                            // Status flags: R - read 
+                      text: { type: "text" },                // Text of the message 
+                      icon: {}},                             // Icon base64 or url
        
        // All accumulated counters for accounts
-       counter: { id: { primary: 1 },                                           // account_id
-                  like0: { type: "counter", value: 0, pub: 1, incr: 1 },        // who i liked
-                  like1: { type: "counter", value: 0, pub: 1 },                 // reversed like, who liked me
-                  dislike0: { type: "counter", value: 0, pub: 1, incr: 1 },
-                  dislike1: { type: "counter", value: 0, pub: 1 },
-                  follow0: { type: "counter", value: 0, pub: 1, incr: 1 },
-                  follow1: { type: "counter", value: 0, pub: 1 },
-                  msg_count: { type: "counter", value: 0 },                    // total msgs received
-                  msg_read: { type: "counter", value: 0 }},                    // total msgs read 
+       bk_counter: { id: { primary: 1 },                                           // account_id
+                     like0: { type: "counter", value: 0, pub: 1, incr: 1 },        // who i liked
+                     like1: { type: "counter", value: 0, pub: 1 },                 // reversed like, who liked me
+                     dislike0: { type: "counter", value: 0, pub: 1, incr: 1 },
+                     dislike1: { type: "counter", value: 0, pub: 1 },
+                     follow0: { type: "counter", value: 0, pub: 1, incr: 1 },
+                     follow1: { type: "counter", value: 0, pub: 1 },
+                     msg_count: { type: "counter", value: 0 },                    // total msgs received
+                     msg_read: { type: "counter", value: 0 }},                    // total msgs read 
                                   
-       // Keep historic data about an account activity
-       history: { id: { primary: 1 },
-                  mtime: { type: "bigint", primary: 1 },
-                  type: {} }
+       // Keep historic data about account activity
+       bk_history: { id: { primary: 1 },
+                     mtime: { type: "bigint", primary: 1 },
+                     type: {},
+                     data: {} }
     },
     
     // Security handler by endpoint, similar to global checkAccess handler
@@ -118,10 +120,14 @@ var api = {
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
     
+    // Sessions
+    sessionAge: 86400 * 14 * 1000, 
+        
     // Config parameters
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
            { name: "images-s3", descr: "S3 bucket name where to image store instead of data/images directory on the filesystem" },
            { name: "access-log", descr: "File for access logging" },
+           { name: "session-age", type:" int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "allow", type: "regexp", descr: "Regexp for URLs that dont need credentials" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access"  },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
@@ -160,9 +166,13 @@ api.init = function(callback)
         d.on('error', function(err) { req.next(err); });
         d.run(next);
     });
+    
+    // Request parsers
     self.app.use(express.bodyParser({ uploadDir: core.path.tmp, keepExtensions: true, limit: self.uploadLimit }));
     self.app.use(express.methodOverride());
     self.app.use(express.cookieParser());
+    
+    // Allow cross site requests
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
@@ -186,7 +196,7 @@ api.init = function(callback)
     });
 
     // Return images by prefix, id and possibly type
-    self.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([0-9])?/, function(req, res) {
+    self.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([0-9])?$/, function(req, res) {
         self.getIcon(req, res, req.params[1], { prefix: req.params[0], type: req.params[2] });
     });
     
@@ -253,9 +263,15 @@ api.checkAccess = function(req, callback)
 {
     if (this.deny && req.path.match(this.deny)) return callback({ status: 401, message: "Access denied" });
     if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
-    // Call custom access handler for the endpoint
-    var path = req.path.split("/")[1];
-    if (path && this.access[path]) return this.access[path].call(this, req, callback);
+    // Call custom access handler for the endpoint, only 1 and 2 parths are used
+    req.paths = req.path.substr(1).split("/");
+    if (req.paths.length > 1) {
+        var path = req.paths[0] + '/' + req.paths[1];
+        if (this.access[path]) return this.access[path].call(this, req, callback);
+    }
+    if (req.paths.length > 0 && this.access[req.paths[0]]) {
+        return this.access[req.paths[0]].call(this, req, callback);
+    }
     callback();
 }
 
@@ -266,7 +282,7 @@ api.checkSignature = function(req, callback)
     if (!req || !req.headers) req = { headers: {} };
     if (!callback) callback = function(x) { return x; }
 
-    // Extract all signatuee components from the request
+    // Extract all signature components from the request
     var sig = core.parseSignature(req);
     
     // Show request in the log on demand for diagnostics
@@ -289,7 +305,7 @@ api.checkSignature = function(req, callback)
     }
 
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-    core.context.db.getCached("auth", { email: sig.id }, function(err, account) {
+    core.context.db.getCached("bk_auth", { key: sig.id }, function(err, account) {
         if (err) return callback({ status: 500, message: String(err) });
         if (!account) return callback({ status: 404, message: "No account" });
 
@@ -344,13 +360,13 @@ api.initAccountAPI = function()
         switch (req.params[0]) {
         case "get":
         	if (!req.query.id) {
-        		db.get("account", { id: req.account.id }, function(err, rows) {
+        		db.get("bk_account", { id: req.account.id }, function(err, rows) {
         			if (err) return self.sendReply(res, err);
         			if (!rows.length) return self.sendReply(res, 404);
         			res.json(rows[0]);
         		});
         	} else {
-        		db.list("account", req.query, { select: req.query._select, public_columns: 1 }, function(err, rows) {
+        		db.list("bk_account", req.query, { select: req.query._select, public_columns: 1 }, function(err, rows) {
         			if (err) return self.sendReply(res, err);
         			res.json(rows);
         		});
@@ -364,10 +380,10 @@ api.initAccountAPI = function()
         	                sort: req.query._sort, 
         	                desc: req.query._desc, 
         	                public_columns: 1 };
-            db.search("account", req.query, options, function(err, rows, info) {
+            db.search("bk_account", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 // Send next token in the header so we keep the response as a simple list
-                if (info.next_token) res.header("b-next-token", core.toBase64(info.next_token));
+                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
                 res.json(rows);
             });
             break;
@@ -379,18 +395,25 @@ api.initAccountAPI = function()
             if (!req.query.email) return self.sendReply(res, 400, "email is required");
             req.query.id = backend.uuid().replace(/-/g, '');
             req.query.mtime = req.query.ctime = now;
-            // Add new auth record with only columns we support, noSQL db can add any columns on
-            // the fly and we want to keep auth table very small
-            db.add("auth", req.query, { check_columns: 1 }, function(err) {
+            // Add new auth record with only columns we support, noSQL db can add any columns on the fly and we want to keep auth table very small
+            var auth = { key: req.query.email, id: req.query.id, secret: req.query.secret };
+            // On account creation we determine how we will authenticate later, the client must sign using valid signature mode and 
+            // after that the same mode must be used for all requests
+            var sig = core.parseSignature(req);
+            if (sig.mode > 2) {
+                auth.key = core.sign(core.sign(req.query.secret, req.query.email), req.query.email);
+                auth.email = req.query.email;
+            }
+            db.add("bk_auth", auth, { check_columns: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
                 ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-                db.add("account", req.query, function(err) {
+                db.add("bk_account", req.query, function(err) {
                     if (err) {
-                        db.del("auth", req.query);
+                        db.del("bk_auth", auth);
                         return self.sendReply(res, err);
                     }
                     // Some dbs require the record to exist, just make one with default values
-                    db.put("counter", { id: req.query.id, like0: 0 });
+                    db.put("bk_counter", { id: req.query.id, like0: 0 });
                     res.json(self.processAccountRow(req.query));
                 });
             });
@@ -402,28 +425,29 @@ api.initAccountAPI = function()
             req.query.email = req.account.email;
             // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
             ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-            db.update("account", req.query, { check_columns: 1 }, function(err) {
+            db.update("bk_account", req.query, { check_columns: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
                 res.json(self.processAccountRow(req.query));
             });
             break;
 
         case "del":
-            db.del("auth", { email: req.account.email }, { cached: 1 }, function(err) {
+            db.del("bk_auth", req.account, { cached: 1 }, function(err) {
                 self.sendReply(res, err);
                 if (err) return;
-                db.del("account", { id: req.account.id });
+                db.del("bk_account", { id: req.account.id });
             });
             break;
             
         case "put/secret":
             if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-            db.update("auth", { email: req.account.email, secret: req.query.secret }, { cached: 1 }, function(err) {
+            req.account.secret = req.query.secret;
+            db.update("bk_auth", req.account, { cached: 1 }, function(err) {
                 self.sendReply(res, err);
                 if (err) return;
                 // Keep history of all changes
                 if (req.query._history) {
-                    db.add("history", { id: req.account.id, type: req.params[0], mtime: now, secret: core.sign(req.account.id, req.query.secret) });
+                    db.add("bk_history", { id: req.account.id, type: req.params[0], mtime: now, data: core.sign(req.account.id, req.query.secret) });
                 }
             });
             break;
@@ -442,7 +466,7 @@ api.initAccountAPI = function()
                 if (err) return self.sendReply(res, err);
                 
                 // Get current account icons
-                db.get("account", { id: req.account.id }, { select: 'id,icons' }, function(err, rows) {
+                db.get("bk_account", { id: req.account.id }, { select: 'id,icons' }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     
                     // Add/remove given type from the list of icons
@@ -450,7 +474,7 @@ api.initAccountAPI = function()
                     if (op == 'delIcon') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
                         
                     var obj = { id: req.account.id, email: req.account.email, mtime: now, icons: rows[0].icons.join(",") };
-                    db.update("account", obj, function(err) {
+                    db.update("bk_account", obj, function(err) {
                         if (err) return self.sendReply(res, err);
                         res.json(self.processAccountRow(rows[0]));
                     });
@@ -515,26 +539,16 @@ api.initMessageAPI = function()
         case "get":
             if (!req.query.mtime) req.query.mtime = 0;
             var options = { ops: { type: "GT" }, select: req.query._select, total: req.query._total, start: core.toJson(req.query._start) };
-            db.select("message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows, info) {
+            db.select("bk_message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 // Send next token in the header so we keep the response as a simple list
-                if (info.next_token) res.header("b-next-token", core.toBase64(info.next_token));
+                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
                 rows.forEach(function(row) {
                     var mtime = row.mtime.split(":");
                     row.mtime = mtime[0];
                     row.sender = mtime[1];
                 });
                 res.json(rows);
-            });
-            break;
-            
-        case "read":
-            if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
-            if (!req.query.mtime) return self.sendReply(res, 400, "mtime is required");
-            req.query.mtime += ":" + req.query.sender;
-            db.update("message", { id: req.account.id, mtime: req.query.mtime, status: "R" }, {}, function(err, rows) {
-                self.sendReply(res, err);
-                if (!err) db.incr("counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
             });
             break;
             
@@ -546,10 +560,30 @@ api.initMessageAPI = function()
                 if (err) return self.sendReply(res, err);
                 // Icon supplied, we have full path to it, save the url in the message
                 if (icon) req.query.icon = '/message/image?sender=' + req.query.sender + '&mtime=' + now;
-                db.add("message", req.query, {}, function(err, rows) {
+                db.add("bk_message", req.query, {}, function(err, rows) {
                     self.sendReply(res, err);
                     if (!err) db.incr("counter", { id: req.account.id, msg_count: 1 }, { cached: 1 });
                 });
+            });
+            break;
+            
+        case "read":
+            if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
+            if (!req.query.mtime) return self.sendReply(res, 400, "mtime is required");
+            req.query.mtime += ":" + req.query.sender;
+            db.update("bk_message", { id: req.account.id, mtime: req.query.mtime, status: "R" }, {}, function(err, rows) {
+                self.sendReply(res, err);
+                if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
+            });
+            break;
+            
+        case "del":
+            if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
+            if (!req.query.mtime) return self.sendReply(res, 400, "mtime is required");
+            req.query.mtime = now + ":" + req.query.sender;
+            db.del("bk_message", req.query, {}, function(err, rows) {
+                self.sendReply(res, err);
+                if (!err) db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 });
             });
             break;
 
@@ -574,11 +608,11 @@ api.initHistoryAPI = function()
             self.sendReply(res);
             req.query.id = req.account.id;
             req.query.mtime = now;
-            db.add("history", req.query);
+            db.add("bk_history", req.query);
             break;
                 
         case "get":
-            db.select("history", { id: req.account.id, mtime: req.query.mtime || 0 }, { count: core.toNumber(req.query._count, 0, 150), start: req.query._start, ops: { mtime: 'gt' } }, function(err, rows) {
+            db.select("bk_history", { id: req.account.id, mtime: req.query.mtime || 0 }, { count: core.toNumber(req.query._count, 0, 150), start: req.query._start, ops: { mtime: 'gt' } }, function(err, rows) {
                 res.json(rows);
             });
             break;
@@ -605,11 +639,11 @@ api.initCounterAPI = function()
             self.sendReply(res);
             req.query.mtime = now;
             req.query.id = req.account.id;
-            db[req.params[0]]("counter", req.query, { cached: 1 });
+            db[req.params[0]]("bk_counter", req.query, { cached: 1 });
             break;
             
         case "get":
-            db.getCached("counter", { id: req.query.id || req.account.id }, { public_columns: 1 }, function(err, row) {
+            db.getCached("bk_counter", { id: req.query.id || req.account.id }, { public_columns: 1 }, function(err, row) {
                 res.json(row);
             });
             break;
@@ -641,51 +675,51 @@ api.initConnectionAPI = function()
             req.query.id = req.account.id;
             req.query.type = type + ":" + id;
             req.query.mtime = now;
-            db[req.params[1]]("connection", req.query, function(err) {
+            db[req.params[1]]("bk_connection", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
                 // Reverse reference to the same connection
                 req.query.id = id;
                 req.query.type = type + ":"+ req.account.id;
-                db[req.params[1]]("reference", req.query, function(err) {
-                    if (err) db.del("connection", { id: req.account.id, type: type + ":" + id });
+                db[req.params[1]]("bk_reference", req.query, function(err) {
+                    if (err) db.del("bk_connection", { id: req.account.id, type: type + ":" + id });
                     self.sendReply(res, err);
                 });
             });
             
             // Update history on connections update
             if (req.query._history) {
-                db.add("history", { id: req.account.id, type: req.path, mtime: now, cid: id, ctype: type });
+                db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: type + ":" + id });
             }
 
             // Update accumulated counter if we support this column and do it automatically
             if (req.params[1] != 'add') break;
-            var col = db.getColumn("counter", type + '0');
+            var col = db.getColumn("bk_counter", type + '0');
             if (col && col.incr) {
-                db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
-                db.incr("counter", core.newObj('id', id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
+                db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
+                db.incr("bk_counter", core.newObj('id', id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
             }
             break;
 
         case "del":
             var id = req.query.id, type = req.query.type;
             if (!id || !type) return self.sendReply(res, 400, "id and type are required");
-            db.del("connection", { id: req.account.id, type: type + ":" + id }, function(err) {
+            db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, function(err) {
                 if (err) return self.sendReply(res, err);
-                db.del("reference", { id: id, type: type + ":" + req.account.id }, function(err) {
+                db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, function(err) {
                     self.sendReply(res, err);
                 });
             });
             
             // Update history on connections update
             if (req.query._history) {
-                db.add("history", { id: req.account.id, type: req.path, mtime: now, cid: id, ctype: type });
+                db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: type + ":" + id });
             }
             
             // Update accumulated counter if we support this column and do it automatically
-            var col = db.getColumn("counter", req.query.type + "0");
+            var col = db.getColumn("bk_counter", req.query.type + "0");
             if (col && col.incr) {
-                db.incr("counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
-                db.incr("counter", core.newObj('id', id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
+                db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
+                db.incr("bk_counter", core.newObj('id', id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
             }
             break;
 
@@ -693,9 +727,9 @@ api.initConnectionAPI = function()
             if (!req.query.type) return self.sendReply(res, 400, "type is required");
             req.query.type += ":" + (req.query.id || "");
             var options = { ops: { type: "begins_with" }, select: req.query._select, total: req.query._total, start: core.toJson(req.query._start) };
-            db.select(req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows, info) {
+            db.select("bk_" + req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                if (info.next_token) res.header("b-next-token", core.toBase64(info.next_token));
+                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
                 // Split type and reference id
                 rows.forEach(function(row) {
                     var type = row.type.split(":");
@@ -705,7 +739,7 @@ api.initConnectionAPI = function()
                 if (!req.query._details) return res.json(rows);
                 
                 // Get all account records for the id list
-                db.list("account", rows, { select: req.query._select, public_columns: 1 }, function(err, rows) {
+                db.list("bk_account", rows, { select: req.query._select, public_columns: 1 }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     res.json(rows);
                 });
@@ -734,7 +768,7 @@ api.initLocationAPI = function()
             var latitude = req.query.latitude, longitude = req.query.longitude;
             if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
             // Get current location
-            db.get("account", { id: req.account.id }, { select: 'latitude,longitude' }, function(err, rows) {
+            db.get("bk_account", { id: req.account.id }, { select: 'latitude,longitude' }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 req.account.latitude = rows[0].latitude;
                 req.account.longitude = rows[0].longitude;
@@ -743,25 +777,25 @@ api.initLocationAPI = function()
                 if (distance < core.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + core.minDistance);
                 
                 var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
-                db.update("account", obj, function(err) {
+                db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
                     res.json(self.processAccountRow(obj));
                     
                     // Delete current location
                     var geo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance });
                     geo.id = req.account.id;
-                    db.del("location", geo);
+                    db.del("bk_location", geo);
                     
                     // Insert new location
                     geo = core.geoHash(latitude, longitude, { distance: req.account.distance });
                     geo.id = req.account.id;
                     geo.mtime = now;
-                    db.put("location", geo);
+                    db.put("bk_location", geo);
                 });
                     
                 // Keep history of all changes
                 if (req.query._history) {
-                    db.add("history", { id: req.account.id, type: req.path, mtime: now, lat: latitude, lon: longitude });
+                    db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: latitude + ":" + longitude });
                 }
             });
             break;
@@ -778,7 +812,7 @@ api.initLocationAPI = function()
             	if (token.latitude != req.query.latitude ||	token.longitude != req.query.longitude) return self.sendRepy(res, 400, "invalid token");
             	options = token;
             }
-            db.getLocations("location", options, function(err, rows, info) {
+            db.getLocations("bk_location", options, function(err, rows, info) {
                 // Return accounts with locations
                 if (req.query._details) {
                     var list = {}, ids = [];
@@ -787,8 +821,8 @@ api.initLocationAPI = function()
                         list[row.id] = row;
                         return row;
                     });
-                    res.header('b-next-token', core.toBase64(info));
-                	db.list("account", ids, { select: req.query._select, public_columns: 1 }, function(err, rows) {
+                    res.header('bk-next-token', core.toBase64(info));
+                	db.list("bk_account", ids, { select: req.query._select, public_columns: 1 }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         // Merge locations and accounts
                         rows.forEach(function(row) {
@@ -885,6 +919,7 @@ api.registerTables = function(tables)
     for (var p in tables) {
         if (!self.tables[p]) self.tables[p] = {}; 
         for (var c in tables[p]) {
+            if (!self.tables[p][c]) self.tables[p][c] = {};
             // Override columns
             for (var k in tables[p][c]) {
                 self.tables[p][c][k] = tables[p][c][k];
@@ -893,10 +928,22 @@ api.registerTables = function(tables)
     }
 }
 
-// Register a handler to check access for given endpoint, it work the same way as the global accessCheck function
+// Register a handler to check access for given endpoint, it work the same way as the global accessCheck function but for the first or first and second
+// parts of the URL request path, like: account, account/add
 api.registerAccessCheck = function(path, callback)
 {
     this.access.path = callback;
+}
+
+// Register path to be allowed or reject based on the request URL path, 
+// path is a regexp, this call must be issued before api is initialized
+api.registerAccessPath = function(path, deny) 
+{
+    if (!deny) {
+        if (Array.isArray(this.allow)) this.allow.push(path);
+    } else {
+        if (Array.isArray(this.deny)) this.deny.push(path);
+    }
 }
 
 // Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back

@@ -50,6 +50,8 @@ var server = {
     jobsInterval: 180000,
     // Schedules cron jobs
     crontab: [],
+    // Default jobs host to be executed
+    jobsTag: os.hostname().split('.').shift(),
 
     // Number of workers or web servers to launch
     maxWorkers: 1,
@@ -65,7 +67,7 @@ var server = {
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" }, 
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
-           { name: "jobs-primary", type: "bool", descr: "If specified, this host executes jobs without the hostname, otherwise only jobs with matching hostname will be executed by this server" },
+           { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
            { name: "jobs-interval", type: "number", min: 60000, max: 900000, descr: "Interval between executing job queue" } ],
 };
 
@@ -81,12 +83,12 @@ server.start = function()
         process.title = core.name + ": process";
         
         // REPL shell
-        if (process.argv.indexOf("-shell") > 0) {
+        if (core.argv.indexOf("-shell") > 0) {
             return core.createRepl();
         }
 
         // Go to background
-        if (process.argv.indexOf("-daemon") > 0) {
+        if (core.argv.indexOf("-daemon") > 0) {
             self.startDaemon();
         }
         
@@ -103,27 +105,27 @@ server.start = function()
         });
 
         // Watch monitor for modified source files
-        if (process.argv.indexOf("-watch") > 0) {
+        if (core.argv.indexOf("-watch") > 0) {
             self.startWatcher();
         } else
 
         // Start server monitor, it will watch the process and restart automatically
-        if (process.argv.indexOf("-monitor") > 0) {
+        if (core.argv.indexOf("-monitor") > 0) {
             self.startMonitor();
         } else
 
         // Master server
-        if (process.argv.indexOf("-master") > 0) {
+        if (core.argv.indexOf("-master") > 0) {
             self.startMaster();
         } else
 
         // Backend Web server
-        if (process.argv.indexOf("-web") > 0) {
+        if (core.argv.indexOf("-web") > 0) {
             self.startWeb();
         } else
         
         // HTTP proxy
-        if (process.argv.indexOf("-proxy") > 0) {
+        if (core.argv.indexOf("-proxy") > 0) {
             self.startProxy();
         }
     });
@@ -803,11 +805,15 @@ server.loadSchedules = function()
 }
 
 // Submit job for execution, it will be saved in the server queue and the master will pick it up later
+// options can specify:
+// - tag - job tag for execution, default is current jobTag, this can be used to run on specified servers only
+// - job - an object with job spec
+// - type - job type: local, remote, server
 server.submitJob = function(options, callback) 
 {
-    if (!options || !options.job) return logger.error('submitJob:', 'invalid job spec:', options);
-    var job = core.toBase64(options.job);
-    db.add("backend_jobs", { job: job, type: options.type, host: options.host, id: core.hash(job), mtime: core.now() }, { no_columns: 1 }, function() {
+    var self = this;
+    if (!options || core.typeName(options.job) != "object") return logger.error('submitJob:', 'invalid job spec, must be an object:', options);
+    db.add("bk_jobs", { id: options.tag || self.jobsTag, tag: core.hash(options.job), job: options.job, type: options.type, mtime: core.now() }, { no_columns: 1 }, function() {
         if (callback) callback();
     });
 }
@@ -819,17 +825,15 @@ server.processJobs = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
-    var hosts = [os.hostname(), os.hostname().split('.')[0]];
-    // Primary job servers, run all jobs with empty host
-    if (this.jobsPrimary) hosts.push("");
-    db.select("backend_jobs", { host: hosts }, { keys: ['host'] }, function(err, rows) {
+    
+    db.select("bk_jobs", { id: this.jobsTag }, { count: this.maxWorkers }, function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
             try { 
-                self.doJob(row.type, core.toJson(row.job));
+                self.doJob(row.type, row.job);
             } catch(e) {
                 logger.error('processJobs:', e, row);
             }
-            db.del('backend_jobs', row, function() { next() });
+            db.del('bk_jobs', row, function() { next() });
         }, function() {
             if (rows.length) logger.log('processJobs:', rows.length, 'jobs');
             if (callback) callback();

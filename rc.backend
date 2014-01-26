@@ -60,6 +60,7 @@ esac
 [ "$MASTER" != "" ] && MASTER=$MASTER.$DOMAIN
 
 export PATH=$PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
+export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig:$PG_PREFIX/pkgconfig:$PKG_CONFIG_PATH
 
 # If started without parameters use script name as a parameter
 NAME=$(echo $0 | awk -F/ '{print $NF}')
@@ -555,7 +556,7 @@ case "$ARG" in
   run-shell)
     SCRIPT=$NODE_BACKEND/server.js
     [ -f server.js ] && SCRIPT=server.js
-    $PREFIX/bin/node server.js -shell -home $ROOT $@
+    $PREFIX/bin/node $SCRIPT -shell -home $ROOT $@
     ;;
 
   show-help)
@@ -642,12 +643,34 @@ case "$ARG" in
     ;;
     
   init-app)
-    NAME=${2:-app}
+    NAME=app
+    [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
     mkdir -p $ROOT/etc
     [ ! -e $NAME.sh ] && echo "#!/bin/bash\n\nexec $PREFIX/bin/node $NAME.js \$@\n" > $NAME.sh && chmod 755 $NAME.sh
-    [ ! -e $ROOT/etc/config ] && echo "#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $ROOT/etc/config
-    [ ! -e $NAME.js ] && echo "#\nvar backend = require('backend');\n\nbackend.api.onInit = function() {\n    this.app.all('/test/', function(req, res) {\n        res.json([]);\n    });\n};\n\nbackend.server.start();" > $NAME.js
+    [ ! -e $ROOT/etc/config ] && echo "#db-pool=pgsql\n#db-mysql-pool=mysql:///backend\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $ROOT/etc/config
+    if [ ! -e $NAME.js ]; then
+      echo "//\n// Backend app\n// Created by $(whoami) on $(date)\n//\n" >> $NAME.js
+      echo "var backend = require('backend');\n\nbackend.api.registerTables({ test: { id: { primary: 1 }, name: {} } });\n" >> $NAME.js
+      echo "backend.api.initApplication = function(callback) {" >> $NAME.js
+      echo "    // Add new record" >> $NAME.js
+      echo "    this.app.all(/^\/test\/add/, function(req, res) {" >> $NAME.js
+      echo "        backend.db.add('test', { id: req.query.id, name: req.query.name }, function(err, rows) { backend.api.sendReply(res, err); });" >> $NAME.js
+      echo "    });" >> $NAME.js
+      echo "    // Retrieve record by id" >> $NAME.js
+      echo "    this.app.all(/^\/test\/([0-9]+)/, function(req, res) {" >> $NAME.js
+      echo "        backend.db.get('test', { id: req.params[0] }, function(err, rows) { res.json(rows); });" >> $NAME.js
+      echo "    });" >> $NAME.js
+      echo "    callback()" >> $NAME.js
+      echo "};\n" >> $NAME.js
+      echo "backend.server.start();" >> $NAME.js
+    fi  
     ;;
+    
+  run-app)
+    NAME=app
+    [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
+    $PREFIX/bin/node $NAME.js -web -port 8000 $@ 
+    ;;  
     
   show)
     set

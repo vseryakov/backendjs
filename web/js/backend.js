@@ -15,8 +15,8 @@ var Backend = {
 
     // Set new credentials
     setCredentials: function(email, secret) {
-        localStorage.backendEmail = email ? String(email) : "";
         localStorage.backendSecret = secret ? b64_hmac_sha1(String(secret), String(email)) : "";
+        localStorage.backendEmail = email ? b64_hmac_sha1(localStorage.backendSecret, String(email)) : "";
     },
 
     // Retrieve account record, call the callback with the object or error
@@ -48,13 +48,13 @@ var Backend = {
         var path = q[0];
         var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
         var str = String(method || "GET") + "\n" + String(host) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(checksum || "");
-        return { 'b-signature': '2;;' + creds.email + ';' + b64_hmac_sha1(creds.secret, str) + ';' + String(expires) + ';' + String(checksum || '') + ';;' };
+        return { 'bk-signature': '3;;' + creds.email + ';' + b64_hmac_sha1(creds.secret, str) + ';' + String(expires) + ';' + String(checksum || '') + ';;' };
     },
 
     // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
     signUrl: function(url, expires) {
         var hdrs = signRequest("GET", url, expires);
-        return url + (url.indexOf("?") == -1 ? "?" : "") + "&b-signature=" + encodeURIComponent(hdrs['b-signature']);
+        return url + (url.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
     },
 
     // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response

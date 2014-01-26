@@ -38,8 +38,8 @@ Features:
         /account/add?name=test3&secret=test3&email=test3@test.com
       
 
-* Now login with any of the accounts, click on the Login link at the top right corner of the Web console.
-  If no error message appeared after the login, try to get your current account details:
+* Now login with any of the accounts above, refresh the api.html and enter email and secret in the login popup dialog.
+* If no error message appeared after the login, try to get your current account details:
   
         /account/get
       
@@ -48,49 +48,21 @@ Features:
 
         /account/search
       
+* Shutdown the backend by pressing Ctrl-C
+* To make custom Web app run the following command:
 
-* To make custom server just create file main.js with the following contents:
+        rc.backend init-app
 
-        var backend = require('backend');
+* By default app.js file is created with 2 additional API endpoints /test/add and /test/[0-9] to show the simplest way
+  of adding new tables and API commands.
+* Run new application now:
 
-        // Add more properties/columns to the base account table which we need to keep for our social site
-        backend.api.registerTables({ account: { 
-                                        facebook_id: { type: "int", pub: 1 } 
-                                   } 
-        });
-
-        // Customize the API server with additional tables, endpoints or other features
-        backend.api.initApplication = function() {
-
-            // Register custom API endpoint, return FB status 
-            this.app.get('/fbstatus', function(req, res) { 
-                
-                // Retrieve our current account record, req.account is an object containing our authenticated account 
-                backend.db.get("account", { id: req.account.id }, function(err, rows) {
-                
-                    // Ask Facebook about us
-                    var url = "https://graph.facebook.com/" + rows[0].facebook_id;
-                    backend.core.httpGet(url, function(err, params) {
-                        res.json(params.data);
-                    })
-                }); 
-            });
-        };
-        // Start the server
-        backend.server.start();
-
-* Run the file now directly:
-
-        node main.js -port 8000 -web
+        rc.backend run-app
       
+ 
+* Go to http://localhost:8000/api.html and issue /test/add?id=1&name=1 and then /test/1 commands in the console to see it in action
 
-* Lets update our Facebook id
-
-        /account/update?facebook_id=5
-     
-     
-* Go to http://localhost:8000/fbstatus to see what Facebook tels about this user
-
+      
 # API endpoints provided by the backend
 
 ## Security
@@ -103,23 +75,23 @@ All requests to the API server must be signed with account email/secret pair.
     * '''Sort''' list of parameters alphabetically
     * Join sorted list of parameters with "&"
     * Form canonical string to be signed as the following:
-      - Line1: The HTTP method(GET), followed by a newline.
-      - Line2: the host, followed by a newline.
-      - Line3: The request URI (/), followed by a newline.
-      - Line4: The sorted and joined query parameters as one string, followed by a newline.
-      - Line5: The expires value or empty string, followed by a newline.
-      - Line6: The checksum or empty string, followed by a newline.
+        - Line1: The HTTP method(GET), followed by a newline.
+        - Line2: the host, followed by a newline.
+        - Line3: The request URI (/), followed by a newline.
+        - Line4: The sorted and joined query parameters as one string, followed by a newline.
+        - Line5: The expires value or empty string, followed by a newline.
+        - Line6: The checksum or empty string, followed by a newline.
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
     * Form B-Signature HTTP header as the following:
-      - The header string consist of multiple fields separated by semicolon ;
-      - Field1: Signature version, 1 or 2, the difference is what kind of secret is used for signing the canonical string:
-        for version 1, the original secret is used, for version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret
-      - Field2: empty, reserved for future use
-      - Field3: account email
-      - Field4: HMAC-SHA1 digest from the canonical string
-      - Field5: expiration value in milliseconds or empty string
-      - Field6: checksum or empty string
-      - Field7: empty, resertved for future use
+        - The header string consist of multiple fields separated by semicolon ;
+            - Field1: Signature version, 1,2,3,4, the difference is what kind of secret is used for signing the canonical string:
+              for version 1, the original secret is used, for version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret
+            - Field2: Application version or other ap specific data
+            - Field3: account email
+            - Field4: HMAC-SHA1 digest from the canonical string
+            - Field5: expiration value in milliseconds or empty string
+            - Field6: checksum or empty string
+            - Field7: empty, reserved for future use
 
 The resulting signature is sent as HTTP header b-signature: string
 See web/js/backend.js for function Backend.sign or core.js function signRequest for the Javascript implementation.
@@ -202,7 +174,7 @@ customize the running environment, these should be regular shell scripts using b
 
 * If $PREFIX needs to be changed, create ~/.backend/etc/profile file and assign PREFIX=path, for example:
 
-        mkdir -p ~/.backend/etc && echo "PREFIX=$HOME/local" > ~/.backend/etc/profile
+        echo "PREFIX=$HOME/local" > ~/.backendrc
    
 
 * **Important**: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so

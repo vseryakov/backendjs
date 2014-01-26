@@ -390,12 +390,12 @@ tests.db = function(callback)
 	    function(next) {
 	        logger.log('TEST: replace');
 	    	now = core.now();
-	    	db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, mtime: now }, { check_data: 1 }, next);
+	    	db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, json: { a: 1, b: 2 }, mtime: now }, { check_data: 1 }, next);
 	    },
 	    function(next) {
 	        logger.log('TEST: get after replace');
 	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 ? (err || "err6:" + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 || core.typeName(rows[0].json)!="object" || rows[0].json.a!=1 ? (err || "err6:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {

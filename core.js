@@ -46,7 +46,7 @@ var core = {
     path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", log: "log" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
-    logfile: null,
+    logFile: null,
 
     // HTTP port of the server
     port: 80,
@@ -72,7 +72,7 @@ var core = {
     logwatcherInterval: 3600,
     logwatcherIgnore: "NOTICE: |DEBUG: |DEV: ",
     logwatcherFiles: [ { file: "/var/log/messages", match: /\[[0-9]+\]: (ERROR|WARNING): |message":"ERROR:|queryAWS:.+Errors:|startServer:|startFrontend:/ },
-                       { name: "logfile", match: /\[[0-9]+\]: ERROR: |message":"ERROR:|queryAWS:.+Errors:|startServer:|startFrontend:/ } ],
+                       { name: "logFile", match: /\[[0-9]+\]: ERROR: |message":"ERROR:|queryAWS:.+Errors:|startServer:|startFrontend:/ } ],
 
     // User agent
     userAgent: ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0",
@@ -85,18 +85,19 @@ var core = {
                  "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0",
                  "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727",
                  "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.2; BRI/2",
-                 ],
+    ],
 
     // Config parameters
     args: [ { name: "help", type: "callback", value: function() { core.help() }, descr: "Print help and exit" },
             { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debuggng messages", pass: 1 },
             { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
-            { name: "logfile", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages", pass: 1 },
+            { name: "log-file", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages", pass: 1 },
             { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog", pass: 1 },
-            { name: "console", type: "callback", value: function() { core.logfile = null; logger.setFile(null);}, descr: "All logging goes to the console", pass: 1 },
+            { name: "console", type: "callback", value: function() { core.logFile = null; logger.setFile(null);}, descr: "All logging goes to the console", pass: 1 },
             { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, current dir if not specified", pass: 1 },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run att he same time inside one process" },
             { name: "umask", descr: "Filesystem mask" },
+            { name: "config-file", descr: "Path to the config file instead of the default etc/config", pass: 1 },
             { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after start if running as root" },
             { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },
             { name: "port", type: "number", min: 0, max: 99999, descr: "HTTP port to listen for the servers, this is global default" },
@@ -381,7 +382,10 @@ core.loadConfig = function(callback)
 {
     var self = this;
 
-    fs.readFile(path.join(self.path.etc, "config"), function(err, data) {
+    var file = this.configFile || path.join(self.path.etc, "config");
+    logger.debug('loadConfig:', file);
+    
+    fs.readFile(file, function(err, data) {
         if (!err && data) {
             var argv = [], lines = data.toString().split("\n");
             for (var i = 0; i < lines.length; i++) {
@@ -952,7 +956,7 @@ core.httpGet = function(uri, params, callback)
 core.signUrl = function(accesskey, secret, host, uri, expires) 
 {
     var hdrs = this.signRequest(accesskey, secret, "GET", host, uri, "", expires);
-    return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&b-signature=" + encodeURIComponent(hdrs['b-signature']);
+    return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
 }
 
 // Sign HTTP request for the API server:
@@ -968,11 +972,16 @@ core.signRequest = function(id, secret, method, host, uri, expires, checksum)
     var qpath = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
     var str = String(method) + "\n" + String(host) + "\n" + String(qpath) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(checksum || "");
-    return { 'b-signature': '1;;' + String(id) + ';' + this.sign(String(secret), str) + ';' + expires + ';' + String(checksum || "") + ';;' };
+    return { 'bk-signature': '1;;' + String(id) + ';' + this.sign(String(secret), str) + ';' + expires + ';' + String(checksum || "") + ';;' };
 }
 
 // Parse incomomg request for signature and return all pieces wrapped in an object, this object
 // will be used by checkSignature function for verification against an account
+// signature version:
+//  - 1 sig secret - real secret, sig id - real email
+//  - 2 sig secret - BASE64(HMAC(secret, email)), sig id - real email
+//  - 3 sig secret - BASE64(HMAC(secret, email)), sig id - BASE64(HMAC(secret2, email)) where secret2 is signed secret
+//  - 4 same as in mode 3 but is sent in cookies and uses wild support for host and path
 core.parseSignature = function(req) 
 {
     var rc = { version: 1, expires: 0, checksum: "", password: "" };
@@ -980,8 +989,8 @@ core.parseSignature = function(req)
     rc.url = req.originalUrl || req.url || "/";
     rc.method = req.method || "";
     rc.host = (req.headers.host || "").split(':')[0];
-    rc.signature = req.query['b-signature'] || req.headers['b-signature'] || "";
-    var d = String(rc.signature).match(/([^;]+);([^;]*);([^;]+);([^;]+);([^;]+);([^;]*);([^;]*);/);
+    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || req.cookies['bk-signature'] || "";
+    var d = String(rc.signature).match(/([^;]+);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);/);
     if (!d) return rc;
     rc.mode = this.toNumber(d[1]);
     rc.version = d[2] || "";
@@ -989,7 +998,7 @@ core.parseSignature = function(req)
     rc.signature = d[4];
     rc.expires = this.toNumber(d[5]);
     rc.checksum = d[6] || "";
-    rc.url = req.url.replace(/b-signature=([^& ]+)/g, "");
+    rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
     return rc;
 }
 
@@ -1002,12 +1011,14 @@ core.checkSignature = function(sig, account)
     sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires + "\n" + sig.checksum;
     switch (sig.mode) {
     case 1:
+        // Simple signing with real secret and email
         sig.hash = this.sign(account.secret, sig.str);
         return sig.signature == sig.hash;
         
     case 2:
-        // Verify against digest of the account and and secret, this way a client stores not the 
-        // actual secret in local storage but sha1 digest to prevent exposing the real password
+    case 3:
+    case 4:
+        // All methods use not the real secret for signing but a HMAC of the real secret and email
         sig.hash = this.sign(this.sign(account.secret, account.email), sig.str);
         return sig.signature == sig.hash;
     }
@@ -1047,16 +1058,16 @@ core.sendRequest = function(uri, options, callback)
         if (options.queue) {
             if (params.status == 200) {
                 if (options.id) {
-                    db.del("backend_queue", { id: options.id });
+                    db.del("bk_queue", { id: options.id });
                 }
             } else {
                 if (!options.id) options.id = core.hash(uri + (options.postdata || ""));
                 options.mtime = self.now();
                 options.counter = (options.counter || 0) + 1;
                 if (options.counter > 10) {
-                    db.del("backend_queue", { id: options.id });
+                    db.del("bk_queue", { id: options.id });
                 } else {
-                    db.put("backend_queue", options);
+                    db.put("bk_queue", options);
                 }
             }
         }
@@ -1083,7 +1094,7 @@ core.processQueue = function(callback)
     var self = this;
     var db = self.context.db;
     
-    db.select("backend_queue", {}, { sort: "mtime" } , function(err, rows) {
+    db.select("bk_queue", {}, { sort: "mtime" } , function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
             self.sendRequest(row.url, self.extendObj(row, "queue", true), function(err2) { next(); });
         }, function(err3) {
@@ -1779,7 +1790,7 @@ core.stringify = function(obj)
 // Return cookies that match given domain
 core.cookieGet = function(domain, callback) 
 {
-    this.context.db.select("backend_cookies", {}, function(err, rows) {
+    this.context.db.select("bk_cookies", {}, function(err, rows) {
         var cookies = [];
         rows.forEach(function(cookie) {
             if (cookie.expires <= Date.now()) return;
@@ -1847,7 +1858,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
     async.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
         if (!rec.id) rec.id = core.hash(rec.name + ':' + rec.domain + ':' + rec.path);
-        self.context.db.put("backend_cookies", rec, function() { next() });
+        self.context.db.put("bk_cookies", rec, function() { next() });
     }, function() {
         if (callback) callback();
     });
@@ -1961,7 +1972,7 @@ core.watchLogs = function(callback)
     var db = self.context.db;
     
     // Load all previous positions for every log file, we start parsing file from the previous last stop
-    db.query("SELECT * FROM backend_property WHERE name LIKE 'logwatcher:%'", function(err, rows) {
+    db.query("SELECT * FROM bk_property WHERE name LIKE 'logwatcher:%'", function(err, rows) {
         var lastpos = {};
         for (var i = 0; i < rows.length; i++) {
             lastpos[rows[i].name] = rows[i].value;
@@ -2001,7 +2012,7 @@ core.watchLogs = function(callback)
                        // Separator between log files
                        if (errors.length > 1) errors += "\n\n";
                        // Save current size to start next time from
-                       db.query({ text: "REPLACE INTO backend_property VALUES(?,?,?)", values: ['logwatcher:' + file, st.size, self.logwatcherMtime.toISOString()] }, function(e) {
+                       db.query({ text: "REPLACE INTO bk_property VALUES(?,?,?)", values: ['logwatcher:' + file, st.size, self.logwatcherMtime.toISOString()] }, function(e) {
                            if (e) logger.error('watchLogs:', file, e);
                            fs.close(fd, function() {});
                            next();

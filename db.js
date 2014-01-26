@@ -70,28 +70,28 @@ var db = {
     ],
     
     // Default tables
-    tables: { backend_property: { name: { primary: 1 }, 
-                                  value: {}, 
-                                  mtime: { type: "int" } },
+    tables: { bk_property: { name: { primary: 1 }, 
+                             value: {}, 
+                             mtime: { type: "int" } },
                                  
-              backend_cookies: { id: { primary: 1 },
-                                 name: { index: 1 },
-                                 domain: {}, 
-                                 path: {}, 
-                                 value: { type: "text" }, 
-                                 expires: { type:" bigint" } },
+              bk_cookies: { id: { primary: 1 },
+                            name: { index: 1 },
+                            domain: {}, 
+                            path: {}, 
+                            value: { type: "text" }, 
+                            expires: { type:" bigint" } },
                                  
-              backend_queue: { id: { primary: 1 },
-                               url: {}, 
-                               postdata: { type: "text" }, 
-                               counter: { type: 'int' }, 
-                               mtime: { type: "int" } },
+              bk_queue: { id: { primary: 1 },
+                          url: {}, 
+                          postdata: { type: "text" }, 
+                          counter: { type: 'int' }, 
+                          mtime: { type: "int" } },
                                
-              backend_jobs: { id: { primary: 1 }, 
-                              type: { value: "local" }, 
-                              host: { value: '' }, 
-                              job: { type: "text" }, 
-                              mtime: { type: 'int'} },
+              bk_jobs: { id: { primary: 1 }, 
+                         tag: { primary: 1 }, 
+                         type: { value: "local" }, 
+                         job: { type: "json" }, 
+                         mtime: { type: 'int'} },
     }
 };
 
@@ -129,6 +129,7 @@ db.initTables = function(tables, callback)
         if (callback) callback(err);
     });
 }
+
 
 // Init the pool, create tables and columns:
 // - name - db pool to create the tables in
@@ -174,7 +175,19 @@ db.initPoolTables = function(name, tables, callback)
         });
     });
 }
-    
+
+// Remove all registered tables from the pool
+db.dropPoolTables = function(name, tables, callback) 
+{
+    var self = this;
+    var pool = self.getPool('', { pool: name });
+    async.forEachSeries(Object.keys(tables || {}), function(table, next) {
+        self.drop(table, { pool: name }, function() { next() });
+    }, function() {
+        if (callback) callback();
+    });
+}
+
 // Create a database pool
 // - options - an object defining the pool, the following properties define the pool:
 //   - pool - pool name/type, of not specified sqlite is used
@@ -1635,7 +1648,6 @@ db.sqliteInitPool = function(options)
     var pool = this.initPool(options, self.sqliteOpen);
     pool.dboptions = core.mergeObj(pool.dboptions, { noLengths: 1, noMultiSQL: 1 });
     pool.cacheColumns = self.sqliteCacheColumns;
-    pool.bindValue = self.sqliteBindValue;
     return pool;
 }
 
@@ -1717,14 +1729,6 @@ db.sqliteCacheColumns = function(options, callback)
             });
         });
     });
-}
-
-// Convert into appropriate Sqlite format
-db.sqliteBindValue = function(val, info) 
-{
-	// Dates must be converted into seconds
-	if (typeof val == "object" && val.getTime) val = Math.round(val.getTime()/1000);
-    return val;
 }
 
 db.mysqlInitPool = function(options) 
