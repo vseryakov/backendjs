@@ -145,7 +145,7 @@ aws.queryDDB = function (action, obj, options, callback)
             return callback ? callback(err, {}) : null;
         }
         logger.debug('queryDDB:', action, 'finished:', core.mnow() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', params.json.ConsumedCapacity || "");
-        if (callback) callback(err, params.json);
+        if (callback) callback(err, params.json || {});
     });
 }
 
@@ -320,30 +320,29 @@ aws.fromDynamoDB = function(value)
     case 'object':
         var res = {};
         for (var i in value) {
-            if (value.hasOwnProperty(i)) {
-                if (value[i]['S'])
-                    res[i] = value[i]['S'];
-                else
-                if (value[i]['SS'])
-                    res[i] = value[i]['SS'];
-                else
-                if (value[i]['B'])
-                    res[i] = new Buffer(value[i]['B'], "base64");
-                else
-                if (value[i]['BS']) {
-                    res[i] = [];
-                    for (var j = 0; j < value[i]['BS'].length; j ++) {
-                        res[i][j] = new Buffer(value[i]['BS'][j], "base64");
-                    }
-                } else
-                if (value[i]['N'])
-                    res[i] = parseFloat(value[i]['N']);
-                else
-                if (value[i]['NS']) {
-                    res[i] = [];
-                    for (var j = 0; j < value[i]['NS'].length; j ++) {
-                        res[i][j] = parseFloat(value[i]['NS'][j]);
-                    }
+            if (!value.hasOwnProperty(i)) continue;
+            if (value[i]['S'])
+                res[i] = value[i]['S'];
+            else
+            if (value[i]['SS'])
+                res[i] = value[i]['SS'];
+            else
+            if (value[i]['B'])
+                res[i] = new Buffer(value[i]['B'], "base64");
+            else
+            if (value[i]['BS']) {
+                res[i] = [];
+                for (var j = 0; j < value[i]['BS'].length; j ++) {
+                    res[i][j] = new Buffer(value[i]['BS'][j], "base64");
+                }
+            } else
+            if (value[i]['N'])
+                res[i] = parseFloat(value[i]['N']);
+            else
+            if (value[i]['NS']) {
+                res[i] = [];
+                for (var j = 0; j < value[i]['NS'].length; j ++) {
+                    res[i][j] = parseFloat(value[i]['NS'][j]);
                 }
             }
         }
@@ -546,7 +545,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
                 
             default:
                 params.AttributeUpdates[p] = { Action: (options.ops || {})[p] || 'PUT' };
-                params.AttributeUpdates[p].Value = self.toDynamoDB(item[p]);
+                params.AttributeUpdates[p].Value = self.toDynamoDB(item[p], 1);
                 break;
         }
     }

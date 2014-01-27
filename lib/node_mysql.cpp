@@ -4,6 +4,9 @@
 //
 
 #include "node_backend.h"
+
+#ifdef USE_MYSQL
+
 #include <mysql.h>
 
 #define MYSQL_MAX_BIND 99
@@ -392,9 +395,11 @@ err:
 Persistent<FunctionTemplate> MysqlDatabase::constructor_template;
 Persistent<FunctionTemplate> MysqlStatement::constructor_template;
 Persistent<ObjectTemplate> MysqlStatement::object_template;
+#endif
 
 void MysqlInit(Handle<Object> target)
 {
+#ifdef USE_MYSQL
     HandleScope scope;
     mysql_library_init(0, NULL, NULL);
 
@@ -458,8 +463,10 @@ void MysqlInit(Handle<Object> target)
     DEFINE_CONSTANT_INTEGER(target, CLIENT_MULTI_STATEMENTS, CLIENT_MULTI_STATEMENTS);
     DEFINE_CONSTANT_INTEGER(target, CLIENT_MULTI_RESULTS, CLIENT_MULTI_RESULTS);
     DEFINE_CONSTANT_INTEGER(target, CLIENT_PS_MULTI_RESULTS, CLIENT_PS_MULTI_RESULTS);
+#endif
 }
 
+#ifdef USE_MYSQL
 static Handle<Value> listStatements(const Arguments& args)
 {
     HandleScope scope;
@@ -1056,3 +1063,4 @@ void MysqlStatement::Work_AfterQuery(uv_work_t* req)
     }
     delete baton;
 }
+#endif

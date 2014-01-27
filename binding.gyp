@@ -19,6 +19,7 @@
            "HAVE_GMTIME_R=1",
            "HAVE_STRERROR_R=1",
            "HAVE_READLINE=1",
+           "<!@(if which -s mysql_config; then echo USE_MYSQL; fi)",
            "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)"
         ],
         "include_dirs": [
@@ -30,7 +31,7 @@
         ],
         "libraries": [
            "-L/opt/local/lib -Llib -lleveldb -lsnappy -lnanomsg -lpcre",
-           "$(shell /opt/local/lib/mysql56/bin/mysql_config --libs_r)",
+           "$(shell mysql_config --libs_r)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"
         ],
@@ -58,7 +59,7 @@
                 "OTHER_CFLAGS": [
                    "-g",
                    "-fno-omit-frame-pointer",
-                   "$(shell /opt/local/lib/mysql56/bin/mysql_config --cflags)",
+                   "$(shell mysql_config --cflags)",
                    "$(shell pkg-config --silence-errors --cflags libpq)",
                    "$(shell ./bin/MagickWand-config --cflags)"
                 ],

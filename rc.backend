@@ -650,7 +650,14 @@ case "$ARG" in
     [ ! -e $ROOT/etc/config ] && echo "#db-pool=pgsql\n#db-mysql-pool=mysql:///backend\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $ROOT/etc/config
     if [ ! -e $NAME.js ]; then
       echo "//\n// Backend app\n// Created by $(whoami) on $(date)\n//\n" >> $NAME.js
-      echo "var backend = require('backend');\n\nbackend.api.registerTables({ test: { id: { primary: 1 }, name: {} } });\n" >> $NAME.js
+      echo "var backend = require('backend');" >> $NAME.js
+      echo "var express = require('express');\n" >> $NAME.js
+      echo "backend.api.registerTables({ test: { id: { primary: 1 }, name: {} } });\n" >> $NAME.js
+      echo "backend.api.initMiddleware = function()" >> $NAME.js 
+      echo "{" >> $NAME.js
+      echo "    // Use web pages from current directory" >> $NAME.js
+      echo "    this.app.use(express.static(__dirname + "/web"));" >> $NAME.js       
+      echo "}\n" >> $NAME.js
       echo "backend.api.initApplication = function(callback) {" >> $NAME.js
       echo "    // Add new record" >> $NAME.js
       echo "    this.app.all(/^\/test\/add/, function(req, res) {" >> $NAME.js
@@ -717,6 +724,7 @@ case "$ARG" in
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the bakend development(node.js, libs)"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
+    echo "  run-app - run the application created with init-app, default is port 8000"
     ;;
 esac
 

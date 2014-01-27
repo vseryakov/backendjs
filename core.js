@@ -96,8 +96,14 @@ var core = {
             { name: "console", type: "callback", value: function() { core.logFile = null; logger.setFile(null);}, descr: "All logging goes to the console", pass: 1 },
             { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, current dir if not specified", pass: 1 },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run att he same time inside one process" },
-            { name: "umask", descr: "Filesystem mask" },
-            { name: "config-file", descr: "Path to the config file instead of the default etc/config", pass: 1 },
+            { name: "umask", descr: "Permissions mask for new files" },
+            { name: "config-file", type: "path", descr: "Path to the config file instead of the default etc/config", pass: 1 },
+            { name: "etc-dir", type: "callback", value: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
+            { name: "web-dir", type: "callback", value: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
+            { name: "tmp-dir", type: "callback", value: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
+            { name: "spool-dir", type: "callback", value: function(v) { if (v) this.path.spool = v; }, descr: "Path where to keep modifiable files" },
+            { name: "log-dir", type: "callback", value: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep log files" },
+            { name: "images-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
             { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after start if running as root" },
             { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },
             { name: "port", type: "number", min: 0, max: 99999, descr: "HTTP port to listen for the servers, this is global default" },
@@ -155,7 +161,7 @@ var core = {
     ipcs: {},
     ipcId: 1,
     ipcTimeout: 500,
-    lruMax: 1000,
+    lruMax: 50000,
 
     // REPL port for server
     replPort: 2080,
@@ -181,9 +187,7 @@ core.init = function(callback)
         }
     });
     // Default domain from local host name
-    var host = os.hostname().split('.');
-    self.hostname = host[0];
-    self.domain = host.length > 2 ? host.slice(1).join('.') : self.hostname;
+    self.domain = self.domainName(os.hostname());
 
     var db = self.context.db;
     
@@ -327,7 +331,7 @@ core.processArgs = function(name, ctx, argv, pass)
         if (val == null && x.type != "bool" && x.type != "callback") return;
         // Ignore the value if it is a parameter
         if (val && val[0] == '-') val = ""; 
-        logger.dev("processArgs:", name, ":", key, "=", val);
+        logger.dev("processArgs:", name, 'type:', x.type, "set:", key, "=", val);
         switch (x.type || "") {
         case "none":
             break;
@@ -959,6 +963,34 @@ core.signUrl = function(accesskey, secret, host, uri, options)
     return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
 }
 
+// Parse incomomg request for signature and return all pieces wrapped in an object, this object
+// will be used by checkSignature function for verification against an account
+// signature version:
+//  - 1 sig secret - real secret, sig id - real email
+//  - 2 sig secret - BASE64(HMAC(secret, email)), sig id - real email
+//  - 3 sig secret - BASE64(HMAC(secret, email)), sig id - BASE64(HMAC(secret2, email)) where secret2 is signed secret
+//  - 4 same as in mode 3 but is sent in cookies and uses wild support for host and path
+core.parseSignature = function(req) 
+{
+    var rc = { version: 1, expires: 0, checksum: "", password: "" };
+    // Input parameters, convert to empty string if not present
+    rc.url = req.originalUrl || req.url || "/";
+    rc.method = req.method || "";
+    rc.host = (req.headers.host || "").split(':').shift();
+    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || req.session['bk-signature'] || "";
+    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\}]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|/);
+    if (!d) return rc;
+    rc.mode = this.toNumber(d[1]);
+    rc.version = d[2] || "";
+    rc.id = d[3] || "";
+    rc.signature = d[4] || "";
+    rc.expires = this.toNumber(d[5]);
+    rc.checksum = d[6] || "";
+    // Strip the signature from the url
+    rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
+    return rc;
+}
+
 // Sign HTTP request for the API server:
 // url must include all query parametetrs already encoded and ready to be sent
 // options may con tains the following:
@@ -972,8 +1004,9 @@ core.signRequest = function(id, secret, method, host, uri, options)
     var expires = options.expires || 0;
     if (!expires) expires = now + 30000;
     if (expires < now) expires += now;
+    var hostname = String(host || "").split(":").shift();
     var q = String(uri || "/").split("?");
-    var qpath = q[0];
+    var path = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
     var rc = {};
     switch (options.version || 1) {
@@ -989,44 +1022,18 @@ core.signRequest = function(id, secret, method, host, uri, options)
     case 4:
         secret = this.sign(String(secret), String(id));
         id = this.sign(secret, String(id));
-        query = method = qpath = "ALL";
-        rc['bk-domain'] = host = String(host).split(".").slice(1).join(".");
+        method = query = "*";
+        path = "/";
+        rc['bk-domain'] = host = this.domainName(hostname);
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
-        rc['bk-path'] = "/"; 
+        rc['bk-path'] = path; 
         break;
     }
-    var str = String(method) + "\n" + String(host) + "\n" + String(qpath) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.checksum || "");
+    var str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.checksum || "");
     rc['bk-signature'] = (options.version || 1) + '|' + (options.appdata || "") + '|' + String(id) + '|' + this.sign(String(secret), str) + '|' + expires + '|' + String(options.checksum || "") + '||';
+    if (logger.level > 1) logger.log('signRequest:', rc, { str: str });
     return rc; 
-}
-
-// Parse incomomg request for signature and return all pieces wrapped in an object, this object
-// will be used by checkSignature function for verification against an account
-// signature version:
-//  - 1 sig secret - real secret, sig id - real email
-//  - 2 sig secret - BASE64(HMAC(secret, email)), sig id - real email
-//  - 3 sig secret - BASE64(HMAC(secret, email)), sig id - BASE64(HMAC(secret2, email)) where secret2 is signed secret
-//  - 4 same as in mode 3 but is sent in cookies and uses wild support for host and path
-core.parseSignature = function(req) 
-{
-    var rc = { version: 1, expires: 0, checksum: "", password: "" };
-    // Input parameters, convert to empty string if not present
-    rc.url = req.originalUrl || req.url || "/";
-    rc.method = req.method || "";
-    rc.host = (req.headers.host || "").split(':').shift();
-    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || req.cookies['bk-signature'] || "";
-    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\}]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|/);
-    if (!d) return rc;
-    rc.mode = this.toNumber(d[1]);
-    rc.version = d[2] || "";
-    rc.id = d[3] || "";
-    rc.signature = d[4] || "";
-    rc.expires = this.toNumber(d[5]);
-    rc.checksum = d[6] || "";
-    // Strip the signature from the url
-    rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
-    return rc;
 }
 
 // Verify signature with given account, signature is an object reurned by parseSignature
@@ -1042,7 +1049,7 @@ core.checkSignature = function(sig, account)
         return sig.signature == sig.hash;
         
     case 4:
-        sig.str = "ALL" + "\n" + sig.host.split(".").slice(1).join(".") + "\n" + "ALL" + "\n" + "ALL" + "\n" + sig.expires + "\n" + sig.checksum;
+        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n" + sig.checksum;
         
     case 2:
     case 3:
@@ -1669,6 +1676,13 @@ core.scaleIcon = function(infile, outfile, options, callback)
         logger.edebug(err, 'scaleIcon:', typeof infile == "object" ? infile.length : infile, outfile, options);
         if (callback) callback(err, data);
     });
+}
+
+// Extract domain from local host name
+core.domainName = function(host)
+{
+    var name = String(host || "").split('.');
+    return name.length > 2 ? name.slice(1).join('.') : host;
 }
 
 // Return object type, try to detect any distinguished type

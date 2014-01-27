@@ -28,7 +28,7 @@ var server = {
     pids: [],
     exiting: false,
     // Delay (ms) before restarting the server
-    restartDelay: 2000,
+    restartDelay: 1000,
     // Redefined in case of log file
     stdout: null,
     stderr: null,

@@ -333,7 +333,7 @@ db.initPool = function(options, createcb)
 //   - text - SQL statement or other query in the format of the native driver, can be a list of statements
 //   - values - parameter values for sql bindings or other driver specific data
 //   - options may have the following properties:
-//   - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
+//      - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
 // Callback is called with the following params:
 //   - callback(err, rows, info) where 
 //   - info is an object with information about the last query: inserted_oid,affected_rows,next_token
@@ -359,9 +359,11 @@ db.query = function(req, options, callback)
             }
             // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
             if (options && options.public_columns) {
+                var col = options.public_key || 'id';
                 var cols = self.getPublicColumns(req.table, options);
                 if (cols.length) {
                     rows.forEach(function(row) {
+                        if (row[col] == options.public_columns) return;
                         for (var p in row) 	if (cols.indexOf(p) == -1) delete row[p];
                     });
                 }
@@ -513,6 +515,8 @@ db.replace = function(table, obj, options, callback)
 //  - start - start records with this primary key, this is the next_token passed by the previous query
 //  - count - how many records to return
 //  - sort - sort by this column
+//  - public_columns - value to be used to filter non-public columns (marked by .pub property), compared to public_key column or 'id'
+//  - public_key - name of the column to be used in public columns filtering, default is 'id'
 //  - desc - if sorting, do in descending order
 //  - page - starting page number for pagination, uses count to find actual record to start 
 // On return, the callback can check third argument which is an object with the following properties:
@@ -789,6 +793,9 @@ db.getKeys = function(table, options)
 //  - info - column definition for the value from the cached columns 
 db.getBindValue = function(table, options, val, info) 
 {
+    if (options.noJson) {
+        if (info && info.type == "json") return JSON.stringify(val);
+    }
 	var cb = this.getPool(table, options).bindValue;
 	return cb ? cb(val, info) : val;
 }
@@ -855,10 +862,19 @@ db.getPublicColumns = function(table, options)
 // Call custom row handler for every row in the result, this assumes that pool.processRow callback has been assigned previously
 db.processRows = function(pool, table, rows, options) 
 {
-	if (!pool.processRow) return;
+	if (!pool.processRow && !options.noJson) return;
 
 	var cols = pool.dbcolumns[table.toLowerCase()] || {};
-	rows.forEach(function(row) { pool.processRow.call(pool, row, options, cols); });
+	rows.forEach(function(row) { 
+	    if (options.noJson) {
+	        for (var p in cols) {
+	            if (cols[p].type == "json" || typeof row[p] == "string") try { row[p] = JSON.parse(row[p]); } catch(e) {}
+	        }
+	    }
+	    if (pool.processRow) {
+	        pool.processRow.call(pool, row, options, cols); 
+	    }
+	});
 }
 
 // Cache columns using the information_schema 
@@ -1738,12 +1754,12 @@ db.mysqlInitPool = function(options)
     if (!options.pool) options.pool = "mysql";
     var pool = this.initPool(options, self.mysqlOpen);
     pool.cacheIndexes = self.mysqlCacheIndexes;
-    pool.processRow = self.mysqlProcessRow;
     pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { json: "text", bigint: "bigint" }, 
                                                      placeholder: "?", 
                                                      defaultType: "VARCHAR(128)",
                                                      keyLength: 128,
                                                      noIfExists: 1,
+                                                     noJson: 1,
                                                      noMultiSQL: 1 });
     return pool;
 }
@@ -1792,14 +1808,6 @@ db.mysqlCacheIndexes = function(options, callback)
     });
 }
 
-db.mysqlProcessRow = function(row, options, cols)
-{
-    for (var p in cols) {
-        if (cols[p].type == "json") try { row[p] = JSON.parse(row[p]); } catch(e) {}
-    }
-    return row;
-}
-
 // DynamoDB pool
 db.dynamodbInitPool = function(options) 
 {
@@ -1808,7 +1816,7 @@ db.dynamodbInitPool = function(options)
     if (!options.pool) options.pool = "dynamodb";
 
     // Redefine pool but implement the same interface
-    var pool = { name: options.pool, db: options.db, dboptions: {}, dbcolumns: {}, dbkeys: {}, dbindexes: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
+    var pool = { name: options.pool, db: options.db, dboptions: { noJson: 1 }, dbcolumns: {}, dbkeys: {}, dbindexes: {}, stats: { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 } };
     self.dbpool[options.pool] = pool;
     pool.next_token = null;
     pool.affected_rows = 0;
@@ -1882,7 +1890,7 @@ db.dynamodbInitPool = function(options)
                               map(function(x) { return [x, core.newObj(Object.keys(obj).filter(function(y) { return obj[y].primary })[0], 'HASH', x, 'RANGE') ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
-                callback(err, item ? [item.Item] : []);
+                callback(err, item.Item ? [item.Item] : []);
             });
             break;
             
@@ -2036,9 +2044,9 @@ db.cassandraInitPool = function(options)
                                                      noNulls: 1, 
                                                      noLengths: 1,
                                                      noReplace: 1,
+                                                     noJson: 1,
                                                      noMultiSQL: 1 });
     pool.bindValue = self.cassandraBindValue;
-    pool.processRow = self.cassandraProcessRow;
     pool.cacheColumns = self.cassandraCacheColumns;
     // No REPLACE INTO support but UPDATE creates new record if no primary key exists
     pool.put = function(table, obj, opts, callback) {
@@ -2098,20 +2106,6 @@ db.cassandraQuery = function(text, values, callback)
     } catch(e) {
         if (callback) callback(e, []);
     }
-}
-
-db.cassandraBindValue = function(val, info) 
-{
-    if (info && info.type == "json") return JSON.stringify(val);
-    return val;
-}
-
-db.cassandraProcessRow = function(row, options, cols)
-{
-    for (var p in cols) {
-        if (cols[p].type == "json") try { row[p] = JSON.parse(row[p]); } catch(e) {}
-    }
-    return row;
 }
 
 db.cassandraCacheColumns = function(options, callback) 

@@ -84,7 +84,8 @@ tests.account = function(callback)
     var longitude = core.randomNum(bbox[1], bbox[3]);
     var name = core.toTitle(gender == 'm' ? males[core.randomInt(0, males.length - 1)] : females[core.randomInt(0, females.length - 1)]);
     var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
-
+    var msgs = null;
+    
     async.series([
         function(next) {
             var query = { email: email, secret: secret, name: name, alias: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
@@ -166,6 +167,33 @@ tests.account = function(callback)
             var options = { email: email, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
                 next(err || !params.obj || params.obj.like0!=1 ? (err || "err6:" + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { sender: id, text: "text message" }  }
+            core.sendRequest("/message/add", options, next);
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { sender: id, icon: icon }  }
+            core.sendRequest("/message/add", options, next);
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { } }
+            core.sendRequest("/message/get", options, function(err, params) {
+                msgs = params.obj;
+                next(err || !params.obj || params.obj.length!=2 ? (err || "err7:" + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret, query: { sender: msgs[0].sender, mtime: msgs[0].mtime } }
+            core.sendRequest("/message/read", options, function(err, params) {
+                next(err || !params.obj ? (err || "err8:" + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { email: email, secret: secret }
+            core.sendRequest("/counter/get", options, function(err, params) {
+                next(err || !params.obj || params.obj.msg_count!=2 || params.obj.msg_read!=1 ? (err || "err9:" + util.inspect(params.obj)) : 0);
             });
         },
     ],
@@ -275,7 +303,8 @@ tests.db = function(callback)
 {
 	var self = this;
 	var tables = {
-	        test1: { id: { primary: 1, pub: 1 } },
+	        test1: { id: { primary: 1, pub: 1 },
+	                 email: {} },
 			test2: { id: { primary: 1, pub: 1 },
 			         id2: { primary: 1 },
 			         email: { },
@@ -285,19 +314,20 @@ tests.db = function(callback)
 			         num: { type: "int" },
 			         num2: { type: "real" },
 			         mtime: { type: "int" } },	
-			test3: { id : { primary: 1 },
-			         num: { type: "counter", value: 0 } },
+			test3: { id : { primary: 1, pub: 1 },
+			         num: { type: "counter", value: 0, pub: 1 } },
 	};
 	var now = core.now();
 	var id = core.random(64);
 	var id2 = core.random(128);
     var num2 = core.randomNum(bbox[0], bbox[2]);
 	var next_token = null;
+	
 	async.series([
 	    function(next) {
 	         logger.log('TEST: drop');
 	         async.forEachSeries(Object.keys(tables), function(t, next2) {
-	             db.drop(t, next2);
+	             db.drop(t, function() { next2() });
 	         }, next);
 	    },
 	    function(next) {
@@ -306,17 +336,16 @@ tests.db = function(callback)
 	    },
 	    function(next) {
             logger.log('TEST: add1');
-            db.add("test1", { id: id }, function(err) {
+            db.add("test1", { id: id, email: id }, function(err) {
                 if (err) return next(err);
-                db.add("test1", { id: id2 }, next);
+                db.put("test1", { id: id2, email: id2 }, function(err) {
+                    if (err) return next(err);
+                    db.put("test3", { id: id, num: 0 }, next); 
+                });
             });
         },
         function(next) {
-            logger.log('TEST: put1');
-            db.put("test3", { id: id, num: 0 }, next);
-        },
-        function(next) {
-            logger.log('TEST: get add');
+            logger.log('TEST: get add3');
             db.get("test3", { id: id }, function(err, rows) {
                 next(err || rows.length!=1 || rows[0].id != id);
             });
@@ -329,8 +358,8 @@ tests.db = function(callback)
         },
         function(next) {
             logger.log('TEST: list');
-            db.list("test1", String([id,id2]), { public_columns: 1 }, function(err, rows) {
-                next(err || rows.length!=2 || rows[0].email ? (err || "err4:" + util.inspect(rows)) : 0);
+            db.list("test1", String([id,id2]),  function(err, rows) {
+                next(err || rows.length!=2 ? (err || "err4:" + util.inspect(rows)) : 0);
             });
         },
 	    function(next) {
@@ -345,6 +374,14 @@ tests.db = function(callback)
 	        logger.log('TEST: add4');
 	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 0, num2: num2, mtime: now }, next);
 	    },
+        function(next) {
+            logger.log('TEST: list2');
+            db.list("test1", String([id,id2]), { public_columns: id }, function(err, rows) {
+                var row1 = rows.filter(function(x) { return x.id==id}).pop();
+                var row2 = rows.filter(function(x) { return x.id==id2}).pop();
+                next(err || rows.length!=2 || !row1.email || row2.email ? (err || "err5:" + util.inspect(rows)) : 0);
+            });
+        },
 	    function(next) {
 	        logger.log('TEST: incr');
 	    	db.incr("test3", { id: id, num: 1 }, { mtime: 1 }, function(err) {
@@ -358,19 +395,19 @@ tests.db = function(callback)
 	    function(next) {
 	        logger.log('TEST: get after incr');
 	    	db.get("test3", { id: id }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id && rows[0].num != 1 ? (err || "err1:" + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].id != id && rows[0].num != 1 ? (err || "err6:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: select columns');
 	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2 ? (err || "err3:" + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2 ? (err || "err7:" + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
             logger.log('TEST: select columns2');
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-                next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2 ? (err || "err3:" + util.inspect(rows)) : 0);
+                next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2 ? (err || "err8:" + util.inspect(rows)) : 0);
             });
         },
 	    function(next) {
@@ -420,13 +457,13 @@ tests.db = function(callback)
 	        logger.log('TEST: select id2');
 	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, count: 2, select: 'id,id2' }, function(err, rows, info) {
 	    		next_token = info.next_token;
-	    		next(err || rows.length!=2 || !info.next_token ? (err || "err7:" + util.inspect(rows, info)) : 0);
+	    		next(err || rows.length!=2 || !info.next_token ? (err || "err9:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: select next id2');
 	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, start: next_token, count: 2, select: 'id,id2' }, function(err, rows, info) {
-	    		next(err || rows.length!=2 || rows[0].id2 !='3' || !info.next_token ? (err || "err8:" + util.inspect(rows, info)) : 0);
+	    		next(err || rows.length!=2 || rows[0].id2 !='3' || !info.next_token ? (err || "err10:" + util.inspect(rows, info)) : 0);
 	    	});
 	    },
 	],
