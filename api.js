@@ -115,12 +115,9 @@ var api = {
     },
     
     // Authentication handlers to grant access to the endpoint before checking for signature
-    access: {
-    },
-    
     // Authorization handlers after the account has been authenticated
-    authorize: {
-    },
+    // Post process, callbacks to be called after successfull API calls, takes as input the result
+    hooks: { access: [], auth: [], post: [] },
     
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
@@ -250,10 +247,6 @@ api.initMiddleware = function() {}
 api.checkRequest = function(req, res, callback) 
 {
     var self = this;
-    // Prepare path parts for access checkes later
-    var paths = req.path.substr(1).split("/");
-    if (paths.length > 0) req.endpoint1 = paths[0];
-    if (paths.length > 1) req.endpoint2 = paths[0] + '/' + paths[1];
     
     self.checkAccess(req, function(rc1) {
         // Status is given, return an error or proceed to the next module
@@ -283,23 +276,23 @@ api.checkRequest = function(req, res, callback)
 // Check access permissions, calls the callback with the following argument:
 // - nothing if checkSignature needs to be called
 // - an object with status: 200 to skip authorization and proceed with the next module
-// - an object with status 0 means response has been sent, just stop
+// - an object with status: 0 means response has been sent, just stop
 // - an object with status other than 0 or 200 to return the status and stop request processing
 api.checkAccess = function(req, callback) 
 {
     if (this.deny && req.path.match(this.deny)) return callback({ status: 401, message: "Access denied" });
     if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
-    // Call custom access handler for the endpoint, only 1 and 2 parths are used
-    if (req.endpoint2 && this.access[req.endpoint2]) return this.access[req.endpoint2].call(this, req, callback);
-    if (req.endpoint1 && this.access[req.endpoint1]) return this.access[req.endpoint1].call(this, req, callback);
+    // Call custom access handler for the endpoint
+    var hook = this.findHook('access', req.method, req.path);
+    if (hook) return hook.callbacks.call(this, req, callback)
     callback();
 }
 
 // Perform authorization chedks after the account been authenticated
 api.checkAuthorization = function(req, callback) 
 {
-    if (req.endpoint2 && this.authorize[req.endpoint2]) return this.authorize[req.endpoint2].call(this, req, callback);
-    if (req.endpoint1 && this.authorize[req.endpoint1]) return this.authorize[req.endpoint1].call(this, req, callback);
+    var hook = this.findHook('auth', req.method, req.path);
+    if (hook) return hook.callbacks.call(this, req, callback)
     callback();
 }
 
@@ -433,7 +426,7 @@ api.initAccountAPI = function()
                     }
                     // Some dbs require the record to exist, just make one with default values
                     db.put("bk_counter", { id: req.query.id, like0: 0 });
-                    res.json(self.processAccountRow(req.query));
+                    self.sendJSON(req, res, self.processAccountRow(req.query));
                 });
             });
             break;
@@ -446,7 +439,7 @@ api.initAccountAPI = function()
             ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
             db.update("bk_account", req.query, { check_columns: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
-                res.json(self.processAccountRow(req.query));
+                self.sendJSON(req, res, self.processAccountRow(req.query));
             });
             break;
 
@@ -478,7 +471,7 @@ api.initAccountAPI = function()
             req.account.secret = req.query.secret;
             db.update("bk_auth", req.account, { cached: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
-                res.json({});
+                self.sendJSON(req, res, {});
                 // Keep history of all changes
                 if (req.query._history) {
                     db.add("bk_history", { id: req.account.id, type: req.params[0], mtime: core.now(), data: core.sign(req.account.id, req.query.secret) });
@@ -510,7 +503,7 @@ api.initAccountAPI = function()
                     var obj = { id: req.account.id, mtime: core.now(), icons: rows[0].icons.join(",") };
                     db.update("bk_account", obj, function(err) {
                         if (err) return self.sendReply(res, err);
-                        res.json(self.processAccountRow(rows[0]));
+                        self.sendJSON(req, res, self.processAccountRow(rows[0]));
                     });
                 });
             });
@@ -544,7 +537,7 @@ api.initIconAPI = function()
                 req.query.type = type;
                 req.query.prefix = req.params[1];
                 req.query.icon = self.imagesUrl + '/image/' + req.params[1] + '/' + req.account.id + '/' + type;
-                res.json(req.query);
+                self.sendJSON(req, res, req.query);
             });
             break;
 
@@ -671,7 +664,10 @@ api.initCounterAPI = function()
             self.sendReply(res);
             req.query.mtime = Date.now();
             req.query.id = req.account.id;
-            db[req.params[0]]("bk_counter", req.query, { cached: 1 });
+            db[req.params[0]]("bk_counter", req.query, { cached: 1 }, function(err, rows) {
+                if (err) return self.sendReply(res, err)
+                self.sendJSON(req, res, rows);
+            });
             break;
             
         case "get":
@@ -813,7 +809,7 @@ api.initLocationAPI = function()
                 var obj = { id: req.account.id, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
-                    res.json(self.processAccountRow(obj));
+                    self.sendJSON(req, res, self.processAccountRow(obj));
                     
                     // Delete current location
                     var geo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance });
@@ -900,10 +896,10 @@ api.initBackendAPI = function()
     var db = core.context.db;
     
     // Make sure if configured only authorized can access this endpoint
-    self.authorize.backend = function(req, callback) {
+    self.registerAuthCheck('', '/backend', function(req, callback) {
         if (!self.backendAccess || self.backendAccess.indexOf(req.account.id) > -1) return callback();
         callback({ status: 401, message: "Not authorized" });
-    }
+    });
     
     // Return current statistics
     this.app.all("/backend/stats", function(req, res) {
@@ -974,14 +970,53 @@ api.describeTables = function(tables)
     }
 }
 
-// Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function 
-// but only for the first or first/second parts of the URL request path, 
-// Example: 
-//          api.registerAccessCheck('account', function(req, cb) {}))
-//          api.registerAccessCheck('account/add', function(req, cb) {});
-api.registerAccessCheck = function(path, callback)
+// Find registered hook for given type and path
+api.findHook = function(type, method, path)
 {
-    this.access.path = callback;
+    var routes = this.hooks[type];
+    if (!routes) return null;
+    for (var i = 0; i < routes.length; ++i) {
+        if ((!routes[i].method || routes[i].method == method) && routes[i].match(path)) {
+            return routes[i];
+        }
+    }    
+    return null;
+}
+
+api.addHook = function(type, method, path, callback) 
+{
+    this.hooks[type].push(new express.Route(method, path, callback));
+}
+
+// Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before 
+// validating the signature or session cookies.
+// - method can be '' in such case all mathods will be matched
+// - path is a string or regexp of the request URL similr to registering Express routes
+// - callback is a function with the following parameters: function(req, cb) {}, see `checkAccess` for the return type
+// Example: 
+//          api.registerAccessCheck('', 'account', function(req, cb) {}))
+//          api.registerAccessCheck('POST', 'account/add', function(req, cb) {});
+api.registerAccessCheck = function(method, path, callback)
+{
+    this.addHook('access', method, path, callback);
+}
+
+// Similar to `registerAccesscheck` but this callback will be called after the signature or session is verified. The purpose of
+// this hook is too check permissions of a valid user to resources.
+api.registerAuthCheck = function(method, path, callback)
+{
+    this.addHook('auth', method, path, callback);
+}
+
+// Register a callback to be called after successfull API action, status 200 only.
+// The purpose is to perform some additional actions after the standard API completed or to customize the result
+// - method can be '' in such case all mathods will be matched
+// - path is a string or regexp of the request URL similr to registering Express routes
+// - callback is a function with the following parameters: function(req, res, rows) where rows is the result returned by the API handler,
+//   the callback MUST return data back to the client or any other status code
+api.registerPostProcess = function(method, path, callback)
+{
+    this.addHook('post', method, path, callback);
 }
 
 // Register path to be allowed or rejected based on the request URL path, 
@@ -998,6 +1033,14 @@ api.registerAccessPath = function(path, deny)
     } else {
         if (Array.isArray(this.deny)) this.deny.push(path);
     }
+}
+
+// Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in teh apps
+api.sendJSON = function(req, res, rows)
+{
+    var hook = this.findHook('post', req.method, req.path);
+    if (hook) return hook.callbacks.call(this, req, res, rows);
+    res.json(rows);
 }
 
 // Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back
