@@ -119,15 +119,15 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { icon: icon }  }
+            var options = { email: email, secret: secret, query: { icon: icon, type: 1 }  }
             core.sendRequest("/account/put/icon", options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret }
+            var options = { email: email, secret: secret, query: { _consistent: 1 } }
             core.sendRequest("/account/get", options, function(err, params) {
-                next(err || !params.obj || !params.obj.icon0 ? (err || "err2:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.icon1 ? (err || "err2:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {

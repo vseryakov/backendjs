@@ -5,11 +5,12 @@ General purpose backend framework.
 Features:
 
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
-* Supports Sqlite, PostgreSQL, DynamoDB, Cassandra databases, easily extendable to support any kind of database.
+* Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra databases, easily extendable to support any kind of database.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
 * Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
+* Local jobs are executed by spawned processes
 * Supports several cache modes(Redis, memcached, local cache) for the database operations.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API. 
 * ImageMagick is compiled as C++ module for in-process image scaling.
@@ -44,7 +45,7 @@ Features:
         /account/get
       
      
-* To see all public fields for accounts just execute
+* To see all public fields for all accounts just execute
 
         /account/search
       
@@ -80,12 +81,15 @@ All requests to the API server must be signed with account email/secret pair.
         - Line3: The request URI (/), followed by a newline.
         - Line4: The sorted and joined query parameters as one string, followed by a newline.
         - Line5: The expires value or empty string, followed by a newline.
-        - Line6: The checksum or empty string, followed by a newline.
+        - Line6: The checksum(SHA1) or empty string, followed by a newline.
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
-    * Form B-Signature HTTP header as the following:
+    * Form BK-Signature HTTP header as the following:
         - The header string consist of multiple fields separated by pipe |
             - Field1: Signature version, 1,2,3,4, the difference is what kind of secret is used for signing the canonical string:
-              for version 1, the original secret is used, for version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret
+                - version 1, the original secret and email are used
+                - version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret, BASE64(HMAC-SHA1(secret, email))
+                - version 3 the secret is as in version 2, email is BASE64(HMAC-SHA1(secret2, email)) where secret2 is the secret from version 2
+                - version 4 is the same as version 3 but it is used in session cookies, not headers
             - Field2: Application version or other ap specific data
             - Field3: account email
             - Field4: HMAC-SHA1 digest from the canonical string
@@ -93,7 +97,7 @@ All requests to the API server must be signed with account email/secret pair.
             - Field6: checksum or empty string
             - Field7: empty, reserved for future use
 
-The resulting signature is sent as HTTP header b-signature: string
+The resulting signature is sent as HTTP header bk-signature: string
 See web/js/backend.js for function Backend.sign or core.js function signRequest for the Javascript implementation.
       
 ## Accounts
@@ -123,14 +127,21 @@ The backend directory structure is the following:
 * etc/crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
   Example:
 
-         [ { "type": "local", "cron": "0 0 0,8 * * *", "job": "reports.create" },
-           { "type": "remote", "cron": "0 1 1 * * 1,3", "args": { "-log": "debug" }, "job": { "scraper.run": { "url": "http://www.site.com" } } } ]
+         [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "api.cleanSessions": { "interval": 3600000 } } } ]
 
+         // The cron will call this function with the options specified, callback must be called
+         api.cleanSessions = function(options, callback) {
+             db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
+         }
+         
+         To start the scheduler: rc.backend -master ...
 
 * etc/proxy - HTTP proxy config file, same format as in http-proxy npm package
   Example:
         
         { "target" : { "host": "localhost", "port": 8001 } }
+        
+        Then start the proxy: rc.backend -proxy ....
             
             
 * etc/profile - shell script loaded by the rc.backend utility to customize env variables  
@@ -180,20 +191,20 @@ customize the running environment, these should be regular shell scripts using b
 * **Important**: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
    node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
      
-* now run the init command to prepare the environment, bin/rc.backend will source .backendrc
+* now run the init command to prepare the environment, rc.backend will source .backendrc
 
-        rc.backend init-backend
+        ./rc.backend init-backend
 
 
 * to install node.js in $PREFIX/bin if not installed already run command:
 
-        rc.backend build-node
+        ./rc.backend build-node
 
 
 - if node.js is installed, make sure all required modules are installed, thi sis required because we did not installed the 
   backend via npm with all dependencies:
 
-        rc.backend npm-deps
+        ./rc.backend npm-deps
  
 
 * If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:

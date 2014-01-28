@@ -188,11 +188,22 @@ db.dropPoolTables = function(name, tables, callback)
     });
 }
 
+// Return all tables know to the given pool, returned tables are in the object with 
+// column information merged from cached columns from the database with descrpition columns
+// given by the application. Property fake: 1 in any column signifies not a real column but 
+// a column described by the application and not yet c reated by the database driver or could not be added
+// due to some error.
+db.getPoolTables = function(name) 
+{
+    var pool = this.getPool('', { pool: name });
+    return pool.dbcolumns || {};
+}
+
 // Create a database pool
 // - options - an object defining the pool, the following properties define the pool:
-//   - pool - pool name/type, of not specified sqlite is used
-//   - max - max number of clients to be allocated in the pool
-//   - idle - after how many milliseconds an idle client will be destroyed
+//     - pool - pool name/type, of not specified sqlite is used
+//     - max - max number of clients to be allocated in the pool
+//     - idle - after how many milliseconds an idle client will be destroyed
 // - createcb - a callback to be called when actual database client needs to be created, the callback signature is
 //     function(options, callback) and will be called with first arg an error object and second arg is the database instance, required
 db.initPool = function(options, createcb) 
@@ -329,15 +340,15 @@ db.initPool = function(options, createcb)
 }
 
 // Execute query using native database driver, the query is passed directly to the driver.
-//   - req - can be a string or an object with the following properties:
-//   - text - SQL statement or other query in the format of the native driver, can be a list of statements
-//   - values - parameter values for sql bindings or other driver specific data
-//   - options may have the following properties:
-//      - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
+// - req - can be a string or an object with the following properties:
+// - text - SQL statement or other query in the format of the native driver, can be a list of statements
+// - values - parameter values for sql bindings or other driver specific data
+// - options may have the following properties:
+//     - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
 // Callback is called with the following params:
-//   - callback(err, rows, info) where 
-//   - info is an object with information about the last query: inserted_oid,affected_rows,next_token
-//   - rows is always returned as a list, even in case of error it is an empty list
+// - callback(err, rows, info) where 
+// - info is an object with information about the last query: inserted_oid,affected_rows,next_token
+// - rows is always returned as a list, even in case of error it is an empty list
 db.query = function(req, options, callback) 
 {
     var self = this;
@@ -393,8 +404,8 @@ db.add = function(table, obj, options, callback)
 // Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj
 // - obj - an object with record properties, primary key properties must be specified
 // - options - same properties as for .select method with the following additional options:
-//    - mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a 
-//              string then it is used as a name of the column instead of default mtime name
+//     - mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a 
+//               string then it is used as a name of the column instead of default mtime name
 db.put = function(table, obj, options, callback) 
 {
     if (typeof options == "function") callback = options,options = null;
@@ -680,7 +691,6 @@ db.getCachedKey = function(table, obj, options)
 // - index - column is part of an index
 // - value - default value for the column
 // - len - column length
-// - keylen - length of the column when used in the constraint
 // - pub - columns is public
 // - semipub - column is not public but still retrieved to support other public columns, must be deleted after use
 // Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2
@@ -846,8 +856,8 @@ db.mergeColumns = function(pool)
 }
 
 // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
-//  - .pub property means public column
-//  - .semipub means not allowed but must be returned for calculations in the select to produce another public column
+//  - pub property means public column
+//  - semipub means not allowed but must be returned for calculations in the select to produce another public column
 // options may be used to define the following properties:
 // - columns - list of public columns to be returned, overrides the public columns in the definition list
 db.getPublicColumns = function(table, options) 
@@ -1201,16 +1211,16 @@ db.sqlTime = function(d)
 
 // Given columns definition object, build SQL query using values from the values object, all conditions are joined using AND,
 // - columns is a list of objects with the following properties:
-//   - name - column name, also this is the key to use in the values object to get value by
-//   - col - actual column name to use in the SQL
-//   - alias - optional table prefix if multiple tables involved
-//   - value - default value
-//   - type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr
-//   - op - any valid SQL operation: =,>,<, between, like, not like, in, not in, ~*,.....
-//   - group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)
-//   - always - only use default value if true
-//   - required - value default or supplied must be in the query, otherwise return empty SQL
-//   - search - aditional name for a value, for cases when generic field is used for search but we search specific column
+//     - name - column name, also this is the key to use in the values object to get value by
+//     - col - actual column name to use in the SQL
+//     - alias - optional table prefix if multiple tables involved
+//     - value - default value
+//     - type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr
+//     - op - any valid SQL operation: =,>,<, between, like, not like, in, not in, ~*,.....
+//     - group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)
+//     - always - only use default value if true
+//     - required - value default or supplied must be in the query, otherwise return empty SQL
+//     - search - aditional name for a value, for cases when generic field is used for search but we search specific column
 // - values - actual values for the condition as an object, usually req.query
 // - params - if given will contain values for binding parameters
 db.sqlFilter = function(columns, values, params) 
@@ -1322,10 +1332,10 @@ db.sqlLimit = function(options)
 // - obj - an object record properties
 // - keys - a list of primary key columns
 // - options may contains the following properties:
-//   - pool - pool to be used for driver specific functions
-//   - ops - object for comparison operators for primary key, default is equal operator
-//   - opsMap - operator mapping into supported by the database
-//   - typesMap - type mapping for properties to be used in the condition
+//     - pool - pool to be used for driver specific functions
+//     - ops - object for comparison operators for primary key, default is equal operator
+//     - opsMap - operator mapping into supported by the database
+//     - typesMap - type mapping for properties to be used in the condition
 db.sqlWhere = function(table, obj, keys, options) 
 {
     var self = this;
@@ -1363,7 +1373,6 @@ db.sqlWhere = function(table, obj, keys, options)
 // - index - indexed column, part of the compisite index
 // - unique - must be combined with index property to specify unique composite index
 // - len - max length of the column
-// - keylen - length for the indexed columns (MySQL) 
 // - notnull - true if should be NOT NULL
 // options may contains:
 // - upgrade - perform alter table instead of create
@@ -1757,7 +1766,6 @@ db.mysqlInitPool = function(options)
     pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { json: "text", bigint: "bigint" }, 
                                                      placeholder: "?", 
                                                      defaultType: "VARCHAR(128)",
-                                                     keyLength: 128,
                                                      noIfExists: 1,
                                                      noJson: 1,
                                                      noMultiSQL: 1 });

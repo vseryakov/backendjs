@@ -42,15 +42,11 @@ var api = {
                    id: {},
                    email: {},
                    secret: {},
-                   api_deny: {},
-                   api_allow: {},
-                   expires: { type: "int" },
-                   mtime: { type: "int" } },
+                   url_deny: {},                        // Deny access to matched url
+                   url_allow: {},                       // Only grant access if matched this regexp
+                   expires: { type: "bigint" },         // Deny access to the account if this value is before current date, milliseconds
+                   mtime: { type: "bigint" } },
                    
-        // Session store           
-        bk_session: { sid: { primary: 1 },
-                      data: { type: "json" } },
-                      
         // Basic account information
         bk_account: { id: { primary: 1, pub: 1 },
                       email: { unique: 1 },
@@ -70,28 +66,28 @@ var api = {
                       latitude: { type: "real" },
                       longitude: { type: "real" },
                       location: {},
-                      ltime: { type: "int" },
-                      ctime: { type: "int" },
-                      mtime: { type: "int" } },
+                      ltime: { type: "bigint" },
+                      ctime: { type: "bigint" },
+                      mtime: { type: "bigint" } },
                    
        // Locations for all accounts to support distance searches
        bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
                       id: { primary: 1 },                     // account id, part of the primary key for pagination
                       latitude: { type: "real" },
                       longitude: { type: "real" },
-                      mtime: { type: "int" }},
+                      mtime: { type: "bigint" }},
 
        // All connections between accounts: like,dislike,friend...
        bk_connection: { id: { primary: 1 },                    // account_id
                         type: { primary: 1 },                  // type:connection_id
                         state: {},
-                        mtime: { type: "int" }},
+                        mtime: { type: "bigint" }},
                    
        // References from other accounts, likes,dislikes...
        bk_reference: { id: { primary: 1 },                    // connection_id
                        type: { primary: 1 },                  // type:account_id
                        state: {},
-                       mtime: { type: "int" }},
+                       mtime: { type: "bigint" }},
                      
        // Messages between accounts
        bk_message : { id: { primary: 1 },                    // Account sent to 
@@ -344,11 +340,11 @@ api.checkSignature = function(req, callback)
             return callback({ status: 404, message: "Expired account" });
         }
 
-        // Verify ACL regex if specified, test the whole query string as it appear in GET query line
-        if (account.api_deny && sig.url.match(account.api_deny)) {
+        // Verify ACL regex if specified, test the whole query string as it appears in the request query line
+        if (account.url_deny && sig.url.match(account.url_deny)) {
             return callback({ status: 401, message: "Access denied" });
         }
-        if (account.api_allow && !sig.url.match(account.api_allow)) {
+        if (account.url_allow && !sig.url.match(account.url_allow)) {
             return callback({ status: 401, message: "Not permitted" });
         }
 
@@ -390,7 +386,7 @@ api.initAccountAPI = function()
         switch (req.params[0]) {
         case "get":
         	if (!req.query.id) {
-        		db.get("bk_account", { id: req.account.id }, function(err, rows) {
+        		db.get("bk_account", { id: req.account.id }, { consistent: req.query._consistent }, function(err, rows) {
         			if (err) return self.sendReply(res, err);
         			if (!rows.length) return self.sendReply(res, 404);
         			
@@ -414,10 +410,12 @@ api.initAccountAPI = function()
             if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
             if (!req.query.name) return self.sendReply(res, 400, "name is required");
             if (!req.query.email) return self.sendReply(res, 400, "email is required");
+            if (!req.query.alias) req.query.alias = req.query.name;
             req.query.id = backend.uuid().replace(/-/g, '');
             req.query.mtime = req.query.ctime = core.now();
             // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
             var auth = { key: req.query.email, id: req.query.id, secret: req.query.secret };
+            
             // On account creation we determine how we will authenticate later, the client must sign using valid signature mode and 
             // after that the same mode must be used for all requests
             var sig = core.parseSignature(req);
@@ -496,10 +494,10 @@ api.initAccountAPI = function()
         case "del/icon":
             // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
             // The type can be the whole url of the icon, we need to parse it and extract only type
-            var type = self.getIconType(req.account.id, req.body.type || req.query.type);
+            var type = String(core.toNumber(req.body.type || req.query.type));
             var op = req.params[0].replace('/i', 'I');
-            self[op](req, req.account.id, { prefix: 'account', type: type }, function(err) {
-                if (err) return self.sendReply(res, err);
+            self[op](req, req.account.id, { prefix: 'account', type: type }, function(err, icon) {
+                if (err || !icon) return self.sendReply(res, err);
                 
                 // Get current account icons
                 db.get("bk_account", { id: req.account.id }, { select: 'id,icons' }, function(err, rows) {
@@ -509,7 +507,7 @@ api.initAccountAPI = function()
                     rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + type);
                     if (op == 'delIcon') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
                         
-                    var obj = { id: req.account.id, email: req.account.email, mtime: core.now(), icons: rows[0].icons.join(",") };
+                    var obj = { id: req.account.id, mtime: core.now(), icons: rows[0].icons.join(",") };
                     db.update("bk_account", obj, function(err) {
                         if (err) return self.sendReply(res, err);
                         res.json(self.processAccountRow(rows[0]));
@@ -540,7 +538,7 @@ api.initIconAPI = function()
             
         case "del":
         case "put":
-            var type = self.getIconType(req.account.id, req.body.type || req.query.type);
+            var type = String(core.toNumber(req.body.type || req.query.type));
             self[req.params[0] + 'Icon'](req, req.account.id, { prefix: req.params[1], type: type }, function(err) {
                 if (err) return self.sendReply(res, err);
                 req.query.type = type;
@@ -571,7 +569,7 @@ api.initMessageAPI = function()
             break;
             
         case "get":
-            if (!req.query.mtime) req.query.mtime = 0;
+            if (!req.query.mtime) req.query.mtime = "";
             var options = { ops: { mtime: "gt" }, select: req.query._select, total: req.query._total, start: core.toJson(req.query._start) };
             db.select("bk_message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
@@ -678,7 +676,7 @@ api.initCounterAPI = function()
             
         case "get":
             var id = req.query.id || req.account.id;
-            db.getCached("bk_counter", { id: id }, { public_columns: id == req.account.id ? 0 : req.account.id }, function(err, row) {
+            db.getCached("bk_counter", { id: id }, { consistent: req.query._consistent, public_columns: id == req.account.id ? 0 : req.account.id }, function(err, row) {
                 res.json(row);
             });
             break;
@@ -812,7 +810,7 @@ api.initLocationAPI = function()
                 var distance = backend.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
                 if (distance < core.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + core.minDistance);
                 
-                var obj = { id: req.account.id, email: req.account.email, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
+                var obj = { id: req.account.id, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
                     res.json(self.processAccountRow(obj));
@@ -961,7 +959,7 @@ api.initTables = function(callback)
 
 // Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes
 // Used during initialization of the external modules which may add custom columns to the existing tables. 
-api.registerTables = function(tables) 
+api.describeTables = function(tables) 
 {
     var self = this;
     for (var p in tables) {
@@ -976,15 +974,23 @@ api.registerTables = function(tables)
     }
 }
 
-// Register a handler to check access for given endpoint, it work the same way as the global accessCheck function but for the first or first and second
-// parts of the URL request path, like: account, account/add
+// Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function 
+// but only for the first or first/second parts of the URL request path, 
+// Example: 
+//          api.registerAccessCheck('account', function(req, cb) {}))
+//          api.registerAccessCheck('account/add', function(req, cb) {});
 api.registerAccessCheck = function(path, callback)
 {
     this.access.path = callback;
 }
 
-// Register path to be allowed or reject based on the request URL path, 
-// path is a regexp, this call must be issued before api is initialized
+// Register path to be allowed or rejected based on the request URL path, 
+// path is a string with a regexp, not the actual RegExp object. 
+// - if deny is not specified or false then the access to matched path will be granted without any authentication
+// - if deny is true then this path will be denied access completely (this is for hidding some paths but keeping in the code/filesystem) 
+// This call must be issued before api is initialized, i.e. only in the api.initMiddleware
+// Example:
+//          api.registerAccessPath("^/counter/")
 api.registerAccessPath = function(path, deny) 
 {
     if (!deny) {
@@ -1012,13 +1018,6 @@ api.sendFile = function(req, res, file, redirect)
         if (redirect) return res.redirect(redirect);
         res.send(404);
     });
-}
-
-// Return type of the icon, this can be type itself or full icon url
-api.getIconType = function(id, type) 
-{
-    var d = (type || "").match(/\/image\/account\/([a-z0-9-]+)\/?(([0-9])$|([0-9])\?)?/);
-    return d && d[1] == id ? (d[3] || d[4]) : "0";
 }
 
 // Return icon to the client
