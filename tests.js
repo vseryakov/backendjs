@@ -17,14 +17,14 @@ aws = backend.aws;
 server = backend.server;
 logger = backend.logger;
 
-var females = [ "mary", "patricia", "linda", "barbara", "elizabeth", "jennifer", "maria", "susan", 
-                "carol", "ruth", "sharon", "michelle", "laura", "sarah", "kimberly", "deborah", "jessica", 
-                "heather", "teresa", "doris", "gloria", "evelyn", "jean", "cheryl", "mildred", 
+var females = [ "mary", "patricia", "linda", "barbara", "elizabeth", "jennifer", "maria", "susan",
+                "carol", "ruth", "sharon", "michelle", "laura", "sarah", "kimberly", "deborah", "jessica",
+                "heather", "teresa", "doris", "gloria", "evelyn", "jean", "cheryl", "mildred",
                 "katherine", "joan", "ashley", "judith"];
 
-var males = [ "james", "john", "robert", "michael", "william", "david", "richard", "charles", "joseph", 
-              "thomas", "christopher", "daniel", "paul", "mark", "donald", "george", "kenneth", "steven", 
-              "justin", "terry", "gerald", "keith", "samuel", "willie", "ralph", "lawrence", "nicholas", 
+var males = [ "james", "john", "robert", "michael", "william", "david", "richard", "charles", "joseph",
+              "thomas", "christopher", "daniel", "paul", "mark", "donald", "george", "kenneth", "steven",
+              "justin", "terry", "gerald", "keith", "samuel", "willie", "ralph", "lawrence", "nicholas",
               "roy", "benjamin"];
 
 var location = "Los Angeles";
@@ -36,7 +36,7 @@ var tests = {
     start_time: 0,
 };
 
-tests.start = function(type) 
+tests.start = function(type)
 {
 	var self = this;
 	if (!this[type]) {
@@ -50,12 +50,12 @@ tests.start = function(type)
 		location = "San Francisco";
 		bbox = [ 37.32833975233156, -122.86154379633437, 38.22666024766845, -121.96045620366564 ];  // San Francisco 37.77750, -122.41100
 		break;
-	case "SD": 
+	case "SD":
 		location = "San Diego";
 		bbox = [ 32.26553975233155, -118.8279466261797, 33.163860247668445, -115.4840533738203 ]; // San Diego 32.71470, -117.15600
 		break;
 	}
-        
+
 	logger.log(self.name, "started:", type);
 	async.whilst(
 	    function () { return count > 0; },
@@ -73,7 +73,7 @@ tests.start = function(type)
 	    });
 };
 
-tests.account = function(callback) 
+tests.account = function(callback)
 {
     var id = core.random();
 	var secret = core.random();
@@ -85,10 +85,10 @@ tests.account = function(callback)
     var name = core.toTitle(gender == 'm' ? males[core.randomInt(0, males.length - 1)] : females[core.randomInt(0, females.length - 1)]);
     var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
     var msgs = null;
-    
+
     async.series([
         function(next) {
-            var query = { email: email, secret: secret, name: name, alias: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
+            var query = { email: email, secret: secret, name: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
             core.sendRequest("/account/add", { query: query }, function(err, params) {
                 next(err);
             });
@@ -202,7 +202,7 @@ tests.account = function(callback)
     });
 }
 
-tests.s3icon = function(callback) 
+tests.s3icon = function(callback)
 {
 	var id = core.getArg("-id", "1");
 	api.putIconS3("../web/img/loading.gif", id, { prefix: "account" }, function(err) {
@@ -213,15 +213,15 @@ tests.s3icon = function(callback)
 		});
 	});
 }
-    
-tests.icon = function(callback) 
+
+tests.icon = function(callback)
 {
     api.putIcon({ body: {}, files: { 1: { path: "../web/img/loading.gif" } } }, 1, { prefix: "account" }, function(err) {
         callback(err);
     });
 }
 
-tests.cookie = function(callback) 
+tests.cookie = function(callback)
 {
 	core.httpGet('http://www.google.com', { cookies: true }, function(err, params) {
 		console.log('COOKIES:', params.cookies);
@@ -229,7 +229,7 @@ tests.cookie = function(callback)
 	});
 }
 
-tests.location = function(callback) 
+tests.location = function(callback)
 {
 	var self = this;
 	var tables = {
@@ -237,8 +237,8 @@ tests.location = function(callback)
 			       id: { primary: 1, pub: 1 },
                    latitude: { type: "real" },
                    longitude: { type: "real" },
-			       mtime: { type: "int" } 
-			},	
+			       mtime: { type: "int" }
+			},
 	};
     var rows = core.getArgInt("-rows", 10);
     var latitude = core.randomNum(bbox[0], bbox[2])
@@ -247,7 +247,7 @@ tests.location = function(callback)
     var count = core.getArgInt("-count", 5)
     var token = null, rc = [], rc2 = [];
     bbox = backend.backend.geoBoundingBox(latitude, longitude, distance);
-    
+
     async.series([
         function(next) {
             async.forEachSeries(Object.keys(tables), function(t, next2) {
@@ -299,7 +299,7 @@ tests.location = function(callback)
     });
 }
 
-tests.db = function(callback) 
+tests.db = function(callback)
 {
 	var self = this;
 	var tables = {
@@ -313,7 +313,7 @@ tests.db = function(callback)
 			         json: { type: "json" },
 			         num: { type: "int" },
 			         num2: { type: "real" },
-			         mtime: { type: "int" } },	
+			         mtime: { type: "int" } },
 			test3: { id : { primary: 1, pub: 1 },
 			         num: { type: "counter", value: 0, pub: 1 } },
 	};
@@ -322,7 +322,7 @@ tests.db = function(callback)
 	var id2 = core.random(128);
     var num2 = core.randomNum(bbox[0], bbox[2]);
 	var next_token = null;
-	
+
 	async.series([
 	    function(next) {
 	         logger.log('TEST: drop');
@@ -340,7 +340,7 @@ tests.db = function(callback)
                 if (err) return next(err);
                 db.put("test1", { id: id2, email: id2 }, function(err) {
                     if (err) return next(err);
-                    db.put("test3", { id: id, num: 0 }, next); 
+                    db.put("test3", { id: id, num: 0 }, next);
                 });
             });
         },
@@ -508,7 +508,7 @@ tests.leveldb = function(callback)
     ],
     function(err) {
         callback(err);
-    });    
+    });
 }
 
 backend.run(function() {

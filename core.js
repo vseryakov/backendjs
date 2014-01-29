@@ -25,7 +25,7 @@ var redis = require("redis");
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2013.10.20.0', 
+    version: '2013.10.20.0',
 
     // Process and config parameters
     argv: [],
@@ -151,12 +151,12 @@ var core = {
             { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace fcility, trap crashes and report the backtrace stack" },
             { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development" }
     ],
-        
+
     // Geo min distance for the hash key, km
     minDistance: 5,
     // Max searchable distance, km
     maxDistance: 50,
-    
+
     // Inter-process messages
     ipcs: {},
     ipcId: 1,
@@ -173,12 +173,15 @@ var core = {
 module.exports = core;
 
 // Main intialization, must be called prior to perform any actions
-core.init = function(callback) 
+core.init = function(callback)
 {
     var self = this;
+    // Initial args to run before the config file
+    self.processArgs("core", self, process.argv, 1);
+
     // Default home as absolute path
     self.setHome(self.home);
-    
+
     // Find our IP address
     var intf = os.networkInterfaces();
     Object.keys(intf).forEach(function(x) {
@@ -190,12 +193,10 @@ core.init = function(callback)
     self.domain = self.domainName(os.hostname());
 
     var db = self.context.db;
-    
+
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
-        	// Initial args to run before the config file
-        	self.processArgs("core", self, process.argv, 1);
             self.loadConfig(next);
         },
 
@@ -203,10 +204,10 @@ core.init = function(callback)
         function(next) {
             // Redirect system logging to stderr
             logger.setChannel("stderr");
-            
+
             // Process all other arguments
             self.parseArgs(process.argv);
-            
+
             try { process.umask(self.umask); } catch(e) { logger.error("umask:", self.umask, e) }
 
             // Resolve to absolute paths
@@ -215,7 +216,7 @@ core.init = function(callback)
                 self[p] = path.resolve(self.path[p]);
                 files.push(self[p]);
             });
-            
+
             if (!cluster.isWorker && !self.worker) {
                 // Create all subfolders
                 files.forEach(function(dir) { self.mkdirSync(dir); });
@@ -244,8 +245,8 @@ core.init = function(callback)
         // Final callbacks
         function(err) {
             logger.debug("core: init:", err || "");
-            if (callback) setImmediate(function() { 
-                callback.call(self, err); 
+            if (callback) setImmediate(function() {
+                callback.call(self, err);
             });
     });
 }
@@ -255,7 +256,7 @@ core.init = function(callback)
 // default environment or pass -home dir so the script will reuse same config and paths as the server
 // context can be specified for the callback, if no then it run in the core context
 // - require('backend').run(function() {}) is one example where this call is used as a shortcut for ad-hoc scripting
-core.run = function(callback) 
+core.run = function(callback)
 {
     var self = this;
     if (!callback) return logger.error('run:', 'callback is required');
@@ -267,9 +268,9 @@ core.run = function(callback)
 // Switch to new home directory, exit if we cannot, this is important for relative paths to work if used,
 // no need to do this in worker because we already switched to home diretory in the master and all child processes
 // inherit current directory
-// Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling 
-// it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that. 
-core.setHome = function(home) 
+// Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling
+// it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that.
+core.setHome = function(home)
 {
 	var self = this;
     if ((home || self.home) && cluster.isMaster) {
@@ -287,7 +288,7 @@ core.setHome = function(home)
 }
 
 // Parse command line arguments
-core.parseArgs = function(argv) 
+core.parseArgs = function(argv)
 {
     var self = this;
     if (!argv || !argv.length) return;
@@ -298,10 +299,10 @@ core.parseArgs = function(argv)
     // Convert spaces if passed via command line
     argv = argv.map(function(x) { return x.replace(/%20/g, ' ') });
     logger.dev('parseArgs:', argv.join(' '));
-    
+
    // Core parameters
     self.processArgs("core", self, argv);
-    
+
     // Run registered handlers for each module
     for (var n in this.context) {
         var ctx = this.context[n];
@@ -313,7 +314,7 @@ core.parseArgs = function(argv)
 // Config parameters defined in a module as a list of parameter names prefixed with module name, a parameters can be
 // a string which defines text parameter or an object with the properties: name, type, value, decimals, min, max, separator
 // type can be bool, number, list, json
-core.processArgs = function(name, ctx, argv, pass) 
+core.processArgs = function(name, ctx, argv, pass)
 {
     var self = this;
     if (!ctx) return;
@@ -330,7 +331,7 @@ core.processArgs = function(name, ctx, argv, pass)
         var val = self.getArg(cname, null, argv);
         if (val == null && x.type != "bool" && x.type != "callback") return;
         // Ignore the value if it is a parameter
-        if (val && val[0] == '-') val = ""; 
+        if (val && val[0] == '-') val = "";
         logger.dev("processArgs:", name, 'type:', x.type, "set:", key, "=", val);
         switch (x.type || "") {
         case "none":
@@ -372,7 +373,7 @@ core.processArgs = function(name, ctx, argv, pass)
 }
 
 // Print help about command line arguments and exit
-core.help = function() 
+core.help = function()
 {
     var self = this;
     var args = [ [ '', core.args ] ];
@@ -382,13 +383,13 @@ core.help = function()
 }
 
 // Parse local config file
-core.loadConfig = function(callback) 
+core.loadConfig = function(callback)
 {
     var self = this;
 
     var file = this.configFile || path.join(self.path.etc, "config");
     logger.debug('loadConfig:', file);
-    
+
     fs.readFile(file, function(err, data) {
         if (!err && data) {
             var argv = [], lines = data.toString().split("\n");
@@ -405,31 +406,31 @@ core.loadConfig = function(callback)
 
 // Setup 2-way IPC channel between master and worker.
 // Cache management signaling, all servers maintain local cache per process of account, any server in the cluster
-// that modifies an account record sends 'del' command to clear local caches so the actual record will be re-read from 
+// that modifies an account record sends 'del' command to clear local caches so the actual record will be re-read from
 // the database, all servers share the same database and update it directly. The eviction is done in 2 phases, first local process cache
 // is cleared and then it sends a broadcast to all servers in the cluster using nanomsg socket, other servers all subscribed to that
 // socket and listen for messages.
-core.ipcInitServer = function() 
+core.ipcInitServer = function()
 {
     var self = this;
 
     // Attach our message handler to all workers, process requests from workers
     backend.lruInit(self.lruMax);
-    
-    // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts 
+
+    // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts
     // it to other connected servers via the same BUS socket
     if (self.lruServer) {
         var sock = backend.nnCreate(backend.AF_SP_RAW, backend.NN_BUS);
         backend.nnBind(sock, self.lruServer);
         backend.lruServer(0, sock, sock);
     }
-    
+
     // Send cache requests to the LRU host to be broadcasted to all other servers
     if (self.lruHost) {
         self.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
         backend.nnConnect(self.lruSocket, self.lruHost);
     }
-    
+
     cluster.on('fork', function(worker) {
         // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
         worker.on('message', function(msg) {
@@ -440,7 +441,7 @@ core.ipcInitServer = function()
                 msg.value = backend.lruKeys();
                 worker.send(msg);
                 break;
-                
+
             case 'get':
                 if (msg.key) msg.value = backend.lruGet(msg.key);
                 worker.send(msg);
@@ -457,13 +458,13 @@ core.ipcInitServer = function()
                 if (msg.reply) worker.send({});
                 if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key + "\2" + msg.value);
                 break;
-                
+
             case 'del':
                 if (msg.key) backend.lruDel(msg.key);
                 if (msg.reply) worker.send({});
                 if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key);
                 break;
-                
+
             case 'clear':
                 backend.lruClear();
                 if (msg.reply) worker.send({});
@@ -473,7 +474,7 @@ core.ipcInitServer = function()
     });
 }
 
-core.ipcInitClient = function() 
+core.ipcInitClient = function()
 {
     var self = this;
 
@@ -485,7 +486,7 @@ core.ipcInitClient = function()
         self.ipcDelCache = function(k) { self.memcacheClient.del(k); }
         self.ipcGetCache = function(k, cb) { self.memcacheClient.get(k, function(e,v) { cb(v) }); }
         break;
-        
+
     case "redis":
         self.redisClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
         self.ipcPutCache = function(k, v) { self.redisClient.set(k, v, function() {}); }
@@ -497,11 +498,11 @@ core.ipcInitClient = function()
     // Event handler for the worker to process response and fire callback
     process.on("message", function(msg) {
         if (!msg.id) return;
-        if (self.ipcs[msg.id]) setImmediate(function() { 
-            self.ipcs[msg.id].callback(msg); 
+        if (self.ipcs[msg.id]) setImmediate(function() {
+            self.ipcs[msg.id].callback(msg);
             delete self.ipcs[msg.id];
         });
-            
+
         switch (msg.cmd) {
         case "heapsnapshot":
             backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
@@ -511,7 +512,7 @@ core.ipcInitClient = function()
 }
 
 // Send cache command to the master process via IPC messages, callback is used for commands that return value back
-core.ipcSend = function(cmd, key, value, callback) 
+core.ipcSend = function(cmd, key, value, callback)
 {
     var self = this;
     if (typeof value == "function") callback = value, value = '';
@@ -525,32 +526,32 @@ core.ipcSend = function(cmd, key, value, callback)
     process.send(msg);
 }
 
-core.ipcGetCache = function(key, callback) 
-{ 
+core.ipcGetCache = function(key, callback)
+{
     if (this.noCache) return callback ? callback() : null;
-    this.ipcSend("get", key, callback); 
+    this.ipcSend("get", key, callback);
 }
 
 core.ipcDelCache = function(key)
-{ 
+{
     if (this.noCache) return;
-    this.ipcSend("del", key); 
+    this.ipcSend("del", key);
 }
 
-core.ipcPutCache = function(key, val) 
-{ 
+core.ipcPutCache = function(key, val)
+{
     if (this.noCache) return;
-    this.ipcSend("put", key, val); 
+    this.ipcSend("put", key, val);
 }
 
-core.ipcIncrCache = function(key, val) 
-{ 
+core.ipcIncrCache = function(key, val)
+{
     if (this.noCache) return;
-    this.ipcSend("incr", key, val); 
+    this.ipcSend("incr", key, val);
 }
 
 // Encode with additional symbols
-core.encodeURIComponent = function(str) 
+core.encodeURIComponent = function(str)
 {
     return encodeURIComponent(str || "").replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
 }
@@ -562,13 +563,13 @@ core.toTitle = function(name)
 }
 
 // Convert into camelized form
-core.toCamel = function(name) 
+core.toCamel = function(name)
 {
     return (name || "").replace(/(?:[-_])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; });
 }
 
 // Safe version, use 0 instead of NaN, handle booleans, if decimals specified, returns float
-core.toNumber = function(str, decimals, dflt, min, max) 
+core.toNumber = function(str, decimals, dflt, min, max)
 {
     str = String(str);
     // Autodetect floating number
@@ -582,13 +583,13 @@ core.toNumber = function(str, decimals, dflt, min, max)
 }
 
 // Return true if value represents true condition
-core.toBool = function(val) 
+core.toBool = function(val)
 {
     return !val || val == "false" || val == "FALSE" || val == "f" || val == "F" || val == "0" ? false : true;
 }
 
 // Return Date object for given text or numeric date represantation, for invalid date returns 1969
-core.toDate = function(val) 
+core.toDate = function(val)
 {
     var d = null;
     // Assume it is seconds which we use for most mtime columns, convert to milliseconds
@@ -598,12 +599,12 @@ core.toDate = function(val)
 }
 
 // Convert value to the proper type
-core.toValue = function(val, type) 
+core.toValue = function(val, type)
 {
     switch ((type || this.typeName(val))) {
     case 'array':
         return Array.isArray(val) ? val : String(val).split(/[,\|]/);
-        
+
     case "expr":
     case "buffer":
         return val;
@@ -635,22 +636,22 @@ core.toValue = function(val, type)
 }
 
 // Evaluate expr, compare 2 values with optional type and opertion
-core.isTrue = function(val1, val2, op, type) 
+core.isTrue = function(val1, val2, op, type)
 {
     switch ((op ||"").toLowerCase()) {
     case 'null':
         if (v) return false;
         break;
-        
+
     case 'not null':
         if (!v) return false;
         break;
-        
+
     case ">":
     case "gt":
         if (this.toValue(val1, type) <= this.toValue(val2, type)) return false;
         break;
-        
+
     case "<":
     case "lt":
         if (this.toValue(val1, type) >= this.toValue(val2, type)) return false;
@@ -660,12 +661,12 @@ core.isTrue = function(val1, val2, op, type)
     case "ge":
         if (this.toValue(val1, type) < this.toValue(val2, type)) return false;
         break;
-        
+
     case "<=":
     case "le":
         if (this.toValue(val1, type) > this.toValue(val2, type)) return false;
         break;
-        
+
     case "between":
     case "not between":
         // If we cannot parse out 2 values, treat this as exact operator
@@ -692,7 +693,7 @@ core.isTrue = function(val1, val2, op, type)
             if (this.toValue(val1, type) != this.toValue(val2, type)) return false;
         }
         break;
-        
+
     case '~* any':
     case '!~* any':
         break;
@@ -702,28 +703,28 @@ core.isTrue = function(val1, val2, op, type)
     case "not like%":
     case "not ilike%":
         break;
-        
+
     case "!~":
     case "!~*":
     case "iregexp":
     case "not iregexp":
         break;
-        
+
     case "in":
     case "not in":
         break;
-        
+
     case "~":
     case "~*":
     case "regexp":
     case "not regexp":
         break;
-        
+
     case "!=":
     case "<>":
         if (this.toValue(val1, type) == this.toValue(val2, type)) return false;
         break;
-        
+
     default:
         if (this.toValue(val1, type) != this.toValue(val2, type)) return false;
     }
@@ -751,7 +752,7 @@ core.isTrue = function(val1, val2, op, type)
 //  - mtime - Date object with the last modified time of the requested file
 //  - size - size of the response body or file
 // Note: SIDE EFFECT: params object is modified in place so many options will be changed/removed or added
-core.httpGet = function(uri, params, callback) 
+core.httpGet = function(uri, params, callback)
 {
     var self = this;
     if (typeof params == "function") callback = params, params = null;
@@ -763,22 +764,22 @@ core.httpGet = function(uri, params, callback)
     case "object":
         uri = url.format(uri);
         break;
-        
+
     case "string":
         var q = url.format({ query: qtype == "object" ? params.query: null, search: qtype == "string" ? params.query: null });
         uri += uri.indexOf("?") == -1 ? q : q.substr(1);
         break;
-        
+
     default:
         return callback ? callback(new Error("invalid url: " + uri)) : null;
     }
-    
+
     var options = url.parse(uri);
     options.method = params.method || 'GET';
     options.headers = params.headers || {};
     options.agent = params.agent || null;
     options.rejectUnauthorized = false;
-    
+
     // Make sure required headers are set
     if (!options.headers['user-agent']) {
         options.headers['user-agent'] = this.userAgent[this.randomInt(0, this.userAgent.length-1)];
@@ -786,7 +787,7 @@ core.httpGet = function(uri, params, callback)
     if (options.method == "POST" && !options.headers["content-type"]) {
         options.headers["content-type"] = "application/x-www-form-urlencoded";
     }
-    
+
     // Load matched cookies and restart with the cookie list in the params
     if (params.cookies) {
         if (typeof params.cookies == "boolean" && options.hostname) {
@@ -806,7 +807,7 @@ core.httpGet = function(uri, params, callback)
         options.headers['accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
     }
     options.headers['accept-language'] = 'en-US,en;q=0.5';
-    
+
     // Data to be sent over in the body
     if (params.postdata) {
         if (options.method == "GET") options.method = "POST";
@@ -821,7 +822,7 @@ core.httpGet = function(uri, params, callback)
         default:
             params.postdata = String(params.postdata);
         }
-        options.headers['content-length'] = params.postdata.length; 
+        options.headers['content-length'] = params.postdata.length;
     } else
     if (params.postfile) {
         if (options.method == "GET") options.method = "POST";
@@ -832,13 +833,13 @@ core.httpGet = function(uri, params, callback)
 
     // Make sure our data is not corrupted
     if (params.checksum) options.checksum = params.postdata ? this.hash(params.postdata) : null;
-    
+
     // Sign request using internal backend credentials
     if (params.sign) {
         var headers = this.signRequest(params.email, params.secret, options.method, options.hostname, options.path, { checksum: options.checksum });
         for (var p in headers) options.headers[p] = headers[p];
     }
-    
+
     // Runtime properties
     if (!params.retries) params.retries = 0;
     if (!params.redirects) params.redirects = 0;
@@ -851,7 +852,7 @@ core.httpGet = function(uri, params, callback)
 
     req = mod.request(options, function(res) {
       logger.dev("httpGet: started", options.method, 'headers:', options.headers, params)
-      
+
       res.on("data", function(chunk) {
           logger.dev("httpGet: data", 'size:', chunk.length, '/', params.size, "status:", res.statusCode, 'file:', params.file || '');
 
@@ -957,7 +958,7 @@ core.httpGet = function(uri, params, callback)
 
 // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
 // Host passed here must be the actual host where the request will be sent
-core.signUrl = function(accesskey, secret, host, uri, options) 
+core.signUrl = function(accesskey, secret, host, uri, options)
 {
     var hdrs = this.signRequest(accesskey, secret, "GET", host, uri, options);
     return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
@@ -970,14 +971,14 @@ core.signUrl = function(accesskey, secret, host, uri, options)
 //  - 2 sig secret - BASE64(HMAC(secret, email)), sig id - real email
 //  - 3 sig secret - BASE64(HMAC(secret, email)), sig id - BASE64(HMAC(secret2, email)) where secret2 is signed secret
 //  - 4 same as in mode 3 but is sent in cookies and uses wild support for host and path
-core.parseSignature = function(req) 
+core.parseSignature = function(req)
 {
     var rc = { version: 1, expires: 0, checksum: "", password: "" };
     // Input parameters, convert to empty string if not present
     rc.url = req.originalUrl || req.url || "/";
     rc.method = req.method || "";
     rc.host = (req.headers.host || "").split(':').shift();
-    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || req.session['bk-signature'] || "";
+    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || (req.session || {})['bk-signature'] || "";
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\}]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|/);
     if (!d) return rc;
     rc.mode = this.toNumber(d[1]);
@@ -997,7 +998,7 @@ core.parseSignature = function(req)
 //   - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
 //   - checksum is SHA1 digest of the POST content, optional
 //   - version is 1-4, version number defining how the signature will be signed
-core.signRequest = function(id, secret, method, host, uri, options) 
+core.signRequest = function(id, secret, method, host, uri, options)
 {
     if (!options) options = {};
     var now = Date.now();
@@ -1013,12 +1014,12 @@ core.signRequest = function(id, secret, method, host, uri, options)
     case 2:
         secret = this.sign(String(secret), String(id));
         break;
-        
+
     case 3:
         secret = this.sign(String(secret), String(id));
         id = this.sign(secret, String(id));
         break;
-        
+
     case 4:
         secret = this.sign(String(secret), String(id));
         id = this.sign(secret, String(id));
@@ -1027,17 +1028,17 @@ core.signRequest = function(id, secret, method, host, uri, options)
         rc['bk-domain'] = host = this.domainName(hostname);
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
-        rc['bk-path'] = path; 
+        rc['bk-path'] = path;
         break;
     }
     var str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.checksum || "");
     rc['bk-signature'] = (options.version || 1) + '|' + (options.appdata || "") + '|' + String(id) + '|' + this.sign(String(secret), str) + '|' + expires + '|' + String(options.checksum || "") + '||';
     if (logger.level > 1) logger.log('signRequest:', rc, { str: str });
-    return rc; 
+    return rc;
 }
 
 // Verify signature with given account, signature is an object reurned by parseSignature
-core.checkSignature = function(sig, account) 
+core.checkSignature = function(sig, account)
 {
     var q = sig.url.split("?");
     var qpath = q[0];
@@ -1047,10 +1048,10 @@ core.checkSignature = function(sig, account)
     case 1:
         sig.hash = this.sign(account.secret, sig.str);
         return sig.signature == sig.hash;
-        
+
     case 4:
         sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n" + sig.checksum;
-        
+
     case 2:
     case 3:
         sig.hash = this.sign(this.sign(account.secret, account.email), sig.str);
@@ -1069,13 +1070,13 @@ core.checkSignature = function(sig, account)
 // - queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
 // - rowid - unique record id to be used in case of queue management
 // - checksum - calculate checksum from the data
-core.sendRequest = function(uri, options, callback) 
+core.sendRequest = function(uri, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     options.sign = true;
-    
+
     // Nothing to do without credentials
     if (!options.email) options.email = self.backendKey;
     if (!options.secret) options.secret = self.backendSecret;
@@ -1084,8 +1085,8 @@ core.sendRequest = function(uri, options, callback)
         return callback ? callback(null, { status: 200, message: "", json: { status: 200 } }) : null;
     }
     // Relative urls resolve against global backend host
-    if (uri.indexOf("://") == -1) uri = self.backendHost + uri; 
-    
+    if (uri.indexOf("://") == -1) uri = self.backendHost + uri;
+
     var db = self.context.db;
     self.httpGet(uri, options, function(err, params, res) {
         // Queue management, insert on failure or delete on success
@@ -1123,11 +1124,11 @@ core.sendRequest = function(uri, options, callback)
 }
 
 // Send all pending updates from the queue table
-core.processQueue = function(callback) 
+core.processQueue = function(callback)
 {
     var self = this;
     var db = self.context.db;
-    
+
     db.select("bk_queue", {}, { sort: "mtime" } , function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
             self.sendRequest(row.url, self.extendObj(row, "queue", true), function(err2) { next(); });
@@ -1139,25 +1140,25 @@ core.processQueue = function(callback)
 }
 
 // Return argument value by name
-core.getArg = function(name, dflt, argv) 
+core.getArg = function(name, dflt, argv)
 {
     argv = argv || this.argv;
     var idx = argv.indexOf(name);
     return idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : (typeof dflt == "undefined" ? "" : dflt);
 }
 
-core.getArgFlag = function(name, dflt) 
+core.getArgFlag = function(name, dflt)
 {
     return this.argv.indexOf(name) > -1 ? true : (typeof dflt != "undefined" ? dflt : false);
 }
 
-core.getArgInt = function(name, dflt) 
+core.getArgInt = function(name, dflt)
 {
     return this.toNumber(this.getArg(name, dflt));
 }
 
 // Send email
-core.sendmail = function(from, to, subject, text, callback) 
+core.sendmail = function(from, to, subject, text, callback)
 {
     var server = emailjs.server.connect();
     server.send({ text: text || '', from: from, to: to + ",", subject: subject || ''}, function(err, message) {
@@ -1174,7 +1175,7 @@ core.sendmail = function(from, to, subject, text, callback)
 // - limit - number of lines to process and exit
 // - progress - if > 0 report how many lines processed so far evert specified lines
 // - until - skip lines until this regexp matches
-core.forEachLine = function(file, options, lineCallback, endCallback) 
+core.forEachLine = function(file, options, lineCallback, endCallback)
 {
     if (!options) options = {};
     var buffer = new Buffer(4096);
@@ -1250,15 +1251,15 @@ core.geoHash = function(latitude, longitude, options)
     var self = this;
 	if (!options) options = {};
 	if (options.distance && options.distance < this.minDistance) options.distance = this.minDistance;
-	
+
 	// Geohash ranges for different lenghts in km
 	var range = [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999]];
 	var size = range.filter(function(x) { return x[1] > self.minDistance })[0];
 	var geohash = backend.geoHashEncode(latitude, longitude);
-	return { geohash: geohash.substr(0, size[0]), 
+	return { geohash: geohash.substr(0, size[0]),
 			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, size[0]), Math.floor(options.distance / size[1])).slice(1) : [],
-			 latitude: latitude, 
-			 longitude: longitude, 
+			 latitude: latitude,
+			 longitude: longitude,
 			 distance: options.distance || 0 };
 }
 
@@ -1273,7 +1274,7 @@ core.encrypt = function(key, data, algorithm)
 }
 
 // Decrypt data with the given key code
-core.decrypt = function(key, data, algorithm) 
+core.decrypt = function(key, data, algorithm)
 {
     if (!key || !data) return '';
     var decrypt = crypto.createDecipher(algorithm || 'aes192', key);
@@ -1283,37 +1284,43 @@ core.decrypt = function(key, data, algorithm)
 }
 
 // HMAC signing and base64 encoded, default algorithm is sha1
-core.sign = function (key, data, algorithm, encode) 
+core.sign = function (key, data, algorithm, encode)
 {
     return crypto.createHmac(algorithm || "sha1", key).update(String(data), "utf8").digest(encode || "base64");
 }
 
 // Hash and base64 encoded, default algorithm is sha1
-core.hash = function (data, algorithm, encode) 
+core.hash = function (data, algorithm, encode)
 {
     return crypto.createHash(algorithm || "sha1").update(String(data), "utf8").digest(encode || "base64");
 }
 
+// Return unique Id without any special characters and in lower case
+core.uuid = function()
+{
+    return backend.uuid().replace(/-/g, '').toLowerCase();
+}
+
 // Generate random key, size if specified defines how many random bits to generate
-core.random = function(size) 
+core.random = function(size)
 {
     return this.sign(crypto.randomBytes(64), crypto.randomBytes(size || 256), 'sha256').replace(/[=+%]/g, '');
 }
 
 // Return random integer between min and max inclusive
-core.randomInt = function(min, max) 
+core.randomInt = function(min, max)
 {
     return min + (0 | Math.random() * (max - min + 1));
 }
 
 // Return number between min and max inclusive
-core.randomNum = function(min, max) 
+core.randomNum = function(min, max)
 {
     return min + (Math.random() * (max - min));
 }
 
 // Return number of seconds for current time
-core.now = function() 
+core.now = function()
 {
     return Math.round((new Date()).getTime()/1000);
 }
@@ -1325,7 +1332,7 @@ core.mnow = function()
 }
 
 // Format date object
-core.strftime = function(date, fmt, utc) 
+core.strftime = function(date, fmt, utc)
 {
     if (typeof date == "string") try { date = new Date(date); } catch(e) {}
     if (!date || isNaN(date)) return "";
@@ -1358,14 +1365,14 @@ core.strftime = function(date, fmt, utc)
 }
 
 // Split string into array, ignore empty items
-core.strSplit = function(str, sep) 
+core.strSplit = function(str, sep)
 {
     if (!str) return [];
     return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).map(function(x) { return x.trim() }).filter(function(x) { return x != '' });
 }
 
 // Split as above but keep only unique items
-core.strSplitUnique = function(str, sep) 
+core.strSplitUnique = function(str, sep)
 {
     var rc = [];
     this.strSplit(str, sep).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
@@ -1373,21 +1380,23 @@ core.strSplitUnique = function(str, sep)
 }
 
 // Stringify JSON into base64 string
-core.toBase64 = function(data) 
+core.toBase64 = function(data)
 {
-	return new Buffer(JSON.stringify(data)).toString("base64");	
+	return new Buffer(JSON.stringify(data)).toString("base64");
 }
 
-// Parse base64 JSON into Javascript object
-core.toJson = function(data) 
+// Parse base64 JSON into Javascript object, in some cases this can be just a number then it is passed as it is
+core.toJson = function(data)
 {
 	var rc = "";
-	try { rc = JSON.parse(new Buffer(data, "base64").toString()); } catch(e) {}
+	try {
+	    if (data.match(/^[0-9]+$/)) rc = this.toNumber(data); else rc = JSON.parse(new Buffer(data, "base64").toString());
+	} catch(e) {}
 	return rc;
 }
 
 // Copy file and then remove the source, do not overwrite existing file
-core.moveFile = function(src, dst, overwrite, callback) 
+core.moveFile = function(src, dst, overwrite, callback)
 {
     var self = this;
     if (typeof overwrite == "function") callback = overwrite, overwrite = false;
@@ -1411,7 +1420,7 @@ core.moveFile = function(src, dst, overwrite, callback)
 }
 
 // Copy file, overwrite is optional flag, by default do not overwrite
-core.copyFile = function(src, dst, overwrite, callback) 
+core.copyFile = function(src, dst, overwrite, callback)
 {
     if (typeof overwrite == "function") callback = overwrite, overwrite = false;
 
@@ -1430,7 +1439,7 @@ core.copyFile = function(src, dst, overwrite, callback)
 }
 
 // Run theprocess and return all output to the callback
-core.runProcess = function(cmd, callback) 
+core.runProcess = function(cmd, callback)
 {
     exec(cmd, function (err, stdout, stderr) {
         if (err) logger.error('getProcessOutput:', cmd, err);
@@ -1453,7 +1462,7 @@ core.killBackend = function(name, callback)
 }
 
 // Shutdown the machine now
-core.shutdown = function() 
+core.shutdown = function()
 {
     exec("/sbin/halt", function(err, stdout, stderr) {
         logger.log('shutdown:', stdout || "", stderr || "", err || "");
@@ -1477,7 +1486,7 @@ core.statSync = function(file)
 }
 
 // Return list of files than match filter recursively starting with given path
-core.findFileSync = function(file, filter) 
+core.findFileSync = function(file, filter)
 {
     var list = [];
     try {
@@ -1503,7 +1512,7 @@ core.findFileSync = function(file, filter)
 }
 
 // Recursively create all directories, return 1 if created
-core.makePathSync = function(dir) 
+core.makePathSync = function(dir)
 {
     var list = path.normalize(dir).split("/");
     for (var i = 0, dir = ''; i < list.length; i++) {
@@ -1520,7 +1529,7 @@ core.makePathSync = function(dir)
 }
 
 // Async version, stops on first error
-core.makePath = function(dir, callback) 
+core.makePath = function(dir, callback)
 {
     var list = path.normalize(dir).split("/");
     var full = "";
@@ -1549,7 +1558,7 @@ core.chownSync = function(file)
 }
 
 // Create a directory if does not exist
-core.mkdirSync = function(dir) 
+core.mkdirSync = function(dir)
 {
     if (!fs.existsSync(dir)) {
         try { fs.mkdirSync(dir) } catch(e) { logger.error('mkdirSync:', dir, e); }
@@ -1557,7 +1566,7 @@ core.mkdirSync = function(dir)
 }
 
 // Drop root privileges and switch to regular user
-core.dropPrivileges = function() 
+core.dropPrivileges = function()
 {
     if (process.getuid() == 0) {
         logger.debug('init: switching to', core.uid, core.gid);
@@ -1567,14 +1576,14 @@ core.dropPrivileges = function()
 }
 
 // Set or reset a timer
-core.setTimeout = function(name, callback, timeout) 
+core.setTimeout = function(name, callback, timeout)
 {
     if (this.timers[name]) clearTimeout(this.timers[name]);
-    this.timers[name] = setTimeout(callback, timeout);    
+    this.timers[name] = setTimeout(callback, timeout);
 }
 
 // Full path to the icon, perform necessary hashing and sharding, id can be a number or any string
-core.iconPath = function(id, options) 
+core.iconPath = function(id, options)
 {
     if (!options) options = {};
     // Convert into string and remove all chars except numbers, this will support UUIDs as well as regulat integers
@@ -1588,7 +1597,7 @@ core.iconPath = function(id, options)
 // - type - type for the icon, prepended to the icon id
 // - prefix - where to store all scaled icons
 // - verify - check if the original icon is the same as at the source
-core.getIcon = function(uri, id, options, callback) 
+core.getIcon = function(uri, id, options, callback)
 {
     var self = this;
 
@@ -1643,7 +1652,7 @@ core.getIcon = function(uri, id, options, callback)
 // - prefix - top level subdirectory under images/
 // - force - to rescale even if it already exists
 // - width, height, filter, ext, quality for backend.resizeImage function
-core.putIcon = function(file, id, options, callback) 
+core.putIcon = function(file, id, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
@@ -1651,7 +1660,7 @@ core.putIcon = function(file, id, options, callback)
     logger.debug('putIcon:', id, file, options);
 
     var icon = self.iconPath(id, options);
-    
+
     // Filesystem based icon storage, verify local disk
     fs.exists(icon, function(yes) {
         // Exists and we do not need to rescale
@@ -1668,7 +1677,7 @@ core.putIcon = function(file, id, options, callback)
 // - infile can be a string with file name or a Buffer with actual image data
 // - outfle is not empty is a file naem where to store scaled image or if empty the new image contents will be returned in the callback
 // - options can specify image extension in .ext, width/height/filter/quality
-core.scaleIcon = function(infile, outfile, options, callback) 
+core.scaleIcon = function(infile, outfile, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -1686,7 +1695,7 @@ core.domainName = function(host)
 }
 
 // Return object type, try to detect any distinguished type
-core.typeName = function(v) 
+core.typeName = function(v)
 {
     var t = typeof(v);
     if (v === null) return "null";
@@ -1699,14 +1708,14 @@ core.typeName = function(v)
 }
 
 // Return true of the given value considered empty
-core.isEmpty = function(val) 
+core.isEmpty = function(val)
 {
     switch (this.typeName(val)) {
     case "null":
-    case "undefined": 
+    case "undefined":
         return true;
     case "buffer":
-    case "array": 
+    case "array":
         return val.length == 0;
     case "number":
     case "regex":
@@ -1721,7 +1730,7 @@ core.isEmpty = function(val)
 
 // Deep copy of an object,
 // - first argument is the object to clone
-// - second argument can be an object that acts as a filter to skip properties by name, 
+// - second argument can be an object that acts as a filter to skip properties by name,
 //   if filter's value is boolean, skip, if integer then skip if greater in length for string properties
 //     - _skip_null - to skip all null properties
 //     - _empty_to_null - convert empty strings into null objects
@@ -1730,7 +1739,7 @@ core.isEmpty = function(val)
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 // Example: core.cloneObj({ 1: 2 }, { 1: 1 }, "3", 3, "4", 4)
 //          core.cloneObj({1 : 2 }, "3", 3, "4", 4)
-core.cloneObj = function() 
+core.cloneObj = function()
 {
     var obj = arguments[0];
     var filter = {}, idx = 1;
@@ -1764,7 +1773,7 @@ core.cloneObj = function()
         case "number":
             if (typeof obj[p] == "string" && obj[p].length < filter[p]) break;
             continue;
-        default:     
+        default:
            continue;
         }
         if ((obj[p] == null || typeof obj[p] == "undefined") && filter._skip_null) continue;
@@ -1776,7 +1785,7 @@ core.cloneObj = function()
 }
 
 // Return new object using arguments as name value pairs for new object properties
-core.newObj = function() 
+core.newObj = function()
 {
     var obj = {};
     for (var i = 0; i < arguments.length - 1; i += 2) obj[arguments[i]] = arguments[i + 1];
@@ -1784,7 +1793,7 @@ core.newObj = function()
 }
 
 // Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
-core.extendObj = function() 
+core.extendObj = function()
 {
     if (!arguments[0]) arguments[0] = {}
     for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
@@ -1792,7 +1801,7 @@ core.extendObj = function()
 }
 
 // Delete properties from the object, first arg is an object, the rest are properties to be deleted
-core.delObj = function() 
+core.delObj = function()
 {
     if (!arguments[0] || typeof arguments[0] != "object") return;
     for (var i = 1; i < arguments.length; i++) delete arguments[0][arguments[i]];
@@ -1800,7 +1809,7 @@ core.delObj = function()
 }
 
 // Merge obj with the options, all options properties override existing in the obj
-core.mergeObj = function(obj, options) 
+core.mergeObj = function(obj, options)
 {
     if (!options) options = {};
     for (var p in obj) {
@@ -1823,13 +1832,13 @@ core.mergeObj = function(obj, options)
 }
 
 // JSON stringify without empty properties
-core.stringify = function(obj) 
+core.stringify = function(obj)
 {
     return JSON.stringify(this.cloneObj(obj, { _skip_null: 1, _skip_cb: function(n,v) { return v == "" } }));
 }
 
 // Return cookies that match given domain
-core.cookieGet = function(domain, callback) 
+core.cookieGet = function(domain, callback)
 {
     this.context.db.select("bk_cookies", {}, function(err, rows) {
         var cookies = [];
@@ -1847,9 +1856,9 @@ core.cookieGet = function(domain, callback)
     });
 }
 
-// Save new cookies arrived in the request, 
+// Save new cookies arrived in the request,
 // merge with existing cookies from the jar which is a list of cookies before the request
-core.cookieSave = function(cookiejar, setcookies, hostname, callback) 
+core.cookieSave = function(cookiejar, setcookies, hostname, callback)
 {
     var self = this;
     var cookies = !setcookies ? [] : Array.isArray(setcookies) ? setcookies : String(setcookies).split(/[:](?=\s*[a-zA-Z0-9_\-]+\s*[=])/g);
@@ -1906,7 +1915,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
 }
 
 // Adds reference to the objects in the core for further access, specify module name, module reference pairs
-core.addContext = function() 
+core.addContext = function()
 {
 	for (var i = 0; i < arguments.length - 1; i+= 2) {
 		this.context[arguments[i]] = arguments[i + 1];
@@ -1914,7 +1923,7 @@ core.addContext = function()
 }
 
 // Create REPL interface with all modules available
-core.createRepl = function(options) 
+core.createRepl = function(options)
 {
     var self = this;
     var r = repl.start(options || {});
@@ -1948,7 +1957,7 @@ core.createRepl = function(options)
 }
 // Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
 // This function is not async-safe, it uses sync calls
-core.watchTmp = function(dirs, secs, pattern) 
+core.watchTmp = function(dirs, secs, pattern)
 {
     var self = this;
     var now = core.now();
@@ -1967,10 +1976,10 @@ core.watchTmp = function(dirs, secs, pattern)
 }
 
 // Watch files in a dir for changes and call the callback
-core.watchFiles = function(dir, pattern, callback) 
+core.watchFiles = function(dir, pattern, callback)
 {
     logger.debug('watchFiles:', dir, pattern);
-    fs.readdirSync(dir).filter(function(file) { 
+    fs.readdirSync(dir).filter(function(file) {
         return file.match(pattern);
     }).map(function(file) {
         file = path.join(dir, file);
@@ -1980,14 +1989,14 @@ core.watchFiles = function(dir, pattern, callback)
         fs.watch(file.name, function(event, filename) {
             // Check stat if no file name, Mac OSX does not provide it
             if (!filename && core.statSync(file.name).size == file.stat.size) return;
-            logger.log('watchFiles:', event, filename || file.name); 
+            logger.log('watchFiles:', event, filename || file.name);
             callback(file);
         });
-    });     
+    });
 }
 
 // Watch log files for errors and report via email
-core.watchLogs = function(callback) 
+core.watchLogs = function(callback)
 {
     var self = this;
 
@@ -2011,7 +2020,7 @@ core.watchLogs = function(callback)
         try { ignore = new RegExp(self.logwatcherIgnore); } catch(e) {}
     }
     var db = self.context.db;
-    
+
     // Load all previous positions for every log file, we start parsing file from the previous last stop
     db.query("SELECT * FROM bk_property WHERE name LIKE 'logwatcher:%'", function(err, rows) {
         var lastpos = {};

@@ -175,7 +175,7 @@ On startup the rc.backend tries to load and source the following config files:
 Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or 
 customize the running environment, these should be regular shell scripts using bash syntax.
 
-# Backend framework development (Mac OS X, developers only)
+# Backend framework development (Mac OS X, developers)
 
 * git clone https://[your username]@bitbucket.org/vseryakov/backend.git
 * SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
@@ -183,7 +183,7 @@ customize the running environment, these should be regular shell scripts using b
 * to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
   to the current user, this is required to support global NPM modules. 
 
-* If $PREFIX needs to be changed, create ~/.backend/etc/profile file and assign PREFIX=path, for example:
+* If $PREFIX needs to be changed, create ~/.backendrc file and assign PREFIX, for example:
 
         echo "PREFIX=$HOME/local" > ~/.backendrc
    
