@@ -12,7 +12,7 @@ Features:
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
 * Supports several cache modes(Redis, memcached, local cache) for the database operations.
-* Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API. 
+* Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
 * nanomsg interface for messaging between processes and servers.
 * REPL(command line) interface for debugging and looking into server internals.
@@ -22,33 +22,33 @@ Features:
 
         npm install node-backend
 
-  
+
 # Quick start
 
 * Run default backend without any custom extensions, by default it will use embedded Sqlite database and listen on port 8000
 
         rc.backend run-backend
-       
-     
+
+
 * Now go to http://localhost:8000/api.html for the Web console to test API requests, cancel the login popup after the
   page is loaded, we do not have yet any account credentials.
   For this example let's create couple of accounts, type and execute the following URLs in the Web console
-  
+
         /account/add?name=test1&secret=test1&email=test1@test.com
         /account/add?name=test2&secret=test2&email=test2@test.com
         /account/add?name=test3&secret=test3&email=test3@test.com
-      
+
 
 * Now login with any of the accounts above, refresh the api.html and enter email and secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
-  
+
         /account/get
-      
-     
+
+
 * To see all public fields for all accounts just execute
 
         /account/search
-      
+
 * Shutdown the backend by pressing Ctrl-C
 * To make custom Web app run the following command:
 
@@ -59,15 +59,19 @@ Features:
 * Run new application now:
 
         rc.backend run-app
-      
- 
-* Go to http://localhost:8000/api.html and issue /test/add?id=1&name=1 and then /test/1 commands in the console to see it in action
 
-      
+
+* Go to http://localhost:8000/api.html and issue /test/add?id=1&name=1 and then /test/1 commands in the console to see it in action
+* In development mode it is very helpful to specify -watch parameter which will make the server restart automatically if any of the source files
+  are changed
+
+        rc.backend run-app -watch
+
+
 # API endpoints provided by the backend
 
 ## Security
-All requests to the API server must be signed with account email/secret pair. 
+All requests to the API server must be signed with account email/secret pair.
 
 - The algorithm how to sign HTTP requests (Version 1, 2):
     * Split url to path and query parameters with "?"
@@ -99,7 +103,7 @@ All requests to the API server must be signed with account email/secret pair.
 
 The resulting signature is sent as HTTP header bk-signature: string
 See web/js/backend.js for function Backend.sign or core.js function signRequest for the Javascript implementation.
-      
+
 ## Accounts
 ## Connections
 ## Locations
@@ -110,9 +114,9 @@ See web/js/backend.js for function Backend.sign or core.js function signRequest 
 
 # Backend configuration and directory structure
 
-When the backend server starts and no -home argument passed in the command line the backend setups required 
+When the backend server starts and no -home argument passed in the command line the backend setups required
 environment in the ~/.backend directory.
- 
+
 The backend directory structure is the following:
 
 * etc/config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
@@ -133,19 +137,19 @@ The backend directory structure is the following:
          api.cleanSessions = function(options, callback) {
              db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
          }
-         
+
          To start the scheduler: rc.backend -master ...
 
 * etc/proxy - HTTP proxy config file, same format as in http-proxy npm package
   Example:
-        
+
         { "target" : { "host": "localhost", "port": 8001 } }
-        
+
         Then start the proxy: rc.backend -proxy ....
-            
-            
-* etc/profile - shell script loaded by the rc.backend utility to customize env variables  
-            
+
+
+* etc/profile - shell script loaded by the rc.backend utility to customize env variables
+
 * images - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
 * var - database files created by the server
 * tmp - temporary files
@@ -164,7 +168,7 @@ it supports symlinks with different name and uses it as a command to execute, fo
 
 
 On startup the rc.backend tries to load and source the following config files:
-  
+
         /data/etc/profile
         /etc/backendrc
         /usr/local/etc/backendrc
@@ -172,7 +176,7 @@ On startup the rc.backend tries to load and source the following config files:
         $HOME/.backencrc
 
 
-Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or 
+Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.
 
 # Backend framework development (Mac OS X, developers)
@@ -181,16 +185,16 @@ customize the running environment, these should be regular shell scripts using b
 * SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
 * cd backend
 * to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
-  to the current user, this is required to support global NPM modules. 
+  to the current user, this is required to support global NPM modules.
 
 * If $PREFIX needs to be changed, create ~/.backendrc file and assign PREFIX, for example:
 
         echo "PREFIX=$HOME/local" > ~/.backendrc
-   
+
 
 * **Important**: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
    node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
-     
+
 * now run the init command to prepare the environment, rc.backend will source .backendrc
 
         ./rc.backend init-backend
@@ -201,21 +205,21 @@ customize the running environment, these should be regular shell scripts using b
         ./rc.backend build-node
 
 
-- if node.js is installed, make sure all required modules are installed, thi sis required because we did not installed the 
+- if node.js is installed, make sure all required modules are installed, thi sis required because we did not installed the
   backend via npm with all dependencies:
 
         ./rc.backend npm-deps
- 
+
 
 * If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:
 
         npm install -g docco
 
-   
+
 * to compile the binary module and all required dependencies just type ```make```
- 
+
 * to run local server on port 8000 run command:
- 
+
         make run
 
 * to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.

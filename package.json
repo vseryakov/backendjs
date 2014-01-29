@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://bitbucket.org/vseryakov/backend.git"
   },
-  "dependencies": { 
+  "dependencies": {
     "printf" : "",
     "node-expat": "",
     "async": "",
@@ -19,6 +19,7 @@
     "emailjs": "",
     "cheerio": "",
     "xml2json": "",
+    "mime": "",
     "http-proxy": "",
     "memcached": "",
     "redis": "",
@@ -39,8 +40,8 @@
     "cron",
     "geohash"
   ],
-  "engines": { 
-    "node": ">= 0.10" 
+  "engines": {
+    "node": ">= 0.10"
   },
   "license": "BSD-3-Clause",
   "bin": {

@@ -43,7 +43,7 @@ var core = {
     home: process.env.HOME + '/.backend',
 
     // Various folders, by default relative paths are used
-    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", log: "log" },
+    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", files: "files", log: "log" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logFile: null,
@@ -103,6 +103,7 @@ var core = {
             { name: "tmp-dir", type: "callback", value: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
             { name: "spool-dir", type: "callback", value: function(v) { if (v) this.path.spool = v; }, descr: "Path where to keep modifiable files" },
             { name: "log-dir", type: "callback", value: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep log files" },
+            { name: "files-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
             { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after start if running as root" },
             { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },

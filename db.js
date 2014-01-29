@@ -324,7 +324,7 @@ db.initPool = function(options, createcb)
     pool.serial = 0;
     pool.tables = {};
     // Translation map for similar operators from different database drivers
-    pool.dboptions = { typesMap: { counter: "int", bigint: "int" },
+    pool.dboptions = { typesMap: { counter: "int", bigint: "int" }, schema: [],
                        opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } },
     pool.dbcolumns = {};
     pool.dbkeys = {};
@@ -898,9 +898,11 @@ db.sqlCacheColumns = function(options, callback)
     pool.get(function(err, client) {
         if (err) return callback ? callback(err, []) : null;
 
+        // Use current database name for schema if not specified
+        if (!pool.dboptions.schema.length) pool.dboptions.schema.push(client.name);
         client.query("SELECT c.table_name,c.column_name,LOWER(c.data_type) AS data_type,c.column_default,c.ordinal_position,c.is_nullable " +
                      "FROM information_schema.columns c,information_schema.tables t " +
-                     "WHERE c.table_schema NOT IN ('information_schema','performance_schema','mysql','pg_catalog') AND c.table_name=t.table_name " +
+                     "WHERE c.table_schema IN (" + self.sqlValueIn(pool.dboptions.schema) + ") AND c.table_name=t.table_name " +
                      "ORDER BY 5", function(err, rows) {
             pool.dbcolumns = {};
             for (var i = 0; i < rows.length; i++) {
@@ -1043,12 +1045,13 @@ db.sqlValueIn = function(list, type)
     return list.map(function(x) { return self.sqlValue(x, type);}).join(",");
 }
 
-// Build SQL expressions for the column and value,
-//  op - SQL operator, default is =
-//       special operator null/not null is used to build IS NULL condition, value is ignored in this case
-//  type - can be data, string, number, float, expr, default is string
-//  value, min, max - are used for numeric values for validation of ranges
-//  for type expr, options.expr contains sprintf-like formatted expression to be used as is with all '%s' substituted with actual value
+// Build SQL expressions for the column and value
+// options may contain the following poperties:
+//  - op - SQL operator, default is =
+//  - type - can be data, string, number, float, expr, default is string
+//  - value - default value to use if passed value is null or empty
+//  - min, max - are used for numeric values for validation of ranges
+//  - expr - for op=expr, contains sprintf-like formatted expression to be used as is with all '%s' substituted with actual value
 db.sqlExpr = function(name, value, options)
 {
     var self = this;
@@ -1229,19 +1232,18 @@ db.sqlFilter = function(columns, values, params)
     var all = [], groups = {};
     if (!values) values = {};
     if (!params) params = [];
-    if (core.typeName(columns) == "object") columns = [ columns ];
-    for (var i in columns) {
-        var name = columns[i].name;
+    for (var name in columns) {
+        var col = columns[name];
         // Default value for this column
-        var value = columns[i].value;
+        var value = col.value;
         // Can we use supplied value or use only default one
-        if (!columns[i].always) {
+        if (!col.always) {
             if (values[name]) value = values[name];
             // In addition to exact field name there could be query alias to be used for this column in case of generic search field
             // which should be applied for multiple columns, this is useful to search across multiple columns or use diferent formats
-            var search = columns[i].search;
+            var search = col.search;
             if (search) {
-                if (!Array.isArray(columns[i].search)) search = [ search ];
+                if (!Array.isArray(col.search)) search = [ search ];
                 for (var j = 0; j < search.length; j++) {
                     if (values[search[j]]) value = values[search[j]];
                 }
@@ -1249,40 +1251,40 @@ db.sqlFilter = function(columns, values, params)
         }
         if (typeof value =="undefined" || (typeof value == "string" && !value)) {
             // Required filed is missing, return empty query
-            if (columns[i].required) return "";
+            if (col.required) return "";
             // Allow empty values excplicitely
-            if (!columns[i].empty) continue;
+            if (!col.empty) continue;
         }
         // Uset actual column name now once we got the value
-        if (columns[i].col) name = columns[i].col;
+        if (col.col) name = col.col;
         // Table prefix in case of joins
-        if (columns[i].alias) name = columns[i].alias + '.' + name;
+        if (col.alias) name = col.alias + '.' + name;
         // Wrap into COALESCE
-        if (typeof columns[i].coalesce != "undefined") {
-            name = "COALESCE(" + name + "," + this.sqlValue(columns[i].coalesce, columns[i].type) + ")";
+        if (typeof col.coalesce != "undefined") {
+            name = "COALESCE(" + name + "," + this.sqlValue(col.coalesce, col.type) + ")";
         }
         var sql = "";
         // Explicit skip of the parameter
-        if (columns[i].op == 'skip') {
+        if (col.op == 'skip') {
             continue;
         } else
         // Add binding parameters
-        if (columns[i].op == 'bind') {
-            sql = columns[i].expr.replace('$#', '$' + (params.length + 1));
+        if (col.op == 'bind') {
+            sql = col.expr.replace('$#', '$' + (params.length + 1));
             params.push(value);
         } else
         // Special case to handle NULL
-        if (columns[i].isnull && (value == "null" || value == "notnull")) {
+        if (col.isnull && (value == "null" || value == "notnull")) {
             sql = name + " IS " + value.replace('null', ' NULL');
         } else {
             // Primary condition for the column
-            sql = this.sqlExpr(name, value, columns[i]);
+            sql = this.sqlExpr(name, value, col);
         }
         if (!sql) continue;
         // If group specified, that means to combine all expressions inside that group with OR
-        if (columns[i].group) {
-            if (!groups[columns[i].group]) groups[columns[i].group] = [];
-            groups[columns[i].group].push(sql);
+        if (col.group) {
+            if (!groups[col.group]) groups[col.group] = [];
+            groups[col.group].push(sql);
         } else {
             all.push(sql);
         }
@@ -1572,7 +1574,7 @@ db.pgsqlInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
     var pool = this.initPool(options, self.pgsqlOpen);
-    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { real: "numeric" }, noIfExists: 1, noReplace: 1 });
+    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { real: "numeric" }, noIfExists: 1, noReplace: 1, schema: ['public'] });
     pool.bindValue = self.pgsqlBindValue;
     pool.cacheIndexes = self.pgsqlCacheIndexes;
     // No REPLACE INTO support, do it manually
@@ -1793,6 +1795,7 @@ db.mysqlCacheIndexes = function(options, callback)
                 table = table[Object.keys(table)[0]].toLowerCase();
                 client.query("SHOW INDEX FROM " + table, function(err, rows) {
                     for (var i = 0; i < rows.length; i++) {
+                        if (!self.dbcolumns[table]) continue;
                         var col = self.dbcolumns[table][rows[i].Column_name];
                         switch (rows[i].Key_name) {
                         case "PRIMARY":

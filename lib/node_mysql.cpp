@@ -64,11 +64,12 @@ public:
 
     friend class MysqlStatement;
 
-    MysqlDatabase() : ObjectWrap(), handle(NULL), timeout(500), retries(2) {}
+    MysqlDatabase() : ObjectWrap(), handle(NULL) {}
     ~MysqlDatabase() { if (handle) mysql_close(handle); }
 
     static Handle<Value> New(const Arguments& args);
     static Handle<Value> OpenGetter(Local<String> str, const AccessorInfo& accessor);
+    static Handle<Value> NameGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> InsertedOidGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> AffectedRowsGetter(Local<String> str, const AccessorInfo& accessor);
 
@@ -90,8 +91,7 @@ public:
     int affected_rows;
 
     MYSQL *handle;
-    int timeout;
-    int retries;
+    string db;
 };
 
 class MysqlStatement: public ObjectWrap {
@@ -496,6 +496,7 @@ void MysqlDatabase::Init(Handle<Object> target)
     constructor_template = Persistent < FunctionTemplate > ::New(t);
     constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("open"), OpenGetter);
+    constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("name"), NameGetter);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("inserted_oid"), InsertedOidGetter);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("affected_rows"), AffectedRowsGetter);
     constructor_template->SetClassName(String::NewSymbol("MysqlDatabase"));
@@ -591,6 +592,13 @@ Handle<Value> MysqlDatabase::OpenGetter(Local<String> str, const AccessorInfo& a
     return Boolean::New(db->handle != NULL);
 }
 
+Handle<Value> MysqlDatabase::NameGetter(Local<String> str, const AccessorInfo& accessor)
+{
+    HandleScope scope;
+    MysqlDatabase* db = ObjectWrap::Unwrap < MysqlDatabase > (accessor.This());
+    return String::New(db->db.c_str());
+}
+
 Handle<Value> MysqlDatabase::InsertedOidGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
@@ -661,7 +669,7 @@ void MysqlDatabase::Work_Open(uv_work_t* req)
     if (!home) home = (char*)".";
     string conf = vFmtStr("%s/.my.cnf", home);
     my_bool reconnect = true;
-
+    if (db) baton->db->db = db;
     baton->db->handle = mysql_init(NULL);
     mysql_options(baton->db->handle, MYSQL_READ_DEFAULT_FILE, conf.c_str());
     mysql_options(baton->db->handle, MYSQL_READ_DEFAULT_GROUP, "client");

@@ -585,7 +585,7 @@ Handle<Value> SQLiteDatabase::New(const Arguments& args)
 
     SQLiteDatabase* db = new SQLiteDatabase();
     db->Wrap(args.This());
-    args.This()->Set(String::NewSymbol("filename"), args[0]->ToString(), ReadOnly);
+    args.This()->Set(String::NewSymbol("name"), args[0]->ToString(), ReadOnly);
     args.This()->Set(String::NewSymbol("mode"), Integer::New(mode), ReadOnly);
 
     if (!callback.IsEmpty()) {

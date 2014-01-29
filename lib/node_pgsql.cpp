@@ -96,6 +96,7 @@ public:
     static void Init(Handle<Object> target);
     static Handle<Value> New(const Arguments& args);
     static Handle<Value> OpenGetter(Local<String> str, const AccessorInfo& accessor);
+    static Handle<Value> NameGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> InsertedOidGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> AffectedRowsGetter(Local<String> str, const AccessorInfo& accessor);
     static void Timer_Connect(uv_timer_t* req, int status);
@@ -137,6 +138,7 @@ void PgSQLDatabase::Init(Handle<Object> target)
     constructor_template = Persistent < FunctionTemplate > ::New(t);
     constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("open"), OpenGetter);
+    constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("name"), NameGetter);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("inserted_oid"), InsertedOidGetter);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("affected_rows"), AffectedRowsGetter);
     constructor_template->SetClassName(String::NewSymbol("PgSQLDatabase"));
@@ -153,6 +155,13 @@ Handle<Value> PgSQLDatabase::OpenGetter(Local<String> str, const AccessorInfo& a
     HandleScope scope;
     PgSQLDatabase* db = ObjectWrap::Unwrap < PgSQLDatabase > (accessor.This());
     return Boolean::New(db->handle != NULL);
+}
+
+Handle<Value> PgSQLDatabase::NameGetter(Local<String> str, const AccessorInfo& accessor)
+{
+    HandleScope scope;
+    PgSQLDatabase* db = ObjectWrap::Unwrap < PgSQLDatabase > (accessor.This());
+    return String::New(db->handle != NULL ? PQdb(db->handle) : "");
 }
 
 Handle<Value> PgSQLDatabase::InsertedOidGetter(Local<String> str, const AccessorInfo& accessor)

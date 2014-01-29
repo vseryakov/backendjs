@@ -12,6 +12,7 @@ var url = require('url');
 var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
+var mime = require('mime');
 var consolidate = require('consolidate');
 var domain = require('domain');
 var measured = require('measured');
@@ -24,7 +25,8 @@ var backend = require(__dirname + '/build/backend');
 var api = {
 
     // No authentication for these urls
-    allow: [".+\\.(gif|png|jpg|js|css|html)$",
+    allow: ["^/$",
+            ".+\\.(gif|png|jpg|js|css|ttf|eof|woff|svg|html)$",
             "^/public/",
             "^/account/add$",
             "^/image/account/" ],
@@ -32,9 +34,10 @@ var api = {
     // Refuse access to these urls
     deny: null,
 
-    // Where images are kept
+    // Where images/file are kept
     imagesUrl: '',
     imagesS3: '',
+    fileS3: '',
 
     tables: {
         // Authentication by email or id, when key is email, then email is empty
@@ -52,6 +55,7 @@ var api = {
                       email: { unique: 1 },
                       name: {},
                       alias: { pub: 1 },
+                      type: {},
                       status: {},
                       phone: {},
                       website: {},
@@ -130,7 +134,8 @@ var api = {
 
     // Config parameters
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
-           { name: "images-s3", descr: "S3 bucket name where to image store instead of data/images directory on the filesystem" },
+           { name: "images-s3", descr: "S3 bucket name where to store images" },
+           { name: "files-s3", descr: "S3 bucket name where to store files" },
            { name: "access-log", descr: "File for access logging" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
            { name: "session-age", type:" int", descr: "Session age in milliseconds, for cookie based authentication" },
@@ -329,11 +334,11 @@ api.checkSignature = function(req, callback)
 
     // Sanity checks, required headers must be present and not empty
     if (!sig.method || !sig.host || !sig.expires || !sig.id || !sig.signature) {
-        return callback({ status: 401, message: "Invalid request: " + (!sig.method ? "no method" :
-                                                                       !sig.host ? "no host" :
-                                                                       !sig.id ? "no email" :
-                                                                       !sig.expires ? "no expiration" :
-                                                                       !sig.signature ? "no signature" : "") });
+        return callback({ status: 401, message: "Invalid request: " + (!sig.method ? "no method provided" :
+                                                                       !sig.host ? "no host provided" :
+                                                                       !sig.id ? "no email provided" :
+                                                                       !sig.expires ? "no expiration provided" :
+                                                                       !sig.signature ? "no signature provided" : "") });
     }
 
     // Make sure it is not expired, it may be milliseconds or ISO date
@@ -344,11 +349,11 @@ api.checkSignature = function(req, callback)
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
     core.context.db.getCached("bk_auth", { akey: sig.id }, function(err, account) {
         if (err) return callback({ status: 500, message: String(err) });
-        if (!account) return callback({ status: 404, message: "No account" });
+        if (!account) return callback({ status: 404, message: "No account record found" });
 
         // Account expiration time
         if (account.expires && account.expires < Date.now()) {
-            return callback({ status: 404, message: "Expired account" });
+            return callback({ status: 404, message: "This account has expired" });
         }
 
         // Verify ACL regex if specified, test the whole query string as it appears in the request query line
@@ -1197,6 +1202,20 @@ api.putIconS3 = function(file, id, options, callback)
             if (callback) callback(err, icon);
         });
     });
+}
+
+// Place the uploaded tmpfile to the destination pointed by the file parameter
+api.storeFile = function(tmpfile, file, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    if (this.fileS3) {
+        var headers = { 'content-type': mime.lookup(file) };
+        aws.queryS3(this.filesS3, file, { method: "PUT", postfile: tmpfile, headers: headers }, callback);
+    } else {
+        core.moveFile(tmpfile, path.join(core.path.files, file), options.overwrite, callback);
+    }
 }
 
 // Custom access logger

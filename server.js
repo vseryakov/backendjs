@@ -34,10 +34,10 @@ var server = {
     stderr: null,
 
     // Crash throttling
-    crashInterval: 3000, 
-    crashDelay: 30000, 
-    crashCount: 3, 
-    crashTime: null, 
+    crashInterval: 3000,
+    crashDelay: 30000,
+    crashCount: 3,
+    crashTime: null,
     crashEvents: 0,
 
     // Job waiting for the next avaialble worker
@@ -61,10 +61,10 @@ var server = {
     idleTime: 120,
 
     // Config parameters
-    args: [{ name: "max-processes", type: "number", min: 1, max: 4, descr: "Max processes to launch for servers" }, 
-           { name: "max-workers", type: "number", min: 1, max: 4, descr: "Max number of worker processes to launch for jobs" }, 
-           { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" }, 
-           { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" }, 
+    args: [{ name: "max-processes", type: "number", min: 1, max: 4, descr: "Max processes to launch for servers" },
+           { name: "max-workers", type: "number", min: 1, max: 4, descr: "Max number of worker processes to launch for jobs" },
+           { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
+           { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
@@ -74,14 +74,14 @@ var server = {
 module.exports = server;
 
 // Start the server process
-server.start = function() 
+server.start = function()
 {
     var self = this;
 
     // Parse all params and load config file
-    core.init(function() { 
+    core.init(function() {
         process.title = core.name + ": process";
-        
+
         // REPL shell
         if (core.argv.indexOf("-shell") > 0) {
             return core.createRepl();
@@ -91,14 +91,14 @@ server.start = function()
         if (core.argv.indexOf("-daemon") > 0) {
             self.startDaemon();
         }
-        
+
         // Graceful shutdown, kill all children processes
         process.once('exit', function() {
             self.exiting = true;
             if (self.child) self.child.kill('SIGTERM');
             self.pids.forEach(function(p) { process.kill(p) });
         });
-        
+
         process.once('SIGTERM', function () {
             self.exiting = true;
             process.exit(0);
@@ -123,7 +123,7 @@ server.start = function()
         if (core.argv.indexOf("-web") > 0) {
             self.startWeb();
         } else
-        
+
         // HTTP proxy
         if (core.argv.indexOf("-proxy") > 0) {
             self.startProxy();
@@ -132,7 +132,7 @@ server.start = function()
 }
 
 // Start process monitor, running as root
-server.startMonitor = function() 
+server.startMonitor = function()
 {
     process.title = core.name + ': monitor';
     core.role = 'monitor';
@@ -150,7 +150,7 @@ server.startMonitor = function()
 }
 
 // Setup worker environment
-server.startMaster = function() 
+server.startMaster = function()
 {
     var self = this;
 
@@ -160,7 +160,7 @@ server.startMaster = function()
     if (cluster.isMaster) {
         core.role = 'master';
         process.title = core.name + ': master';
-        
+
         // Start other master processes
         this.startWebProcess();
         this.startWebProxy();
@@ -192,7 +192,7 @@ server.startMaster = function()
                 self.shutdown();
             }
         }, 30000);
-        
+
         // Primary jobs
         setInterval(function() { self.processJobs() }, self.jobsInterval);
 
@@ -223,7 +223,7 @@ server.startMaster = function()
 }
 
 // Create Express server, setup worker environment, call supplied callback to set initial environment
-server.startWeb = function(callback) 
+server.startWeb = function(callback)
 {
     var self = this;
 
@@ -271,14 +271,14 @@ server.startWeb = function(callback)
         core.context.api.init(function(err) {
             core.dropPrivileges();
         });
-        
+
         logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, core.bind, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
     }
 }
 
 // Spawn web server from the master as a separate master with web workers, it is used when web and master processes are running on the same server
-server.startWebProcess = function() 
-{ 
+server.startWebProcess = function()
+{
     if (core.argv.indexOf("-web") == -1) return;
     var params = [];
     var val = core.getArg("-web-port", core.port);
@@ -289,7 +289,7 @@ server.startWebProcess = function()
     if (val) params.push("-repl-port", val);
     val = core.getArg("-web-repl-bind");
     if (val) params.push("-repl-bind", val);
-    
+
     var child = this.spawnProcess(params, ["-port", "-bind", "-repl-port", "-repl-bind", "-master" ], { stdio: 'inherit' });
     this.pids.push(child.pid);
     child.on('exit', function (code, signal) {
@@ -303,15 +303,15 @@ server.startWebProcess = function()
 }
 
 // Spawn web proxy from the master as a separate master with web workers
-server.startWebProxy = function() 
-{ 
+server.startWebProxy = function()
+{
     if (core.argv.indexOf("-proxy") == -1) return;
     var params = [ "-db-no-pools" ];
     var val = core.getArg("-proxy-port", core.port);
     if (val) params.push("-port", val);
     val = core.getArg("-proxy-bind");
     if (val) params.push("-bind", val);
-    
+
     var child = this.spawnProcess(params, ["-port", "-bind", "-master" ], { stdio: 'inherit' });
     this.pids.push(child.pid);
     child.on('exit', function (code, signal) {
@@ -325,14 +325,14 @@ server.startWebProxy = function()
 }
 
 // Start http proxy as standalone server process
-server.startProxy = function() 
+server.startProxy = function()
 {
     var self = this;
     var config = null;
-    
+
     core.role = 'proxy';
     process.title = core.name + ": proxy"
-    
+
     try { config = JSON.parse(fs.readFileSync(path.join(core.path.etc, "proxy")).toString()); } catch (e) { logger.error('startProxy:', e); }
     if (!config) return logger.error('startProxy:', 'no config file');
 
@@ -345,7 +345,7 @@ server.startProxy = function()
 }
 
 // Restart process with the same arguments and setup as a monitor for the spawn child
-server.startProcess = function() 
+server.startProcess = function()
 {
     var self = this;
     self.child = this.spawnProcess();
@@ -370,16 +370,16 @@ server.startProcess = function()
 }
 
 // Watch source files for modifications and restart
-server.startWatcher = function() 
+server.startWatcher = function()
 {
-    logger.debug('startWatcher:', core.watchdirs);
     var self = this;
 
     if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname);
+    logger.debug('startWatcher:', core.watchdirs);
     core.watchdirs.forEach(function(dir) {
         core.watchFiles(dir, /\.js$/, function(file) {
             if (self.watchTimer) clearTimeout(self.watchTimer);
-            self.watchTimer = setTimeout(function() { 
+            self.watchTimer = setTimeout(function() {
                 logger.log('watcher:', 'restarting', self.child.pid);
                 if (self.child) self.child.kill(); else self.startProcess();
             }, self.restartDelay);
@@ -389,7 +389,7 @@ server.startWatcher = function()
 }
 
 // Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell
-server.startRepl = function(port, bind) 
+server.startRepl = function(port, bind)
 {
     var self = this;
     var repl = net.createServer(function(socket) {
@@ -405,7 +405,7 @@ server.startRepl = function(port, bind)
 }
 
 // Create daemon from the current process, restart node with -daemon removed in the background
-server.startDaemon = function() 
+server.startDaemon = function()
 {
 	var self = this;
     // Avoid spawning loop, skip daemon flag
@@ -420,22 +420,22 @@ server.startDaemon = function()
 }
 
 // Sleep and keep a worker busy
-server.sleep = function(options, callback) 
+server.sleep = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
     setTimeout(function() {
         logger.log('sleep:', options);
-        if (callback) callback();  
+        if (callback) callback();
     }, options.timeout || 30000);
 }
 
 // Shutdown the system immediately, mostly to be used in the remote jobs as the last task
-server.shutdown = function(options, callback) 
+server.shutdown = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
-    
+
     logger.log('shutdown:', 'server');
     core.watchLogs(function() {
         setTimeout(function() { core.shutdown(); }, options.timeout || 30000);
@@ -443,7 +443,7 @@ server.shutdown = function(options, callback)
 }
 
 // If respawning too fast, delay otherwise schedule new process after short timeout
-server.respawn = function(callback) 
+server.respawn = function(callback)
 {
 	var self = this;
     if (self.exiting) return;
@@ -464,7 +464,7 @@ server.respawn = function(callback)
 }
 
 // Start new process reusing global process arguments, args will be added and args in the skip list will be removed
-server.spawnProcess = function(args, skip, opts) 
+server.spawnProcess = function(args, skip, opts)
 {
     if (this.exiting) return;
     // Arguments to skip when launchng new process
@@ -481,7 +481,7 @@ server.spawnProcess = function(args, skip, opts)
 
 // Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process
 // terminates.
-server.runJob = function(job) 
+server.runJob = function(job)
 {
     var self = this;
 
@@ -503,7 +503,7 @@ server.runJob = function(job)
                 if (!self.jobs.length && cluster.isWorker) process.exit(0);
             });
         })(name);
-        // Make report about unknown job, leading $ are used for same method miltiple times in the same job because 
+        // Make report about unknown job, leading $ are used for same method miltiple times in the same job because
         // method names are unique in the object
         var spec = name.replace(/^[\$]+/g, "").split('.');
         var obj = core.context[spec[0]];
@@ -521,9 +521,9 @@ server.runJob = function(job)
 }
 
 // Execute job in the background by one of the workers, object must be known exported module
-// and method must be existing method of the given object. The method function must take options 
+// and method must be existing method of the given object. The method function must take options
 // object as its first argument and callback as its second argument.
-// More than one job can be specified, property of the object defines name for the job to run: 
+// More than one job can be specified, property of the object defines name for the job to run:
 // Example: { 'scraper.run': {}, 'server.shutdown': {} }
 // If the same object.method must be executed several times, prepend subsequent jobs with $
 // Example: { 'scraper.run': { "arg": 1 }, '$scraper.run': { "arg": 2 }, '$$scraper.run': { "arg": 3 } }
@@ -537,7 +537,7 @@ server.runJob = function(job)
 //                'scraper.import'
 //                { 'scraper.sync': { runafter: 'scraper.import' } }
 //                { 'server.shutdown': { runafter: 'scraper.sync' } }
-server.execJob = function(job) 
+server.execJob = function(job)
 {
     var self = this;
 
@@ -617,13 +617,13 @@ server.execJob = function(job)
 
 // Remote mode, launch remote instance to perform scraping or other tasks
 // By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the options
-server.launchJob = function(job, options, callback) 
+server.launchJob = function(job, options, callback)
 {
 	var self = this;
     if (!job) return;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
-    
+
     if (typeof job == "string") job = core.newObj(job, null);
     if (!Object.keys(job).length) return logger.error('launchJob:', 'no valid jobs:', job);
     job = core.cloneObj(job);
@@ -645,11 +645,11 @@ server.launchJob = function(job, options, callback)
                 "-backend-secret", core.backendSecret || "",
                 "-server-jobname", Object.keys(job).join(","),
                 "-server-job", core.toBase64(job) ];
-    
+
     if (!options.noshutdown) {
         args.push("-server-job", core.toBase64({ 'server.shutdown': { runlast: 1 } }));
     }
-    
+
     // Command line arguments for the instance, must begin with -
     for (var p in options) {
         if (p[0] != '-') continue;
@@ -662,7 +662,7 @@ server.launchJob = function(job, options, callback)
 // Run a job, the string is in the format:
 // object/method/name/value/name/value....
 // All spaces must be are replaced with %20 to be used in command line parameterrs
-server.queueJob = function(job) 
+server.queueJob = function(job)
 {
     if (!job) return;
     switch (core.typeName(job)) {
@@ -679,7 +679,7 @@ server.queueJob = function(job)
 }
 
 // Process pending jobs, submit to idle workers
-server.execQueue = function() 
+server.execQueue = function()
 {
     if (!this.queue.length) return;
     var job = this.queue.shift();
@@ -689,8 +689,8 @@ server.execQueue = function()
 
 // Create a new cron job
 // Example: { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
-//          { "type": "local", "cron": "0 10 7 * * *", "job": "api.processQueue" } 
-server.scheduleCronjob = function(spec, obj) 
+//          { "type": "local", "cron": "0 10 7 * * *", "job": "api.processQueue" }
+server.scheduleCronjob = function(spec, obj)
 {
     var self = this;
     var job = self.checkJob('local', obj.job);
@@ -698,7 +698,7 @@ server.scheduleCronjob = function(spec, obj)
     logger.debug('scheduleCronjob:', spec, util.inspect(obj, true, null));
     var cj = new cron.CronJob(spec, function() {
         if (this.host) {
-            self.submitJob({ type: this.type, host: this.host, job: job }); 
+            self.submitJob({ type: this.type, host: this.host, job: job });
         } else {
             self.doJob(this.type, job);
         }
@@ -710,10 +710,10 @@ server.scheduleCronjob = function(spec, obj)
 }
 
 // Create new cron job to be run on a drone in the cloud
-// For remote jobs additonal property args can be used in the cron object to define 
+// For remote jobs additonal property args can be used in the cron object to define
 // arguments to the instance backend process, properties must start with -
 // Example: { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
-server.scheduleLaunchjob = function(spec, obj) 
+server.scheduleLaunchjob = function(spec, obj)
 {
     var self = this;
     var job = self.checkJob('remote', obj.job);
@@ -726,7 +726,7 @@ server.scheduleLaunchjob = function(spec, obj)
 }
 
 // Execute a cronjob by name now
-server.runCronjob = function(id) 
+server.runCronjob = function(id)
 {
     this.crontab.forEach(function(x) {
        if (x.id == id) x._callback();
@@ -734,7 +734,7 @@ server.runCronjob = function(id)
 }
 
 // Perform execution according to type
-server.doJob = function(type, job, options) 
+server.doJob = function(type, job, options)
 {
     var self = this;
     switch (type) {
@@ -745,7 +745,7 @@ server.doJob = function(type, job, options)
     case "server":
         setImmediate(function() { self.runJob(job); });
         break;
-        
+
     default:
         setImmediate(function() { self.queueJob(job); });
         break;
@@ -753,7 +753,7 @@ server.doJob = function(type, job, options)
 }
 
 // Verify job structure and permissions and return as an object if the job is a string
-server.checkJob = function(type, job) 
+server.checkJob = function(type, job)
 {
     if (typeof job == "string") job = core.newObj(job, null);
     if (typeof job != "object") return null;
@@ -767,12 +767,12 @@ server.checkJob = function(type, job)
 //          remote means launch an AWS instance
 //          server means run inside the master process, do not spawn a worker
 // - cron - cron time interval spec: 'second' 'minute' 'hour' 'dayOfMonth' 'month' 'dayOfWeek'
-// - job - a string as obj.method or an object with job name as property name and the value is an object with 
+// - job - a string as obj.method or an object with job name as property name and the value is an object with
 //         additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
 // - args - additional arguments passwed to the backend in the command line for the remote jobs
 // Example: [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
-// 
-server.loadSchedules = function() 
+//
+server.loadSchedules = function()
 {
     var self = this;
 
@@ -809,7 +809,7 @@ server.loadSchedules = function()
 // - tag - job tag for execution, default is current jobTag, this can be used to run on specified servers only
 // - job - an object with job spec
 // - type - job type: local, remote, server
-server.submitJob = function(options, callback) 
+server.submitJob = function(options, callback)
 {
     var self = this;
     if (!options || core.typeName(options.job) != "object") return logger.error('submitJob:', 'invalid job spec, must be an object:', options);
@@ -819,16 +819,16 @@ server.submitJob = function(options, callback)
 }
 
 // Run submitted jobs, usually called from the crontab file in case of shared database, requires connection to the PG database
-// To run it from crontab add line(to run every 5 mins): 
-//    { type: "server", cron: "0 */5 * * * *", job: "server.processJobs" } 
-server.processJobs = function(options, callback) 
+// To run it from crontab add line(to run every 5 mins):
+//    { type: "server", cron: "0 */5 * * * *", job: "server.processJobs" }
+server.processJobs = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
-    
+
     db.select("bk_jobs", { id: this.jobsTag }, { count: this.maxWorkers }, function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
-            try { 
+            try {
                 self.doJob(row.type, row.job);
             } catch(e) {
                 logger.error('processJobs:', e, row);
