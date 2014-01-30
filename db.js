@@ -1357,6 +1357,7 @@ db.sqlWhere = function(table, obj, keys, options)
     var where = [];
     (keys || []).forEach(function(k) {
         var v = obj[k], op = "", type = "";
+        if (!v && v != null) return;
         if (options.ops && options.ops[k]) op = options.ops[k];
         if (!op && v == null) op = "null";
         if (!op && Array.isArray(v)) op = "in";

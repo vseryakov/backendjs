@@ -125,6 +125,7 @@ var api = {
 
     // Disabled API endpoints
     disable: [],
+    disableSession: [],
 
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
@@ -138,12 +139,12 @@ var api = {
            { name: "files-s3", descr: "S3 bucket name where to store files" },
            { name: "access-log", descr: "File for access logging" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
-           { name: "session-age", type:" int", descr: "Session age in milliseconds, for cookie based authentication" },
+           { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
-           { name: "disable", type: "list", descr: "Disable default API functionality by endpoint name" },
+           { name: "disable", type: "list", descr: "Disable API by endpoint url" },
+           { name: "disable-session", type: "list", descr: "Disable API endpoints for Web sessions only" },
            { name: "allow", type: "regexp", descr: "Regexp for URLs that dont need credentials" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access"  },
-           { name: "backend-access", type: "list", descr: "List of account ids that can access provisioning /backend endpoint, if not configured all can access it" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
 
@@ -238,12 +239,21 @@ api.init = function(callback)
     if (self.disable.indexOf("counter") == -1) self.initCounterAPI();
     if (self.disable.indexOf("icon") == -1) self.initIconAPI();
     if (self.disable.indexOf("message") == -1) self.initMessageAPI();
-    if (self.disable.indexOf("backend") == -1) self.initBackendAPI();
+    if (self.disable.indexOf("data") == -1) self.initDataAPI();
 
     // Remove default API tables for disabled endpoints
     self.disable.forEach(function(x) { delete self.tables['bk_' + x] });
     if (!self.tables.bk_account) delete self.tables.bk_auth;
     if (!self.tables.bk_connection) delete self.tables.bk_reference;
+
+    // Disable access to endpoints if session exists, meaning Web app
+    self.disableSession.forEach(function(x) {
+        self.registerAuthCheck('', new RegExp(x), function(req, callback) {
+            logger.log(req.session)
+            if (req.session && req.session['bk-signature']) return callback({ status: 401, message: "Not authorized" });
+            callback();
+        });
+    });
 
     // Custom application logic
     self.initApplication.call(self, function(err) {
@@ -922,57 +932,47 @@ api.processAccountRow = function(row, options, cols)
 }
 
 // API for internal provisioning, by default supports access to all tables
-api.initBackendAPI = function()
+api.initDataAPI = function()
 {
     var self = this;
     var db = core.context.db;
 
-    // Make sure if configured only authorized can access this endpoint
-    self.registerAuthCheck('', '/backend', function(req, callback) {
-        if (!self.backendAccess || self.backendAccess.indexOf(req.account.id) > -1) return callback();
-        callback({ status: 401, message: "Not authorized" });
-    });
-
     // Return current statistics
-    this.app.all("/backend/stats", function(req, res) {
+    this.app.all("/data/stats", function(req, res) {
         res.json(db.getPool().stats);
     });
 
-    this.app.all("/backend/metrics", function(req, res) {
+    this.app.all("/data/metrics", function(req, res) {
         res.json(self.measured);
     });
 
     // Load columns into the cache
-    this.app.all(/^\/backend\/columns$/, function(req, res) {
+    this.app.all("/data/columns", function(req, res) {
         db.cacheColumns({}, function() {
             res.json(db.getPool().dbcolumns);
         });
     });
 
     // Return table columns
-    this.app.all(/^\/backend\/columns\/([a-z_0-9]+)$/, function(req, res) {
+    this.app.all(/^\/data\/columns\/([a-z_0-9]+)$/, function(req, res) {
         res.json(db.getColumns(req.params[0]));
     });
 
     // Return table keys
-    this.app.all(/^\/backend\/keys\/([a-z_0-9]+)$/, function(req, res) {
+    this.app.all(/^\/data\/keys\/([a-z_0-9]+)$/, function(req, res) {
         res.json(db.getKeys(req.params[0]));
     });
 
     // Basic operations on a table
-    this.app.all(/^\/backend\/(select|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
+    this.app.all(/^\/data\/(select|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
+        // Table must exist
         var dbcols = db.getColumns(req.params[1]);
-        if (!dbcols) return res.json([]);
-        var options = {};
-        // Convert values into actual arrays if separated by pipes
-        // Set options from special properties
-        for (var p in req.query) {
-            if (p[0] != '_' && req.query[p].indexOf("|") > 0) req.query[p] = req.query[p].split("|");
-            if (p[0] == '_') options[p.substr(1)] = req.query[p];
-        }
+        if (!dbcols) return self.sendReply(res, "Unknown table");
+
+        var options = self.getOptions(req);
         db[req.params[0]](req.params[1], req.query, options, function(err, rows) {
             if (err) return self.sendReply(res, err);
-            res.json(rows);
+            self.sendJSON(req, res, rows);
         });
     });
 
@@ -994,7 +994,9 @@ api.getOptions = function(req)
     if (req.query._consistent) options.consistent = core.toBool(req.query._consistent);
     if (req.query._start) options.start = core.toJson(req.query._start);
     if (req.query._sort) options.sort = req.query._sort;
+    if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
     if (req.query._desc) options.sort = core.toBool(req.query._desc);
+    if (req.query._keys) options.keys = core.strSplit(req.query._keys);
     if (req.query._total) options.total = core.toBool(req.query._total);
     return options;
 }
@@ -1204,17 +1206,71 @@ api.putIconS3 = function(file, id, options, callback)
     });
 }
 
+// Upload file and store inthe filesystem or S3, try to find the file in multipart form, in the body or query by the
+// given name
+api.putFile = function(req, name, outfile, callback)
+{
+    var self = this;
+    if (req.files && req.files[name]) {
+        self.storeFile(req.files[name].path, outfile, callback);
+    } else
+    // JSON object submitted with .id property
+    if (typeof req.body == "object" && req.body[name]) {
+        var data = new Buffer(req.body[name], "base64");
+        self.storeFile(data, outfile, callback);
+    } else
+    // Query base64 encoded parameter
+    if (req.query[name]) {
+        var data = new Buffer(req.query[name], "base64");
+        self.storeFile(data, outfile, callback);
+    } else {
+        return callback();
+    }
+}
+
 // Place the uploaded tmpfile to the destination pointed by the file parameter
-api.storeFile = function(tmpfile, file, options, callback)
+api.storeFile = function(tmpfile, outfile, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
     if (this.fileS3) {
         var headers = { 'content-type': mime.lookup(file) };
-        aws.queryS3(this.filesS3, file, { method: "PUT", postfile: tmpfile, headers: headers }, callback);
+        var ops = { method: "PUT", headers: headers }
+        opts[Buffer.isBuffer(tmfile) ? 'postdata' : 'postfile'] = tmpfile;
+        aws.queryS3(this.filesS3, outfile, opts, function(err) {
+            if (callback) callback(err, outfile);
+        });
     } else {
-        core.moveFile(tmpfile, path.join(core.path.files, file), options.overwrite, callback);
+        if (Buffer.isBuffer(tmpfile)) {
+            fs.writeFile(tmpfile, data, function(err) {
+                if (err) logger.error('storeFile:', outfile, err);
+                if (callback) callback(err, outfile);
+            });
+        } else {
+            core.moveFile(tmpfile, path.join(core.path.files, outfile), options.overwrite, function(err) {
+                if (err) logger.error('storeFile:', outfile, err);
+                if (callback) callback(err, outfile);
+            });
+        }
+    }
+}
+
+// Delete file by name
+api.deleteFile = function(req, file, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    if (this.fileS3) {
+        aws.queryS3(this.filesS3, file, { method: "DELETE" }, function(err) {
+            if (callback) callback(err, outfile);
+        });
+    } else {
+        fs.unlink(path.join(core.path.file, file), function(err) {
+            if (err) logger.error('deleteFile:', file, err);
+            if (callback) callback(err, outfile);
+        })
     }
 }
 

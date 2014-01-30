@@ -6,9 +6,11 @@
 // To run a test execute for example: node tests.js -cmd account ....
 //
 
+var cluster = require('cluster');
 var util = require('util');
 var path = require('path');
 var async = require('async');
+var spawn = require('child_process').spawn;
 var backend = require('backend')
 core = backend.core;
 api = backend.api;
@@ -16,6 +18,7 @@ db = backend.db;
 aws = backend.aws;
 server = backend.server;
 logger = backend.logger;
+bn = backend.backend;
 
 var females = [ "mary", "patricia", "linda", "barbara", "elizabeth", "jennifer", "maria", "susan",
                 "carol", "ruth", "sharon", "michelle", "laura", "sarah", "kimberly", "deborah", "jessica",
@@ -43,8 +46,14 @@ tests.start = function(type)
 		logger.error(this.name, 'no such test:', type);
 		process.exit(1);
 	}
-	this.start_time = core.mnow();
-	var count = core.getArgInt("-iterations", 1);
+
+	if (cluster.isMaster) {
+	    var workers = core.getArgInt("-workers", 0);
+	    for (var i = 0; i < workers; i++) {
+	        cluster.fork();
+	    }
+	}
+
 	switch (core.getArg("-bbox")) {
 	case "SF":
 		location = "San Francisco";
@@ -56,6 +65,8 @@ tests.start = function(type)
 		break;
 	}
 
+    this.start_time = core.mnow();
+    var count = core.getArgInt("-iterations", 1);
 	logger.log(self.name, "started:", type);
 	async.whilst(
 	    function () { return count > 0; },
@@ -509,6 +520,44 @@ tests.leveldb = function(callback)
     function(err) {
         callback(err);
     });
+}
+
+tests.subscribe = function(callback)
+{
+    var count = 0;
+    var addr = core.getArg("-addr", "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235");
+    var sock = bn.nnCreate(bn.AF_SP, bn.NN_SUB);
+    bn.nnConnect(sock, addr);
+    bn.nnSubscribe(sock, "");
+    bn.nnSetCallback(sock, function(err, n, data) {
+        logger.log('subscribe:', err, n, data, 'count:', count++);
+        if (data == "exit") process.exit(0);
+    });
+
+}
+
+tests.publish = function(callback)
+{
+    var count = core.getArgInt("-count", 10);
+    var addr = core.getArg("-addr", "tcp://127.0.0.1:" + (cluster.isMaster ? 1234 : 1235));
+    var sock = bn.nnCreate(bn.AF_SP, bn.NN_PUB);
+    bn.nnBind(sock, addr);
+
+    async.whilst(
+       function () { return count > 0; },
+       function (next) {
+           count--;
+           bn.nnSend(sock, addr + ':' + core.random());
+           logger.log('publish:', sock, addr, count);
+           setTimeout(next, core.randomInt(1000));
+       },
+       function(err) {
+           logger.log('sockets1:', bn.nnSockets())
+           bn.nnSend(sock, "exit");
+           bn.nnClose(sock)
+           logger.log('sockets2:', bn.nnSockets())
+           callback(err);
+       });
 }
 
 backend.run(function() {

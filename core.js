@@ -421,15 +421,35 @@ core.ipcInitServer = function()
     // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts
     // it to other connected servers via the same BUS socket
     if (self.lruServer) {
-        var sock = backend.nnCreate(backend.AF_SP_RAW, backend.NN_BUS);
-        backend.nnBind(sock, self.lruServer);
-        backend.lruServer(0, sock, sock);
+        try {
+            var sock = backend.nnCreate(backend.AF_SP_RAW, backend.NN_BUS);
+            backend.nnBind(sock, self.lruServer);
+            backend.lruServer(0, sock, sock);
+        } catch(e) {
+            logger.error('ipcInit:', self.lruServer, e);
+        }
     }
 
     // Send cache requests to the LRU host to be broadcasted to all other servers
     if (self.lruHost) {
-        self.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
-        backend.nnConnect(self.lruSocket, self.lruHost);
+        try {
+            self.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
+            backend.nnConnect(self.lruSocket, self.lruHost);
+        } catch(e) {
+            logger.error('ipcInit:', self.lruHost, e);
+            self.lruSocket = backend.nnClose(self.lruSocket);
+        }
+    }
+
+    // Pub/sub messaging system
+    if (self.pubServer) {
+        try {
+            self.pubSocket = backend.nnCreate(backend.AF_SP, backend.NN_PUB);
+            backend.nnBind(self.pubSocket, self.pubServer);
+        } catch(e) {
+            logger.error('ipcInit:', self.pubServer, e)
+            self.pubSocket = backend.nnClose(self.pubSocket);
+        }
     }
 
     cluster.on('fork', function(worker) {
@@ -438,6 +458,11 @@ core.ipcInitServer = function()
             if (!msg) return false;
             logger.debug('LRU:', msg);
             switch (msg.cmd) {
+            case 'pub':
+                if (!self.pubSocket) break;
+                backend.nnSend(self.pubSocket, msg.key + "\1" + msg.value);
+                break;
+
             case 'keys':
                 msg.value = backend.lruKeys();
                 worker.send(msg);
@@ -551,6 +576,36 @@ core.ipcIncrCache = function(key, val)
     this.ipcSend("incr", key, val);
 }
 
+// Subscribe to the publishing swrver for messages starting with the given key, the callback will be called only on new data received
+// Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.
+core.ipcSubscribe = function(key, callback)
+{
+    if (!this.subHost) return 0;
+    var sock = 0;
+    try {
+        sock = backend.nnCreate(backend.AF_SP, backend.NN_SUB);
+        backend.nnConnect(sock, this.subHost);
+        backend.nnSubscribe(sock, key);
+        backend.nnSetCallback(sock, function(err, n, data) { if (!err) callback(data); });
+    } catch(e) {
+        logger.error('ipcSubscribe:', this.subHost, e);
+        sock = backend.nnClose(sock);
+    }
+    return sock;
+}
+
+// Close subscription
+core.ipcUnsubscribe = function(sock)
+{
+    backend.nnClose(sock);
+}
+
+// Publish an event to be sent to the subscribed clients
+core.ipcPublish = function(key, data)
+{
+    this.ipcSend("pub", key, data);
+}
+
 // Encode with additional symbols
 core.encodeURIComponent = function(str)
 {
@@ -596,7 +651,7 @@ core.toDate = function(val)
     // Assume it is seconds which we use for most mtime columns, convert to milliseconds
     if (typeof val == "number" && val < 2147483647) val *= 1000;
     try { d = new Date(val); } catch(e) {}
-    return d || new Date(0);
+    return !isNaN(d) ? d : new Date(0);
 }
 
 // Convert value to the proper type

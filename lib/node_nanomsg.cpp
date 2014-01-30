@@ -13,8 +13,9 @@
 #define nn_slow(x) (x)
 #endif
 
-#define MAX_SOCKS 512
-#define GETSOCK(n, var) if (n < 0 || n >= MAX_SOCKS || _socks[n].sock < 0) return ThrowException(Exception::Error(String::New(vFmtStr("Invalid socket: %d", n).c_str()))); Sock *var = &_socks[n];
+#define SOCK_ID(n) n-1000000
+#define SOCK_ID2(n) n+1000000
+#define GETSOCK(n, var) if (_socks.find(SOCK_ID(n)) == _socks.end()) return ThrowException(Exception::Error(String::New(vFmtStr("Invalid socket: %d", n).c_str()))); Sock *var = _socks[SOCK_ID(n)];
 
 struct Sock {
     int sock;
@@ -37,18 +38,17 @@ struct Sock {
     // Peer for forwading
     struct Sock* peer;
 
-    Sock(int d = AF_SP, int t = NN_REQ): sock(-1), err(0), domain(d), type(t), rfd(-1), wfd(-1) {
+    Sock(int s = -1, int d = AF_SP, int t = NN_REQ): sock(s), err(0), domain(d), type(t), rfd(-1), wfd(-1) {
         poll.data = NULL;
+        Setup();
     }
 
     ~Sock() {
         Close();
     }
 
-    int Create(int s, int d, int t) {
-    	sock = s;
-        domain = d;
-        type = t;
+    int Setup() {
+        if (sock < 0) return -1;
         size_t fdsz = sizeof(rfd);
         nn_getsockopt(sock, NN_SOL_SOCKET, NN_RCVFD, (char*) &rfd, &fdsz);
         nn_getsockopt(sock, NN_SOL_SOCKET, NN_SNDFD, (char*) &wfd, &fdsz);
@@ -143,12 +143,12 @@ struct Sock {
         	s->err = nn_errno();
             Local <Value> argv[2];
         	argv[0] = Exception::Error(String::New(nn_strerror(nn_errno())));
-        	argv[1] = Local<Value>::New(Integer::New(s->sock));
+        	argv[1] = Local<Value>::New(Integer::New(SOCK_ID2(s->sock)));
         	TRY_CATCH_CALL(ctx, s->callback, 1, argv);
         } else {
             Local <Value> argv[3];
         	argv[0] = Local<Value>::New(Null());
-        	argv[1] = Local<Value>::New(Integer::New(s->sock));
+        	argv[1] = Local<Value>::New(Integer::New(SOCK_ID2(s->sock)));
         	argv[2] = Local<String>::New(String::New(buf));
         	TRY_CATCH_CALL(ctx, s->callback, 3, argv);
         }
@@ -225,7 +225,23 @@ struct Sock {
 
 };
 
-static Sock _socks[MAX_SOCKS];
+typedef map<int,Sock*> sock_map;
+
+static sock_map _socks;
+
+static Handle<Value> Sockets(const Arguments& args)
+{
+    HandleScope scope;
+
+    int i = 0;
+    Local<Array> rc = Local<Array>::New(Array::New());
+    sock_map::const_iterator it = _socks.begin();
+    while (it != _socks.end()) {
+        rc->Set(Integer::New(i++), Integer::New(SOCK_ID2(it->first)));
+        it++;
+    }
+    return scope.Close(rc);
+}
 
 static Handle<Value> Create(const Arguments& args)
 {
@@ -235,8 +251,25 @@ static Handle<Value> Create(const Arguments& args)
     REQUIRE_ARGUMENT_INT(1, type);
     int sock = nn_socket(domain, type);
     if (sock == -1) ThrowException(Exception::Error(String::New(nn_strerror(nn_errno()))));
-    _socks[sock].Create(sock, domain, type);
-    return scope.Close(Integer::New(sock));
+    Sock *s = new Sock(sock, domain, type);
+    _socks[sock] = s;
+    // Make socket above 0 for easy checks and distinguish from the real sockets
+    return scope.Close(Integer::New(SOCK_ID2(sock)));
+}
+
+static Handle<Value> Close(const Arguments& args)
+{
+    HandleScope scope;
+
+    REQUIRE_ARGUMENT_INT(0, n);
+    const sock_map::iterator it = _socks.find(SOCK_ID(n));
+    if (it != _socks.end()) {
+        Sock *sock = _socks[SOCK_ID(n)];
+        _socks.erase(sock->sock);
+        sock->Close();
+        delete sock;
+    }
+    return scope.Close(Integer::New(0));
 }
 
 static Handle<Value> ReadFd(const Arguments& args)
@@ -343,17 +376,6 @@ static Handle<Value> Unsubscribe(const Arguments& args)
     return scope.Close(Integer::New(rc));
 }
 
-static Handle<Value> Close(const Arguments& args)
-{
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_INT(0, n);
-    GETSOCK(n, sock);
-
-    int rc = sock->Close();
-    return scope.Close(Integer::New(rc));
-}
-
 static Handle<Value> SetCallback(const Arguments& args)
 {
     HandleScope scope;
@@ -432,6 +454,7 @@ void NanoMsgInit(Handle<Object> target)
 {
     HandleScope scope;
 
+    NODE_SET_METHOD(target, "nnSockets", Sockets);
     NODE_SET_METHOD(target, "nnCreate", Create);
     NODE_SET_METHOD(target, "nnReadFd", ReadFd);
     NODE_SET_METHOD(target, "nnWriteFd", WriteFd);
