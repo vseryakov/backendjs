@@ -1470,7 +1470,7 @@ core.moveFile = function(src, dst, overwrite, callback)
 
     logger.debug('moveFile:', src, dst, overwrite);
     fs.stat(dst, function (err) {
-        if (!err && !overwrite) return cb(new Error("File " + dst + " exists."));
+        if (!err && !overwrite) return callback(new Error("File " + dst + " exists."));
         fs.rename(src, dst, copyIfFailed);
     });
 }

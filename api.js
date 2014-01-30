@@ -428,11 +428,22 @@ api.initAccountAPI = function()
         			res.json(rows[0]);
         		});
         	} else {
+        	    options.public_columns = req.account.id;
         		db.list("bk_account", req.query, options, function(err, rows) {
         			if (err) return self.sendReply(res, err);
         			res.json(rows);
         		});
         	}
+            break;
+
+        case "search":
+            options.public_columns = req.account.id;
+            db.search("bk_account", req.query, options, function(err, rows, info) {
+                if (err) return self.sendReply(res, err);
+                // Send next token in the header so we keep the response as a simple list
+                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
+                res.json(rows);
+            });
             break;
 
         case "add":
@@ -485,15 +496,6 @@ api.initAccountAPI = function()
                 if (err) self.sendReply(res, err);
                 self.sendJSON(req, res, {});
                 db.del("bk_account", { id: req.account.id });
-            });
-            break;
-
-        case "search":
-            db.search("bk_account", req.query, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                // Send next token in the header so we keep the response as a simple list
-                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
-                res.json(rows);
             });
             break;
 
@@ -997,6 +999,11 @@ api.getOptions = function(req)
     if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
     if (req.query._desc) options.sort = core.toBool(req.query._desc);
     if (req.query._keys) options.keys = core.strSplit(req.query._keys);
+    if (req.query._ops) {
+        if (!options.ops) options.ops = {};
+        var ops = core.strSplit(req.query._ops);
+        for (var i = 0; i < ops.length -1; i+= 2) options.ops[ops[i]] = ops[i+1];
+    }
     if (req.query._total) options.total = core.toBool(req.query._total);
     return options;
 }
@@ -1206,36 +1213,47 @@ api.putIconS3 = function(file, id, options, callback)
     });
 }
 
-// Upload file and store inthe filesystem or S3, try to find the file in multipart form, in the body or query by the
-// given name
-api.putFile = function(req, name, outfile, callback)
+// Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name
+// - name is the name property to look for in the multipart body or in the request body or query
+// - callback will be called with err and actual filename saved
+// Output file name is built according to the following options properties:
+// - name - defines the basename for the file, no extention, if not given same name as property will be used
+// - ext - what file extention to use, appended to name, if no ext is given the extension from the
+//         uploaded file will be used or no extention if could not determine one.
+// - extkeep - tells always to keep actual extention from the uploaded file
+api.putFile = function(req, name, options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var outfile = (options.name || name) + (options.ext || "");
     if (req.files && req.files[name]) {
-        self.storeFile(req.files[name].path, outfile, callback);
+        if (!options.ext || options.extkeep) outfile += path.extname(req.files[name].originalFilename);
+        self.storeFile(req.files[name].path, outfile, options, callback);
     } else
     // JSON object submitted with .id property
     if (typeof req.body == "object" && req.body[name]) {
         var data = new Buffer(req.body[name], "base64");
-        self.storeFile(data, outfile, callback);
+        self.storeFile(data, outfile, options, callback);
     } else
     // Query base64 encoded parameter
     if (req.query[name]) {
         var data = new Buffer(req.query[name], "base64");
-        self.storeFile(data, outfile, callback);
+        self.storeFile(data, outfile, options, callback);
     } else {
         return callback();
     }
 }
 
-// Place the uploaded tmpfile to the destination pointed by the file parameter
+// Place the uploaded tmpfile to the destination pointed by outfile
 api.storeFile = function(tmpfile, outfile, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
     if (this.fileS3) {
-        var headers = { 'content-type': mime.lookup(file) };
+        var headers = { 'content-type': mime.lookup(outfile) };
         var ops = { method: "PUT", headers: headers }
         opts[Buffer.isBuffer(tmfile) ? 'postdata' : 'postfile'] = tmpfile;
         aws.queryS3(this.filesS3, outfile, opts, function(err) {
@@ -1243,12 +1261,12 @@ api.storeFile = function(tmpfile, outfile, options, callback)
         });
     } else {
         if (Buffer.isBuffer(tmpfile)) {
-            fs.writeFile(tmpfile, data, function(err) {
+            fs.writeFile(outfile, tmpfile, function(err) {
                 if (err) logger.error('storeFile:', outfile, err);
                 if (callback) callback(err, outfile);
             });
         } else {
-            core.moveFile(tmpfile, path.join(core.path.files, outfile), options.overwrite, function(err) {
+            core.moveFile(tmpfile, path.join(core.path.files, outfile), true, function(err) {
                 if (err) logger.error('storeFile:', outfile, err);
                 if (callback) callback(err, outfile);
             });

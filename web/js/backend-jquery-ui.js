@@ -65,13 +65,6 @@ Backend.dialogLogin = function(action, callback, errmsg)
 {
     var self = this;
 
-    function submit(cb) {
-        self.setCredentials($('#backend-email').val().toLowerCase(),  $('#backend-secret').val());
-        $('#backend-secret').val('');
-        self.loginDialog.dialog("close");
-        self.login(cb || self.loginDialog.dialog("option", "callback"));
-    }
-
     var div= $(
             '<div>\
             <p class="ui-title">Please provide your account email and password.</p>\
@@ -85,6 +78,13 @@ Backend.dialogLogin = function(action, callback, errmsg)
             </fieldset>\
             </form>\
             </div>');
+
+    function submit(cb) {
+        self.setCredentials($('#backend-email').val().toLowerCase(),  $('#backend-secret').val());
+        $('#backend-secret').val('');
+        div.dialog("close");
+        self.login(cb || div.dialog("option", "callback"));
+    }
 
     div.dialog({
         autoOpen: false,

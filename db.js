@@ -372,6 +372,7 @@ db.query = function(req, options, callback)
             if (options && options.public_columns) {
                 var col = options.public_key || 'id';
                 var cols = self.getPublicColumns(req.table, options);
+                logger.log('public:', options.public_columns, cols)
                 if (cols.length) {
                     rows.forEach(function(row) {
                         if (row[col] == options.public_columns) return;
@@ -551,6 +552,7 @@ db.list = function(table, obj, options, callback)
 		if (!keys || !keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
 		obj = core.strSplit(obj).map(function(x) { return core.newObj(keys[0], x) });
 	case "array":
+	case "object":
 		break;
 	default:
 		return callback ? callback(new Error("invalid list"), []) : null;
@@ -773,9 +775,8 @@ db.getSelectedColumns = function(table, options)
 {
     var self = this;
     var cols = this.getColumns(table, options);
-    var pub = this.getPublicColumns(table, options);
     if (options.select) options.select = core.strSplitUnique(options.select);
-    var select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols) || (options.public_columns && pub.indexOf(x) == -1); });
+    var select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols); });
     return select.length ? select : null;
 }
 
