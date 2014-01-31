@@ -16,7 +16,7 @@ var renderer = new marked.Renderer();
 var header = '<head><title>Backend Documentation</title><link rel="stylesheet" href="css/doc.css"></head>\n';
 var toc = "# Backend Documentation\n##Table of contents:\n";
 
-var readme = fs.readFileSync("README.md").toString().replace("# [Manual](web/doc.html)", "");
+var readme = fs.readFileSync("README.md").toString();
 
 readme.split("\n").forEach(function(x) {
     var d = x.match(/^# (.+)/);

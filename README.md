@@ -280,8 +280,6 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
          '2013.10.20.0'
         > logger.setDebug(2)
 
-# [Manual](web/doc.html)
-
 # Author
   Vlad Seryakov
 
