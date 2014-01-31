@@ -1020,7 +1020,7 @@ core.signUrl = function(accesskey, secret, host, uri, options)
     return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
 }
 
-// Parse incomomg request for signature and return all pieces wrapped in an object, this object
+// Parse incoming request for signature and return all pieces wrapped in an object, this object
 // will be used by checkSignature function for verification against an account
 // signature version:
 //  - 1 sig secret - real secret, sig id - real email
@@ -1542,6 +1542,8 @@ core.statSync = function(file)
 }
 
 // Return list of files than match filter recursively starting with given path
+// - file - starting path
+// - filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync
 core.findFileSync = function(file, filter)
 {
     var list = [];

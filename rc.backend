@@ -34,7 +34,7 @@ case "$PLATFORM" in
     [ "$BACKEND_OS_TYPE" != "" ] && MASTER=$OS_TYPE-$MASTER
     KILLALL="killall -qr"
     ;;
-    
+
   Darwin)
     OS_TYPE=macosx
     [ "$PREFIX" = "" ] && PREFIX=/opt/local
@@ -90,7 +90,7 @@ case "$ARG" in
     $KILLALL 'backend:'
     exit 0
     ;;
-  
+
   stop-web)
     $KILLALL 'backend: web'
     $KILLALL 'backend: web'
@@ -105,12 +105,12 @@ case "$ARG" in
     # Restart itself with new code to continue the init sequence
     ($0 setup-server)
     ;;
-	
+
   setup-server)
     # Combine with command line arguments if running manually
     BACKEND_ARGS="$BACKEND_ARGS $@"
 
-    # Mount data disk, for cases when all configs are on this disk so the bootstrap profile 
+    # Mount data disk, for cases when all configs are on this disk so the bootstrap profile
     # must be located somewhere else like home or etc
     if [ "$(grep $ROOT /proc/mounts)" = "" -a "$(grep $DISK /proc/diskstats)" != "" ] ; then
       echo "Mounting $ROOT to $DISK ..."
@@ -235,7 +235,7 @@ case "$ARG" in
        echo 'vm.max_map_count = 131072' >> /etc/sysctl.conf
     fi
 
-    # DNS cache 
+    # DNS cache
     if [ ! -f /etc/dnsmasq.conf -o "$(grep '#Backend' /etc/dnsmasq.conf)" = "" ]; then
        echo "#Backend" > /etc/dnsmasq.conf
        echo "domain-needed" >> /etc/dnsmasq.conf
@@ -288,14 +288,14 @@ case "$ARG" in
     echo "Setting permissions..."
     sed -i 's/requiretty/!requiretty/' /etc/sudoers
     [ ! -f $ROOT ] && mkdir -p $ROOT/bin $ROOT/etc $ROOT/var $ROOT/log && chown $LOCAL_USER $ROOT
-    touch /var/log/messages $ROOT/log/access.log 
+    touch /var/log/messages $ROOT/log/access.log
     chmod -f g+r /var/log/messages $ROOT/log/access.log
     chown -fR $LOCAL_USER $PREFIX $ROOT/etc $ROOT/var $ROOT/log/access.log
     [ -f $ROOT/postgres ] && chown -fR postgres $ROOT/postgres
 
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
-    
+
     # Disable atime on the filesystem
     mount -o remount,noatime /
 
@@ -303,14 +303,14 @@ case "$ARG" in
     ln -sf $PREFIX/bin/rc.backend /etc/init.d/backend
     (cd /etc/rc3.d && ln -sf ../init.d/backend S25backend-init)
     (cd /etc/rc3.d && ln -sf ../init.d/backend S70backend-run)
-    
+
     # Sync time
     ln -sf $PREFIX/bin/rc.backend /etc/cron.hourly/ntp
 
     # Cleanup previous syncing scripts, we always setup from scratch
     find /etc/cron.hourly -name 'sync*' -type l -exec rm -f "{}" ";"
     find /etc/cron.d -name 'sync*' -type l -exec rm -f "{}" ";"
-    
+
     # Setup syncing scripts
     for dir in $BACKEND_SYNC; do
        echo "Syncing sync-$dir..."
@@ -325,7 +325,7 @@ case "$ARG" in
     fi
 
     # Linux distro specific actions
-    case "$OS_TYPE" in 
+    case "$OS_TYPE" in
       centos)
          if [ ! -f /etc/yum.repos.d/pgdg-93-centos.repo ]; then
             echo "Setting up PostgreSQL repo..."
@@ -341,10 +341,10 @@ case "$ARG" in
       amazon)
          ;;
     esac
-    
+
     # Install required packages and utilities
-    yum -y install gcc-c++ make cmake autoconf automake libtool 
-    yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel 
+    yum -y install gcc-c++ make cmake autoconf automake libtool
+    yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel
     yum -y install postgresql93-devel
 
     ;;
@@ -353,7 +353,7 @@ case "$ARG" in
     # Additional arguments via EC2 instance user data
     BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
     [[ $BACKEND_ARGS = *-no-server* ]] && exit
- 
+
     echo "Starting backend $BACKEND_ARGS ..."
     $PREFIX/bin/node $NODE_ARGS $NODE_BACKEND/server.js -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
     ;;
@@ -368,7 +368,7 @@ case "$ARG" in
           echo $ps >> /var/log/messages
           /sbin/halt
        fi
-    fi 
+    fi
     if [ $uptime -gt $MAX_RUNTIME ]; then
        logger "Too long running, $uptime/$MAX_RUNTIME, shutting down..."
        /sbin/halt
@@ -421,11 +421,11 @@ case "$ARG" in
     # Files and dirs to backup
     TAR_FILES="/etc /home/$LOCAL_USER $ROOT/etc $ROOT/web $PREFIX $BACKUP_FILES"
     # File extensions to exclude from the backup
-    for ext in $TAR_EXCLUDE; do 
+    for ext in $TAR_EXCLUDE; do
        TAR_ARGS="--exclude='*.$ext' $TAR_ARGS"
     done
     mkdir -p $BACKUP
-    
+
     # Database backup if exists
     if [ "$BACKUP_PG" != "" -a -e $PG_DIR/base ]; then
        TAR_FILES="$TAR_FILES $PG_DIR/*.conf"
@@ -438,8 +438,8 @@ case "$ARG" in
     if [ "$BACKUP_FS" != "" ]; then
        tar $TAR_ARGS -czf $BACKUP/$FILE.tar.gz $TAR_FILES 2>&1 |egrep -v "tar: Removing leading|tar:.+ignored|as we read it"
     fi
- 
-    # Send to remote site backup files   
+
+    # Send to remote site backup files
     REMOTE_BACKUP="$REMOTE_BACKUP $REMOTE_BACKUP_WEEKLY $REMOTE_BACKUP_MONTHLY"
     [ -f $BACKUP/$FILE.tar.gz ] && SCP_FILES="$SCP_FILES $BACKUP/$FILE.tar.gz"
     [ -f $BACKUP/$FILE.dump ] && SCP_FILES="$SCP_FILES $BACKUP/$FILE.dump"
@@ -456,22 +456,22 @@ case "$ARG" in
     if [ ! -d $PG_DIR ]; then
        mkdir -p $PG_DIR
        $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
-       sed -i '' "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf 
-       sed -i '' "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf 
+       sed -i '' "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf
+       sed -i '' "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
        $PG_PREFIX/bin/postgres -F -D $PG_DIR &
        sleep 3
        $PG_PREFIX/bin/createdb -U $PG_USER backend
-    fi   
+    fi
     ;;
-      
+
   run-pg)
     $PG_PREFIX/bin/postgres -F -D $PG_DIR &
     ;;
-    
+
   stop-pg)
     killall postgres
-    ;;  
-    
+    ;;
+
   init-mysql)
     if [ ! -d $MYSQL_DIR ]; then
        mkdir -p $MYSQL_DIR
@@ -480,28 +480,28 @@ case "$ARG" in
        $MYSQL_PREFIX/bin/mysqld &
        sleep 3
        $MYSQL_PREFIX/bin/mysql -u root -e "DELETE FROM user WHERE user='';" mysql
-    fi   
+    fi
     ;;
-      
+
   stop-mysql)
     killall mysqld
     ;;
-        
+
   get-ddb)
     mkdir -p $DDB_PREFIX
     curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz
     tar -C $DDB_PREFIX --strip-components=1 -xzf ddb.tar.gz
     rm -rf ddb.tar.gz
     ;;
-    
+
   run-ddb)
     (cd $ROOT/var && exec nohup java -Djava.library.path=$DDB_PREFIX -jar $DDB_PREFIX/DynamoDBLocal.jar --port 8181 >../log/ddb.log 2>&1 &)
     ;;
-    
+
   stop-ddb)
     kill $(ps agx|grep dynamodb|grep -v grep|awk '{print $1}')
     ;;
-      
+
   get-cdb)
     if [ ! -d $CDB_PREFIX ]; then
         mkdir -p $CDB_PREFIX $CDB_DIR/var $CDB_DIR/log
@@ -513,21 +513,21 @@ case "$ARG" in
         chown -R $LOCAL_USER $CDB_DIR $CDB_PREFIX
     fi
     ;;
-  
+
   init-cdb)
     ($0 run-cdb)
     echo "create keyspace backend with replication = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
     $CDB_PREFIX/bin/cqlsh -f /tmp/cql
     ;;
-    
+
   run-cdb)
     $CDB_PREFIX/bin/cassandra
     ;;
-    
+
   stop-cdb)
     kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
     ;;
-      
+
   init-backend)
     echo "Settings permissions for $PREFIX to $(whoami)..."
     sudo chown -R $(whoami) $PREFIX
@@ -538,21 +538,21 @@ case "$ARG" in
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
     rm -rf $PREFIX/bin/rc.backend && ln -s $(pwd) $NODE_BACKEND/rc.backend $PREFIX/bin/rc.backend
     ;;
-    
+
   put-backend)
     [ "$MASTER" = "" ] && exit
     rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude '*.o' --exclude '*.so' --exclude 'build' .rsync-filter *.js Makefile* lib node $MASTER:$NODE_BACKEND
     rsync -av -e "ssh -l $BACKEND_USER" backend rc.backend $MASTER:$PREFIX/bin
     rsync -av -e "ssh -l $BACKEND_USER" web/ $MASTER:$ROOT/web
     ;;
-    
+
   run-backend)
     killall node
     SCRIPT=$NODE_BACKEND/server.js
     [ -f server.js ] && SCRIPT=server.js
     $PREFIX/bin/node $SCRIPT -watch `pwd` -debug -home $ROOT -repl -watch-delay 0 -nocron -console -master -web -port 8000 -web-repl-port 2081 $BACKEND_ARGS $@
     ;;
-    
+
   run-shell)
     SCRIPT=$NODE_BACKEND/server.js
     [ -f server.js ] && SCRIPT=server.js
@@ -567,54 +567,54 @@ case "$ARG" in
     rm -rf *~ *.o *.a *.so *.dylib *.node *.log build
     [ -f lib/Makefile ] && make -C lib clean
     ;;
-    
+
   build-backend)
     set -e
     if [ ! -f build/Makefile -o binding.gyp -nt build/Makefile ]; then
       $PREFIX/bin/npm build .
-    else  
+    else
       $PREFIX/bin/npm run-script preinstall
       make -C build
       $PREFIX/bin/npm run-script postinstall
-    fi  
+    fi
     exit 0
     ;;
-    
+
   build-node)
     if [ ! -d deps/node ]; then
        mkdir -p deps
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
        echo "global=true\nnodedir=`pwd`/deps/node" > $HOME/.npmrc
-       CFLAGS="-fno-omit-frame-pointer" 
+       CFLAGS="-fno-omit-frame-pointer"
        CXXFLAGS="-fno-omit-frame-pointer"
     fi
     (cd deps/node && [ ! -f Makefile ] && ./configure --prefix=$PREFIX)
     (cd deps/node && git pull && make install clean)
     ;;
-    
+
   build-deps)
     set -e
     PREFIX=$(pwd)/build
     PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
     mkdir -p deps
-    
+
     if [ ! -d deps/nanomsg ]; then
        (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
        (cd deps/nanomsg && [ ! -f configure ] && ./autogen.sh)
     fi
     (cd deps/nanomsg && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
     (cd deps/nanomsg && git pull && make install)
-    
+
     if [ ! -d deps/snappy-1.1.1 ]; then
        curl -OL https://snappy.googlecode.com/files/snappy-1.1.1.tar.gz
        tar -C deps -xzf snappy-1.1.1.tar.gz && rm -rf snappy-1.1.1.tar.gz
-    fi   
+    fi
     (cd deps/snappy-1.1.1 && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
     (cd deps/snappy-1.1.1 && make install)
-    
+
     if [ ! -d deps/leveldb ]; then
        (cd deps && git clone https://code.google.com/p/leveldb)
-    fi   
+    fi
     (cd deps/leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY -I$PREFIX/include" libleveldb.a && cp -r include/leveldb $PREFIX/include && cp *.a $PREFIX/lib)
 
     if [ ! -d deps/ImageMagick ]; then
@@ -625,8 +625,8 @@ case "$ARG" in
     CFLAGS="-I$PREFIX/include"
     LDFLAGS="-L$PREFIX/lib"
     [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include"
-    [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/locall/lib" && CFLAGS="$CFLAGS -I/usr/local/include" 
-    (cd deps/ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS") 
+    [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/locall/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
+    (cd deps/ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS")
     (cd deps/ImageMagick && make install)
     exit 0
     ;;
@@ -637,11 +637,11 @@ case "$ARG" in
     [ ! -d deps/leveldb ] && make -C deps/leveldb clean
     [ ! -d deps/snappy-1.1.1 ] && make -C deps/snappy-1.1.1 clean
     ;;
-    
+
   npm-deps)
     $PREFIX/bin/npm install $(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))')
     ;;
-    
+
   init-app)
     NAME=app
     [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
@@ -653,10 +653,10 @@ case "$ARG" in
       echo "var backend = require('backend');" >> $NAME.js
       echo "var express = require('express');\n" >> $NAME.js
       echo "backend.api.describeTables({ test: { id: { primary: 1 }, name: {} } });\n" >> $NAME.js
-      echo "backend.api.initMiddleware = function()" >> $NAME.js 
+      echo "backend.api.initMiddleware = function()" >> $NAME.js
       echo "{" >> $NAME.js
       echo "    // Use web pages from current directory" >> $NAME.js
-      echo "    this.app.use(express.static(__dirname + "/web"));" >> $NAME.js       
+      echo "    this.app.use(express.static(__dirname + "'/web'"));" >> $NAME.js
       echo "}\n" >> $NAME.js
       echo "backend.api.initApplication = function(callback) {" >> $NAME.js
       echo "    // Add new record" >> $NAME.js
@@ -670,19 +670,19 @@ case "$ARG" in
       echo "    callback()" >> $NAME.js
       echo "};\n" >> $NAME.js
       echo "backend.server.start();" >> $NAME.js
-    fi  
+    fi
     ;;
-    
+
   run-app)
     NAME=app
     [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
-    $PREFIX/bin/node $NAME.js -web -port 8000 $@ 
-    ;;  
-    
+    $PREFIX/bin/node $NAME.js -web -port 8000 $@
+    ;;
+
   show)
     set
     ;;
-    
+
   *)
     echo "usage: $NAME command ..."
     echo "  where command is:"
@@ -694,7 +694,7 @@ case "$ARG" in
     echo "  stop - stop the backend server"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
     echo "  init-server - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
-    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use (Amazon AMI, CentOS)" 
+    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use (Amazon AMI, CentOS)"
     echo "  run-server - run the backend server process"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  sync - synchronize the backend code from the master server, uses '$MASTER.$DOMAIN' hostname to rsync over ssh"

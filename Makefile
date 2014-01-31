@@ -18,5 +18,8 @@ shell:
 clean:
 	./rc.backend clean-backend
 
+test-db:
+	for d in sqlite pgsql mysql dynamodb cassandra; do node tests.js -cmd db -db-pool $$d -log log; done
+
 doc:
-	docco *.js
+	node doc.js > web/doc.html

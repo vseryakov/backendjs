@@ -372,7 +372,6 @@ db.query = function(req, options, callback)
             if (options && options.public_columns) {
                 var col = options.public_key || 'id';
                 var cols = self.getPublicColumns(req.table, options);
-                logger.log('public:', options.public_columns, cols)
                 if (cols.length) {
                     rows.forEach(function(row) {
                         if (row[col] == options.public_columns) return;
@@ -406,7 +405,7 @@ db.add = function(table, obj, options, callback)
 // - obj - an object with record properties, primary key properties must be specified
 // - options - same properties as for .select method with the following additional options:
 //     - mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
-//               string then it is used as a name of the column instead of default mtime name
+//       string then it is used as a name of the column instead of default mtime name
 db.put = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -459,10 +458,10 @@ db.del = function(table, obj, options, callback)
 // - obj is a Javascript object with properties that correspond to the table columns
 // - options define additional flags that may
 //   - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-//            then default primary keys for the table will be used
+//     then default primary keys for the table will be used
 //   - check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value
 //   - check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
-//                  if it is an array then check only specified columns
+//     if it is an array then check only specified columns
 db.replace = function(table, obj, options, callback)
 {
     var self = this;
@@ -1894,15 +1893,20 @@ db.dynamodbInitPool = function(options)
 
         switch(req.op) {
         case "create":
-            var attrs = Object.keys(obj).filter(function(x) { return obj[x].primary || obj[x].index }).
-                               map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
-                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-            var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
+            var idxs = [];
+            var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary}).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-            var idxs = Object.keys(obj).filter(function(x) { return obj[x].index }).
+
+            if (keys.length == 2) {
+                idxs = Object.keys(obj).filter(function(x) { return obj[x].index }).
                               map(function(x) { return [x, core.newObj(Object.keys(obj).filter(function(y) { return obj[y].primary })[0], 'HASH', x, 'RANGE') ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            }
+            var attrs = Object.keys(obj).filter(function(x) { return obj[x].primary || (idxs.length && obj[x].index) }).
+                               map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
+                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+
             aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
                 callback(err, item.Item ? [item.Item] : []);
             });

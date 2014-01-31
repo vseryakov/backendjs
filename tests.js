@@ -77,9 +77,9 @@ tests.start = function(type)
 	    function(err) {
 	    	if (err) {
 	    	    logger.error(self.name, "failed:", type, err);
-	    	} else {
-	    	    logger.log(self.name, "stopped:", type, core.mnow() - self.start_time, "ms");
+	    	    process.exit(1);
 	    	}
+	    	logger.log(self.name, "stopped:", type, core.mnow() - self.start_time, "ms");
 	    	process.exit(0);
 	    });
 };
@@ -333,6 +333,7 @@ tests.db = function(callback)
 	var id2 = core.random(128);
     var num2 = core.randomNum(bbox[0], bbox[2]);
 	var next_token = null;
+	logger.log('db: test', db.pool);
 
 	async.series([
 	    function(next) {

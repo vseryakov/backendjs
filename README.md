@@ -48,7 +48,7 @@ Features:
 * To see all public fields for all accounts just execute
 
         /account/search
-
+* Documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
 * Shutdown the backend by pressing Ctrl-C
 * To make custom Web app run the following command:
 
@@ -89,9 +89,9 @@ All requests to the API server must be signed with account email/secret pair.
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
     * Form BK-Signature HTTP header as the following:
         - The header string consist of multiple fields separated by pipe |
-            - Field1: Signature version, 1,2,3,4, the difference is what kind of secret is used for signing the canonical string:
+            - Field1: Signature version, 1,2,3,4, the difference is what kind of secret and email are used for signing the canonical string:
                 - version 1, the original secret and email are used
-                - version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret, BASE64(HMAC-SHA1(secret, email))
+                - version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret, BASE64(HMAC-SHA1(secret, email)), email is original
                 - version 3 the secret is as in version 2, email is BASE64(HMAC-SHA1(secret2, email)) where secret2 is the secret from version 2
                 - version 4 is the same as version 3 but it is used in session cookies, not headers
             - Field2: Application version or other ap specific data
@@ -105,12 +105,63 @@ The resulting signature is sent as HTTP header bk-signature: string
 See web/js/backend.js for function Backend.sign or core.js function signRequest for the Javascript implementation.
 
 ## Accounts
+This API manages accounts and authentication, by default each account stores basic information about the user:
+    - /account/get
+        Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
+        Public columsn are the columns marked with pub: property in the table definition object passed to the `db.initTables` or `api.describeTables` functions.
+        Parameters:
+        - id=id,id,... - return information about given accounts, the id parameter can be a single account id or list of ids separated by comma,
+            if no id parameter is given then current account record is returned
+        - _session - after successful login return session cookies so the Web app can perform requests without signing
+
+    - /account/add
+        Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
+        Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
+        type 1, different signature type cannot be mixed.
+
+    - /account/search
+        Return list of accounts by the given condition. Parameters are the column values to be matched.
+        Parameters:
+        - _keys -
+        _ _ops -
+        _ _select -
+
+    - /account/del
+        Delete current account
+
+    - /account/update
+        Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.
+
+    - /account/put/secret
+        Change account secret for the current account
+        Parameters:
+        - secret - new secret for the account
+
+    - /account/get/icon
+        Return account icon
+        Parameters:
+        - type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used
+
+    - /account/put/icon
+        Upload account icon
+        Parameters:
+        - type - icon type, a number between 0 and 9, if not specified 0 is used
+        - icon - can be passed as base64 encoded image in the query,
+        - icon - can be passed as base64 encoded string in the body as JSON
+        - icon - can be passed in multipart form as a part name
+
+    - /account/del/icon
+        Delete account icon
+        Parameters:
+        - type - what icon to delet, if not specified 0 is used
+
 ## Connections
 ## Locations
 ## Messages
 ## Icons
 ## Counters
 ## History
+## Data
 
 # Backend configuration and directory structure
 
@@ -209,12 +260,6 @@ customize the running environment, these should be regular shell scripts using b
   backend via npm with all dependencies:
 
         ./rc.backend npm-deps
-
-
-* If you would like to be able to generate documentation with `make doc`, you will need to install the Docco module:
-
-        npm install -g docco
-
 
 * to compile the binary module and all required dependencies just type ```make```
 

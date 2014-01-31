@@ -1,0 +1,1953 @@
+<head><title>Backend Documentation</title><link rel="stylesheet" href="css/doc.css"></head>
+<h1 id="backend-documentation">Backend Documentation</h1>
+<h2 id="table-of-contents-">Table of contents:</h2>
+<ul>
+<li><a href="#module-api"> Module: api</a></li>
+<li><a href="#module-aws"> Module: aws</a></li>
+<li><a href="#module-core"> Module: core</a></li>
+<li><a href="#module-db"> Module: db</a></li>
+<li><a href="#module-logger"> Module: logger</a></li>
+<li><a href="#module-server"> Module: server</a></li>
+</ul>
+<h2 id="module-api">Module: API</h2>
+<ul>
+<li><p><code>api</code></p>
+<p> HTTP API to the server from the clients</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.init(callback)</code></p>
+<p> Initialize API layer with the active HTTP server</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initApplication(callback)</code></p>
+<p> This handler is called after the Express server has been setup and all default API endpoints initialized but the server
+is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initMiddleware()</code></p>
+<p> This handler is called during the Express server initialization just after the security middleware.
+this.app refers to the Express instance.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkRequest(req, res, callback)</code></p>
+<p> Perform authorization of the incoming request for access and permissions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAccess(req, callback)</code></p>
+<p> Perform URL based access checks
+Check access permissions, calls the callback with the following argument:</p>
+<ul>
+<li>nothing if checkSignature needs to be called</li>
+<li>an object with status: 200 to skip authorization and proceed with the next module</li>
+<li>an object with status: 0 means response has been sent, just stop</li>
+<li>an object with status other than 0 or 200 to return the status and stop request processing</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAuthorization(req, callback)</code></p>
+<p> Perform authorization chedks after the account been authenticated</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkSignature(req, callback)</code></p>
+<p> Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initAccountAPI()</code></p>
+<p> Account management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initIconAPI()</code></p>
+<p> Generic icon management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initMessageAPI()</code></p>
+<p> Messaging management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initHistoryAPI()</code></p>
+<p> Connections management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initCounterAPI()</code></p>
+<p> Counters management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initConnectionAPI()</code></p>
+<p> Connections management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initLocationAPI()</code></p>
+<p> Geo locations management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.processAccountRow(row, options, cols)</code></p>
+<p> Prepare an account record for response, set required fields, icons</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initDataAPI()</code></p>
+<p> API for internal provisioning, by default supports access to all tables</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initTables(callback)</code></p>
+<p> Called in the master process to create/upgrade API related tables</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getOptions(req)</code></p>
+<p> Convert query options into database options</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.describeTables(tables)</code></p>
+<p> Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes
+Used during initialization of the external modules which may add custom columns to the existing tables.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.findHook(type, method, path)</code></p>
+<p> Find registered hook for given type and path</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.registerAccessCheck(method, path, callback)</code></p>
+<p> Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
+validating the signature or session cookies.</p>
+<ul>
+<li>method can be &#39;&#39; in such case all mathods will be matched</li>
+<li>path is a string or regexp of the request URL similr to registering Express routes</li>
+<li>callback is a function with the following parameters: function(req, cb) {}, see <code>checkAccess</code> for the return type
+Example:<pre><code>  api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, function(req, cb) {}))
+  api.registerAccessCheck(&#39;POST&#39;, &#39;account/add&#39;, function(req, cb) {});
+</code></pre></li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.registerAuthCheck(method, path, callback)</code></p>
+<p> Similar to <code>registerAccesscheck</code> but this callback will be called after the signature or session is verified. The purpose of
+this hook is too check permissions of a valid user to resources.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.registerPostProcess(method, path, callback)</code></p>
+<p> Register a callback to be called after successfull API action, status 200 only.
+The purpose is to perform some additional actions after the standard API completed or to customize the result</p>
+<ul>
+<li>method can be &#39;&#39; in such case all mathods will be matched</li>
+<li>path is a string or regexp of the request URL similr to registering Express routes</li>
+<li>callback is a function with the following parameters: function(req, res, rows) where rows is the result returned by the API handler,
+the callback MUST return data back to the client or any other status code</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.registerAccessPath(path, deny)</code></p>
+<p> Register path to be allowed or rejected based on the request URL path,
+path is a string with a regexp, not the actual RegExp object.</p>
+<ul>
+<li>if deny is not specified or false then the access to matched path will be granted without any authentication</li>
+<li>if deny is true then this path will be denied access completely (this is for hidding some paths but keeping in the code/filesystem)
+This call must be issued before api is initialized, i.e. only in the api.initMiddleware
+Example:<pre><code>  api.registerAccessPath(&quot;^/counter/&quot;)
+</code></pre></li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendJSON(req, res, rows)</code></p>
+<p> Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in teh apps</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendReply(res, status, msg)</code></p>
+<p> Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendFile(req, res, file, redirect)</code></p>
+<p> Send file back to the client, res is Express response object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getIcon(req, res, id, options)</code></p>
+<p> Return icon to the client</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putIcon(req, id, options, callback)</code></p>
+<p> Store an icon for account, .type defines icon prefix</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.storeIcon(icon, id, options, callback)</code></p>
+<p> Place the icon data to the destination</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delIcon(req, id, options, callback)</code></p>
+<p> Delete an icon for account, .type defines icon prefix</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putIconS3(file, id, options, callback)</code></p>
+<p> Same as putIcon but store the icon in the S3 bucket, icon can be a file or a buffer with image data</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putFile(req, name, options, callback)</code></p>
+<p> Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name</p>
+<ul>
+<li>name is the name property to look for in the multipart body or in the request body or query</li>
+<li>callback will be called with err and actual filename saved
+Output file name is built according to the following options properties:</li>
+<li>name - defines the basename for the file, no extention, if not given same name as property will be used</li>
+<li>ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
+<li>extkeep - tells always to keep actual extention from the uploaded file</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.storeFile(tmpfile, outfile, options, callback)</code></p>
+<p> Place the uploaded tmpfile to the destination pointed by outfile</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.deleteFile(req, file, options, callback)</code></p>
+<p> Delete file by name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.accessLogger()</code></p>
+<p> Custom access logger</p>
+</li>
+</ul>
+
+<h2 id="module-aws">Module: AWS</h2>
+<ul>
+<li><p><code>aws.queryAWS(proto, method, host, path, obj, callback)</code></p>
+<p> Make AWS request, return parsed response as Javascript object or null in case of error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryEC2(action, obj, callback)</code></p>
+<p> AWS EC2 API parameters</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.querySign(service, host, method, path, body, headers)</code></p>
+<p> Build version 4 signature headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryDDB (action, obj, options, callback)</code></p>
+<p> DynamoDB requests</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.signS3(method, bucket, key, query, headers, expires)</code></p>
+<p> Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryS3(bucket, key, options, callback)</code></p>
+<p> S3 requests
+Options may contain the following properties:</p>
+<ul>
+<li>method - HTTP method</li>
+<li>query - query parameters for the url as an object</li>
+<li>postdata - any data to be sent with POST</li>
+<li>postfile - file to be uploaded to S3 bucket</li>
+<li>expires - absolute time when this request is expires</li>
+<li>headers - HTTP headers to be sent with request</li>
+<li>file - file name where to save downloaded contents</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.runInstances(count, args, callback)</code></p>
+<p> Run AWS instances with given arguments in user-data</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getInstanceMeta(path, callback)</code></p>
+<p> Retrieve instance meta data</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getInstanceInfo(callback)</code></p>
+<p> Retrieve instance launch index from the meta data if running on AWS instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbListTables(options, callback)</code></p>
+<p> Return list of tables in .TableNames property of the result
+Example: { TableNames: [ name, ...] }</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbDescribeTable(name, options, callback)</code></p>
+<p> Return table definition and parameters in the result structure with property of the given table name
+Example: { name: { AttributeDefinitions: [], KeySchema: [] ...} }</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbCreateTable(name, attrs, keys, indexes, options, callback)</code></p>
+<p> Create a table</p>
+<ul>
+<li>attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS</li>
+<li>keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE</li>
+<li>indexes can be an array in native DDB JSON format or an object with each property for an index name and
+value in the same format as for primary keys, additional property _projection defines projection type for an index.</li>
+<li>options may contain any valid native property if it starts with capital letter.
+Example: ddbCreateTable(&#39;users&#39;, {id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;}, {id:&#39;HASH&#39;,name:&#39;RANGE&#39;}, {mtime:{mtime:&quot;HASH&quot;,_projection:&quot;ALL&quot;}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbGetItem(name, keys, options, callback)</code></p>
+<p> Retrieve one item by primary key</p>
+<ul>
+<li>keys - an object with primary key attributes name and value.</li>
+<li>select - list of columns to return, otherwise all columns will be returned</li>
+<li>options may contain any native property allowed in the request or special properties:<ul>
+<li>consistent - set consistency level for the request
+Example: ddbGetItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39; })</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbPutItem(name, item, options, callback)</code></p>
+<p> Put or add an item</p>
+<ul>
+<li>item is an object, type will be inferred from the native js type.</li>
+<li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
+<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
+any other exact value to be checked against which corresponds to { Exists: true, Value: value }
+Example: ddbPutItem(&quot;users&quot;, { id: 1, name: &quot;john&quot;, mtime: 11233434 }, { expected: { name: null } })</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbUpdateItem(name, keys, item, options, callback)</code></p>
+<p> Update an item</p>
+<ul>
+<li>keys is an object with primary key attributes name and value.</li>
+<li>item is an object with properties where value can be:<ul>
+<li>number/string/array - action PUT, replace or add new value</li>
+<li>null - action DELETE</li>
+</ul>
+</li>
+<li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
+<li>ops - an object with operators to be used for properties if other than PUT</li>
+<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
+any other exact value to be checked against which corresponds to { Exists: true, Value: value }
+Example: ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: 1 } })</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbDeleteItem(name, keys, options, callback)</code></p>
+<p> Delete an item from a table</p>
+<ul>
+<li>keys is an object with name: value for hash/range attributes</li>
+<li>options may contain any valid native property if it starts with capital letter.
+Example: ddbDeleteItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, {})</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbBatchWriteItem(items, options, callback)</code></p>
+<p> Update items from the list at the same time</p>
+<ul>
+<li>items is a list of objects with table name as property and list of operations, an operation can be PutRequest or DeleteRequest</li>
+<li>options may contain any valid native property if it starts with capital letter.
+Example: { table: [ { PutRequest: { id: 1, name: &quot;tt&quot; } }, ] }</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbBatchGetItem(items, options, callback)</code></p>
+<p> Retrieve all items for given list of keys</p>
+<ul>
+<li>items is an object with table name as property name and list of options for GetItem request</li>
+<li>options may contain any valid native property if it starts with capital letter.
+Example: { users: { keys: [{ id: 1, name: &quot;john&quot; },{ id: .., name: .. }], select: [&#39;name&#39;,&#39;id&#39;], consistent: true }, ... }</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbQueryTable(name, condition, options, callback)</code></p>
+<p> Query on a table, return all matching items</p>
+<ul>
+<li>condition is an object with name: value pairs, by default EQ opeartor is used for comparison</li>
+<li>options may contain any valid native property if it starts with capital letter or special property:<ul>
+<li>start - defines starting primary key when paginating, can be a string/number for hash or an object with hash/range properties</li>
+<li>consistent - set consistency level for the request</li>
+<li>select - list of attributes to get only</li>
+<li>total - return number of matching records</li>
+<li>count - limit number of record in result</li>
+<li>desc - descending order</li>
+<li>sort - index name to use, indexes are named the same as the corresponding column</li>
+<li>ops - an object with operators to be used for properties if other than EQ.
+Example: ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39;, op: { name: &#39;gt&#39; } })</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.dbScanTable(name, condition, options, callback)</code></p>
+<p> Scan a table for all matching items</p>
+<ul>
+<li>condition is an object with name: value pairs</li>
+<li>options may contain any valid native property if it starts with capital letter or special property:<ul>
+<li>start - defines starting primary key</li>
+<li>ops - an object with operators to be used for properties if other than EQ.
+Example: ddbScanTable(&quot;users&quot;, { id: 1, name: &#39;a&#39; }, { op: { name: &#39;gt&#39; }})</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<h2 id="module-core">Module: CORE</h2>
+<ul>
+<li><p><code>core</code></p>
+<p> The primary object containing all config options and common functions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.init(callback)</code></p>
+<p> Main intialization, must be called prior to perform any actions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.run(callback)</code></p>
+<p> Run any backend function after environment has been intialized, this is to be used in shell scripts,
+core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
+default environment or pass -home dir so the script will reuse same config and paths as the server
+context can be specified for the callback, if no then it run in the core context</p>
+<ul>
+<li>require(&#39;backend&#39;).run(function() {}) is one example where this call is used as a shortcut for ad-hoc scripting</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.setHome(home)</code></p>
+<p> Switch to new home directory, exit if we cannot, this is important for relative paths to work if used,
+no need to do this in worker because we already switched to home diretory in the master and all child processes
+inherit current directory
+Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling
+it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.parseArgs(argv)</code></p>
+<p> Parse command line arguments</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.processArgs(name, ctx, argv, pass)</code></p>
+<p> Config parameters defined in a module as a list of parameter names prefixed with module name, a parameters can be
+a string which defines text parameter or an object with the properties: name, type, value, decimals, min, max, separator
+type can be bool, number, list, json</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.help()</code></p>
+<p> Print help about command line arguments and exit</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.loadConfig(callback)</code></p>
+<p> Parse local config file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.ipcInitServer()</code></p>
+<p> Setup 2-way IPC channel between master and worker.
+Cache management signaling, all servers maintain local cache per process of account, any server in the cluster
+that modifies an account record sends &#39;del&#39; command to clear local caches so the actual record will be re-read from
+the database, all servers share the same database and update it directly. The eviction is done in 2 phases, first local process cache
+is cleared and then it sends a broadcast to all servers in the cluster using nanomsg socket, other servers all subscribed to that
+socket and listen for messages.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.ipcSend(cmd, key, value, callback)</code></p>
+<p> Send cache command to the master process via IPC messages, callback is used for commands that return value back</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.ipcSubscribe(key, callback)</code></p>
+<p> Subscribe to the publishing swrver for messages starting with the given key, the callback will be called only on new data received
+Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.ipcUnsubscribe(sock)</code></p>
+<p> Close subscription</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.ipcPublish(key, data)</code></p>
+<p> Publish an event to be sent to the subscribed clients</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.encodeURIComponent(str)</code></p>
+<p> Encode with additional symbols</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.toTitle(name)</code></p>
+<p> Convert text into captalized words</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.toCamel(name)</code></p>
+<p> Convert into camelized form</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.toNumber(str, decimals, dflt, min, max)</code></p>
+<p> Safe version, use 0 instead of NaN, handle booleans, if decimals specified, returns float</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.toBool(val)</code></p>
+<p> Return true if value represents true condition</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.toDate(val)</code></p>
+<p> Return Date object for given text or numeric date represantation, for invalid date returns 1969</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.toValue(val, type)</code></p>
+<p> Convert value to the proper type</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.isTrue(val1, val2, op, type)</code></p>
+<p> Evaluate expr, compare 2 values with optional type and opertion</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.httpGet(uri, params, callback)</code></p>
+<p> Downloads file using HTTP and pass it to the callback if provided</p>
+<ul>
+<li>uri can be full URL or an object with parts of the url, same format as in url.format</li>
+<li>params can contain the following options:<ul>
+<li>method - GET, POST</li>
+<li>headers - object with headers to pass to HTTP request, properties must be all lower case</li>
+<li>cookies - a list with cookies or a boolean to load cookies from the db</li>
+<li>file - file name where to save response, in case of error response the error body will be saved as well</li>
+<li>postdata - data to be sent with the request in the body</li>
+<li>postfile - file to be uploaded in the POST body, not as multipart</li>
+<li>query - aditional query parameters to be added to the url as an object or as encoded string</li>
+<li>sign - sign request with provided email/secret properties</li>
+</ul>
+</li>
+<li>callback will be called with the arguments:
+ first argument is error object if any
+ second is params object itself with updted fields
+ third is HTTP response object
+On end, the object params will contains the following updated properties:</li>
+<li>data if file was not specified, data eill contain collected response body as string</li>
+<li>status - HTTP response status code</li>
+<li>mtime - Date object with the last modified time of the requested file</li>
+<li>size - size of the response body or file
+Note: SIDE EFFECT: params object is modified in place so many options will be changed/removed or added</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.signUrl(accesskey, secret, host, uri, options)</code></p>
+<p> Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
+Host passed here must be the actual host where the request will be sent</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.parseSignature(req)</code></p>
+<p> Parse incoming request for signature and return all pieces wrapped in an object, this object
+will be used by checkSignature function for verification against an account
+signature version:</p>
+<ul>
+<li>1 sig secret - real secret, sig id - real email</li>
+<li>2 sig secret - BASE64(HMAC(secret, email)), sig id - real email</li>
+<li>3 sig secret - BASE64(HMAC(secret, email)), sig id - BASE64(HMAC(secret2, email)) where secret2 is signed secret</li>
+<li>4 same as in mode 3 but is sent in cookies and uses wild support for host and path</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.signRequest(id, secret, method, host, uri, options)</code></p>
+<p> Sign HTTP request for the API server:
+url must include all query parametetrs already encoded and ready to be sent
+options may con tains the following:</p>
+<ul>
+<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
+<li>checksum is SHA1 digest of the POST content, optional</li>
+<li>version is 1-4, version number defining how the signature will be signed</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.checkSignature(sig, account)</code></p>
+<p> Verify signature with given account, signature is an object reurned by parseSignature</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.sendRequest(uri, options, callback)</code></p>
+<p> Make a request to the backend endpoint, save data in the queue in case of error, if data specified,
+POST request is made, if data is an object, it is converted into string.
+Returns params as in httpGet with .json property assigned with an object from parsed JSON response
+Special parameters for options:</p>
+<ul>
+<li>email - email to use for access credentials insted of global credentials</li>
+<li>secret - secret to use for access intead of global credentials</li>
+<li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
+<li>queue - perform queue management, save in queue if cannot send right now, delete from queue if sent</li>
+<li>rowid - unique record id to be used in case of queue management</li>
+<li>checksum - calculate checksum from the data</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.processQueue(callback)</code></p>
+<p> Send all pending updates from the queue table</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.getArg(name, dflt, argv)</code></p>
+<p> Return argument value by name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.sendmail(from, to, subject, text, callback)</code></p>
+<p> Send email</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.forEachLine(file, options, lineCallback, endCallback)</code></p>
+<p> Call callback for each line in the file
+options may specify the following parameters:</p>
+<ul>
+<li>sync - read file synchorously and call callback for every line</li>
+<li>abort - signal to stop processing</li>
+<li>limit - number of lines to process and exit</li>
+<li>progress - if &gt; 0 report how many lines processed so far evert specified lines</li>
+<li>until - skip lines until this regexp matches</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.geoHash(latitude, longitude, options)</code></p>
+<p> Return object with geohash for given coordinates to be used for location search
+options may contain the follwong properties:</p>
+<ul>
+<li>distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.encrypt(key, data, algorithm)</code></p>
+<p> Encrypt data with the given key code</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.decrypt(key, data, algorithm)</code></p>
+<p> Decrypt data with the given key code</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.sign (key, data, algorithm, encode)</code></p>
+<p> HMAC signing and base64 encoded, default algorithm is sha1</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.hash (data, algorithm, encode)</code></p>
+<p> Hash and base64 encoded, default algorithm is sha1</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.uuid()</code></p>
+<p> Return unique Id without any special characters and in lower case</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.random(size)</code></p>
+<p> Generate random key, size if specified defines how many random bits to generate</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.randomInt(min, max)</code></p>
+<p> Return random integer between min and max inclusive</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.randomNum(min, max)</code></p>
+<p> Return number between min and max inclusive</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.now()</code></p>
+<p> Return number of seconds for current time</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.mnow()</code></p>
+<p> Shortcut for current time in milliseconds</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.strftime(date, fmt, utc)</code></p>
+<p> Format date object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.strSplit(str, sep)</code></p>
+<p> Split string into array, ignore empty items</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.strSplitUnique(str, sep)</code></p>
+<p> Split as above but keep only unique items</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.toBase64(data)</code></p>
+<p> Stringify JSON into base64 string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.toJson(data)</code></p>
+<p> Parse base64 JSON into Javascript object, in some cases this can be just a number then it is passed as it is</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.moveFile(src, dst, overwrite, callback)</code></p>
+<p> Copy file and then remove the source, do not overwrite existing file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.copyFile(src, dst, overwrite, callback)</code></p>
+<p> Copy file, overwrite is optional flag, by default do not overwrite</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.runProcess(cmd, callback)</code></p>
+<p> Run theprocess and return all output to the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.killBackend(name, callback)</code></p>
+<p> Kill all backend processes that match name and not the current process</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.shutdown()</code></p>
+<p> Shutdown the machine now</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.statSync(file)</code></p>
+<p> Non-exception version, returns empty object,
+mtime is 0 in case file does not exist or number of seconds of last modified time
+mdate is a Date object with last modified time</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.findFileSync(file, filter)</code></p>
+<p> Return list of files than match filter recursively starting with given path</p>
+<ul>
+<li>file - starting path</li>
+<li>filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.makePathSync(dir)</code></p>
+<p> Recursively create all directories, return 1 if created</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.makePath(dir, callback)</code></p>
+<p> Async version, stops on first error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.chownSync(file)</code></p>
+<p> Change file owner do not report errors about non existent files</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.mkdirSync(dir)</code></p>
+<p> Create a directory if does not exist</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.dropPrivileges()</code></p>
+<p> Drop root privileges and switch to regular user</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.setTimeout(name, callback, timeout)</code></p>
+<p> Set or reset a timer</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.iconPath(id, options)</code></p>
+<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.getIcon(uri, id, options, callback)</code></p>
+<p> Download image and convert into JPG, store under core.path.images
+Options may be controlled using the properties:</p>
+<ul>
+<li>force - force rescaling for all types even if already exists</li>
+<li>type - type for the icon, prepended to the icon id</li>
+<li>prefix - where to store all scaled icons</li>
+<li>verify - check if the original icon is the same as at the source</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.putIcon(file, id, options, callback)</code></p>
+<p> Put original or just downloaded file in the proper location according to the types for given id,
+this function is used after downloading new image or when moving images from other places
+Rescale all required icons by setting force to true in the options
+Valid properties in the options:</p>
+<ul>
+<li>type - icon type, this will be prepended to the name of the icon</li>
+<li>prefix - top level subdirectory under images/</li>
+<li>force - to rescale even if it already exists</li>
+<li>width, height, filter, ext, quality for backend.resizeImage function</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.scaleIcon(infile, outfile, options, callback)</code></p>
+<p> Scale image using ImageMagick into a file, return err if failed</p>
+<ul>
+<li>infile can be a string with file name or a Buffer with actual image data</li>
+<li>outfle is not empty is a file naem where to store scaled image or if empty the new image contents will be returned in the callback</li>
+<li>options can specify image extension in .ext, width/height/filter/quality</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.domainName(host)</code></p>
+<p> Extract domain from local host name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.typeName(v)</code></p>
+<p> Return object type, try to detect any distinguished type</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.isEmpty(val)</code></p>
+<p> Return true of the given value considered empty</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.cloneObj()</code></p>
+<p> Deep copy of an object,</p>
+<ul>
+<li>first argument is the object to clone</li>
+<li>second argument can be an object that acts as a filter to skip properties by name,
+if filter&#39;s value is boolean, skip, if integer then skip if greater in length for string properties<ul>
+<li>_skip_null - to skip all null properties</li>
+<li>_empty_to_null - convert empty strings into null objects</li>
+<li>_skip_cb - a callback that returns true to skip a property, argumnets are property name and value
+if the second arg is not an object then it is assumed that filter is not given and the argument is treated as additional property</li>
+</ul>
+</li>
+<li>all additional arguments are treated as name value pairs and added to the cloned object as additional properties
+Example: core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4&quot;, 4)<pre><code>  core.cloneObj({1 : 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
+</code></pre></li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.newObj()</code></p>
+<p> Return new object using arguments as name value pairs for new object properties</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.extendObj()</code></p>
+<p> Add properties to existing object, first arg is the object, the rest are pairs: name, value,....</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.delObj()</code></p>
+<p> Delete properties from the object, first arg is an object, the rest are properties to be deleted</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.mergeObj(obj, options)</code></p>
+<p> Merge obj with the options, all options properties override existing in the obj</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.stringify(obj)</code></p>
+<p> JSON stringify without empty properties</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.cookieGet(domain, callback)</code></p>
+<p> Return cookies that match given domain</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.cookieSave(cookiejar, setcookies, hostname, callback)</code></p>
+<p> Save new cookies arrived in the request,
+merge with existing cookies from the jar which is a list of cookies before the request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.addContext()</code></p>
+<p> Adds reference to the objects in the core for further access, specify module name, module reference pairs</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.createRepl(options)</code></p>
+<p> Create REPL interface with all modules available</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.watchTmp(dirs, secs, pattern)</code></p>
+<p> Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
+This function is not async-safe, it uses sync calls</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.watchFiles(dir, pattern, callback)</code></p>
+<p> Watch files in a dir for changes and call the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.watchLogs(callback)</code></p>
+<p> Watch log files for errors and report via email</p>
+</li>
+</ul>
+
+<h2 id="module-db">Module: DB</h2>
+<ul>
+<li><p><code>db</code></p>
+<p> The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
+The idea is not to introduce new abstraction layer on top of all databases but to make
+the API usable for common use cases. On the source code level access to all databases will be possible using
+this API but any specific usage like SQL queries syntax or data types available only for some databases will not be
+unified or automatically converted but passed to the database directly. Only conversion between Javascript types and
+database types is unified to some degree meaning Javascript data type will be converted into the corresponding
+data type supported by any particular database and vice versa.</p>
+<p>Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
+by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
+API call, all high level operations like add/put/del perform SQL generation for single table on the fly.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.init(callback)</code></p>
+<p> Initialize database pools</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.initTables(tables, callback)</code></p>
+<p> Create tables in all pools</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.initPoolTables(name, tables, callback)</code></p>
+<p> Init the pool, create tables and columns:</p>
+<ul>
+<li>name - db pool to create the tables in</li>
+<li>tables - an object with list of tables to create or upgrade</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.dropPoolTables(name, tables, callback)</code></p>
+<p> Remove all registered tables from the pool</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getPoolTables(name)</code></p>
+<p> Return all tables know to the given pool, returned tables are in the object with
+column information merged from cached columns from the database with descrpition columns
+given by the application. Property fake: 1 in any column signifies not a real column but
+a column described by the application and not yet c reated by the database driver or could not be added
+due to some error.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.initPool(options, createcb)</code></p>
+<p> Create a database pool</p>
+<ul>
+<li>options - an object defining the pool, the following properties define the pool:<ul>
+<li>pool - pool name/type, of not specified sqlite is used</li>
+<li>max - max number of clients to be allocated in the pool</li>
+<li>idle - after how many milliseconds an idle client will be destroyed</li>
+</ul>
+</li>
+<li>createcb - a callback to be called when actual database client needs to be created, the callback signature is
+ function(options, callback) and will be called with first arg an error object and second arg is the database instance, required</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.query(req, options, callback)</code></p>
+<p> Execute query using native database driver, the query is passed directly to the driver.</p>
+<ul>
+<li>req - can be a string or an object with the following properties:</li>
+<li>text - SQL statement or other query in the format of the native driver, can be a list of statements</li>
+<li>values - parameter values for sql bindings or other driver specific data</li>
+<li>options may have the following properties:<ul>
+<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
+Callback is called with the following params:</li>
+</ul>
+</li>
+<li>callback(err, rows, info) where</li>
+<li>info is an object with information about the last query: inserted_oid,affected_rows,next_token</li>
+<li>rows is always returned as a list, even in case of error it is an empty list</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.add(table, obj, options, callback)</code></p>
+<p> Insert new object into the database</p>
+<ul>
+<li>obj - an Javascript object with properties for the record, primary key properties must be supplied</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.put(table, obj, options, callback)</code></p>
+<p> Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj</p>
+<ul>
+<li>obj - an object with record properties, primary key properties must be specified</li>
+<li>options - same properties as for .select method with the following additional options:<ul>
+<li>mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
+string then it is used as a name of the column instead of default mtime name</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.update(table, obj, options, callback)</code></p>
+<p> Update existing object in the database.</p>
+<ul>
+<li>obj - is an actual record to be updated, primary key properties must be specified</li>
+<li>options - same properties as for .add method</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.incr(table, obj, options, callback)</code></p>
+<p> Counter operation, increase or decrease column values, similar to update but all specified columns except primary
+key will be incremented, use negative value to decrease the value
+The record MUST exist already, this is an update only</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.del(table, obj, options, callback)</code></p>
+<p> Delete object in the database, no error if the object does not exist</p>
+<ul>
+<li>obj - an object with primary key properties only, other properties will be ignored</li>
+<li>options - same propetties as for .add method</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.replace(table, obj, options, callback)</code></p>
+<p> Add/update the object, check existence by the primary key or by other keys specified.</p>
+<ul>
+<li>obj is a Javascript object with properties that correspond to the table columns</li>
+<li>options define additional flags that may<ul>
+<li>keys - is list of column names to be used as primary key when looking for updating the record, if not specified
+then default primary keys for the table will be used</li>
+<li>check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value</li>
+<li>check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
+if it is an array then check only specified columns</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.select(table, obj, options, callback)</code></p>
+<p> Select objects from the database that match supplied conditions.</p>
+<ul>
+<li>obj - can be an object with primary key propeties set for the condition, all matching records will be returned</li>
+<li>obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
+Options can use the following special propeties:</li>
+<li>keys - a list of columns for condition or all primary keys will be used for query condition</li>
+<li>ops - operators to use for comparison for properties, an object with column name and operator</li>
+<li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
+<li>typesMap - type mapping between supplied and actual column types, an object</li>
+<li>select - a list of columns or expressions to return or all columns if not specified</li>
+<li>start - start records with this primary key, this is the next_token passed by the previous query</li>
+<li>count - how many records to return</li>
+<li>sort - sort by this column</li>
+<li>public_columns - value to be used to filter non-public columns (marked by .pub property), compared to public_key column or &#39;id&#39;</li>
+<li>public_key - name of the column to be used in public columns filtering, default is &#39;id&#39;</li>
+<li>desc - if sorting, do in descending order</li>
+<li>page - starting page number for pagination, uses count to find actual record to start
+On return, the callback can check third argument which is an object with the following properties:</li>
+<li>affected_rows - how many records this operation affected</li>
+<li>inserted_oid - last created auto generated id</li>
+<li>next_token - next primary key or offset for pagination by passing it as .start property in the options</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.list(table, obj, options, callback)</code></p>
+<p> Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.search(table, obj, options, callback)</code></p>
+<p> Perform full text search on the given table, the database implementation may ignore table name completely
+in case of global text index. Options takes same properties as in the select method.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getLocations(table, options, callback)</code></p>
+<p> Geo locations search, paginate all results until the end.
+table must be defined with the following required columns:</p>
+<ul>
+<li>geohash and id as strings, this is the primary key
+split and saved as property id in the record</li>
+<li>latitude and longitude as floating numbers
+On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
+the next_token returned by the previous call
+Specific options properties:<ul>
+<li>calc_distance - calculate the distance between query and the actual position and save it in distance property for each record
+On return, the callback&#39;s third argument contains the object that must be provided for subsequent searches until rows array is empty.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.get(table, obj, options, callback)</code></p>
+<p> Retrieve one record from the database
+Options can use the following special properties:</p>
+<ul>
+<li>keys - a list of columns for condition or all primary keys</li>
+<li>select - a list of columns or expressions to return or *</li>
+<li>op - operators to use for comparison for properties</li>
+<li>cached - if specified it runs getCached version</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getCached(table, obj, options, callback)</code></p>
+<p> Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
+Options accept the same parameters as for the usual get action.
+Additional options:</p>
+<ul>
+<li>prefix - prefix to be used for the key instead of table name</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.clearCached(table, obj, options)</code></p>
+<p> Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.create(table, columns, options, callback)</code></p>
+<p> Create a table using column definitions represented as a list of objects. Each column definiton can
+contain the following properties:</p>
+<ul>
+<li>name - column name</li>
+<li>type - column type, one of: int, real, string, counter or other supported type</li>
+<li>primary - column is part of the primary key</li>
+<li>unique - column is part of an unique key</li>
+<li>index - column is part of an index</li>
+<li>value - default value for the column</li>
+<li>len - column length</li>
+<li>pub - columns is public</li>
+<li>semipub - column is not public but still retrieved to support other public columns, must be deleted after use
+Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.upgrade(table, columns, options, callback)</code></p>
+<p> Upgrade a table with missing columns from the definition list</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.drop(table, options, callback)</code></p>
+<p> Drop a table</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.prepare(op, table, obj, options)</code></p>
+<p> Prepare for execution for the given operation: add, del, put, update,...
+Returns prepared object to be passed to the driver&#39;s .query method.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getPool(table, options)</code></p>
+<p> Return database pool by name or default pool</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getOptions(table, options)</code></p>
+<p> Return combined options for the pool including global pool options</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getColumns(table, options)</code></p>
+<p> Return cached columns for a table or null, columns is an object with column names and objects for definiton</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getColumn(table, name, options)</code></p>
+<p> Return the column definitoon for a table</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getSelectedColumns(table, options)</code></p>
+<p> Return list of selected or allowed only columns, empty list of no condition given</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.skipColumn(name, val, options, columns)</code></p>
+<p> Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getKeys(table, options)</code></p>
+<p> Return cached primary keys for a table or null</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getBindValue(table, options, val, info)</code></p>
+<p> Return possibly converted value to be used for inserting/updating values in the database,
+is used for SQL parametrized statements
+Parameters:</p>
+<ul>
+<li>options - standard pool parameters with pool: property for specific pool</li>
+<li>val - the Javascript value to convert into bind parameter</li>
+<li>info - column definition for the value from the cached columns</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getColumnValue(table, options, val, info)</code></p>
+<p> Return transformed value for the column value returned by the database, same parameters as for getBindValue</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.cacheColumns(options, callback)</code></p>
+<p> Reload all columns into the cache for the pool</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.mergeColumns(pool)</code></p>
+<p> Merge Javascript column definitions with the db cached columns</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getPublicColumns(table, options)</code></p>
+<p> Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query</p>
+<ul>
+<li>pub property means public column</li>
+<li>semipub means not allowed but must be returned for calculations in the select to produce another public column
+options may be used to define the following properties:</li>
+<li>columns - list of public columns to be returned, overrides the public columns in the definition list</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.processRows(pool, table, rows, options)</code></p>
+<p> Call custom row handler for every row in the result, this assumes that pool.processRow callback has been assigned previously</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlCacheColumns(options, callback)</code></p>
+<p> Cache columns using the information_schema</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlPrepare(op, table, obj, options)</code></p>
+<p> Prepare SQL statement for the given operation</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlQuote(val)</code></p>
+<p> Quote value to be used in SQL expressions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlValue(value, type, dflt, min, max)</code></p>
+<p> Return properly quoted value to be used directly in SQL expressions, format according to the type</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlValueIn(list, type)</code></p>
+<p> Return list in format to be used with SQL IN ()</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlExpr(name, value, options)</code></p>
+<p> Build SQL expressions for the column and value
+options may contain the following poperties:</p>
+<ul>
+<li>op - SQL operator, default is =</li>
+<li>type - can be data, string, number, float, expr, default is string</li>
+<li>value - default value to use if passed value is null or empty</li>
+<li>min, max - are used for numeric values for validation of ranges</li>
+<li>expr - for op=expr, contains sprintf-like formatted expression to be used as is with all &#39;%s&#39; substituted with actual value</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlTime(d)</code></p>
+<p> Return time formatted for SQL usage as ISO, if no date specified returns current time</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlFilter(columns, values, params)</code></p>
+<p> Given columns definition object, build SQL query using values from the values object, all conditions are joined using AND,</p>
+<ul>
+<li>columns is a list of objects with the following properties:<ul>
+<li>name - column name, also this is the key to use in the values object to get value by</li>
+<li>col - actual column name to use in the SQL</li>
+<li>alias - optional table prefix if multiple tables involved</li>
+<li>value - default value</li>
+<li>type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr</li>
+<li>op - any valid SQL operation: =,&gt;,&lt;, between, like, not like, in, not in, ~*,.....</li>
+<li>group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)</li>
+<li>always - only use default value if true</li>
+<li>required - value default or supplied must be in the query, otherwise return empty SQL</li>
+<li>search - aditional name for a value, for cases when generic field is used for search but we search specific column</li>
+</ul>
+</li>
+<li>values - actual values for the condition as an object, usually req.query</li>
+<li>params - if given will contain values for binding parameters</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlLimit(options)</code></p>
+<p> Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlWhere(table, obj, keys, options)</code></p>
+<p> Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
+<ul>
+<li>obj - an object record properties</li>
+<li>keys - a list of primary key columns</li>
+<li>options may contains the following properties:<ul>
+<li>pool - pool to be used for driver specific functions</li>
+<li>ops - object for comparison operators for primary key, default is equal operator</li>
+<li>opsMap - operator mapping into supported by the database</li>
+<li>typesMap - type mapping for properties to be used in the condition</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlCreate(table, obj, options)</code></p>
+<p> Create SQL table using table definition object with properties as column names and each property value is an object:</p>
+<ul>
+<li>name - column name</li>
+<li>type - type of the column, default is TEXT, options: int, real or other supported types</li>
+<li>value - default value for the column</li>
+<li>primary - part of the primary key</li>
+<li>index - indexed column, part of the compisite index</li>
+<li>unique - must be combined with index property to specify unique composite index</li>
+<li>len - max length of the column</li>
+<li>notnull - true if should be NOT NULL
+options may contains:</li>
+<li>upgrade - perform alter table instead of create</li>
+<li>typesMap - type mapping, convert lowecase type into other type supported by any specific database</li>
+<li>noDefaults - ignore default value if not supported (Cassandra)</li>
+<li>noNulls - NOT NULL restriction is not supported (Cassandra)</li>
+<li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
+<li>noLengths - ignore column length for columns (Cassandra)</li>
+<li>noIfExists - do not support IF EXISTS on table or indexes</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlUpgrade(table, obj, options)</code></p>
+<p> Create ALTER TABLE ADD COLUMN statements for missing columns</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlSelect(table, obj, options)</code></p>
+<p> Select object from the database, .keys is a list of columns for condition, .select is list of columns or expressions to return</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlInsert(table, obj, options)</code></p>
+<p> Build SQL insert</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlUpdate(table, obj, options)</code></p>
+<p> Build SQL statement for update</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlDelete(table, obj, options)</code></p>
+<p> Build SQL statement for delete</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.pgsqlInitPool(options)</code></p>
+<p> Setup primary database access</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.pgsqlOpen(options, callback)</code></p>
+<p> Open PostgreSQL connection, execute initial statements</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.pgsqlCacheIndexes(options, callback)</code></p>
+<p> Cache indexes using the information_schema</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.pgsqlBindValue(val, opts)</code></p>
+<p> Convert js array into db PostgreSQL array format: {..}</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqliteInitPool(options)</code></p>
+<p> Initialize local sqlite cache database by name, the db files are open in read only mode and are watched for changes,
+if new file got copied from the master, we reopen local database</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqliteOpen(options, callback)</code></p>
+<p> Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
+with error as first argument and database object as second</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.dynamodbInitPool(options)</code></p>
+<p> DynamoDB pool</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.cassandraInitPool(options)</code></p>
+<p> Cassandra pool</p>
+</li>
+</ul>
+
+<h2 id="module-logger">Module: LOGGER</h2>
+<ul>
+<li><p><code>logger</code></p>
+<p> Simple logger utility for debugging</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.setSyslog (on)</code></p>
+<p> Set or close syslog mode</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.setFile(file)</code></p>
+<p> Redirect logging into file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.setChannel(name)</code></p>
+<p> Assign output channel to system logger, default is stdout</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.printSyslog(level, msg)</code></p>
+<p> syslog allows facility to be specified after log level like info:local0 for LOG_LOCAL0</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.debug()</code></p>
+<p> Make it one line to preserve space, syslog cannot output very long lines</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.edebug()</code></p>
+<p> Display error if first argument is an Error object or debug</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.elog()</code></p>
+<p> Display error if first argument is an Error object or log</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.trace()</code></p>
+<p> Print stack backtrace as error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.print()</code></p>
+<p> Default write handler</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>logger.write(str)</code></p>
+<p> Stream emulation</p>
+</li>
+</ul>
+
+<h2 id="module-server">Module: SERVER</h2>
+<ul>
+<li><p><code>server.start()</code></p>
+<p> Start the server process</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startMonitor()</code></p>
+<p> Start process monitor, running as root</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startMaster()</code></p>
+<p> Setup worker environment</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startWeb(callback)</code></p>
+<p> Create Express server, setup worker environment, call supplied callback to set initial environment</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startWebProcess()</code></p>
+<p> Spawn web server from the master as a separate master with web workers, it is used when web and master processes are running on the same server</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startWebProxy()</code></p>
+<p> Spawn web proxy from the master as a separate master with web workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startProxy()</code></p>
+<p> Start http proxy as standalone server process</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startProcess()</code></p>
+<p> Restart process with the same arguments and setup as a monitor for the spawn child</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startWatcher()</code></p>
+<p> Watch source files for modifications and restart</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startRepl(port, bind)</code></p>
+<p> Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startDaemon()</code></p>
+<p> Create daemon from the current process, restart node with -daemon removed in the background</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.sleep(options, callback)</code></p>
+<p> Sleep and keep a worker busy</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.shutdown(options, callback)</code></p>
+<p> Shutdown the system immediately, mostly to be used in the remote jobs as the last task</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.respawn(callback)</code></p>
+<p> If respawning too fast, delay otherwise schedule new process after short timeout</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.spawnProcess(args, skip, opts)</code></p>
+<p> Start new process reusing global process arguments, args will be added and args in the skip list will be removed</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.runJob(job)</code></p>
+<p> Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process
+terminates.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.execJob(job)</code></p>
+<p> Execute job in the background by one of the workers, object must be known exported module
+and method must be existing method of the given object. The method function must take options
+object as its first argument and callback as its second argument.
+More than one job can be specified, property of the object defines name for the job to run:
+Example: { &#39;scraper.run&#39;: {}, &#39;server.shutdown&#39;: {} }
+If the same object.method must be executed several times, prepend subsequent jobs with $
+Example: { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } }
+Supported options by the server:</p>
+<ul>
+<li>runalways - no checks for existing job wth the same name should be done</li>
+<li>runlast - run when no more pending or running jobs</li>
+<li>runafter - specifies another job in canoncal form obj.method which must finish and not be pending in<pre><code>      order for this job to start, this implements chaining of jobs to be executed one after another
+      but submitted at the same time
+      Exampe: submit 3 jobs to run sequentially:
+        &#39;scraper.import&#39;
+        { &#39;scraper.sync&#39;: { runafter: &#39;scraper.import&#39; } }
+        { &#39;server.shutdown&#39;: { runafter: &#39;scraper.sync&#39; } }
+</code></pre></li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.launchJob(job, options, callback)</code></p>
+<p> Remote mode, launch remote instance to perform scraping or other tasks
+By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the options</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.queueJob(job)</code></p>
+<p> Run a job, the string is in the format:
+object/method/name/value/name/value....
+All spaces must be are replaced with %20 to be used in command line parameterrs</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.execQueue()</code></p>
+<p> Process pending jobs, submit to idle workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.scheduleCronjob(spec, obj)</code></p>
+<p> Create a new cron job
+Example: { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 <em>/10 </em> <em> </em> *&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },</p>
+<pre><code>    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>server.scheduleLaunchjob(spec, obj)</code></p>
+<p> Create new cron job to be run on a drone in the cloud
+For remote jobs additonal property args can be used in the cron object to define
+arguments to the instance backend process, properties must start with -
+Example: { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 <em> </em> <em> </em>&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.runCronjob(id)</code></p>
+<p> Execute a cronjob by name now</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.doJob(type, job, options)</code></p>
+<p> Perform execution according to type</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.checkJob(type, job)</code></p>
+<p> Verify job structure and permissions and return as an object if the job is a string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.loadSchedules()</code></p>
+<p> Load crontab from JSON file as list of job specs:</p>
+<ul>
+<li>type - local, remote, server<pre><code>  local means spawn a worker to run the job function
+  remote means launch an AWS instance
+  server means run inside the master process, do not spawn a worker
+</code></pre></li>
+<li>cron - cron time interval spec: &#39;second&#39; &#39;minute&#39; &#39;hour&#39; &#39;dayOfMonth&#39; &#39;month&#39; &#39;dayOfWeek&#39;</li>
+<li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
+</code></pre></li>
+<li>args - additional arguments passwed to the backend in the command line for the remote jobs
+Example: [ { &quot;type&quot;: &quot;local&quot;, cron: &quot;0 0 <em> </em> <em> </em>&quot;, job: &quot;scraper.run&quot; }, ..]</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.submitJob(options, callback)</code></p>
+<p> Submit job for execution, it will be saved in the server queue and the master will pick it up later
+options can specify:</p>
+<ul>
+<li>tag - job tag for execution, default is current jobTag, this can be used to run on specified servers only</li>
+<li>job - an object with job spec</li>
+<li>type - job type: local, remote, server</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.processJobs(options, callback)</code></p>
+<p> Run submitted jobs, usually called from the crontab file in case of shared database, requires connection to the PG database
+To run it from crontab add line(to run every 5 mins):
+  { type: &quot;server&quot;, cron: &quot;0 <em>/5 </em> <em> </em> *&quot;, job: &quot;server.processJobs&quot; }</p>
+</li>
+</ul>
+
+

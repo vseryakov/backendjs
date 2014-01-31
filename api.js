@@ -1218,8 +1218,7 @@ api.putIconS3 = function(file, id, options, callback)
 // - callback will be called with err and actual filename saved
 // Output file name is built according to the following options properties:
 // - name - defines the basename for the file, no extention, if not given same name as property will be used
-// - ext - what file extention to use, appended to name, if no ext is given the extension from the
-//         uploaded file will be used or no extention if could not determine one.
+// - ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.
 // - extkeep - tells always to keep actual extention from the uploaded file
 api.putFile = function(req, name, options, callback)
 {
