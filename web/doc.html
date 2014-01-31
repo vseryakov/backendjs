@@ -2,13 +2,310 @@
 <h1 id="backend-documentation">Backend Documentation</h1>
 <h2 id="table-of-contents-">Table of contents:</h2>
 <ul>
-<li><a href="#module-api"> Module: api</a></li>
-<li><a href="#module-aws"> Module: aws</a></li>
-<li><a href="#module-core"> Module: core</a></li>
-<li><a href="#module-db"> Module: db</a></li>
-<li><a href="#module-logger"> Module: logger</a></li>
-<li><a href="#module-server"> Module: server</a></li>
+<li><a href="#backend-framework-for-node-js"> Backend framework for node.js</a></li>
+<li><a href="#installation"> Installation</a></li>
+<li><a href="#quick-start"> Quick start</a></li>
+<li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a></li>
+<li><a href="#backend-configuration-and-directory-structure"> Backend configuration and directory structure</a></li>
+<li><a href="#the-backend-provisioning-utility-rc-backend"> The backend provisioning utility: rc.backend</a></li>
+<li><a href="#security"> Security</a></li>
+<li><a href="#backend-framework-development-mac-os-x-developers-"> Backend framework development (Mac OS X, developers)</a></li>
+<li><a href="#author"> Author</a></li>
+<li>Javascript API functions<ul>
+<li><a href="#module-api">api</a></li>
+<li><a href="#module-aws">aws</a></li>
+<li><a href="#module-core">core</a></li>
+<li><a href="#module-db">db</a></li>
+<li><a href="#module-logger">logger</a></li>
+<li><a href="#module-server">server</a></li>
 </ul>
+</li>
+</ul>
+<h1 id="backend-framework-for-node-js">Backend framework for node.js</h1>
+<p>General purpose backend framework.</p>
+<p>Features:</p>
+<ul>
+<li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
+<li>Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra databases, easily extendable to support any kind of database.</li>
+<li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.</li>
+<li>Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.</li>
+<li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
+<li>Runs web server as separate processes to utilize multiple CPU cores.</li>
+<li>Local jobs are executed by spawned processes</li>
+<li>Supports several cache modes(Redis, memcached, local cache) for the database operations.</li>
+<li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
+<li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
+<li>nanomsg interface for messaging between processes and servers.</li>
+<li>REPL(command line) interface for debugging and looking into server internals.</li>
+<li>Geohash based location searches supported by all databases drivers.</li>
+</ul>
+<h1 id="installation">Installation</h1>
+<pre><code>    npm install node-backend
+</code></pre><h1 id="quick-start">Quick start</h1>
+<ul>
+<li><p>Run default backend without any custom extensions, by default it will use embedded Sqlite database and listen on port 8000</p>
+<pre><code>  rc.backend run-backend
+</code></pre></li>
+<li><p>Documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
+</li>
+<li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests, cancel the login popup after the
+page is loaded, we do not have yet any account credentials.
+For this example let&#39;s create couple of accounts, type and execute the following URLs in the Web console</p>
+<pre><code>  /account/add?name=test1&amp;secret=test1&amp;email=test1@test.com
+  /account/add?name=test2&amp;secret=test2&amp;email=test2@test.com
+  /account/add?name=test3&amp;secret=test3&amp;email=test3@test.com
+</code></pre></li>
+</ul>
+<ul>
+<li>Now login with any of the accounts above, refresh the api.html and enter email and secret in the login popup dialog.</li>
+<li><p>If no error message appeared after the login, try to get your current account details:</p>
+<pre><code>  /account/get
+</code></pre></li>
+</ul>
+<ul>
+<li><p>To see all public fields for all accounts just execute</p>
+<pre><code>  /account/search
+</code></pre></li>
+<li><p>Shutdown the backend by pressing Ctrl-C</p>
+</li>
+<li><p>To make custom Web app run the following command:</p>
+<pre><code>  rc.backend init-app
+</code></pre></li>
+<li><p>The app.js file is created with 2 additional API endpoints /test/add and /test/[0-9] to show the simplest way
+of adding new tables and API commands.</p>
+</li>
+<li>The app.sh script is created for convenience, it specifies common arguments and can be customized as needed</li>
+<li><p>Run new application now, it will start the Web server on port 8000:</p>
+<pre><code>  ./app.sh
+</code></pre></li>
+</ul>
+<ul>
+<li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue /test/add?id=1&amp;name=1 and then /test/1 commands in the console to see it in action</li>
+<li><p>In development mode it is very helpful to specify -watch parameter which will make the server restart automatically if any of the source files
+are changed</p>
+<pre><code>  ./app.sh run-app -watch
+</code></pre></li>
+</ul>
+<h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
+<h2 id="accounts">Accounts</h2>
+<p>This API manages accounts and authentication, by default each account stores basic information about the user:</p>
+<ul>
+<li><p>/account/get
+  Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
+  Public columsn are the columns marked with pub: property in the table definition object passed to the <code>db.initTables</code> or <code>api.describeTables</code> functions.
+  Parameters:</p>
+<ul>
+<li>id=id,id,... - return information about given accounts, the id parameter can be a single account id or list of ids separated by comma,
+  if no id parameter is given then current account record is returned</li>
+<li>_session - after successful login return session cookies so the Web app can perform requests without signing</li>
+</ul>
+</li>
+<li><p>/account/add
+  Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
+  Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
+  type 1, different signature type cannot be mixed.</p>
+</li>
+<li><p>/account/search
+  Return list of accounts by the given condition. Parameters are the column values to be matched.
+  Parameters:</p>
+<ul>
+<li><em>keys -
+</em> <em>ops -
+</em> _select -</li>
+</ul>
+</li>
+<li><p>/account/del
+  Delete current account</p>
+</li>
+<li><p>/account/update
+  Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.</p>
+</li>
+<li><p>/account/put/secret
+  Change account secret for the current account
+  Parameters:</p>
+<ul>
+<li>secret - new secret for the account</li>
+</ul>
+</li>
+<li><p>/account/get/icon
+  Return account icon
+  Parameters:</p>
+<ul>
+<li>type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used</li>
+</ul>
+</li>
+<li><p>/account/put/icon
+  Upload account icon
+  Parameters:</p>
+<ul>
+<li>type - icon type, a number between 0 and 9, if not specified 0 is used</li>
+<li>icon - can be passed as base64 encoded image in the query,</li>
+<li>icon - can be passed as base64 encoded string in the body as JSON</li>
+<li>icon - can be passed in multipart form as a part name</li>
+</ul>
+</li>
+<li><p>/account/del/icon
+  Delete account icon
+  Parameters:</p>
+<ul>
+<li>type - what icon to delet, if not specified 0 is used</li>
+</ul>
+</li>
+</ul>
+<h2 id="connections">Connections</h2>
+<h2 id="locations">Locations</h2>
+<h2 id="messages">Messages</h2>
+<h2 id="icons">Icons</h2>
+<h2 id="counters">Counters</h2>
+<h2 id="history">History</h2>
+<h2 id="data">Data</h2>
+<h1 id="backend-configuration-and-directory-structure">Backend configuration and directory structure</h1>
+<p>When the backend server starts and no -home argument passed in the command line the backend setups required
+environment in the ~/.backend directory.</p>
+<p>The backend directory structure is the following:</p>
+<ul>
+<li><p>etc/config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
+Example:</p>
+<pre><code>  debug=1
+  db-pool=dynamodb
+  db-dynamodb-pool=http://localhost:9000
+  db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
+
+  To specify other config file: rc.backend run-app -config-file file
+</code></pre></li>
+<li><p>etc/crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
+Example:</p>
+<pre><code>   [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;api.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
+
+   // The cron will call this function with the options specified, callback must be called
+   api.cleanSessions = function(options, callback) {
+       db.del(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot;, keys: [ &quot;mtime&quot; ] }, callback);
+   }
+
+   To start the scheduler: rc.backend run-app -master ...
+</code></pre></li>
+<li><p>etc/proxy - HTTP proxy config file, same format as in http-proxy npm package
+Example:</p>
+<pre><code>  { &quot;target&quot; : { &quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: 8001 } }
+
+  Then start the proxy: rc.backend -proxy ....
+</code></pre></li>
+</ul>
+<ul>
+<li><p>etc/profile - shell script loaded by the rc.backend utility to customize env variables</p>
+</li>
+<li><p>images - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images</p>
+</li>
+<li>var - database files created by the server</li>
+<li>tmp - temporary files</li>
+</ul>
+<h1 id="the-backend-provisioning-utility-rc-backend">The backend provisioning utility: rc.backend</h1>
+<p>The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
+and as well to be used in operations on production systems.
+Running without arguments will bring help screen with description of all available commands.</p>
+<p>The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed. In addition
+it supports symlinks with different name and uses it as a command to execute, for example:</p>
+<pre><code>    ln -s rc.backend ntp
+    ./ntp is now the same as rc.backend ntp
+</code></pre><p>On startup the rc.backend tries to load and source the following config files:</p>
+<pre><code>    /data/etc/profile
+    /etc/backendrc
+    /usr/local/etc/backendrc
+    $HOME/.backend/etc/profile
+    $HOME/.backencrc
+</code></pre><p>Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
+customize the running environment, these should be regular shell scripts using bash syntax.</p>
+<h1 id="security">Security</h1>
+<p>All requests to the API server must be signed with account email/secret pair.</p>
+<ul>
+<li>The algorithm how to sign HTTP requests (Version 1, 2):<ul>
+<li>Split url to path and query parameters with &quot;?&quot;</li>
+<li>Split query parameters with &quot;&amp;&quot;</li>
+<li>&#39;&#39;&#39;ignore parameters with empty names&#39;&#39;&#39;</li>
+<li>&#39;&#39;&#39;Sort&#39;&#39;&#39; list of parameters alphabetically</li>
+<li>Join sorted list of parameters with &quot;&amp;&quot;</li>
+<li>Form canonical string to be signed as the following:<ul>
+<li>Line1: The HTTP method(GET), followed by a newline.</li>
+<li>Line2: the host, followed by a newline.</li>
+<li>Line3: The request URI (/), followed by a newline.</li>
+<li>Line4: The sorted and joined query parameters as one string, followed by a newline.</li>
+<li>Line5: The expires value or empty string, followed by a newline.</li>
+<li>Line6: The checksum(SHA1) or empty string, followed by a newline.</li>
+</ul>
+</li>
+<li>Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any</li>
+<li>Form BK-Signature HTTP header as the following:<ul>
+<li>The header string consist of multiple fields separated by pipe |<ul>
+<li>Field1: Signature version, 1,2,3,4, the difference is what kind of secret and email are used for signing the canonical string:<ul>
+<li>version 1, the original secret and email are used</li>
+<li>version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret, BASE64(HMAC-SHA1(secret, email)), email is original</li>
+<li>version 3 the secret is as in version 2, email is BASE64(HMAC-SHA1(secret2, email)) where secret2 is the secret from version 2</li>
+<li>version 4 is the same as version 3 but it is used in session cookies, not headers</li>
+</ul>
+</li>
+<li>Field2: Application version or other ap specific data</li>
+<li>Field3: account email</li>
+<li>Field4: HMAC-SHA1 digest from the canonical string</li>
+<li>Field5: expiration value in milliseconds or empty string</li>
+<li>Field6: checksum or empty string</li>
+<li>Field7: empty, reserved for future use</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>The resulting signature is sent as HTTP header bk-signature: string</p>
+<p>See web/js/backend.js for function Backend.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
+<h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
+<ul>
+<li>git clone <a href="https://[your">https://[your</a> username]@bitbucket.org/vseryakov/backend.git</li>
+<li>SSH alternative so you don&#39;t have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git</li>
+<li>cd backend</li>
+<li><p>to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
+to the current user, this is required to support global NPM modules.</p>
+</li>
+<li><p>If $PREFIX needs to be changed, create ~/.backendrc file and assign PREFIX, for example:</p>
+<pre><code>  echo &quot;PREFIX=$HOME/local&quot; &gt; ~/.backendrc
+</code></pre></li>
+</ul>
+<ul>
+<li><p><strong>Important</strong>: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+ node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile</p>
+</li>
+<li><p>now run the init command to prepare the environment, rc.backend will source .backendrc</p>
+<pre><code>  ./rc.backend init-backend
+</code></pre></li>
+</ul>
+<ul>
+<li><p>to install node.js in $PREFIX/bin if not installed already run command:</p>
+<pre><code>  ./rc.backend build-node
+</code></pre></li>
+</ul>
+<ul>
+<li><p>if node.js is installed, make sure all required modules are installed, thi sis required because we did not installed the
+backend via npm with all dependencies:</p>
+<pre><code>  ./rc.backend npm-deps
+</code></pre></li>
+</ul>
+<ul>
+<li><p>to compile the binary module and all required dependencies just type <code>make</code></p>
+</li>
+<li><p>to run local server on port 8000 run command:</p>
+<pre><code>  ./rc.backend run-backend
+</code></pre></li>
+<li><p>to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
+ This command line access allows you to test and run all functions from all modules of the backend without running full server
+ similar to node.js REPL functionality. All modules are accessible from the command line.</p>
+<pre><code>  $ ./rc.backend run-shell
+  &gt; core.version
+   &#39;2013.10.20.0&#39;
+  &gt; logger.setDebug(2)
+</code></pre></li>
+</ul>
+<h1 id="author">Author</h1>
+<p>  Vlad Seryakov</p>
 <h2 id="module-api">Module: API</h2>
 <ul>
 <li><p><code>api</code></p>
@@ -56,8 +353,13 @@ Check access permissions, calls the callback with the following argument:</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkAuthorization(req, callback)</code></p>
-<p> Perform authorization chedks after the account been authenticated</p>
+<li><p><code>api.checkAuthorization(req, status, callback)</code></p>
+<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed</p>
+<ul>
+<li>req is Express request object</li>
+<li>status contains the signature verification status, an object wth status: and message: properties</li>
+<li>callback is a function(req, status) to be called with the resulted status where status must be an object with status and message properties as well</li>
+</ul>
 </li>
 </ul>
 
@@ -163,8 +465,17 @@ Example:<pre><code>  api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, func
 
 <ul>
 <li><p><code>api.registerAuthCheck(method, path, callback)</code></p>
-<p> Similar to <code>registerAccesscheck</code> but this callback will be called after the signature or session is verified. The purpose of
-this hook is too check permissions of a valid user to resources.</p>
+<p> Similar to <code>registerAccessCheck</code> but this callback will be called after the signature or session is verified.
+The purpose of this hook is too check permissions of a valid user to resources or in case of error perform any other action
+like redirection or returning something explaining what to do in case of failure. The callback for this call is different then in <code>checkAccess</code> hooks.</p>
+<ul>
+<li>method can be &#39;&#39; in such case all mathods will be matched</li>
+<li>path is a string or regexp of the request URL similr to registering Express routes</li>
+<li>callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkSignature call, if status != 200 it means
+an error condition, the callback must pass the same or modified status object in its own <code>cb</code> callback
+Example:<pre><code>  api.registerAuthCheck(&#39;GET&#39;, &#39;/account/get&#39;, function(req, status, cb) { if (status.status != 200) status = { status: 302, url: &#39;/error.html&#39; }; cb(status) })
+</code></pre></li>
+</ul>
 </li>
 </ul>
 
@@ -203,7 +514,19 @@ Example:<pre><code>  api.registerAccessPath(&quot;^/counter/&quot;)
 
 <ul>
 <li><p><code>api.sendReply(res, status, msg)</code></p>
-<p> Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back</p>
+<p> Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendStatus(res, options)</code></p>
+<p> Return reply to the client using the options object, it cantains the following properties:</p>
+<ul>
+<li>status - defines the respone status code</li>
+<li>message  - property to be sent as status line and in the body</li>
+<li>type - defines Content-Type header, the message will be sent in the body</li>
+<li>url - for redirects when status is 301 or 302</li>
+</ul>
 </li>
 </ul>
 

@@ -15,12 +15,23 @@ var renderer = new marked.Renderer();
 
 var header = '<head><title>Backend Documentation</title><link rel="stylesheet" href="css/doc.css"></head>\n';
 var toc = "# Backend Documentation\n##Table of contents:\n";
+
+var readme = fs.readFileSync("README.md").toString();
+readme.split("\n").forEach(function(x) {
+    var d = x.match(/^# (.+)/);
+    if (d) toc += "* [ " + d[1] + "](#" + d[1].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
+});
+
+toc += "* Javascript API functions\n";
+
 files.forEach(function(file) {
     file = path.basename(file, '.js');
-    toc += "* [ Module: " + file + "](#" + "module-" + file + ")\n";
+    toc += "    * [" + file + "](#" + "module-" + file + ")\n";
 });
 
 var text = marked(toc, { renderer: renderer });
+
+text += marked(readme, { renderer: renderer });
 
 files.forEach(function(file) {
     var doc = "";

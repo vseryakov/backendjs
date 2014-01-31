@@ -285,7 +285,7 @@ api.checkRequest = function(req, res, callback)
         // Status is given, return an error or proceed to the next module
         if (rc1) {
             if (rc1.status == 200) return callback();
-            if (rc1.status) res.json(rc1.status, rc1);
+            if (rc1.status) self.sendStatus(res, rc1);
             return;
         }
 
@@ -293,12 +293,11 @@ api.checkRequest = function(req, res, callback)
         self.checkSignature(req, function(rc2) {
             res.header("cache-control", "no-cache");
             res.header("pragma", "no-cache");
-            // Something is wrong, return an error
-            if (rc2 && rc2.status != 200) return res.json(rc2.status, rc2);
 
-            // The account is verified, proceed with the request
-            self.checkAuthorization(req, function(rc3) {
-                if (rc3 && rc3.status != 200) return res.json(rc3.status, rc3);
+            // Determine what to do with the request even if the status is not success, a hook may deal with it differently,
+            // the most obvous case is for a Web app to perform redirection on authentication failure
+            self.checkAuthorization(req, rc2, function(rc3) {
+                if (rc3 && rc3.status != 200) return self.sendStatus(res, rc3);
                 callback();
             });
         });
@@ -321,12 +320,16 @@ api.checkAccess = function(req, callback)
     callback();
 }
 
-// Perform authorization chedks after the account been authenticated
-api.checkAuthorization = function(req, callback)
+// Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed
+// - req is Express request object
+// - status contains the signature verification status, an object wth status: and message: properties
+// - callback is a function(req, status) to be called with the resulted status where status must be an object with status and message properties as well
+api.checkAuthorization = function(req, status, callback)
 {
     var hook = this.findHook('auth', req.method, req.path);
-    if (hook) return hook.callbacks.call(this, req, callback);
-    callback();
+    if (hook) return hook.callbacks.call(this, req, status, callback);
+    // Pass the status back to the checkRequest
+    callback(status);
 }
 
 // Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers
@@ -410,7 +413,7 @@ api.initAccountAPI = function()
     db.getPool('account').processRow = self.processAccountRow;
 
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
-        logger.debug(req.path, req.account, req.query);
+        logger.debug(req.path, req.account, req.query, req.session);
 
         var options = self.getOptions(req);
         switch (req.params[0]) {
@@ -422,8 +425,16 @@ api.initAccountAPI = function()
 
         		    // Setup session cookies for automatic authentication without signing
         	        if (req.query._session) {
-        	            var sig = core.signRequest(req.account.email || req.account.key, req.account.secret, "", req.headers.host, "", { version: 4, expires: self.sessionAge });
-        	            req.session["bk-signature"] = sig["bk-signature"];
+        	            switch (req.query._session) {
+        	            case "1":
+        	                var sig = core.signRequest(req.account.email || req.account.key, req.account.secret, "", req.headers.host, "", { version: 4, expires: self.sessionAge });
+        	                req.session["bk-signature"] = sig["bk-signature"];
+        	                break;
+
+        	            case "0":
+        	                delete req.session["bk-signature"];
+        	                break;
+        	            }
         	        }
         			res.json(rows[0]);
         		});
@@ -1056,8 +1067,15 @@ api.registerAccessCheck = function(method, path, callback)
     this.addHook('access', method, path, callback);
 }
 
-// Similar to `registerAccesscheck` but this callback will be called after the signature or session is verified. The purpose of
-// this hook is too check permissions of a valid user to resources.
+// Similar to `registerAccessCheck` but this callback will be called after the signature or session is verified.
+// The purpose of this hook is too check permissions of a valid user to resources or in case of error perform any other action
+// like redirection or returning something explaining what to do in case of failure. The callback for this call is different then in `checkAccess` hooks.
+// - method can be '' in such case all mathods will be matched
+// - path is a string or regexp of the request URL similr to registering Express routes
+// - callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkSignature call, if status != 200 it means
+//   an error condition, the callback must pass the same or modified status object in its own `cb` callback
+// Example:
+//          api.registerAuthCheck('GET', '/account/get', function(req, status, cb) { if (status.status != 200) status = { status: 302, url: '/error.html' }; cb(status) })
 api.registerAuthCheck = function(method, path, callback)
 {
     this.addHook('auth', method, path, callback);
@@ -1098,12 +1116,37 @@ api.sendJSON = function(req, res, rows)
     res.json(rows);
 }
 
-// Send formatted reply to API clients, if status is an instance of Error then error message with status 500 is sent back
+// Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
 api.sendReply = function(res, status, msg)
 {
     if (status instanceof Error) msg = status, status = 500;
     if (!status) status = 200, msg = "";
-    res.json(status, { status: status, message: String(msg || "") });
+    return this.sendStatus(res, { status: status, message: String(msg || "") });
+}
+
+// Return reply to the client using the options object, it cantains the following properties:
+// - status - defines the respone status code
+// - message  - property to be sent as status line and in the body
+// - type - defines Content-Type header, the message will be sent in the body
+// - url - for redirects when status is 301 or 302
+api.sendStatus = function(res, options)
+{
+    if (!options) options = { status: 200, message: "" };
+    if (!options.status) options.status = 200;
+    switch (options.status) {
+    case 301:
+    case 302:
+        res.redirect(options.status, options.url);
+        break;
+
+    default:
+        if (options.type) {
+            res.type(type);
+            res.send(options.status, options.message || "");
+        } else {
+            res.json(options.status, options);
+        }
+    }
     return false;
 }
 
@@ -1260,7 +1303,7 @@ api.storeFile = function(tmpfile, outfile, options, callback)
         });
     } else {
         if (Buffer.isBuffer(tmpfile)) {
-            fs.writeFile(outfile, tmpfile, function(err) {
+            fs.writeFile(path.join(core.path.files, outfile), tmpfile, function(err) {
                 if (err) logger.error('storeFile:', outfile, err);
                 if (callback) callback(err, outfile);
             });
