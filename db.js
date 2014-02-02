@@ -457,11 +457,11 @@ db.del = function(table, obj, options, callback)
 // Add/update the object, check existence by the primary key or by other keys specified.
 // - obj is a Javascript object with properties that correspond to the table columns
 // - options define additional flags that may
-//   - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-//     then default primary keys for the table will be used
-//   - check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value
-//   - check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
-//     if it is an array then check only specified columns
+//       - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
+//          then default primary keys for the table will be used
+//      - check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value
+//      - check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
+//       if it is an array then check only specified columns
 db.replace = function(table, obj, options, callback)
 {
     var self = this;
@@ -517,19 +517,19 @@ db.replace = function(table, obj, options, callback)
 // Select objects from the database that match supplied conditions.
 // - obj - can be an object with primary key propeties set for the condition, all matching records will be returned
 // - obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
-// Options can use the following special propeties:
-//  - keys - a list of columns for condition or all primary keys will be used for query condition
-//  - ops - operators to use for comparison for properties, an object with column name and operator
-//  - opsMap - operator mapping between supplied operators and actual operators supported by the db
-//  - typesMap - type mapping between supplied and actual column types, an object
-//  - select - a list of columns or expressions to return or all columns if not specified
-//  - start - start records with this primary key, this is the next_token passed by the previous query
-//  - count - how many records to return
-//  - sort - sort by this column
-//  - public_columns - value to be used to filter non-public columns (marked by .pub property), compared to public_key column or 'id'
-//  - public_key - name of the column to be used in public columns filtering, default is 'id'
-//  - desc - if sorting, do in descending order
-//  - page - starting page number for pagination, uses count to find actual record to start
+// - options can use the following special propeties:
+//      - keys - a list of columns for condition or all primary keys will be used for query condition
+//      - ops - operators to use for comparison for properties, an object with column name and operator
+//      - opsMap - operator mapping between supplied operators and actual operators supported by the db
+//      - typesMap - type mapping between supplied and actual column types, an object
+//      - select - a list of columns or expressions to return or all columns if not specified
+//      - start - start records with this primary key, this is the next_token passed by the previous query
+//      - count - how many records to return
+//      - sort - sort by this column
+//      - public_columns - value to be used to filter non-public columns (marked by .pub property), compared to public_key column or 'id'
+//      - public_key - name of the column to be used in public columns filtering, default is 'id'
+//      - desc - if sorting, do in descending order
+//      - page - starting page number for pagination, uses count to find actual record to start
 // On return, the callback can check third argument which is an object with the following properties:
 // - affected_rows - how many records this operation affected
 // - inserted_oid - last created auto generated id
@@ -1369,23 +1369,25 @@ db.sqlWhere = function(table, obj, keys, options)
     return where.join(" AND ");
 }
 
-// Create SQL table using table definition object with properties as column names and each property value is an object:
-// - name - column name
-// - type - type of the column, default is TEXT, options: int, real or other supported types
-// - value - default value for the column
-// - primary - part of the primary key
-// - index - indexed column, part of the compisite index
-// - unique - must be combined with index property to specify unique composite index
-// - len - max length of the column
-// - notnull - true if should be NOT NULL
-// options may contains:
-// - upgrade - perform alter table instead of create
-// - typesMap - type mapping, convert lowecase type into other type supported by any specific database
-// - noDefaults - ignore default value if not supported (Cassandra)
-// - noNulls - NOT NULL restriction is not supported (Cassandra)
-// - noMultiSQL - return as a list, the driver does not support multiple SQL commands
-// - noLengths - ignore column length for columns (Cassandra)
-// - noIfExists - do not support IF EXISTS on table or indexes
+// Create SQL table using table definition
+// - table - name of the table to create
+// - obj - object with properties as column names and each property value is an object:
+//      - name - column name
+//      - type - type of the column, default is TEXT, options: int, real or other supported types
+//      - value - default value for the column
+//      - primary - part of the primary key
+//      - index - indexed column, part of the compisite index
+//      - unique - must be combined with index property to specify unique composite index
+//      - len - max length of the column
+//      - notnull - true if should be NOT NULL
+// - options may contains:
+//      - upgrade - perform alter table instead of create
+//      - typesMap - type mapping, convert lowecase type into other type supported by any specific database
+//      - noDefaults - ignore default value if not supported (Cassandra)
+//      - noNulls - NOT NULL restriction is not supported (Cassandra)
+//      - noMultiSQL - return as a list, the driver does not support multiple SQL commands
+//      - noLengths - ignore column length for columns (Cassandra)
+//      - noIfExists - do not support IF EXISTS on table or indexes
 db.sqlCreate = function(table, obj, options)
 {
     var self = this;
@@ -1436,12 +1438,16 @@ db.sqlUpgrade = function(table, obj, options)
     return this.sqlCreate(table, obj, core.cloneObj(options || {}, "upgrade", 1));
 }
 
+// Create SQL DROP TABLE statement
 db.sqlDrop = function(table, obj, options)
 {
     return { text: "DROP TABLE IF EXISTS " + table };
 }
 
-// Select object from the database, .keys is a list of columns for condition, .select is list of columns or expressions to return
+// Select object from the database,
+// options may define the follwong properties:
+// - keys is a list of columns for condition
+//  - select is list of columns or expressions to return
 db.sqlSelect = function(table, obj, options)
 {
 	var self = this;
@@ -1465,7 +1471,7 @@ db.sqlSelect = function(table, obj, options)
     return req;
 }
 
-// Build SQL insert
+// Build SQL insert statement
 db.sqlInsert = function(table, obj, options)
 {
     if (!options) options = {};
@@ -1568,7 +1574,7 @@ db.sqlDelete = function(table, obj, options)
     return req;
 }
 
-// Setup primary database access
+// Setup PostgreSQL pool driver
 db.pgsqlInitPool = function(options)
 {
     var self = this;
@@ -1660,7 +1666,7 @@ db.pgsqlBindValue = function(val, opts)
     return val;
 }
 
-// Initialize local sqlite cache database by name, the db files are open in read only mode and are watched for changes,
+// Initialize local Sqlite cache database by name, the db files are open in read only mode and are watched for changes,
 // if new file got copied from the master, we reopen local database
 db.sqliteInitPool = function(options)
 {
@@ -1760,6 +1766,7 @@ db.sqliteCacheColumns = function(options, callback)
     });
 }
 
+// Setup Mysql database driver
 db.mysqlInitPool = function(options)
 {
     var self = this;
@@ -1821,7 +1828,7 @@ db.mysqlCacheIndexes = function(options, callback)
     });
 }
 
-// DynamoDB pool
+// Setup DynamoDB database driver
 db.dynamodbInitPool = function(options)
 {
     var self = this;

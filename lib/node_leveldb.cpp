@@ -25,7 +25,7 @@ public:
     static void Init(Handle<Object> target);
     static inline bool HasInstance(Handle<Value> val) { return constructor_template->HasInstance(val); }
 
-    struct Baton {
+    struct LDBBaton {
         uv_work_t request;
         LevelDB* db;
         string key;
@@ -38,12 +38,12 @@ public:
         leveldb::ReadOptions readOptions;
         leveldb::WriteOptions writeOptions;
 
-        Baton(LevelDB* db_, Handle<Function> cb_ = Handle<Function>()): db(db_) {
+        LDBBaton(LevelDB* db_, Handle<Function> cb_ = Handle<Function>()): db(db_) {
             db->Ref();
             request.data = this;
             callback = Persistent<Function>::New(cb_);
         }
-        virtual ~Baton() {
+        virtual ~LDBBaton() {
             db->Unref();
             callback.Dispose();
         }
@@ -130,7 +130,7 @@ public:
     const leveldb::Snapshot *snapshot;
 };
 
-struct Baton {
+struct LDBBaton {
     uv_work_t request;
     string key;
     string value;
@@ -138,11 +138,11 @@ struct Baton {
     leveldb::Status status;
     leveldb::Options options;
 
-    Baton(Handle<Function> cb_) {
+    LDBBaton(Handle<Function> cb_) {
         request.data = this;
         callback = Persistent<Function>::New(cb_);
     }
-    virtual ~Baton() {
+    virtual ~LDBBaton() {
         callback.Dispose();
     }
 };
@@ -203,7 +203,7 @@ Handle<Value> LevelDB::New(const Arguments& args)
     leveldb::Options options = GetOptions(opts);
 
     if (!callback.IsEmpty()) {
-        Baton* baton = new Baton(db, callback);
+        LDBBaton* baton = new LDBBaton(db, callback);
         baton->options = options;
         uv_queue_work(uv_default_loop(), &baton->request, Work_Open, (uv_after_work_cb)Work_After);
     } else {
@@ -218,7 +218,7 @@ Handle<Value> LevelDB::New(const Arguments& args)
 
 void LevelDB::Work_Open(uv_work_t* req)
 {
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     baton->status = leveldb::DB::Open(baton->options, baton->db->file, &baton->db->handle);
     if (!baton->status.ok()) baton->db->Close();
@@ -227,7 +227,7 @@ void LevelDB::Work_Open(uv_work_t* req)
 void LevelDB::Work_After(uv_work_t* req)
 {
     HandleScope scope;
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     if (!baton->callback.IsEmpty() && baton->callback->IsFunction()) {
         Local<Value> argv[2] = { Local<Value>::New(Null()), Local<Value>::New(Null()) };
@@ -258,7 +258,7 @@ Handle<Value> LevelDB::Close(const Arguments& args)
 
     EXPECT_ARGUMENT_FUNCTION(0, callback);
 
-    Baton* baton = new Baton(db, callback);
+    LDBBaton* baton = new LDBBaton(db, callback);
     uv_queue_work(uv_default_loop(), &baton->request, Work_Close, (uv_after_work_cb)Work_After);
 
     return args.This();
@@ -266,7 +266,7 @@ Handle<Value> LevelDB::Close(const Arguments& args)
 
 void LevelDB::Work_Close(uv_work_t* req)
 {
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     baton->db->Close();
 }
@@ -279,7 +279,7 @@ Handle<Value> LevelDB::GetSync(const Arguments& args)
     REQUIRE_ARGUMENT_STRING(0, key);
     OPTIONAL_ARGUMENT_OBJECT(1, opts);
 
-    Baton* baton = new Baton(db);
+    LDBBaton* baton = new LDBBaton(db);
     baton->GetReadOptions(opts);
     baton->key = *key;
     Work_Get(&baton->request);
@@ -299,7 +299,7 @@ Handle<Value> LevelDB::Get(const Arguments& args)
     OPTIONAL_ARGUMENT_OBJECT(1, opts);
     OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
-    Baton* baton = new Baton(db, callback);
+    LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetReadOptions(opts);
     baton->key = *key;
     uv_queue_work(uv_default_loop(), &baton->request, Work_Get, (uv_after_work_cb)Work_After);
@@ -309,7 +309,7 @@ Handle<Value> LevelDB::Get(const Arguments& args)
 
 void LevelDB::Work_Get(uv_work_t* req)
 {
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     baton->status = baton->db->handle->Get(baton->readOptions, baton->key, &baton->value);
     if (!baton->status.ok() && baton->status.IsNotFound()) baton->status = leveldb::Status::OK();
@@ -324,7 +324,7 @@ Handle<Value> LevelDB::AllSync(const Arguments& args)
     REQUIRE_ARGUMENT_STRING(1, end);
     OPTIONAL_ARGUMENT_OBJECT(2, opts);
 
-    Baton* baton = new Baton(db);
+    LDBBaton* baton = new LDBBaton(db);
     baton->GetReadOptions(opts);
     baton->key = *start;
     baton->end = *end;
@@ -346,7 +346,7 @@ Handle<Value> LevelDB::All(const Arguments& args)
     OPTIONAL_ARGUMENT_OBJECT(2, opts);
     OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
-    Baton* baton = new Baton(db, callback);
+    LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetReadOptions(opts);
     baton->key = *start;
     baton->end = *end;
@@ -357,7 +357,7 @@ Handle<Value> LevelDB::All(const Arguments& args)
 
 void LevelDB::Work_All(uv_work_t* req)
 {
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     leveldb::Iterator* it = baton->db->handle->NewIterator(baton->readOptions);
     if (baton->key.size()) it->Seek(baton->key); else it->SeekToFirst();
@@ -379,7 +379,7 @@ Handle<Value> LevelDB::PutSync(const Arguments& args)
     REQUIRE_ARGUMENT_STRING(1, value);
     OPTIONAL_ARGUMENT_OBJECT(2, opts);
 
-    Baton* baton = new Baton(db);
+    LDBBaton* baton = new LDBBaton(db);
     baton->GetWriteOptions(opts);
     baton->key = *key;
     baton->value = *value;
@@ -400,7 +400,7 @@ Handle<Value> LevelDB::Put(const Arguments& args)
     OPTIONAL_ARGUMENT_OBJECT(2, opts);
     OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
-    Baton* baton = new Baton(db, callback);
+    LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetWriteOptions(opts);
     baton->key = *key;
     baton->value = *value;
@@ -411,7 +411,7 @@ Handle<Value> LevelDB::Put(const Arguments& args)
 
 void LevelDB::Work_Put(uv_work_t* req)
 {
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     baton->status = baton->db->handle->Put(baton->writeOptions, baton->key, baton->value);
 }
@@ -424,7 +424,7 @@ Handle<Value> LevelDB::BatchSync(const Arguments& args)
     REQUIRE_ARGUMENT_ARRAY(0, list);
     OPTIONAL_ARGUMENT_OBJECT(1, opts);
 
-    Baton* baton = new Baton(db);
+    LDBBaton* baton = new LDBBaton(db);
     baton->GetWriteOptions(opts);
     baton->GetBatchOptions(list);
     Work_Batch(&baton->request);
@@ -443,7 +443,7 @@ Handle<Value> LevelDB::Batch(const Arguments& args)
     OPTIONAL_ARGUMENT_OBJECT(1, opts);
     OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
-    Baton* baton = new Baton(db, callback);
+    LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetWriteOptions(opts);
     baton->GetBatchOptions(list);
     uv_queue_work(uv_default_loop(), &baton->request, Work_Put, (uv_after_work_cb)Work_After);
@@ -453,7 +453,7 @@ Handle<Value> LevelDB::Batch(const Arguments& args)
 
 void LevelDB::Work_Batch(uv_work_t* req)
 {
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     leveldb::WriteBatch batch;
     for (uint i = 0; i < baton->list.size(); i++) {
@@ -470,7 +470,7 @@ void LevelDB::Work_Batch(uv_work_t* req)
 static void Work_After(uv_work_t* req)
 {
     HandleScope scope;
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     if (!baton->callback.IsEmpty() && baton->callback->IsFunction()) {
         Local <Value> argv[1] = { Local<Value>::New(Null()) };
@@ -486,7 +486,7 @@ static void Work_After(uv_work_t* req)
 
 static void Work_Destroy(uv_work_t* req)
 {
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     leveldb::DestroyDB(baton->key, baton->options);
 }
@@ -499,7 +499,7 @@ Handle<Value> DestroyDB(const Arguments& args)
     OPTIONAL_ARGUMENT_OBJECT(1, opts);
     OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
-    Baton* baton = new Baton(callback);
+    LDBBaton* baton = new LDBBaton(callback);
     baton->options = LevelDB::GetOptions(opts);
 
     uv_queue_work(uv_default_loop(), &baton->request, Work_Destroy, (uv_after_work_cb)Work_After);
@@ -509,7 +509,7 @@ Handle<Value> DestroyDB(const Arguments& args)
 
 static void Work_Repair(uv_work_t* req)
 {
-    Baton* baton = static_cast<Baton*>(req->data);
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     leveldb::RepairDB(baton->key, baton->options);
 }
@@ -522,7 +522,7 @@ Handle<Value> RepairDB(const Arguments& args)
     OPTIONAL_ARGUMENT_OBJECT(1, opts);
     OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
-    Baton* baton = new Baton(callback);
+    LDBBaton* baton = new LDBBaton(callback);
     baton->options = LevelDB::GetOptions(opts);
 
     uv_queue_work(uv_default_loop(), &baton->request, Work_Repair, (uv_after_work_cb)Work_After);

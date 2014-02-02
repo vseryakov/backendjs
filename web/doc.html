@@ -493,20 +493,6 @@ the callback MUST return data back to the client or any other status code</li>
 </ul>
 
 <ul>
-<li><p><code>api.registerAccessPath(path, deny)</code></p>
-<p> Register path to be allowed or rejected based on the request URL path,
-path is a string with a regexp, not the actual RegExp object.</p>
-<ul>
-<li>if deny is not specified or false then the access to matched path will be granted without any authentication</li>
-<li>if deny is true then this path will be denied access completely (this is for hidding some paths but keeping in the code/filesystem)
-This call must be issued before api is initialized, i.e. only in the api.initMiddleware
-Example:<pre><code>  api.registerAccessPath(&quot;^/counter/&quot;)
-</code></pre></li>
-</ul>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.sendJSON(req, res, rows)</code></p>
 <p> Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in teh apps</p>
 </li>
@@ -664,17 +650,31 @@ Options may contain the following properties:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.toDynamoDB(value, level)</code></p>
+<p> Convert a Javascript object into DynamoDB object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.fromDynamoDB(value)</code></p>
+<p> Convert a DynamoDB object into Javascript object</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.ddbListTables(options, callback)</code></p>
 <p> Return list of tables in .TableNames property of the result
-Example: { TableNames: [ name, ...] }</p>
-</li>
+Example:</p>
+<pre><code>    { TableNames: [ name, ...] }
+</code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>aws.ddbDescribeTable(name, options, callback)</code></p>
 <p> Return table definition and parameters in the result structure with property of the given table name
-Example: { name: { AttributeDefinitions: [], KeySchema: [] ...} }</p>
-</li>
+Example:</p>
+<pre><code>    { name: { AttributeDefinitions: [], KeySchema: [] ...} }
+</code></pre></li>
 </ul>
 
 <ul>
@@ -686,7 +686,8 @@ Example: { name: { AttributeDefinitions: [], KeySchema: [] ...} }</p>
 <li>indexes can be an array in native DDB JSON format or an object with each property for an index name and
 value in the same format as for primary keys, additional property _projection defines projection type for an index.</li>
 <li>options may contain any valid native property if it starts with capital letter.
-Example: ddbCreateTable(&#39;users&#39;, {id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;}, {id:&#39;HASH&#39;,name:&#39;RANGE&#39;}, {mtime:{mtime:&quot;HASH&quot;,_projection:&quot;ALL&quot;}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});</li>
+Example:<pre><code>  ddbCreateTable(&#39;users&#39;, {id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;}, {id:&#39;HASH&#39;,name:&#39;RANGE&#39;}, {mtime:{mtime:&quot;HASH&quot;,_projection:&quot;ALL&quot;}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});
+</code></pre></li>
 </ul>
 </li>
 </ul>
@@ -699,7 +700,8 @@ Example: ddbCreateTable(&#39;users&#39;, {id:&#39;S&#39;,mtime:&#39;N&#39;,name:
 <li>select - list of columns to return, otherwise all columns will be returned</li>
 <li>options may contain any native property allowed in the request or special properties:<ul>
 <li>consistent - set consistency level for the request
-Example: ddbGetItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39; })</li>
+Example:
+  ddbGetItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39; })</li>
 </ul>
 </li>
 </ul>
@@ -712,9 +714,10 @@ Example: ddbGetItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { sele
 <ul>
 <li>item is an object, type will be inferred from the native js type.</li>
 <li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
-<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
+<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 any other exact value to be checked against which corresponds to { Exists: true, Value: value }
-Example: ddbPutItem(&quot;users&quot;, { id: 1, name: &quot;john&quot;, mtime: 11233434 }, { expected: { name: null } })</li>
+Example:
+  ddbPutItem(&quot;users&quot;, { id: 1, name: &quot;john&quot;, mtime: 11233434 }, { expected: { name: null } })</li>
 </ul>
 </li>
 </ul>
@@ -733,9 +736,10 @@ Example: ddbPutItem(&quot;users&quot;, { id: 1, name: &quot;john&quot;, mtime: 1
 </li>
 <li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
 <li>ops - an object with operators to be used for properties if other than PUT</li>
-<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or 
+<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 any other exact value to be checked against which corresponds to { Exists: true, Value: value }
-Example: ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: 1 } })</li>
+Example:
+  ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: 1 } })</li>
 </ul>
 </li>
 </ul>
@@ -748,7 +752,8 @@ Example: ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { g
 <ul>
 <li>keys is an object with name: value for hash/range attributes</li>
 <li>options may contain any valid native property if it starts with capital letter.
-Example: ddbDeleteItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, {})</li>
+Example:<pre><code>  ddbDeleteItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, {})
+</code></pre></li>
 </ul>
 </li>
 </ul>
@@ -759,7 +764,8 @@ Example: ddbDeleteItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, {})
 <ul>
 <li>items is a list of objects with table name as property and list of operations, an operation can be PutRequest or DeleteRequest</li>
 <li>options may contain any valid native property if it starts with capital letter.
-Example: { table: [ { PutRequest: { id: 1, name: &quot;tt&quot; } }, ] }</li>
+Example:<pre><code>  { table: [ { PutRequest: { id: 1, name: &quot;tt&quot; } }, ] }
+</code></pre></li>
 </ul>
 </li>
 </ul>
@@ -770,7 +776,8 @@ Example: { table: [ { PutRequest: { id: 1, name: &quot;tt&quot; } }, ] }</li>
 <ul>
 <li>items is an object with table name as property name and list of options for GetItem request</li>
 <li>options may contain any valid native property if it starts with capital letter.
-Example: { users: { keys: [{ id: 1, name: &quot;john&quot; },{ id: .., name: .. }], select: [&#39;name&#39;,&#39;id&#39;], consistent: true }, ... }</li>
+Example:<pre><code>  { users: { keys: [{ id: 1, name: &quot;john&quot; },{ id: .., name: .. }], select: [&#39;name&#39;,&#39;id&#39;], consistent: true }, ... }
+</code></pre></li>
 </ul>
 </li>
 </ul>
@@ -789,7 +796,8 @@ Example: { users: { keys: [{ id: 1, name: &quot;john&quot; },{ id: .., name: .. 
 <li>desc - descending order</li>
 <li>sort - index name to use, indexes are named the same as the corresponding column</li>
 <li>ops - an object with operators to be used for properties if other than EQ.
-Example: ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39;, op: { name: &#39;gt&#39; } })</li>
+Example:
+  ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39;, op: { name: &#39;gt&#39; } })</li>
 </ul>
 </li>
 </ul>
@@ -804,7 +812,8 @@ Example: ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { s
 <li>options may contain any valid native property if it starts with capital letter or special property:<ul>
 <li>start - defines starting primary key</li>
 <li>ops - an object with operators to be used for properties if other than EQ.
-Example: ddbScanTable(&quot;users&quot;, { id: 1, name: &#39;a&#39; }, { op: { name: &#39;gt&#39; }})</li>
+Example:
+ ddbScanTable(&quot;users&quot;, { id: 1, name: &#39;a&#39; }, { op: { name: &#39;gt&#39; }})</li>
 </ul>
 </li>
 </ul>
@@ -1336,7 +1345,8 @@ if the second arg is not an object then it is assumed that filter is not given a
 </ul>
 </li>
 <li>all additional arguments are treated as name value pairs and added to the cloned object as additional properties
-Example: core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4&quot;, 4)<pre><code>  core.cloneObj({1 : 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
+Example:<pre><code>  core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
+  core.cloneObj({1 : 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 </code></pre></li>
 </ul>
 </li>
@@ -1563,10 +1573,12 @@ The record MUST exist already, this is an update only</p>
 <li>obj is a Javascript object with properties that correspond to the table columns</li>
 <li>options define additional flags that may<ul>
 <li>keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-then default primary keys for the table will be used</li>
+ then default primary keys for the table will be used<ul>
 <li>check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value</li>
 <li>check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
 if it is an array then check only specified columns</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -1578,8 +1590,8 @@ if it is an array then check only specified columns</li>
 <p> Select objects from the database that match supplied conditions.</p>
 <ul>
 <li>obj - can be an object with primary key propeties set for the condition, all matching records will be returned</li>
-<li>obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
-Options can use the following special propeties:</li>
+<li>obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
+<li>options can use the following special propeties:<ul>
 <li>keys - a list of columns for condition or all primary keys will be used for query condition</li>
 <li>ops - operators to use for comparison for properties, an object with column name and operator</li>
 <li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
@@ -1593,6 +1605,8 @@ Options can use the following special propeties:</li>
 <li>desc - if sorting, do in descending order</li>
 <li>page - starting page number for pagination, uses count to find actual record to start
 On return, the callback can check third argument which is an object with the following properties:</li>
+</ul>
+</li>
 <li>affected_rows - how many records this operation affected</li>
 <li>inserted_oid - last created auto generated id</li>
 <li>next_token - next primary key or offset for pagination by passing it as .start property in the options</li>
@@ -1889,8 +1903,10 @@ options may contain the following poperties:</p>
 
 <ul>
 <li><p><code>db.sqlCreate(table, obj, options)</code></p>
-<p> Create SQL table using table definition object with properties as column names and each property value is an object:</p>
+<p> Create SQL table using table definition</p>
 <ul>
+<li>table - name of the table to create</li>
+<li>obj - object with properties as column names and each property value is an object:<ul>
 <li>name - column name</li>
 <li>type - type of the column, default is TEXT, options: int, real or other supported types</li>
 <li>value - default value for the column</li>
@@ -1898,8 +1914,10 @@ options may contain the following poperties:</p>
 <li>index - indexed column, part of the compisite index</li>
 <li>unique - must be combined with index property to specify unique composite index</li>
 <li>len - max length of the column</li>
-<li>notnull - true if should be NOT NULL
-options may contains:</li>
+<li>notnull - true if should be NOT NULL</li>
+</ul>
+</li>
+<li>options may contains:<ul>
 <li>upgrade - perform alter table instead of create</li>
 <li>typesMap - type mapping, convert lowecase type into other type supported by any specific database</li>
 <li>noDefaults - ignore default value if not supported (Cassandra)</li>
@@ -1907,6 +1925,8 @@ options may contains:</li>
 <li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
 <li>noLengths - ignore column length for columns (Cassandra)</li>
 <li>noIfExists - do not support IF EXISTS on table or indexes</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -1918,14 +1938,25 @@ options may contains:</li>
 </ul>
 
 <ul>
+<li><p><code>db.sqlDrop(table, obj, options)</code></p>
+<p> Create SQL DROP TABLE statement</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.sqlSelect(table, obj, options)</code></p>
-<p> Select object from the database, .keys is a list of columns for condition, .select is list of columns or expressions to return</p>
+<p> Select object from the database,
+options may define the follwong properties:</p>
+<ul>
+<li>keys is a list of columns for condition</li>
+<li>select is list of columns or expressions to return</li>
+</ul>
 </li>
 </ul>
 
 <ul>
 <li><p><code>db.sqlInsert(table, obj, options)</code></p>
-<p> Build SQL insert</p>
+<p> Build SQL insert statement</p>
 </li>
 </ul>
 
@@ -1943,7 +1974,7 @@ options may contains:</li>
 
 <ul>
 <li><p><code>db.pgsqlInitPool(options)</code></p>
-<p> Setup primary database access</p>
+<p> Setup PostgreSQL pool driver</p>
 </li>
 </ul>
 
@@ -1967,7 +1998,7 @@ options may contains:</li>
 
 <ul>
 <li><p><code>db.sqliteInitPool(options)</code></p>
-<p> Initialize local sqlite cache database by name, the db files are open in read only mode and are watched for changes,
+<p> Initialize local Sqlite cache database by name, the db files are open in read only mode and are watched for changes,
 if new file got copied from the master, we reopen local database</p>
 </li>
 </ul>
@@ -1980,8 +2011,14 @@ with error as first argument and database object as second</p>
 </ul>
 
 <ul>
+<li><p><code>db.mysqlInitPool(options)</code></p>
+<p> Setup Mysql database driver</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.dynamodbInitPool(options)</code></p>
-<p> DynamoDB pool</p>
+<p> Setup DynamoDB database driver</p>
 </li>
 </ul>
 
@@ -2169,10 +2206,10 @@ Supported options by the server:</p>
 <ul>
 <li>runalways - no checks for existing job wth the same name should be done</li>
 <li>runlast - run when no more pending or running jobs</li>
-<li>runafter - specifies another job in canoncal form obj.method which must finish and not be pending in<pre><code>      order for this job to start, this implements chaining of jobs to be executed one after another
-      but submitted at the same time
-      Exampe: submit 3 jobs to run sequentially:
-        &#39;scraper.import&#39;
+<li>runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
+order for this job to start, this implements chaining of jobs to be executed one after another
+but submitted at the same time
+Exampe: submit 3 jobs to run sequentially:<pre><code>        &#39;scraper.import&#39;
         { &#39;scraper.sync&#39;: { runafter: &#39;scraper.import&#39; } }
         { &#39;server.shutdown&#39;: { runafter: &#39;scraper.sync&#39; } }
 </code></pre></li>
@@ -2204,8 +2241,9 @@ All spaces must be are replaced with %20 to be used in command line parameterrs<
 <ul>
 <li><p><code>server.scheduleCronjob(spec, obj)</code></p>
 <p> Create a new cron job
-Example: { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 <em>/10 </em> <em> </em> *&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },</p>
-<pre><code>    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
+Example:</p>
+<pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },
+    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
 </code></pre></li>
 </ul>
 
@@ -2214,8 +2252,9 @@ Example: { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 <em>/
 <p> Create new cron job to be run on a drone in the cloud
 For remote jobs additonal property args can be used in the cron object to define
 arguments to the instance backend process, properties must start with -
-Example: { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 <em> </em> <em> </em>&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }</p>
-</li>
+Example:</p>
+<pre><code>    { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2240,15 +2279,18 @@ Example: { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 <em
 <li><p><code>server.loadSchedules()</code></p>
 <p> Load crontab from JSON file as list of job specs:</p>
 <ul>
-<li>type - local, remote, server<pre><code>  local means spawn a worker to run the job function
-  remote means launch an AWS instance
-  server means run inside the master process, do not spawn a worker
-</code></pre></li>
+<li>type - local, remote, server<ul>
+<li>local means spawn a worker to run the job function</li>
+<li>remote means launch an AWS instance</li>
+<li>server means run inside the master process, do not spawn a worker</li>
+</ul>
+</li>
 <li>cron - cron time interval spec: &#39;second&#39; &#39;minute&#39; &#39;hour&#39; &#39;dayOfMonth&#39; &#39;month&#39; &#39;dayOfWeek&#39;</li>
-<li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
-</code></pre></li>
+<li>job - a string as obj.method or an object with job name as property name and the value is an object with
+additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments</li>
 <li>args - additional arguments passwed to the backend in the command line for the remote jobs
-Example: [ { &quot;type&quot;: &quot;local&quot;, cron: &quot;0 0 <em> </em> <em> </em>&quot;, job: &quot;scraper.run&quot; }, ..]</li>
+Example:<pre><code>  [ { &quot;type&quot;: &quot;local&quot;, cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
+</code></pre></li>
 </ul>
 </li>
 </ul>
@@ -2268,9 +2310,9 @@ options can specify:</p>
 <ul>
 <li><p><code>server.processJobs(options, callback)</code></p>
 <p> Run submitted jobs, usually called from the crontab file in case of shared database, requires connection to the PG database
-To run it from crontab add line(to run every 5 mins):
-  { type: &quot;server&quot;, cron: &quot;0 <em>/5 </em> <em> </em> *&quot;, job: &quot;server.processJobs&quot; }</p>
-</li>
+To run it from crontab add line(to run every 5 mins):</p>
+<pre><code>    { type: &quot;server&quot;, cron: &quot;0 */5 * * * *&quot;, job: &quot;server.processJobs&quot; }
+</code></pre></li>
 </ul>
 
 

@@ -633,14 +633,13 @@ Handle<Value> MysqlDatabase::New(const Arguments& args)
     if (!callback.IsEmpty()) {
         uv_queue_work(uv_default_loop(), &baton->request, Work_Open, (uv_after_work_cb)Work_AfterOpen);
     } else {
-        uv_work_t req;
-        req.data = baton;
-        Work_Open(&req);
+        Work_Open(&baton->request);
         if (!db->handle) {
             string errmsg = baton->message;
             delete baton;
             return ThrowException(Exception::Error(String::New(errmsg.c_str())));
         }
+        delete baton;
     }
     return args.This();
 }

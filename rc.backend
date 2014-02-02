@@ -713,7 +713,6 @@ case "$ARG" in
     echo "  stop-cdb - stop local Cassandra server"
     echo "  build-deps - build all required software for the backend binary module"
     echo "  build-node - build node and install in $PREFIX"
-    echo "  build-imagemagick - build ImageMagick and install in $PREFIX"
     echo "  clean-deps - clean dependencies binary and object files"
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"

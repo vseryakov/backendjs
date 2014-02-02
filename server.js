@@ -531,9 +531,9 @@ server.runJob = function(job)
 // - runalways - no checks for existing job wth the same name should be done
 // - runlast - run when no more pending or running jobs
 // - runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
-//              order for this job to start, this implements chaining of jobs to be executed one after another
-//              but submitted at the same time
-//              Exampe: submit 3 jobs to run sequentially:
+//   order for this job to start, this implements chaining of jobs to be executed one after another
+//   but submitted at the same time
+//   Exampe: submit 3 jobs to run sequentially:
 //                'scraper.import'
 //                { 'scraper.sync': { runafter: 'scraper.import' } }
 //                { 'server.shutdown': { runafter: 'scraper.sync' } }
@@ -688,7 +688,8 @@ server.execQueue = function()
 }
 
 // Create a new cron job
-// Example: { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
+// Example:
+//          { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
 //          { "type": "local", "cron": "0 10 7 * * *", "job": "api.processQueue" }
 server.scheduleCronjob = function(spec, obj)
 {
@@ -712,7 +713,8 @@ server.scheduleCronjob = function(spec, obj)
 // Create new cron job to be run on a drone in the cloud
 // For remote jobs additonal property args can be used in the cron object to define
 // arguments to the instance backend process, properties must start with -
-// Example: { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
+// Example:
+//          { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
 server.scheduleLaunchjob = function(spec, obj)
 {
     var self = this;
@@ -763,15 +765,15 @@ server.checkJob = function(type, job)
 
 // Load crontab from JSON file as list of job specs:
 // - type - local, remote, server
-//          local means spawn a worker to run the job function
-//          remote means launch an AWS instance
-//          server means run inside the master process, do not spawn a worker
+//      - local means spawn a worker to run the job function
+//      - remote means launch an AWS instance
+//      - server means run inside the master process, do not spawn a worker
 // - cron - cron time interval spec: 'second' 'minute' 'hour' 'dayOfMonth' 'month' 'dayOfWeek'
 // - job - a string as obj.method or an object with job name as property name and the value is an object with
-//         additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
+//   additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
 // - args - additional arguments passwed to the backend in the command line for the remote jobs
-// Example: [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
-//
+// Example:
+//          [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
 server.loadSchedules = function()
 {
     var self = this;
@@ -820,7 +822,7 @@ server.submitJob = function(options, callback)
 
 // Run submitted jobs, usually called from the crontab file in case of shared database, requires connection to the PG database
 // To run it from crontab add line(to run every 5 mins):
-//    { type: "server", cron: "0 */5 * * * *", job: "server.processJobs" }
+//          { type: "server", cron: "0 */5 * * * *", job: "server.processJobs" }
 server.processJobs = function(options, callback)
 {
     var self = this;

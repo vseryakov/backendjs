@@ -168,7 +168,7 @@ var Backend = {
 
     // Format a Date object
     strftime: function(date, fmt, utc) {
-        if (typeof date == "string") try { date = new Date(date); } catch(e) {}
+        if (typeof date == "string" || typeof date == "number") try { date = new Date(date); } catch(e) {}
         if (!date || isNaN(date)) return "";
         function zeropad(n) { return n > 9 ? n : '0' + n; }
         var handlers = {

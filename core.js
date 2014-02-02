@@ -356,6 +356,7 @@ core.processArgs = function(name, ctx, argv, pass)
             ctx[key] = path.resolve(val);
             break;
         case "push":
+            if (x.list) key = x.list;
             if (!Array.isArray(ctx[key])) ctx[key] = [];
             ctx[key].push(val);
             break;
@@ -378,8 +379,16 @@ core.help = function()
 {
     var self = this;
     var args = [ [ '', core.args ] ];
-    Object.keys(this.context).forEach(function(n) { if (self.context[n].args) args.push([n, self.context[n].args]); })
-    args.forEach(function(x) { x[1].forEach(function(y) { if (y.name && y.descr) console.log(printf("%-40s", (x[0] ? x[0] + '-' : '') + y.name), y.descr); }); });
+    Object.keys(this.context).forEach(function(n) {
+        if (self.context[n].args) args.push([n, self.context[n].args]);
+    })
+    args.forEach(function(x) {
+        x[1].forEach(function(y) {
+            if (!y.name || !y.descr) return;
+            var dflt = (x[0] ? self.context[x[0]] : core)[self.toCamel(y.name)] || "";
+            console.log(printf("%-40s", (x[0] ? x[0] + '-' : '') + y.name), y.descr, dflt ? " Default: " + dflt : "");
+        });
+    });
     process.exit(0);
 }
 
@@ -1390,7 +1399,7 @@ core.mnow = function()
 // Format date object
 core.strftime = function(date, fmt, utc)
 {
-    if (typeof date == "string") try { date = new Date(date); } catch(e) {}
+    if (typeof date == "string" || typeof date == "number") try { date = new Date(date); } catch(e) {}
     if (!date || isNaN(date)) return "";
     function zeropad(n) { return n > 9 ? n : '0' + n; }
     var handlers = {
@@ -1795,7 +1804,8 @@ core.isEmpty = function(val)
 //     - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
 //   if the second arg is not an object then it is assumed that filter is not given and the argument is treated as additional property
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
-// Example: core.cloneObj({ 1: 2 }, { 1: 1 }, "3", 3, "4", 4)
+// Example:
+//          core.cloneObj({ 1: 2 }, { 1: 1 }, "3", 3, "4", 4)
 //          core.cloneObj({1 : 2 }, "3", 3, "4", 4)
 core.cloneObj = function()
 {

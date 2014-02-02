@@ -143,8 +143,9 @@ var api = {
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "disable", type: "list", descr: "Disable API by endpoint url" },
            { name: "disable-session", type: "list", descr: "Disable API endpoints for Web sessions only" },
-           { name: "allow", type: "regexp", descr: "Regexp for URLs that dont need credentials" },
-           { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access"  },
+           { name: "allow", type: "push", descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
+           { name: "allow-path", type: "push", list: "allow", descr: "Add to the list of allowed URL paths without authentication" },
+           { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replace the whole access list"  },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
 
@@ -1090,22 +1091,6 @@ api.registerAuthCheck = function(method, path, callback)
 api.registerPostProcess = function(method, path, callback)
 {
     this.addHook('post', method, path, callback);
-}
-
-// Register path to be allowed or rejected based on the request URL path,
-// path is a string with a regexp, not the actual RegExp object.
-// - if deny is not specified or false then the access to matched path will be granted without any authentication
-// - if deny is true then this path will be denied access completely (this is for hidding some paths but keeping in the code/filesystem)
-// This call must be issued before api is initialized, i.e. only in the api.initMiddleware
-// Example:
-//          api.registerAccessPath("^/counter/")
-api.registerAccessPath = function(path, deny)
-{
-    if (!deny) {
-        if (Array.isArray(this.allow)) this.allow.push(path);
-    } else {
-        if (Array.isArray(this.deny)) this.deny.push(path);
-    }
 }
 
 // Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in teh apps

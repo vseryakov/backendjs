@@ -27,10 +27,10 @@ public:
     int err;
 };
 
-class Baton {
+class BKBaton {
 public:
-    Baton(string k, string v = ""): key(k), value(v) {}
-    ~Baton() { cb.Dispose(); }
+    BKBaton(string k, string v = ""): key(k), value(v) {}
+    ~BKBaton() { cb.Dispose(); }
     Persistent<Function> cb;
     string key;
     string value;
