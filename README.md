@@ -75,52 +75,64 @@ Features:
 ## Accounts
 This API manages accounts and authentication, by default each account stores basic information about the user:
 - /account/get
-    Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
-    Public columsn are the columns marked with pub: property in the table definition object passed to the `db.initTables` or `api.describeTables` functions.
-    Parameters:
+
+  Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
+  Public columsn are the columns marked with pub: property in the table definition object passed to the `db.initTables` or `api.describeTables` functions.
+  Parameters:
+
     - id=id,id,... - return information about given accounts, the id parameter can be a single account id or list of ids separated by comma,
         if no id parameter is given then current account record is returned
     - _session - after successful login return session cookies so the Web app can perform requests without signing
 
 - /account/add
-    Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
-    Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
-    type 1, different signature type cannot be mixed.
+
+  Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
+  Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
+  type 1, different signature type cannot be mixed.
 
 - /account/search
-    Return list of accounts by the given condition. Parameters are the column values to be matched.
-    Parameters:
+
+  Return list of accounts by the given condition. Parameters are the column values to be matched.
+  Parameters:
+
     - _keys -
     _ _ops -
     _ _select -
 
 - /account/del
-    Delete current account
+  Delete current account
 
 - /account/update
-    Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.
+
+  Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.
 
 - /account/put/secret
-    Change account secret for the current account
-    Parameters:
+
+  Change account secret for the current account
+  Parameters:
     - secret - new secret for the account
 
 - /account/get/icon
-    Return account icon
-    Parameters:
+
+  Return account icon
+  Parameters:
     - type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used
 
 - /account/put/icon
-    Upload account icon
-    Parameters:
+
+  Upload account icon
+  Parameters:
+
     - type - icon type, a number between 0 and 9, if not specified 0 is used
     - icon - can be passed as base64 encoded image in the query,
     - icon - can be passed as base64 encoded string in the body as JSON
     - icon - can be passed in multipart form as a part name
 
 - /account/del/icon
-    Delete account icon
-    Parameters:
+
+  Delete account icon
+  Parameters:
+
     - type - what icon to delet, if not specified 0 is used
 
 ## Connections
