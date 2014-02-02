@@ -483,6 +483,10 @@ case "$ARG" in
     fi
     ;;
 
+  run-mysql)
+    $MYSQL_PREFIX/bin/mysqld &
+    ;;
+
   stop-mysql)
     killall mysqld
     ;;
@@ -711,6 +715,9 @@ case "$ARG" in
     echo "  init-cdb - run Cassandra server and create backend keyspace"
     echo "  run-cdb - run local Cassandra server installed in $PREFIX/cassandra"
     echo "  stop-cdb - stop local Cassandra server"
+    echo "  init-mysql - run Mysql server and create backend database"
+    echo "  run-mysql - run local Mysql server installed in $MYSQL_DIR"
+    echo "  stop-mysql - stop local Mysql server"
     echo "  build-deps - build all required software for the backend binary module"
     echo "  build-node - build node and install in $PREFIX"
     echo "  clean-deps - clean dependencies binary and object files"
