@@ -74,23 +74,24 @@ Features:
 
 ## Accounts
 This API manages accounts and authentication, by default each account stores basic information about the user:
-- /account/get
+
+- `/account/get`
 
   Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
   Public columsn are the columns marked with pub: property in the table definition object passed to the `db.initTables` or `api.describeTables` functions.
   Parameters:
 
     - id=id,id,... - return information about given accounts, the id parameter can be a single account id or list of ids separated by comma,
-        if no id parameter is given then current account record is returned
+      if no id parameter is given then current account record is returned
     - _session - after successful login return session cookies so the Web app can perform requests without signing
 
-- /account/add
+- `/account/add`
 
   Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
   Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
   type 1, different signature type cannot be mixed.
 
-- /account/search
+- `/account/search`
 
   Return list of accounts by the given condition. Parameters are the column values to be matched.
   Parameters:
@@ -99,26 +100,27 @@ This API manages accounts and authentication, by default each account stores bas
     _ _ops -
     _ _select -
 
-- /account/del
+- `/account/del`
+
   Delete current account
 
-- /account/update
+- `/account/update`
 
   Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.
 
-- /account/put/secret
+- `/account/put/secret`
 
   Change account secret for the current account
   Parameters:
     - secret - new secret for the account
 
-- /account/get/icon
+- `/account/get/icon`
 
   Return account icon
   Parameters:
     - type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used
 
-- /account/put/icon
+- `/account/put/icon`
 
   Upload account icon
   Parameters:
@@ -128,7 +130,7 @@ This API manages accounts and authentication, by default each account stores bas
     - icon - can be passed as base64 encoded string in the body as JSON
     - icon - can be passed in multipart form as a part name
 
-- /account/del/icon
+- `/account/del/icon`
 
   Delete account icon
   Parameters:
@@ -291,6 +293,8 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
         > core.version
          '2013.10.20.0'
         > logger.setDebug(2)
+
+# [API Documentation](/web/doc.html)
 
 # Author
   Vlad Seryakov
