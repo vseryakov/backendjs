@@ -4,7 +4,7 @@
  *
  */
 
-#include "VLog.h"
+#include "vlog.h"
 
 static const char *_names[] = {
     "NONE",

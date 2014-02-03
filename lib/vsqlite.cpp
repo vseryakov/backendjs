@@ -233,7 +233,7 @@ static void sqliteArray(sqlite3_context *ctx, int argc, sqlite3_value **argv)
     	for (int i = 3; i < argc; i++) {
     		const char *val = (const char*) sqlite3_value_text(argv[i]);
     		if (!val || !val[0]) continue;
-    		auto it = std::find(items.begin(), items.end(), val);
+    		vector<string>::iterator it = std::find(items.begin(), items.end(), val);
     		if (it != items.end()) items.erase(it);
     	}
     } else

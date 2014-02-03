@@ -10,6 +10,7 @@
 <li><a href="#the-backend-provisioning-utility-rc-backend"> The backend provisioning utility: rc.backend</a></li>
 <li><a href="#security"> Security</a></li>
 <li><a href="#backend-framework-development-mac-os-x-developers-"> Backend framework development (Mac OS X, developers)</a></li>
+<li><a href="#-api-documentation-web-doc-html-"> <a href="/web/doc.html">API Documentation</a></a></li>
 <li><a href="#author"> Author</a></li>
 <li>Javascript API functions<ul>
 <li><a href="#module-api">api</a></li>
@@ -90,53 +91,53 @@ are changed</p>
 <h2 id="accounts">Accounts</h2>
 <p>This API manages accounts and authentication, by default each account stores basic information about the user:</p>
 <ul>
-<li><p>/account/get
-  Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
-  Public columsn are the columns marked with pub: property in the table definition object passed to the <code>db.initTables</code> or <code>api.describeTables</code> functions.
-  Parameters:</p>
+<li><p><code>/account/get</code></p>
+<p>Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
+Public columsn are the columns marked with pub: property in the table definition object passed to the <code>db.initTables</code> or <code>api.describeTables</code> functions.
+Parameters:</p>
 <ul>
 <li>id=id,id,... - return information about given accounts, the id parameter can be a single account id or list of ids separated by comma,
-  if no id parameter is given then current account record is returned</li>
+if no id parameter is given then current account record is returned</li>
 <li>_session - after successful login return session cookies so the Web app can perform requests without signing</li>
 </ul>
 </li>
-<li><p>/account/add
-  Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
-  Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
-  type 1, different signature type cannot be mixed.</p>
+<li><p><code>/account/add</code></p>
+<p>Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
+Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
+type 1, different signature type cannot be mixed.</p>
 </li>
-<li><p>/account/search
-  Return list of accounts by the given condition. Parameters are the column values to be matched.
-  Parameters:</p>
+<li><p><code>/account/search</code></p>
+<p>Return list of accounts by the given condition. Parameters are the column values to be matched.
+Parameters:</p>
 <ul>
 <li><em>keys -
 </em> <em>ops -
 </em> _select -</li>
 </ul>
 </li>
-<li><p>/account/del
-  Delete current account</p>
+<li><p><code>/account/del</code></p>
+<p>Delete current account</p>
 </li>
-<li><p>/account/update
-  Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.</p>
+<li><p><code>/account/update</code></p>
+<p>Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.</p>
 </li>
-<li><p>/account/put/secret
-  Change account secret for the current account
-  Parameters:</p>
+<li><p><code>/account/put/secret</code></p>
+<p>Change account secret for the current account
+Parameters:</p>
 <ul>
 <li>secret - new secret for the account</li>
 </ul>
 </li>
-<li><p>/account/get/icon
-  Return account icon
-  Parameters:</p>
+<li><p><code>/account/get/icon</code></p>
+<p>Return account icon
+Parameters:</p>
 <ul>
 <li>type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used</li>
 </ul>
 </li>
-<li><p>/account/put/icon
-  Upload account icon
-  Parameters:</p>
+<li><p><code>/account/put/icon</code></p>
+<p>Upload account icon
+Parameters:</p>
 <ul>
 <li>type - icon type, a number between 0 and 9, if not specified 0 is used</li>
 <li>icon - can be passed as base64 encoded image in the query,</li>
@@ -144,9 +145,9 @@ are changed</p>
 <li>icon - can be passed in multipart form as a part name</li>
 </ul>
 </li>
-<li><p>/account/del/icon
-  Delete account icon
-  Parameters:</p>
+<li><p><code>/account/del/icon</code></p>
+<p>Delete account icon
+Parameters:</p>
 <ul>
 <li>type - what icon to delet, if not specified 0 is used</li>
 </ul>
@@ -304,6 +305,7 @@ backend via npm with all dependencies:</p>
   &gt; logger.setDebug(2)
 </code></pre></li>
 </ul>
+<h1 id="-api-documentation-web-doc-html-"><a href="/web/doc.html">API Documentation</a></h1>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
 <h2 id="module-api">Module: API</h2>

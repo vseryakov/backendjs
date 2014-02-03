@@ -2,7 +2,7 @@
     "targets": [
     {
         "target_name": "backend",
-        "defines": [  
+        "defines": [
            "SQLITE_USE_URI",
            "SQLITE_ENABLE_STAT3=1",
            "SQLITE_ENABLE_FTS4=1",
@@ -19,7 +19,7 @@
            "HAVE_GMTIME_R=1",
            "HAVE_STRERROR_R=1",
            "HAVE_READLINE=1",
-           "<!@(if which -s mysql_config; then echo USE_MYSQL; fi)",
+           "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
            "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)"
         ],
         "include_dirs": [
@@ -31,7 +31,7 @@
         ],
         "libraries": [
            "-L/opt/local/lib -Llib -lleveldb -lsnappy -lnanomsg -lpcre",
-           "$(shell mysql_config --libs_r)",
+           "$(shell mysql_config --libs_r 2>/dev/null)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"
         ],
@@ -59,7 +59,7 @@
                 "OTHER_CFLAGS": [
                    "-g",
                    "-fno-omit-frame-pointer",
-                   "$(shell mysql_config --cflags)",
+                   "$(shell mysql_config --cflags 2>/dev/null)",
                    "$(shell pkg-config --silence-errors --cflags libpq)",
                    "$(shell ./bin/MagickWand-config --cflags)"
                 ],
@@ -69,7 +69,8 @@
              "cflags_cc+": [
                 "-g",
                 "-fno-omit-frame-pointer",
-                "$(shell mysql_config --cflags)",
+                "-fPIC",
+                "$(shell mysql_config --cflags 2>/dev/null)",
                 "$(shell pkg-config --silence-errors --cflags libpq)",
                 "$(shell ./bin/MagickWand-config --cflags)",
                 "-frtti",

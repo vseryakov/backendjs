@@ -141,6 +141,19 @@ This API manages accounts and authentication, by default each account stores bas
 ## Locations
 ## Messages
 ## Icons
+
+- `/icon/get/prefix`
+
+   Return icon for the current account in the given prefix
+
+- `/icon/put/prefix`
+
+  Upload new icon for the given account in the folder prefix
+
+- `/icon/del/prefix`
+
+   Delete the icon for the current account in the folder prefix
+
 ## Counters
 ## History
 ## Data
@@ -203,11 +216,11 @@ it supports symlinks with different name and uses it as a command to execute, fo
 
 On startup the rc.backend tries to load and source the following config files:
 
-        /data/etc/profile
+        /backend/etc/profile
         /etc/backendrc
         /usr/local/etc/backendrc
-        $HOME/.backend/etc/profile
-        $HOME/.backencrc
+        ~/.backend/etc/profile
+        ~/.backencrc
 
 
 Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
@@ -250,8 +263,7 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
 # Backend framework development (Mac OS X, developers)
 
-* git clone https://[your username]@bitbucket.org/vseryakov/backend.git
-* SSH alternative so you don't have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git
+* `git clone https://github.com/vseryakov/backend.git` or `git clone git@bitbucket.org:vseryakov/backend.git`
 * cd backend
 * to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
   to the current user, this is required to support global NPM modules.
@@ -274,12 +286,15 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
         ./rc.backend build-node
 
 
-- if node.js is installed, make sure all required modules are installed, thi sis required because we did not installed the
+- once node.js is installed, make sure all required modules are installed, this is required because we did not install the
   backend via npm with all dependencies:
 
         ./rc.backend npm-deps
 
 * to compile the binary module and all required dependencies just type ```make```
+    * to see the actual compiler setting during compile the following helps:
+
+            make V=1
 
 * to run local server on port 8000 run command:
 
@@ -293,8 +308,6 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
         > core.version
          '2013.10.20.0'
         > logger.setDebug(2)
-
-# [API Documentation](/web/doc.html)
 
 # Author
   Vlad Seryakov

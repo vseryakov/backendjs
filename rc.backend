@@ -7,7 +7,7 @@
 DOMAIN=localhost
 
 # Host specific settings and environment variables
-[ -f /data/etc/profile ] && . /data/etc/profile
+[ -f /backend/etc/profile ] && . /backend/etc/profile
 [ -f /etc/backendrc ] && . /etc/backendrc
 [ -f /usr/local/etc/backendrc ] && . /usr/local/etc/backendrc
 [ -f ~/.backend/etc/profile ] && . ~/.backend/etc/profile
@@ -32,15 +32,23 @@ case "$PLATFORM" in
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
     # In multi-os environment have to sync by os type due to different dependencies in each distro
     [ "$BACKEND_OS_TYPE" != "" ] && MASTER=$OS_TYPE-$MASTER
+    [ "$ROOT" = "" ] && ROOT=/backend
     KILLALL="killall -qr"
+    ECHO="echo -e"
     ;;
 
   Darwin)
     OS_TYPE=macosx
     [ "$PREFIX" = "" ] && PREFIX=/opt/local
-    [ "$PG_PREFIX" = "" ] && PG_PREFIX=$PREFIX/lib/postgresql93 && PG_DIR=$PREFIX/var/db/postgres
+    [ "$PG_PREFIX" = "" ] && PG_PREFIX=$PREFIX/lib/postgresql93 && PG_DIR=$PREFIX/var/db/postgres && PG_LIBDIR=$PG_PREFIX
     [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=$PREFIX/lib/mysql56 && MYSQL_DIR=$PREFIX/var/db/mysql56
     KILLALL="killall -m"
+    ECHO=echo
+    ;;
+
+  *)
+    echo "Unsupported platform"
+    exit 1
     ;;
 esac
 
@@ -51,6 +59,7 @@ esac
 [ "$CDB_PREFIX" = "" ] && CDB_PREFIX=$PREFIX/cassandra
 [ "$CDB_DIR" = "" ] && CDB_DIR=$ROOT/cassandra
 [ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
+[ "$PG_LIBDIR" = "" ] && PG_LIBDIR=$PG_PREFIX/lib
 [ "$PG_DIR" = "" ] && PG_DIR=$ROOT/postgres
 [ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$ROOT/mysql
 [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=/usr
@@ -59,8 +68,8 @@ esac
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/backend
 [ "$MASTER" != "" ] && MASTER=$MASTER.$DOMAIN
 
-export PATH=$PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
-export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig:$PG_PREFIX/pkgconfig:$PKG_CONFIG_PATH
+export PATH=$ROOT/bin:$PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
+export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
 
 # If started without parameters use script name as a parameter
 NAME=$(echo $0 | awk -F/ '{print $NF}')
@@ -145,24 +154,24 @@ case "$ARG" in
        echo "$LOCAL_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/backend
        mkdir -p /home/$LOCAL_USER/.ssh
        cd /home/$LOCAL_USER
-       ln -s $ROOT
        ln -s $PREFIX
-       ln -s $NODE_BACKEND
+       ln -s $NODE_PATH
+       ln -s $ROOT
        echo "StrictHostKeyChecking no" >> .ssh/config
        cp /home/ec2-user/.ssh/authorized_keys .ssh
-       chown -R $LOCAL_USER .ssh
-       chmod -R g-rwx,o-rwx .ssh
-       echo -e "global = true\ncolor = false\nnodedir = /home/$LOCAL_USER/src/node" > .npmrc
+       echo -e "global = true\ncolor = false\n" > .npmrc
        echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
        echo "alias alog=\"tail -100 $ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
-       echo 'alias brc="sudo $PREFIX/bin/rc.backend"' >> .bashrc
-       echo 'alias bcp="$PREFIX/bin/rc.backend run-shell"' >> .bashrc
+       echo "alias brc=\"rc.backend\"" >> .bashrc
+       echo "alias bcp=\"rc.backend run-shell\"" >> .bashrc
        echo 'alias ps="ps augx"' >> .bashrc
        echo 'alias mc="mc -b"' >> .bashrc
        echo 'ulimit -c unlimited' >> .bash_profile
        echo 'export JAVA_HOME=/usr' >> .bash_profile
        echo 'export EC2_HOME=/usr/local/ec2' >> .bash_profile
+       chmod -R g-rwx,o-rwx .ssh
+       chown -R $LOCAL_USER /home/$LOCAL_USER
     fi
 
     # Allow only pubkey auth
@@ -271,7 +280,8 @@ case "$ARG" in
     fi
 
     # Setup environment files
-    echo "export PATH=$ROOT/bin:$PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:$PATH" > /etc/profile.d/backend.sh
+    echo "export PATH=$PATH" > /etc/profile.d/backend.sh
+    echo "export PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> /etc/profile.d/backend.sh
     echo "export NODE_PATH=$NODE_PATH" >> /etc/profile.d/backend.sh
     echo "$PREFIX/lib" > /etc/ld.so.conf.d/local.conf
     postfix reload
@@ -345,7 +355,7 @@ case "$ARG" in
     # Install required packages and utilities
     yum -y install gcc-c++ make cmake autoconf automake libtool
     yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel
-    yum -y install postgresql93-devel
+    yum -y install postgresql93-devel openldap-devel mysql-devel mysql-server
 
     ;;
 
@@ -473,18 +483,20 @@ case "$ARG" in
     ;;
 
   init-mysql)
-    if [ ! -d $MYSQL_DIR ]; then
+    if [ ! -d $MYSQL_DIR/mysql ]; then
        mkdir -p $MYSQL_DIR
-       echo "[client]\nuser=root\ndatabase=backend\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" > ~/.my.cnf
-       $MYSQL_PREFIX/bin/mysql_install_db
-       $MYSQL_PREFIX/bin/mysqld &
+       $ECHO "[client]\nuser=root\ndatabase=backend\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\ndatadir=$MYSQL_DIR\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" > ~/.my.cnf
+       $MYSQL_PREFIX/bin/mysql_install_db --force --skip-name-resolve --datadir=$MYSQL_DIR --defaults-file=$HOME/.my.cnf
+       ($0 run-mysql)
        sleep 3
-       $MYSQL_PREFIX/bin/mysql -u root -e "DELETE FROM user WHERE user='';" mysql
+       $MYSQL_PREFIX/bin/mysql -u root -e "DELETE FROM user WHERE user=''" mysql
+       $MYSQL_PREFIX/bin/mysql -u root -e "DROP DATABASE test" mysql
     fi
     ;;
 
   run-mysql)
-    $MYSQL_PREFIX/bin/mysqld &
+    [ -f $MYSQL_PREFIX/bin/mysqld ] && $MYSQL_PREFIX/bin/mysqld &
+    [ -f $MYSQL_PREFIX/libexec/mysqld ] && $MYSQL_PREFIX/libexec/mysqld &
     ;;
 
   stop-mysql)
@@ -540,7 +552,8 @@ case "$ARG" in
     echo "#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $ROOT/etc/config
     echo "Making global backend module accessible in $NODE_BACKEND..."
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
-    rm -rf $PREFIX/bin/rc.backend && ln -s $(pwd) $NODE_BACKEND/rc.backend $PREFIX/bin/rc.backend
+    echo "Linking $PREFIX/bin/rc.backend to $(pwd)/rc.backend"
+    rm -rf $PREFIX/bin/rc.backend && ln -s $(pwd)/rc.backend $PREFIX/bin/rc.backend
     ;;
 
   put-backend)
@@ -588,49 +601,48 @@ case "$ARG" in
     if [ ! -d deps/node ]; then
        mkdir -p deps
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
-       echo "global=true\nnodedir=`pwd`/deps/node" > $HOME/.npmrc
-       CFLAGS="-fno-omit-frame-pointer"
-       CXXFLAGS="-fno-omit-frame-pointer"
+       echo "global=true\ncolor = false\nnodedir=`pwd`/deps/node" > $HOME/.npmrc
+       export CFLAGS="-fno-omit-frame-pointer"
+       export CXXFLAGS="-fno-omit-frame-pointer"
     fi
     (cd deps/node && [ ! -f Makefile ] && ./configure --prefix=$PREFIX)
     (cd deps/node && git pull && make install clean)
     ;;
 
   build-deps)
-    set -e
     PREFIX=$(pwd)/build
-    PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+    PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig"
+    CFLAGS="-fPIC -I$PREFIX/include"
+    LDFLAGS="-L$PREFIX/lib"
+    [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include"
+    [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/locall/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
     mkdir -p deps
 
     if [ ! -d deps/nanomsg ]; then
        (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
-       (cd deps/nanomsg && [ ! -f configure ] && ./autogen.sh)
     fi
-    (cd deps/nanomsg && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
+    (cd deps/nanomsg && [ ! -f configure ] && ./autogen.sh)
+    (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$PREFIX --enable-static --disable-shared)
     (cd deps/nanomsg && git pull && make install)
 
     if [ ! -d deps/snappy-1.1.1 ]; then
        curl -OL https://snappy.googlecode.com/files/snappy-1.1.1.tar.gz
        tar -C deps -xzf snappy-1.1.1.tar.gz && rm -rf snappy-1.1.1.tar.gz
     fi
-    (cd deps/snappy-1.1.1 && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --enable-static --disable-shared)
+    (cd deps/snappy-1.1.1 && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$PREFIX --enable-static --disable-shared)
     (cd deps/snappy-1.1.1 && make install)
 
     if [ ! -d deps/leveldb ]; then
        (cd deps && git clone https://code.google.com/p/leveldb)
     fi
-    (cd deps/leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY -I$PREFIX/include" libleveldb.a && cp -r include/leveldb $PREFIX/include && cp *.a $PREFIX/lib)
+    (cd deps/leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY $CFLAGS" libleveldb.a && cp -r include/leveldb $PREFIX/include && cp *.a $PREFIX/lib)
 
     if [ ! -d deps/ImageMagick ]; then
        mkdir -p deps/ImageMagick
        curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
        tar -C deps/ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
     fi
-    CFLAGS="-I$PREFIX/include"
-    LDFLAGS="-L$PREFIX/lib"
-    [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include"
-    [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/locall/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
-    (cd deps/ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$PREFIX --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS")
+    (cd deps/ImageMagick && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$PREFIX --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS")
     (cd deps/ImageMagick && make install)
     exit 0
     ;;

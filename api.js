@@ -484,6 +484,8 @@ api.initAccountAPI = function()
                         db.del("bk_auth", auth);
                         return self.sendReply(res, err);
                     }
+                    // Link account record for other middleware
+                    req.account = rq.query;
                     // Some dbs require the record to exist, just make one with default values
                     db.put("bk_counter", { id: req.query.id, like0: 0 });
                     self.sendJSON(req, res, self.processAccountRow(req.query));

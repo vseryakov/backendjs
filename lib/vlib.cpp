@@ -533,14 +533,13 @@ bool vWriteFile(const string file, const string data, int perms)
         return false;
     }
 
-    int fd = ::open(file.c_str(), O_CREAT|O_WRONLY);
+    int fd = ::open(file.c_str(), O_CREAT|O_WRONLY, 0644);
     if (fd > 0) {
-        ::write(fd, data.data(), data.size());
+        int rc = ::write(fd, data.data(), data.size());
         ::close(fd);
+        if (rc != data.size()) return false;
 
-        if (perms) {
-            ::chmod(file.c_str(), (mode_t)perms);
-        }
+        if (perms) ::chmod(file.c_str(), (mode_t)perms);
         return true;
     }
     return false;
