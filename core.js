@@ -28,7 +28,7 @@ var core = {
     version: '2013.10.20.0',
 
     // Process and config parameters
-    argv: [],
+    argv: {},
 
     // Server role, used by API server, for provisioning must include backend
     role: '',
@@ -89,13 +89,13 @@ var core = {
 
     // Config parameters
     args: [ { name: "help", type: "callback", value: function() { core.help() }, descr: "Print help and exit" },
-            { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debuggng messages", pass: 1 },
+            { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debugging messages, short of -log debug", pass: 1 },
             { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
             { name: "log-file", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages", pass: 1 },
             { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog", pass: 1 },
             { name: "console", type: "callback", value: function() { core.logFile = null; logger.setFile(null);}, descr: "All logging goes to the console", pass: 1 },
             { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, current dir if not specified", pass: 1 },
-            { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run att he same time inside one process" },
+            { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module" },
             { name: "umask", descr: "Permissions mask for new files" },
             { name: "config-file", type: "path", descr: "Path to the config file instead of the default etc/config", pass: 1 },
             { name: "etc-dir", type: "callback", value: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
@@ -107,22 +107,22 @@ var core = {
             { name: "images-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
             { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after start if running as root" },
             { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },
-            { name: "port", type: "number", min: 0, max: 99999, descr: "HTTP port to listen for the servers, this is global default" },
+            { name: "port", type: "number", min: 0, max: 99999, descr: "port to listen for the servers, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
-            { name: "daemon", type: "none", descr: "Daemonize the process, go to the background" },
-            { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands" },
-            { name: "repl", type: "none", descr: "Initialize REPL interface to be accesed via TCP port" },
-            { name: "watch", type: "none", descr: "For development, while the server is running restart it if any of the source files got changed" },
-            { name: "monitor", type: "none", descr: "For production, monitor the server processes and restart if crashed or exited" },
-            { name: "master", type: "none", descr: "Start the master server" },
-            { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file" },
+            { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be used only in the command line" },
+            { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be used only in the command line" },
+            { name: "watch", type: "none", descr: "For development, while the server is running restart it if any of the source files got changed, can be used only in the command line" },
+            { name: "monitor", type: "none", descr: "For production use, monitor the server processes and restart if crashed or exited, can be used only in the command line" },
+            { name: "master", type: "none", descr: "Start the master server, can be used only in the command line" },
+            { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file, can be used only in the command line" },
             { name: "proxy-port", type: "none", descr: "Proxy server port" },
             { name: "proxy-bind", type: "none", descr: "Proxy server listen address" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port" },
-            { name: "web-port", type: "none", descr: "Web server port" },
-            { name: "web-bind", type: "none", descr: "Web server listen address" },
-            { name: "web-repl-port", type: "none", descr: "Web server REPL port" },
-            { name: "web-repl-bind", type: "none", descr: "Web server REPL listen address" },
+            { name: "web-port", type: "none", descr: "Web server port, overrids global -port parameter" },
+            { name: "web-bind", type: "none", descr: "Web server listen address, overrids global -bind parameter" },
+            { name: "web-repl-port", type: "none", descr: "Web server REPL port, overrides global -repl-port parameter" },
+            { name: "web-repl-bind", type: "none", descr: "Web server REPL listen address, overrides global -repl-bind parameter" },
+            { name: "repl", type: "none", descr: "Initialize REPL interface to be accesed via TCP port" },
             { name: "repl-port", type: "number", min: 0, max: 99999, descr: "Port for REPL interface server, global default" },
             { name: "repl-bind", descr: "Listen only on specified address for REPL server, global default" },
             { name: "repl-file", descr: "User specified file for REPL history" },
@@ -148,8 +148,8 @@ var core = {
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius)" },
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request" },
-            { name: "instance", type: "bool", descr: "enables instance mode, means the backend is runnin on remote instance" },
-            { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace fcility, trap crashes and report the backtrace stack" },
+            { name: "instance", type: "bool", descr: "Enables instance mode, means the backend is running in the cloud to execute a job" },
+            { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace facility, trap crashes and report the backtrace stack" },
             { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development" }
     ],
 
@@ -294,9 +294,6 @@ core.parseArgs = function(argv)
     var self = this;
     if (!argv || !argv.length) return;
 
-    // Append all process arguments into internal list
-    self.argv = this.argv.concat(argv);
-
     // Convert spaces if passed via command line
     argv = argv.map(function(x) { return x.replace(/%20/g, ' ') });
     logger.dev('parseArgs:', argv.join(' '));
@@ -329,8 +326,9 @@ core.processArgs = function(name, ctx, argv, pass)
         var cname = (name == "core" ? "" : "-" + name) + '-' + x.name;
         if (argv.indexOf(cname) == -1) return;
         var key = self.toCamel(x.name);
-        var val = self.getArg(cname, null, argv);
-        if (val == null && x.type != "bool" && x.type != "callback") return;
+        var idx = argv.indexOf(cname);
+        var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : null;
+        if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") return;
         // Ignore the value if it is a parameter
         if (val && val[0] == '-') val = "";
         logger.dev("processArgs:", name, 'type:', x.type, "set:", key, "=", val);
@@ -371,6 +369,8 @@ core.processArgs = function(name, ctx, argv, pass)
         default:
             ctx[key] = val;
         }
+        // Append all process arguments into internal list when we processing all arguments, not in a pass
+        self.argv[cname.substr(1)] = val || true;
     });
 }
 
@@ -1207,14 +1207,7 @@ core.processQueue = function(callback)
 // Return argument value by name
 core.getArg = function(name, dflt, argv)
 {
-    argv = argv || this.argv;
-    var idx = argv.indexOf(name);
-    return idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : (typeof dflt == "undefined" ? "" : dflt);
-}
-
-core.getArgFlag = function(name, dflt)
-{
-    return this.argv.indexOf(name) > -1 ? true : (typeof dflt != "undefined" ? dflt : false);
+    return (argv || this.argv)[name] || (dflt || "");
 }
 
 core.getArgInt = function(name, dflt)

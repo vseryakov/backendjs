@@ -372,7 +372,7 @@ case "$ARG" in
     [ -f $ROOT/bin/app.js ] && APP=$ROOT/bin/app.js
 
     echo "Starting backend $APP $BACKEND_ARGS ..."
-    $PREFIX/bin/node $NODE_ARGS $APP -home $ROOT -daemon -monitor -syslog -repl $BACKEND_ARGS
+    $PREFIX/bin/node $NODE_ARGS $APP -home $ROOT -daemon -monitor -syslog $BACKEND_ARGS
     ;;
 
   check-idle)
@@ -567,9 +567,8 @@ case "$ARG" in
   put-backend)
     [ "$MASTER" = "" ] && exit
     [ "$2" = "" ] && exit
-    PREFIX=$2
-    echo "Deploying the module to $PREFIX..."
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps .rsync-filter `ls` $MASTER:$PREFIX/lib/node_modules/backend
+    echo "Deploying the module to $2..."
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps .rsync-filter `ls` $MASTER:$2
     ;;
 
   run-backend)
@@ -695,6 +694,8 @@ case "$ARG" in
       $ECHO "    callback()" >> $NAME.js
       $ECHO "};\n" >> $NAME.js
       $ECHO "backend.server.start();" >> $NAME.js
+
+      $ECHO "{\n "version": "0.1",\n "author": "$(whoami)",\n "name": "app",\n "description": "app",\n "main": "app.js",\n "dependencies": {"backend" : "" },\n },\n "engines": { "node": ">= 0.10" },\n "scripts": { "start": "node app.js" },\n "license": "BSD-3-Clause" }" > package.json
     fi
     ;;
 
@@ -702,6 +703,13 @@ case "$ARG" in
     NAME=app
     [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
     $PREFIX/bin/node $NAME.js -web $@
+    ;;
+
+  put-app)
+    [ "$MASTER" = "" ] && exit
+    [ "$2" = "" ] && exit
+    echo "Deploying the app to $2..."
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps `ls` $MASTER:$2
     ;;
 
   show)

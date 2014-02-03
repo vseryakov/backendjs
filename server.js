@@ -83,13 +83,13 @@ server.start = function()
         process.title = core.name + ": process";
 
         // REPL shell
-        if (core.argv.indexOf("-shell") > 0) {
+        if (process.argv.indexOf("-shell") > 0) {
             return core.createRepl();
         }
 
         // Go to background
-        if (core.argv.indexOf("-daemon") > 0) {
-            self.startDaemon();
+        if (process.argv.indexOf("-daemon") > 0) {
+            return self.startDaemon();
         }
 
         // Graceful shutdown, kill all children processes
@@ -105,27 +105,27 @@ server.start = function()
         });
 
         // Watch monitor for modified source files
-        if (core.argv.indexOf("-watch") > 0) {
+        if (process.argv.indexOf("-watch") > 0) {
             self.startWatcher();
         } else
 
         // Start server monitor, it will watch the process and restart automatically
-        if (core.argv.indexOf("-monitor") > 0) {
+        if (process.argv.indexOf("-monitor") > 0) {
             self.startMonitor();
         } else
 
         // Master server
-        if (core.argv.indexOf("-master") > 0) {
+        if (process.argv.indexOf("-master") > 0) {
             self.startMaster();
         } else
 
         // Backend Web server
-        if (core.argv.indexOf("-web") > 0) {
+        if (process.argv.indexOf("-web") > 0) {
             self.startWeb();
         } else
 
         // HTTP proxy
-        if (core.argv.indexOf("-proxy") > 0) {
+        if (process.argv.indexOf("-proxy") > 0) {
             self.startProxy();
         }
     });
@@ -166,7 +166,7 @@ server.startMaster = function()
         this.startWebProxy();
 
         // REPL command prompt over TCP
-        if (core.argv.indexOf("-repl") > 0) self.startRepl(core.replPort, core.replBind);
+        if (core.argv["repl"]) self.startRepl(core.replPort, core.replBind);
 
         // Setup background tasks
         this.loadSchedules();
@@ -235,7 +235,7 @@ server.startWeb = function(callback)
         core.ipcInitServer();
 
         // REPL command prompt over TCP
-        if (core.argv.indexOf("-repl") > 0) self.startRepl(core.replPort, core.replBind);
+        if (core.argv["repl"]) self.startRepl(core.replPort, core.replBind);
 
         // Create tables and spawn Web workers
         core.context.api.initTables(function(err) {
@@ -279,7 +279,7 @@ server.startWeb = function(callback)
 // Spawn web server from the master as a separate master with web workers, it is used when web and master processes are running on the same server
 server.startWebProcess = function()
 {
-    if (core.argv.indexOf("-web") == -1) return;
+    if (process.argv.indexOf("-web") == -1) return;
     var params = [];
     var val = core.getArg("-web-port", core.port);
     if (val) params.push("-port", val);
@@ -290,7 +290,7 @@ server.startWebProcess = function()
     val = core.getArg("-web-repl-bind");
     if (val) params.push("-repl-bind", val);
 
-    var child = this.spawnProcess(params, ["-port", "-bind", "-repl-port", "-repl-bind", "-master" ], { stdio: 'inherit' });
+    var child = this.spawnProcess(params, ["-port", "-bind", "-repl-port", "-repl-bind", "-master", "-proxy" ], { stdio: 'inherit' });
     this.pids.push(child.pid);
     child.on('exit', function (code, signal) {
         logger.log('process terminated:', 'pid:', this.pid, name, 'code:', code, 'signal:', signal);
@@ -305,14 +305,14 @@ server.startWebProcess = function()
 // Spawn web proxy from the master as a separate master with web workers
 server.startWebProxy = function()
 {
-    if (core.argv.indexOf("-proxy") == -1) return;
+    if (process.argv.indexOf("-proxy") == -1) return;
     var params = [ "-db-no-pools" ];
     var val = core.getArg("-proxy-port", core.port);
     if (val) params.push("-port", val);
     val = core.getArg("-proxy-bind");
     if (val) params.push("-bind", val);
 
-    var child = this.spawnProcess(params, ["-port", "-bind", "-master" ], { stdio: 'inherit' });
+    var child = this.spawnProcess(params, ["-port", "-bind", "-master", "-web" ], { stdio: 'inherit' });
     this.pids.push(child.pid);
     child.on('exit', function (code, signal) {
         logger.log('process terminated:', 'pid:', this.pid, name, 'code:', code, 'signal:', signal);
@@ -373,6 +373,8 @@ server.startProcess = function()
 server.startWatcher = function()
 {
     var self = this;
+    core.role = 'watcher';
+    process.title = core.name + ": watcher";
 
     if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname);
     logger.debug('startWatcher:', core.watchdirs);
