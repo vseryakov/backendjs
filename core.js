@@ -49,7 +49,7 @@ var core = {
     logFile: null,
 
     // HTTP port of the server
-    port: 80,
+    port: 8000,
     bind: '0.0.0.0',
 
     // Number of parallel tasks running at the same time, can be used by various modules
@@ -1636,9 +1636,9 @@ core.mkdirSync = function(dir)
 core.dropPrivileges = function()
 {
     if (process.getuid() == 0) {
-        logger.debug('init: switching to', core.uid, core.gid);
-        try { process.setgid(core.gid); } catch(e) { logger.error('setgid:', core.gid, e); }
-        try { process.setuid(core.uid); } catch(e) { logger.error('setuid:', core.uid, e); }
+        logger.debug('init: switching to', this.uid, this.gid);
+        try { process.setgid(this.gid); } catch(e) { logger.error('setgid:', this.gid, e); }
+        try { process.setuid(this.uid); } catch(e) { logger.error('setuid:', this.uid, e); }
     }
 }
 
@@ -2047,18 +2047,21 @@ core.watchTmp = function(dirs, secs, pattern)
 core.watchFiles = function(dir, pattern, callback)
 {
     logger.debug('watchFiles:', dir, pattern);
-    fs.readdirSync(dir).filter(function(file) {
-        return file.match(pattern);
-    }).map(function(file) {
-        file = path.join(dir, file);
-        return ({ name: file, stat: core.statSync(file) });
-    }).forEach(function(file) {
-        logger.debug('watchFiles:', file.name, file.stat.size);
-        fs.watch(file.name, function(event, filename) {
-            // Check stat if no file name, Mac OSX does not provide it
-            if (!filename && core.statSync(file.name).size == file.stat.size) return;
-            logger.log('watchFiles:', event, filename || file.name);
-            callback(file);
+    fs.readdir(dir, function(err, list) {
+        if (err) return callback(err);
+        list.filter(function(file) {
+            return file.match(pattern);
+        }).map(function(file) {
+            file = path.join(dir, file);
+            return ({ name: file, stat: core.statSync(file) });
+        }).forEach(function(file) {
+            logger.debug('watchFiles:', file.name, file.stat.size);
+            fs.watch(file.name, function(event, filename) {
+                // Check stat if no file name, Mac OSX does not provide it
+                if (!filename && core.statSync(file.name).size == file.stat.size) return;
+                logger.log('watchFiles:', event, filename || file.name);
+                callback(file);
+            });
         });
     });
 }

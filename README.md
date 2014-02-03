@@ -143,16 +143,22 @@ This API manages accounts and authentication, by default each account stores bas
 ## Icons
 
 - `/icon/get/prefix`
+- `/icon/get/prefix/id`
 
-   Return icon for the current account in the given prefix
+   Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
+   configured with images-dir parameter(default is images in the backend directory). Current account id is used to keep icons
+   separate from other accounts. If `id` is used to specify any unique icon cerated with such id.
 
 - `/icon/put/prefix`
+- `/icon/put/prefix/id`
 
-  Upload new icon for the given account in the folder prefix
+  Upload new icon for the given account in the folder prefix, if id is specified it creates an icons for this id to separate
+  multiple icons for the same icon. `id` can be any string consisting from alpha and digits characters.
 
 - `/icon/del/prefix`
+- `/icon/del/prefix/id`
 
-   Delete the icon for the current account in the folder prefix
+   Delete the default icon for the current account in the folder prefix or by id
 
 ## Counters
 ## History

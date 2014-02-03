@@ -5,6 +5,7 @@
 //
 
 var path = require('path');
+var stream = require('stream');
 var util = require('util');
 var fs = require('fs');
 var http = require('http');
@@ -568,17 +569,17 @@ api.initIconAPI = function()
     var self = this;
     var db = core.context.db;
 
-    this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9]+)$/, function(req, res) {
-        logger.debug(req.path, req.account.id, req.query.type);
+    this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9]+)\/?([a-z0-9])?$/, function(req, res) {
+        logger.debug(req.path, req.account.id);
 
         switch (req.params[0]) {
         case "get":
-            self.getIcon(req, res, req.account.id, { prefix: req.params[1], type: req.query.type });
+            self.getIcon(req, res, req.account.id, { prefix: req.params[1], type: req.params[2] });
             break;
 
         case "del":
         case "put":
-            var type = String(core.toNumber(req.body.type || req.query.type));
+            var type = req.params[2] || "";
             self[req.params[0] + 'Icon'](req, req.account.id, { prefix: req.params[1], type: type }, function(err) {
                 if (err) return self.sendReply(res, err);
                 req.query.type = type;

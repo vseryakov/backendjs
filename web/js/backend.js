@@ -11,7 +11,7 @@ var Backend = {
 
     // Return current credentials
     getCredentials: function() {
-        return { email: localStorage.backendEmail, secret: localStorage.backendSecret };
+        return { email: localStorage.backendEmail || "", secret: localStorage.backendSecret || "" };
     },
 
     // Set new credentials

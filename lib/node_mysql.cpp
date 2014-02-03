@@ -677,7 +677,6 @@ void MysqlDatabase::Work_Open(uv_work_t* req)
     my_bool reconnect = true;
     if (db) baton->db->db = db;
     baton->db->handle = mysql_init(NULL);
-    mysql_options(baton->db->handle, MYSQL_READ_DEFAULT_FILE, conf.c_str());
     mysql_options(baton->db->handle, MYSQL_READ_DEFAULT_GROUP, "client");
     mysql_options(baton->db->handle, MYSQL_OPT_RECONNECT, &reconnect);
     baton->status = mysql_real_connect(baton->db->handle, host, user, pass, db, atoi(port?port:"0"), sock, baton->iparam) ? 0 : -1;

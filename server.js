@@ -410,12 +410,18 @@ server.startDaemon = function()
 	var self = this;
     // Avoid spawning loop, skip daemon flag
     var argv = process.argv.slice(1).filter(function(x) { return x != "-daemon"; });
+    core.path.errlog = path.join(core.path.log, core.name + ".log");
+    var log = "ignore";
 
-    self.errlog = new stream.Stream();
-    self.errlog.writable = true;
-    self.errlog.write = function(data) { logger.error(data); return true; }
+    try {
+        log = fs.openSync(core.path.errlog, 'a');
+    } catch(e) {
+        logger.error('daemon:', e);
+    }
+    // Allow clients to write to it otherwise there will be no messages written if no permissions
+    if (process.getuid() == 0) core.chownSync(core.path.errlog);
 
-    spawn(process.argv[0], argv, { stdio: [ 'ignore', self.errlog, self.errlog ], detached: true });
+    spawn(process.argv[0], argv, { stdio: [ 'ignore', log, log ], detached: true });
     process.exit(0);
 }
 
