@@ -1090,7 +1090,7 @@ core.signRequest = function(id, secret, method, host, uri, options)
         id = this.sign(secret, String(id));
         method = query = "*";
         path = "/";
-        rc['bk-domain'] = host = this.domainName(hostname);
+        rc['bk-domain'] = hostname = this.domainName(hostname);
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
         rc['bk-path'] = path;
