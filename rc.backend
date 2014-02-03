@@ -7,22 +7,16 @@
 DOMAIN=localhost
 
 # Host specific settings and environment variables
-[ -f /backend/etc/profile ] && . /backend/etc/profile
 [ -f /etc/backendrc ] && . /etc/backendrc
 [ -f /usr/local/etc/backendrc ] && . /usr/local/etc/backendrc
 [ -f ~/.backend/etc/profile ] && . ~/.backend/etc/profile
-[ -f ~/.backendrc ] && . ~/.backendrc
 
 # Make sure we have defaults set
-[ "$LOCAL_UID" = "" ] && LOCAL_UID=777
-[ "$LOCAL_USER" = "" ] && LOCAL_USER=backend
+[ "$BACKEND_UID" = "" ] && BACKEND_UID=777
 [ "$BACKEND_USER" = "" ] && BACKEND_USER=backend
-[ "$DISK" = "" ] && DISK=xvdb1
-[ "$LOGMAIL" = "" ] && LOGMAIL=logwatcher@$DOMAIN
 [ "$MAX_IDLETIME" = "" ] && MAX_IDLETIME=900
 [ "$MAX_RUNTIME" = "" ] && MAX_RUNTIME=43200
 [ "$SSH_ARGS" = "" ] && SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
-[ "$PG_USER" = "" ] && PG_USER=postgres
 
 HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
@@ -32,7 +26,6 @@ case "$PLATFORM" in
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
     # In multi-os environment have to sync by os type due to different dependencies in each distro
     [ "$BACKEND_OS_TYPE" != "" ] && MASTER=$OS_TYPE-$MASTER
-    [ "$ROOT" = "" ] && ROOT=/backend
     KILLALL="killall -qr"
     ECHO="echo -e"
     ;;
@@ -119,16 +112,11 @@ case "$ARG" in
     ;;
 
   setup-server)
-    # Combine with command line arguments if running manually
-    BACKEND_ARGS="$BACKEND_ARGS $@"
-
-    # Mount data disk, for cases when all configs are on this disk so the bootstrap profile
-    # must be located somewhere else like home or etc
-    if [ "$(grep $ROOT /proc/mounts)" = "" -a "$(grep $DISK /proc/diskstats)" != "" ] ; then
-      echo "Mounting $ROOT to $DISK ..."
-      mount -t ext4 -o noatime /dev/$DISK $ROOT
-      [ -f $ROOT/etc/profile ] && . $ROOT/etc/profile
-    fi
+    # Root can be specified to force non default root
+    if [ "$2" = "-home" -a "$3" != "" ]; then
+       ROOT=$3
+       $ECHO "ROOT=$ROOT" > /etc/backendrc
+     fi
 
     # Set hostname with unique EC2 instance if not set explicitly
     [ "$BACKEND_NAME" = "" ] && BACKEND_NAME=$(echo "api-$(wget -q -t1 -T1 -O - http://169.254.169.254/latest/meta-data/instance-id)"|sed 's/-$//g')
@@ -151,19 +139,18 @@ case "$ARG" in
     yum -y remove sendmail
 
     # Add local user
-    if [ "$(grep $LOCAL_USER /etc/passwd)" = "" ]; then
-       echo "Adding user $LOCAL_USER..."
-       useradd -g 0 -u $LOCAL_UID -m $LOCAL_USER
-       echo "$LOCAL_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/backend
+    if [ "$(grep $BACKEND_USER /etc/passwd)" = "" ]; then
+       echo "Adding user $BACKEND_USER..."
+       useradd -g 0 -u $BACKEND_UID -m $BACKEND_USER
+       echo "$BACKEND_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/backend
        echo "Defaults env_keep += \"NODE_PATH\"" >> /etc/sudoers.d/backend
        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin" >> /etc/sudoers.d/backend
-       mkdir -p /home/$LOCAL_USER/.ssh
-       cd /home/$LOCAL_USER
+       mkdir -p /home/$BACKEND_USER/.ssh
+       cd /home/$BACKEND_USER
        ln -s $PREFIX
        ln -s $NODE_PATH
-       ln -s $ROOT
        echo "StrictHostKeyChecking no" >> .ssh/config
-       cp /home/ec2-user/.ssh/authorized_keys .ssh
+       [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys .ssh
        $ECHO -e "global = true\ncolor = false\n" > .npmrc
        echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
        echo "alias alog=\"tail -100 $ROOT/log/access.log\"" >> .bashrc
@@ -174,9 +161,8 @@ case "$ARG" in
        echo 'alias mc="mc -b"' >> .bashrc
        echo 'ulimit -c unlimited' >> .bash_profile
        echo 'export JAVA_HOME=/usr' >> .bash_profile
-       echo 'export EC2_HOME=/usr/local/ec2' >> .bash_profile
        chmod -R g-rwx,o-rwx .ssh
-       chown -R $LOCAL_USER /home/$LOCAL_USER
+       chown -R $BACKEND_USER /home/$BACKEND_USER
     fi
 
     # Allow only pubkey auth
@@ -206,18 +192,33 @@ case "$ARG" in
     fi
 
     # Update admin mail alias
-    if [ "$(grep $LOGMAIL /etc/aliases)" = "" ] ; then
-       echo "Setting mail alias to $LOGMAIL..."
-       egrep -v '^root:' /etc/aliases > /tmp/aliases
-       $ECHO "root:\t\t$LOGMAIL\n" >> /tmp/aliases
-       mv /tmp/aliases /etc
-       newaliases
+    if [ "$LOGMAIL" != "" ]; then
+       if [ "$(grep $LOGMAIL /etc/aliases)" = "" ] ; then
+          echo "Setting mail alias to $LOGMAIL..."
+          egrep -v '^root:' /etc/aliases > /tmp/aliases
+          $ECHO "root:\t\t$LOGMAIL\n" >> /tmp/aliases
+          mv /tmp/aliases /etc
+          newaliases
+       fi
+    fi
+
+    if [ "$(grep '#Backend $ROOT' /etc/logrotate.d/syslog)" = "" ]; then
+       echo "Configuring logrotate..."
+       echo "#Backend $ROOT" > /etc/logrotate.d/syslog
+       echo "/var/log/cron /var/log/messages $ROOT/log/access.log {" >> /etc/logrotate.d/syslog
+       echo " missingok" >> /etc/logrotate.d/syslog
+       echo " weekly" >> /etc/logrotate.d/syslog
+       echo " sharedscripts" >> /etc/logrotate.d/syslog
+       echo " postrotate" >> /etc/logrotate.d/syslog
+       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog
+       echo " endscript" >> /etc/logrotate.d/syslog
+       echo "}" >> /etc/logrotate.d/syslog
     fi
 
     # Setup syslog config
-    if [ "$(grep '#Backend' /etc/rsyslog.conf)" = "" ]; then
+    if [ "$(grep '#Backend $ROOT' /etc/rsyslog.conf)" = "" ]; then
        echo "Configuring rsyslog..."
-       echo '#Backend config' > /etc/rsyslog.conf
+       echo "#Backend $ROOT" > /etc/rsyslog.conf
        echo '$ModLoad imklog' >> /etc/rsyslog.conf
        echo '$ModLoad imuxsock' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
@@ -266,19 +267,6 @@ case "$ARG" in
        service dnsmasq restart
     fi
 
-    if [ "$(grep '#Backend' /etc/logrotate.d/syslog)" = "" ]; then
-       echo "Configuring logrotate..."
-       echo "#Backend logging" > /etc/logrotate.d/syslog
-       echo "/var/log/cron /var/log/messages $ROOT/log/access.log {" >> /etc/logrotate.d/syslog
-       echo " missingok" >> /etc/logrotate.d/syslog
-       echo " weekly" >> /etc/logrotate.d/syslog
-       echo " sharedscripts" >> /etc/logrotate.d/syslog
-       echo " postrotate" >> /etc/logrotate.d/syslog
-       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog
-       echo " endscript" >> /etc/logrotate.d/syslog
-       echo "}" >> /etc/logrotate.d/syslog
-    fi
-
     # Make sure we use right java
     if [ -f /usr/local/java ]; then
        alternatives --install /usr/bin/java java /usr/local/java/bin/java 20000
@@ -302,10 +290,10 @@ case "$ARG" in
     # Permissions
     echo "Setting permissions..."
     sed -i 's/requiretty/!requiretty/' /etc/sudoers
-    [ ! -f $ROOT ] && mkdir -p $ROOT/bin $ROOT/etc $ROOT/var $ROOT/log && chown -R $LOCAL_USER $ROOT
+    [ ! -f $ROOT ] && mkdir -p $ROOT/etc $ROOT/var $ROOT/log && chown -R $BACKEND_USER $ROOT
     touch /var/log/messages $ROOT/log/access.log
     chmod -f g+r /var/log/messages $ROOT/log/access.log
-    chown -fR $LOCAL_USER $PREFIX $ROOT/etc $ROOT/var $ROOT/log/access.log
+    chown -fR $BACKEND_USER $PREFIX $ROOT/etc $ROOT/var $ROOT/log/access.log
     [ -f $ROOT/postgres ] && chown -fR postgres $ROOT/postgres
 
     # Support for shutdown as normal user for instances
@@ -368,8 +356,9 @@ case "$ARG" in
     # Additional arguments via EC2 instance user data
     BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
     [[ $BACKEND_ARGS = *-no-server* ]] && exit
+
     APP=$NODE_BACKEND/server.js
-    [ -f $ROOT/bin/app.js ] && APP=$ROOT/bin/app.js
+    [ -f $ROOT/app.js ] && APP=$ROOT/app.js
 
     echo "Starting backend $APP $BACKEND_ARGS ..."
     $PREFIX/bin/node $NODE_ARGS $APP -home $ROOT -daemon -monitor -syslog $BACKEND_ARGS
@@ -395,9 +384,9 @@ case "$ARG" in
   sync)
     # Sync code from the master
     [ "$MASTER" = "" ] && exit
-    su - $LOCAL_USER -c "rsync -aq --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/bin/ $PREFIX/bin"
-    su - $LOCAL_USER -c "rsync -aq --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/include/ $PREFIX/include"
-    su - $LOCAL_USER -c "rsync -aqFF --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/lib/ $PREFIX/lib"
+    su - $BACKEND_USER -c "rsync -aq --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/bin/ $PREFIX/bin"
+    su - $BACKEND_USER -c "rsync -aq --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/include/ $PREFIX/include"
+    su - $BACKEND_USER -c "rsync -aqFF --delete-after -e '$SSH_ARGS' $MASTER:$PREFIX/lib/ $PREFIX/lib"
     ldconfig
     ;;
 
@@ -414,7 +403,7 @@ case "$ARG" in
         ;;
     esac
     mkdir -p $ROOT/$dir
-    su - $LOCAL_USER -c "rsync -aqFF $args -e '$SSH_ARGS' $MASTER:$ROOT/$dir/ $ROOT/$dir"
+    su - $BACKEND_USER -c "rsync -aqFF $args -e '$SSH_ARGS' $MASTER:$ROOT/$dir/ $ROOT/$dir"
     ;;
 
   ntp)
@@ -436,7 +425,7 @@ case "$ARG" in
     # Additional options for tar
     TAR_ARGS="--ignore-failed-read --exclude-backup $TAR_ARGS"
     # Files and dirs to backup
-    TAR_FILES="/etc /home/$LOCAL_USER $ROOT/etc $ROOT/web $PREFIX $BACKUP_FILES"
+    TAR_FILES="/etc /home/$BACKEND_USER $ROOT/etc $ROOT/web $PREFIX $BACKUP_FILES"
     # File extensions to exclude from the backup
     for ext in $TAR_EXCLUDE; do
        TAR_ARGS="--exclude='*.$ext' $TAR_ARGS"
@@ -464,7 +453,7 @@ case "$ARG" in
     # Send to remote host if configured, must be full ssh url with path like user@host:/path
     if [ "$SCP_FILES" != "" ]; then
        for h in $REMOTE_BACKUP; do
-         su - $LOCAL_USER -c "scp -q $SCP_FILES $h"
+         su - $BACKEND_USER -c "scp -q $SCP_FILES $h"
        done
     fi
     ;;
@@ -477,7 +466,7 @@ case "$ARG" in
        sed -i '' "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
        $PG_PREFIX/bin/postgres -F -D $PG_DIR &
        sleep 3
-       $PG_PREFIX/bin/createdb -U $PG_USER backend
+       $PG_PREFIX/bin/createdb -U postgres backend
     fi
     ;;
 
@@ -534,13 +523,13 @@ case "$ARG" in
         rm -rf dsc.tar.gz
         sed -i "s|/var/lib/cassandra/|$CDB_DIR/var/|g" $CDB_PREFIX/conf/*
         sed -i "s|/var/log/cassandra/|$CDB_DIR/log/|g" $CDB_PREFIX/conf/*
-        chown -R $LOCAL_USER $CDB_DIR $CDB_PREFIX
+        chown -R $BACKEND_USER $CDB_DIR $CDB_PREFIX
     fi
     ;;
 
   init-cdb)
     ($0 run-cdb)
-    echo "create keyspace backend with replication = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
+    echo "CREATE KEYSPACE BACKEND WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
     $CDB_PREFIX/bin/cqlsh -f /tmp/cql
     ;;
 
@@ -557,7 +546,7 @@ case "$ARG" in
     sudo chown -R $(whoami) $PREFIX
     mkdir -p $ROOT/etc
     echo "Creating default config file in $ROOT/etc/config..."
-    $ECHO "#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\ndb-mysql-pool=mysql:///backend\n" > $ROOT/etc/config
+    $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\ndb-mysql-pool=mysql:///backend\n" > $ROOT/etc/config
     echo "Making global backend module accessible in $NODE_BACKEND..."
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
     echo "Linking $PREFIX/bin/rc.backend to $(pwd)/rc.backend"
@@ -573,9 +562,10 @@ case "$ARG" in
 
   run-backend)
     killall node
-    SCRIPT=$NODE_BACKEND/server.js
-    [ -f server.js ] && SCRIPT=server.js
-    $PREFIX/bin/node $SCRIPT -watch `pwd` -debug -home $ROOT -repl -watch-delay 0 -nocron -console -master -web -web-repl-port 2081 $BACKEND_ARGS $@
+    APP=$NODE_BACKEND/server.js
+    [ -f server.js ] && APP=server.js
+    [ -f $ROOT/app.js ] && APP=$ROOT/app.js
+    $PREFIX/bin/node $APP -watch `pwd` -home $ROOT -master -web $BACKEND_ARGS $@
     ;;
 
   run-shell)
@@ -671,7 +661,7 @@ case "$ARG" in
     [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
     mkdir -p $ROOT/etc
     [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $PREFIX/bin/node $NAME.js \$@\n" > $NAME.sh && chmod 755 $NAME.sh
-    [ ! -e $ROOT/etc/config ] && $ECHO "#db-pool=pgsql\n#db-mysql-pool=mysql:///backend\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $ROOT/etc/config
+    [ ! -e $ROOT/etc/config ] && $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=pgsql\n#db-mysql-pool=mysql:///backend\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $ROOT/etc/config
     if [ ! -e $NAME.js ]; then
       $ECHO "//\n// Backend app\n// Created by $(whoami) on $(date)\n//\n" >> $NAME.js
       $ECHO "var backend = require('backend');" >> $NAME.js
@@ -707,7 +697,6 @@ case "$ARG" in
 
   put-app)
     [ "$MASTER" = "" ] && exit
-    [ "$2" = "" ] && exit
     echo "Deploying the app to $2..."
     rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps `ls` $MASTER:$2
     ;;

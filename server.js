@@ -78,6 +78,8 @@ server.start = function()
 {
     var self = this;
 
+    logger.debug("server: start", process.argv);
+
     // Parse all params and load config file
     core.init(function() {
         process.title = core.name + ": process";
@@ -162,11 +164,11 @@ server.startMaster = function()
         process.title = core.name + ': master';
 
         // Start other master processes
-        this.startWebProcess();
-        this.startWebProxy();
+        if (process.argv.indexOf("-web") > -1) this.startWebProcess();
+        if (process.argv.indexOf("-proxy") > -1) this.startWebProxy();
 
         // REPL command prompt over TCP
-        if (core.argv["repl"]) self.startRepl(core.replPort, core.replBind);
+        if (core.replPort) self.startRepl(core.replPort, core.replBind);
 
         // Setup background tasks
         this.loadSchedules();
@@ -235,7 +237,7 @@ server.startWeb = function(callback)
         core.ipcInitServer();
 
         // REPL command prompt over TCP
-        if (core.argv["repl"]) self.startRepl(core.replPort, core.replBind);
+        if (core.replPortWeb) self.startRepl(core.replPortWeb, core.replBindWeb);
 
         // Create tables and spawn Web workers
         core.context.api.initTables(function(err) {
@@ -279,18 +281,7 @@ server.startWeb = function(callback)
 // Spawn web server from the master as a separate master with web workers, it is used when web and master processes are running on the same server
 server.startWebProcess = function()
 {
-    if (process.argv.indexOf("-web") == -1) return;
-    var params = [];
-    var val = core.getArg("-web-port", core.port);
-    if (val) params.push("-port", val);
-    val = core.getArg("-web-bind");
-    if (val) params.push("-bind", val);
-    val = core.getArg("-web-repl-port");
-    if (val) params.push("-repl-port", val);
-    val = core.getArg("-web-repl-bind");
-    if (val) params.push("-repl-bind", val);
-
-    var child = this.spawnProcess(params, ["-port", "-bind", "-repl-port", "-repl-bind", "-master", "-proxy" ], { stdio: 'inherit' });
+    var child = this.spawnProcess([], [ "-master", "-proxy" ], { stdio: 'inherit' });
     this.pids.push(child.pid);
     child.on('exit', function (code, signal) {
         logger.log('process terminated:', 'pid:', this.pid, name, 'code:', code, 'signal:', signal);
@@ -305,14 +296,7 @@ server.startWebProcess = function()
 // Spawn web proxy from the master as a separate master with web workers
 server.startWebProxy = function()
 {
-    if (process.argv.indexOf("-proxy") == -1) return;
-    var params = [ "-db-no-pools" ];
-    var val = core.getArg("-proxy-port", core.port);
-    if (val) params.push("-port", val);
-    val = core.getArg("-proxy-bind");
-    if (val) params.push("-bind", val);
-
-    var child = this.spawnProcess(params, ["-port", "-bind", "-master", "-web" ], { stdio: 'inherit' });
+    var child = this.spawnProcess([ "-db-no-pools" ], ["-master", "-web" ], { stdio: 'inherit' });
     this.pids.push(child.pid);
     child.on('exit', function (code, signal) {
         logger.log('process terminated:', 'pid:', this.pid, name, 'code:', code, 'signal:', signal);
@@ -341,7 +325,7 @@ server.startProxy = function()
             try { config.https[key] = fs.readFileSync(path.join(core.path.etc, config.https[key])); } catch(e) { logger.error('startProxy:', e) }
         });
     }
-    try { self.proxy = proxy.createServer(config).listen(core.port, core.bind); } catch(e) { logger.error('startProxy:', e); };
+    try { self.proxy = proxy.createServer(config).listen(core.proxyPort, core.proxyBind); } catch(e) { logger.error('startProxy:', e); };
 }
 
 // Restart process with the same arguments and setup as a monitor for the spawn child
@@ -366,7 +350,7 @@ server.startProcess = function()
         });
     });
     process.stdin.pipe(this.child.stdin);
-    logger.log('startProcess:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+    logger.log('startProcess:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
 }
 
 // Watch source files for modifications and restart
@@ -403,7 +387,7 @@ server.startRepl = function(port, bind)
        logger.error('startRepl:', err);
     });
     repl.listen(port, bind || '0.0.0.0');
-    logger.debug('startRepl:', 'port:', port, 'bind:', bind || '0.0.0.0');
+    logger.log('startRepl:', core.role, 'port:', port, 'bind:', bind || '0.0.0.0');
 }
 
 // Create daemon from the current process, restart node with -daemon removed in the background
@@ -412,16 +396,17 @@ server.startDaemon = function()
 	var self = this;
     // Avoid spawning loop, skip daemon flag
     var argv = process.argv.slice(1).filter(function(x) { return x != "-daemon"; });
-    core.path.errlog = path.join(core.path.log, core.name + ".log");
+    // Default path to the error file if not specified
+    if (!core.errFile) core.errFile = path.join(core.path.log, core.name + ".log");
     var log = "ignore";
 
     try {
-        log = fs.openSync(core.path.errlog, 'a');
+        log = fs.openSync(core.errFile, 'a');
     } catch(e) {
         logger.error('daemon:', e);
     }
     // Allow clients to write to it otherwise there will be no messages written if no permissions
-    if (process.getuid() == 0) core.chownSync(core.path.errlog);
+    if (process.getuid() == 0) core.chownSync(core.path.errFile);
 
     spawn(process.argv[0], argv, { stdio: [ 'ignore', log, log ], detached: true });
     process.exit(0);
@@ -483,7 +468,7 @@ server.spawnProcess = function(args, skip, opts)
     // Remove arguments we should not pass to the process
     var argv = process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; });
     if (Array.isArray(args)) argv = argv.concat(args);
-    logger.debug('spawnProcess:', argv, skip);
+    logger.debug('spawnProcess:', argv, 'skip:', skip);
     return spawn(process.argv[0], argv, opts);
 }
 

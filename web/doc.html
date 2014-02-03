@@ -10,7 +10,6 @@
 <li><a href="#the-backend-provisioning-utility-rc-backend"> The backend provisioning utility: rc.backend</a></li>
 <li><a href="#security"> Security</a></li>
 <li><a href="#backend-framework-development-mac-os-x-developers-"> Backend framework development (Mac OS X, developers)</a></li>
-<li><a href="#-api-documentation-web-doc-html-"> <a href="/web/doc.html">API Documentation</a></a></li>
 <li><a href="#author"> Author</a></li>
 <li>Javascript API functions<ul>
 <li><a href="#module-api">api</a></li>
@@ -93,8 +92,8 @@ are changed</p>
 <ul>
 <li><p><code>/account/get</code></p>
 <p>Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
-Public columsn are the columns marked with pub: property in the table definition object passed to the <code>db.initTables</code> or <code>api.describeTables</code> functions.
-Parameters:</p>
+Public columsn are the columns marked with pub: property in the table definition object passed to the <code>db.initTables</code> or <code>api.describeTables</code> functions.</p>
+<p>Parameters:</p>
 <ul>
 <li>id=id,id,... - return information about given accounts, the id parameter can be a single account id or list of ids separated by comma,
 if no id parameter is given then current account record is returned</li>
@@ -107,8 +106,8 @@ Special care must be used about the signature type used during this operation, t
 type 1, different signature type cannot be mixed.</p>
 </li>
 <li><p><code>/account/search</code></p>
-<p>Return list of accounts by the given condition. Parameters are the column values to be matched.
-Parameters:</p>
+<p>Return list of accounts by the given condition. Parameters are the column values to be matched.</p>
+<p>Parameters:</p>
 <ul>
 <li><em>keys -
 </em> <em>ops -
@@ -122,22 +121,22 @@ Parameters:</p>
 <p>Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.</p>
 </li>
 <li><p><code>/account/put/secret</code></p>
-<p>Change account secret for the current account
-Parameters:</p>
+<p>Change account secret for the current account</p>
+<p>Parameters:</p>
 <ul>
 <li>secret - new secret for the account</li>
 </ul>
 </li>
 <li><p><code>/account/get/icon</code></p>
-<p>Return account icon
-Parameters:</p>
+<p>Return account icon</p>
+<p>Parameters:</p>
 <ul>
 <li>type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used</li>
 </ul>
 </li>
 <li><p><code>/account/put/icon</code></p>
-<p>Upload account icon
-Parameters:</p>
+<p>Upload account icon</p>
+<p>Parameters:</p>
 <ul>
 <li>type - icon type, a number between 0 and 9, if not specified 0 is used</li>
 <li>icon - can be passed as base64 encoded image in the query,</li>
@@ -146,8 +145,8 @@ Parameters:</p>
 </ul>
 </li>
 <li><p><code>/account/del/icon</code></p>
-<p>Delete account icon
-Parameters:</p>
+<p>Delete account icon</p>
+<p>Parameters:</p>
 <ul>
 <li>type - what icon to delet, if not specified 0 is used</li>
 </ul>
@@ -157,6 +156,25 @@ Parameters:</p>
 <h2 id="locations">Locations</h2>
 <h2 id="messages">Messages</h2>
 <h2 id="icons">Icons</h2>
+<ul>
+<li><code>/icon/get/prefix</code></li>
+<li><p><code>/icon/get/prefix/id</code></p>
+<p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
+ configured with images-dir parameter(default is images in the backend directory). Current account id is used to keep icons
+ separate from other accounts. If <code>id</code> is used to specify any unique icon cerated with such id.</p>
+</li>
+<li><p><code>/icon/put/prefix</code></p>
+</li>
+<li><p><code>/icon/put/prefix/id</code></p>
+<p>Upload new icon for the given account in the folder prefix, if id is specified it creates an icons for this id to separate
+multiple icons for the same icon. <code>id</code> can be any string consisting from alpha and digits characters.</p>
+</li>
+<li><p><code>/icon/del/prefix</code></p>
+</li>
+<li><p><code>/icon/del/prefix/id</code></p>
+<p> Delete the default icon for the current account in the folder prefix or by id</p>
+</li>
+</ul>
 <h2 id="counters">Counters</h2>
 <h2 id="history">History</h2>
 <h2 id="data">Data</h2>
@@ -165,8 +183,8 @@ Parameters:</p>
 environment in the ~/.backend directory.</p>
 <p>The backend directory structure is the following:</p>
 <ul>
-<li><p>etc/config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
-Example:</p>
+<li><p>etc/config - config parameters, same as specified in the command line but without leading -, each config parameter per line:</p>
+<p>Example:</p>
 <pre><code>  debug=1
   db-pool=dynamodb
   db-dynamodb-pool=http://localhost:9000
@@ -174,25 +192,39 @@ Example:</p>
 
   To specify other config file: rc.backend run-app -config-file file
 </code></pre></li>
-<li><p>etc/crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
-Example:</p>
-<pre><code>   [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;api.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
-
-   // The cron will call this function with the options specified, callback must be called
-   api.cleanSessions = function(options, callback) {
-       db.del(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot;, keys: [ &quot;mtime&quot; ] }, callback);
-   }
-
-   To start the scheduler: rc.backend run-app -master ...
-</code></pre></li>
-<li><p>etc/proxy - HTTP proxy config file, same format as in http-proxy npm package
-Example:</p>
-<pre><code>  { &quot;target&quot; : { &quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: 8001 } }
-
-  Then start the proxy: rc.backend -proxy ....
-</code></pre></li>
+<li><p>etc/crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:</p>
+<p>Example:</p>
+<ol>
+<li><p>Create file in ~/.backend/etc/crontab with the following contents:</p>
+<p>  [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 <em> </em> 1,3&quot;, &quot;job&quot;: { &quot;api.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]</p>
+</li>
+<li><p>Define the funtion that the cron will call with the options specified, callback must be called at the end, create this app.js file</p>
+<p>  var backend = require(&quot;backend&quot;);
+  backend.api.cleanSessions = function(options, callback) {</p>
+<pre><code>  backend.db.del(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot;, keys: [ &quot;mtime&quot; ] }, callback);
+</code></pre><p>  }
+  backend.server.start()</p>
+</li>
+</ol>
+</li>
 </ul>
-<ul>
+<pre><code>3. Start the scheduler and the web server at once
+
+    rc.backend run-app -master -web
+</code></pre><ul>
+<li><p>etc/proxy - HTTP proxy config file, from http-proxy (<a href="https://github.com/nodejitsu/node-http-proxy">https://github.com/nodejitsu/node-http-proxy</a>)</p>
+<p>Example:</p>
+<ol>
+<li><p>Create file ~/.backend/etc/proxy with the following contents:</p>
+<p> { &quot;target&quot; : { &quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: 8001 } }</p>
+</li>
+<li><p>Start the proxy</p>
+<p> rc.backend -proxy</p>
+</li>
+<li><p>Now all requests will be sent to localhost:8001</p>
+</li>
+</ol>
+</li>
 <li><p>etc/profile - shell script loaded by the rc.backend utility to customize env variables</p>
 </li>
 <li><p>images - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images</p>
@@ -209,11 +241,9 @@ it supports symlinks with different name and uses it as a command to execute, fo
 <pre><code>    ln -s rc.backend ntp
     ./ntp is now the same as rc.backend ntp
 </code></pre><p>On startup the rc.backend tries to load and source the following config files:</p>
-<pre><code>    /data/etc/profile
-    /etc/backendrc
+<pre><code>    /etc/backendrc
     /usr/local/etc/backendrc
-    $HOME/.backend/etc/profile
-    $HOME/.backencrc
+    ~/.backend/etc/profile
 </code></pre><p>Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.</p>
 <h1 id="security">Security</h1>
@@ -261,8 +291,7 @@ customize the running environment, these should be regular shell scripts using b
 <p>See web/js/backend.js for function Backend.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
 <h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
 <ul>
-<li>git clone <a href="https://[your">https://[your</a> username]@bitbucket.org/vseryakov/backend.git</li>
-<li>SSH alternative so you don&#39;t have to constantly enter your BitBucket password: git clone git@bitbucket.org:vseryakov/backend.git</li>
+<li><code>git clone https://github.com/vseryakov/backend.git</code> or <code>git clone git@bitbucket.org:vseryakov/backend.git</code></li>
 <li>cd backend</li>
 <li><p>to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
 to the current user, this is required to support global NPM modules.</p>
@@ -285,13 +314,18 @@ to the current user, this is required to support global NPM modules.</p>
 </code></pre></li>
 </ul>
 <ul>
-<li><p>if node.js is installed, make sure all required modules are installed, thi sis required because we did not installed the
+<li><p>once node.js is installed, make sure all required modules are installed, this is required because we did not install the
 backend via npm with all dependencies:</p>
 <pre><code>  ./rc.backend npm-deps
 </code></pre></li>
 </ul>
 <ul>
 <li><p>to compile the binary module and all required dependencies just type <code>make</code></p>
+<ul>
+<li><p>to see the actual compiler setting during compile the following helps:</p>
+<pre><code>  make V=1
+</code></pre></li>
+</ul>
 </li>
 <li><p>to run local server on port 8000 run command:</p>
 <pre><code>  ./rc.backend run-backend
@@ -305,7 +339,6 @@ backend via npm with all dependencies:</p>
   &gt; logger.setDebug(2)
 </code></pre></li>
 </ul>
-<h1 id="-api-documentation-web-doc-html-"><a href="/web/doc.html">API Documentation</a></h1>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
 <h2 id="module-api">Module: API</h2>

@@ -79,6 +79,7 @@ This API manages accounts and authentication, by default each account stores bas
 
   Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
   Public columsn are the columns marked with pub: property in the table definition object passed to the `db.initTables` or `api.describeTables` functions.
+
   Parameters:
 
     - id=id,id,... - return information about given accounts, the id parameter can be a single account id or list of ids separated by comma,
@@ -94,6 +95,7 @@ This API manages accounts and authentication, by default each account stores bas
 - `/account/search`
 
   Return list of accounts by the given condition. Parameters are the column values to be matched.
+
   Parameters:
 
     - _keys -
@@ -111,18 +113,21 @@ This API manages accounts and authentication, by default each account stores bas
 - `/account/put/secret`
 
   Change account secret for the current account
+
   Parameters:
     - secret - new secret for the account
 
 - `/account/get/icon`
 
   Return account icon
+
   Parameters:
     - type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used
 
 - `/account/put/icon`
 
   Upload account icon
+
   Parameters:
 
     - type - icon type, a number between 0 and 9, if not specified 0 is used
@@ -133,6 +138,7 @@ This API manages accounts and authentication, by default each account stores bas
 - `/account/del/icon`
 
   Delete account icon
+
   Parameters:
 
     - type - what icon to delet, if not specified 0 is used
@@ -172,6 +178,7 @@ environment in the ~/.backend directory.
 The backend directory structure is the following:
 
 * etc/config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
+
   Example:
 
         debug=1
@@ -182,24 +189,39 @@ The backend directory structure is the following:
         To specify other config file: rc.backend run-app -config-file file
 
 * etc/crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
+
   Example:
+
+    1. Create file in ~/.backend/etc/crontab with the following contents:
 
          [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "api.cleanSessions": { "interval": 3600000 } } } ]
 
-         // The cron will call this function with the options specified, callback must be called
-         api.cleanSessions = function(options, callback) {
-             db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
+    2. Define the funtion that the cron will call with the options specified, callback must be called at the end, create this app.js file
+
+         var backend = require("backend");
+         backend.api.cleanSessions = function(options, callback) {
+             backend.db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
          }
+         backend.server.start()
 
-         To start the scheduler: rc.backend run-app -master ...
 
-* etc/proxy - HTTP proxy config file, same format as in http-proxy npm package
+    3. Start the scheduler and the web server at once
+
+        rc.backend run-app -master -web
+
+* etc/proxy - HTTP proxy config file, from http-proxy (https://github.com/nodejitsu/node-http-proxy)
+
   Example:
+
+    1. Create file ~/.backend/etc/proxy with the following contents:
 
         { "target" : { "host": "localhost", "port": 8001 } }
 
-        Then start the proxy: rc.backend -proxy ....
+    2. Start the proxy
 
+        rc.backend -proxy
+
+    3. Now all requests will be sent to localhost:8001
 
 * etc/profile - shell script loaded by the rc.backend utility to customize env variables
 
@@ -222,11 +244,9 @@ it supports symlinks with different name and uses it as a command to execute, fo
 
 On startup the rc.backend tries to load and source the following config files:
 
-        /backend/etc/profile
         /etc/backendrc
         /usr/local/etc/backendrc
         ~/.backend/etc/profile
-        ~/.backencrc
 
 
 Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
