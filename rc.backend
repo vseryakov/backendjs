@@ -9,7 +9,9 @@ DOMAIN=localhost
 # Host specific settings and environment variables
 [ -f /etc/backendrc ] && . /etc/backendrc
 [ -f /usr/local/etc/backendrc ] && . /usr/local/etc/backendrc
-[ -f ~/.backend/etc/profile ] && . ~/.backend/etc/profile
+
+[ "$ROOT" = "" ] && ROOT=~/.backend
+[ -f $ROOT/etc/profile ] && . $ROOT/etc/profile
 
 # Make sure we have defaults set
 [ "$BACKEND_UID" = "" ] && BACKEND_UID=777
@@ -46,7 +48,6 @@ case "$PLATFORM" in
 esac
 
 # Set paths after we know OS type and possible custom settings
-[ "$ROOT" = "" ] && ROOT=~/.backend
 [ "$PREFIX" = "" ] && PREFIX=/usr/local
 [ "$BACKUP" = "" ] && BACKUP=$ROOT/backup
 [ "$CDB_PREFIX" = "" ] && CDB_PREFIX=$PREFIX/cassandra
@@ -698,7 +699,7 @@ case "$ARG" in
   put-app)
     [ "$MASTER" = "" ] && exit
     echo "Deploying the app to $2..."
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps `ls` $MASTER:$2
+    rsync -av -e "ssh -l $BACKEND_USER" --exclude build --exclude etc --exclude deps `ls` $MASTER:$2
     ;;
 
   show)

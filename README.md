@@ -18,6 +18,8 @@ Features:
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
 
+Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation
+
 # Installation
 
         npm install node-backend
@@ -194,20 +196,19 @@ The backend directory structure is the following:
 
     1. Create file in ~/.backend/etc/crontab with the following contents:
 
-         [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "api.cleanSessions": { "interval": 3600000 } } } ]
+            [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "api.cleanSessions": { "interval": 3600000 } } } ]
 
     2. Define the funtion that the cron will call with the options specified, callback must be called at the end, create this app.js file
 
-         var backend = require("backend");
-         backend.api.cleanSessions = function(options, callback) {
-             backend.db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
-         }
-         backend.server.start()
-
+            var backend = require("backend");
+            backend.api.cleanSessions = function(options, callback) {
+                 backend.db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
+            }
+            backend.server.start()
 
     3. Start the scheduler and the web server at once
 
-        rc.backend run-app -master -web
+            rc.backend run-app -master -web
 
 * etc/proxy - HTTP proxy config file, from http-proxy (https://github.com/nodejitsu/node-http-proxy)
 
@@ -215,11 +216,11 @@ The backend directory structure is the following:
 
     1. Create file ~/.backend/etc/proxy with the following contents:
 
-        { "target" : { "host": "localhost", "port": 8001 } }
+            { "target" : { "host": "localhost", "port": 8001 } }
 
     2. Start the proxy
 
-        rc.backend -proxy
+            rc.backend -proxy
 
     3. Now all requests will be sent to localhost:8001
 

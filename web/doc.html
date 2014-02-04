@@ -39,6 +39,7 @@
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
 </ul>
+<p>Check out the <a href="https://github.com/vseryakov/backend/wiki">Wiki</a> for more documentation</p>
 <h1 id="installation">Installation</h1>
 <pre><code>    npm install node-backend
 </code></pre><h1 id="quick-start">Quick start</h1>
@@ -196,31 +197,29 @@ environment in the ~/.backend directory.</p>
 <p>Example:</p>
 <ol>
 <li><p>Create file in ~/.backend/etc/crontab with the following contents:</p>
-<p>  [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 <em> </em> 1,3&quot;, &quot;job&quot;: { &quot;api.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]</p>
-</li>
+<pre><code> [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;api.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
+</code></pre></li>
 <li><p>Define the funtion that the cron will call with the options specified, callback must be called at the end, create this app.js file</p>
-<p>  var backend = require(&quot;backend&quot;);
-  backend.api.cleanSessions = function(options, callback) {</p>
-<pre><code>  backend.db.del(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot;, keys: [ &quot;mtime&quot; ] }, callback);
-</code></pre><p>  }
-  backend.server.start()</p>
-</li>
+<pre><code> var backend = require(&quot;backend&quot;);
+ backend.api.cleanSessions = function(options, callback) {
+      backend.db.del(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot;, keys: [ &quot;mtime&quot; ] }, callback);
+ }
+ backend.server.start()
+</code></pre></li>
+<li><p>Start the scheduler and the web server at once</p>
+<pre><code> rc.backend run-app -master -web
+</code></pre></li>
 </ol>
 </li>
-</ul>
-<pre><code>3. Start the scheduler and the web server at once
-
-    rc.backend run-app -master -web
-</code></pre><ul>
 <li><p>etc/proxy - HTTP proxy config file, from http-proxy (<a href="https://github.com/nodejitsu/node-http-proxy">https://github.com/nodejitsu/node-http-proxy</a>)</p>
 <p>Example:</p>
 <ol>
 <li><p>Create file ~/.backend/etc/proxy with the following contents:</p>
-<p> { &quot;target&quot; : { &quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: 8001 } }</p>
-</li>
+<pre><code> { &quot;target&quot; : { &quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: 8001 } }
+</code></pre></li>
 <li><p>Start the proxy</p>
-<p> rc.backend -proxy</p>
-</li>
+<pre><code> rc.backend -proxy
+</code></pre></li>
 <li><p>Now all requests will be sent to localhost:8001</p>
 </li>
 </ol>

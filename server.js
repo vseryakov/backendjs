@@ -406,7 +406,7 @@ server.startDaemon = function()
         logger.error('daemon:', e);
     }
     // Allow clients to write to it otherwise there will be no messages written if no permissions
-    if (process.getuid() == 0) core.chownSync(core.path.errFile);
+    if (process.getuid() == 0) core.chownSync(core.errFile);
 
     spawn(process.argv[0], argv, { stdio: [ 'ignore', log, log ], detached: true });
     process.exit(0);
