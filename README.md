@@ -71,22 +71,57 @@ Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documen
 
         ./app.sh run-app -watch
 
+# Database schema definition
+The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
+using SQL directly or other query language supported by any particular database.
+The database operations supported in the unified way provide simple actions like get, put, update, delete, select, the query method provides generic
+access to the databe driver and executes given query directly.
+
+Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it:
+
+- first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
+  at the same time, for example lets define album table and make sure it exists when we run our application:
+
+            api.describeTables({
+                album: {
+                    id: { primary: 1 },                         // Primary key for an album
+                    name: { pub: 1 },                           // Album name, public column
+                    mtime: { type: "bigint" },                  // Modification timestamp
+                },
+                photo: {
+                    album_id: { primary: 1 },                   // Combined primary key
+                    id: { primary: 1 },                         // consiting of album and photo id
+                    name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
+                    mtime: { type: "bigint" }
+                }
+             });
+
+- the system will automatically create the album and photos tables, this definition must remain in the app source code
+  and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if
+  necessary, all new columns will be detected and the database tables updated accordingly. And it is all Javascript, no need to learn one more language or syntax
+  to maintain database tables.
+
+Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hidning all specific, it just provides the same
+API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range key, so when creating table to be used with DynamoDB, only
+one or two columns can be marked with primary property while for SQL databases the composite primary key can conisist more than 2 columns.
 
 # API endpoints provided by the backend
 
 ## Accounts
-This API manages accounts and authentication, by default each account stores basic information about the user:
+The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
 
 - `/account/get`
 
-  Returns information about accounts, all account columns are returned for the current account and only public columns returned for non-current accounts.
-  Public columsn are the columns marked with pub: property in the table definition object passed to the `db.initTables` or `api.describeTables` functions.
+  Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
+  returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
+  verifying if the given email and password are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
 
   Parameters:
 
-    - id=id,id,... - return information about given accounts, the id parameter can be a single account id or list of ids separated by comma,
-      if no id parameter is given then current account record is returned
-    - _session - after successful login return session cookies so the Web app can perform requests without signing
+    - no id is given, return only one current account record as JSON
+    - id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma,
+      return list of account records as JSON
+    - _session - after successful login setup a session with cookies so the Web app can perform requests without signing
 
 - `/account/add`
 
@@ -149,12 +184,15 @@ This API manages accounts and authentication, by default each account stores bas
 ## Locations
 ## Messages
 ## Icons
+   The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
+   accounts, within the account icons can be separated by `prefix` which is just a name assigned to the icons set, for example to keep messages
+   icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.
 
 - `/icon/get/prefix`
 - `/icon/get/prefix/id`
 
    Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
-   configured with images-dir parameter(default is images in the backend directory). Current account id is used to keep icons
+   configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
    separate from other accounts. If `id` is used to specify any unique icon cerated with such id.
 
 - `/icon/put/prefix`
@@ -174,84 +212,85 @@ This API manages accounts and authentication, by default each account stores bas
 
 # Backend configuration and directory structure
 
-When the backend server starts and no -home argument passed in the command line the backend setups required
-environment in the ~/.backend directory.
+When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.
 
 The backend directory structure is the following:
 
-* etc/config - config parameters, same as specified in the command line but without leading -, each config parameter per line:
+* `etc` - configuration directory, all config files are there
+    * `etc/config` - config parameters, same as specified in the command line but without leading -, each config parameter per line:
 
-  Example:
+        Example:
 
-        debug=1
-        db-pool=dynamodb
-        db-dynamodb-pool=http://localhost:9000
-        db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
+            debug=1
+            db-pool=dynamodb
+            db-dynamodb-pool=http://localhost:9000
+            db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 
-        To specify other config file: rc.backend run-app -config-file file
+            To specify other config file: rc.backend run-app -config-file file
 
-* etc/crontab - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
+    * `etc/crontab` - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
 
-  Example:
+        Example:
 
-    1. Create file in ~/.backend/etc/crontab with the following contents:
+        1. Create file in ~/.backend/etc/crontab with the following contents:
 
-            [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "api.cleanSessions": { "interval": 3600000 } } } ]
+                [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "api.cleanSessions": { "interval": 3600000 } } } ]
 
-    2. Define the funtion that the cron will call with the options specified, callback must be called at the end, create this app.js file
+        2. Define the funtion that the cron will call with the options specified, callback must be called at the end, create this app.js file
 
-            var backend = require("backend");
-            backend.api.cleanSessions = function(options, callback) {
-                 backend.db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
-            }
-            backend.server.start()
+                var backend = require("backend");
+                backend.api.cleanSessions = function(options, callback) {
+                     backend.db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
+                }
+                backend.server.start()
 
-    3. Start the scheduler and the web server at once
+        3. Start the scheduler and the web server at once
 
-            rc.backend run-app -master -web
+                rc.backend run-app -master -web
 
-* etc/proxy - HTTP proxy config file, from http-proxy (https://github.com/nodejitsu/node-http-proxy)
+    * `etc/proxy` - HTTP proxy config file, from http-proxy (https://github.com/nodejitsu/node-http-proxy)
 
-  Example:
+        Example:
 
-    1. Create file ~/.backend/etc/proxy with the following contents:
+        1. Create file ~/.backend/etc/proxy with the following contents:
 
-            { "target" : { "host": "localhost", "port": 8001 } }
+                { "target" : { "host": "localhost", "port": 8001 } }
 
-    2. Start the proxy
+        2. Start the proxy
 
-            rc.backend -proxy
+                rc.backend -proxy
 
-    3. Now all requests will be sent to localhost:8001
+        3. Now all requests will be sent to localhost:8001
 
-* etc/profile - shell script loaded by the rc.backend utility to customize env variables
-
-* images - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
-* var - database files created by the server
-* tmp - temporary files
+    * `etc/profile` - shell script loaded by the rc.backend utility to customize env variables
+* `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
+* `var` - database files created by the server
+* `tmp` - temporary files
+* `web` - Web pages served by the static Express middleware
 
 # The backend provisioning utility: rc.backend
 
 The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
-and as well to be used in operations on production systems.
+and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
+which is used in the backend development and can be useful for others running or testing the backend.
+
 Running without arguments will bring help screen with description of all available commands.
 
-The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed. In addition
-it supports symlinks with different name and uses it as a command to execute, for example:
-
-        ln -s rc.backend ntp
-        ./ntp is now the same as rc.backend ntp
-
-
+The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
 On startup the rc.backend tries to load and source the following config files:
 
         /etc/backendrc
         /usr/local/etc/backendrc
         ~/.backend/etc/profile
 
-
 Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.
+
+Most common used commands are:
+- rc.backend run-backend - run the backend or the app for development purposes
+- rc.backend run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
+- rc.backend init-app - create the app skeleton
+- rc.backend run-app - run the local app in dev mode
 
 # Security
 All requests to the API server must be signed with account email/secret pair.
@@ -292,23 +331,24 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
 * `git clone https://github.com/vseryakov/backend.git` or `git clone git@bitbucket.org:vseryakov/backend.git`
 * cd backend
-* to initialize environment for the backend development it needs to set permissions for $PREFIX(default is /opt/local)
+* to initialize environment for the backend development it needs to set permissions for $BACKEND_PREFIX(default is /opt/local)
   to the current user, this is required to support global NPM modules.
 
-* If $PREFIX needs to be changed, create ~/.backendrc file and assign PREFIX, for example:
+* If $BACKEND_PREFIX needs to be changed, create ~/.backend/etc/profile file, for example:
 
-        echo "PREFIX=$HOME/local" > ~/.backendrc
+        mkdir -p ~/.backend/etc
+        echo "BACKEND_PREFIX=$HOME/local" > ~/.backend/etc/profile
 
 
-* **Important**: Add NODE_PATH=$PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-   node can find global modules, replace $PREFIX with the actual path unless this variable is also set in the .profile
+* **Important**: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+   node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile
 
 * now run the init command to prepare the environment, rc.backend will source .backendrc
 
         ./rc.backend init-backend
 
 
-* to install node.js in $PREFIX/bin if not installed already run command:
+* to install node.js in $BACKEND_PREFIX/bin if not installed already run command:
 
         ./rc.backend build-node
 

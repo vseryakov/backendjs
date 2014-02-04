@@ -27,7 +27,7 @@ var api = {
 
     // No authentication for these urls
     allow: ["^/$",
-            ".+\\.(gif|png|jpg|js|css|ttf|eof|woff|svg|html)$",
+            ".+\\.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$",
             "^/public/",
             "^/account/add$",
             "^/image/account/" ],
