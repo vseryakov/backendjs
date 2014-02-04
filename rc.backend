@@ -8,7 +8,7 @@
 [ -f /etc/backendrc ] && . /etc/backendrc
 [ -f /usr/local/etc/backendrc ] && . /usr/local/etc/backendrc
 
-[ "$BACKEND_ROOT" = "" ] && ROOT=~/.backend
+[ "$BACKEND_ROOT" = "" ] && BACKEND_ROOT=~/.backend
 [ -f $BACKEND_ROOT/etc/profile ] && . $BACKEND_ROOT/etc/profile
 
 # Make sure we have defaults set
@@ -113,9 +113,9 @@ case "$ARG" in
 
   setup-server)
     # Root can be specified to force non default root
-    if [ "$2" = "-home" -a "$3" != "" ]; then
-       ROOT=$3
-       $ECHO "ROOT=$BACKEND_ROOT" > /etc/backendrc
+    if [ "$2" = "-root" -a "$3" != "" ]; then
+       BACKEND_ROOT=$3
+       $ECHO "BACKEND_ROOT=$BACKEND_ROOT" > /etc/backendrc
      fi
 
     # Set hostname with unique EC2 instance if not set explicitly
@@ -411,7 +411,7 @@ case "$ARG" in
     ;;
 
   backup)
-    [ "$BACKUP_DIR" = " ] && exit
+    [ "$BACKUP_DIR" = "" ] && exit
     DATE=$(date +%m-%d-%y)
     DOW=$(date +%w)
     DAY=$(date +%d|sed 's/^0*//g')
@@ -428,19 +428,19 @@ case "$ARG" in
     # Files and dirs to backup
     BACKUP_TAR_FILES="/etc /home/$BACKEND_USER $BACKEND_ROOT/etc $BACKEND_ROOT/web $BACKEND_PREFIX $BACKUP_FILES"
     # File extensions to exclude from the backup
-    for ext in $TAR_EXCLUDE; do
+    for ext in $BACKUP_TAR_EXCLUDE; do
        BACKUP_TAR_ARGS="--exclude='*.$ext' $BACKUP_TAR_ARGS"
     done
     mkdir -p $BACKUP_DIR
 
     # Database backup if exists
-    if [ "$BACKUP_PG" != "" -a -e $PG_DIR/base ]; then
+    if [ "$BACKUP_PG" != "" -a -d $PG_DIR/base ]; then
        BACKUP_TAR_FILES="$TAR_FILES $PG_DIR/*.conf"
        # PG directry on CentOS is separate
        [ -e $PG_PREFIX ] && BACKUP_TAR_FILES="$BACKUP_TAR_FILES $PG_PREFIX"
        $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_PG > $BACKUP_DIR/$FILE.pgsql.dump
     fi
-    if [ "$BACKUP_MYSQL" != "" -a -e $MYSQL_DIR/mysql ]; then
+    if [ "$BACKUP_MYSQL" != "" -a -d $MYSQL_DIR/mysql ]; then
        $MYSQL_PREFIX/bin/mysqldump $BACKUP_MYSQL > $BACKUP_DIR/$FILE.mysql.dump
     fi
 
@@ -452,14 +452,14 @@ case "$ARG" in
     # Send to remote host if configured, must be full ssh url with path like user@host:/path
     [ "$BACKUP_REMOTE" = "" ] && exit
 
-    SCP_FILES=""
-    [ -f $BACKUP_DIR/$FILE.tar.gz ] && SCP_FILES="$SCP_FILES $BACKUP_DIR/$FILE.tar.gz"
-    [ -f $BACKUP_DIR/$FILE.pgsql.dump ] && SCP_FILES="$SCP_FILES $BACKUP_DIR/$FILE.pgsql.dump"
-    [ -f $BACKUP_DIR/$FILE.mysql.dump ] && SCP_FILES="$SCP_FILES $BACKUP_DIR/$FILE.mysql.dump"
-    [ "$SCP_FILES" = "" ] && exit
+    FILES=""
+    [ -f $BACKUP_DIR/$FILE.tar.gz ] && FILES="$FILES $BACKUP_DIR/$FILE.tar.gz"
+    [ -f $BACKUP_DIR/$FILE.pgsql.dump ] && FILES="$FILES $BACKUP_DIR/$FILE.pgsql.dump"
+    [ -f $BACKUP_DIR/$FILE.mysql.dump ] && FILES="$FILES $BACKUP_DIR/$FILE.mysql.dump"
+    [ "$FILES" = "" ] && exit
 
     for h in $BACKUP_REMOTE; do
-      su - $BACKEND_USER -c "scp -q $SCP_FILES $h"
+      su - $BACKEND_USER -c "scp -q $FILES $h"
     done
     ;;
 
@@ -571,7 +571,7 @@ case "$ARG" in
     [ -f server.js ] && APP=server.js
     [ -f $BACKEND_ROOT/app.js ] && APP=$BACKEND_ROOT/app.js
     [ -f app.js ] && APP=app.js
-    $BACKEND_PREFIX/bin/node $APP -debug -watch `pwd` -home $BACKEND_ROOT -master -web $BACKEND_ARGS $@
+    $BACKEND_PREFIX/bin/node $APP -debug -watch `pwd` -home $BACKEND_ROOT -master -web $@
     ;;
 
   run-shell)

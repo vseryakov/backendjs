@@ -507,10 +507,9 @@ api.initAccountAPI = function()
             break;
 
         case "del":
-            db.del("bk_auth", req.account, { cached: 1 }, function(err) {
-                if (err) self.sendReply(res, err);
+            self.deleteAccount(req.account, function(err) {
+                if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, {});
-                db.del("bk_account", { id: req.account.id });
             });
             break;
 
@@ -1320,6 +1319,19 @@ api.deleteFile = function(req, file, options, callback)
             if (callback) callback(err, outfile);
         })
     }
+}
+
+// Delete account specified in the obj, this must include id of the account and proper akey so bk_auth table will be
+// handled as well, this can be used for any account because it is just a convenient wrapper around database calls
+// Return err if something wrong occured in the callback.
+api.deleteAccount = function(obj, callback)
+{
+    if (!obj || !obj.id || !obj.akey) return callback ? callback(new Error("id and akey must be specified")) : null;
+
+    db.del("bk_auth", { akey: obj.akey }, { cached: 1 }, function(err) {
+        if (err) return callback ? callback(err) : null;
+        db.del("bk_account", { id: obj.id }, callback);
+    });
 }
 
 // Custom access logger

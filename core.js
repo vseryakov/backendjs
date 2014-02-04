@@ -1048,7 +1048,11 @@ core.parseSignature = function(req)
     rc.url = req.originalUrl || req.url || "/";
     rc.method = req.method || "";
     rc.host = (req.headers.host || "").split(':').shift();
-    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || (req.session || {})['bk-signature'] || "";
+    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'];
+    if (!rc.signature) {
+        rc.signature = (req.session || {})['bk-signature'] || "";
+        if (rc.signature) rc.session = true;
+    }
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\}]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|/);
     if (!d) return rc;
     rc.mode = this.toNumber(d[1]);
