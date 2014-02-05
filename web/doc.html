@@ -40,10 +40,12 @@
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
 </ul>
-<p>Check out the <a href="https://github.com/vseryakov/backend/wiki">Wiki</a> for more documentation</p>
+<p>Check out the <a href="https://github.com/vseryakov/backend/wiki">Wiki</a> for more documentation.</p>
 <h1 id="installation">Installation</h1>
 <pre><code>    npm install node-backend
-</code></pre><h1 id="quick-start">Quick start</h1>
+</code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg and LevelDB. They are not required in all
+applications but still part of the core of the system to be available once needed.</p>
+<h1 id="quick-start">Quick start</h1>
 <ul>
 <li><p>Run default backend without any custom extensions, by default it will use embedded Sqlite database and listen on port 8000</p>
 <pre><code>  rc.backend run-backend
@@ -83,10 +85,8 @@ of adding new tables and API commands.</p>
 </ul>
 <ul>
 <li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue /test/add?id=1&amp;name=1 and then /test/1 commands in the console to see it in action</li>
-<li><p>In development mode it is very helpful to specify -watch parameter which will make the server restart automatically if any of the source files
-are changed</p>
-<pre><code>  ./app.sh run-app -watch
-</code></pre></li>
+<li>Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
+is only enabled by default in development mode, check app.sh for parameters before running it in te production.</li>
 </ul>
 <h1 id="database-schema-definition">Database schema definition</h1>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
@@ -140,16 +140,16 @@ return list of account records as JSON</li>
 <p>Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
 Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
 type 1, different signature type cannot be mixed.</p>
-</li>
+<p>Example:</p>
+<pre><code>      /account/add?name=test&amp;email=test@tes.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
+</code></pre></li>
 <li><p><code>/account/search</code></p>
-<p>Return list of accounts by the given condition. Parameters are the column values to be matched.</p>
-<p>Parameters:</p>
-<ul>
-<li><em>keys -
-</em> <em>ops -
-</em> _select -</li>
-</ul>
-</li>
+<p>Return list of accounts by the given condition, calls <code>db.select</code> for bk_account table. Parameters are the column values to be matched and
+all parameters starting with underscore are control parameters that goes into options of the <code>db.select</code> call with underscore removed.</p>
+<p>Example:</p>
+<pre><code>      /account/search?email=test&amp;_ops=email,begins_with
+      /account/search?name=test&amp;_keys=name
+</code></pre></li>
 <li><p><code>/account/del</code></p>
 <p>Delete current account</p>
 </li>
@@ -189,12 +189,49 @@ type 1, different signature type cannot be mixed.</p>
 </li>
 </ul>
 <h2 id="connections">Connections</h2>
+<p>The connections API maintains two tables bk_connection and bk_reference for links between accounts of any type. bk_connection table maintains my
+links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
+a connection with it. No direct operations on bk_reference is allowed.</p>
+<ul>
+<li><code>/connection/add</code></li>
+<li><code>/connection/update</code></li>
+<li><code>/connection/put</code></li>
+<li><code>/connection/del</code></li>
+<li><code>/connection/get</code></li>
+</ul>
 <h2 id="locations">Locations</h2>
+<p>The location API maintains a table bk_location with geolocation coordinates for accounts and allows searching it by distance.</p>
+<ul>
+<li><p><code>/location/put</code>
+Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_accout table as well with
+these coordinates</p>
+<p>Example:</p>
+<pre><code>  /location/put?latitude=-188.23232&amp;longitude=23.4545454
+</code></pre></li>
+<li><p><code>/location/get</code>
+Return matched accounts within the distance specified by <code>distance=</code> parameter in kilometers and current position specified by latitude/longitude paraemeters. This
+call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
+point. If there are more matched records than specified by the <code>_count</code>, the <code>next_token</code> property is set with the token to be used in the subsequent call,
+it must be passed as is as <code>_token=</code> parameter with all original query parameters.
+By default only locations with account ids will be returned, specifying <code>_details=1</code> will return public account columns like name as well.</p>
+<p>Example:</p>
+<pre><code>      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25
+      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25&amp;_token=FGTHTRHRTHRTHTTR.....
+</code></pre></li>
+</ul>
 <h2 id="messages">Messages</h2>
+<p>The messaging API allows sending and recieving messages between accounts, it supports text and images.</p>
+<ul>
+<li><code>/message/image</code></li>
+<li><code>/message/get</code></li>
+<li><code>/message/add</code></li>
+<li><code>/message/read</code></li>
+<li><code>/message/del</code></li>
+</ul>
 <h2 id="icons">Icons</h2>
-<p>   The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
-   accounts, within the account icons can be separated by <code>prefix</code> which is just a name assigned to the icons set, for example to keep messages
-   icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.</p>
+<p>The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
+accounts, within the account icons can be separated by <code>prefix</code> which is just a name assigned to the icons set, for example to keep messages
+icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.</p>
 <ul>
 <li><code>/icon/get/prefix</code></li>
 <li><p><code>/icon/get/prefix/id</code></p>
@@ -215,8 +252,49 @@ multiple icons for the same icon. <code>id</code> can be any string consisting f
 </li>
 </ul>
 <h2 id="counters">Counters</h2>
+<p>The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
+is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
+process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.</p>
+<ul>
+<li><p><code>/counter/get</code>
+Return counter record for current account with all available columns of if id= is given return public columns for given account, it works with bk_counter table
+which by default defines some common columns:</p>
+<ul>
+<li>like0 - who i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type &#39;like&#39;</li>
+<li>like1 - who liked me, reverse counter, who connected to me with type &#39;like&#39;</li>
+<li>dislike0</li>
+<li>dislike1 - as with like, this is auto counter for all connections with type &#39;dislike&#39;</li>
+<li>follow0</li>
+<li>follow1 - as with like but type is &#39;follow&#39;</li>
+<li>msg_count - how messages i received via messaging API</li>
+<li>msg_read - how many messages i read using messaging API, these counters allow to keep track of new messages, as soon as msg_count greater than msg_read
+it means i have a new message</li>
+</ul>
+</li>
+<li><p><code>/counter/put</code>
+Replace my counters record, all values if not specified will be set to 0</p>
+</li>
+<li><p><code>/counter/incr</code>
+Increase one or more counter fields, each column can provide a numeric value and it will be added to the existing value, negative values will be substracted.</p>
+<p>Example:</p>
+<pre><code>  /counter/incr?msg_read=5&amp;
+</code></pre></li>
+</ul>
 <h2 id="history">History</h2>
+<p>The history API maintains one table for all application specific logging records. All operations deal with current account only.</p>
+<ul>
+<li><p><code>/history/add</code>
+Add a record to the bk_history table for current account, timestamp is added automatically, all other fields are optional but by default
+this table contains only 2 columns: type and data for genetic logging, it can to be extended to support any other application logic if needed.</p>
+</li>
+<li><p><code>/history/get</code>
+Return history record for current account, if mtime is not specified all records from the beginning will be returned, use _count and _start parameters to paginate through
+all available records or specify mtime= with the timestamp in milliseconds to start with particular time.</p>
+</li>
+</ul>
 <h2 id="data">Data</h2>
+<p>The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
+one table and one record without maintaining any other features like auto counters, cache...</p>
 <h1 id="backend-configuration-and-directory-structure">Backend configuration and directory structure</h1>
 <p>When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.</p>
 <p>The backend directory structure is the following:</p>
@@ -656,6 +734,14 @@ Output file name is built according to the following options properties:</li>
 <ul>
 <li><p><code>api.deleteFile(req, file, options, callback)</code></p>
 <p> Delete file by name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.deleteAccount(obj, callback)</code></p>
+<p> Delete account specified in the obj, this must include id of the account and proper akey so bk_auth table will be
+handled as well, this can be used for any account because it is just a convenient wrapper around database calls
+Return err if something wrong occured in the callback.</p>
 </li>
 </ul>
 
@@ -1417,14 +1503,18 @@ Valid properties in the options:</p>
 <p> Deep copy of an object,</p>
 <ul>
 <li>first argument is the object to clone</li>
-<li>second argument can be an object that acts as a filter to skip properties by name,
-if filter&#39;s value is boolean, skip, if integer then skip if greater in length for string properties<ul>
+<li>second argument can be an object that acts as a filter to skip properties:<ul>
 <li>_skip_null - to skip all null properties</li>
 <li>_empty_to_null - convert empty strings into null objects</li>
-<li>_skip_cb - a callback that returns true to skip a property, argumnets are property name and value
-if the second arg is not an object then it is assumed that filter is not given and the argument is treated as additional property</li>
+<li>_skip_cb - a callback that returns true to skip a property, argumnets are property name and value</li>
+<li>name - a property name to skip, the value is terated depending on the type of the property:<ul>
+<li>boolean - skip if true</li>
+<li>integer - skip only if the object&#39;s propetty is a string and greater in lengtth that this value</li>
 </ul>
 </li>
+</ul>
+</li>
+<li>if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object</li>
 <li>all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 Example:<pre><code>  core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
   core.cloneObj({1 : 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
@@ -1654,7 +1744,7 @@ The record MUST exist already, this is an update only</p>
 <li>obj is a Javascript object with properties that correspond to the table columns</li>
 <li>options define additional flags that may<ul>
 <li>keys - is list of column names to be used as primary key when looking for updating the record, if not specified
- then default primary keys for the table will be used<ul>
+ then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE caluse<ul>
 <li>check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value</li>
 <li>check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
 if it is an array then check only specified columns</li>

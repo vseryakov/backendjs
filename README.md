@@ -18,7 +18,7 @@ Features:
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
 
-Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation
+Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.
 
 # Installation
 
@@ -68,12 +68,11 @@ applications but still part of the core of the system to be available once neede
 
 
 * Go to http://localhost:8000/api.html and issue /test/add?id=1&name=1 and then /test/1 commands in the console to see it in action
-* In development mode it is very helpful to specify -watch parameter which will make the server restart automatically if any of the source files
-  are changed
-
-        ./app.sh run-app -watch
+* Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
+  is only enabled by default in development mode, check app.sh for parameters before running it in te production.
 
 # Database schema definition
+
 The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
 The database operations supported in the unified way provide simple actions like get, put, update, delete, select, the query method provides generic
@@ -131,15 +130,17 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
   type 1, different signature type cannot be mixed.
 
+  Example:
+            /account/add?name=test&email=test@tes.com&secret=test123&gender=f&phone=1234567
+
 - `/account/search`
 
-  Return list of accounts by the given condition. Parameters are the column values to be matched.
+  Return list of accounts by the given condition, calls `db.select` for bk_account table. Parameters are the column values to be matched and
+  all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed.
 
-  Parameters:
-
-    - _keys -
-    _ _ops -
-    _ _select -
+  Example:
+            /account/search?email=test&_ops=email,begins_with
+            /account/search?name=test&_keys=name
 
 - `/account/del`
 
@@ -183,12 +184,51 @@ The accounts API manages accounts and authentication, it provides basic user acc
     - type - what icon to delet, if not specified 0 is used
 
 ## Connections
+The connections API maintains two tables bk_connection and bk_reference for links between accounts of any type. bk_connection table maintains my
+links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
+a connection with it. No direct operations on bk_reference is allowed.
+
+- `/connection/add`
+- `/connection/update`
+- `/connection/put`
+- `/connection/del`
+- `/connection/get`
+
 ## Locations
+The location API maintains a table bk_location with geolocation coordinates for accounts and allows searching it by distance.
+
+- `/location/put`
+  Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_accout table as well with
+  these coordinates
+
+  Example:
+        /location/put?latitude=-188.23232&longitude=23.4545454
+
+- `/location/get`
+  Return matched accounts within the distance specified by `distance=` parameter in kilometers and current position specified by latitude/longitude paraemeters. This
+  call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
+  point. If there are more matched records than specified by the `_count`, the `next_token` property is set with the token to be used in the subsequent call,
+  it must be passed as is as `_token=` parameter with all original query parameters.
+  By default only locations with account ids will be returned, specifying `_details=1` will return public account columns like name as well.
+
+  Example:
+            /location/get?distance=10&latitude=-118.23434&longitude=23.45665656&_count=25
+            /location/get?distance=10&latitude=-118.23434&longitude=23.45665656&_count=25&_token=FGTHTRHRTHRTHTTR.....
+
 ## Messages
+The messaging API allows sending and recieving messages between accounts, it supports text and images.
+
+- `/message/image`
+- `/message/get`
+- `/message/add`
+- `/message/read`
+- `/message/del`
+
+
 ## Icons
-   The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
-   accounts, within the account icons can be separated by `prefix` which is just a name assigned to the icons set, for example to keep messages
-   icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.
+The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
+accounts, within the account icons can be separated by `prefix` which is just a name assigned to the icons set, for example to keep messages
+icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.
 
 - `/icon/get/prefix`
 - `/icon/get/prefix/id`
@@ -209,8 +249,46 @@ The accounts API manages accounts and authentication, it provides basic user acc
    Delete the default icon for the current account in the folder prefix or by id
 
 ## Counters
+The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
+is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
+process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.
+
+- `/counter/get`
+  Return counter record for current account with all available columns of if id= is given return public columns for given account, it works with bk_counter table
+  which by default defines some common columns:
+    - like0 - who i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type 'like'
+    - like1 - who liked me, reverse counter, who connected to me with type 'like'
+    - dislike0
+    - dislike1 - as with like, this is auto counter for all connections with type 'dislike'
+    - follow0
+    - follow1 - as with like but type is 'follow'
+    - msg_count - how messages i received via messaging API
+    - msg_read - how many messages i read using messaging API, these counters allow to keep track of new messages, as soon as msg_count greater than msg_read
+    it means i have a new message
+
+- `/counter/put`
+  Replace my counters record, all values if not specified will be set to 0
+
+- `/counter/incr`
+  Increase one or more counter fields, each column can provide a numeric value and it will be added to the existing value, negative values will be substracted.
+
+  Example:
+        /counter/incr?msg_read=5&
+
 ## History
+The history API maintains one table for all application specific logging records. All operations deal with current account only.
+
+- `/history/add`
+  Add a record to the bk_history table for current account, timestamp is added automatically, all other fields are optional but by default
+  this table contains only 2 columns: type and data for genetic logging, it can to be extended to support any other application logic if needed.
+
+- `/history/get`
+  Return history record for current account, if mtime is not specified all records from the beginning will be returned, use _count and _start parameters to paginate through
+  all available records or specify mtime= with the timestamp in milliseconds to start with particular time.
+
 ## Data
+The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
+one table and one record without maintaining any other features like auto counters, cache...
 
 # Backend configuration and directory structure
 

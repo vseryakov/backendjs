@@ -458,7 +458,7 @@ db.del = function(table, obj, options, callback)
 // - obj is a Javascript object with properties that correspond to the table columns
 // - options define additional flags that may
 //       - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-//          then default primary keys for the table will be used
+//          then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE caluse
 //      - check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value
 //      - check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
 //       if it is an array then check only specified columns

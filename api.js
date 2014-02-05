@@ -453,9 +453,8 @@ api.initAccountAPI = function()
             options.public_columns = req.account.id;
             db.search("bk_account", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                // Send next token in the header so we keep the response as a simple list
-                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
-                res.json(rows);
+                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
+                res.json({ data: rows, next_token: next_token });
             });
             break;
 
@@ -621,15 +620,14 @@ api.initMessageAPI = function()
             options.ops = { mtime: "gt" };
             db.select("bk_message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                // Send next token in the header so we keep the response as a simple list
-                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
+                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
                 rows.forEach(function(row) {
                     var mtime = row.mtime.split(":");
                     row.mtime = mtime[0];
                     row.sender = mtime[1];
                     if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
                 });
-                res.json(rows);
+                res.json({ data: rows, next_token: next_token });
             });
             break;
 
@@ -824,19 +822,19 @@ api.initConnectionAPI = function()
             options.ops = { type: "begins_with" };
             db.select("bk_" + req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                if (info.next_token) res.header("bk-next-token", core.toBase64(info.next_token));
+                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
                 // Split type and reference id
                 rows.forEach(function(row) {
                     var type = row.type.split(":");
                     row.type = type[0];
                     row.id = type[1];
                 });
-                if (!req.query._details) return res.json(rows);
+                if (!req.query._details) return res.json({ data: rows, next_token: next_token });
 
                 // Get all account records for the id list
                 db.list("bk_account", rows, { select: req.query._select, public_columns: req.account.id }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
-                    res.json(rows);
+                    res.json({ data: rows, next_token: next_token });
                 });
             });
             break;
@@ -916,7 +914,7 @@ api.initLocationAPI = function()
                         list[row.id] = row;
                         return row;
                     });
-                    res.header('bk-next-token', core.toBase64(info));
+                    var next_token = core.toBase64(info);
                 	db.list("bk_account", ids, { select: req.query._select, public_columns: req.account.id }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         // Merge locations and accounts
@@ -924,10 +922,10 @@ api.initLocationAPI = function()
                             var item = list[row.id];
                             for (var p in item) row[p] = item[p];
                         });
-                        res.json(rows);
+                        res.json({ data: rows, next_token: next_token });
                     });
                 } else {
-                    res.json(rows);
+                    res.json({ data: rows, next_token: next_token });
                 }
             });
             break;
