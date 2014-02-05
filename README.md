@@ -24,6 +24,8 @@ Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documen
 
         npm install node-backend
 
+This may take some time because of compiling required dependencies like ImageMagick, nanomsg and LevelDB. They are not required in all
+applications but still part of the core of the system to be available once needed.
 
 # Quick start
 

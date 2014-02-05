@@ -1799,12 +1799,14 @@ core.isEmpty = function(val)
 
 // Deep copy of an object,
 // - first argument is the object to clone
-// - second argument can be an object that acts as a filter to skip properties by name,
-//   if filter's value is boolean, skip, if integer then skip if greater in length for string properties
+// - second argument can be an object that acts as a filter to skip properties:
 //     - _skip_null - to skip all null properties
 //     - _empty_to_null - convert empty strings into null objects
 //     - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
-//   if the second arg is not an object then it is assumed that filter is not given and the argument is treated as additional property
+//     - name - a property name to skip, the value is terated depending on the type of the property:
+//          - boolean - skip if true
+//          - integer - skip only if the object's propetty is a string and greater in lengtth that this value
+// - if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 // Example:
 //          core.cloneObj({ 1: 2 }, { 1: 1 }, "3", 3, "4", 4)

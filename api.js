@@ -486,7 +486,8 @@ api.initAccountAPI = function()
                         return self.sendReply(res, err);
                     }
                     // Link account record for other middleware
-                    req.account = rq.query;
+                    req.account = req.query;
+                    req.account.akey = auth.akey;
                     // Some dbs require the record to exist, just make one with default values
                     db.put("bk_counter", { id: req.query.id, like0: 0 });
                     self.sendJSON(req, res, self.processAccountRow(req.query));
@@ -507,9 +508,15 @@ api.initAccountAPI = function()
             break;
 
         case "del":
-            self.deleteAccount(req.account, function(err) {
+            db.get("bk_account", { id: req.account.id }, options, function(err, rows) {
                 if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, {});
+                if (!rows.length) return self.sendReply(res, 404);
+                // Pass the whole account record downstream to the possible hooks and return it as well to our client
+                for (var p in rows[0]) req.account[p] = rows[0][p];
+                self.deleteAccount(req.account, function(err) {
+                    if (err) return self.sendReply(res, err);
+                    self.sendJSON(req, res, core.cloneObj(req.account, { akey: true, secret: true }));
+                });
             });
             break;
 
@@ -1327,6 +1334,7 @@ api.deleteFile = function(req, file, options, callback)
 api.deleteAccount = function(obj, callback)
 {
     if (!obj || !obj.id || !obj.akey) return callback ? callback(new Error("id and akey must be specified")) : null;
+    var db = core.context.db;
 
     db.del("bk_auth", { akey: obj.akey }, { cached: 1 }, function(err) {
         if (err) return callback ? callback(err) : null;

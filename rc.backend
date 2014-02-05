@@ -559,7 +559,7 @@ case "$ARG" in
     ;;
 
   put-backend)
-    [ "$BACKEND_MASTER" = "" ] && exit
+    [ "$BACKEND_MASTER" = "" ] && echo "Remote destination path is required" && exit
     [ "$2" = "" ] && exit
     echo "Deploying the module to $2..."
     rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$2

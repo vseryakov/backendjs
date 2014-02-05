@@ -155,7 +155,7 @@ Backend.dialogAlert = function(msg, timeout)
 },
 
 // Show confirm popup with a message and optional callbacks
-dialogConfirm = function(msg, onok, oncancel)
+Backend.dialogConfirm = function(msg, onok, oncancel)
 {
     var div = $('<div id="dialog-confirm" title="Confirm"><p class="ui-msg"/></div>');
     div.dialog({
