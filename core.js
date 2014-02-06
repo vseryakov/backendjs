@@ -1069,9 +1069,9 @@ core.parseSignature = function(req)
 // Sign HTTP request for the API server:
 // url must include all query parametetrs already encoded and ready to be sent
 // options may con tains the following:
-//   - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
-//   - checksum is SHA1 digest of the POST content, optional
-//   - version is 1-4, version number defining how the signature will be signed
+//    - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
+//    - checksum is SHA1 digest of the POST content, optional
+//    - sigversion is 1-4, version number defining how the signature will be signed
 core.signRequest = function(id, secret, method, host, uri, options)
 {
     if (!options) options = {};
@@ -1084,18 +1084,12 @@ core.signRequest = function(id, secret, method, host, uri, options)
     var path = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
     var rc = {};
-    switch (options.version || 1) {
+    switch (options.sigversion || 1) {
+    case 1:
+        break;
     case 2:
-        secret = this.sign(String(secret), String(id));
-        break;
-
     case 3:
-        secret = this.sign(String(secret), String(id));
-        id = this.sign(secret, String(id));
-        break;
-
     case 4:
-        secret = this.sign(String(secret), String(id));
         id = this.sign(secret, String(id));
         method = query = "*";
         path = "/";
@@ -1128,7 +1122,7 @@ core.checkSignature = function(sig, account)
 
     case 2:
     case 3:
-        sig.hash = this.sign(this.sign(account.secret, account.email), sig.str);
+        sig.hash = this.sign(account.secret, sig.str);
         return sig.signature == sig.hash;
     }
     return false;

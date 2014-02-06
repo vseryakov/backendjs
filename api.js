@@ -468,13 +468,18 @@ api.initAccountAPI = function()
             req.query.mtime = req.query.ctime = core.now();
             // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
             var auth = { akey: req.query.email, id: req.query.id, secret: req.query.secret };
-
-            // On account creation we determine how we will authenticate later, the client must sign using valid signature mode and
-            // after that the same mode must be used for all requests
-            var sig = core.parseSignature(req);
-            if (sig.mode > 2) {
-                auth.akey = core.sign(core.sign(req.query.secret, req.query.email), req.query.email);
+            // On account creation we determine how we will authenticate later, that the same mode must be used for all requests
+            switch (core.toNumber(req.query._sigversion)) {
+            case 1:
+                auth.akey = req.query.id;
                 auth.email = req.query.email;
+                break;
+            case 2:
+            case 3:
+            case 4:
+                auth.akey = core.sign(req.query.secret, req.query.email);
+                auth.email = req.query.email;
+                break;
             }
             db.add("bk_auth", auth, { check_columns: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
@@ -612,6 +617,7 @@ api.initMessageAPI = function()
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "image":
+            if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
             self.getIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
             break;
 
@@ -647,8 +653,7 @@ api.initMessageAPI = function()
             break;
 
         case "read":
-            if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
-            if (!req.query.mtime) return self.sendReply(res, 400, "mtime is required");
+            if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
             req.query.mtime += ":" + req.query.sender;
             db.update("bk_message", { id: req.account.id, mtime: req.query.mtime, status: "R" }, function(err, rows) {
                 if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1, mtime: 1 });
@@ -657,8 +662,7 @@ api.initMessageAPI = function()
             break;
 
         case "del":
-            if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
-            if (!req.query.mtime) return self.sendReply(res, 400, "mtime is required");
+            if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
             req.query.mtime = Date.now() + ":" + req.query.sender;
             req.query.id = req.account.id;
             db.del("bk_message", req.query, {}, function(err, rows) {
@@ -1309,7 +1313,7 @@ api.storeFile = function(tmpfile, outfile, options, callback)
 }
 
 // Delete file by name
-api.deleteFile = function(req, file, options, callback)
+api.deleteFile = function(file, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -1319,7 +1323,7 @@ api.deleteFile = function(req, file, options, callback)
             if (callback) callback(err, outfile);
         });
     } else {
-        fs.unlink(path.join(core.path.file, file), function(err) {
+        fs.unlink(path.join(core.path.files, file), function(err) {
             if (err) logger.error('deleteFile:', file, err);
             if (callback) callback(err, outfile);
         })

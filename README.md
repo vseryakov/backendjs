@@ -126,9 +126,9 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/add`
 
-  Add new account, all parameters are the columns from the bk_account table, required columns are: name, secret, email
-  Special care must be used about the signature type used during this operation, the type must be then used for this account especially if it is not
-  type 1, different signature type cannot be mixed.
+  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, email**
+  Special care must be used about the signature version, the version can be passed as `_sigversion` parameter and after that all requests
+  to this account must be signed with the same signature version.
 
   Example:
             /account/add?name=test&email=test@tes.com&secret=test123&gender=f&phone=1234567
@@ -148,7 +148,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/update`
 
-  Update current account with new values, the parameters are columns of the table bk_account, only columns with non empty values will be updated.
+  Update current account with new values, the parameters are columns of the table `bk_account`, only columns with non empty values will be updated.
 
 - `/account/put/secret`
 
@@ -184,7 +184,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
     - type - what icon to delet, if not specified 0 is used
 
 ## Connections
-The connections API maintains two tables bk_connection and bk_reference for links between accounts of any type. bk_connection table maintains my
+The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
 a connection with it. No direct operations on bk_reference is allowed.
 
@@ -195,13 +195,14 @@ a connection with it. No direct operations on bk_reference is allowed.
 - `/connection/get`
 
 ## Locations
-The location API maintains a table bk_location with geolocation coordinates for accounts and allows searching it by distance.
+The location API maintains a table `bk_location` with geolocation coordinates for accounts and allows searching it by distance.
 
 - `/location/put`
   Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_accout table as well with
   these coordinates
 
   Example:
+
         /location/put?latitude=-188.23232&longitude=23.4545454
 
 - `/location/get`
@@ -212,6 +213,7 @@ The location API maintains a table bk_location with geolocation coordinates for 
   By default only locations with account ids will be returned, specifying `_details=1` will return public account columns like name as well.
 
   Example:
+
             /location/get?distance=10&latitude=-118.23434&longitude=23.45665656&_count=25
             /location/get?distance=10&latitude=-118.23434&longitude=23.45665656&_count=25&_token=FGTHTRHRTHRTHTTR.....
 
@@ -219,11 +221,30 @@ The location API maintains a table bk_location with geolocation coordinates for 
 The messaging API allows sending and recieving messages between accounts, it supports text and images.
 
 - `/message/image`
-- `/message/get`
-- `/message/add`
-- `/message/read`
-- `/message/del`
+  Return the image data for the given message, the required parameters are:
+    - sender - id of the sender
+    - mtime - exact timestamp of the message
 
+- `/message/get`
+  Receive messages, the parameter `mtime` defines which mesages to get, if omitted all messages will be returned. By `mtime` it is possible to
+  specify that only messages received since that time to return, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
+  Date.now() return in Javascript. The images are not returned, only link to the image in `icon` property of reach record,
+  the actual image data must be retrieved separately.
+
+- `/message/add`
+  Send a message to an account, the following parametrrs must be specified:
+    - `id` - account id of the receiver
+    - `text` - text of the message, can be empty if `icon` property exists
+    - `icon` - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
+      can be a multipart file upload if submitted via browser, can be omitted if `text` property exists.
+
+  After successful post the message counters of the destination account will be updated: msg_count will be increased automatically
+
+- `/message/read`
+  Mark a message as read, this wil update account counter `msg_read` automatically.The required query parameters are `sender` and `mtime`.
+
+- `/message/del`
+  Delete the message by `sender` and `mtime` that must be passed as query parameters.
 
 ## Icons
 The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
@@ -254,7 +275,7 @@ is always cached with whatever cache service is used, by default it is cached by
 process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.
 
 - `/counter/get`
-  Return counter record for current account with all available columns of if id= is given return public columns for given account, it works with bk_counter table
+  Return counter record for current account with all available columns of if `id=` is given return public columns for given account, it works with `bk_counter` table
   which by default defines some common columns:
     - like0 - who i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type 'like'
     - like1 - who liked me, reverse counter, who connected to me with type 'like'
@@ -273,18 +294,19 @@ process for the cached records thus only one copy of the cache per machine even 
   Increase one or more counter fields, each column can provide a numeric value and it will be added to the existing value, negative values will be substracted.
 
   Example:
+
         /counter/incr?msg_read=5&
 
 ## History
 The history API maintains one table for all application specific logging records. All operations deal with current account only.
 
 - `/history/add`
-  Add a record to the bk_history table for current account, timestamp is added automatically, all other fields are optional but by default
-  this table contains only 2 columns: type and data for genetic logging, it can to be extended to support any other application logic if needed.
+  Add a record to the `bk_history` table for current account, timestamp is added automatically, all other fields are optional but by default
+  this table contains only 2 columns: `type` and `data` for genetic logging, it can to be extended to support any other application logic if needed.
 
 - `/history/get`
-  Return history record for current account, if mtime is not specified all records from the beginning will be returned, use _count and _start parameters to paginate through
-  all available records or specify mtime= with the timestamp in milliseconds to start with particular time.
+  Return history record for current account, if mtime is not specified all records from the beginning will be returned, use `_count` and `_start` parameters to paginate through
+  all available records or specify `mtime=` with the timestamp in milliseconds to start with particular time.
 
 ## Data
 The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
@@ -391,13 +413,13 @@ All requests to the API server must be signed with account email/secret pair.
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
     * Form BK-Signature HTTP header as the following:
         - The header string consist of multiple fields separated by pipe |
-            - Field1: Signature version, 1,2,3,4, the difference is what kind of secret and email are used for signing the canonical string:
-                - version 1, the original secret and email are used
-                - version 2 the the secret is HMAC-SHA1 digest calculated from email using the original secret, BASE64(HMAC-SHA1(secret, email)), email is original
-                - version 3 the secret is as in version 2, email is BASE64(HMAC-SHA1(secret2, email)) where secret2 is the secret from version 2
-                - version 4 is the same as version 3 but it is used in session cookies, not headers
+            - Field1: Signature version, 1,2,3,4, the difference is what kind of id is used for signing the canonical string:
+                - version 1, id returned by /account/add
+                - version 2, account email
+                - version 3, account email signed as BASE64(HMAC-SHA1(secret, email))
+                - version 4, the same as version 3 but it is used in session cookies, not headers
             - Field2: Application version or other ap specific data
-            - Field3: account email
+            - Field3: account email or id depending on signature version
             - Field4: HMAC-SHA1 digest from the canonical string
             - Field5: expiration value in milliseconds or empty string
             - Field6: checksum or empty string
