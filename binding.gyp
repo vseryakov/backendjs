@@ -30,7 +30,7 @@
            "/opt/local/include"
         ],
         "libraries": [
-           "-L/opt/local/lib -Llib -lleveldb -lsnappy -lnanomsg -lpcre",
+           "-L/opt/local/lib -Llib -lleveldb -lsnappy -lnanomsg -lpcre -luuid",
            "$(shell mysql_config --libs_r 2>/dev/null)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"

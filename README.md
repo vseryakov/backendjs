@@ -393,6 +393,8 @@ Most common used commands are:
 - rc.backend run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
 - rc.backend init-app - create the app skeleton
 - rc.backend run-app - run the local app in dev mode
+- rc.backend put-app path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line
+- rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend
 
 # Security
 All requests to the API server must be signed with account email/secret pair.
@@ -403,6 +405,7 @@ All requests to the API server must be signed with account email/secret pair.
     * '''ignore parameters with empty names'''
     * '''Sort''' list of parameters alphabetically
     * Join sorted list of parameters with "&"
+        - Make sure all + are encoded as %2B
     * Form canonical string to be signed as the following:
         - Line1: The HTTP method(GET), followed by a newline.
         - Line2: the host, followed by a newline.
@@ -445,20 +448,18 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 * **Important**: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
    node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile
 
-* now run the init command to prepare the environment, rc.backend will source .backendrc
-
-        ./rc.backend init-backend
-
-
 * to install node.js in $BACKEND_PREFIX/bin if not installed already run command:
 
         ./rc.backend build-node
-
 
 - once node.js is installed, make sure all required modules are installed, this is required because we did not install the
   backend via npm with all dependencies:
 
         ./rc.backend npm-deps
+
+* now run the init command to prepare the environment, rc.backend will source .backendrc
+
+        ./rc.backend init-backend
 
 * to compile the binary module and all required dependencies just type ```make```
     * to see the actual compiler setting during compile the following helps:

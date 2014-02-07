@@ -10,34 +10,35 @@ var Backend = {
     session: false,
 
     // Default signature version to use
-    sigversion: 1,
+    sigversion: 3,
 
     // Return current credentials
     getCredentials: function() {
         return { email: localStorage.backendEmail || "",
                  secret: localStorage.backendSecret || "",
-                 sigversion: localStorage.backendSigversion || 1 };
+                 sigversion: localStorage.backendSigVersion || 1 };
     },
 
     // Set new credentials, encrypt email for signature version 3, keep the secret encrypted
     setCredentials: function(email, secret, version) {
         if (!version) version = this.sigversion || 1;
-        switch (version) {
+        switch (parseInt(version)) {
         case 1:
-            localstorage.Sigversion = version;
+            localStorage.backendSigVersion = version;
             localStorage.backendSecret = secret ? String(secret) : "";
             localStorage.backendEmail = email ? String(email) : "";
             break;
         case 2:
         case 3:
         case 4:
-            localstorage.Sigversion = version;
+            localStorage.backendSigVersion = version;
             localStorage.backendSecret = secret ? b64_hmac_sha1(String(secret), String(email)) : "";
             localStorage.backendEmail = email ? b64_hmac_sha1(localStorage.backendSecret, String(email)) : "";
             break;
         default:
             this.debug("Invalid sig version given:" + version);
         }
+        this.debug('setCreds:', email, secret, version)
     },
 
     // Retrieve account record, call the callback with the object or error

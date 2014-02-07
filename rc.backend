@@ -155,8 +155,8 @@ case "$ARG" in
        echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
        echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
-       echo "alias brc=\"sudo $BACKEND_PREFIX/bin/rc.backend\"" >> .bashrc
-       echo "alias bcp=\"$BACKEND_PREFIX/bin/rc.backend run-shell\"" >> .bashrc
+       echo "alias brc=\"rc.backend\"" >> .bashrc
+       echo "alias bcp=\"rc.backend run-shell\"" >> .bashrc
        echo 'alias ps="ps augx"' >> .bashrc
        echo 'alias mc="mc -b"' >> .bashrc
        echo 'ulimit -c unlimited' >> .bash_profile
@@ -347,7 +347,7 @@ case "$ARG" in
 
     # Install required packages and utilities
     yum -y install gcc-c++ make cmake autoconf automake libtool
-    yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel
+    yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel uuid-devel
     yum -y install postgresql93-devel openldap-devel mysql-devel mysql-server
 
     ;;
@@ -551,7 +551,7 @@ case "$ARG" in
     sudo chown -R $(whoami) $BACKEND_PREFIX
     mkdir -p $BACKEND_ROOT/etc
     echo "Creating default config file in $BACKEND_ROOT/etc/config..."
-    $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\ndb-mysql-pool=mysql:///backend\n" > $BACKEND_ROOT/etc/config
+    $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n#db-mysql-pool=mysql:///backend\n" > $BACKEND_ROOT/etc/config
     echo "Making global backend module accessible in $NODE_BACKEND..."
     rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
     echo "Linking $BACKEND_PREFIX/bin/rc.backend to $(pwd)/rc.backend"
@@ -559,9 +559,10 @@ case "$ARG" in
     ;;
 
   put-backend)
-    [ "$BACKEND_MASTER" = "" ] && echo "Remote destination path is required" && exit
     [ "$2" = "" ] && exit
-    echo "Deploying the module to $2..."
+    [ "$3" == "-host" -a "$4" != "" ] && BACKEND_MASTER=$4
+    [ "$BACKEND_MASTER" = "" ] && echo "Remote destination path is required" && exit
+    echo "Deploying the module to $BACKEND_MASTER:$2..."
     rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$2
     ;;
 
@@ -614,7 +615,7 @@ case "$ARG" in
     ;;
 
   build-deps)
-    PREFIX=$(pwd)/build
+    BACKEND_PREFIX=$(pwd)/build
     PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$BACKEND_PREFIX/lib/pkgconfig"
     CFLAGS="-fPIC -I$BACKEND_PREFIX/include"
     LDFLAGS="-L$BACKEND_PREFIX/lib"
@@ -702,8 +703,9 @@ case "$ARG" in
     ;;
 
   put-app)
+    [ "$3" == "-host" -a "$4" != "" ] && BACKEND_MASTER=$4
     [ "$BACKEND_MASTER" = "" ] && exit
-    echo "Deploying the app to $2..."
+    echo "Deploying the app to $BACKEND_MASTER:$2..."
     rsync -av -e "ssh -l $BACKEND_USER" --exclude build --exclude etc --exclude deps `ls` $BACKEND_MASTER:$2
     ;;
 
@@ -748,13 +750,14 @@ case "$ARG" in
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"
     echo "  init-backend - init core backend environment, for the core developemnt only, links NPM global backend module $NODE_BACKEND back to this sources"
-    echo "  put-backend - push the backend code to the master server, $MASTER"
+    echo "  put-backend path [-host host] - push the backend code to the master server, uses env BACKEND_MASTER or host form the command line"
     echo "  run-backend - run local backend server"
     echo "  show-help - show all backend command line and config parameters"
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the bakend development(node.js, libs)"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
     echo "  run-app - run the application created with init-app, default is port 8000"
+    echo "  put-app [path [-host host]] - push the app code to the master server,  uses env BACKEND_MASTER or host from the command line"
     ;;
 esac
 
