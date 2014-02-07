@@ -54,7 +54,7 @@
  $(function () {
      Backend.apiResponse = ko.observable('');
      Backend.apiUrl = ko.observable('');
-     Backend.apiEmail = Backend.getCredentials().email;
+     Backend.apiEmail = ko.observable();
      Backend.apiSignature = ko.observable(Backend.sigversion);
      Backend.apiSignature.subscribe(function(v) { Backend.sigversion = v; }, Backend);
      Backend.apiImages = false;
@@ -108,15 +108,20 @@
          }
      }
      ko.applyBindings(Backend);
-     Backend.login();
+     Backend.getAccount(function(err, data) {
+        Backend.apiEmail(err || data.email);
+     });
  });
  </script>
 
 </head>
 <body>
 <div id="header" class="header">
-   <div class='buttons'><span onclick="Backend.login()">Login</span><span onclick="Backend.logout()" >Logout</span></div>
-   <span class="title" style="float:right;" data-bind='text: apiEmail' ></span>
+   <div class='buttons'>
+     <span title="Login into the account" onclick="Backend.login()">Login</span>
+     <span title="Logout and clear the session" onclick="Backend.logout()" >Logout</span>
+   </div>
+   <span class="title" title="Logged in account email or error status" style="float:right;" data-bind='text: apiEmail' ></span>
    <p style="clear:both;" />
 
    <div class="center">

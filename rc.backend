@@ -666,9 +666,9 @@ case "$ARG" in
   init-app)
     NAME=app
     [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
-    mkdir -p $BACKEND_ROOT/etc
-    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $BACKEND_PREFIX/bin/node $NAME.js \$@\n" > $NAME.sh && chmod 755 $NAME.sh
-    [ ! -e $BACKEND_ROOT/etc/config ] && $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=pgsql\n#db-mysql-pool=mysql:///backend\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > $BACKEND_ROOT/etc/config
+    mkdir -p etc web
+    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $BACKEND_PREFIX/bin/node $NAME.js -watch -web -debug -etc-dir \`pwd\`/etc -web-dir \`pwd\`/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e etc/config ] && $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=pgsql\n#db-mysql-pool=mysql:///backend\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n" > etc/config
     if [ ! -e $NAME.js ]; then
       $ECHO "//\n// Backend app\n// Created by $(whoami) on $(date)\n//\n" >> $NAME.js
       $ECHO "var backend = require('backend');" >> $NAME.js
@@ -677,7 +677,7 @@ case "$ARG" in
       $ECHO "backend.api.initMiddleware = function()" >> $NAME.js
       $ECHO "{" >> $NAME.js
       $ECHO "    // Use web pages from current directory" >> $NAME.js
-      $ECHO "    this.app.use(express.static(__dirname + "'/web'"));" >> $NAME.js
+      $ECHO "    this.app.use(express.static(__dirname + '/web'));" >> $NAME.js
       $ECHO "}\n" >> $NAME.js
       $ECHO "backend.api.initApplication = function(callback) {" >> $NAME.js
       $ECHO "    // Add new record" >> $NAME.js
@@ -692,7 +692,7 @@ case "$ARG" in
       $ECHO "};\n" >> $NAME.js
       $ECHO "backend.server.start();" >> $NAME.js
 
-      $ECHO "{\n "version": "0.1",\n "author": "$(whoami)",\n "name": "app",\n "description": "app",\n "main": "app.js",\n "dependencies": {"backend" : "" },\n },\n "engines": { "node": ">= 0.10" },\n "scripts": { "start": "node app.js" },\n "license": "BSD-3-Clause" }" > package.json
+      $ECHO "{\n \"version\": \"0.1\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"app\",\n \"main\": \"app.js\",\n \"dependencies\": { {\"backend\" : \"\"} },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n "license": "BSD-3-Clause" }" > package.json
     fi
     ;;
 
