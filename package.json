@@ -24,8 +24,11 @@
     "http-proxy": "",
     "memcached": "",
     "redis": "",
+    "qs": "",
     "measured": "",
     "helenus": "",
+    "connect": "",
+    "formidable": "",
     "consolidate": ""
   },
   "keywords": [

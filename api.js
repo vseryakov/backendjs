@@ -10,9 +10,12 @@ var util = require('util');
 var fs = require('fs');
 var http = require('http');
 var url = require('url');
+var qs = require('qs');
 var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
+var connect = require('connect');
+var formidable = require('formidable');
 var mime = require('mime');
 var consolidate = require('consolidate');
 var domain = require('domain');
@@ -185,14 +188,6 @@ api.init = function(callback)
         d.run(next);
     });
 
-    // Request parsers
-    self.app.use(express.bodyParser({ uploadDir: core.path.tmp, keepExtensions: true, limit: self.uploadLimit }));
-    self.app.use(express.methodOverride());
-    self.app.use(express.cookieParser());
-
-    // Keep session in the cookies
-    self.app.use(express.cookieSession({ key: 'bk_sid', secret: self.sessionSecret || "bk", cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
-
     // Allow cross site requests
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version);
@@ -201,6 +196,16 @@ api.init = function(callback)
         self.measured.meter('requestsPerSecond').mark();
         next();
     });
+
+    // Request parsers
+    self.app.use(express.cookieParser());
+    self.app.use(function(req, res, next) { return self.checkQuery(req, res, next); });
+    self.app.use(function(req, res, next) { return self.checkBody(req, res, next); });
+
+    // Keep session in the cookies
+    self.app.use(express.cookieSession({ key: 'bk_sid', secret: self.sessionSecret || "bk", cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
+
+    // Check the signature and make sure the logger is defined to log all requests
     self.app.use(this.accessLogger());
     self.app.use(function(req, res, next) { return self.checkRequest(req, res, next); });
 
@@ -272,11 +277,11 @@ api.init = function(callback)
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server
 // is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.
-api.initApplication = function(callback) { callback() }
+api.initApplication = function(callback) { callback() };
 
 // This handler is called during the Express server initialization just after the security middleware.
 // this.app refers to the Express instance.
-api.initMiddleware = function() {}
+api.initMiddleware = function() {};
 
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)
@@ -304,6 +309,93 @@ api.checkRequest = function(req, res, callback)
             });
         });
     });
+}
+
+// Parse incoming query parameters
+api.checkQuery = function(req, res, next)
+{
+    var self = this;
+    if (req._body) return next();
+    req.body = req.body || {};
+
+    var type = connect.utils.mime(req);
+    if ('application/json' != type && 'application/x-www-form-urlencoded' != type) return next();
+
+    req._body = true;
+    var buf = '', size = 0;
+    var sig = core.parseSignature(req);
+
+    req.setEncoding('utf8');
+    req.on('data', function(chunk) {
+        size += chunk.length;
+        if (size > self.uploadLimit) return req.destroy();
+        buf += chunk;
+    });
+    req.on('end', function() {
+        try {
+            // Verify data checksum before parsing
+            if (sig && sig.checksum && core.hash(buf) != sig.checksum) {
+                var err = new Error("invalid data checksum");
+                err.status = 400;
+                return next(err);
+            }
+            switch (type) {
+            case 'application/json':
+                req.body = JSON.parse(buf);
+                break;
+
+            case 'application/x-www-form-urlencoded':
+                req.body = buf.length ? qs.parse(buf) : {};
+            }
+            logger.log(buf, req.body)
+            next();
+        } catch (err){
+            err.body = buf;
+            err.status = 400;
+            next(err);
+        }
+    });
+}
+
+// Parse multipart forms for uploaded files
+api.checkBody = function(req, res, next)
+{
+    var self = this;
+    if (req._body) return next();
+    req.files = req.files || {};
+
+    if ('GET' == req.method || 'HEAD' == req.method) return next();
+    if ('multipart/form-data' != connect.utils.mime(req)) return next();
+    req._body = true;
+
+    var data = {}, files = {}, done;
+    var form = new formidable.IncomingForm({ uploadDir: core.path.tmp, keepExtensions: true });
+
+    function ondata(name, val, data) {
+        if (Array.isArray(data[name])) {
+            data[name].push(val);
+        } else
+        if (data[name]) {
+            data[name] = [data[name], val];
+        } else {
+            data[name] = val;
+        }
+    }
+
+    form.on('field', function(name, val) { ondata(name, val, data); });
+    form.on('file', function(name, val) { ondata(name, val, files); });
+    form.on('error', function(err) { next(err); done = true; });
+    form.on('end', function() {
+        if (done) return;
+        try {
+            req.body = qs.parse(data);
+            req.files = qs.parse(files);
+            next();
+        } catch (err) {
+            next(err);
+        }
+    });
+    form.parse(req);
 }
 
 // Perform URL based access checks
@@ -379,16 +471,16 @@ api.checkSignature = function(req, callback)
             return callback({ status: 401, message: "Not permitted" });
         }
 
+        // Deal with encrypted body, use out account secret to decrypt, this is for raw data requests
+        // if it is JSON or query it needs to be reparsed in the application
+        if (req.body && req.get("content-encoding") == "encrypted") {
+            req.body = core.decrypt(account.secret, req.body);
+        }
+
         // Verify the signature with account secret
         if (!core.checkSignature(sig, account)) {
             if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', 'failed', sig, account);
             return callback({ status: 401, message: "Not authenticated" });
-        }
-
-        // Deal with encrypted body, we have to decrypt it before checking checksum, use
-        // out account secret to decrypt
-        if (req.body && req.get("content-encoding") == "encrypted") {
-            req.body = core.decrypt(account.secret, req.body);
         }
 
         // Save account and signature in the request, it will be used later
@@ -444,6 +536,7 @@ api.initAccountAPI = function()
 
         case "add":
             // Verify required fields
+            if (req.method == "POST") req.query = req.body;
             if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
             if (!req.query.name) return self.sendReply(res, 400, "name is required");
             if (!req.query.login) return self.sendReply(res, 400, "login is required");

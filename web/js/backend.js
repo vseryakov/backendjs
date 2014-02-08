@@ -39,7 +39,7 @@ var Backend = {
         var self = this;
         delete obj.secret2;
         this.setCredentials(obj.login, obj.secret);
-        self.send({ type: "POST", url: "/account/add?" + jQuery.param(obj), nosignature: 1 }, function(data) {
+        self.send({ type: "POST", url: "/account/add", data: jQuery.param(obj), nosignature: 1 }, function(data) {
             if (callback) callback(null, data);
         }, function(err) {
             if (callback) callback(err);
@@ -52,7 +52,7 @@ var Backend = {
     },
 
     // Sign request with key and secret
-    sign: function(method, url, expires) {
+    sign: function(method, url, query, expires, type) {
         var creds = this.getCredentials();
         var now = (new Date()).getTime();
         var host = window.location.hostname;
@@ -61,12 +61,14 @@ var Backend = {
             host = u[2];
             url = '/' + u.slice(3).join('/');
         }
+        if (!method) method = "GET";
         if (!expires || typeof expires != "number") expires = now + 30000;
         if (expires < now) expires += now;
+        if (!type && method == "POST") type = "application/x-www-form-urlencoded; charset=UTF-8";
         var q = String(url || "/").split("?");
-        var path = q[0];
-        var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-        var str = String(method || "GET") + "\n" + String(host) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires);
+        url = q[0];
+        if (!query) query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
+        var str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(type || "").toLowerCase() + "\n";
         this.debug('sign:', creds, str)
         return { 'bk-signature': creds.sigversion + '||' + creds.login + '|' + b64_hmac_sha1(creds.secret, str) + '|' + String(expires) + '||' };
     },
@@ -112,7 +114,7 @@ var Backend = {
             if (onerror) onerror(msg || error, xhr, status, error);
         }
         if (!options.nosignature) {
-            options.headers = this.sign(options.type || "GET", options.url, 0);
+            options.headers = this.sign(options.type, options.url, options.data);
         }
         $('#loading').show(), state.count++;
         $.ajax(options);

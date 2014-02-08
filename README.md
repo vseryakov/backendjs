@@ -407,10 +407,11 @@ All requests to the API server must be signed with account login/secret pair.
         - Make sure all + are encoded as %2B
     * Form canonical string to be signed as the following:
         - Line1: The HTTP method(GET), followed by a newline.
-        - Line2: the host, followed by a newline.
+        - Line2: the host, lowercase, followed by a newline.
         - Line3: The request URI (/), followed by a newline.
         - Line4: The sorted and joined query parameters as one string, followed by a newline.
-        - Line5: The expiration value in milliseconds, required
+        - Line5: The expiration value in milliseconds, required, followed by a newline
+        - Line6: The Content-Type HTTP header, lowercase, followed by a newline
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
     * Form BK-Signature HTTP header as the following:
         - The header string consist of multiple fields separated by pipe |
@@ -421,7 +422,8 @@ All requests to the API server must be signed with account login/secret pair.
             - Field3: account login name or whatever it might be in the login column
             - Field4: HMAC-SHA1 digest from the canonical string
             - Field5: expiration value in milliseconds
-            - Field6: empty, reserved for future use
+            - Field6: SHA1 checksum of the body content, optional
+            - Field7: empty, reserved for future use
 
 The resulting signature is sent as HTTP header bk-signature: string
 

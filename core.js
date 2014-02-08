@@ -906,7 +906,7 @@ core.httpGet = function(uri, params, callback)
 
     // Sign request using internal backend credentials
     if (params.sign) {
-        var headers = this.signRequest(params.login, params.secret, options.method, options.hostname, options.path, { checksum: options.checksum });
+        var headers = this.signRequest(params.login, params.secret, options.method, options.hostname, options.path, { type: options.headers['content-type'], checksum: options.checksum });
         for (var p in headers) options.headers[p] = headers[p];
     }
 
@@ -1039,14 +1039,17 @@ core.signUrl = function(login, secret, host, uri, options)
 // signature version:
 //  - 1 regular signature signed with secret for specific requests
 //  - 2 to be sent in cookies and uses wild support for host and path
+// If the signature successfully recognized it is saved in the request for subsequent use as req.signature
 core.parseSignature = function(req)
 {
+    if (req.signature) return req.signature;
     var rc = { sigversion: 1, expires: 0 };
     // Input parameters, convert to empty string if not present
     rc.url = req.originalUrl || req.url || "/";
     rc.method = req.method || "";
-    rc.host = (req.headers.host || "").split(':').shift();
-    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'];
+    rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
+    rc.type = (req.headers['content-type'] || "").toLowerCase();
+    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
     if (!rc.signature) {
         rc.signature = (req.session || {})['bk-signature'] || "";
         if (rc.signature) rc.session = true;
@@ -1054,21 +1057,24 @@ core.parseSignature = function(req)
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
     rc.sigversion = this.toNumber(d[1]);
-    rc.appdata = d[2];
+    rc.sigdata = d[2];
     rc.login = d[3];
     rc.signature = d[4];
     rc.expires = this.toNumber(d[5]);
+    rc.checksum = d[6] || null;
     // Strip the signature from the url
     rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
+    req.signature = rc;
     return rc;
 }
 
 // Sign HTTP request for the API server:
 // url must include all query parametetrs already encoded and ready to be sent
 // options may con tains the following:
-//    - signed - the login is already HMAC-SHA1, use as is
 //    - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
 //    - sigversion a version number defining how the signature will be signed
+//    - type - content-type header, may be omitted
+//    - checksum - SHA1 digest of the whole content body, may be omitted
 core.signRequest = function(login, secret, method, host, uri, options)
 {
     if (!options) options = {};
@@ -1076,26 +1082,27 @@ core.signRequest = function(login, secret, method, host, uri, options)
     var expires = options.expires || 0;
     if (!expires) expires = now + 30000;
     if (expires < now) expires += now;
-    var hostname = String(host || "").split(":").shift();
+    var hostname = String(host || "").split(":").shift().toLowerCase();
     var q = String(uri || "/").split("?");
     var path = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
     var rc = {};
     switch (options.sigversion || 1) {
-    case 1:
-        break;
     case 2:
-        method = query = "*";
         path = "/";
+        method = query = "*";
         rc['bk-domain'] = hostname = this.domainName(hostname);
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
         rc['bk-path'] = path;
+        rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n";
         break;
+
+    default:
+        rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n";
     }
-    var str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires);
-    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.appdata || "") + '|' + login + '|' + this.sign(String(secret), str) + '|' + expires + '||';
-    if (logger.level > 1) logger.log('signRequest:', rc, { str: str });
+    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.sigdata || "") + '|' + login + '|' + this.sign(String(secret), rc.str) + '|' + expires + '|' + (options.checksum || "") + '|';
+    if (logger.level > 1) logger.log('signRequest:', rc);
     return rc;
 }
 
@@ -1105,11 +1112,14 @@ core.checkSignature = function(sig, account)
     var q = sig.url.split("?");
     var qpath = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-    sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires;
     switch (sig.sigversion) {
     case 2:
-        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires;
+        if (!sig.session) break;
+        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n";
         break;
+
+    default:
+        sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n";
     }
     sig.hash = this.sign(account.secret, sig.str);
     return sig.signature == sig.hash;
@@ -1336,7 +1346,7 @@ core.decrypt = function(key, data, algorithm)
 // HMAC signing and base64 encoded, default algorithm is sha1
 core.sign = function (key, data, algorithm, encode)
 {
-    return crypto.createHmac(algorithm || "sha1", key).update(String(data), "utf8").digest(encode || "base64");
+    return crypto.createHmac(algorithm || "sha1", String(key)).update(String(data), "utf8").digest(encode || "base64");
 }
 
 // Hash and base64 encoded, default algorithm is sha1
@@ -1743,7 +1753,7 @@ core.scaleIcon = function(infile, outfile, options, callback)
 core.domainName = function(host)
 {
     var name = String(host || "").split('.');
-    return name.length > 2 ? name.slice(1).join('.') : host;
+    return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
 }
 
 // Return object type, try to detect any distinguished type
