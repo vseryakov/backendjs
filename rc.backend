@@ -156,6 +156,7 @@ case "$ARG" in
        echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
        echo "alias brc=\"rc.backend\"" >> .bashrc
+       echo "alias sbrc=\"sudo rc.backend\"" >> .bashrc
        echo "alias bcp=\"rc.backend run-shell\"" >> .bashrc
        echo 'alias ps="ps augx"' >> .bashrc
        echo 'alias mc="mc -b"' >> .bashrc

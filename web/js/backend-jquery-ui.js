@@ -54,12 +54,6 @@ Backend.login = function(callback)
     });
 },
 
-// Logout and clear all local credentials
-Backend.logout = function()
-{
-    this.setCredentials();
-},
-
 // Login UI control
 Backend.dialogLogin = function(action, callback, errmsg)
 {

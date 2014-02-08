@@ -58,6 +58,15 @@
      Backend.apiImages = false;
      Backend.apiTable = false;
 
+     Backend.doLogin = function() {
+        this.getAccount(function(err, data) {
+            Backend.apiEmail(err || data.login);
+        });
+     }
+     Backend.doLogout = function() {
+        this.apiEmail("");
+        this.logout();
+     }
      Backend.doRun = function() {
          var self = this;
          if (!self.apiUrl()) return;
@@ -106,9 +115,7 @@
          }
      }
      ko.applyBindings(Backend);
-     Backend.getAccount(function(err, data) {
-        Backend.apiEmail(err || data.email);
-     });
+     Backend.doLogin();
  });
  </script>
 
@@ -116,8 +123,8 @@
 <body>
 <div id="header" class="header">
    <div class='buttons'>
-     <span title="Login into the account" onclick="Backend.login()">Login</span>
-     <span title="Logout and clear the session" onclick="Backend.logout()" >Logout</span>
+     <span title="Login into the account" onclick="Backend.doLogin()">Login</span>
+     <span title="Logout and clear the session" onclick="Backend.doLogout()" >Logout</span>
    </div>
    <span class="title" title="Logged in account email or error status" style="float:right;" data-bind='text: apiEmail' ></span>
    <p style="clear:both;" />

@@ -1041,7 +1041,7 @@ core.signUrl = function(login, secret, host, uri, options)
 //  - 2 to be sent in cookies and uses wild support for host and path
 core.parseSignature = function(req)
 {
-    var rc = { version: 1, expires: 0, checksum: "", password: "" };
+    var rc = { sigversion: 1, expires: 0 };
     // Input parameters, convert to empty string if not present
     rc.url = req.originalUrl || req.url || "/";
     rc.method = req.method || "";
@@ -1051,12 +1051,12 @@ core.parseSignature = function(req)
         rc.signature = (req.session || {})['bk-signature'] || "";
         if (rc.signature) rc.session = true;
     }
-    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\}]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)/);
+    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
-    rc.mode = this.toNumber(d[1]);
-    rc.version = d[2] || "";
-    rc.login = d[3] || "";
-    rc.signature = d[4] || "";
+    rc.sigversion = this.toNumber(d[1]);
+    rc.appdata = d[2];
+    rc.login = d[3];
+    rc.signature = d[4];
     rc.expires = this.toNumber(d[5]);
     // Strip the signature from the url
     rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
@@ -1106,7 +1106,7 @@ core.checkSignature = function(sig, account)
     var qpath = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
     sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires;
-    switch (sig.mode) {
+    switch (sig.sigversion) {
     case 2:
         sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires;
         break;

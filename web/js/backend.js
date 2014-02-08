@@ -46,6 +46,11 @@ var Backend = {
         });
     },
 
+    // Logout and clear all local credentials
+    logout: function() {
+        this.setCredentials();
+    },
+
     // Sign request with key and secret
     sign: function(method, url, expires) {
         var creds = this.getCredentials();
@@ -62,6 +67,7 @@ var Backend = {
         var path = q[0];
         var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
         var str = String(method || "GET") + "\n" + String(host) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires);
+        this.debug('sign:', creds, str)
         return { 'bk-signature': creds.sigversion + '||' + creds.login + '|' + b64_hmac_sha1(creds.secret, str) + '|' + String(expires) + '||' };
     },
 

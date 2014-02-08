@@ -345,7 +345,7 @@ api.checkSignature = function(req, callback)
     var sig = core.parseSignature(req);
 
     // Show request in the log on demand for diagnostics
-    if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', sig, 'hdrs:', req.headers, req.session);
+    if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', sig, 'hdrs:', req.headers, 'session:', req.session);
 
     // Sanity checks, required headers must be present and not empty
     if (!sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
@@ -381,7 +381,7 @@ api.checkSignature = function(req, callback)
 
         // Verify the signature with account secret
         if (!core.checkSignature(sig, account)) {
-            if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', sig, account);
+            if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', 'failed', sig, account);
             return callback({ status: 401, message: "Not authenticated" });
         }
 
