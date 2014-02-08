@@ -87,8 +87,8 @@ tests.start = function(type)
 tests.account = function(callback)
 {
     var id = core.random();
-	var secret = core.random();
-    var email = secret + "@test.com";
+    var login = id;
+	var secret = id;
     var gender = ['m','f'][core.randomInt(0,1)];
     var bday = new Date(core.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
     var latitude = core.randomNum(bbox[0], bbox[2]);
@@ -99,110 +99,110 @@ tests.account = function(callback)
 
     async.series([
         function(next) {
-            var query = { email: email, secret: secret, name: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
-            core.sendRequest("/account/add", { query: query }, function(err, params) {
+            var query = { login: login, secret: secret, name: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
+            core.sendRequest("/account/add", { sign: false, query: query }, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { latitude: latitude, longitude: longitude, location: location } };
+            var options = { login: login, secret: secret, query: { latitude: latitude, longitude: longitude, location: location } };
             core.sendRequest("/location/put", options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { alias: "test" + name } };
+            var options = { login: login, secret: secret, query: { alias: "test" + name } };
             core.sendRequest("/account/update", options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { secret: "test" } };
+            var options = { login: login, secret: secret, query: { secret: "test" } };
             core.sendRequest("/account/put/secret", options, function(err, params) {
                 secret = "test";
                 next(err);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret }
+            var options = { login: login, secret: secret }
             core.sendRequest("/account/get", options, function(err, params) {
                 next(err || !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude ? (err || "err1:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { icon: icon, type: 1 }  }
+            var options = { login: login, secret: secret, query: { icon: icon, type: 1 }  }
             core.sendRequest("/account/put/icon", options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { _consistent: 1 } }
+            var options = { login: login, secret: secret, query: { _consistent: 1 } }
             core.sendRequest("/account/get", options, function(err, params) {
                 next(err || !params.obj || !params.obj.icon1 ? (err || "err2:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { id: id, type: "like" }  }
+            var options = { login: login, secret: secret, query: { id: id, type: "like" }  }
             core.sendRequest("/connection/add", options, function(err, params) {
-                options = { email: email, secret: secret, query: { id: core.random(), type: "like" }  }
+                options = { login: login, secret: secret, query: { id: core.random(), type: "like" }  }
                 core.sendRequest("/connection/add", options, function(err, params) {
                     next(err);
                 });
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { type: "like" } }
+            var options = { login: login, secret: secret, query: { type: "like" } }
             core.sendRequest("/connection/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.length!=2 ? (err || "err3:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=2 ? (err || "err3:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret }
+            var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
                 next(err || !params.obj || params.obj.like0!=2 ? (err || "err4:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { id: id, type: "like" }  }
+            var options = { login: login, secret: secret, query: { id: id, type: "like" }  }
             core.sendRequest("/connection/del", options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { type: "like" } }
+            var options = { login: login, secret: secret, query: { type: "like" } }
             core.sendRequest("/connection/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.length!=1 ? (err || "err5:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=1 ? (err || "err5:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret }
+            var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
                 next(err || !params.obj || params.obj.like0!=1 ? (err || "err6:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { sender: id, text: "text message" }  }
+            var options = { login: login, secret: secret, query: { sender: id, text: "text message" }  }
             core.sendRequest("/message/add", options, next);
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { sender: id, icon: icon }  }
+            var options = { login: login, secret: secret, query: { sender: id, icon: icon }  }
             core.sendRequest("/message/add", options, next);
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { } }
+            var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/message/get", options, function(err, params) {
                 msgs = params.obj;
-                next(err || !params.obj || params.obj.length!=2 ? (err || "err7:" + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=2 ? (err || "err7:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret, query: { sender: msgs[0].sender, mtime: msgs[0].mtime } }
+            var options = { login: login, secret: secret, query: { sender: msgs.data[0].sender, mtime: msgs.data[0].mtime } }
             core.sendRequest("/message/read", options, function(err, params) {
                 next(err || !params.obj ? (err || "err8:" + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
-            var options = { email: email, secret: secret }
+            var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
                 next(err || !params.obj || params.obj.msg_count!=2 || params.obj.msg_read!=1 ? (err || "err9:" + util.inspect(params.obj)) : 0);
             });

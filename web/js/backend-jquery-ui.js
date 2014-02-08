@@ -67,12 +67,12 @@ Backend.dialogLogin = function(action, callback, errmsg)
 
     var div= $(
             '<div>\
-            <p class="ui-title">Please provide your account email and password.</p>\
+            <p class="ui-title">Please provide your account login and password.</p>\
             <p class="ui-error"></p>\
-            <form id=backend-login>\
+            <form id=backend-login-form>\
             <fieldset style="padding:0;border:0;margin-top:25px;">\
-            <label for="backend-email" style="display:block">Email</label>\
-            <input type="text" id="backend-email" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
+            <label for="backend-login" style="display:block">Login</label>\
+            <input type="text" id="backend-login" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
             <label for="backend-secret" style="display:block">Password</label>\
             <input type="password" id="backend-secret" value="" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
             </fieldset>\
@@ -80,7 +80,7 @@ Backend.dialogLogin = function(action, callback, errmsg)
             </div>');
 
     function submit(cb) {
-        self.setCredentials($('#backend-email').val().toLowerCase(),  $('#backend-secret').val());
+        self.setCredentials($('#backend-login').val(),  $('#backend-secret').val());
         $('#backend-secret').val('');
         div.dialog("close");
         self.login(cb || div.dialog("option", "callback"));
@@ -108,7 +108,7 @@ Backend.dialogLogin = function(action, callback, errmsg)
         create: function() {
             var dialog = this;
             $(this).find('form').submit(function() { submit(callback); return false; });
-            $(this).find('#backend-email').keyup(function(e) { if (e.which == 13) { $(dialog).find('#backend-secret').focus(); e.preventDefault(); } });
+            $(this).find('#backend-login').keyup(function(e) { if (e.which == 13) { $(dialog).find('#backend-secret').focus(); e.preventDefault(); } });
             $(this).find('#backend-secret').keyup(function(e) { if (e.which == 13) { submit(); e.preventDefault(); } });
         },
         open: function() {

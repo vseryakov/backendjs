@@ -39,9 +39,9 @@ applications but still part of the core of the system to be available once neede
   page is loaded, we do not have yet any account credentials.
   For this example let's create couple of accounts, type and execute the following URLs in the Web console
 
-        /account/add?name=test1&secret=test1&email=test1@test.com
-        /account/add?name=test2&secret=test2&email=test2@test.com
-        /account/add?name=test3&secret=test3&email=test3@test.com
+        /account/add?name=test1&secret=test1&login=test1@test.com
+        /account/add?name=test2&secret=test2&login=test2@test.com
+        /account/add?name=test3&secret=test3&login=test3@test.com
 
 
 * Now login with any of the accounts above, refresh the api.html and enter email and secret in the login popup dialog.
@@ -115,7 +115,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
   Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
   returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
-  verifying if the given email and password are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
+  verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
 
   Parameters:
 
@@ -126,17 +126,16 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/add`
 
-  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, email**
-  Special care must be used about the signature version, the version can be passed as `_sigversion` parameter and after that all requests
-  to this account must be signed with the same signature version.
+  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, login**
 
   Example:
-            /account/add?name=test&email=test@tes.com&secret=test123&gender=f&phone=1234567
+            /account/add?name=test&login=test@test.com&secret=test123&gender=f&phone=1234567
 
 - `/account/search`
 
   Return list of accounts by the given condition, calls `db.select` for bk_account table. Parameters are the column values to be matched and
-  all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed.
+  all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed. This will work for SQL
+  databases only because DynamoDB or Cassandta will not search by non primary keys.
 
   Example:
             /account/search?email=test&_ops=email,begins_with
@@ -397,7 +396,7 @@ Most common used commands are:
 - rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend
 
 # Security
-All requests to the API server must be signed with account email/secret pair.
+All requests to the API server must be signed with account login/secret pair.
 
 - The algorithm how to sign HTTP requests (Version 1, 2):
     * Split url to path and query parameters with "?"
@@ -411,22 +410,18 @@ All requests to the API server must be signed with account email/secret pair.
         - Line2: the host, followed by a newline.
         - Line3: The request URI (/), followed by a newline.
         - Line4: The sorted and joined query parameters as one string, followed by a newline.
-        - Line5: The expires value or empty string, followed by a newline.
-        - Line6: The checksum(SHA1) or empty string, followed by a newline.
+        - Line5: The expiration value in milliseconds, required
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
     * Form BK-Signature HTTP header as the following:
         - The header string consist of multiple fields separated by pipe |
-            - Field1: Signature version, 1,2,3,4, the difference is what kind of id is used for signing the canonical string:
-                - version 1, id returned by /account/add
-                - version 2, account email
-                - version 3, account email signed as BASE64(HMAC-SHA1(secret, email))
-                - version 4, the same as version 3 but it is used in session cookies, not headers
+            - Field1: Signature version:
+                - version 1, normal signature
+                - version 2, only used in session cookies, not headers
             - Field2: Application version or other ap specific data
-            - Field3: account email or id depending on signature version
+            - Field3: account login name or whatever it might be in the login column
             - Field4: HMAC-SHA1 digest from the canonical string
-            - Field5: expiration value in milliseconds or empty string
-            - Field6: checksum or empty string
-            - Field7: empty, reserved for future use
+            - Field5: expiration value in milliseconds
+            - Field6: empty, reserved for future use
 
 The resulting signature is sent as HTTP header bk-signature: string
 

@@ -817,6 +817,13 @@ db.getColumnValue = function(table, options, val, info)
 	return cb ? cb(val, info) : val;
 }
 
+// Convert native database error in some generic human readable string
+db.convertError = function(table, err, options)
+{
+    var cb = this.getPool(table, options).convertError;
+    return cb ? cb(err) : err;
+}
+
 // Reload all columns into the cache for the pool
 db.cacheColumns = function(options, callback)
 {

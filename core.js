@@ -146,7 +146,7 @@ var core = {
             { name: "logwatcher-interval", type: "number", min: 300, max: 86400 },
             { name: "user-agent", type: "push", descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers" },
             { name: "backend-host", descr: "Host of the master backend" },
-            { name: "backend-key", descr: "Credentials key for the master backend access" },
+            { name: "backend-login", descr: "Credentials login for the master backend access" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access" },
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius)" },
@@ -906,7 +906,7 @@ core.httpGet = function(uri, params, callback)
 
     // Sign request using internal backend credentials
     if (params.sign) {
-        var headers = this.signRequest(params.email, params.secret, options.method, options.hostname, options.path, { checksum: options.checksum });
+        var headers = this.signRequest(params.login, params.secret, options.method, options.hostname, options.path, { checksum: options.checksum });
         for (var p in headers) options.headers[p] = headers[p];
     }
 
@@ -1028,19 +1028,17 @@ core.httpGet = function(uri, params, callback)
 
 // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
 // Host passed here must be the actual host where the request will be sent
-core.signUrl = function(accesskey, secret, host, uri, options)
+core.signUrl = function(login, secret, host, uri, options)
 {
-    var hdrs = this.signRequest(accesskey, secret, "GET", host, uri, options);
+    var hdrs = this.signRequest(login, secret, "GET", host, uri, options);
     return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
 }
 
 // Parse incoming request for signature and return all pieces wrapped in an object, this object
 // will be used by checkSignature function for verification against an account
 // signature version:
-//  - 1 sig secret - real secret, sig id - real email
-//  - 2 sig secret - BASE64(HMAC(secret, email)), sig id - real email
-//  - 3 sig secret - BASE64(HMAC(secret, email)), sig id - BASE64(HMAC(secret2, email)) where secret2 is signed secret
-//  - 4 same as in mode 3 but is sent in cookies and uses wild support for host and path
+//  - 1 regular signature signed with secret for specific requests
+//  - 2 to be sent in cookies and uses wild support for host and path
 core.parseSignature = function(req)
 {
     var rc = { version: 1, expires: 0, checksum: "", password: "" };
@@ -1053,14 +1051,13 @@ core.parseSignature = function(req)
         rc.signature = (req.session || {})['bk-signature'] || "";
         if (rc.signature) rc.session = true;
     }
-    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\}]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|/);
+    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\}]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
     rc.mode = this.toNumber(d[1]);
     rc.version = d[2] || "";
-    rc.id = d[3] || "";
+    rc.login = d[3] || "";
     rc.signature = d[4] || "";
     rc.expires = this.toNumber(d[5]);
-    rc.checksum = d[6] || "";
     // Strip the signature from the url
     rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
     return rc;
@@ -1069,10 +1066,10 @@ core.parseSignature = function(req)
 // Sign HTTP request for the API server:
 // url must include all query parametetrs already encoded and ready to be sent
 // options may con tains the following:
+//    - signed - the login is already HMAC-SHA1, use as is
 //    - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
-//    - checksum is SHA1 digest of the POST content, optional
-//    - sigversion is 1-4, version number defining how the signature will be signed
-core.signRequest = function(id, secret, method, host, uri, options)
+//    - sigversion a version number defining how the signature will be signed
+core.signRequest = function(login, secret, method, host, uri, options)
 {
     if (!options) options = {};
     var now = Date.now();
@@ -1088,9 +1085,6 @@ core.signRequest = function(id, secret, method, host, uri, options)
     case 1:
         break;
     case 2:
-    case 3:
-    case 4:
-        id = this.sign(secret, String(id));
         method = query = "*";
         path = "/";
         rc['bk-domain'] = hostname = this.domainName(hostname);
@@ -1099,8 +1093,8 @@ core.signRequest = function(id, secret, method, host, uri, options)
         rc['bk-path'] = path;
         break;
     }
-    var str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.checksum || "");
-    rc['bk-signature'] = (options.version || 1) + '|' + (options.appdata || "") + '|' + String(id) + '|' + this.sign(String(secret), str) + '|' + expires + '|' + String(options.checksum || "") + '||';
+    var str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires);
+    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.appdata || "") + '|' + login + '|' + this.sign(String(secret), str) + '|' + expires + '||';
     if (logger.level > 1) logger.log('signRequest:', rc, { str: str });
     return rc;
 }
@@ -1111,28 +1105,21 @@ core.checkSignature = function(sig, account)
     var q = sig.url.split("?");
     var qpath = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-    sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires + "\n" + sig.checksum;
+    sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires;
     switch (sig.mode) {
-    case 1:
-        sig.hash = this.sign(account.secret, sig.str);
-        return sig.signature == sig.hash;
-
-    case 4:
-        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n" + sig.checksum;
-
     case 2:
-    case 3:
-        sig.hash = this.sign(account.secret, sig.str);
-        return sig.signature == sig.hash;
+        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires;
+        break;
     }
-    return false;
+    sig.hash = this.sign(account.secret, sig.str);
+    return sig.signature == sig.hash;
 }
 
 // Make a request to the backend endpoint, save data in the queue in case of error, if data specified,
 // POST request is made, if data is an object, it is converted into string.
 // Returns params as in httpGet with .json property assigned with an object from parsed JSON response
 // Special parameters for options:
-// - email - email to use for access credentials insted of global credentials
+// - login - login to use for access credentials instead of global credentials
 // - secret - secret to use for access intead of global credentials
 // - proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
 // - queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
@@ -1143,12 +1130,12 @@ core.sendRequest = function(uri, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    options.sign = true;
+    if (typeof options.sign == "undefined") options.sign = true;
 
     // Nothing to do without credentials
-    if (!options.email) options.email = self.backendKey;
+    if (!options.login) options.login = self.backendLogin;
     if (!options.secret) options.secret = self.backendSecret;
-    if (!options.email || !options.secret) {
+    if (options.sign && (!options.login || !options.secret)) {
         logger.debug('sendRequest:', 'no backend credentials', uri, options);
         return callback ? callback(null, { status: 200, message: "", json: { status: 200 } }) : null;
     }
@@ -1207,12 +1194,14 @@ core.processQueue = function(callback)
     });
 }
 
-// Return argument value by name
-core.getArg = function(name, dflt, argv)
+// Return commandline argument value by name
+core.getArg = function(name, dflt)
 {
-    return (argv || this.argv)[name] || (dflt || "");
+    var idx = process.argv.indexOf(name);
+    return idx > -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : (typeof dflt == "undefined" ? "" : dflt);
 }
 
+// Return commandline argument value as a number
 core.getArgInt = function(name, dflt)
 {
     return this.toNumber(this.getArg(name, dflt));

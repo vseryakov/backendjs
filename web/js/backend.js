@@ -9,36 +9,18 @@ var Backend = {
     // Support sessions
     session: false,
 
-    // Default signature version to use
-    sigversion: 3,
-
     // Return current credentials
     getCredentials: function() {
-        return { email: localStorage.backendEmail || "",
+        return { login: localStorage.backendLogin || "",
                  secret: localStorage.backendSecret || "",
                  sigversion: localStorage.backendSigVersion || 1 };
     },
 
     // Set new credentials, encrypt email for signature version 3, keep the secret encrypted
-    setCredentials: function(email, secret, version) {
-        if (!version) version = this.sigversion || 1;
-        switch (parseInt(version)) {
-        case 1:
-            localStorage.backendSigVersion = version;
-            localStorage.backendSecret = secret ? String(secret) : "";
-            localStorage.backendEmail = email ? String(email) : "";
-            break;
-        case 2:
-        case 3:
-        case 4:
-            localStorage.backendSigVersion = version;
-            localStorage.backendSecret = secret ? b64_hmac_sha1(String(secret), String(email)) : "";
-            localStorage.backendEmail = email ? b64_hmac_sha1(localStorage.backendSecret, String(email)) : "";
-            break;
-        default:
-            this.debug("Invalid sig version given:" + version);
-        }
-        this.debug('setCreds:', email, secret, version)
+    setCredentials: function(login, secret, version) {
+        localStorage.backendLogin = login ? String(login) : "";
+        localStorage.backendSecret = secret ? String(secret) : "";
+        localStorage.backendSigVersion = (version || this.sigversion || 1);
     },
 
     // Retrieve account record, call the callback with the object or error
@@ -56,8 +38,7 @@ var Backend = {
     addAccount: function(obj, callback) {
         var self = this;
         delete obj.secret2;
-        this.setCredentials(obj.email, obj.secret);
-        obj.secret = this.getCredentials().secret;
+        this.setCredentials(obj.login, obj.secret);
         self.send({ type: "POST", url: "/account/add?" + jQuery.param(obj), nosignature: 1 }, function(data) {
             if (callback) callback(null, data);
         }, function(err) {
@@ -66,7 +47,7 @@ var Backend = {
     },
 
     // Sign request with key and secret
-    sign: function(method, url, expires, checksum) {
+    sign: function(method, url, expires) {
         var creds = this.getCredentials();
         var now = (new Date()).getTime();
         var host = window.location.hostname;
@@ -80,8 +61,8 @@ var Backend = {
         var q = String(url || "/").split("?");
         var path = q[0];
         var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-        var str = String(method || "GET") + "\n" + String(host) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(checksum || "");
-        return { 'bk-signature': creds.sigversion + '||' + creds.email + '|' + b64_hmac_sha1(creds.secret, str) + '|' + String(expires) + '|' + String(checksum || '') + '||' };
+        var str = String(method || "GET") + "\n" + String(host) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires);
+        return { 'bk-signature': creds.sigversion + '||' + creds.login + '|' + b64_hmac_sha1(creds.secret, str) + '|' + String(expires) + '||' };
     },
 
     // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
@@ -125,7 +106,7 @@ var Backend = {
             if (onerror) onerror(msg || error, xhr, status, error);
         }
         if (!options.nosignature) {
-            options.headers = this.sign(options.type || "GET", options.url, 0, options.data && options.checksum ? b64_sha1(options.data) : "", options.profile);
+            options.headers = this.sign(options.type || "GET", options.url, 0);
         }
         $('#loading').show(), state.count++;
         $.ajax(options);

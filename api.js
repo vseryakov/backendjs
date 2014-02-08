@@ -41,10 +41,9 @@ var api = {
     fileS3: '',
 
     tables: {
-        // Authentication by email or id, when key is email, then email is empty
-        bk_auth: { akey: { primary: 1 },
+        // Authentication by login, only keeps id and secret to check the siganture
+        bk_auth: { login: { primary: 1 },
                    id: {},
-                   email: {},
                    secret: {},
                    url_deny: {},                        // Deny access to matched url
                    url_allow: {},                       // Only grant access if matched this regexp
@@ -53,11 +52,12 @@ var api = {
 
         // Basic account information
         bk_account: { id: { primary: 1, pub: 1 },
-                      email: { unique: 1 },
+                      login: { unique: 1 },
                       name: {},
                       alias: { pub: 1 },
                       type: {},
                       status: {},
+                      email: {},
                       phone: {},
                       website: {},
                       birthday: { semipub: 1 },
@@ -348,10 +348,10 @@ api.checkSignature = function(req, callback)
     if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', sig, 'hdrs:', req.headers, req.session);
 
     // Sanity checks, required headers must be present and not empty
-    if (!sig.method || !sig.host || !sig.expires || !sig.id || !sig.signature) {
+    if (!sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
         return callback({ status: 401, message: "Invalid request: " + (!sig.method ? "no method provided" :
                                                                        !sig.host ? "no host provided" :
-                                                                       !sig.id ? "no email provided" :
+                                                                       !sig.login ? "no login provided" :
                                                                        !sig.expires ? "no expiration provided" :
                                                                        !sig.signature ? "no signature provided" : "") });
     }
@@ -362,7 +362,7 @@ api.checkSignature = function(req, callback)
     }
 
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-    core.context.db.getCached("bk_auth", { akey: sig.id }, function(err, account) {
+    core.context.db.getCached("bk_auth", { login: sig.login }, function(err, account) {
         if (err) return callback({ status: 500, message: String(err) });
         if (!account) return callback({ status: 404, message: "No account record found" });
 
@@ -391,13 +391,6 @@ api.checkSignature = function(req, callback)
             req.body = core.decrypt(account.secret, req.body);
         }
 
-        // Check body checksum now
-        if (sig.checksum) {
-            var chk = core.hash(typeof req.body == "object" ? JSON.stringify(req.body) : String(req.body));
-            if (sig.checksum != chk) {
-                return callback({ status: 401, message: "Bad data checksum" });
-            }
-        }
         // Save account and signature in the request, it will be used later
         req.signature = sig;
         req.account = account;
@@ -429,7 +422,7 @@ api.initAccountAPI = function()
         	        if (req.query._session) {
         	            switch (req.query._session) {
         	            case "1":
-        	                var sig = core.signRequest(req.account.email || req.account.key, req.account.secret, "", req.headers.host, "", { version: 4, expires: self.sessionAge });
+        	                var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { version: 2, expires: self.sessionAge });
         	                req.session["bk-signature"] = sig["bk-signature"];
         	                break;
 
@@ -449,49 +442,27 @@ api.initAccountAPI = function()
         	}
             break;
 
-        case "search":
-            options.public_columns = req.account.id;
-            db.search("bk_account", req.query, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-                res.json({ data: rows, next_token: next_token });
-            });
-            break;
-
         case "add":
             // Verify required fields
             if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
             if (!req.query.name) return self.sendReply(res, 400, "name is required");
-            if (!req.query.email) return self.sendReply(res, 400, "email is required");
+            if (!req.query.login) return self.sendReply(res, 400, "login is required");
             if (!req.query.alias) req.query.alias = req.query.name;
             req.query.id = core.uuid();
             req.query.mtime = req.query.ctime = core.now();
             // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
-            var auth = { akey: req.query.email, id: req.query.id, secret: req.query.secret };
-            // On account creation we determine how we will authenticate later, that the same mode must be used for all requests
-            switch (core.toNumber(req.query._sigversion)) {
-            case 1:
-                auth.akey = req.query.id;
-                auth.email = req.query.email;
-                break;
-            case 2:
-            case 3:
-            case 4:
-                auth.akey = core.sign(req.query.secret, req.query.email);
-                auth.email = req.query.email;
-                break;
-            }
+            var auth = { id: req.query.id, login: req.query.login, secret: req.query.secret };
             db.add("bk_auth", auth, { check_columns: 1 }, function(err) {
-                if (err) return self.sendReply(res, err);
+                if (err) return self.sendReply(res, db.convertError("bk_auth", err));
+
                 ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
                 db.add("bk_account", req.query, function(err) {
                     if (err) {
                         db.del("bk_auth", auth);
-                        return self.sendReply(res, err);
+                        return self.sendReply(res, db.convertError("bk_account", err));
                     }
                     // Link account record for other middleware
                     req.account = req.query;
-                    req.account.akey = auth.akey;
                     // Some dbs require the record to exist, just make one with default values
                     db.put("bk_counter", { id: req.query.id, like0: 0 });
                     self.sendJSON(req, res, self.processAccountRow(req.query));
@@ -502,7 +473,6 @@ api.initAccountAPI = function()
         case "update":
             req.query.mtime = core.now();
             req.query.id = req.account.id;
-            req.query.email = req.account.email;
             // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
             ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
             db.update("bk_account", req.query, { check_columns: 1 }, function(err) {
@@ -519,8 +489,17 @@ api.initAccountAPI = function()
                 for (var p in rows[0]) req.account[p] = rows[0][p];
                 self.deleteAccount(req.account, function(err) {
                     if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, core.cloneObj(req.account, { akey: true, secret: true }));
+                    self.sendJSON(req, res, core.cloneObj(req.account, { secret: true }));
                 });
+            });
+            break;
+
+        case "search":
+            options.public_columns = req.account.id;
+            db.search("bk_account", req.query, options, function(err, rows, info) {
+                if (err) return self.sendReply(res, err);
+                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
+                res.json({ data: rows, next_token: next_token });
             });
             break;
 
@@ -1330,15 +1309,14 @@ api.deleteFile = function(file, options, callback)
     }
 }
 
-// Delete account specified in the obj, this must include id of the account and proper akey so bk_auth table will be
-// handled as well, this can be used for any account because it is just a convenient wrapper around database calls
+// Delete account specified in the obj, this must be merged object from bk_auth and bk_account tables.
 // Return err if something wrong occured in the callback.
 api.deleteAccount = function(obj, callback)
 {
-    if (!obj || !obj.id || !obj.akey) return callback ? callback(new Error("id and akey must be specified")) : null;
+    if (!obj || !obj.id || !obj.login) return callback ? callback(new Error("id, login must be specified")) : null;
     var db = core.context.db;
 
-    db.del("bk_auth", { akey: obj.akey }, { cached: 1 }, function(err) {
+    db.del("bk_auth", { login: obj.login }, function(err) {
         if (err) return callback ? callback(err) : null;
         db.del("bk_account", { id: obj.id }, callback);
     });
@@ -1361,7 +1339,7 @@ api.accessLogger = function()
                (now - req._startTime) + " ms - " +
                (req.headers['user-agent'] || "-") + " " +
                (req.headers['version'] || "-") + " " +
-               (req.account ? req.account.email : "-") + "\n";
+               (req.account ? req.account.login : "-") + "\n";
     }
 
     return function logger(req, res, next) {

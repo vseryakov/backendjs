@@ -55,8 +55,6 @@
      Backend.apiResponse = ko.observable('');
      Backend.apiUrl = ko.observable('');
      Backend.apiEmail = ko.observable();
-     Backend.apiSignature = ko.observable(Backend.sigversion);
-     Backend.apiSignature.subscribe(function(v) { Backend.sigversion = v; }, Backend);
      Backend.apiImages = false;
      Backend.apiTable = false;
 
@@ -134,8 +132,6 @@
           <td>Show Icons</td>
           <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/></td>
           <td>Tabular</td>
-          <td colspan=2><select data-bind="value: apiSignature"><option>1</option><option>2</option><option>3</option></select></td>
-          <td>Signature</td>
           <td colspan=2><img id="loading" src="img/loading.gif"></td>
       </tr>
      </table>
