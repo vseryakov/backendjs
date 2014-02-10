@@ -13,14 +13,14 @@ var Backend = {
     getCredentials: function() {
         return { login: localStorage.backendLogin || "",
                  secret: localStorage.backendSecret || "",
-                 sigversion: localStorage.backendSigVersion || 1 };
+                 sigversion: parseInt(localStorage.backendSigVersion) || 1 };
     },
 
     // Set new credentials, encrypt email for signature version 3, keep the secret encrypted
     setCredentials: function(login, secret, version) {
         localStorage.backendLogin = login ? String(login) : "";
         localStorage.backendSecret = secret ? String(secret) : "";
-        localStorage.backendSigVersion = parseInt(version || this.sigversion || 1);
+        localStorage.backendSigVersion = version || this.sigversion || 1;
     },
 
     // Retrieve account record, call the callback with the object or error
@@ -77,14 +77,16 @@ var Backend = {
         switch (creds.sigversion) {
         case 1:
             hmac = b64_hmac_sha1(creds.secret, str);
+            break;
         case 3:
             hmac = b64_hmac_sha256(creds.secret, str);
+            break;
         default:
-            this.debug('sign:', 'invalid sigversion:', creds.sigversion);
+            this.log('sign:', 'invalid sigversion:', creds.sigversion);
             return rc;
         }
         rc['bk-signature'] = creds.sigversion + '||' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
-        //this.debug('sign:', creds, str)
+        if (this.debug) this.log('sign:', creds, str);
         return rc;
     },
 
@@ -125,7 +127,7 @@ var Backend = {
             if (--state.count <= 0) $('#loading').hide(), state.count = 0;
             var msg = "";
             try { msg = JSON.parse(xhr.responseText).message; } catch(e) { msg = status; }
-            self.debug('send: error:', status, msg, error, options);
+            self.log('send: error:', status, msg, error, options);
             if (onerror) onerror(msg || error, xhr, status, error);
         }
         if (!options.nosignature) {
@@ -168,7 +170,7 @@ var Backend = {
         var self = this;
         // Shortcut to parse and format json from the string
         if (typeof obj == "string" && obj != "") {
-            try { obj = JSON.parse(obj); } catch(e) { self.debug(e) }
+            try { obj = JSON.parse(obj); } catch(e) { self.log(e) }
         }
         if (!indent) indent = "";
         var style = "    ";
@@ -239,7 +241,7 @@ var Backend = {
     },
 
     // Simple debugging function that outputs arguments in the error console
-    debug: function() {
+    log: function() {
         if (!console || !console.log) return;
         var args = "";
         for (var i in arguments) args += JSON.stringify(arguments[i]) + " ";

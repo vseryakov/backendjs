@@ -20,9 +20,9 @@ public:
     string path;
     string out;
     FilterTypes filter;
-    unsigned int quality;
-    unsigned int width;
-    unsigned int height;
+    int quality;
+    int width;
+    int height;
     char *exception;
     int err;
 };
@@ -175,10 +175,21 @@ static void doResizeImage(uv_work_t *req)
     } else {
     	status = MagickReadImage(wand, mgr->path.c_str());
     }
+    int width = MagickGetImageWidth(wand);
+    int height = MagickGetImageHeight(wand);
     if (status == MagickFalse) goto err;
+
+    // Negative width or height means we should not upscale if the image is already below the given dimensions
+    if (mgr->width < 0) {
+        mgr->width *= -1;
+        if (width >= mgr->width) mgr->width = 0;
+    }
+    if (mgr->height < 0) {
+        mgr->height *= -1;
+        if (mgr->height >= height) mgr->height = 0;
+    }
+    // Keep the aspect if no dimensions given
     if (mgr->height == 0 || mgr->width == 0) {
-        int width = MagickGetImageWidth(wand);
-        int height = MagickGetImageHeight(wand);
         float aspectRatio = (width * 1.0)/height;
         if (mgr->height == 0) mgr->height =  mgr->width * (1.0/aspectRatio); else
         if (mgr->width == 0) mgr->width = mgr->height * aspectRatio;
@@ -187,7 +198,11 @@ static void doResizeImage(uv_work_t *req)
         status = MagickResizeImage(wand, mgr->width, mgr->height, mgr->filter, 1.0);
         if (status == MagickFalse) goto err;
     }
-    if (mgr->format.size()) MagickSetImageFormat(wand, mgr->format.c_str());
+    if (mgr->format.size()) {
+        const char *fmt = mgr->format.c_str();
+        while (fmt && *fmt && *fmt == '.') fmt++;
+        MagickSetImageFormat(wand, fmt);
+    }
     if (mgr->quality <= 100) MagickSetImageCompressionQuality(wand, mgr->quality);
     if (mgr->out.size()) {
     	// Make sure all subdirs exist

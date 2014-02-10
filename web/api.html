@@ -13,7 +13,7 @@
 
  <script src="js/knockout.js" type="text/javascript"></script>
 
- <script src="js/sha1.js" type="text/javascript"></script>
+ <script src="js/crypto.js" type="text/javascript"></script>
 
  <script src="js/backend.js" type="text/javascript"></script>
  <script src="js/backend-jquery-ui.js" type="text/javascript"></script>
@@ -52,6 +52,7 @@
  <script type="text/javascript">
 
  $(function () {
+     Backend.debug = 1;
      Backend.apiResponse = ko.observable('');
      Backend.apiUrl = ko.observable('');
      Backend.apiEmail = ko.observable();
@@ -59,13 +60,19 @@
      Backend.apiTable = false;
 
      Backend.doLogin = function() {
-        this.getAccount(function(err, data) {
+        Backend.getAccount(function(err, data) {
             Backend.apiEmail(err || data.login);
         });
      }
      Backend.doLogout = function() {
         this.apiEmail("");
         this.logout();
+     }
+     Backend.showLogin = function() {
+        this.login(function(err, data) {
+            Backend.apiEmail(err || data.login);
+            return 1;
+        });
      }
      Backend.doRun = function() {
          var self = this;
@@ -123,7 +130,7 @@
 <body>
 <div id="header" class="header">
    <div class='buttons'>
-     <span title="Login into the account" onclick="Backend.doLogin()">Login</span>
+     <span title="Login into the account" onclick="Backend.showLogin()">Login</span>
      <span title="Logout and clear the session" onclick="Backend.doLogout()" >Logout</span>
    </div>
    <span class="title" title="Logged in account email or error status" style="float:right;" data-bind='text: apiEmail' ></span>

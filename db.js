@@ -393,6 +393,13 @@ db.query = function(req, options, callback)
 
 // Insert new object into the database
 // - obj - an Javascript object with properties for the record, primary key properties must be supplied
+// - options may contain the following properties:
+//      - all_columns - do not check for actual columns defined in the pool tables and add all properties from the obj, only will work for NoSQL dbs,
+//        by default all properties in the obj not described in the table definition for the given table will be ignored.
+//      - skip_columns - ignore properties by name listed in the this array
+//      - mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
+//        string then it is used as a name of the column instead of default mtime name
+//      - skip_null - if set, all null values will be skipped, otherwise will be written into the DB as NULLs
 db.add = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -403,9 +410,7 @@ db.add = function(table, obj, options, callback)
 
 // Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj
 // - obj - an object with record properties, primary key properties must be specified
-// - options - same properties as for .select method with the following additional options:
-//     - mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
-//       string then it is used as a name of the column instead of default mtime name
+// - options - same properties as for `db.add` method
 db.put = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -421,7 +426,11 @@ db.put = function(table, obj, options, callback)
 
 // Update existing object in the database.
 // - obj - is an actual record to be updated, primary key properties must be specified
-// - options - same properties as for .add method
+// - options - same properties as for `db.add` method with the following additional properties:
+//      - keys - list of properties to use as keys for the update condition, if not specified then primary keys will be used
+//      - ops - object for comparison operators for primary key, default is equal operator
+//      - opsMap - operator mapping into supported by the database
+//      - typesMap - type mapping for properties to be used in the condition
 db.update = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -445,7 +454,7 @@ db.incr = function(table, obj, options, callback)
 
 // Delete object in the database, no error if the object does not exist
 // - obj - an object with primary key properties only, other properties will be ignored
-// - options - same propetties as for .add method
+// - options - same propetties as for `db.update` method
 db.del = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -457,11 +466,11 @@ db.del = function(table, obj, options, callback)
 // Add/update the object, check existence by the primary key or by other keys specified.
 // - obj is a Javascript object with properties that correspond to the table columns
 // - options define additional flags that may
-//       - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-//          then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE caluse
+//      - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
+//        then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE caluse
 //      - check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value
 //      - check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
-//       if it is an array then check only specified columns
+//        if it is an array then check only specified columns
 db.replace = function(table, obj, options, callback)
 {
     var self = this;
@@ -518,7 +527,7 @@ db.replace = function(table, obj, options, callback)
 // - obj - can be an object with primary key propeties set for the condition, all matching records will be returned
 // - obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
 // - options can use the following special propeties:
-//      - keys - a list of columns for condition or all primary keys will be used for query condition
+//      - keys - a list of columns for condition or all primary keys will be used for query condition, only keys will be used in WHERE part of the SQL statement
 //      - ops - operators to use for comparison for properties, an object with column name and operator
 //      - opsMap - operator mapping between supplied operators and actual operators supported by the db
 //      - typesMap - type mapping between supplied and actual column types, an object
@@ -785,7 +794,7 @@ db.skipColumn = function(name, val, options, columns)
 {
 	return !name || name[0] == '_' || typeof val == "undefined" ||
 			(options.skip_null && val === null) ||
-			(options.check_columns && !options.no_columns && (!columns || !columns[name])) ||
+			(!options.all_columns && (!columns || !columns[name])) ||
 			(options.skip_columns && options.skip_columns.indexOf(name) > -1) ||
 	        (options.select && options.select.indexOf(name) == -1) ? true : false;
 }
@@ -821,8 +830,9 @@ db.getColumnValue = function(table, options, val, info)
 // Convert native database error in some generic human readable string
 db.convertError = function(table, err, options)
 {
+    if (!err || !(err instanceof Error)) return err;
     var cb = this.getPool(table, options).convertError;
-    return cb ? cb(err) : err;
+    return cb ? cb(table, err, options) : err;
 }
 
 // Reload all columns into the cache for the pool
@@ -1483,7 +1493,6 @@ db.sqlSelect = function(table, obj, options)
 db.sqlInsert = function(table, obj, options)
 {
     if (!options) options = {};
-    if (typeof options.check_columns == "undefined") options.check_columns = 1;
     var names = [], pnums = [], req = { values: [] }, i = 1
     // Columns should exist prior to calling this
     var cols = this.getColumns(table, options);
@@ -1517,7 +1526,6 @@ db.sqlInsert = function(table, obj, options)
 db.sqlUpdate = function(table, obj, options)
 {
     if (!options) options = {};
-    if (typeof options.check_columns == "undefined") options.check_columns = 1;
     var sets = [], req = { values: [] }, i = 1;
     var cols = this.getColumns(table, options) || {};
     var keys = options.keys;
@@ -1889,6 +1897,12 @@ db.dynamodbInitPool = function(options)
                 if (callback) callback(err2);
             });
         });
+    }
+
+    // Convert into human readable messages
+    pool.convertError = function(table, err, opts) {
+        if (err.message == "Attribute found when none expected.") return new Error("Record already exists");
+        return err;
     }
 
     // Pass all parametetrs directly to the execute function

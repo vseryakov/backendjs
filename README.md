@@ -188,7 +188,8 @@ links, i.e. when i make explicit connection to other account, and bk_reference t
 a connection with it. No direct operations on bk_reference is allowed.
 
 - `/connection/add`
-  Create a connection between two accounts, required parameters are:
+- `/connection/put`
+  Create or replace a connection between two accounts, required parameters are:
     - `id` - id of account to connect to
     - `type` - type of connection, like,dislike,....
 
@@ -323,6 +324,11 @@ icons separate from albums, or use prefix for each separate album. Within the pr
   Upload new icon for the given account in the folder prefix, if id is specified it creates an icons for this id to separate
   multiple icons for the same icon. `id` can be any string consisting from alpha and digits characters.
 
+  The following parameters can be used:
+    - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
+    - _height - height of the icon, same rules apply as for the width above
+    - _ext - image file format, default is jpg, supports: gif, png, jpg
+
 - `/icon/del/prefix`
 - `/icon/del/prefix/id`
 
@@ -373,6 +379,29 @@ The history API maintains one table for all application specific logging records
 ## Data
 The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...
+
+- `/data/metrics`
+  Performance statistics
+
+- `/data/stats`
+  Database pool statistics
+
+- `/data/columns`
+- `/data/columns/TABLE`
+  Return columns for all tables or the specific TABLE
+
+- `/data/keys/TABLE`
+  Return primary keys for the given TABLE
+
+- `/data/(select|search|list|get|add|put|update|del|incr|replace)/TABLE`
+  Perform database operation on the given TABLE, all options for the `db` functiobns are passed as query parametrrs prepended with underscore,
+  regular parameters are the table columns.
+
+  Example:
+
+        /data/get/bk_account?id=12345
+        /data/put/bk_counter?id=12345&like0=1
+        /data/select/bk_account?name=john&_ops=name,gt&_select=name,alias,email
 
 # Backend configuration and directory structure
 

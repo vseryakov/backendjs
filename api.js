@@ -114,6 +114,8 @@ var api = {
                      follow1: { type: "counter", value: 0, pub: 1 },
                      invite0: { type: "counter", value: 0, pub: 1, incr: 1 },
                      invite1: { type: "counter", value: 0, pub: 1 },
+                     view0: { type: "counter", value: 0, pub: 1, incr: 1 },
+                     view1: { type: "counter", value: 0, pub: 1 },
                      msg_count: { type: "counter", value: 0 },                    // total msgs received
                      msg_read: { type: "counter", value: 0 }},                    // total msgs read
 
@@ -549,7 +551,7 @@ api.initAccountAPI = function()
             req.query.mtime = req.query.ctime = core.now();
             // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
             var auth = { id: req.query.id, login: req.query.login, secret: req.query.secret };
-            db.add("bk_auth", auth, { check_columns: 1 }, function(err) {
+            db.add("bk_auth", auth, function(err) {
                 if (err) return self.sendReply(res, db.convertError("bk_auth", err));
 
                 ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
@@ -572,7 +574,7 @@ api.initAccountAPI = function()
             req.query.id = req.account.id;
             // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
             ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-            db.update("bk_account", req.query, { check_columns: 1 }, function(err) {
+            db.update("bk_account", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, self.processAccountRow(req.query));
             });
@@ -588,6 +590,15 @@ api.initAccountAPI = function()
                     if (err) return self.sendReply(res, err);
                     self.sendJSON(req, res, core.cloneObj(req.account, { secret: true }));
                 });
+            });
+            break;
+
+        case "subscribe":
+            req.pubSock = core.ipcSubscribe(req.account.id, function(data) { res.json(data); });
+            if (!req.pubSock) return self.sendReply(res, 500);
+            req.on("close", function() {
+                logger.log('subscribe:', 'close', req.pubSock, req.account.id);
+                core.ipcUnsubscribe(req.pubSock);
             });
             break;
 
@@ -621,9 +632,11 @@ api.initAccountAPI = function()
         case "del/icon":
             // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
             // The type can be the whole url of the icon, we need to parse it and extract only type
-            var type = String(core.toNumber(req.body.type || req.query.type));
             var op = req.params[0].replace('/i', 'I');
-            self[op](req, req.account.id, { prefix: 'account', type: type }, function(err, icon) {
+            options.force = true; // always overwrite the icon file
+            options.prefix = 'account';
+            options.type = String(core.toNumber(req.body.type || req.query.type));
+            self[op](req, req.account.id, options, function(err, icon) {
                 if (err || !icon) return self.sendReply(res, err);
 
                 // Get current account icons
@@ -631,8 +644,8 @@ api.initAccountAPI = function()
                     if (err) return self.sendReply(res, err);
 
                     // Add/remove given type from the list of icons
-                    rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + type);
-                    if (op == 'delIcon') rows[0].icons = rows[0].icons.filter(function(x) { return x != type } );
+                    rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + options.type);
+                    if (op == 'delIcon') rows[0].icons = rows[0].icons.filter(function(x) { return x != options.type } );
 
                     var obj = { id: req.account.id, mtime: core.now(), icons: rows[0].icons.join(",") };
                     db.update("bk_account", obj, function(err) {
@@ -658,6 +671,7 @@ api.initIconAPI = function()
     this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9]+)\/?([a-z0-9])?$/, function(req, res) {
         logger.debug(req.path, req.account.id);
 
+        var options = self.getOptions(req);
         switch (req.params[0]) {
         case "get":
             self.getIcon(req, res, req.account.id, { prefix: req.params[1], type: req.params[2] });
@@ -665,12 +679,14 @@ api.initIconAPI = function()
 
         case "del":
         case "put":
-            var type = req.params[2] || "";
-            self[req.params[0] + 'Icon'](req, req.account.id, { prefix: req.params[1], type: type }, function(err) {
+            options.force = true; // always overwrite the icon file
+            options.prefix = req.params[1];
+            options.type = req.params[2] || "";
+            self[req.params[0] + 'Icon'](req, req.account.id, options, function(err) {
                 if (err) return self.sendReply(res, err);
-                req.query.type = type;
-                req.query.prefix = req.params[1];
-                req.query.icon = self.imagesUrl + '/image/' + req.params[1] + '/' + req.account.id + '/' + type;
+                req.query.type = options.type;
+                req.query.prefix = options.prefix;
+                req.query.icon = self.imagesUrl + '/image/' + options.prefix + '/' + req.account.id + '/' + options.type;
                 self.sendJSON(req, res, req.query);
             });
             break;
@@ -714,16 +730,17 @@ api.initMessageAPI = function()
             break;
 
         case "add":
-            if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
+            if (!req.query.id) return self.sendReply(res, 400, "receiver id is required");
             if (!req.query.msg && !req.query.icon) return self.sendReply(res, 400, "msg or icon is required");
+            req.query.sender = req.account.id;
             req.query.mtime = Date.now() + ":" + req.query.sender;
-            req.query.id = req.account.id;
-            self.putIcon(req, req.account.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
+            self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
                 if (err) return self.sendReply(res, err);
                 if (icon) req.query.icon = 1;
                 db.add("bk_message", req.query, {}, function(err, rows) {
-                    if (!err) db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1, mtime: 1 });
-                    self.sendReply(res, err);
+                    if (err) return self.sendReply(res, err);
+                    core.ipcPublish(req.query.id, { type: "message" });
+                    self.sendJSON(req, res, {});
                 });
             });
             break;
@@ -742,7 +759,7 @@ api.initMessageAPI = function()
             req.query.mtime = Date.now() + ":" + req.query.sender;
             req.query.id = req.account.id;
             db.del("bk_message", req.query, {}, function(err, rows) {
-                if (err) self.sendReply(res, err);
+                if (err) return self.sendReply(res, err);
                 db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1, mtime: 1 });
                 self.sendJSON(req, res, {});
             });
@@ -754,7 +771,7 @@ api.initMessageAPI = function()
     });
 }
 
-// Connections management
+// History management
 api.initHistoryAPI = function()
 {
     var self = this;
@@ -798,7 +815,6 @@ api.initCounterAPI = function()
         switch (req.params[0]) {
         case "put":
         case "incr":
-            self.sendReply(res);
             req.query.mtime = Date.now();
             req.query.id = req.account.id;
             db[req.params[0]]("bk_counter", req.query, { cached: 1 }, function(err, rows) {
@@ -833,6 +849,7 @@ api.initConnectionAPI = function()
         var options = self.getOptions(req);
         switch (req.params[1]) {
         case "add":
+        case "put":
         case "update":
             var now = core.now();
             var id = req.query.id, type = req.query.type;
@@ -862,7 +879,7 @@ api.initConnectionAPI = function()
             }
 
             // Update accumulated counter if we support this column and do it automatically
-            if (req.params[1] != 'add') break;
+            if (req.params[1] == 'update') break;
             var col = db.getColumn("bk_counter", type + '0');
             if (col && col.incr) {
                 db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
@@ -1097,6 +1114,9 @@ api.getOptions = function(req)
     if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
     if (req.query._desc) options.sort = core.toBool(req.query._desc);
     if (req.query._keys) options.keys = core.strSplit(req.query._keys);
+    if (req.query._width) options.width = core.toNumber(req.query._width);
+    if (req.query._height) options.height = core.toNumber(req.query._height);
+    if (req.query._ext) options.ext = req.query._ext;
     if (req.query._ops) {
         if (!options.ops) options.ops = {};
         var ops = core.strSplit(req.query._ops);
@@ -1190,7 +1210,7 @@ api.sendJSON = function(req, res, rows)
 // Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
 api.sendReply = function(res, status, msg)
 {
-    if (status instanceof Error) msg = status, status = 500;
+    if (status instanceof Error) msg = status.message, status = 500;
     if (!status) status = 200, msg = "";
     return this.sendStatus(res, { status: status, message: String(msg || "") });
 }

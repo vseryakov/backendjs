@@ -141,7 +141,10 @@ aws.queryDDB = function (action, obj, options, callback)
                 return setTimeout(function() { self.queryDDB(action, obj, options, callback); }, options.timeout);
             }
             // Report about the error
-            if (!err) err = new Error(params.json.__type + ": " + (params.json.message || params.json.Message));
+            if (!err) {
+                err = new Error(params.json.message || params.json.Message || (action + " Error"));
+                err.code = (params.json.__type || params.json.code).split('#').pop();
+            }
             return callback ? callback(err, {}) : null;
         }
         logger.debug('queryDDB:', action, 'finished:', core.mnow() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', params.json.ConsumedCapacity || "");

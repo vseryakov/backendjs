@@ -132,6 +132,7 @@ var core = {
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache" },
             { name: "lru-server", descr: "LRU server that acts as a NNBUS node to brosadcast cache messages to all connected backends" },
             { name: "lru-host", descr: "Address of NNBUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
+            { name: "pub-host", descr: "Publish/Subscribe server for messaging between the backend servers: ipc:///path,tcp://IP:port..." },
             { name: "memcache-host", type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port..." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-host", descr: "Address to Redis server for cache messages" },
@@ -456,12 +457,12 @@ core.ipcInitServer = function()
     }
 
     // Pub/sub messaging system
-    if (self.pubServer) {
+    if (self.pubHost) {
         try {
             self.pubSocket = backend.nnCreate(backend.AF_SP, backend.NN_PUB);
-            backend.nnBind(self.pubSocket, self.pubServer);
+            backend.nnBind(self.pubSocket, self.pubHost);
         } catch(e) {
-            logger.error('ipcInit:', self.pubServer, e)
+            logger.error('ipcInit:', self.pubHost, e)
             self.pubSocket = backend.nnClose(self.pubSocket);
         }
     }
@@ -594,15 +595,15 @@ core.ipcIncrCache = function(key, val)
 // Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.
 core.ipcSubscribe = function(key, callback)
 {
-    if (!this.subHost) return 0;
+    if (!this.pubHost) return 0;
     var sock = 0;
     try {
         sock = backend.nnCreate(backend.AF_SP, backend.NN_SUB);
-        backend.nnConnect(sock, this.subHost);
+        backend.nnConnect(sock, this.pubHost);
         backend.nnSubscribe(sock, key);
         backend.nnSetCallback(sock, function(err, n, data) { if (!err) callback(data); });
     } catch(e) {
-        logger.error('ipcSubscribe:', this.subHost, e);
+        logger.error('ipcSubscribe:', this.pubHost, e);
         sock = backend.nnClose(sock);
     }
     return sock;
@@ -617,6 +618,7 @@ core.ipcUnsubscribe = function(sock)
 // Publish an event to be sent to the subscribed clients
 core.ipcPublish = function(key, data)
 {
+    if (!this.pubHost) return 0;
     this.ipcSend("pub", key, data);
 }
 
@@ -1420,7 +1422,7 @@ core.strftime = function(date, fmt, utc)
         p: function(t) { return this.H(t) < 12 ? 'AM' : 'PM'; },
         S: function(t) { return zeropad(utc ? t.getUTCSeconds() : t.getSeconds()) },
         w: function(t) { return utc ? t.getUTCDay() : t.getDay() }, // 0..6 == sun..sat
-        W: function(t) { var d = utc ? Date.UTC(utc ? t.getUTCFullYear() : t.getFullYear(), 0, 1) : new Date(t.getFullYear(), 0, 1); return Math.ceil((((t - d) / 86400000) + d.getDay() + 1) / 7); },
+        W: function(t) { var d = utc ? Date.UTC(utc ? t.getUTCFullYear() : t.getFullYear(), 0, 1) : new Date(t.getFullYear(), 0, 1); return zeropad(Math.ceil((((t - d) / 86400000) + d.getDay() + 1) / 7)); },
         y: function(t) { return zeropad(this.Y(t) % 100); },
         Y: function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
         t: function(t) { return t.getTime() },
@@ -1748,7 +1750,8 @@ core.putIcon = function(file, id, options, callback)
 // Scale image using ImageMagick into a file, return err if failed
 // - infile can be a string with file name or a Buffer with actual image data
 // - outfle is not empty is a file naem where to store scaled image or if empty the new image contents will be returned in the callback
-// - options can specify image extension in .ext, width/height/filter/quality
+// - options can specify image properti: width/height/filter/quality/ext,
+//   if width/height are negative this means do not perform upscale, only downscale
 core.scaleIcon = function(infile, outfile, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
