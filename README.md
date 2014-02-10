@@ -171,8 +171,11 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
     - type - icon type, a number between 0 and 9, if not specified 0 is used
     - icon - can be passed as base64 encoded image in the query,
-    - icon - can be passed as base64 encoded string in the body as JSON
-    - icon - can be passed in multipart form as a part name
+        - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: 'DFRGRGRE...' }
+        - can be passed in multipart form as a part name
+    - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
+    - _height - height of the icon, same rules apply as for the width above
+    - _ext - image file format, default is jpg, supports: gif, png, jpg
 
 - `/account/del/icon`
 

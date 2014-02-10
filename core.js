@@ -1747,14 +1747,30 @@ core.putIcon = function(file, id, options, callback)
     });
 }
 
-// Scale image using ImageMagick into a file, return err if failed
+// Scale image using ImageMagick, return err if failed
 // - infile can be a string with file name or a Buffer with actual image data
 // - options can specify image properties:
-//     - width/height, if width/height are negative this means do not perform upscale, only downscale
+//     - outfile - if not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback as a buffer
+//     - width, height - new dimensions if width or height is negative this means do not perform upscale,
+//       keep the original size if smaller than given positive value, if any is 0 that means keep the original
 //     - filter - ImageMagick image filters, default is lanczos
-//     - quality - 0-99 percent
+//     - quality - 0-99 percent, image scaling quality
 //     - ext - image format: png, gif, jpg
-//     - outfile is not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback
+//     - flip - flip gorizontally
+//     - flop - flip vertically
+//     - blue_radius, blur_sigma - perform adaptice blur on the image
+//     - crop_x, crop_y, crop_width, crop_height - perform crop using given dimenions
+//     - sharpen_rafius, sharpen_sigma - perform sharpening of the image
+//     - brightness - use thing to change brightness of the image
+//     - contrast - set new contrast of the image
+//     - rotate - rotation angle
+//     - bgcolor - color for the background, used in rotation
+//     - quantized - set number of colors for quantize
+//     - treedepth - set tree depth for quantixe process
+//     - dither - set 0 or 1 for quantie and posterize procesees
+//     - posterize - set number of color levels
+//     - normalize - normalize image
+//     - opacity - set image opacity
 core.scaleIcon = function(infile, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};

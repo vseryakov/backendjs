@@ -11,20 +11,42 @@
 // Async request for magickwand resize callback
 class MagickBaton {
 public:
-    MagickBaton(): image(0), exception(0), err(0) {}
+    MagickBaton(): image(0), exception(0), err(0) { memset(&d, 0, sizeof(d)); }
     ~MagickBaton() { cb.Dispose(); }
     Persistent<Function> cb;
     unsigned char *image;
-    size_t length;
+    char *exception;
     string format;
     string path;
     string out;
     FilterTypes filter;
-    int quality;
-    int width;
-    int height;
-    char *exception;
     int err;
+    size_t length;
+    string bgcolor;
+    struct {
+        int quality;
+        int width;
+        int height;
+        double blur_radius;
+        double blur_sigma;
+        double sharpen_radius;
+        double sharpen_sigma;
+        double brightness;
+        double contrast;
+        int crop_x;
+        int crop_y;
+        int crop_width;
+        int crop_height;
+        int posterize;
+        int quantize;
+        int tree_depth;
+        bool normalize;
+        bool flip;
+        bool flop;
+        bool dither;
+        double rotate;
+        double opacity;
+    } d;
 };
 
 class BKBaton {
@@ -180,22 +202,69 @@ static void doResizeImage(uv_work_t *req)
     if (status == MagickFalse) goto err;
 
     // Negative width or height means we should not upscale if the image is already below the given dimensions
-    if (baton->width < 0) {
-        baton->width *= -1;
-        if (width >= baton->width) baton->width = 0;
+    if (baton->d.width < 0) {
+        baton->d.width *= -1;
+        if (width >= baton->d.width) baton->d.width = 0;
     }
-    if (baton->height < 0) {
-        baton->height *= -1;
-        if (baton->height >= height) baton->height = 0;
+    if (baton->d.height < 0) {
+        baton->d.height *= -1;
+        if (baton->d.height >= height) baton->d.height = 0;
     }
     // Keep the aspect if no dimensions given
-    if (baton->height == 0 || baton->width == 0) {
+    if (baton->d.height == 0 || baton->d.width == 0) {
         float aspectRatio = (width * 1.0)/height;
-        if (baton->height == 0) baton->height =  baton->width * (1.0/aspectRatio); else
-        if (baton->width == 0) baton->width = baton->height * aspectRatio;
+        if (baton->d.height == 0) baton->d.height =  baton->d.width * (1.0/aspectRatio); else
+        if (baton->d.width == 0) baton->d.width = baton->d.height * aspectRatio;
     }
-    if (baton->width && baton->height) {
-        status = MagickResizeImage(wand, baton->width, baton->height, baton->filter, 1.0);
+    if (baton->d.crop_width && baton->d.crop_height) {
+        status = MagickCropImage(wand, baton->d.crop_width, baton->d.crop_height, baton->d.crop_x, baton->d.crop_y);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.rotate) {
+        PixelWand *bg = NewPixelWand();
+        PixelSetColor(bg, baton->bgcolor.c_str());
+        status = MagickRotateImage(wand, bg, baton->d.rotate);
+        DestroyPixelWand(bg);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.opacity) {
+        status = MagickSetImageOpacity(wand, baton->d.opacity);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.normalize) {
+        status = MagickNormalizeImage(wand);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.posterize) {
+        status = MagickPosterizeImage(wand, baton->d.posterize, (MagickBooleanType)baton->d.dither);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.quantize) {
+        status = MagickQuantizeImage(wand, baton->d.quantize, RGBColorspace, baton->d.tree_depth, (MagickBooleanType)baton->d.dither, (MagickBooleanType)0);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.flip) {
+        status = MagickFlipImage(wand);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.flop) {
+        status = MagickFlopImage(wand);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.width && baton->d.height) {
+        status = MagickResizeImage(wand, baton->d.width, baton->d.height, baton->filter, 1.0);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.blur_radius || baton->d.blur_sigma) {
+        status = MagickAdaptiveBlurImage(wand, baton->d.blur_radius, baton->d.blur_sigma);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.brightness || baton->d.contrast) {
+        status = MagickBrightnessContrastImage(wand, baton->d.brightness, baton->d.contrast);
+        if (status == MagickFalse) goto err;
+    }
+    if (baton->d.sharpen_radius || baton->d.sharpen_sigma) {
+        status = MagickAdaptiveSharpenImage(wand, baton->d.sharpen_radius, baton->d.sharpen_sigma);
         if (status == MagickFalse) goto err;
     }
     if (baton->format.size()) {
@@ -203,7 +272,7 @@ static void doResizeImage(uv_work_t *req)
         while (fmt && *fmt && *fmt == '.') fmt++;
         MagickSetImageFormat(wand, fmt);
     }
-    if (baton->quality <= 100) MagickSetImageCompressionQuality(wand, baton->quality);
+    if (baton->d.quality <= 100) MagickSetImageCompressionQuality(wand, baton->d.quality);
     if (baton->out.size()) {
     	// Make sure all subdirs exist
     	if (vMakePath(baton->out)) {
@@ -239,8 +308,8 @@ static void afterResizeImage(uv_work_t *req)
             Buffer *buf = Buffer::New((const char*)baton->image, baton->length);
             argv[0] = Local<Value>::New(Null());
             argv[1] = Local<Value>::New(buf->handle_);
-            argv[2] = Local<Value>::New(Integer::New(baton->width));
-            argv[3] = Local<Value>::New(Integer::New(baton->height));
+            argv[2] = Local<Value>::New(Integer::New(baton->d.width));
+            argv[3] = Local<Value>::New(Integer::New(baton->d.height));
             TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 4, argv);
         } else {
         	argv[0] = Local<Value>::New(Null());
@@ -270,9 +339,29 @@ static Handle<Value> resizeImage(const Arguments& args)
     for (uint i = 0 ; i < names->Length(); ++i) {
         String::Utf8Value key(names->Get(i));
         String::Utf8Value val(opts->Get(names->Get(i))->ToString());
-        if (!strcmp(*key, "width")) baton->width = atoi(*val); else
-        if (!strcmp(*key, "height")) baton->height = atoi(*val); else
-        if (!strcmp(*key, "quality")) baton->quality = atoi(*val); else
+        if (!strcmp(*key, "posterize")) baton->d.posterize = atoi(*val); else
+        if (!strcmp(*key, "dither")) baton->d.dither = atoi(*val); else
+        if (!strcmp(*key, "normalize")) baton->d.normalize = atoi(*val); else
+        if (!strcmp(*key, "quantize")) baton->d.quantize = atoi(*val); else
+        if (!strcmp(*key, "treedepth")) baton->d.tree_depth = atoi(*val); else
+        if (!strcmp(*key, "flip")) baton->d.normalize = atoi(*val); else
+        if (!strcmp(*key, "flop")) baton->d.flop = atoi(*val); else
+        if (!strcmp(*key, "width")) baton->d.width = atoi(*val); else
+        if (!strcmp(*key, "height")) baton->d.height = atoi(*val); else
+        if (!strcmp(*key, "quality")) baton->d.quality = atoi(*val); else
+        if (!strcmp(*key, "blur_radius")) baton->d.blur_radius = atof(*val); else
+        if (!strcmp(*key, "blur_sigma")) baton->d.blur_sigma = atof(*val); else
+        if (!strcmp(*key, "sharpen_radius")) baton->d.sharpen_radius = atof(*val); else
+        if (!strcmp(*key, "sharpen_sigma")) baton->d.sharpen_sigma = atof(*val); else
+        if (!strcmp(*key, "brightness")) baton->d.brightness = atof(*val); else
+        if (!strcmp(*key, "contrast")) baton->d.contrast = atof(*val); else
+        if (!strcmp(*key, "rotate")) baton->d.rotate = atof(*val); else
+        if (!strcmp(*key, "opacity")) baton->d.rotate = atof(*val); else
+        if (!strcmp(*key, "crop_width")) baton->d.crop_width = atoi(*val); else
+        if (!strcmp(*key, "crop_height")) baton->d.crop_height = atoi(*val); else
+        if (!strcmp(*key, "crop_x")) baton->d.crop_x = atoi(*val); else
+        if (!strcmp(*key, "crop_y")) baton->d.crop_y = atoi(*val); else
+        if (!strcmp(*key, "bgcolor")) baton->bgcolor = *val; else
         if (!strcmp(*key, "outfile")) baton->out = *val; else
         if (!strcmp(*key, "ext")) baton->format = *val; else
         if (!strcmp(*key, "filter")) baton->filter = getMagickFilter(*val);
