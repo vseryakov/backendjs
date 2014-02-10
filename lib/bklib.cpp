@@ -1,8 +1,8 @@
 //
 //  Author: Vlad Seryakov vseryakov@gmail.com
-//  October 2007
+//  October 2014
 
-#include "vlib.h"
+#include "bklib.h"
 #include "regexp.h"
 
 static uint32_t _crc32[256] = {
@@ -535,7 +535,7 @@ bool vWriteFile(const string file, const string data, int perms)
 
     int fd = ::open(file.c_str(), O_CREAT|O_WRONLY, 0644);
     if (fd > 0) {
-        int rc = ::write(fd, data.data(), data.size());
+        uint rc = ::write(fd, data.data(), data.size());
         ::close(fd);
         if (rc != data.size()) return false;
 

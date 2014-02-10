@@ -7,7 +7,7 @@
 #ifndef _V_LOG_H_
 #define _V_LOG_H_
 
-#include "vsystem.h"
+#include "bksystem.h"
 
 // Printing messages with time and line info
 #ifdef PG_EXTENSION
@@ -50,8 +50,8 @@ public:
     // Set max size in Mb of the log file, once reached, log files will be rotated
     static int setSize(int size);
 
-    // Rotate if reached the limit, keep up to 3 old files
-    static void rotate();
+    // Rotate if reached the limit, keep up to nfiles old
+    static void rotate(int nfiles = 2);
 
     // Redirect log into given file
     static int setFile(const char *path);

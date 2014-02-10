@@ -8,8 +8,8 @@
 #ifndef _V_LIB_H_
 #define _V_LIB_H_
 
-#include "vsystem.h"
-#include "vlog.h"
+#include "bksystem.h"
+#include "bklog.h"
 
 typedef map<string, int> int_map;
 typedef map<string, string> string_map;

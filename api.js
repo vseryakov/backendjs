@@ -80,13 +80,13 @@ var api = {
 
        // Locations for all accounts to support distance searches
        bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
-                      id: { primary: 1 },                     // account id, part of the primary key for pagination
+                      id: { primary: 1 },                     // my account id, part of the primary key for pagination
                       latitude: { type: "real" },
                       longitude: { type: "real" },
                       mtime: { type: "bigint" }},
 
        // All connections between accounts: like,dislike,friend...
-       bk_connection: { id: { primary: 1 },                    // account_id
+       bk_connection: { id: { primary: 1 },                    // my account_id
                         type: { primary: 1 },                  // type:connection_id
                         state: {},
                         mtime: { type: "bigint" }},
@@ -98,20 +98,22 @@ var api = {
                        mtime: { type: "bigint" }},
 
        // Messages between accounts
-       bk_message : { id: { primary: 1 },                    // Account sent to
+       bk_message : { id: { primary: 1 },                    // my account_id
                       mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
                       status: {},                            // Status flags: R - read
-                      text: { type: "text" },                // Text of the message
+                      msg: { type: "text" },                 // Text of the message
                       icon: {}},                             // Icon base64 or url
 
        // All accumulated counters for accounts
-       bk_counter: { id: { primary: 1 },                                           // account_id
+       bk_counter: { id: { primary: 1 },                                           // my account_id
                      like0: { type: "counter", value: 0, pub: 1, incr: 1 },        // who i liked
                      like1: { type: "counter", value: 0, pub: 1 },                 // reversed like, who liked me
                      dislike0: { type: "counter", value: 0, pub: 1, incr: 1 },
                      dislike1: { type: "counter", value: 0, pub: 1 },
                      follow0: { type: "counter", value: 0, pub: 1, incr: 1 },
                      follow1: { type: "counter", value: 0, pub: 1 },
+                     invite0: { type: "counter", value: 0, pub: 1, incr: 1 },
+                     invite1: { type: "counter", value: 0, pub: 1 },
                      msg_count: { type: "counter", value: 0 },                    // total msgs received
                      msg_read: { type: "counter", value: 0 }},                    // total msgs read
 
@@ -346,8 +348,10 @@ api.checkQuery = function(req, res, next)
 
             case 'application/x-www-form-urlencoded':
                 req.body = buf.length ? qs.parse(buf) : {};
+                // Keep the parametrs in the body so we can distinguish GET and POST requests
+                // but use them in signature verification
+                sig.query = buf;
             }
-            logger.log(buf, req.body)
             next();
         } catch (err){
             err.body = buf;
@@ -514,7 +518,7 @@ api.initAccountAPI = function()
         	        if (req.query._session) {
         	            switch (req.query._session) {
         	            case "1":
-        	                var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { version: 2, expires: self.sessionAge });
+        	                var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
         	                req.session["bk-signature"] = sig["bk-signature"];
         	                break;
 
@@ -711,7 +715,7 @@ api.initMessageAPI = function()
 
         case "add":
             if (!req.query.sender) return self.sendReply(res, 400, "sender is required");
-            if (!req.query.text && !req.query.icon) return self.sendReply(res, 400, "text or icon is required");
+            if (!req.query.msg && !req.query.icon) return self.sendReply(res, 400, "msg or icon is required");
             req.query.mtime = Date.now() + ":" + req.query.sender;
             req.query.id = req.account.id;
             self.putIcon(req, req.account.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
@@ -829,7 +833,6 @@ api.initConnectionAPI = function()
         var options = self.getOptions(req);
         switch (req.params[1]) {
         case "add":
-        case "put":
         case "update":
             var now = core.now();
             var id = req.query.id, type = req.query.type;
@@ -1339,10 +1342,10 @@ api.putFile = function(req, name, options, callback)
 
     var outfile = (options.name || name) + (options.ext || "");
     if (req.files && req.files[name]) {
-        if (!options.ext || options.extkeep) outfile += path.extname(req.files[name].originalFilename);
+        if (!options.ext || options.extkeep) outfile += path.extname(req.files[name].name || req.files[name].path);
         self.storeFile(req.files[name].path, outfile, options, callback);
     } else
-    // JSON object submitted with .id property
+    // JSON object submitted with .name property with the icon contents
     if (typeof req.body == "object" && req.body[name]) {
         var data = new Buffer(req.body[name], "base64");
         self.storeFile(data, outfile, options, callback);

@@ -30,7 +30,7 @@
 //
 // 4. This notice must not be removed or altered.
 
-#include "vsystem.h"
+#include "bksystem.h"
 #include "regexp.h"
 
 // definition	number	opnd?	meaning

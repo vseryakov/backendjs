@@ -21,7 +21,7 @@
 // - Handles special cases like ',' and ':' in search terms.
 //
 
-#include "vsqlite.h"
+#include "bksqlite.h"
 #include <stdint.h>
 
 // Convenience function to enable logging

@@ -20,7 +20,7 @@ var Backend = {
     setCredentials: function(login, secret, version) {
         localStorage.backendLogin = login ? String(login) : "";
         localStorage.backendSecret = secret ? String(secret) : "";
-        localStorage.backendSigVersion = (version || this.sigversion || 1);
+        localStorage.backendSigVersion = parseInt(version || this.sigversion || 1);
     },
 
     // Retrieve account record, call the callback with the object or error
@@ -52,7 +52,8 @@ var Backend = {
     },
 
     // Sign request with key and secret
-    sign: function(method, url, query, expires, type) {
+    sign: function(method, url, query, options) {
+        var rc = {};
         var creds = this.getCredentials();
         var now = (new Date()).getTime();
         var host = window.location.hostname;
@@ -61,16 +62,30 @@ var Backend = {
             host = u[2];
             url = '/' + u.slice(3).join('/');
         }
+        if (!options) options = {};
         if (!method) method = "GET";
+        var expires = options.expires || 0;
         if (!expires || typeof expires != "number") expires = now + 30000;
         if (expires < now) expires += now;
+        var type = options.type || "";
         if (!type && method == "POST") type = "application/x-www-form-urlencoded; charset=UTF-8";
         var q = String(url || "/").split("?");
         url = q[0];
-        if (!query) query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-        var str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(type || "").toLowerCase() + "\n";
-        this.debug('sign:', creds, str)
-        return { 'bk-signature': creds.sigversion + '||' + creds.login + '|' + b64_hmac_sha1(creds.secret, str) + '|' + String(expires) + '||' };
+        if (!query) query = q[1] || "";
+        query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
+        var str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
+        switch (creds.sigversion) {
+        case 1:
+            hmac = b64_hmac_sha1(creds.secret, str);
+        case 3:
+            hmac = b64_hmac_sha256(creds.secret, str);
+        default:
+            this.debug('sign:', 'invalid sigversion:', creds.sigversion);
+            return rc;
+        }
+        rc['bk-signature'] = creds.sigversion + '||' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
+        //this.debug('sign:', creds, str)
+        return rc;
     },
 
     // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
@@ -114,7 +129,7 @@ var Backend = {
             if (onerror) onerror(msg || error, xhr, status, error);
         }
         if (!options.nosignature) {
-            options.headers = this.sign(options.type, options.url, options.data);
+            options.headers = this.sign(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
         }
         $('#loading').show(), state.count++;
         $.ajax(options);

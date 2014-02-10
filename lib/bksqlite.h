@@ -8,7 +8,7 @@
 #ifndef _V_SQLITE_H_
 #define _V_SQLITE_H_
 
-#include "vlib.h"
+#include "bklib.h"
 
 // Database intitalization
 void vsqlite_init();

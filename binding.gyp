@@ -45,9 +45,9 @@
            "lib/node_mysql.cpp",
            "lib/node_leveldb.cpp",
            "lib/node_cache.cpp",
-           "lib/vsqlite.cpp",
-           "lib/vlog.cpp",
-           "lib/vlib.cpp",
+           "lib/bksqlite.cpp",
+           "lib/bklog.cpp",
+           "lib/bklib.cpp",
            "lib/sqlite3.c",
            "lib/regexp.cpp"
         ],

@@ -13,7 +13,7 @@
 #include <v8.h>
 #include <v8-profiler.h>
 #include <uv.h>
-#include "vsqlite.h"
+#include "bksqlite.h"
 #include <nanomsg/nn.h>
 #include <nanomsg/bus.h>
 #include <nanomsg/tcp.h>

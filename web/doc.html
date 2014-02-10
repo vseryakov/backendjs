@@ -192,11 +192,41 @@ databases only because DynamoDB or Cassandta will not search by non primary keys
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
 a connection with it. No direct operations on bk_reference is allowed.</p>
 <ul>
-<li><code>/connection/add</code></li>
-<li><code>/connection/update</code></li>
-<li><code>/connection/put</code></li>
-<li><code>/connection/del</code></li>
-<li><code>/connection/get</code></li>
+<li><p><code>/connection/add</code>
+Create a connection between two accounts, required parameters are:</p>
+<ul>
+<li><code>id</code> - id of account to connect to</li>
+<li><code>type</code> - type of connection, like,dislike,....</li>
+</ul>
+<p>This call automatically creates a record in the bk_reference table which is recersed connection for easy access to information like
+&#39;&#39;who is connected to me&#39;&#39; and auto-increment like0, like1 counters for both accounts in the bk_counter table.</p>
+<p>Also, this call updates the counters in the <code>bk_counter</code> table for my account which match the connection type, for example if the type of
+connection is &#39;invite&#39; and the <code>bk_counter</code> table contain 2 columns <code>invite0</code> and <code>invite1</code>, then both counters will be increased.</p>
+<p>Example:</p>
+<pre><code>  /connection/add?id=12345&amp;type=invite&amp;state=sent
+</code></pre></li>
+<li><p><code>/connection/update</code>
+Update other properties of the existing connection, for connections that may take more than i step or if a connection has other data associated with it beside
+the type of the connection.</p>
+<p>Example:</p>
+<pre><code>  /connection/update?id=12345&amp;type=invite&amp;state=accepted
+</code></pre></li>
+<li><p><code>/connection/del</code>
+Delete existing connection, <code>id</code> and <code>type</code> must be specified, mass-deletion is not supported only one conection by one.</p>
+<p>Example:</p>
+<pre><code>  /connection/del?type=invite&amp;id=12345
+</code></pre></li>
+<li><p><code>/connection/get</code>
+Receive all my connections of the given type, i.e. connection(s) i made, if <code>id</code> is given only one record for the specified connection will be returned</p>
+<p>Example:</p>
+<pre><code>  /connection/get?type=invite             - return all accounts who i invited
+  /connection/get?type=invite&amp;id=12345
+</code></pre></li>
+<li><p><code>/reference/get</code>
+Receive all references that connected with my account, i.e. connections made by somebody else with me, works the same way as for connection query call</p>
+<p>Example:</p>
+<pre><code>  /reference/get?type=invite              - return all accounts who invited me
+</code></pre></li>
 </ul>
 <h2 id="locations">Locations</h2>
 <p>The location API maintains a table <code>bk_location</code> with geolocation coordinates for accounts and allows searching it by distance.</p>
@@ -219,12 +249,15 @@ By default only locations with account ids will be returned, specifying <code>_d
 </code></pre></li>
 </ul>
 <h2 id="messages">Messages</h2>
-<p>The messaging API allows sending and recieving messages between accounts, it supports text and images.</p>
+<p>The messaging API allows sending and recieving messages between accounts, it supports text and images. The typical usage of this API is to
+poll the counter record using <code>/counter/get</code> from time to time and check for <code>msg_count</code> and <code>msg_read</code> counters, once <code>msg_count</code> is greater than <code>msg_read</code> this means
+there is a new message arrived. Then call <code>/message/get</code> to retrieve all or only new messages arrived after some point in time and store the mtime
+from the last messages received so the next time we will use this time to get only new messages.</p>
 <ul>
 <li><p><code>/message/image</code>
 Return the image data for the given message, the required parameters are:</p>
 <ul>
-<li>sender - id of the sender</li>
+<li>sender - id of the sender returned in the by <code>/message/get</code> reply results for every message</li>
 <li>mtime - exact timestamp of the message</li>
 </ul>
 </li>
@@ -233,23 +266,33 @@ Receive messages, the parameter <code>mtime</code> defines which mesages to get,
 specify that only messages received since that time to return, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
 Date.now() return in Javascript. The images are not returned, only link to the image in <code>icon</code> property of reach record,
 the actual image data must be retrieved separately.</p>
-</li>
+<p>Example:</p>
+<pre><code>  /message/get
+  /message/get?mtime=123475658690
+</code></pre></li>
 <li><p><code>/message/add</code>
 Send a message to an account, the following parametrrs must be specified:</p>
 <ul>
 <li><code>id</code> - account id of the receiver</li>
-<li><code>text</code> - text of the message, can be empty if <code>icon</code> property exists</li>
+<li><code>msg</code> - text of the message, can be empty if <code>icon</code> property exists</li>
 <li><code>icon</code> - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
-can be a multipart file upload if submitted via browser, can be omitted if <code>text</code> property exists.</li>
+can be a multipart file upload if submitted via browser, can be omitted if <code>msg/connection/get?type=invite&amp;id=12345</code> property exists.</li>
 </ul>
 <p>After successful post the message counters of the destination account will be updated: msg_count will be increased automatically</p>
-</li>
+<p>Example:</p>
+<pre><code>  /message/add?id=12345&amp;msg=Hello
+  /message/add?id=12345&amp;msg=this%2Bis%2Bthe%2Bpic&amp;icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D
+</code></pre></li>
 <li><p><code>/message/read</code>
-Mark a message as read, this wil update account counter <code>msg_read</code> automatically.The required query parameters are <code>sender</code> and <code>mtime</code>.</p>
-</li>
+Mark a message as read, this will update account counter <code>msg_read</code> automatically. The required query parameters are <code>sender</code> and <code>mtime</code>.</p>
+<p>Example:</p>
+<pre><code>  /message/read?sender=12345&amp;mtime=12366676434
+</code></pre></li>
 <li><p><code>/message/del</code>
-Delete the message by <code>sender</code> and <code>mtime</code> that must be passed as query parameters.</p>
-</li>
+Delete the message by <code>sender</code> and <code>mtime</code> which must be passed as query parameters.</p>
+<p>Example:</p>
+<pre><code>  /message/del?sender=12345&amp;mtime=124345656567676
+</code></pre></li>
 </ul>
 <h2 id="icons">Icons</h2>
 <p>The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
@@ -283,15 +326,18 @@ process for the cached records thus only one copy of the cache per machine even 
 Return counter record for current account with all available columns of if <code>id=</code> is given return public columns for given account, it works with <code>bk_counter</code> table
 which by default defines some common columns:</p>
 <ul>
-<li>like0 - who i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type &#39;like&#39;</li>
-<li>like1 - who liked me, reverse counter, who connected to me with type &#39;like&#39;</li>
-<li>dislike0</li>
-<li>dislike1 - as with like, this is auto counter for all connections with type &#39;dislike&#39;</li>
-<li>follow0</li>
-<li>follow1 - as with like but type is &#39;follow&#39;</li>
+<li>like0 - how many i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type &#39;like&#39;</li>
+<li>like1 - how many liked me, reverse counter, who connected to me with type &#39;like&#39;</li>
+<li>dislike0 - how many i disliked</li>
+<li>dislike1 - how many disliked me</li>
+<li>follow0 - how many i follow</li>
+<li>follow1 - how many follows me</li>
+<li>invite0 - how many i invited</li>
+<li>invite1 - how many invited me</li>
 <li>msg_count - how messages i received via messaging API</li>
 <li>msg_read - how many messages i read using messaging API, these counters allow to keep track of new messages, as soon as msg_count greater than msg_read
-it means i have a new message</li>
+it means i have a new message
+More columns can be added to the bk_counter table.</li>
 </ul>
 </li>
 <li><p><code>/counter/put</code>
@@ -408,10 +454,11 @@ customize the running environment, these should be regular shell scripts using b
 </li>
 <li>Form canonical string to be signed as the following:<ul>
 <li>Line1: The HTTP method(GET), followed by a newline.</li>
-<li>Line2: the host, followed by a newline.</li>
+<li>Line2: the host, lowercase, followed by a newline.</li>
 <li>Line3: The request URI (/), followed by a newline.</li>
 <li>Line4: The sorted and joined query parameters as one string, followed by a newline.</li>
-<li>Line5: The expiration value in milliseconds, required</li>
+<li>Line5: The expiration value in milliseconds, required, followed by a newline</li>
+<li>Line6: The Content-Type HTTP header, lowercase, followed by a newline</li>
 </ul>
 </li>
 <li>Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any</li>
@@ -422,11 +469,12 @@ customize the running environment, these should be regular shell scripts using b
 <li>version 2, only used in session cookies, not headers</li>
 </ul>
 </li>
-<li>Field2: Application version or other ap specific data</li>
-<li>Field3: account login name or whatever it might be in the login column</li>
+<li>Field2: Application version or other app specific data</li>
+<li>Field3: account login or whatever it might be in the login column</li>
 <li>Field4: HMAC-SHA1 digest from the canonical string</li>
-<li>Field5: expiration value in milliseconds</li>
-<li>Field6: empty, reserved for future use</li>
+<li>Field5: expiration value in milliseconds, same as in the canonical string</li>
+<li>Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters</li>
+<li>Field7: empty, reserved for future use</li>
 </ul>
 </li>
 </ul>
@@ -517,6 +565,18 @@ this.app refers to the Express instance.</p>
 <ul>
 <li><p><code>api.checkRequest(req, res, callback)</code></p>
 <p> Perform authorization of the incoming request for access and permissions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkQuery(req, res, next)</code></p>
+<p> Parse incoming query parameters</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkBody(req, res, next)</code></p>
+<p> Parse multipart forms for uploaded files</p>
 </li>
 </ul>
 
@@ -1197,8 +1257,15 @@ will be used by checkSignature function for verification against an account
 signature version:</p>
 <ul>
 <li>1 regular signature signed with secret for specific requests</li>
-<li>2 to be sent in cookies and uses wild support for host and path</li>
+<li>2 to be sent in cookies and uses wild support for host and path
+If the signature successfully recognized it is saved in the request for subsequent use as req.signature</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.checkSignature(sig, account)</code></p>
+<p> Verify signature with given account, signature is an object reurned by parseSignature</p>
 </li>
 </ul>
 
@@ -1208,16 +1275,11 @@ signature version:</p>
 url must include all query parametetrs already encoded and ready to be sent
 options may con tains the following:</p>
 <ul>
-<li>signed - the login is already HMAC-SHA1, use as is</li>
 <li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
 <li>sigversion a version number defining how the signature will be signed</li>
+<li>type - content-type header, may be omitted</li>
+<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.checkSignature(sig, account)</code></p>
-<p> Verify signature with given account, signature is an object reurned by parseSignature</p>
 </li>
 </ul>
 
@@ -1858,7 +1920,8 @@ Options can use the following special properties:</p>
 <ul>
 <li><p><code>db.getCached(table, obj, options, callback)</code></p>
 <p> Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
-Options accept the same parameters as for the usual get action.
+Options accept the same parameters as for the usual get action but it is very important that all the options
+be the same for every call, especially <code>select</code> parameters which tells which columns to retrieve and cache.
 Additional options:</p>
 <ul>
 <li>prefix - prefix to be used for the key instead of table name</li>

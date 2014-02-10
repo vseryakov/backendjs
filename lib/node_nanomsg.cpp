@@ -337,7 +337,7 @@ static Handle<Value> SetOption(const Arguments& args)
     REQUIRE_ARGUMENT(2);
     GETSOCK(n, sock);
 
-    int rc;
+    int rc = 0;
     if (args[2]->IsString()) {
     	REQUIRE_ARGUMENT_STRING(1, s);
     	rc = sock->SetOption(opt, *s);

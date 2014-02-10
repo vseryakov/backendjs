@@ -4,7 +4,7 @@
  *
  */
 
-#include "vlog.h"
+#include "bklog.h"
 
 static const char *_names[] = {
     "NONE",
@@ -100,23 +100,23 @@ int VLog::setFile(const char *path)
     return 1;
 }
 
-void VLog::rotate()
+void VLog::rotate(int nfiles)
 {
     // Rotate if reached the limit, keep up to 3 old files
     if (_size > 0 && _file) {
         struct stat st;
         if (stat(_file, &st)) return;
         if (st.st_size > _size * 1024 * 1024) {
-            for (int i = 2; i > 0; i--) {
+            for (int i = nfiles; i > 0; i--) {
                 char from[strlen(_file) + 10];
                 char to[strlen(_file) + 10];
                 sprintf(from, "%s.%d", _file, i);
                 sprintf(to, "%s.%d", _file, i + 1);
-                rename(from, to);
+                if (rename(from, to) == -1) fprintf(stderr, "rename error: %s, %s, %s", from, to, strerror(errno));
             }
             char to[strlen(_file) + 10];
             sprintf(to, "%s.1", _file);
-            rename(_file, to);
+            if (rename(_file, to) == -1) fprintf(stderr, "rename error: %s, %s, %s", _file, to, strerror(errno));
         }
     }
 }

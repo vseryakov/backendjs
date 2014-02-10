@@ -1045,7 +1045,9 @@ core.parseSignature = function(req)
     if (req.signature) return req.signature;
     var rc = { sigversion: 1, expires: 0 };
     // Input parameters, convert to empty string if not present
-    rc.url = req.originalUrl || req.url || "/";
+    var url = (req.url || req.originalUrl || "/").split("?");
+    rc.path = url[0];
+    rc.query = url[1] || "";
     rc.method = req.method || "";
     rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
     rc.type = (req.headers['content-type'] || "").toLowerCase();
@@ -1061,20 +1063,42 @@ core.parseSignature = function(req)
     rc.login = d[3];
     rc.signature = d[4];
     rc.expires = this.toNumber(d[5]);
-    rc.checksum = d[6] || null;
+    rc.checksum = d[6] || "";
     // Strip the signature from the url
     rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
     req.signature = rc;
     return rc;
 }
 
+
+// Verify signature with given account, signature is an object reurned by parseSignature
+core.checkSignature = function(sig, account)
+{
+    var shatype = "sha1";
+    var query = (sig.query).split("&").sort().filter(function(x) { return x != ""; }).join("&");
+    switch (sig.sigversion) {
+    case 2:
+        if (!sig.session) break;
+        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
+        break;
+
+    case 3:
+        shatype = "sha256";
+
+    default:
+        sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
+    }
+    sig.hash = this.sign(account.secret, sig.str, shatype);
+    return sig.signature == sig.hash;
+}
+
 // Sign HTTP request for the API server:
 // url must include all query parametetrs already encoded and ready to be sent
 // options may con tains the following:
-//    - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
-//    - sigversion a version number defining how the signature will be signed
-//    - type - content-type header, may be omitted
-//    - checksum - SHA1 digest of the whole content body, may be omitted
+//  - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
+//  - sigversion a version number defining how the signature will be signed
+//  - type - content-type header, may be omitted
+//  - checksum - SHA1 digest of the whole content body, may be omitted
 core.signRequest = function(login, secret, method, host, uri, options)
 {
     if (!options) options = {};
@@ -1086,6 +1110,7 @@ core.signRequest = function(login, secret, method, host, uri, options)
     var q = String(uri || "/").split("?");
     var path = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
+    var shatype = "sha1";
     var rc = {};
     switch (options.sigversion || 1) {
     case 2:
@@ -1095,34 +1120,18 @@ core.signRequest = function(login, secret, method, host, uri, options)
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
         rc['bk-path'] = path;
-        rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n";
+        rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
         break;
 
+    case 3:
+        shatype = "sha256";
+
     default:
-        rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n";
+        rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
     }
-    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.sigdata || "") + '|' + login + '|' + this.sign(String(secret), rc.str) + '|' + expires + '|' + (options.checksum || "") + '|';
+    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.sigdata || "") + '|' + login + '|' + this.sign(String(secret), rc.str, shatype) + '|' + expires + '|' + (options.checksum || "") + '|';
     if (logger.level > 1) logger.log('signRequest:', rc);
     return rc;
-}
-
-// Verify signature with given account, signature is an object reurned by parseSignature
-core.checkSignature = function(sig, account)
-{
-    var q = sig.url.split("?");
-    var qpath = q[0];
-    var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-    switch (sig.sigversion) {
-    case 2:
-        if (!sig.session) break;
-        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n";
-        break;
-
-    default:
-        sig.str = sig.method + "\n" + sig.host + "\n" + qpath + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n";
-    }
-    sig.hash = this.sign(account.secret, sig.str);
-    return sig.signature == sig.hash;
 }
 
 // Make a request to the backend endpoint, save data in the queue in case of error, if data specified,
@@ -1486,12 +1495,13 @@ core.copyFile = function(src, dst, overwrite, callback)
 
     function copy(err) {
         var ist, ost;
-        if (!err && !overwrite) return (callback ? callback(new Error("File " + dst + " exists.")) : null);
+        if (!err && !overwrite) return callback ? callback(new Error("File " + dst + " exists.")) : null;
         fs.stat(src, function (err2) {
-            if (err2) return (callback ? callback(err2) : null);
+            if (err2) return callback ? callback(err2) : null;
             ist = fs.createReadStream(src);
             ost = fs.createWriteStream(dst);
-            util.pump(ist, ost, callback);
+            ist.on('end', function() { if (callback) callback() });
+            ist.pipe(ost);
         });
     }
     logger.debug('copyFile:', src, dst, overwrite);

@@ -188,10 +188,49 @@ links, i.e. when i make explicit connection to other account, and bk_reference t
 a connection with it. No direct operations on bk_reference is allowed.
 
 - `/connection/add`
+  Create a connection between two accounts, required parameters are:
+    - `id` - id of account to connect to
+    - `type` - type of connection, like,dislike,....
+
+  This call automatically creates a record in the bk_reference table which is recersed connection for easy access to information like
+  ''who is connected to me'' and auto-increment like0, like1 counters for both accounts in the bk_counter table.
+
+  Also, this call updates the counters in the `bk_counter` table for my account which match the connection type, for example if the type of
+  connection is 'invite' and the `bk_counter` table contain 2 columns `invite0` and `invite1`, then both counters will be increased.
+
+  Example:
+
+        /connection/add?id=12345&type=invite&state=sent
+
 - `/connection/update`
-- `/connection/put`
+  Update other properties of the existing connection, for connections that may take more than i step or if a connection has other data associated with it beside
+  the type of the connection.
+
+  Example:
+
+        /connection/update?id=12345&type=invite&state=accepted
+
 - `/connection/del`
+  Delete existing connection, `id` and `type` must be specified, mass-deletion is not supported only one conection by one.
+
+  Example:
+
+        /connection/del?type=invite&id=12345
+
 - `/connection/get`
+  Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned
+
+  Example:
+
+        /connection/get?type=invite             - return all accounts who i invited
+        /connection/get?type=invite&id=12345
+
+- `/reference/get`
+  Receive all references that connected with my account, i.e. connections made by somebody else with me, works the same way as for connection query call
+
+  Example:
+
+        /reference/get?type=invite              - return all accounts who invited me
 
 ## Locations
 The location API maintains a table `bk_location` with geolocation coordinates for accounts and allows searching it by distance.
@@ -217,11 +256,14 @@ The location API maintains a table `bk_location` with geolocation coordinates fo
             /location/get?distance=10&latitude=-118.23434&longitude=23.45665656&_count=25&_token=FGTHTRHRTHRTHTTR.....
 
 ## Messages
-The messaging API allows sending and recieving messages between accounts, it supports text and images.
+The messaging API allows sending and recieving messages between accounts, it supports text and images. The typical usage of this API is to
+poll the counter record using `/counter/get` from time to time and check for `msg_count` and `msg_read` counters, once `msg_count` is greater than `msg_read` this means
+there is a new message arrived. Then call `/message/get` to retrieve all or only new messages arrived after some point in time and store the mtime
+from the last messages received so the next time we will use this time to get only new messages.
 
 - `/message/image`
   Return the image data for the given message, the required parameters are:
-    - sender - id of the sender
+    - sender - id of the sender returned in the by `/message/get` reply results for every message
     - mtime - exact timestamp of the message
 
 - `/message/get`
@@ -230,20 +272,38 @@ The messaging API allows sending and recieving messages between accounts, it sup
   Date.now() return in Javascript. The images are not returned, only link to the image in `icon` property of reach record,
   the actual image data must be retrieved separately.
 
+  Example:
+
+        /message/get
+        /message/get?mtime=123475658690
+
 - `/message/add`
   Send a message to an account, the following parametrrs must be specified:
     - `id` - account id of the receiver
-    - `text` - text of the message, can be empty if `icon` property exists
+    - `msg` - text of the message, can be empty if `icon` property exists
     - `icon` - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
-      can be a multipart file upload if submitted via browser, can be omitted if `text` property exists.
+      can be a multipart file upload if submitted via browser, can be omitted if `msg/connection/get?type=invite&id=12345` property exists.
 
   After successful post the message counters of the destination account will be updated: msg_count will be increased automatically
 
+  Example:
+
+        /message/add?id=12345&msg=Hello
+        /message/add?id=12345&msg=this%2Bis%2Bthe%2Bpic&icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D
+
 - `/message/read`
-  Mark a message as read, this wil update account counter `msg_read` automatically.The required query parameters are `sender` and `mtime`.
+  Mark a message as read, this will update account counter `msg_read` automatically. The required query parameters are `sender` and `mtime`.
+
+  Example:
+
+        /message/read?sender=12345&mtime=12366676434
 
 - `/message/del`
-  Delete the message by `sender` and `mtime` that must be passed as query parameters.
+  Delete the message by `sender` and `mtime` which must be passed as query parameters.
+
+  Example:
+
+        /message/del?sender=12345&mtime=124345656567676
 
 ## Icons
 The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
@@ -276,15 +336,18 @@ process for the cached records thus only one copy of the cache per machine even 
 - `/counter/get`
   Return counter record for current account with all available columns of if `id=` is given return public columns for given account, it works with `bk_counter` table
   which by default defines some common columns:
-    - like0 - who i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type 'like'
-    - like1 - who liked me, reverse counter, who connected to me with type 'like'
-    - dislike0
-    - dislike1 - as with like, this is auto counter for all connections with type 'dislike'
-    - follow0
-    - follow1 - as with like but type is 'follow'
+    - like0 - how many i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type 'like'
+    - like1 - how many liked me, reverse counter, who connected to me with type 'like'
+    - dislike0 - how many i disliked
+    - dislike1 - how many disliked me
+    - follow0 - how many i follow
+    - follow1 - how many follows me
+    - invite0 - how many i invited
+    - invite1 - how many invited me
     - msg_count - how messages i received via messaging API
     - msg_read - how many messages i read using messaging API, these counters allow to keep track of new messages, as soon as msg_count greater than msg_read
     it means i have a new message
+  More columns can be added to the bk_counter table.
 
 - `/counter/put`
   Replace my counters record, all values if not specified will be set to 0
@@ -418,11 +481,12 @@ All requests to the API server must be signed with account login/secret pair.
             - Field1: Signature version:
                 - version 1, normal signature
                 - version 2, only used in session cookies, not headers
-            - Field2: Application version or other ap specific data
-            - Field3: account login name or whatever it might be in the login column
-            - Field4: HMAC-SHA1 digest from the canonical string
-            - Field5: expiration value in milliseconds
-            - Field6: SHA1 checksum of the body content, optional
+                - version 3, same as 1 but uses SHA256
+            - Field2: Application version or other app specific data
+            - Field3: account login or whatever it might be in the login column
+            - Field4: HMAC-SHA digest from the canonical string, version 1 o 3 defines SHA1 or SHA256
+            - Field5: expiration value in milliseconds, same as in the canonical string
+            - Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters
             - Field7: empty, reserved for future use
 
 The resulting signature is sent as HTTP header bk-signature: string

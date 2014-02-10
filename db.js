@@ -630,7 +630,7 @@ db.get = function(table, obj, options, callback)
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
     if (options.cached) {
-    	delete options.cached;
+    	options.cached = 0;
     	return this.getCached(table, obj, options, callback);
     }
     var req = this.prepare("get", table, obj, options);
@@ -638,7 +638,8 @@ db.get = function(table, obj, options, callback)
 }
 
 // Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
-// Options accept the same parameters as for the usual get action.
+// Options accept the same parameters as for the usual get action but it is very important that all the options
+// be the same for every call, especially `select` parameters which tells which columns to retrieve and cache.
 // Additional options:
 // - prefix - prefix to be used for the key instead of table name
 db.getCached = function(table, obj, options, callback)
