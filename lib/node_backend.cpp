@@ -163,93 +163,93 @@ static FilterTypes getMagickFilter(string filter)
 
 static void doResizeImage(uv_work_t *req)
 {
-    MagickBaton *mgr = (MagickBaton *)req->data;
+    MagickBaton *baton = (MagickBaton *)req->data;
     MagickWand *wand = NewMagickWand();
     MagickBooleanType status;
     ExceptionType severity;
 
-    if (mgr->image) {
-    	status = MagickReadImageBlob(wand, mgr->image, mgr->length);
-    	free(mgr->image);
-    	mgr->image = NULL;
+    if (baton->image) {
+    	status = MagickReadImageBlob(wand, baton->image, baton->length);
+    	free(baton->image);
+    	baton->image = NULL;
     } else {
-    	status = MagickReadImage(wand, mgr->path.c_str());
+    	status = MagickReadImage(wand, baton->path.c_str());
     }
     int width = MagickGetImageWidth(wand);
     int height = MagickGetImageHeight(wand);
     if (status == MagickFalse) goto err;
 
     // Negative width or height means we should not upscale if the image is already below the given dimensions
-    if (mgr->width < 0) {
-        mgr->width *= -1;
-        if (width >= mgr->width) mgr->width = 0;
+    if (baton->width < 0) {
+        baton->width *= -1;
+        if (width >= baton->width) baton->width = 0;
     }
-    if (mgr->height < 0) {
-        mgr->height *= -1;
-        if (mgr->height >= height) mgr->height = 0;
+    if (baton->height < 0) {
+        baton->height *= -1;
+        if (baton->height >= height) baton->height = 0;
     }
     // Keep the aspect if no dimensions given
-    if (mgr->height == 0 || mgr->width == 0) {
+    if (baton->height == 0 || baton->width == 0) {
         float aspectRatio = (width * 1.0)/height;
-        if (mgr->height == 0) mgr->height =  mgr->width * (1.0/aspectRatio); else
-        if (mgr->width == 0) mgr->width = mgr->height * aspectRatio;
+        if (baton->height == 0) baton->height =  baton->width * (1.0/aspectRatio); else
+        if (baton->width == 0) baton->width = baton->height * aspectRatio;
     }
-    if (mgr->width && mgr->height) {
-        status = MagickResizeImage(wand, mgr->width, mgr->height, mgr->filter, 1.0);
+    if (baton->width && baton->height) {
+        status = MagickResizeImage(wand, baton->width, baton->height, baton->filter, 1.0);
         if (status == MagickFalse) goto err;
     }
-    if (mgr->format.size()) {
-        const char *fmt = mgr->format.c_str();
+    if (baton->format.size()) {
+        const char *fmt = baton->format.c_str();
         while (fmt && *fmt && *fmt == '.') fmt++;
         MagickSetImageFormat(wand, fmt);
     }
-    if (mgr->quality <= 100) MagickSetImageCompressionQuality(wand, mgr->quality);
-    if (mgr->out.size()) {
+    if (baton->quality <= 100) MagickSetImageCompressionQuality(wand, baton->quality);
+    if (baton->out.size()) {
     	// Make sure all subdirs exist
-    	if (vMakePath(mgr->out)) {
-    		status = MagickWriteImage(wand, mgr->out.c_str());
+    	if (vMakePath(baton->out)) {
+    		status = MagickWriteImage(wand, baton->out.c_str());
     		if (status == MagickFalse) goto err;
     	} else {
-    		mgr->err = errno;
+    		baton->err = errno;
     	}
     } else {
-        mgr->image = MagickGetImageBlob(wand, &mgr->length);
-        if (!mgr->image) goto err;
+        baton->image = MagickGetImageBlob(wand, &baton->length);
+        if (!baton->image) goto err;
     }
     DestroyMagickWand(wand);
     return;
 err:
-    mgr->exception = MagickGetException(wand, &severity);
+    baton->exception = MagickGetException(wand, &severity);
     DestroyMagickWand(wand);
 }
 
 static void afterResizeImage(uv_work_t *req)
 {
     HandleScope scope;
-    MagickBaton *mgr = (MagickBaton *)req->data;
+    MagickBaton *baton = (MagickBaton *)req->data;
 
     Local<Value> argv[4];
 
-    if (!mgr->cb.IsEmpty()) {
-        if (mgr->err || mgr->exception) {
-            argv[0] = Exception::Error(String::New(mgr->err ? strerror(mgr->err) : mgr->exception));
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), mgr->cb, 1, argv);
+    if (!baton->cb.IsEmpty()) {
+        if (baton->err || baton->exception) {
+            argv[0] = Exception::Error(String::New(baton->err ? strerror(baton->err) : baton->exception));
+            TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 1, argv);
         } else
-        if (mgr->image) {
-            Buffer *buf = Buffer::New((const char*)mgr->image, mgr->length);
+        if (baton->image) {
+            Buffer *buf = Buffer::New((const char*)baton->image, baton->length);
             argv[0] = Local<Value>::New(Null());
             argv[1] = Local<Value>::New(buf->handle_);
-            argv[2] = Local<Value>::New(Integer::New(mgr->width));
-            argv[3] = Local<Value>::New(Integer::New(mgr->height));
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), mgr->cb, 4, argv);
+            argv[2] = Local<Value>::New(Integer::New(baton->width));
+            argv[3] = Local<Value>::New(Integer::New(baton->height));
+            TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 4, argv);
         } else {
         	argv[0] = Local<Value>::New(Null());
-        	TRY_CATCH_CALL(Context::GetCurrent()->Global(), mgr->cb, 1, argv);
+        	TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 1, argv);
         }
     }
-    if (mgr->image) MagickRelinquishMemory(mgr->image);
-    if (mgr->exception) MagickRelinquishMemory(mgr->exception);
-    delete mgr;
+    if (baton->image) MagickRelinquishMemory(baton->image);
+    if (baton->exception) MagickRelinquishMemory(baton->exception);
+    delete baton;
     delete req;
 }
 
@@ -258,35 +258,36 @@ static Handle<Value> resizeImage(const Arguments& args)
     HandleScope scope;
 
     REQUIRE_ARGUMENT(0);
-    REQUIRE_ARGUMENT_INT(1, w);
-    REQUIRE_ARGUMENT_INT(2, h);
-    REQUIRE_ARGUMENT_AS_STRING(3, format);
-    REQUIRE_ARGUMENT_AS_STRING(4, filter);
-    REQUIRE_ARGUMENT_INT(5, q);
-    OPTIONAL_ARGUMENT_STRING(6, out);
+    REQUIRE_ARGUMENT_OBJECT(1, opts);
     EXPECT_ARGUMENT_FUNCTION(-1, cb);
 
     uv_work_t *req = new uv_work_t;
-    MagickBaton *mgr = new MagickBaton;
-    req->data = mgr;
-    mgr->cb = Persistent<Function>::New(cb);
-    mgr->width = w;
-    mgr->height = h;
-    mgr->quality = q;
-    mgr->format = *format;
-    mgr->out = *out;
-    mgr->filter = getMagickFilter(*filter);
+    MagickBaton *baton = new MagickBaton;
+    req->data = baton;
+    baton->cb = Persistent<Function>::New(cb);
+
+    const Local<Array> names = opts->GetPropertyNames();
+    for (uint i = 0 ; i < names->Length(); ++i) {
+        String::Utf8Value key(names->Get(i));
+        String::Utf8Value val(opts->Get(names->Get(i))->ToString());
+        if (!strcmp(*key, "width")) baton->width = atoi(*val); else
+        if (!strcmp(*key, "height")) baton->height = atoi(*val); else
+        if (!strcmp(*key, "quality")) baton->quality = atoi(*val); else
+        if (!strcmp(*key, "outfile")) baton->out = *val; else
+        if (!strcmp(*key, "ext")) baton->format = *val; else
+        if (!strcmp(*key, "filter")) baton->filter = getMagickFilter(*val);
+    }
 
     // If a Buffer passed we use it as a source for image
     if (args[0]->IsObject()) {
     	Local<Object> buf = args[0]->ToObject();
-    	mgr->length = Buffer::Length(buf);
-    	mgr->image = (unsigned char*)malloc(mgr->length);
-    	memcpy(mgr->image, Buffer::Data(buf), mgr->length);
+    	baton->length = Buffer::Length(buf);
+    	baton->image = (unsigned char*)malloc(baton->length);
+    	memcpy(baton->image, Buffer::Data(buf), baton->length);
     } else {
     	// Otherwise read form file
     	String::Utf8Value name(args[0]);
-    	mgr->path = *name;
+    	baton->path = *name;
     }
 
     uv_queue_work(uv_default_loop(), req, doResizeImage, (uv_after_work_cb)afterResizeImage);

@@ -1733,31 +1733,34 @@ core.putIcon = function(file, id, options, callback)
     if (!options) options = {};
     logger.debug('putIcon:', id, file, options);
 
-    var icon = self.iconPath(id, options);
+    options.outfile = self.iconPath(id, options);
 
     // Filesystem based icon storage, verify local disk
-    fs.exists(icon, function(yes) {
+    fs.exists(options.outfile, function(yes) {
         // Exists and we do not need to rescale
         if (yes && !options.force) return callback();
         // Make new scaled icon
-        self.scaleIcon(file, icon, options, function(err) {
-            logger.edebug(err, "putIcon:", id, file, 'path:', icon, options);
-            if (callback) callback(err, icon);
+        self.scaleIcon(file, options, function(err) {
+            logger.edebug(err, "putIcon:", id, file, 'path:', options);
+            if (callback) callback(err, options.outfile);
         });
     });
 }
 
 // Scale image using ImageMagick into a file, return err if failed
 // - infile can be a string with file name or a Buffer with actual image data
-// - outfle is not empty is a file naem where to store scaled image or if empty the new image contents will be returned in the callback
-// - options can specify image properti: width/height/filter/quality/ext,
-//   if width/height are negative this means do not perform upscale, only downscale
-core.scaleIcon = function(infile, outfile, options, callback)
+// - options can specify image properties:
+//     - width/height, if width/height are negative this means do not perform upscale, only downscale
+//     - filter - ImageMagick image filters, default is lanczos
+//     - quality - 0-99 percent
+//     - ext - image format: png, gif, jpg
+//     - outfile is not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback
+core.scaleIcon = function(infile, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    backend.resizeImage(infile, options.width || 0, options.height || 0, options.ext || "jpg", options.filter || "lanczos", options.quality || 99, outfile, function(err, data) {
-        logger.edebug(err, 'scaleIcon:', typeof infile == "object" ? infile.length : infile, outfile, options);
+    backend.resizeImage(infile, options, function(err, data) {
+        logger.edebug(err, 'scaleIcon:', typeof infile == "object" ? infile.length : infile, options);
         if (callback) callback(err, data);
     });
 }

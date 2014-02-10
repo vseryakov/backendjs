@@ -1338,7 +1338,7 @@ api.putIconS3 = function(file, id, options, callback)
 
     var aws = core.context.aws;
     var icon = core.iconPath(id, options);
-    core.scaleIcon(file, "", options, function(err, data) {
+    core.scaleIcon(file, options, function(err, data) {
         if (err) return callback ? callback(err) : null;
         var headers = { 'content-type': 'image/' + (options.ext || "jpeg") };
         aws.queryS3(self.imagesS3, icon, { method: "PUT", postdata: data, headers: headers }, function(err) {

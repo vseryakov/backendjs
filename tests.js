@@ -227,7 +227,7 @@ tests.s3icon = function(callback)
 
 tests.icon = function(callback)
 {
-    api.putIcon({ body: {}, files: { 1: { path: "../web/img/loading.gif" } } }, 1, { prefix: "account" }, function(err) {
+    api.putIcon({ body: {}, files: { 1: { path: __dirname + "/web/img/loading.gif" } } }, 1, { prefix: "account", width: 100, height: 100 }, function(err) {
         callback(err);
     });
 }
