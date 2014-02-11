@@ -360,7 +360,7 @@ db.query = function(req, options, callback)
     var pool = this.getPool(req.table, options);
     pool.get(function(err, client) {
         if (err) return callback ? callback(err, []) : null;
-        var t1 = core.mnow();
+        var t1 = Date.now();
         pool.query(client, req, options, function(err2, rows) {
             var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
             pool.free(client);
@@ -385,7 +385,7 @@ db.query = function(req, options, callback)
             if (options && options.cached && req.table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
                 self.clearCached(req.table, req.obj, options);
             }
-            logger.debug("db.query:", pool.name, (core.mnow() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
+            logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
             if (callback) callback(err, rows, info);
 	     });
     });
@@ -569,7 +569,8 @@ db.list = function(table, obj, options, callback)
 }
 
 // Perform full text search on the given table, the database implementation may ignore table name completely
-// in case of global text index. Options takes same properties as in the select method.
+// in case of global text index. Options takes same properties as in the select method. Without full text support
+// this works the sme way as the `select` method.
 db.search = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -1980,7 +1981,8 @@ db.dynamodbInitPool = function(options)
             // Do not use index name if it is a primary key
             if (options.sort && Object.keys(keys).indexOf(options.sort) > -1) options.sort = null;
             options.select = self.getSelectedColumns(table, options);
-            aws.ddbQueryTable(table, keys, options, function(err, item) {
+            var op = Object.keys(keys).sort().toString() == Object.keys(primary_keys).sort().toString() ? 'ddbQueryTable' : 'ddbScanTable';
+            aws[op](table, keys, options, function(err, item) {
                 if (err) return callback(err, []);
                 var count = options.count || 0;
                 var rows = filter(item.Items);

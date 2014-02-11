@@ -47,6 +47,10 @@ using namespace std;
         if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an integer"))); \
         int var = args[i]->Int32Value();
 
+#define REQUIRE_ARGUMENT_INT64(i, var) \
+        if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an integer"))); \
+        int64_t var = args[i]->NumberValue();
+
 #define REQUIRE_ARGUMENT_BOOL(i, var) \
         if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a boolean"))); \
         int var = args[i]->Int32Value();
@@ -95,6 +99,7 @@ void PgSQLInit(Handle<Object> target);
 void MysqlInit(Handle<Object> target);
 void LevelDBInit(Handle<Object> target);
 
+string exceptionString(TryCatch* try_catch);
 Handle<Value> toArray(vector<string> &list, int numeric = 0);
 Handle<Value> toArray(vector<pair<string,string> > &list);
 

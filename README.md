@@ -156,6 +156,11 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Parameters:
     - secret - new secret for the account
 
+- `/account/subcribe`
+  Subscribe to account events delivered via long poll over HTTP, the client makes the connection and waits for events to come, whenever
+  somebody updates the account's counter or send a message or makes a connection to my account the event about it will be sent to this open
+  connection. This is not a persistent queue so if not listening events will be just ignored, only events published since the connection will be delivered.
+
 - `/account/get/icon`
 
   Return account icon
@@ -343,7 +348,7 @@ is always cached with whatever cache service is used, by default it is cached by
 process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.
 
 - `/counter/get`
-  Return counter record for current account with all available columns of if `id=` is given return public columns for given account, it works with `bk_counter` table
+  Return counter record for current account with all available columns of if `id` is given return public columns for given account, it works with `bk_counter` table
   which by default defines some common columns:
     - like0 - how many i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type 'like'
     - like1 - how many liked me, reverse counter, who connected to me with type 'like'
@@ -363,10 +368,12 @@ process for the cached records thus only one copy of the cache per machine even 
 
 - `/counter/incr`
   Increase one or more counter fields, each column can provide a numeric value and it will be added to the existing value, negative values will be substracted.
+  if `id` parameter is specified, only public columns will be increased for other account.
 
   Example:
 
         /counter/incr?msg_read=5&
+        /counter/incr?id=12345&ping=1
 
 ## History
 The history API maintains one table for all application specific logging records. All operations deal with current account only.
@@ -383,11 +390,8 @@ The history API maintains one table for all application specific logging records
 The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...
 
-- `/data/metrics`
-  Performance statistics
-
 - `/data/stats`
-  Database pool statistics
+  Database pool statistics and other diagnostics
 
 - `/data/columns`
 - `/data/columns/TABLE`

@@ -58,6 +58,23 @@ public:
     string value;
 };
 
+string exceptionString(TryCatch* try_catch)
+{
+    HandleScope scope;
+    String::Utf8Value exception(try_catch->Exception());
+    Handle<Message> message = try_catch->Message();
+    if (message.IsEmpty()) return string(*exception);
+
+    string msg;
+    int linenum = message->GetLineNumber();
+    String::Utf8Value filename(message->GetScriptResourceName());
+    String::Utf8Value sourceline(message->GetSourceLine());
+    msg += vFmtStr("%s:%i: %s\n%s\n", *filename, linenum, *exception, *sourceline);
+    String::Utf8Value stack_trace(try_catch->StackTrace());
+    if (stack_trace.length() > 0) msg += *stack_trace;
+    return msg;
+}
+
 static Handle<Value> logging(const Arguments& args)
 {
     HandleScope scope;

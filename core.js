@@ -49,9 +49,12 @@ var core = {
     logFile: null,
     errFile: null,
 
-    // HTTP port of the server
+    // HTTP settings
     port: 8000,
     bind: '0.0.0.0',
+    sslPort: 443,
+    bind: '0.0.0.0',
+    timeout: 30000,
 
     // Proxy config
     proxyPort: 8000,
@@ -116,6 +119,11 @@ var core = {
             { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },
             { name: "port", type: "number", min: 0, descr: "port to listen for the servers, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
+            { name: "ssl-port", type: "number", min: 0, descr: "port to listen for HTTPS servers, this is global default" },
+            { name: "ssl-bind", descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
+            { name: "ssl-key", type: "path", descr: "Path to SSL prvate key" },
+            { name: "ssl-cert", type: "path", descr: "Path to SSL certificate" },
+            { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be used only in the command line" },
             { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be used only in the command line" },
             { name: "monitor", type: "none", descr: "For production use, monitor the server processes and restart if crashed or exited, can be used only in the command line" },
@@ -437,9 +445,9 @@ core.ipcInitServer = function()
     // it to other connected servers via the same BUS socket
     if (self.lruServer) {
         try {
-            var sock = backend.nnCreate(backend.AF_SP_RAW, backend.NN_BUS);
-            backend.nnBind(sock, self.lruServer);
-            backend.lruServer(0, sock, sock);
+            self.lruServerSocket = new backend.NNSocket(backend.AF_SP_RAW, backend.NN_BUS);
+            self.lruServerSocket.bind(self.lruServer);
+            backend.lruServer(0, self.lruServerSocket.socket(), self.lruServerSocket.socket());
         } catch(e) {
             logger.error('ipcInit:', self.lruServer, e);
         }
@@ -448,22 +456,22 @@ core.ipcInitServer = function()
     // Send cache requests to the LRU host to be broadcasted to all other servers
     if (self.lruHost) {
         try {
-            self.lruSocket = backend.nnCreate(backend.AF_SP, backend.NN_BUS);
-            backend.nnConnect(self.lruSocket, self.lruHost);
+            self.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
+            self.lruSocket.connect(self.lruHost);
         } catch(e) {
             logger.error('ipcInit:', self.lruHost, e);
-            self.lruSocket = backend.nnClose(self.lruSocket);
+            self.lruSocket = null;
         }
     }
 
     // Pub/sub messaging system
     if (self.pubHost) {
         try {
-            self.pubSocket = backend.nnCreate(backend.AF_SP, backend.NN_PUB);
-            backend.nnBind(self.pubSocket, self.pubHost);
+            self.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
+            self.pubSocket.bind(self.pubHost);
         } catch(e) {
             logger.error('ipcInit:', self.pubHost, e)
-            self.pubSocket = backend.nnClose(self.pubSocket);
+            self.pubSocket = null;
         }
     }
 
@@ -475,7 +483,7 @@ core.ipcInitServer = function()
             switch (msg.cmd) {
             case 'pub':
                 if (!self.pubSocket) break;
-                backend.nnSend(self.pubSocket, msg.key + "\1" + msg.value);
+                self.pubSocket.send(msg.key + "\1" + msg.value);
                 break;
 
             case 'keys':
@@ -491,19 +499,19 @@ core.ipcInitServer = function()
             case 'put':
                 if (msg.key && msg.value) backend.lruSet(msg.key, msg.value);
                 if (msg.reply) worker.send({});
-                if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key + "\1" + msg.value);
+                if (self.lruSocket) self.lruSocket.send(msg.key + "\1" + msg.value);
                 break;
 
             case 'incr':
                 if (msg.key && msg.value) backend.lruIncr(msg.key, msg.value);
                 if (msg.reply) worker.send({});
-                if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key + "\2" + msg.value);
+                if (self.lruSocket) self.lruSocket.send(msg.key + "\2" + msg.value);
                 break;
 
             case 'del':
                 if (msg.key) backend.lruDel(msg.key);
                 if (msg.reply) worker.send({});
-                if (self.lruSocket) backend.nnSend(self.lruSocket, msg.key);
+                if (self.lruSocket) self.lruSocket.send(msg.key);
                 break;
 
             case 'clear':
@@ -557,6 +565,7 @@ core.ipcSend = function(cmd, key, value, callback)
 {
     var self = this;
     if (typeof value == "function") callback = value, value = '';
+    if (typeof value == "object") value = JSON.stringify(value);
     var msg = { cmd: cmd, key: key, value: value };
     if (typeof callback == "function") {
         msg.reply = true;
@@ -595,16 +604,16 @@ core.ipcIncrCache = function(key, val)
 // Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.
 core.ipcSubscribe = function(key, callback)
 {
-    if (!this.pubHost) return 0;
-    var sock = 0;
+    if (!this.pubHost) return null;
+    var sock = null;
     try {
-        sock = backend.nnCreate(backend.AF_SP, backend.NN_SUB);
-        backend.nnConnect(sock, this.pubHost);
-        backend.nnSubscribe(sock, key);
-        backend.nnSetCallback(sock, function(err, n, data) { if (!err) callback(data); });
+        sock = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
+        sock.connect(this.pubHost);
+        sock.subscribe(key);
+        sock.setCallback(function(err, data) { if (!err) callback.call(this, data); });
     } catch(e) {
         logger.error('ipcSubscribe:', this.pubHost, e);
-        sock = backend.nnClose(sock);
+        sock = null;
     }
     return sock;
 }
@@ -612,7 +621,8 @@ core.ipcSubscribe = function(key, callback)
 // Close subscription
 core.ipcUnsubscribe = function(sock)
 {
-    backend.nnClose(sock);
+    if (sock && sock instanceof backend.NNSocket) sock.close();
+    return null;
 }
 
 // Publish an event to be sent to the subscribed clients
@@ -1394,12 +1404,6 @@ core.randomNum = function(min, max)
 core.now = function()
 {
     return Math.round((new Date()).getTime()/1000);
-}
-
-// Shortcut for current time in milliseconds
-core.mnow = function()
-{
-    return (new Date()).getTime();
 }
 
 // Format date object

@@ -119,7 +119,7 @@ aws.querySign = function(service, host, method, path, body, headers)
 aws.queryDDB = function (action, obj, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
-    var start = core.mnow();
+    var start = Date.now();
     var uri = options.db || ('https://dynamodb.' + this.region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
@@ -147,7 +147,7 @@ aws.queryDDB = function (action, obj, options, callback)
             }
             return callback ? callback(err, {}) : null;
         }
-        logger.debug('queryDDB:', action, 'finished:', core.mnow() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', params.json.ConsumedCapacity || "");
+        logger.debug('queryDDB:', action, 'finished:', Date.now() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', params.json.ConsumedCapacity || "");
         if (callback) callback(err, params.json || {});
     });
 }
@@ -660,7 +660,7 @@ aws.ddbBatchGetItem = function(items, options, callback)
 //      - sort - index name to use, indexes are named the same as the corresponding column
 //      - ops - an object with operators to be used for properties if other than EQ.
 // Example:
-//          ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', op: { name: 'gt' } })
+//          ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', ops: { name: 'gt' } })
 aws.ddbQueryTable = function(name, condition, options, callback) {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
@@ -725,7 +725,7 @@ aws.ddbQueryTable = function(name, condition, options, callback) {
 //       - start - defines starting primary key
 //       - ops - an object with operators to be used for properties if other than EQ.
 // Example:
-//          ddbScanTable("users", { id: 1, name: 'a' }, { op: { name: 'gt' }})
+//          ddbScanTable("users", { id: 1, name: 'a' }, { ops: { name: 'gt' }})
 aws.dbScanTable = function(name, condition, options, callback)
 {
     var self = this;

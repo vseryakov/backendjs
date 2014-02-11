@@ -9,6 +9,7 @@ var stream = require('stream');
 var util = require('util');
 var fs = require('fs');
 var http = require('http');
+var https = require('https');
 var url = require('url');
 var qs = require('qs');
 var crypto = require('crypto');
@@ -98,26 +99,27 @@ var api = {
                        mtime: { type: "bigint" }},
 
        // Messages between accounts
-       bk_message : { id: { primary: 1 },                    // my account_id
-                      mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
-                      status: {},                            // Status flags: R - read
-                      msg: { type: "text" },                 // Text of the message
-                      icon: {}},                             // Icon base64 or url
+       bk_message: { id: { primary: 1 },                    // my account_id
+                     mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
+                     status: {},                            // Status flags: R - read
+                     msg: { type: "text" },                 // Text of the message
+                     icon: {}},                             // Icon base64 or url
 
        // All accumulated counters for accounts
-       bk_counter: { id: { primary: 1 },                                           // my account_id
-                     like0: { type: "counter", value: 0, pub: 1, incr: 1 },        // who i liked
-                     like1: { type: "counter", value: 0, pub: 1 },                 // reversed like, who liked me
-                     dislike0: { type: "counter", value: 0, pub: 1, incr: 1 },
-                     dislike1: { type: "counter", value: 0, pub: 1 },
-                     follow0: { type: "counter", value: 0, pub: 1, incr: 1 },
-                     follow1: { type: "counter", value: 0, pub: 1 },
-                     invite0: { type: "counter", value: 0, pub: 1, incr: 1 },
-                     invite1: { type: "counter", value: 0, pub: 1 },
-                     view0: { type: "counter", value: 0, pub: 1, incr: 1 },
-                     view1: { type: "counter", value: 0, pub: 1 },
-                     msg_count: { type: "counter", value: 0 },                    // total msgs received
-                     msg_read: { type: "counter", value: 0 }},                    // total msgs read
+       bk_counter: { id: { primary: 1 },                                       // my account_id
+                     ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy
+                     like0: { type: "counter", value: 0, incr: 1 },            // who i liked
+                     like1: { type: "counter", value: 0 },                     // reversed, who liked me
+                     dislike0: { type: "counter", value: 0, incr: 1 },
+                     dislike1: { type: "counter", value: 0 },
+                     follow0: { type: "counter", value: 0, incr: 1 },
+                     follow1: { type: "counter", value: 0, },
+                     invite0: { type: "counter", value: 0, incr: 1 },
+                     invite1: { type: "counter", value: 0, },
+                     view0: { type: "counter", value: 0, incr: 1 },
+                     view1: { type: "counter", value: 0, },
+                     msg_count: { type: "counter", value: 0 },                  // total msgs received
+                     msg_read: { type: "counter", value: 0 }},                  // total msgs read
 
        // Keep historic data about account activity
        bk_history: { id: { primary: 1 },
@@ -126,9 +128,9 @@ var api = {
                      data: {} }
     },
 
-    // Authentication handlers to grant access to the endpoint before checking for signature
-    // Authorization handlers after the account has been authenticated
-    // Post process, callbacks to be called after successfull API calls, takes as input the result
+    // Access handlers to grant access to the endpoint before checking for signature.
+    // Authorization handlers after the account has been authenticated.
+    // Post process, callbacks to be called after successfull API calls, takes as input the result.
     hooks: { access: [], auth: [], post: [] },
 
     // Disabled API endpoints
@@ -137,6 +139,9 @@ var api = {
 
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
+
+    // HTTPS server options, can be updated by the apps before starting the SSL server
+    ssl: {},
 
     // Sessions
     sessionAge: 86400 * 14 * 1000,
@@ -149,8 +154,8 @@ var api = {
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
-           { name: "disable", type: "list", descr: "Disable API by endpoint url" },
-           { name: "disable-session", type: "list", descr: "Disable API endpoints for Web sessions only" },
+           { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
+           { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow", type: "push", descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", type: "push", list: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replace the whole access list"  },
@@ -207,7 +212,7 @@ api.init = function(callback)
     self.app.use(function(req, res, next) { return self.checkBody(req, res, next); });
 
     // Keep session in the cookies
-    self.app.use(express.cookieSession({ key: 'bk_sid', secret: self.sessionSecret || "bk", cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
+    self.app.use(express.cookieSession({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
 
     // Check the signature and make sure the logger is defined to log all requests
     self.app.use(this.accessLogger());
@@ -260,7 +265,6 @@ api.init = function(callback)
     // Disable access to endpoints if session exists, meaning Web app
     self.disableSession.forEach(function(x) {
         self.registerAuthCheck('', new RegExp(x), function(req, callback) {
-            logger.log(req.session)
             if (req.session && req.session['bk-signature']) return callback({ status: 401, message: "Not authorized" });
             callback();
         });
@@ -271,10 +275,22 @@ api.init = function(callback)
         // Setup all tables
         self.initTables(function(err) {
 
-            self.app.listen(core.port, core.bind, function(err) {
-                if (err) logger.error('api: init:', core.port, err);
+            var server = self.app.listen(core.port, core.bind, function(err) {
+                if (err) return logger.error('api: init:', core.port, core.bind, err);
+                this.timeout = core.timeout;
+
+                // Start the SSL server as well
+                if (core.sslKey && core.sslCert) {
+                    self.ssl.key = core.sslKey;
+                    self.ssl.cert = core.sslCert;
+                    server = https.createServer(self.ssl, app).listen(core.sslPort, core.sslBind, function(err) {
+                        if (err) logger.error('api: ssl init:', core.sslPort, core.sslBind, err);
+                        this.timeout = core.timeout;
+                        if (callback) callback(err);
+                    });
+                } else
+                if (callback) callback(err);
             });
-            if (callback) callback(err);
         });
     });
 }
@@ -508,6 +524,7 @@ api.initAccountAPI = function()
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
         logger.debug(req.path, req.account, req.query, req.session);
 
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "get":
@@ -542,13 +559,12 @@ api.initAccountAPI = function()
 
         case "add":
             // Verify required fields
-            if (req.method == "POST") req.query = req.body;
             if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
             if (!req.query.name) return self.sendReply(res, 400, "name is required");
             if (!req.query.login) return self.sendReply(res, 400, "login is required");
             if (!req.query.alias) req.query.alias = req.query.name;
             req.query.id = core.uuid();
-            req.query.mtime = req.query.ctime = core.now();
+            req.query.mtime = req.query.ctime = Date.now();
             // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
             var auth = { id: req.query.id, login: req.query.login, secret: req.query.secret };
             db.add("bk_auth", auth, function(err) {
@@ -570,7 +586,7 @@ api.initAccountAPI = function()
             break;
 
         case "update":
-            req.query.mtime = core.now();
+            req.query.mtime = Date.now();
             req.query.id = req.account.id;
             // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
             ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
@@ -594,12 +610,23 @@ api.initAccountAPI = function()
             break;
 
         case "subscribe":
-            req.pubSock = core.ipcSubscribe(req.account.id, function(data) { res.json(data); });
-            if (!req.pubSock) return self.sendReply(res, 500);
-            req.on("close", function() {
-                logger.log('subscribe:', 'close', req.pubSock, req.account.id);
-                core.ipcUnsubscribe(req.pubSock);
+            req.pubSock = core.ipcSubscribe(req.account.id, function(data) {
+                logger.log('sendMessage:', req.account.id, this.socket, data, res.headersSent);
+                if (!res.headersSent) res.type('application/json').send(data.split("\1").pop());
+                req.pubSock = core.ipcUnsubscribe(req.pubSock);
             });
+
+            if (!req.pubSock) return self.sendReply(res, 500, "Service is not activated");
+            // Listen for timeout and ignore it, this way the socket will be alive forever until we close it
+            res.on("timeout", function() {
+                logger.log('subscribe:', 'timeout', req.account.id, req.pubSock);
+                setTimeout(function() { req.socket.destroy(); }, 60000);
+            });
+            req.on("close", function() {
+                logger.log('subscribe:', 'close', req.account.id, req.pubSock);
+                req.pubSock = core.ipcUnsubscribe(req.pubSock);
+            });
+            logger.log('subscribe:', 'start', req.account.id, req.pubSock);
             break;
 
         case "search":
@@ -617,10 +644,6 @@ api.initAccountAPI = function()
             db.update("bk_auth", req.account, { cached: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, {});
-                // Keep history of all changes
-                if (req.query._history) {
-                    db.add("bk_history", { id: req.account.id, type: req.params[0], mtime: core.now(), data: core.sign(req.account.id, req.query.secret) });
-                }
             });
             break;
 
@@ -647,7 +670,7 @@ api.initAccountAPI = function()
                     rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + options.type);
                     if (op == 'delIcon') rows[0].icons = rows[0].icons.filter(function(x) { return x != options.type } );
 
-                    var obj = { id: req.account.id, mtime: core.now(), icons: rows[0].icons.join(",") };
+                    var obj = { id: req.account.id, mtime: Date.now(), icons: rows[0].icons.join(",") };
                     db.update("bk_account", obj, function(err) {
                         if (err) return self.sendReply(res, err);
                         self.sendJSON(req, res, self.processAccountRow(rows[0]));
@@ -671,6 +694,7 @@ api.initIconAPI = function()
     this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9]+)\/?([a-z0-9])?$/, function(req, res) {
         logger.debug(req.path, req.account.id);
 
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "get":
@@ -706,6 +730,7 @@ api.initMessageAPI = function()
     this.app.all(/^\/message\/([a-z]+)$/, function(req, res) {
         logger.debug(req.path, req.account.id, req.query);
 
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "image":
@@ -739,8 +764,13 @@ api.initMessageAPI = function()
                 if (icon) req.query.icon = 1;
                 db.add("bk_message", req.query, {}, function(err, rows) {
                     if (err) return self.sendReply(res, err);
-                    core.ipcPublish(req.query.id, { type: "message" });
                     self.sendJSON(req, res, {});
+                    core.ipcPublish(req.query.id, { path: req.path });
+
+                    // Update history on connections update
+                    if (req.query._history) {
+                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: req.query.id });
+                    }
                 });
             });
             break;
@@ -780,9 +810,11 @@ api.initHistoryAPI = function()
     this.app.all(/^\/history\/([a-z]+)$/, function(req, res) {
         logger.debug('history:', req.params[0], req.account, req.query);
 
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "add":
+            if (!req.query.type || !req.query.data) return self.sendReply(res, 400, "type and data are required");
             self.sendReply(res);
             req.query.id = req.account.id;
             req.query.mtime = Date.now();
@@ -811,15 +843,26 @@ api.initCounterAPI = function()
     this.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
         logger.debug(req.path, req.account.id, req.query);
 
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "put":
-        case "incr":
-            req.query.mtime = Date.now();
             req.query.id = req.account.id;
-            db[req.params[0]]("bk_counter", req.query, { cached: 1 }, function(err, rows) {
+
+        case "incr":
+            // Remove non public columns when updating other account
+            if (req.query.id && req.query.id != req.account.id) {
+                var obj = { id: req.query.id, mtime: Date.now() };
+                db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[p]) obj[p] = req.query[p]; });
+            } else {
+                var obj = req.query;
+                obj.id = req.account.id;
+                obj.mtime = Date.now();
+            }
+            db[req.params[0]]("bk_counter", obj, { cached: 1 }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, rows);
+                core.ipcPublish(req.query.id, { path: req.path, columns: Object.keys(obj).filter(function(x) { return x != "id" && x != "mtime" }) });
             });
             break;
 
@@ -846,19 +889,20 @@ api.initConnectionAPI = function()
     this.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
         logger.debug(req.path, req.account.id, req.query);
 
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[1]) {
         case "add":
         case "put":
         case "update":
-            var now = core.now();
+            var now = Date.now();
             var id = req.query.id, type = req.query.type;
             if (!id || !type) return self.sendReply(res, 400, "id and type are required");
             if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
             // Override primary key properties, the rest of the properties will be added as is
             req.query.id = req.account.id;
             req.query.type = type + ":" + id;
-            req.query.mtime = core.now();
+            req.query.mtime = Date.now();
             db[req.params[1]]("bk_connection", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
                 // Reverse reference to the same connection
@@ -870,25 +914,26 @@ api.initConnectionAPI = function()
                         return self.sendReply(res, err);
                     }
                     self.sendJSON(req, res, {});
+                    core.ipcPublish(id, { path: req.path, type: type });
+
+                    // Update history on connections update
+                    if (req.query._history) {
+                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: type + ":" + id });
+                    }
+
+                    // Update accumulated counter if we support this column and do it automatically
+                    if (req.params[1] == 'update') return;
+                    var col = db.getColumn("bk_counter", type + '0');
+                    if (col && col.incr) {
+                        db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
+                        db.incr("bk_counter", core.newObj('id', id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
+                    }
                 });
             });
-
-            // Update history on connections update
-            if (req.query._history) {
-                db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: type + ":" + id });
-            }
-
-            // Update accumulated counter if we support this column and do it automatically
-            if (req.params[1] == 'update') break;
-            var col = db.getColumn("bk_counter", type + '0');
-            if (col && col.incr) {
-                db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
-                db.incr("bk_counter", core.newObj('id', id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
-            }
             break;
 
         case "del":
-            var now = core.now();
+            var now = Date.now();
             var id = req.query.id, type = req.query.type;
             if (!id || !type) return self.sendReply(res, 400, "id and type are required");
             db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, function(err) {
@@ -896,20 +941,21 @@ api.initConnectionAPI = function()
                 db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, function(err) {
                     if (err) self.sendReply(res, err);
                     self.sendJSON(req, res, {});
+                    core.ipcPublish(id, { path: req.path, type: type });
+
+                    // Update history on connections update
+                    if (req.query._history) {
+                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: type + ":" + id });
+                    }
+
+                    // Update accumulated counter if we support this column and do it automatically
+                    var col = db.getColumn("bk_counter", req.query.type + "0");
+                    if (col && col.incr) {
+                        db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
+                        db.incr("bk_counter", core.newObj('id', id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
+                    }
                 });
             });
-
-            // Update history on connections update
-            if (req.query._history) {
-                db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: type + ":" + id });
-            }
-
-            // Update accumulated counter if we support this column and do it automatically
-            var col = db.getColumn("bk_counter", req.query.type + "0");
-            if (col && col.incr) {
-                db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
-                db.incr("bk_counter", core.newObj('id', id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
-            }
             break;
 
         case "get":
@@ -951,10 +997,11 @@ api.initLocationAPI = function()
     this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
         logger.debug(req.path, req.account.id, req.query);
 
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "put":
-            var now = core.now();
+            var now = Date.now();
             var latitude = req.query.latitude, longitude = req.query.longitude;
             if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
             // Get current location
@@ -985,7 +1032,7 @@ api.initLocationAPI = function()
 
                 // Keep history of all changes
                 if (req.query._history) {
-                    db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: latitude + ":" + longitude });
+                    db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: latitude + ":" + longitude });
                 }
             });
             break;
@@ -1056,11 +1103,7 @@ api.initDataAPI = function()
 
     // Return current statistics
     this.app.all("/data/stats", function(req, res) {
-        res.json(db.getPool().stats);
-    });
-
-    this.app.all("/data/metrics", function(req, res) {
-        res.json(self.measured);
+        res.json({ pool: db.getPool().stats, nnsockets: backend.nnSockets(), metrics: self.measured });
     });
 
     // Load columns into the cache
@@ -1086,7 +1129,9 @@ api.initDataAPI = function()
         var dbcols = db.getColumns(req.params[1]);
         if (!dbcols) return self.sendReply(res, "Unknown table");
 
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
+
         db[req.params[0]](req.params[1], req.query, options, function(err, rows) {
             if (err) return self.sendReply(res, err);
             self.sendJSON(req, res, rows);

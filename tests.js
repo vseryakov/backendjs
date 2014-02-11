@@ -65,7 +65,7 @@ tests.start = function(type)
 		break;
 	}
 
-    this.start_time = core.mnow();
+    this.start_time = Date.now();
     var count = core.getArgInt("-iterations", 1);
 	logger.log(self.name, "started:", type);
 	async.whilst(
@@ -79,7 +79,7 @@ tests.start = function(type)
 	    	    logger.error(self.name, "failed:", type, err);
 	    	    process.exit(1);
 	    	}
-	    	logger.log(self.name, "stopped:", type, core.mnow() - self.start_time, "ms");
+	    	logger.log(self.name, "stopped:", type, Date.now() - self.start_time, "ms");
 	    	process.exit(0);
 	    });
 };
@@ -527,11 +527,11 @@ tests.subscribe = function(callback)
 {
     var count = 0;
     var addr = core.getArg("-addr", "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235");
-    var sock = bn.nnCreate(bn.AF_SP, bn.NN_SUB);
-    bn.nnConnect(sock, addr);
-    bn.nnSubscribe(sock, "");
-    bn.nnSetCallback(sock, function(err, n, data) {
-        logger.log('subscribe:', err, n, data, 'count:', count++);
+    var sock = new bn.NNSocket(bn.AF_SP, bn.NN_SUB);
+    sock.connect(addr);
+    sock.subscribe("");
+    sock.setCallback(function(err, data) {
+        logger.log('subscribe:', err, this.socket, data, 'count:', count++);
         if (data == "exit") process.exit(0);
     });
 
@@ -541,21 +541,21 @@ tests.publish = function(callback)
 {
     var count = core.getArgInt("-count", 10);
     var addr = core.getArg("-addr", "tcp://127.0.0.1:" + (cluster.isMaster ? 1234 : 1235));
-    var sock = bn.nnCreate(bn.AF_SP, bn.NN_PUB);
-    bn.nnBind(sock, addr);
+    var sock = new bn.NNSocket(bn.AF_SP, bn.NN_PUB);
+    sock.bind(addr);
 
     async.whilst(
        function () { return count > 0; },
        function (next) {
            count--;
-           bn.nnSend(sock, addr + ':' + core.random());
+           sock.send(addr + ':' + core.random());
            logger.log('publish:', sock, addr, count);
            setTimeout(next, core.randomInt(1000));
        },
        function(err) {
            logger.log('sockets1:', bn.nnSockets())
-           bn.nnSend(sock, "exit");
-           bn.nnClose(sock)
+           sock.send("exit");
+           sock = null;
            logger.log('sockets2:', bn.nnSockets())
            callback(err);
        });
