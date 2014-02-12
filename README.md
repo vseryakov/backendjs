@@ -131,11 +131,12 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Example:
             /account/add?name=test&login=test@test.com&secret=test123&gender=f&phone=1234567
 
-- `/account/search`
+- `/account/select`
 
   Return list of accounts by the given condition, calls `db.select` for bk_account table. Parameters are the column values to be matched and
   all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed. This will work for SQL
-  databases only because DynamoDB or Cassandta will not search by non primary keys.
+  databases only because DynamoDB or Cassandra will not search by non primary keys. In DynamoDB case this will run ScanTable action which will be very expensive for
+  large tables.
 
   Example:
             /account/search?email=test&_ops=email,begins_with
@@ -157,7 +158,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
     - secret - new secret for the account
 
 - `/account/subcribe`
-  Subscribe to account events delivered via long poll over HTTP, the client makes the connection and waits for events to come, whenever
+  Subscribe to account events delivered via HTTP Long Poll, the client makes the connection and waits for events to come, whenever
   somebody updates the account's counter or send a message or makes a connection to my account the event about it will be sent to this open
   connection. This is not a persistent queue so if not listening events will be just ignored, only events published since the connection will be delivered.
 
@@ -240,6 +241,16 @@ a connection with it. No direct operations on bk_reference is allowed.
   Example:
 
         /reference/get?type=invite              - return all accounts who invited me
+
+- `/connection/recent`
+  Return all connections made since the given time, parameter `mtime` defiens the point in time which connections have been made after this time, this is for
+  fast retrieval only recent connections without pulling a long list every time to see who connected. This requires for the client to maintain the timestamp of the last
+  request and update it with the mtime from the most recent connection.
+
+  Example:
+
+        /connection/recent?mtime=1392185596577
+
 
 ## Locations
 The location API maintains a table `bk_location` with geolocation coordinates for accounts and allows searching it by distance.

@@ -726,7 +726,7 @@ aws.ddbQueryTable = function(name, condition, options, callback) {
 //       - ops - an object with operators to be used for properties if other than EQ.
 // Example:
 //          ddbScanTable("users", { id: 1, name: 'a' }, { ops: { name: 'gt' }})
-aws.dbScanTable = function(name, condition, options, callback)
+aws.ddbScanTable = function(name, condition, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};

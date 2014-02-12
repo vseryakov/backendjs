@@ -750,7 +750,7 @@ db.prepare = function(op, table, obj, options)
 {
     // Add curent timestamp
     if (options.mtime) {
-        if (typeof options.mtime == "string") obj[options.mtime] = core.now(); else obj.mtime = core.now();
+        if (typeof options.mtime == "string") obj[options.mtime] = Date.now(); else obj.mtime = Date.now();
     }
     return this.getPool(table, options).prepare(op, table, obj, options);
 }
@@ -1964,7 +1964,7 @@ db.dynamodbInitPool = function(options)
             // If we have other key columns we have to use custom filter
             var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 });
             // Only primary key columns are allowed
-            var keys = (options.keys || pool.dbkeys[table] || []).filter(function(x) { return other.indexOf(x) == -1 }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            var keys = (options.keys || pool.dbkeys[table] || []).filter(function(x) { return other.indexOf(x) == -1 && obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var filter = function(items) {
                 if (other.length > 0) {
                     if (!options.ops) options.ops = {};

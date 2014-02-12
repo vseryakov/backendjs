@@ -56,7 +56,7 @@ var api = {
 
         // Basic account information
         bk_account: { id: { primary: 1, pub: 1 },
-                      login: { unique: 1 },
+                      login: {},
                       name: {},
                       alias: { pub: 1 },
                       type: {},
@@ -91,6 +91,11 @@ var api = {
                         type: { primary: 1 },                  // type:connection_id
                         state: {},
                         mtime: { type: "bigint" }},
+
+       // Connections by time to query for recent updates since some time...
+       bk_recent: { id: { primary: 1 },               // my account id
+                    mtime: { primary: 1 },            // mtime:connection_id
+                    type: {} },
 
        // References from other accounts, likes,dislikes...
        bk_reference: { id: { primary: 1 },                    // connection_id
@@ -570,7 +575,7 @@ api.initAccountAPI = function()
             db.add("bk_auth", auth, function(err) {
                 if (err) return self.sendReply(res, db.convertError("bk_auth", err));
 
-                ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+                ["type","secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
                 db.add("bk_account", req.query, function(err) {
                     if (err) {
                         db.del("bk_auth", auth);
@@ -589,7 +594,7 @@ api.initAccountAPI = function()
             req.query.mtime = Date.now();
             req.query.id = req.account.id;
             // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
-            ["secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+            ["type","secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
             db.update("bk_account", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, self.processAccountRow(req.query));
@@ -629,9 +634,9 @@ api.initAccountAPI = function()
             logger.log('subscribe:', 'start', req.account.id, req.pubSock);
             break;
 
-        case "search":
+        case "select":
             options.public_columns = req.account.id;
-            db.search("bk_account", req.query, options, function(err, rows, info) {
+            db.select("bk_account", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 var next_token = info.next_token ? core.toBase64(info.next_token) : "";
                 res.json({ data: rows, next_token: next_token });
@@ -757,15 +762,16 @@ api.initMessageAPI = function()
         case "add":
             if (!req.query.id) return self.sendReply(res, 400, "receiver id is required");
             if (!req.query.msg && !req.query.icon) return self.sendReply(res, 400, "msg or icon is required");
+            var now = Date.now();
             req.query.sender = req.account.id;
-            req.query.mtime = Date.now() + ":" + req.query.sender;
+            req.query.mtime = now + ":" + req.query.sender;
             self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
                 if (err) return self.sendReply(res, err);
                 if (icon) req.query.icon = 1;
                 db.add("bk_message", req.query, {}, function(err, rows) {
-                    if (err) return self.sendReply(res, err);
+                    if (err) return self.sendReply(res, db.convertError("bk_message", err));
                     self.sendJSON(req, res, {});
-                    core.ipcPublish(req.query.id, { path: req.path });
+                    core.ipcPublish(req.query.id, { path: req.path, mtime: now, sender: req.query.sender });
 
                     // Update history on connections update
                     if (req.query._history) {
@@ -857,12 +863,12 @@ api.initCounterAPI = function()
             } else {
                 var obj = req.query;
                 obj.id = req.account.id;
-                obj.mtime = Date.now();
             }
+            obj.mtime = Date.now();
             db[req.params[0]]("bk_counter", obj, { cached: 1 }, function(err, rows) {
-                if (err) return self.sendReply(res, err);
+                if (err) return self.sendReply(res, db.convertError("bk_counter", err));
                 self.sendJSON(req, res, rows);
-                core.ipcPublish(req.query.id, { path: req.path, columns: Object.keys(obj).filter(function(x) { return x != "id" && x != "mtime" }) });
+                core.ipcPublish(req.query.id, { path: req.path, mtime: obj.mtime, columns: Object.keys(obj).filter(function(x) { return x != "id" && x != "mtime" }) });
             });
             break;
 
@@ -902,9 +908,13 @@ api.initConnectionAPI = function()
             // Override primary key properties, the rest of the properties will be added as is
             req.query.id = req.account.id;
             req.query.type = type + ":" + id;
-            req.query.mtime = Date.now();
+            req.query.mtime = now;
             db[req.params[1]]("bk_connection", req.query, function(err) {
-                if (err) return self.sendReply(res, err);
+                if (err) return self.sendReply(res, db.convertError("bk_connection", err));
+
+                // Maintain recent mtime for connections so we can query who's new connected
+                db.add("bk_recent", { id: req.account.id, mtime: now + ":" + id, type: type });
+
                 // Reverse reference to the same connection
                 req.query.id = id;
                 req.query.type = type + ":"+ req.account.id;
@@ -914,7 +924,7 @@ api.initConnectionAPI = function()
                         return self.sendReply(res, err);
                     }
                     self.sendJSON(req, res, {});
-                    core.ipcPublish(id, { path: req.path, type: type });
+                    core.ipcPublish(id, { path: req.path, type: type, id: req.account.id, mtime: req.query.mtime });
 
                     // Update history on connections update
                     if (req.query._history) {
@@ -923,6 +933,7 @@ api.initConnectionAPI = function()
 
                     // Update accumulated counter if we support this column and do it automatically
                     if (req.params[1] == 'update') return;
+
                     var col = db.getColumn("bk_counter", type + '0');
                     if (col && col.incr) {
                         db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
@@ -958,6 +969,27 @@ api.initConnectionAPI = function()
             });
             break;
 
+        case "recent":
+            options.ops = { type: "gt" };
+            db.select("bk_recent", { id: req.account.id, mtime: req.query.mtime || "0" }, options, function(err, rows, info) {
+                if (err) return self.sendReply(res, err);
+                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
+                // Split mtime and reference id
+                rows.forEach(function(row) {
+                    var d = row.mtime.split(":");
+                    row.mtime = d[0];
+                    row.id = d[1];
+                });
+                if (!req.query._details) return res.json({ data: rows, next_token: next_token });
+
+                // Get all account records for the id list
+                db.list("bk_account", rows, { select: req.query._select, public_columns: req.account.id }, function(err, rows) {
+                    if (err) return self.sendReply(res, err);
+                    res.json({ data: rows, next_token: next_token });
+                });
+            });
+            break;
+
         case "get":
             if (!req.query.type) return self.sendReply(res, 400, "type is required");
             req.query.type += ":" + (req.query.id || "");
@@ -967,9 +999,9 @@ api.initConnectionAPI = function()
                 var next_token = info.next_token ? core.toBase64(info.next_token) : "";
                 // Split type and reference id
                 rows.forEach(function(row) {
-                    var type = row.type.split(":");
-                    row.type = type[0];
-                    row.id = type[1];
+                    var d = row.type.split(":");
+                    row.type = d[0];
+                    row.id = d[1];
                 });
                 if (!req.query._details) return res.json({ data: rows, next_token: next_token });
 
