@@ -9,6 +9,9 @@ var Backend = {
     // Support sessions
     session: false,
 
+    // Scramble real login and secret
+    scramble: false,
+
     // Return current credentials
     getCredentials: function() {
         return { login: localStorage.backendLogin || "",
@@ -18,6 +21,10 @@ var Backend = {
 
     // Set new credentials, encrypt email for signature version 3, keep the secret encrypted
     setCredentials: function(login, secret, version) {
+        if (this.scramble && login && secret) {
+            secret = b64_hmac_sha1(String(secret), String(login));
+            login = b64_hmac_sha1(secret, String(login));
+        }
         localStorage.backendLogin = login ? String(login) : "";
         localStorage.backendSecret = secret ? String(secret) : "";
         localStorage.backendSigVersion = version || this.sigversion || 1;

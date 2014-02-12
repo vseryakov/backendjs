@@ -72,8 +72,8 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
-                      latitude: { type: "real" },
-                      longitude: { type: "real" },
+                      latitude: { type: "real", pub: 1 },
+                      longitude: { type: "real", pub: 1 },
                       location: {},
                       ltime: { type: "bigint" },
                       ctime: { type: "bigint" },
@@ -144,6 +144,8 @@ var api = {
 
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
+    subscribeTimeout: 600000,
+    subscribeInterval: 5000,
 
     // HTTPS server options, can be updated by the apps before starting the SSL server
     ssl: {},
@@ -164,6 +166,8 @@ var api = {
            { name: "allow", type: "push", descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", type: "push", list: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replace the whole access list"  },
+           { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds"  },
+           { name: "subscribe-interval", type: "number", min: 500, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
 
@@ -616,22 +620,28 @@ api.initAccountAPI = function()
 
         case "subscribe":
             req.pubSock = core.ipcSubscribe(req.account.id, function(data) {
-                logger.log('sendMessage:', req.account.id, this.socket, data, res.headersSent);
-                if (!res.headersSent) res.type('application/json').send(data.split("\1").pop());
-                req.pubSock = core.ipcUnsubscribe(req.pubSock);
+                logger.debug('subscribe:', req.account.id, this.socket, data, res.headersSent);
+                if (res.headersSent) return (req.pubSock = core.ipcUnsubscribe(req.pubSock));
+                if (req.pubTimeout) clearTimeout(req.pubTimeout);
+                if (!req.pubData) req.pubData = ""; else req.pubData += ",";
+                req.pubData += data.split("\1").pop();
+                req.pubTimeout = setTimeout(function() {
+                    if (!res.headersSent) res.type('application/json').send("[" + req.pubData + "]");
+                    req.pubSock = core.ipcUnsubscribe(req.pubSock);
+                }, self.subscribeInterval);
             });
-
             if (!req.pubSock) return self.sendReply(res, 500, "Service is not activated");
+
             // Listen for timeout and ignore it, this way the socket will be alive forever until we close it
             res.on("timeout", function() {
-                logger.log('subscribe:', 'timeout', req.account.id, req.pubSock);
-                setTimeout(function() { req.socket.destroy(); }, 60000);
+                logger.debug('subscribe:', 'timeout', req.account.id, req.pubSock);
+                setTimeout(function() { req.socket.destroy(); }, self.subscribeTimeout);
             });
             req.on("close", function() {
-                logger.log('subscribe:', 'close', req.account.id, req.pubSock);
+                logger.debug('subscribe:', 'close', req.account.id, req.pubSock);
                 req.pubSock = core.ipcUnsubscribe(req.pubSock);
             });
-            logger.log('subscribe:', 'start', req.account.id, req.pubSock);
+            logger.debug('subscribe:', 'start', req.account.id, req.pubSock);
             break;
 
         case "select":
@@ -653,17 +663,16 @@ api.initAccountAPI = function()
             break;
 
         case "get/icon":
-            self.getIcon(req, res, req.account.id, { prefix: 'account', type: req.query.type });
+            self.getIcon(req, res, req.account.id, { prefix: 'account', type: String(req.query.type)[0] || '0' });
             break;
 
         case "put/icon":
         case "del/icon":
             // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
-            // The type can be the whole url of the icon, we need to parse it and extract only type
             var op = req.params[0].replace('/i', 'I');
             options.force = true; // always overwrite the icon file
             options.prefix = 'account';
-            options.type = String(core.toNumber(req.body.type || req.query.type));
+            options.type = String(req.query.type)[0] || '0';
             self[op](req, req.account.id, options, function(err, icon) {
                 if (err || !icon) return self.sendReply(res, err);
 
@@ -773,7 +782,7 @@ api.initMessageAPI = function()
                     self.sendJSON(req, res, {});
                     core.ipcPublish(req.query.id, { path: req.path, mtime: now, sender: req.query.sender });
 
-                    // Update history on connections update
+                    // Update history log
                     if (req.query._history) {
                         db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: req.query.id });
                     }
@@ -867,8 +876,14 @@ api.initCounterAPI = function()
             obj.mtime = Date.now();
             db[req.params[0]]("bk_counter", obj, { cached: 1 }, function(err, rows) {
                 if (err) return self.sendReply(res, db.convertError("bk_counter", err));
+
+                // Update history log
+                if (req.query._history) {
+                    db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: core.cloneObj(obj, { mtime: 1 }) });
+                }
+
                 self.sendJSON(req, res, rows);
-                core.ipcPublish(req.query.id, { path: req.path, mtime: obj.mtime, columns: Object.keys(obj).filter(function(x) { return x != "id" && x != "mtime" }) });
+                core.ipcPublish(req.query.id, { path: req.path, mtime: obj.mtime, data: core.cloneObj(obj, { id: 1, mtime: 1 })});
             });
             break;
 
@@ -926,7 +941,7 @@ api.initConnectionAPI = function()
                     self.sendJSON(req, res, {});
                     core.ipcPublish(id, { path: req.path, type: type, id: req.account.id, mtime: req.query.mtime });
 
-                    // Update history on connections update
+                    // Update history log
                     if (req.query._history) {
                         db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: type + ":" + id });
                     }
@@ -936,8 +951,8 @@ api.initConnectionAPI = function()
 
                     var col = db.getColumn("bk_counter", type + '0');
                     if (col && col.incr) {
-                        db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
-                        db.incr("bk_counter", core.newObj('id', id, 'mtime', now, type + '0', 1, type + '1', 1), { cached: 1 });
+                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0'), { cached: 1, mtime: 1 });
+                        db.incr("bk_counter", core.newObj('id', id, type + '1', 1), { cached: 1, mtime: 1 });
                     }
                 });
             });
@@ -954,7 +969,7 @@ api.initConnectionAPI = function()
                     self.sendJSON(req, res, {});
                     core.ipcPublish(id, { path: req.path, type: type });
 
-                    // Update history on connections update
+                    // Update history log
                     if (req.query._history) {
                         db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: type + ":" + id });
                     }
@@ -962,8 +977,8 @@ api.initConnectionAPI = function()
                     // Update accumulated counter if we support this column and do it automatically
                     var col = db.getColumn("bk_counter", req.query.type + "0");
                     if (col && col.incr) {
-                        db.incr("bk_counter", core.newObj('id', req.account.id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
-                        db.incr("bk_counter", core.newObj('id', id, 'mtime', now, type + '0', -1, type + '1', -1), { cached: 1 });
+                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1, mtime: 1 });
+                        db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1, mtime: 1 });
                     }
                 });
             });
@@ -1060,12 +1075,12 @@ api.initLocationAPI = function()
                     geo.id = req.account.id;
                     geo.mtime = now;
                     db.put("bk_location", geo);
-                });
 
-                // Keep history of all changes
-                if (req.query._history) {
-                    db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: latitude + ":" + longitude });
-                }
+                    // Update history log
+                    if (req.query._history) {
+                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: geo.hash + ":" + latitude + ":" + longitude });
+                    }
+                });
             });
             break;
 
@@ -1193,6 +1208,7 @@ api.getOptions = function(req)
     if (req.query._keys) options.keys = core.strSplit(req.query._keys);
     if (req.query._width) options.width = core.toNumber(req.query._width);
     if (req.query._height) options.height = core.toNumber(req.query._height);
+    if (req.query._calc_distance) options.calc_distance = core.toNumber(req.query._calc_distance);
     if (req.query._ext) options.ext = req.query._ext;
     if (req.query._ops) {
         if (!options.ops) options.ops = {};

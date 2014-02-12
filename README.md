@@ -160,14 +160,14 @@ The accounts API manages accounts and authentication, it provides basic user acc
 - `/account/subcribe`
   Subscribe to account events delivered via HTTP Long Poll, the client makes the connection and waits for events to come, whenever
   somebody updates the account's counter or send a message or makes a connection to my account the event about it will be sent to this open
-  connection. This is not a persistent queue so if not listening events will be just ignored, only events published since the connection will be delivered.
+  connection. This is not a persistent queue so if not listening, all events will just be ignored, only events published since the connect will be delivered.
 
 - `/account/get/icon`
 
   Return account icon
 
   Parameters:
-    - type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used
+    - type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used
 
 - `/account/put/icon`
 
@@ -175,7 +175,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
   Parameters:
 
-    - type - icon type, a number between 0 and 9, if not specified 0 is used
+    - type - icon type, a number between 0 and 9 or any single letter a..z, if not specified 0 is used
     - icon - can be passed as base64 encoded image in the query,
         - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: 'DFRGRGRE...' }
         - can be passed in multipart form as a part name
