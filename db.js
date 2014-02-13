@@ -1594,6 +1594,8 @@ db.sqlDelete = function(table, obj, options)
 // Setup PostgreSQL pool driver
 db.pgsqlInitPool = function(options)
 {
+    if (!backend.PgSQLDatabase) return this.nopool;
+
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
@@ -1786,6 +1788,8 @@ db.sqliteCacheColumns = function(options, callback)
 // Setup Mysql database driver
 db.mysqlInitPool = function(options)
 {
+    if (!backend.MysqlDatabase) return this.nopool;
+
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "mysql";

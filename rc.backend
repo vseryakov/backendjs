@@ -638,10 +638,12 @@ case "$ARG" in
     (cd deps/snappy-1.1.1 && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
     (cd deps/snappy-1.1.1 && make install)
 
-    if [ ! -d deps/leveldb ]; then
-       (cd deps && git clone https://code.google.com/p/leveldb)
+    if [ ! -z BACKEND_USE_LEVELDB ]; then
+       if [ ! -d deps/leveldb ]; then
+          (cd deps && git clone https://code.google.com/p/leveldb)
+       fi
+       (cd deps/leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY $CFLAGS" libleveldb.a && cp -r include/leveldb $BACKEND_PREFIX/include && cp *.a $BACKEND_PREFIX/lib)
     fi
-    (cd deps/leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY $CFLAGS" libleveldb.a && cp -r include/leveldb $BACKEND_PREFIX/include && cp *.a $BACKEND_PREFIX/lib)
 
     if [ ! -d deps/ImageMagick ]; then
        mkdir -p deps/ImageMagick

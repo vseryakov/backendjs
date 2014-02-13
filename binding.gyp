@@ -19,6 +19,8 @@
            "HAVE_GMTIME_R=1",
            "HAVE_STRERROR_R=1",
            "HAVE_READLINE=1",
+           "<!@(if [ -f build/lib/libsnappy.a ]; then echo USE_SNAPPY; fi)",
+           "<!@(if [ -f build/lib/libleveldb.a ]; then echo USE_LEVELDB; fi)",
            "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
            "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)"
         ],
@@ -30,7 +32,9 @@
            "/opt/local/include"
         ],
         "libraries": [
-           "-L/opt/local/lib -Llib -lleveldb -lsnappy -lnanomsg -lpcre -luuid",
+           "-L/opt/local/lib -Llib -lnanomsg -luuid",
+           "$(shell [ -f lib/libsnappy.a ] && echo -lsnappy)",
+           "$(shell [ -f lib/libleveldb.a ] && echo -lleveldb)",
            "$(shell mysql_config --libs_r 2>/dev/null)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"
@@ -49,6 +53,8 @@
            "lib/bklog.cpp",
            "lib/bklib.cpp",
            "lib/sqlite3.c",
+           "lib/mdb.c",
+           "lib/midl.c",
            "lib/regexp.cpp"
         ],
         "conditions": [

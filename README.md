@@ -126,9 +126,14 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/add`
 
-  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, login**
+  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, login**.
+
+  *Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
+  backend Web client is to scramble login/secret using HMAC-SHA1 and keep them in the local storage, this way the real login and secret is never exposed but
+  the login popup will still asking for real name, see backend.js in the web/js folder for more details.*
 
   Example:
+
             /account/add?name=test&login=test@test.com&secret=test123&gender=f&phone=1234567
 
 - `/account/select`
@@ -139,6 +144,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
   large tables.
 
   Example:
+
             /account/search?email=test&_ops=email,begins_with
             /account/search?name=test&_keys=name
 
@@ -161,6 +167,11 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Subscribe to account events delivered via HTTP Long Poll, the client makes the connection and waits for events to come, whenever
   somebody updates the account's counter or send a message or makes a connection to my account the event about it will be sent to this open
   connection. This is not a persistent queue so if not listening, all events will just be ignored, only events published since the connect will be delivered.
+  To specify what kind of events needs to be delivered, `match` query partameters can be specified which is a RegExp of the whole event body string.
+
+  Example:
+
+        /account/subscribe?match=connection/add.*type:*like
 
 - `/account/get/icon`
 
@@ -201,8 +212,9 @@ a connection with it. No direct operations on bk_reference is allowed.
   Create or replace a connection between two accounts, required parameters are:
     - `id` - id of account to connect to
     - `type` - type of connection, like,dislike,....
+    - _connected - the reply will contain a property connected set to 1 if the other side of our connection is connected to me as well
 
-  This call automatically creates a record in the bk_reference table which is recersed connection for easy access to information like
+  This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
   ''who is connected to me'' and auto-increment like0, like1 counters for both accounts in the bk_counter table.
 
   Also, this call updates the counters in the `bk_counter` table for my account which match the connection type, for example if the type of

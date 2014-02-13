@@ -619,7 +619,10 @@ api.initAccountAPI = function()
             break;
 
         case "subscribe":
+            // Ignore not matching events, the whole string is checked
+            if (req.query.match) req.query.match = new RegExp(req.query.match);
             req.pubSock = core.ipcSubscribe(req.account.id, function(data) {
+                if (req.query.match && !data.match(req.query.match)) return;
                 logger.debug('subscribe:', req.account.id, this.socket, data, res.headersSent);
                 if (res.headersSent) return (req.pubSock = core.ipcUnsubscribe(req.pubSock));
                 if (req.pubTimeout) clearTimeout(req.pubTimeout);
@@ -746,6 +749,8 @@ api.initMessageAPI = function()
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
+        var now = Date.now();
+
         switch (req.params[0]) {
         case "image":
             if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
@@ -771,7 +776,6 @@ api.initMessageAPI = function()
         case "add":
             if (!req.query.id) return self.sendReply(res, 400, "receiver id is required");
             if (!req.query.msg && !req.query.icon) return self.sendReply(res, 400, "msg or icon is required");
-            var now = Date.now();
             req.query.sender = req.account.id;
             req.query.mtime = now + ":" + req.query.sender;
             self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
@@ -784,7 +788,7 @@ api.initMessageAPI = function()
 
                     // Update history log
                     if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: req.query.id });
+                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: req.query.id });
                     }
                 });
             });
@@ -801,7 +805,7 @@ api.initMessageAPI = function()
 
         case "del":
             if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
-            req.query.mtime = Date.now() + ":" + req.query.sender;
+            req.query.mtime = now + ":" + req.query.sender;
             req.query.id = req.account.id;
             db.del("bk_message", req.query, {}, function(err, rows) {
                 if (err) return self.sendReply(res, err);
@@ -860,6 +864,8 @@ api.initCounterAPI = function()
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
+        var npw = Date.now();
+
         switch (req.params[0]) {
         case "put":
             req.query.id = req.account.id;
@@ -873,17 +879,16 @@ api.initCounterAPI = function()
                 var obj = req.query;
                 obj.id = req.account.id;
             }
-            obj.mtime = Date.now();
-            db[req.params[0]]("bk_counter", obj, { cached: 1 }, function(err, rows) {
+            db[req.params[0]]("bk_counter", obj, { cached: 1, mtime: 1 }, function(err, rows) {
                 if (err) return self.sendReply(res, db.convertError("bk_counter", err));
 
                 // Update history log
                 if (req.query._history) {
-                    db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: core.cloneObj(obj, { mtime: 1 }) });
+                    db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: core.cloneObj(obj, { mtime: 1 }) });
                 }
 
                 self.sendJSON(req, res, rows);
-                core.ipcPublish(req.query.id, { path: req.path, mtime: obj.mtime, data: core.cloneObj(obj, { id: 1, mtime: 1 })});
+                core.ipcPublish(req.query.id, { path: req.path, mtime: now, data: core.cloneObj(obj, { id: 1, mtime: 1 })});
             });
             break;
 
@@ -912,11 +917,12 @@ api.initConnectionAPI = function()
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
+        var now = Date.now();
+
         switch (req.params[1]) {
         case "add":
         case "put":
         case "update":
-            var now = Date.now();
             var id = req.query.id, type = req.query.type;
             if (!id || !type) return self.sendReply(res, 400, "id and type are required");
             if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
@@ -938,12 +944,19 @@ api.initConnectionAPI = function()
                         db.del("bk_connection", { id: req.account.id, type: type + ":" + id });
                         return self.sendReply(res, err);
                     }
-                    self.sendJSON(req, res, {});
-                    core.ipcPublish(id, { path: req.path, type: type, id: req.account.id, mtime: req.query.mtime });
+                    // We need to know if the other side is connected too, this will save one extra API call
+                    if (req.query._connected) {
+                        db.get("bk_connection", req.query, function(err, rows) {
+                            self.sendJSON(req, res, { connected: rows.length });
+                        });
+                    } else {
+                        self.sendJSON(req, res, {});
+                    }
+                    core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
 
                     // Update history log
                     if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: type + ":" + id });
+                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: type + ":" + id });
                     }
 
                     // Update accumulated counter if we support this column and do it automatically
@@ -959,7 +972,6 @@ api.initConnectionAPI = function()
             break;
 
         case "del":
-            var now = Date.now();
             var id = req.query.id, type = req.query.type;
             if (!id || !type) return self.sendReply(res, 400, "id and type are required");
             db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, function(err) {
@@ -967,11 +979,11 @@ api.initConnectionAPI = function()
                 db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, function(err) {
                     if (err) self.sendReply(res, err);
                     self.sendJSON(req, res, {});
-                    core.ipcPublish(id, { path: req.path, type: type });
+                    core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
 
                     // Update history log
                     if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: type + ":" + id });
+                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: type + ":" + id });
                     }
 
                     // Update accumulated counter if we support this column and do it automatically

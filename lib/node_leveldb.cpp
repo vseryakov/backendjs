@@ -5,6 +5,8 @@
 
 #include "node_backend.h"
 
+#ifdef USE_LEVELDB
+
 #include <leveldb/db.h>
 #include <leveldb/cache.h>
 #include <leveldb/db.h>
@@ -557,14 +559,17 @@ void LevelDB::Init(Handle<Object> target)
 
     target->Set(String::NewSymbol("LevelDB"), constructor_template->GetFunction());
 }
+#endif
 
 void LevelDBInit(Handle<Object> target)
 {
     HandleScope scope;
 
+#ifdef USE_LEVELDB
     LevelDB::Init(target);
 
     NODE_SET_METHOD(target, "destroyDB", DestroyDB);
     NODE_SET_METHOD(target, "repairDB", RepairDB);
+#endif
 }
 

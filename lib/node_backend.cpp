@@ -8,6 +8,10 @@
 #include <wand/MagickWand.h>
 #include <uuid/uuid.h>
 
+#ifdef USE_SNAPPY
+#include "snappy-c.h"
+#endif
+
 // Async request for magickwand resize callback
 class MagickBaton {
 public:
@@ -668,6 +672,45 @@ static Handle<Value> geoHashRow(const Arguments& args)
    return scope.Close(result);
 }
 
+#ifdef USE_SNAPPY
+static Handle<Value> snappyCompress(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, str);
+
+   size_t size = snappy_max_compressed_length(str.length());
+   char* buf = (char*)malloc(size);
+   if (snappy_compress(*str, str.length(), buf, &size) == SNAPPY_OK) {
+       Local<String> out = Local<String>::New(String::New(buf, size));
+       free(buf);
+       return scope.Close(out);
+   }
+   free(buf);
+   return scope.Close(Undefined());
+}
+
+static Handle<Value> snappyUncompress(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, str);
+
+   size_t size;
+   if (snappy_uncompressed_length(*str, str.length(), &size) != SNAPPY_OK) return scope.Close(Undefined());
+   char *buf = (char*)malloc(size);
+   if (snappy_uncompress(*str, str.length(), buf, &size) == SNAPPY_OK) {
+       Local<String> out = Local<String>::New(String::New(buf, size));
+       free(buf);
+       return scope.Close(out);
+
+   }
+   free(buf);
+   return scope.Close(Undefined());
+}
+
+#endif
+
 void backend_init(Handle<Object> target)
 {
     HandleScope scope;
@@ -689,6 +732,11 @@ void backend_init(Handle<Object> target)
 
     NODE_SET_METHOD(target, "resizeImage", resizeImage);
     NODE_SET_METHOD(target, "resizeImageSync", resizeImageSync);
+
+#ifdef USE_SNAPPY
+    NODE_SET_METHOD(target, "snappyCompress", snappyCompress);
+    NODE_SET_METHOD(target, "snappyUncompress", snappyUncompress);
+#endif
 
     NODE_SET_METHOD(target, "uuid", uuid);
 
