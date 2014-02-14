@@ -7,10 +7,7 @@
 
 #include <wand/MagickWand.h>
 #include <uuid/uuid.h>
-
-#ifdef USE_SNAPPY
-#include "snappy-c.h"
-#endif
+#include "snappy.h"
 
 // Async request for magickwand resize callback
 class MagickBaton {
@@ -188,7 +185,6 @@ static FilterTypes getMagickFilter(string filter)
                   filter == "bohman" ? BohmanFilter:
                   filter == "barlett" ? BartlettFilter:
                   filter == "lagrange" ? LagrangeFilter:
-#ifdef JincFilter
                   filter == "jinc" ? JincFilter :
                   filter == "sinc" ? SincFilter :
                   filter == "sincfast" ? SincFastFilter :
@@ -200,7 +196,6 @@ static FilterTypes getMagickFilter(string filter)
                   filter == "cosine" ? CosineFilter:
                   filter == "spline" ? SplineFilter:
                   filter == "lanczosradius" ? LanczosRadiusFilter:
-#endif
                   LanczosFilter;
 }
 
@@ -672,22 +667,15 @@ static Handle<Value> geoHashRow(const Arguments& args)
    return scope.Close(result);
 }
 
-#ifdef USE_SNAPPY
 static Handle<Value> snappyCompress(const Arguments& args)
 {
    HandleScope scope;
 
    REQUIRE_ARGUMENT_STRING(0, str);
 
-   size_t size = snappy_max_compressed_length(str.length());
-   char* buf = (char*)malloc(size);
-   if (snappy_compress(*str, str.length(), buf, &size) == SNAPPY_OK) {
-       Local<String> out = Local<String>::New(String::New(buf, size));
-       free(buf);
-       return scope.Close(out);
-   }
-   free(buf);
-   return scope.Close(Undefined());
+   string out;
+   snappy::Compress(*str, str.length(), &out);
+   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
 }
 
 static Handle<Value> snappyUncompress(const Arguments& args)
@@ -696,20 +684,10 @@ static Handle<Value> snappyUncompress(const Arguments& args)
 
    REQUIRE_ARGUMENT_STRING(0, str);
 
-   size_t size;
-   if (snappy_uncompressed_length(*str, str.length(), &size) != SNAPPY_OK) return scope.Close(Undefined());
-   char *buf = (char*)malloc(size);
-   if (snappy_uncompress(*str, str.length(), buf, &size) == SNAPPY_OK) {
-       Local<String> out = Local<String>::New(String::New(buf, size));
-       free(buf);
-       return scope.Close(out);
-
-   }
-   free(buf);
-   return scope.Close(Undefined());
+   string out;
+   snappy::Uncompress(*str, str.length(), &out);
+   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
 }
-
-#endif
 
 void backend_init(Handle<Object> target)
 {
@@ -733,10 +711,8 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "resizeImage", resizeImage);
     NODE_SET_METHOD(target, "resizeImageSync", resizeImageSync);
 
-#ifdef USE_SNAPPY
     NODE_SET_METHOD(target, "snappyCompress", snappyCompress);
     NODE_SET_METHOD(target, "snappyUncompress", snappyUncompress);
-#endif
 
     NODE_SET_METHOD(target, "uuid", uuid);
 
@@ -755,6 +731,7 @@ void backend_init(Handle<Object> target)
     MysqlInit(target);
     LevelDBInit(target);
     NanoMsgInit(target);
+    LMDBInit(target);
 }
 
 NODE_MODULE(backend, backend_init);

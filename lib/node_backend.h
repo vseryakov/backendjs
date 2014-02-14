@@ -98,6 +98,7 @@ void SimilarInit(Handle<Object> target);
 void PgSQLInit(Handle<Object> target);
 void MysqlInit(Handle<Object> target);
 void LevelDBInit(Handle<Object> target);
+void LMDBInit(Handle<Object> target);
 
 string exceptionString(TryCatch* try_catch);
 Handle<Value> toArray(vector<string> &list, int numeric = 0);

@@ -588,7 +588,6 @@ case "$ARG" in
 
   clean-backend)
     rm -rf *~ *.o *.a *.so *.dylib *.node *.log build
-    [ -f lib/Makefile ] && make -C lib clean
     ;;
 
   build-backend)
@@ -608,10 +607,8 @@ case "$ARG" in
        mkdir -p deps
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
        $ECHO "global=true\ncolor = false\nnodedir=`pwd`/deps/node" > $HOME/.npmrc
-       export CFLAGS="-fno-omit-frame-pointer"
-       export CXXFLAGS="-fno-omit-frame-pointer"
     fi
-    (cd deps/node && [ ! -f Makefile ] && ./configure --prefix=$BACKEND_PREFIX)
+    (cd deps/node && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX)
     (cd deps/node && git pull && make install clean)
     ;;
 
@@ -631,20 +628,6 @@ case "$ARG" in
     (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
     (cd deps/nanomsg && git pull && make install)
 
-    if [ ! -d deps/snappy-1.1.1 ]; then
-       curl -OL https://snappy.googlecode.com/files/snappy-1.1.1.tar.gz
-       tar -C deps -xzf snappy-1.1.1.tar.gz && rm -rf snappy-1.1.1.tar.gz
-    fi
-    (cd deps/snappy-1.1.1 && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
-    (cd deps/snappy-1.1.1 && make install)
-
-    if [ ! -z BACKEND_USE_LEVELDB ]; then
-       if [ ! -d deps/leveldb ]; then
-          (cd deps && git clone https://code.google.com/p/leveldb)
-       fi
-       (cd deps/leveldb && git pull && make OPT="-O2 -DNDEBUG -DSNAPPY $CFLAGS" libleveldb.a && cp -r include/leveldb $BACKEND_PREFIX/include && cp *.a $BACKEND_PREFIX/lib)
-    fi
-
     if [ ! -d deps/ImageMagick ]; then
        mkdir -p deps/ImageMagick
        curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
@@ -656,10 +639,11 @@ case "$ARG" in
     ;;
 
   clean-deps)
-    [ ! -d deps/node ] && make -C deps/node clean
-    [ ! -d deps/nanomsg ] && make -C deps/nanomsg clean
-    [ ! -d deps/leveldb ] && make -C deps/leveldb clean
-    [ ! -d deps/snappy-1.1.1 ] && make -C deps/snappy-1.1.1 clean
+    [ -d deps/node ] && make -C deps/node ${2}clean
+    [ -d deps/ImageMagick ] && make -C deps/ImageMagick ${2}clean
+    [ -d deps/nanomsg ] && make -C deps/nanomsg ${2}clean
+    [ -d deps/leveldb ] && make -C deps/leveldb ${2}clean
+    [ -d deps/snappy-1.1.1 ] && make -C deps/snappy-1.1.1 ${2}clean
     ;;
 
   npm-deps)

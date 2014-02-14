@@ -1,7 +1,5 @@
 {
-    "targets": [
-    {
-        "target_name": "backend",
+    "target_defaults": {
         "defines": [
            "SQLITE_USE_URI",
            "SQLITE_ENABLE_STAT3=1",
@@ -19,22 +17,32 @@
            "HAVE_GMTIME_R=1",
            "HAVE_STRERROR_R=1",
            "HAVE_READLINE=1",
-           "<!@(if [ -f build/lib/libsnappy.a ]; then echo USE_SNAPPY; fi)",
-           "<!@(if [ -f build/lib/libleveldb.a ]; then echo USE_LEVELDB; fi)",
-           "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
-           "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)"
+           "LEVELDB_PLATFORM_POSIX",
+           "SNAPPY=1",
+           "NDEBUG",
         ],
         "include_dirs": [
            ".",
            "lib",
+           "lib/snappy",
+           "lib/lmdb",
+           "lib/sqlite",
+           "lib/leveldb/include",
+           "lib/leveldb",
            "include",
            "build/include",
            "/opt/local/include"
+        ]
+    },
+    "targets": [
+    {
+        "target_name": "backend",
+        "defines": [
+           "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
+           "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)"
         ],
         "libraries": [
-           "-L/opt/local/lib -Llib -lnanomsg -luuid",
-           "$(shell [ -f lib/libsnappy.a ] && echo -lsnappy)",
-           "$(shell [ -f lib/libleveldb.a ] && echo -lleveldb)",
+           "-L/opt/local/lib lib/libnanomsg.a -luuid",
            "$(shell mysql_config --libs_r 2>/dev/null)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"
@@ -48,23 +56,64 @@
            "lib/node_pgsql.cpp",
            "lib/node_mysql.cpp",
            "lib/node_leveldb.cpp",
+           "lib/node_lmdb.cpp",
            "lib/node_cache.cpp",
            "lib/bksqlite.cpp",
            "lib/bklog.cpp",
            "lib/bklib.cpp",
-           "lib/sqlite3.c",
-           "lib/mdb.c",
-           "lib/midl.c",
-           "lib/regexp.cpp"
+           "lib/regexp.cpp",
+           "lib/sqlite/sqlite3.cpp",
+           "lib/lmdb/mdb.c",
+           "lib/lmdb/midl.c",
+           "lib/snappy/snappy.cc",
+           "lib/snappy/snappy-sinksource.cc",
+           "lib/snappy/snappy-stubs-internal.cc",
+           "lib/leveldb/db/builder.cc",
+           "lib/leveldb/db/db_impl.cc",
+           "lib/leveldb/db/db_iter.cc",
+           "lib/leveldb/db/filename.cc",
+           "lib/leveldb/db/dbformat.cc",
+           "lib/leveldb/db/log_reader.cc",
+           "lib/leveldb/db/log_writer.cc",
+           "lib/leveldb/db/memtable.cc",
+           "lib/leveldb/db/repair.cc",
+           "lib/leveldb/db/table_cache.cc",
+           "lib/leveldb/db/version_edit.cc",
+           "lib/leveldb/db/version_set.cc",
+           "lib/leveldb/db/write_batch.cc",
+           "lib/leveldb/helpers/memenv/memenv.cc",
+           "lib/leveldb/table/block.cc",
+           "lib/leveldb/table/block_builder.cc",
+           "lib/leveldb/table/filter_block.cc",
+           "lib/leveldb/table/format.cc",
+           "lib/leveldb/table/iterator.cc",
+           "lib/leveldb/table/merger.cc",
+           "lib/leveldb/table/table.cc",
+           "lib/leveldb/table/table_builder.cc",
+           "lib/leveldb/table/two_level_iterator.cc",
+           "lib/leveldb/util/arena.cc",
+           "lib/leveldb/util/bloom.cc",
+           "lib/leveldb/util/cache.cc",
+           "lib/leveldb/util/coding.cc",
+           "lib/leveldb/util/comparator.cc",
+           "lib/leveldb/util/crc32c.cc",
+           "lib/leveldb/util/env.cc",
+           "lib/leveldb/util/env_posix.cc",
+           "lib/leveldb/util/filter_policy.cc",
+           "lib/leveldb/util/hash.cc",
+           "lib/leveldb/util/logging.cc",
+           "lib/leveldb/util/options.cc",
+           "lib/leveldb/util/status.cc",
+           "lib/leveldb/port/port_posix.cc",
         ],
         "conditions": [
            [ 'OS=="mac"', {
+             "defines": [
+                "OS_MACOSX",
+             ],
              "xcode_settings": {
-                "GCC_ENABLE_CPP_RTTI": "YES",
-                "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
                 "OTHER_CFLAGS": [
-                   "-g",
-                   "-fno-omit-frame-pointer",
+                   "-g -fPIC",
                    "$(shell mysql_config --cflags 2>/dev/null)",
                    "$(shell pkg-config --silence-errors --cflags libpq)",
                    "$(shell ./bin/MagickWand-config --cflags)"
@@ -72,16 +121,14 @@
              }
            }],
            [ 'OS=="linux"', {
+             "defines": [
+                "OS_LINUX",
+             ],
              "cflags_cc+": [
-                "-g",
-                "-fno-omit-frame-pointer",
-                "-fPIC",
+                "-g -fPIC -rdynamic",
                 "$(shell mysql_config --cflags 2>/dev/null)",
                 "$(shell pkg-config --silence-errors --cflags libpq)",
                 "$(shell ./bin/MagickWand-config --cflags)",
-                "-frtti",
-                "-fexceptions",
-                "-rdynamic"
              ]
            }]
         ]

@@ -5,14 +5,12 @@
 
 #include "node_backend.h"
 
-#ifdef USE_LEVELDB
-
-#include <leveldb/db.h>
-#include <leveldb/cache.h>
-#include <leveldb/db.h>
-#include <leveldb/env.h>
-#include <leveldb/write_batch.h>
-#include <leveldb/filter_policy.h>
+#include "leveldb/db.h"
+#include "leveldb/cache.h"
+#include "leveldb/db.h"
+#include "leveldb/env.h"
+#include "leveldb/write_batch.h"
+#include "leveldb/filter_policy.h"
 
 #define GETOPT_BOOL(obj,opts,name) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) opts.name = obj->Get(name)->BooleanValue(); }
 #define GETOPT_INT(obj,opts,name) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) opts.name = obj->Get(name)->ToInt32()->Value(); }
@@ -106,20 +104,17 @@ public:
     static void Work_Open(uv_work_t* req);
     static void Work_After(uv_work_t* req);
 
-    static Handle<Value> AllSync(const Arguments& args);
     static Handle<Value> All(const Arguments& args);
     static void Work_All(uv_work_t* req);
     static void Work_AfterAll(uv_work_t* req);
-    static Handle<Value> GetSync(const Arguments& args);
     static Handle<Value> Get(const Arguments& args);
     static void Work_Get(uv_work_t* req);
-    static Handle<Value> PutSync(const Arguments& args);
     static Handle<Value> Put(const Arguments& args);
     static void Work_Put(uv_work_t* req);
-    static Handle<Value> CloseSync(const Arguments& args);
     static Handle<Value> Close(const Arguments& args);
     static void Work_Close(uv_work_t* req);
-    static Handle<Value> BatchSync(const Arguments& args);
+    static Handle<Value> Del(const Arguments& args);
+    static void Work_Del(uv_work_t* req);
     static Handle<Value> Batch(const Arguments& args);
     static void Work_Batch(uv_work_t* req);
 
@@ -244,15 +239,6 @@ void LevelDB::Work_After(uv_work_t* req)
     delete baton;
 }
 
-Handle<Value> LevelDB::CloseSync(const Arguments& args)
-{
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
-
-    db->Close();
-    return args.This();
-}
-
 Handle<Value> LevelDB::Close(const Arguments& args)
 {
     HandleScope scope;
@@ -260,9 +246,12 @@ Handle<Value> LevelDB::Close(const Arguments& args)
 
     EXPECT_ARGUMENT_FUNCTION(0, callback);
 
-    LDBBaton* baton = new LDBBaton(db, callback);
-    uv_queue_work(uv_default_loop(), &baton->request, Work_Close, (uv_after_work_cb)Work_After);
-
+    if (callback.IsEmpty()) {
+        db->Close();
+    } else {
+        LDBBaton* baton = new LDBBaton(db, callback);
+        uv_queue_work(uv_default_loop(), &baton->request, Work_Close, (uv_after_work_cb)Work_After);
+    }
     return args.This();
 }
 
@@ -271,25 +260,6 @@ void LevelDB::Work_Close(uv_work_t* req)
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     baton->db->Close();
-}
-
-Handle<Value> LevelDB::GetSync(const Arguments& args)
-{
-    HandleScope scope;
-    LevelDB *db = ObjectWrap::Unwrap < LevelDB > (args.This());
-
-    REQUIRE_ARGUMENT_STRING(0, key);
-    OPTIONAL_ARGUMENT_OBJECT(1, opts);
-
-    LDBBaton* baton = new LDBBaton(db);
-    baton->GetReadOptions(opts);
-    baton->key = *key;
-    Work_Get(&baton->request);
-    BATON_ERROR(baton);
-    string value = baton->value;
-    delete baton;
-
-    return scope.Close(String::New(value.c_str()));
 }
 
 Handle<Value> LevelDB::Get(const Arguments& args)
@@ -304,7 +274,15 @@ Handle<Value> LevelDB::Get(const Arguments& args)
     LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetReadOptions(opts);
     baton->key = *key;
-    uv_queue_work(uv_default_loop(), &baton->request, Work_Get, (uv_after_work_cb)Work_After);
+    if (callback.IsEmpty()) {
+        Work_Get(&baton->request);
+        BATON_ERROR(baton);
+        string value = baton->value;
+        delete baton;
+        return scope.Close(String::New(value.c_str()));
+    } else {
+        uv_queue_work(uv_default_loop(), &baton->request, Work_Get, (uv_after_work_cb)Work_After);
+    }
 
     return args.This();
 }
@@ -315,27 +293,6 @@ void LevelDB::Work_Get(uv_work_t* req)
 
     baton->status = baton->db->handle->Get(baton->readOptions, baton->key, &baton->value);
     if (!baton->status.ok() && baton->status.IsNotFound()) baton->status = leveldb::Status::OK();
-}
-
-Handle<Value> LevelDB::AllSync(const Arguments& args)
-{
-    HandleScope scope;
-    LevelDB *db = ObjectWrap::Unwrap < LevelDB > (args.This());
-
-    REQUIRE_ARGUMENT_STRING(0, start);
-    REQUIRE_ARGUMENT_STRING(1, end);
-    OPTIONAL_ARGUMENT_OBJECT(2, opts);
-
-    LDBBaton* baton = new LDBBaton(db);
-    baton->GetReadOptions(opts);
-    baton->key = *start;
-    baton->end = *end;
-    Work_All(&baton->request);
-    BATON_ERROR(baton);
-    Handle<Value> rc = toArray(baton->list);
-    delete baton;
-
-    return scope.Close(rc);
 }
 
 Handle<Value> LevelDB::All(const Arguments& args)
@@ -352,8 +309,15 @@ Handle<Value> LevelDB::All(const Arguments& args)
     baton->GetReadOptions(opts);
     baton->key = *start;
     baton->end = *end;
-    uv_queue_work(uv_default_loop(), &baton->request, Work_All, (uv_after_work_cb)Work_After);
-
+    if (callback.IsEmpty()) {
+        Work_All(&baton->request);
+        BATON_ERROR(baton);
+        Handle<Value> rc = toArray(baton->list);
+        delete baton;
+        return scope.Close(rc);
+    } else {
+        uv_queue_work(uv_default_loop(), &baton->request, Work_All, (uv_after_work_cb)Work_After);
+    }
     return args.This();
 }
 
@@ -372,26 +336,6 @@ void LevelDB::Work_All(uv_work_t* req)
     delete it;
 }
 
-Handle<Value> LevelDB::PutSync(const Arguments& args)
-{
-    HandleScope scope;
-    LevelDB *db = ObjectWrap::Unwrap < LevelDB > (args.This());
-
-    REQUIRE_ARGUMENT_STRING(0, key);
-    REQUIRE_ARGUMENT_STRING(1, value);
-    OPTIONAL_ARGUMENT_OBJECT(2, opts);
-
-    LDBBaton* baton = new LDBBaton(db);
-    baton->GetWriteOptions(opts);
-    baton->key = *key;
-    baton->value = *value;
-    Work_Put(&baton->request);
-    BATON_ERROR(baton);
-    delete baton;
-
-    return args.This();
-}
-
 Handle<Value> LevelDB::Put(const Arguments& args)
 {
     HandleScope scope;
@@ -406,8 +350,14 @@ Handle<Value> LevelDB::Put(const Arguments& args)
     baton->GetWriteOptions(opts);
     baton->key = *key;
     baton->value = *value;
-    uv_queue_work(uv_default_loop(), &baton->request, Work_Put, (uv_after_work_cb)Work_After);
 
+    if (callback.IsEmpty()) {
+        Work_Put(&baton->request);
+        BATON_ERROR(baton);
+        delete baton;
+    } else {
+        uv_queue_work(uv_default_loop(), &baton->request, Work_Put, (uv_after_work_cb)Work_After);
+    }
     return args.This();
 }
 
@@ -418,22 +368,34 @@ void LevelDB::Work_Put(uv_work_t* req)
     baton->status = baton->db->handle->Put(baton->writeOptions, baton->key, baton->value);
 }
 
-Handle<Value> LevelDB::BatchSync(const Arguments& args)
+Handle<Value> LevelDB::Del(const Arguments& args)
 {
     HandleScope scope;
-    LevelDB *db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
 
-    REQUIRE_ARGUMENT_ARRAY(0, list);
-    OPTIONAL_ARGUMENT_OBJECT(1, opts);
+    REQUIRE_ARGUMENT_STRING(0, key);
+    OPTIONAL_ARGUMENT_OBJECT(2, opts);
+    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
-    LDBBaton* baton = new LDBBaton(db);
+    LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetWriteOptions(opts);
-    baton->GetBatchOptions(list);
-    Work_Batch(&baton->request);
-    BATON_ERROR(baton);
-    delete baton;
+    baton->key = *key;
 
+    if (callback.IsEmpty()) {
+        Work_Del(&baton->request);
+        BATON_ERROR(baton);
+        delete baton;
+    } else {
+        uv_queue_work(uv_default_loop(), &baton->request, Work_Del, (uv_after_work_cb)Work_After);
+    }
     return args.This();
+}
+
+void LevelDB::Work_Del(uv_work_t* req)
+{
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
+
+    baton->status = baton->db->handle->Delete(baton->writeOptions, baton->key);
 }
 
 Handle<Value> LevelDB::Batch(const Arguments& args)
@@ -448,8 +410,14 @@ Handle<Value> LevelDB::Batch(const Arguments& args)
     LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetWriteOptions(opts);
     baton->GetBatchOptions(list);
-    uv_queue_work(uv_default_loop(), &baton->request, Work_Put, (uv_after_work_cb)Work_After);
 
+    if (callback.IsEmpty()) {
+        Work_Batch(&baton->request);
+        BATON_ERROR(baton);
+        delete baton;
+    } else {
+        uv_queue_work(uv_default_loop(), &baton->request, Work_Put, (uv_after_work_cb)Work_After);
+    }
     return args.This();
 }
 
@@ -543,15 +511,11 @@ void LevelDB::Init(Handle<Object> target)
     constructor_template->SetClassName(String::NewSymbol("LevelDB"));
 
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "close", Close);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "closeSync", CloseSync);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "get", Get);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "getSync", GetSync);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "put", Put);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "putSync", PutSync);
+    NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "allSync", AllSync);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "batch", Batch);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "batchSync", BatchSync);
 
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "getProperty", GetProperty);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "getSnapshot", GetSnapshot);
@@ -559,17 +523,14 @@ void LevelDB::Init(Handle<Object> target)
 
     target->Set(String::NewSymbol("LevelDB"), constructor_template->GetFunction());
 }
-#endif
 
 void LevelDBInit(Handle<Object> target)
 {
     HandleScope scope;
 
-#ifdef USE_LEVELDB
     LevelDB::Init(target);
 
     NODE_SET_METHOD(target, "destroyDB", DestroyDB);
     NODE_SET_METHOD(target, "repairDB", RepairDB);
-#endif
 }
 
