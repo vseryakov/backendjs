@@ -680,10 +680,14 @@ server.execQueue = function()
     this.execJob(job);
 }
 
-// Create a new cron job
+// Create a new cron job, for remote jobs additonal property args can be used in the cron object to define
+// arguments to the instance backend process, properties must start with -
+//
 // Example:
+//
 //          { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
 //          { "type": "local", "cron": "0 10 7 * * *", "job": "api.processQueue" }
+//          { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
 server.scheduleCronjob = function(spec, obj)
 {
     var self = this;
@@ -691,32 +695,17 @@ server.scheduleCronjob = function(spec, obj)
     if (!job) return;
     logger.debug('scheduleCronjob:', spec, util.inspect(obj, true, null));
     var cj = new cron.CronJob(spec, function() {
-        if (this.host) {
-            self.submitJob({ type: this.type, host: this.host, job: job });
+        if (this.job.host && !this.job.id && !this.job.tag) {
+            self.submitJob({ type: this.job.type, host: this.job.host, job: this.job.job });
         } else {
-            self.doJob(this.type, job);
+            self.doJob(this.job.type, this.job.job, this.job.args);
+        }
+        // Remove from the jobs queue on launch
+        if (this.job.id && this.job.tag) {
+            db.del('bk_jobs', this.job, function() { next() });
         }
     }, null, true);
-    cj.type = obj.type;
-    cj.host = obj.host;
-    cj.id = obj.id;
-    this.crontab.push(cj);
-}
-
-// Create new cron job to be run on a drone in the cloud
-// For remote jobs additonal property args can be used in the cron object to define
-// arguments to the instance backend process, properties must start with -
-// Example:
-//          { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
-server.scheduleLaunchjob = function(spec, obj)
-{
-    var self = this;
-    var job = self.checkJob('remote', obj.job);
-    if (!job) return;
-    logger.debug('scheduleLaunchjob:', spec, util.inspect(obj, true, null));
-    var cj = new cron.CronJob(spec, function() { self.doJob(this.type, job, obj.args)  }, null, true);
-    cj.type = obj.type;
-    cj.id = obj.id;
+    cj.job = { type: obj.type, host: obj.host, id: obj.id, tag: obj.tag, args: obj.args, job: job };
     this.crontab.push(cj);
 }
 
@@ -763,9 +752,11 @@ server.checkJob = function(type, job)
 //      - server means run inside the master process, do not spawn a worker
 // - cron - cron time interval spec: 'second' 'minute' 'hour' 'dayOfMonth' 'month' 'dayOfWeek'
 // - job - a string as obj.method or an object with job name as property name and the value is an object with
-//   additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
+//         additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
 // - args - additional arguments passwed to the backend in the command line for the remote jobs
+//
 // Example:
+//
 //          [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
 server.loadSchedules = function()
 {
@@ -781,15 +772,7 @@ server.loadSchedules = function()
                 self.crontab = [];
                 list.forEach(function(x) {
                     if (!x.type || !x.cron || !x.job || x.disabled) return;
-                    switch (x.type) {
-                    case "remote":
-                        self.scheduleLaunchjob(x.cron, x);
-                        break;
-
-                    default:
-                        self.scheduleCronjob(x.cron, x);
-                        break;
-                    }
+                    self.scheduleCronjob(x.cron, x);
                 });
             }
             logger.log("loadSchedules:", self.crontab.length, "schedules");
@@ -824,11 +807,18 @@ server.processJobs = function(options, callback)
     db.select("bk_jobs", { id: this.jobsTag }, { count: this.maxWorkers }, function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
             try {
-                self.doJob(row.type, row.job);
+                if (row.job.cron) {
+                    self.scheduleCronjob(row.cron, row);
+                } else {
+                    self.doJob(row.type, row.job);
+                }
             } catch(e) {
                 logger.error('processJobs:', e, row);
             }
-            db.del('bk_jobs', row, function() { next() });
+            // Cron jobs will be removed on launch
+            if (!row.job.cron) {
+                db.del('bk_jobs', row, function() { next() });
+            }
         }, function() {
             if (rows.length) logger.log('processJobs:', rows.length, 'jobs');
             if (callback) callback();
