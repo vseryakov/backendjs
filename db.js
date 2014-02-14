@@ -2239,7 +2239,7 @@ db.leveldbInitPool = function(options)
         if (this.ldb) return callback(null, this);
         try {
             options.create_if_missing = true;
-            new backend.LevelDB(core.path.spool + "/" + this.db, options, function(err) {
+            new backend.LevelDB(core.path.spool + "/" + (this.db || ""), options, function(err) {
                 pool.ldb = this;
                 callback(null, pool);
             });
@@ -2260,14 +2260,14 @@ db.leveldbInitPool = function(options)
             break;
 
         case "get":
-            client.ldb.get(obj.name, function(err, item) {
+            client.ldb.get(obj.name || "", function(err, item) {
                 callback(err, item ? [item] : []);
             });
             break;
 
         case "select":
         case "search":
-            client.ldb.all(obj.start, obj.end, callback);
+            client.ldb.all(obj.start || "", obj.end || "", callback);
             break;
 
         case "list":
@@ -2286,13 +2286,95 @@ db.leveldbInitPool = function(options)
         case "put":
         case "update":
         case "incr":
-            client.ldb.put(obj.name, obj.data, function(err) {
+            client.ldb.put(obj.name || "", obj.value || "", function(err) {
                 callback(err, []);
             });
             break;
 
         case "del":
-            client.ldb.del(obj.name, function(err) {
+            client.ldb.del(obj.name || "", function(err) {
+                callback(err, []);
+            });
+            break;
+
+        default:
+            callback(new Error("invalid op"), []);
+        }
+    };
+    return pool;
+}
+
+// Setup LMDB database driver
+db.lmdbInitPool = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "lmdb";
+
+    var pool = this.createPool(options.pool);
+    pool.db = options.db;
+
+    pool.get = function(callback) {
+        if (this.lmdb) return callback(null, this);
+        try {
+            if (!options.path) options.path = core.path.spool;
+            options.flags = (options.flags || 0) | backend.MDB_CREATE;
+            options.dbs = 1;
+            this.env = new backend.LMDBEnv(options);
+            new backend.LMDB(this.env, { name: this.db, flags: options.flags }, function(err) {
+                pool.lmdb = this;
+                callback(null, pool);
+            });
+        } catch(e) {
+            callback(e);
+        }
+    }
+    pool.query = function(client, req, opts, callback) {
+        var pool = this;
+        var table = req.text;
+        var obj = req.obj;
+
+        switch(req.op) {
+        case "create":
+        case "upgrade":
+        case "drop":
+            callback(null, []);
+            break;
+
+        case "get":
+            client.lmdb.get(obj.name || "", function(err, item) {
+                callback(err, item ? [item] : []);
+            });
+            break;
+
+        case "select":
+        case "search":
+            client.lmdb.all(obj.start || "", obj.end || "", callback);
+            break;
+
+        case "list":
+            var rc = [];
+            async.forEachSeries(obj, function(id, next) {
+                client.lmdb.get(id, function(err, val) {
+                    if (val) rc.push(val);
+                    next(err);
+                });
+            }, function(err) {
+                callback(err, rc);
+            });
+            break;
+
+        case "add":
+        case "put":
+        case "update":
+        case "incr":
+            client.lmdb.put(obj.name || "", obj.value || "", function(err) {
+                callback(err, []);
+            });
+            break;
+
+        case "del":
+            client.lmdb.del(obj.name || "", function(err) {
                 callback(err, []);
             });
             break;
