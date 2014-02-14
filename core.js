@@ -1589,7 +1589,7 @@ core.findFileSync = function(file, filter)
     return list;
 }
 
-// Recursively create all directories, return 1 if created
+// Recursively create all directories, return 1 if created or 0 on error, no exceptions are raised, error is logged only
 core.makePathSync = function(dir)
 {
     var list = path.normalize(dir).split("/");
@@ -1597,16 +1597,15 @@ core.makePathSync = function(dir)
         dir += list[i] + '/';
         try {
             if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-        }
-        catch(e) {
-            logger.error('makePath:', e)
+        } catch(e) {
+            logger.error('makePath:', dir, e);
             return 0;
         }
     }
     return 1;
 }
 
-// Async version, stops on first error
+// Async version of makePath, stops on first error
 core.makePath = function(dir, callback)
 {
     var list = path.normalize(dir).split("/");
@@ -1623,6 +1622,49 @@ core.makePath = function(dir, callback)
         if (err) logger.error('makePath:', err);
         if (callback) callback(err);
     });
+}
+
+// Recursevily remove all files and folders in the given path, returns an error to the callback if any
+core.unlinkPath = function(dir, callback)
+{
+    var self = this;
+    fs.stat(dir, function(err, stat) {
+        if (err) return callback ? callback(err) : null;
+        if (stat.isDirectory()) {
+            fs.readdir(dir, function(err, files) {
+                if (err) return next(err);
+                async.forEachSeries(files, function(f, next) {
+                    self.unlinkPath(path.join(dir, f), next);
+                }, function(err) {
+                    if (err) return callback ? callback(err) : null;
+                    fs.rmdir(dir, callback);
+                });
+            });
+        } else {
+            fs.unlink(dir, callback);
+        }
+    });
+}
+
+// Recursevily remove all files and folders in the given path, stops on first error
+core.unlinkPathSync = function(dir)
+{
+    var files = this.findFileSync(dir, function() { return 1 });
+    // Start from the end to delete files first, then folders
+    for (var i = files.length - 1; i >= 0; i--) {
+        try {
+            var stat = this.statSync(files[i]);
+            if (stat.isDirectory()) {
+                fs.rmdirSync(files[i]);
+            } else {
+                fs.unlinkSync(files[i]);
+            }
+        } catch(e) {
+            logger.error("unlinkPath:", dir, e);
+            return 0;
+        }
+    }
+    return 1;
 }
 
 // Change file owner do not report errors about non existent files
@@ -1824,6 +1866,14 @@ core.isEmpty = function(val)
     default:
         return val ? false: true;
     }
+}
+
+// Return true if a variable or property in the object exists, just a syntax sugar
+core.exists = function(obj, name)
+{
+    if (typeof obj == "undefined") return false;
+    if (typeof obj == "obj" && typeof obj[name] == "undefined") return false;
+    return true;
 }
 
 // Deep copy of an object,

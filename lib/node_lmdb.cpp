@@ -26,6 +26,8 @@ public:
         constructor_template = Persistent < FunctionTemplate > ::New(t);
         constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
         constructor_template->SetClassName(String::NewSymbol("LMDBEnv"));
+        NODE_SET_PROTOTYPE_METHOD(constructor_template, "readerCheck", ReaderCheck);
+        NODE_SET_PROTOTYPE_METHOD(constructor_template, "sync", Sync);
         target->Set(String::NewSymbol("LMDBEnv"), constructor_template->GetFunction());
     }
     static Handle<Value> New(const Arguments& args) {
@@ -56,6 +58,19 @@ public:
         LMDB_ENV* db = new LMDB_ENV(env);
         db->Wrap(args.This());
         return args.This();
+    }
+
+    static Handle<Value> ReaderCheck(const Arguments& args) {
+            HandleScope scope;
+            LMDB_ENV *env = ObjectWrap::Unwrap < LMDB_ENV > (args.This());
+            int dead;
+            return scope.Close(Integer::New(mdb_reader_check(env->env, &dead)));
+    }
+    static Handle<Value> Sync(const Arguments& args) {
+        HandleScope scope;
+        OPTIONAL_ARGUMENT_INT(0, force);
+        LMDB_ENV *env = ObjectWrap::Unwrap < LMDB_ENV > (args.This());
+        return scope.Close(Integer::New(mdb_env_sync(env->env, force)));
     }
 
     LMDB_ENV(MDB_env *e) : ObjectWrap(), env(e) {}
@@ -120,7 +135,7 @@ public:
         GETOPT_STR(opts, name);
         GETOPT_INT(opts, flags);
 
-        LMDB_DB* db = new LMDB_DB(env->env, name, flags);
+        LMDB_DB* db = new LMDB_DB(env->env, name.size() ? name : NULL, flags);
         db->Wrap(args.This());
 
         if (cb.IsEmpty()) {
@@ -315,7 +330,7 @@ public:
         txn = NULL;
         return rc;
     }
-    int Get(const char *key, int klen, string *data) {
+    int Get(const char *key, size_t klen, string *data) {
         if (!open) return EINVAL;
         MDB_val k, v;
         k.mv_size = klen;
@@ -328,7 +343,7 @@ public:
         txn = NULL;
         return rc;
     }
-    int Put(const char *key, int klen, const char *data, int dlen, int flags) {
+    int Put(const char *key, size_t klen, const char *data, size_t dlen, int flags) {
         if (!open) return EINVAL;
         MDB_val k, v;
         k.mv_size = klen;
@@ -341,7 +356,7 @@ public:
         txn = NULL;
         return rc;
     }
-    int Del(const char *key, int klen, const char *data, int dlen) {
+    int Del(const char *key, size_t klen, const char *data, size_t dlen) {
         if (!open) return EINVAL;
         MDB_val k, v;
         k.mv_size = klen;
@@ -367,18 +382,21 @@ public:
         txn = NULL;
         cursor = NULL;
     }
-    int GetAll(const char *start, int slen, const char *end, int elen, vector<pair<string,string> >*list) {
-        MDB_val k, v;
+    int GetAll(const char *start, size_t slen, const char *end, size_t elen, vector<pair<string,string> >*list) {
+        MDB_val k, v, e;
         k.mv_size = slen;
         k.mv_data = (void*)start;
+        e.mv_size = elen;
+        e.mv_data = (void*)end;
         int rc = OpenCursor();
         rc = mdb_cursor_get(cursor, &k, &v, MDB_SET_RANGE);
         while (rc == 0) {
-            if (memcmp(k.mv_data, end, MIN(elen,k.mv_size)) > 0) break;
+            if (elen && mdb_cmp(txn, db, &k, &e) > 0) break;
             list->push_back(pair<string,string>(string((const char*)k.mv_data, k.mv_size), string((const char*)v.mv_data, v.mv_size)));
             rc = mdb_cursor_get(cursor, &k, &v, MDB_NEXT);
         }
         CloseCursor();
+        return rc;
     }
 
     string name;

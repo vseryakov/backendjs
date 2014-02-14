@@ -27,7 +27,7 @@
 <p>Features:</p>
 <ul>
 <li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
-<li>Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra databases, easily extendable to support any kind of database.</li>
+<li>Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, LMDB databases, easily extendable to support any kind of database.</li>
 <li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.</li>
 <li>Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
@@ -137,7 +137,10 @@ return list of account records as JSON</li>
 </ul>
 </li>
 <li><p><code>/account/add</code></p>
-<p>Add new account, all parameters are the columns from the <code>bk_account</code> table, required columns are: <strong>name, secret, login</strong></p>
+<p>Add new account, all parameters are the columns from the <code>bk_account</code> table, required columns are: <strong>name, secret, login</strong>.</p>
+<p><em>Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
+backend Web client is to scramble login/secret using HMAC-SHA1 and keep them in the local storage, this way the real login and secret is never exposed but
+the login popup will still asking for real name, see backend.js in the web/js folder for more details.</em></p>
 <p>Example:</p>
 <pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
 </code></pre></li>
@@ -166,20 +169,23 @@ large tables.</p>
 <li><p><code>/account/subcribe</code>
 Subscribe to account events delivered via HTTP Long Poll, the client makes the connection and waits for events to come, whenever
 somebody updates the account&#39;s counter or send a message or makes a connection to my account the event about it will be sent to this open
-connection. This is not a persistent queue so if not listening events will be just ignored, only events published since the connection will be delivered.</p>
-</li>
+connection. This is not a persistent queue so if not listening, all events will just be ignored, only events published since the connect will be delivered.
+To specify what kind of events needs to be delivered, <code>match</code> query partameters can be specified which is a RegExp of the whole event body string.</p>
+<p>Example:</p>
+<pre><code>  /account/subscribe?match=connection/add.*type:*like
+</code></pre></li>
 <li><p><code>/account/get/icon</code></p>
 <p>Return account icon</p>
 <p>Parameters:</p>
 <ul>
-<li>type - a number from 0 to 9 which defines which icon to return, if not specified 0 is used</li>
+<li>type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used</li>
 </ul>
 </li>
 <li><p><code>/account/put/icon</code></p>
 <p>Upload account icon</p>
 <p>Parameters:</p>
 <ul>
-<li>type - icon type, a number between 0 and 9, if not specified 0 is used</li>
+<li>type - icon type, a number between 0 and 9 or any single letter a..z, if not specified 0 is used</li>
 <li>icon - can be passed as base64 encoded image in the query,<ul>
 <li>can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: &#39;DFRGRGRE...&#39; }</li>
 <li>can be passed in multipart form as a part name</li>
@@ -209,8 +215,9 @@ Create or replace a connection between two accounts, required parameters are:</p
 <ul>
 <li><code>id</code> - id of account to connect to</li>
 <li><code>type</code> - type of connection, like,dislike,....</li>
+<li>_connected - the reply will contain a property connected set to 1 if the other side of our connection is connected to me as well</li>
 </ul>
-<p>This call automatically creates a record in the bk_reference table which is recersed connection for easy access to information like
+<p>This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
 &#39;&#39;who is connected to me&#39;&#39; and auto-increment like0, like1 counters for both accounts in the bk_counter table.</p>
 <p>Also, this call updates the counters in the <code>bk_counter</code> table for my account which match the connection type, for example if the type of
 connection is &#39;invite&#39; and the <code>bk_counter</code> table contain 2 columns <code>invite0</code> and <code>invite1</code>, then both counters will be increased.</p>
@@ -1651,6 +1658,12 @@ keep the original size if smaller than given positive value, if any is 0 that me
 </ul>
 
 <ul>
+<li><p><code>core.exists(obj, name)</code></p>
+<p> Return true if a variable or property in the object exists, just a syntax sugar</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.cloneObj()</code></p>
 <p> Deep copy of an object,</p>
 <ul>
@@ -1815,6 +1828,16 @@ due to some error.</p>
 </li>
 <li>createcb - a callback to be called when actual database client needs to be created, the callback signature is
  function(options, callback) and will be called with first arg an error object and second arg is the database instance, required</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.createPool(name, pool, options)</code></p>
+<p> Create a new database pool with default methods and properties</p>
+<ul>
+<li>pool - if given it is used as the object prototype, the new database pool will extend this object, otherise new object is created</li>
+<li>options - an object with defaqult pool properties</li>
 </ul>
 </li>
 </ul>
@@ -2365,6 +2388,32 @@ with error as first argument and database object as second</p>
 <ul>
 <li><p><code>db.cassandraInitPool(options)</code></p>
 <p> Cassandra pool</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.leveldbInitPool(options)</code></p>
+<p> Setup LevelDB database driver, this is simplified driver which supports only basic key-value operations,
+table parameter is ignored, the object only supports the followig properties name and value.
+Options are passed to the LevelDB backend low level driver which is native LevelDB options using the same names:
+<a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a>
+The database can only be shared by one process so if no unique options.db is given, it will create a unique database as:</p>
+<ul>
+<li>in the backend home: var/ldb<em>[role]</em>[workerId] where role is core.role set by the server, can be master, server, web, worker.</li>
+<li>workerId is only for workers, in master processes 0 is used.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.lmdbInitPool(options)</code></p>
+<p> Setup LMDB database driver, this is simplified driver which supports only basic key-value operations,
+table parameter is ignored, the object only supports the properties name and value in the record objects.
+Options are passed to the LMDB backend low level driver as MDB_ flags, see <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a></p>
+<ul>
+<li>select and sesrch actions support options.end property which defines the end condition for a range retrieval starting
+with obj.name property. If not end is given, all records till the end will be returned.</li>
+</ul>
 </li>
 </ul>
 

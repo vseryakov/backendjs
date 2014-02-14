@@ -642,8 +642,6 @@ case "$ARG" in
     [ -d deps/node ] && make -C deps/node ${2}clean
     [ -d deps/ImageMagick ] && make -C deps/ImageMagick ${2}clean
     [ -d deps/nanomsg ] && make -C deps/nanomsg ${2}clean
-    [ -d deps/leveldb ] && make -C deps/leveldb ${2}clean
-    [ -d deps/snappy-1.1.1 ] && make -C deps/snappy-1.1.1 ${2}clean
     ;;
 
   npm-deps)
@@ -677,6 +675,19 @@ case "$ARG" in
       $ECHO "    });" >> $NAME.js
       $ECHO "    callback()" >> $NAME.js
       $ECHO "};\n" >> $NAME.js
+      $ECHO "api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows) {" >> $NAME.js
+      $ECHO "    var self = this;" >> $NAME.js
+      $ECHO "    switch (req.params[0]) {" >> $NAME.js
+      $ECHO "    case 'add':" >> $NAME.js
+      $ECHO "       // Perform our own additional work for new accounts, req.account contains new account record" >> $NAME.js
+      $ECHO "       backend.db.add('test', { id: req.account.id });" >> $NAME.js
+      $ECHO "       break;" >> $NAME.js
+      $ECHO "    case 'del':" >> $NAME.js
+      $ECHO "       backend.db.del('test', { id: req.account.id });" >> $NAME.js
+      $ECHO "       break;" >> $NAME.js
+      $ECHO "    }" >> $NAME.js
+      $ECHO "    res.json(rows);" >> $NAME.js
+      $ECHO "});\n" >> $NAME.js
       $ECHO "backend.server.start();" >> $NAME.js
 
       $ECHO "{\n \"version\": \"0.1\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"app\",\n \"main\": \"app.js\",\n \"dependencies\": { {\"backend\" : \"\"} },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n "license": "BSD-3-Clause" }" > package.json

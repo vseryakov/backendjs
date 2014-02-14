@@ -239,7 +239,10 @@ db.initPool = function(options, createcb)
         }
     });
 
-    this.createPool(options.pool, pool);
+    // Translation map for similar operators from different database drivers
+    this.createPool(options.pool, pool, { dboptions: { typesMap: { counter: "int", bigint: "int" },
+                                                       schema: [],
+                                                       opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } } });
 
     // Aquire a connection with error reporting
     pool.get = function(callback) {
@@ -318,24 +321,24 @@ db.initPool = function(options, createcb)
     pool.nextToken = function(req, rows, opts) {
         if (opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
     }
-    // Translation map for similar operators from different database drivers
-    pool.dboptions = { typesMap: { counter: "int", bigint: "int" }, schema: [], opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } }
     return pool;
 }
 
-// Initialize baase pool methods and properties
-db.createPool = function(name, pool)
+// Create a new database pool with default methods and properties
+// - pool - if given it is used as the object prototype, the new database pool will extend this object, otherise new object is created
+// - options - an object with defaqult pool properties
+db.createPool = function(name, pool, options)
 {
     if (!pool) pool = {};
     pool.get = function(callback) { callback(err, this); }
     pool.free = function(client) {}
-    pool.setup = function(client, callback) { callback(err, client); }
+    pool.setup = function(client, callback) { callback(err, client); };
     pool.watch = function(client) {}
-    pool.cacheColumns = function(opts, callback) { callback() }
-    pool.cacheIndexes = function(opts, callback) { callback(); }
-    pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: table, obj: obj }; }
-    pool.query = function(client, req, opts, callback) { callback(null, []) }
-    pool.nextToken = function(req, rows, opts) {}
+    pool.cacheColumns = function(opts, callback) { callback(); };
+    pool.cacheIndexes = function(opts, callback) { callback(); };
+    pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: table, obj: obj }; };
+    pool.query = function(client, req, opts, callback) { callback(null, []); };
+    pool.nextToken = function(req, rows, opts) {};
     pool.name = name;
     pool.serial = 0;
     pool.tables = {};
@@ -348,6 +351,7 @@ db.createPool = function(name, pool)
     pool.inserted_oid = 0;
     pool.next_token = null;
     pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
+    for (var p in options) pool[p] = options[p];
     this.dbpool[name] = pool;
     return pool;
 }
@@ -373,34 +377,39 @@ db.query = function(req, options, callback)
     var pool = this.getPool(req.table, options);
     pool.get(function(err, client) {
         if (err) return callback ? callback(err, []) : null;
-        var t1 = Date.now();
-        pool.query(client, req, options, function(err2, rows) {
-            var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
-            pool.free(client);
-            if (err2) {
-                logger.error("db.query:", pool.name, req.text, req.values, err2, options);
-                return callback ? callback(err2, rows, info) : null;
-            }
-            // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-            if (options && options.public_columns) {
-                var col = options.public_key || 'id';
-                var cols = self.getPublicColumns(req.table, options);
-                if (cols.length) {
-                    rows.forEach(function(row) {
-                        if (row[col] == options.public_columns) return;
-                        for (var p in row) 	if (cols.indexOf(p) == -1) delete row[p];
-                    });
+        try {
+            var t1 = Date.now();
+            pool.query(client, req, options, function(err2, rows) {
+                var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
+                pool.free(client);
+                if (err2) {
+                    logger.error("db.query:", pool.name, req.text, req.values, err2, options);
+                    return callback ? callback(err2, rows, info) : null;
                 }
-            }
-            // Convert values if we have custom column callback
-            self.processRows(pool, req.table, rows, options);
-            // Cache notification in case of updates, we must have the request prepared by the db.prepare
-            if (options && options.cached && req.table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
-                self.clearCached(req.table, req.obj, options);
-            }
-            logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
-            if (callback) callback(err, rows, info);
-	     });
+                // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
+                if (options && options.public_columns) {
+                    var col = options.public_key || 'id';
+                    var cols = self.getPublicColumns(req.table, options);
+                    if (cols.length) {
+                        rows.forEach(function(row) {
+                            if (row[col] == options.public_columns) return;
+                            for (var p in row)  if (cols.indexOf(p) == -1) delete row[p];
+                        });
+                    }
+                }
+                // Convert values if we have custom column callback
+                self.processRows(pool, req.table, rows, options);
+                // Cache notification in case of updates, we must have the request prepared by the db.prepare
+                if (options && options.cached && req.table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
+                    self.clearCached(req.table, req.obj, options);
+                }
+                logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
+                if (callback) callback(err, rows, info);
+             });
+        } catch(err) {
+            logger.error("db.query:", pool.name, req.text, req.values, err, options);
+            if (callback) callback(err, [], {});
+        }
     });
 }
 
@@ -1870,9 +1879,7 @@ db.dynamodbInitPool = function(options)
     if (!options.pool) options.pool = "dynamodb";
 
     // Redefine pool but implement the same interface
-    var pool = this.createPool(options.pool);
-    pool.db = options.db;
-    pool.dboptions = { noJson: 1 }
+    var pool = this.createPool(options.pool, null, { db: options.db, dboptions: { noJson: 1} });
 
     pool.cacheColumns = function(opts, callback) {
         var pool = this;
@@ -2225,21 +2232,27 @@ db.cassandraCacheColumns = function(options, callback)
     });
 }
 
-// Setup LevelDB database driver
+// Setup LevelDB database driver, this is simplified driver which supports only basic key-value operations,
+// table parameter is ignored, the object only supports the followig properties name and value.
+// Options are passed to the LevelDB backend low level driver which is native LevelDB options using the same names:
+// http://leveldb.googlecode.com/svn/trunk/doc/index.html
+// The database can only be shared by one process so if no unique options.db is given, it will create a unique database as:
+// - in the backend home: var/ldb_[role]_[workerId] where role is core.role set by the server, can be master, server, web, worker.
+// - workerId is only for workers, in master processes 0 is used.
 db.leveldbInitPool = function(options)
 {
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "leveldb";
 
-    var pool = this.createPool(options.pool);
-    pool.db = options.db;
+    var pool = this.createPool(options.pool, null);
 
     pool.get = function(callback) {
         if (this.ldb) return callback(null, this);
         try {
-            options.create_if_missing = true;
-            new backend.LevelDB(core.path.spool + "/" + (this.db || ""), options, function(err) {
+            if (!core.exists(this.create_if_missing)) options.create_if_missing = true;
+            var path = core.path.spool + "/" + (options.db || ('ldb_' + core.role + (cluster.isWorker ? cluster.worker.id : 0)));
+            new backend.LevelDB(path, options, function(err) {
                 pool.ldb = this;
                 callback(null, pool);
             });
@@ -2260,20 +2273,20 @@ db.leveldbInitPool = function(options)
             break;
 
         case "get":
-            client.ldb.get(obj.name || "", function(err, item) {
+            client.ldb.get(obj.name || "", opts, function(err, item) {
                 callback(err, item ? [item] : []);
             });
             break;
 
         case "select":
         case "search":
-            client.ldb.all(obj.start || "", obj.end || "", callback);
+            client.ldb.all(obj.name || "", opts.end || "", opts, callback);
             break;
 
         case "list":
             var rc = [];
             async.forEachSeries(obj, function(id, next) {
-                client.ldb.get(id, function(err, val) {
+                client.ldb.get(id, opts, function(err, val) {
                     if (val) rc.push(val);
                     next(err);
                 });
@@ -2286,13 +2299,13 @@ db.leveldbInitPool = function(options)
         case "put":
         case "update":
         case "incr":
-            client.ldb.put(obj.name || "", obj.value || "", function(err) {
+            client.ldb.put(obj.name || "", obj.value || "", opts, function(err) {
                 callback(err, []);
             });
             break;
 
         case "del":
-            client.ldb.del(obj.name || "", function(err) {
+            client.ldb.del(obj.name || "", opts, function(err) {
                 callback(err, []);
             });
             break;
@@ -2304,7 +2317,11 @@ db.leveldbInitPool = function(options)
     return pool;
 }
 
-// Setup LMDB database driver
+// Setup LMDB database driver, this is simplified driver which supports only basic key-value operations,
+// table parameter is ignored, the object only supports the properties name and value in the record objects.
+// Options are passed to the LMDB backend low level driver as MDB_ flags, see http://symas.com/mdb/doc/
+// - select and sesrch actions support options.end property which defines the end condition for a range retrieval starting
+//   with obj.name property. If not end is given, all records till the end will be returned.
 db.lmdbInitPool = function(options)
 {
     var self = this;
@@ -2312,16 +2329,15 @@ db.lmdbInitPool = function(options)
     if (!options.pool) options.pool = "lmdb";
 
     var pool = this.createPool(options.pool);
-    pool.db = options.db;
 
     pool.get = function(callback) {
         if (this.lmdb) return callback(null, this);
         try {
             if (!options.path) options.path = core.path.spool;
-            options.flags = (options.flags || 0) | backend.MDB_CREATE;
-            options.dbs = 1;
+            if (!options.flags)  options.flags = backend.MDB_CREATE;
+            if (!options.dbs) options.dbs = 1;
             this.env = new backend.LMDBEnv(options);
-            new backend.LMDB(this.env, { name: this.db, flags: options.flags }, function(err) {
+            new backend.LMDB(this.env, { name: options.db, flags: options.flags }, function(err) {
                 pool.lmdb = this;
                 callback(null, pool);
             });
@@ -2349,13 +2365,13 @@ db.lmdbInitPool = function(options)
 
         case "select":
         case "search":
-            client.lmdb.all(obj.start || "", obj.end || "", callback);
+            client.lmdb.all(obj.name || "", opts.end || "", opts, callback);
             break;
 
         case "list":
             var rc = [];
             async.forEachSeries(obj, function(id, next) {
-                client.lmdb.get(id, function(err, val) {
+                client.lmdb.get(id, opts, function(err, val) {
                     if (val) rc.push(val);
                     next(err);
                 });
@@ -2368,13 +2384,13 @@ db.lmdbInitPool = function(options)
         case "put":
         case "update":
         case "incr":
-            client.lmdb.put(obj.name || "", obj.value || "", function(err) {
+            client.lmdb.put(obj.name || "", obj.value || "", opts, function(err) {
                 callback(err, []);
             });
             break;
 
         case "del":
-            client.lmdb.del(obj.name || "", function(err) {
+            client.lmdb.del(obj.name || "", opts, function(err) {
                 callback(err, []);
             });
             break;
