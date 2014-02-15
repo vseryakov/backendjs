@@ -56,6 +56,7 @@ var server = {
     // Number of workers or web servers to launch
     maxWorkers: 1,
     maxProcesses: 1,
+    maxJobs: 1,
 
     // How long to be in idle state and shutdown, for use in instances
     idleTime: 120,
@@ -68,6 +69,7 @@ var server = {
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
+           { name: "max-jobs", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue only" },
            { name: "jobs-interval", type: "number", min: 60000, max: 900000, descr: "Interval between executing job queue" } ],
 };
 
@@ -709,11 +711,11 @@ server.scheduleCronjob = function(spec, obj)
     this.crontab.push(cj);
 }
 
-// Execute a cronjob by name now
+// Execute a cronjob by id now, it must have been scheduled already
 server.runCronjob = function(id)
 {
     this.crontab.forEach(function(x) {
-       if (x.id == id) x._callback();
+       if (x.job && x.job.id == id) x._callback();
     });
 }
 
@@ -791,7 +793,8 @@ server.submitJob = function(options, callback)
 {
     var self = this;
     if (!options || core.typeName(options.job) != "object") return logger.error('submitJob:', 'invalid job spec, must be an object:', options);
-    db.add("bk_jobs", { id: options.tag || self.jobsTag, tag: core.hash(options.job), job: options.job, type: options.type, mtime: core.now() }, { no_columns: 1 }, function() {
+    logger.debug('submitJob:', options);
+    db.put("bk_jobs", { id: options.tag || self.jobsTag, tag: core.hash(options.job), job: options.job, cron: options.cron, args: options.args, type: options.type, mtime: core.now() }, function() {
         if (callback) callback();
     });
 }
@@ -804,7 +807,7 @@ server.processJobs = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
 
-    db.select("bk_jobs", { id: this.jobsTag }, { count: this.maxWorkers }, function(err, rows) {
+    db.select("bk_jobs", { id: this.jobsTag }, { count: this.maxJobs }, function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
             try {
                 if (row.job.cron) {

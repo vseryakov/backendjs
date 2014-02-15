@@ -91,6 +91,8 @@ var db = {
                          tag: { primary: 1 },
                          type: { value: "local" },
                          job: { type: "json" },
+                         cron: {},
+                         args: {},
                          mtime: { type: 'int'} },
     }
 };
@@ -330,7 +332,7 @@ db.initPool = function(options, createcb)
 db.createPool = function(name, pool, options)
 {
     if (!pool) pool = {};
-    pool.get = function(callback) { callback(err, this); }
+    pool.get = function(callback) { callback(null, this); }
     pool.free = function(client) {}
     pool.setup = function(client, callback) { callback(err, client); };
     pool.watch = function(client) {}
@@ -815,11 +817,13 @@ db.getSelectedColumns = function(table, options)
 // Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped
 db.skipColumn = function(name, val, options, columns)
 {
-	return !name || name[0] == '_' || typeof val == "undefined" ||
-			(options.skip_null && val === null) ||
-			(!options.all_columns && (!columns || !columns[name])) ||
-			(options.skip_columns && options.skip_columns.indexOf(name) > -1) ||
-	        (options.select && options.select.indexOf(name) == -1) ? true : false;
+	var rc = !name || name[0] == '_' || typeof val == "undefined" ||
+	         (options.skip_null && val === null) ||
+	         (!options.all_columns && (!columns || !columns[name])) ||
+	         (options.skip_columns && options.skip_columns.indexOf(name) > -1) ||
+	         (options.select && options.select.indexOf(name) == -1) ? true : false;
+	logger.dev('skipColumn:', name, val, rc);
+	return rc;
 }
 
 // Return cached primary keys for a table or null
@@ -1931,9 +1935,9 @@ db.dynamodbInitPool = function(options)
         var obj = req.obj;
         var options = core.extendObj(opts, "db", pool.db);
         pool.next_token = null;
+        var cols = pool.dbcolumns[table] || {};
         // Primary keys
         var primary_keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
-
         switch(req.op) {
         case "create":
             var idxs = [];
@@ -2054,7 +2058,6 @@ db.dynamodbInitPool = function(options)
 
         case "put":
             // Add/put only listed columns if there is a .columns property specified
-        	var cols = pool.dbcolumns[table] || {};
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, cols); } });
             aws.ddbPutItem(table, o, options, function(err, rc) {
                 callback(err, []);

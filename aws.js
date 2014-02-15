@@ -126,7 +126,7 @@ aws.queryDDB = function (action, obj, options, callback)
     var req = url.parse(uri);
     var json = JSON.stringify(obj);
     var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };
-    logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options);
+    logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);
 
     this.querySign("dynamodb", req.hostname, "POST", req.path, json, headers);
     core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {

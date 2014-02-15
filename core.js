@@ -1882,14 +1882,14 @@ core.exists = function(obj, name)
 //     - _skip_null - to skip all null properties
 //     - _empty_to_null - convert empty strings into null objects
 //     - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
-//     - name - a property name to skip, the value is terated depending on the type of the property:
+//     - name - a property name to skip, the value is treated depending on the type of the property:
 //          - boolean - skip if true
 //          - integer - skip only if the object's propetty is a string and greater in lengtth that this value
 // - if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 // Example:
 //          core.cloneObj({ 1: 2 }, { 1: 1 }, "3", 3, "4", 4)
-//          core.cloneObj({1 : 2 }, "3", 3, "4", 4)
+//          core.cloneObj({ 1 : 2 }, "3", 3, "4", 4)
 core.cloneObj = function()
 {
     var obj = arguments[0];
@@ -1929,7 +1929,7 @@ core.cloneObj = function()
         }
         if ((obj[p] == null || typeof obj[p] == "undefined") && filter._skip_null) continue;
         if (filter._skip_cb && filter._skip_cb(p, obj[p])) continue;
-        rc[p] = this.cloneObj(obj[p], filter);
+        rc[p] = obj[p];
     }
     for (var i = idx; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;
