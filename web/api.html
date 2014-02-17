@@ -51,6 +51,59 @@
 
  <script type="text/javascript">
 
+// Based on https://github.com/ngn/jquery-input-history.git
+$(function() {
+    $.widget('backend.inputHistory', {
+    _create:function() {
+        var s, _this = this;
+        this.storageKey = 'inputHistory.' + this.element.attr('id');
+        this.h0 = (s = localStorage[this.storageKey]) ? s.split('\n'):[];
+        this.h = this.h0.concat(['']);
+        this.i = this.h0.length;
+        return this.element.keydown(function(event) {
+            switch(event.which) {
+            case 13:return _this.enter();
+            case 38:return _this.up();
+            case 40:return _this.down();
+            }
+        });
+    },
+    up:function() {
+        if (this.i > 0) {
+            this.h[this.i--] = this.element.val();
+            this.element.val(this.h[this.i]);
+        }
+        this._trigger('up');
+        return false;
+    },
+    down:function() {
+        if (this.i < this.h0.length){
+            this.h[this.i++] = this.element.val();
+            this.element.val(this.h[this.i]);
+        }
+        this._trigger('down');
+        return false;
+    },
+    enter:function() {
+        this._trigger('enter');
+        if (this.i < this.h0.length){
+            this.h[this.i] = this.h0[this.i];
+        }
+        var v = this.element.val();
+        if (this.i >= 0 && this.i >= this.h0.length - 1 && this.h0[this.h0.length - 1] === v) {
+            this.h[this.h0.length] = '';
+        } else {
+            this.h[this.h0.length] = v;
+            this.h.push('');
+            this.h0.push(v);
+            localStorage[this.storageKey] = this.h0.join('\n');
+        }
+        this.i = this.h0.length;
+        this.element.val('');
+        return false;
+    }});
+});
+
  $(function () {
      Backend.debug = 1;
      Backend.apiResponse = ko.observable('');
@@ -76,19 +129,20 @@
      }
      Backend.doRun = function() {
          var self = this;
-         if (!self.apiUrl()) return;
+         var url = $('#url').val();
+         if (!url) return;
          $('#icon').empty();
 
          // Request for an image, re-route to image container
-         if (/^\/([^\/]+)\/image\/([a-z])?\/?([0-9]+)|(^\/logo\/[a-z0-9]+)/.test(self.apiUrl())) {
+         if (/^\/([^\/]+)\/image\/([a-z])?\/?([0-9]+)|(^\/logo\/[a-z0-9]+)/.test(url)) {
              self.apiResponse("");
-             $("<img />").attr('src', self.apiUrl()).load(function() {
+             $("<img />").attr('src', url).load(function() {
                  if (this.complete && this.naturalWidth) $("#icon").append(this);
              });
          } else {
-             var options = { url: self.apiUrl() };
+             var options = { url: url };
              Backend.send(options, function(data) {
-                 var name = self.apiUrl().split('/')[1];
+                 var name = url.split('/')[1];
                  try {
                      if (self.apiTable && data.length) {
                          var html = "<table><tr>";
@@ -121,6 +175,10 @@
              });
          }
      }
+
+     $('#url').inputHistory({
+         enter: function() { Backend.doRun() }
+     });
      ko.applyBindings(Backend);
      Backend.doLogin();
  });
@@ -140,7 +198,7 @@
      <form data-bind="submit: doRun">
      <table border=0>
       <tr><td>URL:</td>
-          <td><input id="url" type="search" size=80" data-bind='value: apiUrl' autocomplete="on"/></td>
+          <td><input id="url" type="search" size=80" /></td>
           <td colspan=3><button type="submit" >Run</button></td>
           <td><input type="checkbox" data-bind="checked: apiImages" title="Show images by id"/></td>
           <td>Show Icons</td>

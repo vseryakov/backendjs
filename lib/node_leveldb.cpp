@@ -31,6 +31,7 @@ public:
         string key;
         string value;
         string end;
+        int64_t num;
         vector<pair<string,string> > list;
         Persistent<Function> callback;
         leveldb::Status status;
@@ -38,7 +39,7 @@ public:
         leveldb::ReadOptions readOptions;
         leveldb::WriteOptions writeOptions;
 
-        LDBBaton(LevelDB* db_, Handle<Function> cb_ = Handle<Function>()): db(db_) {
+        LDBBaton(LevelDB* db_, Handle<Function> cb_ = Handle<Function>()): db(db_), num(0) {
             db->Ref();
             request.data = this;
             callback = Persistent<Function>::New(cb_);
@@ -117,6 +118,8 @@ public:
     static void Work_Del(uv_work_t* req);
     static Handle<Value> Batch(const Arguments& args);
     static void Work_Batch(uv_work_t* req);
+    static Handle<Value> Incr(const Arguments& args);
+    static void Work_Incr(uv_work_t* req);
 
     static Handle<Value> GetProperty(const Arguments& args);
     static Handle<Value> GetSnapshot(const Arguments& args);
@@ -229,8 +232,9 @@ void LevelDB::Work_After(uv_work_t* req)
     if (!baton->callback.IsEmpty() && baton->callback->IsFunction()) {
         Local<Value> argv[2] = { Local<Value>::New(Null()), Local<Value>::New(Null()) };
         if (!baton->status.ok()) argv[0] = Local<Value>::New(Exception::Error(String::New(baton->status.ToString().c_str())));
-        if (baton->value.size()) argv[1] = Local<Value>::New(String::New(baton->value.c_str()));
-        if (baton->list.size()) argv[1] = Local<Value>::New(toArray(baton->list));
+        if (baton->value.size()) argv[1] = Local<Value>::New(String::New(baton->value.c_str())); else
+        if (baton->list.size()) argv[1] = Local<Value>::New(toArray(baton->list)); else
+            argv[1] = Local<Number>::New(Number::New(baton->num));
         TRY_CATCH_CALL(baton->db->handle_, baton->callback, 2, argv);
     } else
     if (!baton->status.ok()) {
@@ -366,6 +370,44 @@ void LevelDB::Work_Put(uv_work_t* req)
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     baton->status = baton->db->handle->Put(baton->writeOptions, baton->key, baton->value);
+}
+
+Handle<Value> LevelDB::Incr(const Arguments& args)
+{
+    HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+
+    REQUIRE_ARGUMENT_STRING(0, key);
+    REQUIRE_ARGUMENT_NUMBER(1, n);
+    OPTIONAL_ARGUMENT_OBJECT(2, opts);
+    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+
+    LDBBaton* baton = new LDBBaton(db, callback);
+    baton->GetWriteOptions(opts);
+    baton->key = *key;
+    baton->num = n;
+
+    if (callback.IsEmpty()) {
+        Work_Incr(&baton->request);
+        BATON_ERROR(baton);
+        delete baton;
+    } else {
+        uv_queue_work(uv_default_loop(), &baton->request, Work_Incr, (uv_after_work_cb)Work_After);
+    }
+    return args.This();
+}
+
+void LevelDB::Work_Incr(uv_work_t* req)
+{
+    LDBBaton* baton = static_cast<LDBBaton*>(req->data);
+
+    baton->status = baton->db->handle->Get(baton->readOptions, baton->key, &baton->value);
+    if (!baton->status.ok() && baton->status.IsNotFound()) baton->status = leveldb::Status::OK();
+    if (baton->status.ok()) {
+        baton->value = vFmtStr("%lld", atoll(baton->value.c_str()) + baton->num);
+        baton->status = baton->db->handle->Put(baton->writeOptions, baton->key, baton->value);
+        if (baton->status.ok()) baton->num = atoll(baton->value.c_str());
+    }
 }
 
 Handle<Value> LevelDB::Del(const Arguments& args)
@@ -513,6 +555,7 @@ void LevelDB::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "close", Close);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "get", Get);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "put", Put);
+    NODE_SET_PROTOTYPE_METHOD(constructor_template, "incr", Incr);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "batch", Batch);

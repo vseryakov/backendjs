@@ -64,7 +64,7 @@ var api = {
                       email: {},
                       phone: {},
                       website: {},
-                      birthday: { semipub: 1 },
+                      birthday: { semipub: 1 },          // used in age calculation
                       gender: { pub: 1 },
                       icons: { semipub: 1 },
                       address: {},

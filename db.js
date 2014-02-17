@@ -242,9 +242,9 @@ db.initPool = function(options, createcb)
     });
 
     // Translation map for similar operators from different database drivers
-    this.createPool(options.pool, pool, { dboptions: { typesMap: { counter: "int", bigint: "int" },
-                                                       schema: [],
-                                                       opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } } });
+    this.createPool(options.pool, pool, { sql: true, dboptions: { schema: [],
+                                                                  typesMap: { counter: "int", bigint: "int" },
+                                                                  opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } } });
 
     // Aquire a connection with error reporting
     pool.get = function(callback) {
@@ -348,7 +348,6 @@ db.createPool = function(name, pool, options)
     pool.dbcolumns = {};
     pool.dbkeys = {};
     pool.dbindexes = {};
-    pool.sql = true;
     pool.affected_rows = 0;
     pool.inserted_oid = 0;
     pool.next_token = null;
@@ -464,8 +463,10 @@ db.update = function(table, obj, options, callback)
 }
 
 // Counter operation, increase or decrease column values, similar to update but all specified columns except primary
-// key will be incremented, use negative value to decrease the value
-// The record MUST exist already, this is an update only
+// key will be incremented, use negative value to decrease the value.
+//
+// *Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
+// if does not exist yet.*
 db.incr = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -2064,13 +2065,14 @@ db.dynamodbInitPool = function(options)
             });
             break;
 
-        case "incr":
         case "update":
+            options.expected = primary_keys;
+
+        case "incr":
             // Skip special columns, primary key columns. If we have specific list of allowed columns only keep those.
         	var cols = pool.dbcolumns[table] || {};
             // Keep nulls and empty strings, it means we have to delete this property.
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return primary_keys[n] || self.skipColumn(n, v, options, cols); }, _empty_to_null: 1 });
-            options.expected = primary_keys;
             // Increment counters, only specified columns will use ADD operation, they must be numbers
             if (!options.ops) options.ops = {};
             if (options.counter) options.counter.forEach(function(x) { options.ops[x] = 'ADD'; });
@@ -2301,8 +2303,13 @@ db.leveldbInitPool = function(options)
         case "add":
         case "put":
         case "update":
-        case "incr":
             client.ldb.put(obj.name || "", obj.value || "", opts, function(err) {
+                callback(err, []);
+            });
+            break;
+
+        case "incr":
+            client.ldb.incr(obj.name || "", obj.value || "", opts, function(err) {
                 callback(err, []);
             });
             break;
@@ -2386,8 +2393,13 @@ db.lmdbInitPool = function(options)
         case "add":
         case "put":
         case "update":
-        case "incr":
             client.lmdb.put(obj.name || "", obj.value || "", opts, function(err) {
+                callback(err, []);
+            });
+            break;
+
+        case "incr":
+            client.lmdb.incr(obj.name || "", obj.value || "", opts, function(err) {
                 callback(err, []);
             });
             break;

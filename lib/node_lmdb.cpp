@@ -84,7 +84,7 @@ public:
 
     class Baton {
     public:
-        Baton(LMDB_DB *db_, Handle<Function> cb_): db(db_), status(0), flags(0) {
+        Baton(LMDB_DB *db_, Handle<Function> cb_): db(db_), num(0), status(0), flags(0) {
             db->Ref();
             req.data = this;
             callback = Persistent < Function > ::New(cb_);
@@ -99,6 +99,7 @@ public:
         string message;
         string key;
         string data;
+        int64_t num;
         vector<pair<string,string> > list;
         int status;
         int flags;
@@ -116,6 +117,7 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "drop", Drop);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "get", Get);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "put", Put);
+        NODE_SET_PROTOTYPE_METHOD(constructor_template, "incr", Incr);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
         target->Set(String::NewSymbol("LMDB"), constructor_template->GetFunction());
@@ -180,7 +182,7 @@ public:
                 if (d->data.size()) {
                     argv[1] = Local < Value > ::New(String::New(d->data.c_str(), d->data.size()));
                 } else {
-                    argv[1] = Local < Value > ::New(Null());
+                    argv[1] = Local < Value > ::New(Number::New(d->num));
                 }
                 TRY_CATCH_CALL(d->db->handle_, d->callback, 2, argv);
             }
@@ -245,6 +247,36 @@ public:
     static void Work_Put(uv_work_t* req) {
         Baton* d = static_cast<Baton*>(req->data);
         d->status = d->db->Put(d->key.c_str(), d->key.size(), d->data.c_str(), d->data.size(), d->flags);
+        if (d->status) d->message = mdb_strerror(d->status);
+        d->data.clear();
+    }
+
+    static Handle<Value> Incr(const Arguments& args) {
+        HandleScope scope;
+        LMDB_DB *db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
+
+        REQUIRE_ARGUMENT_STRING(0, key);
+        REQUIRE_ARGUMENT_INT64(1, num);
+        OPTIONAL_ARGUMENT_INT(3, flags);
+        OPTIONAL_ARGUMENT_FUNCTION(-1, cb);
+
+        if (cb.IsEmpty()) {
+            int status = db->Incr(*key, key.length(), &num, flags);
+            if (status) return ThrowException(Exception::Error(String::New(mdb_strerror(status))));
+            return scope.Close(Local<Number>::New(Number::New(num)));
+        } else {
+            Baton *d = new Baton(db, cb);
+            d->flags = flags;
+            d->num = num;
+            d->key = string(*key, key.length());
+            uv_queue_work(uv_default_loop(), &d->req, Work_Incr, Work_After);
+        }
+        return args.This();
+    }
+
+    static void Work_Incr(uv_work_t* req) {
+        Baton* d = static_cast<Baton*>(req->data);
+        d->status = d->db->Incr(d->key.c_str(), d->key.size(), &d->num, d->flags);
         if (d->status) d->message = mdb_strerror(d->status);
         d->data.clear();
     }
@@ -352,6 +384,30 @@ public:
         v.mv_data = (void*)data;
         int rc = mdb_txn_begin(env, NULL, 0, &txn);
         if (!rc) rc = mdb_put(txn, db, &k, &v, flags);
+        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
+        txn = NULL;
+        return rc;
+    }
+    int Incr(const char *key, size_t klen, int64_t *num, int flags) {
+        if (!open) return EINVAL;
+        MDB_val k, v;
+        char n[32] = "";
+        k.mv_size = klen;
+        k.mv_data = (void*)key;
+        int rc = mdb_txn_begin(env, NULL, 0, &txn);
+        if (!rc) rc = mdb_get(txn, db, &k, &v);
+        if (rc == MDB_NOTFOUND) {
+            rc = 0;
+        } else {
+            snprintf(n, sizeof(n), "%.*s", (int)v.mv_size, v.mv_data);
+        }
+        if (!rc) {
+            snprintf(n, sizeof(n), "%lld", atoll(n) + *num);
+            v.mv_size = strlen(n);
+            v.mv_data = (void*)n;
+            rc = mdb_put(txn, db, &k, &v, flags);
+        }
+        if (!rc) *num = atoll(n);
         if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
         txn = NULL;
         return rc;
