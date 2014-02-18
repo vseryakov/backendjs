@@ -638,6 +638,13 @@ core.encodeURIComponent = function(str)
     return encodeURIComponent(str || "").replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
 }
 
+// Return unqiue process id based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
+// making it usable for repeating environemnts or storage solutions.
+core.processId = function()
+{
+    return this.role + (cluster.isWorker ? cluster.worker.id : '');
+}
+
 // Convert text into captalized words
 core.toTitle = function(name)
 {

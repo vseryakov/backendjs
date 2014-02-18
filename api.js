@@ -528,7 +528,7 @@ api.initAccountAPI = function()
     var db = core.context.db;
 
     // Assign row handler for the account table
-    db.getPool('account').processRow = self.processAccountRow;
+    db.setProcessRow('account', self.processAccountRow);
 
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
         logger.debug(req.path, req.account, req.query, req.session);
@@ -1075,7 +1075,6 @@ api.initLocationAPI = function()
                 var obj = { id: req.account.id, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, self.processAccountRow(obj));
 
                     // Delete current location
                     var geo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance });
@@ -1087,6 +1086,10 @@ api.initLocationAPI = function()
                     geo.id = req.account.id;
                     geo.mtime = now;
                     db.put("bk_location", geo);
+
+                    // Update with the actual geohash for postprocessing if any
+                    obj.geohash = geo.geohash;
+                    self.sendJSON(req, res, self.processAccountRow(obj));
 
                     // Update history log
                     if (req.query._history) {
@@ -1271,7 +1274,9 @@ api.addHook = function(type, method, path, callback)
 // - method can be '' in such case all mathods will be matched
 // - path is a string or regexp of the request URL similr to registering Express routes
 // - callback is a function with the following parameters: function(req, cb) {}, see `checkAccess` for the return type
+//
 // Example:
+//
 //          api.registerAccessCheck('', 'account', function(req, cb) {}))
 //          api.registerAccessCheck('POST', 'account/add', function(req, cb) {});
 api.registerAccessCheck = function(method, path, callback)
@@ -1286,8 +1291,10 @@ api.registerAccessCheck = function(method, path, callback)
 // - path is a string or regexp of the request URL similr to registering Express routes
 // - callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkSignature call, if status != 200 it means
 //   an error condition, the callback must pass the same or modified status object in its own `cb` callback
+//
 // Example:
-//          api.registerAuthCheck('GET', '/account/get', function(req, status, cb) { if (status.status != 200) status = { status: 302, url: '/error.html' }; cb(status) })
+//
+//           api.registerAuthCheck('GET', '/account/get', function(req, status, cb) { if (status.status != 200) status = { status: 302, url: '/error.html' }; cb(status) })
 api.registerAuthCheck = function(method, path, callback)
 {
     this.addHook('auth', method, path, callback);
@@ -1296,7 +1303,7 @@ api.registerAuthCheck = function(method, path, callback)
 // Register a callback to be called after successfull API action, status 200 only.
 // The purpose is to perform some additional actions after the standard API completed or to customize the result
 // - method can be '' in such case all mathods will be matched
-// - path is a string or regexp of the request URL similr to registering Express routes
+// - path is a string or regexp of the request URL similar to registering Express routes
 // - callback is a function with the following parameters: function(req, res, rows) where rows is the result returned by the API handler,
 //   the callback MUST return data back to the client or any other status code
 api.registerPostProcess = function(method, path, callback)

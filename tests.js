@@ -547,6 +547,32 @@ tests.ldb = function(callback)
     });
 }
 
+tests.ldbpool = function(callback)
+{
+    var type = core.getArg("-type", "lmdb");
+    var pool;
+
+    async.series([
+        function(next) {
+            if (type != "leveldb") return next();
+            pool = db.leveldbInitPool({ name: "stats" });
+            next(err);
+        },
+        function(next) {
+            if (type != "lmdb") return next();
+            pool = db.lmdbInitPool({ name: "stats", flags: backend.MDB_CREATE | backend.MDB_NOSYNC | backend.MDB_MAPASYNC, mapsize: 1024*1024*500 });
+            next();
+        },
+        function(next) {
+            db.put("stats", { name: "1", value: "1" }, { pool: type }, next);
+        },
+    ],
+    function(err) {
+        console.log(pool)
+        callback(err);
+    });
+}
+
 tests.subscribe = function(callback)
 {
     var count = 0;

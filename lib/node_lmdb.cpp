@@ -13,7 +13,7 @@
         name ##_obj->Set(NODE_PSYMBOL("code"), Integer::New(errno));
 
 #define GETOPT_INT(obj,name) { Local<String> vname(String::New(#name)); if (obj->Has(vname))  name = obj->Get(vname)->ToInt32()->Value(); }
-#define GETOPT_STR(obj,name) { Local<String> vname(String::New(#name)); if (obj->Has(vname)) { String::Utf8Value vstr(obj->Get(vname)->ToString()); name = *vstr; } }
+#define GETOPT_STR(obj,name) { Local<String> vname(String::New(#name)); if (obj->Has(vname) && obj->Get(vname)->IsString()) { String::Utf8Value vstr(obj->Get(vname)->ToString()); name = *vstr; } }
 
 class LMDB_ENV: public ObjectWrap {
 public:
@@ -25,6 +25,9 @@ public:
         Local < FunctionTemplate > t = FunctionTemplate::New(New);
         constructor_template = Persistent < FunctionTemplate > ::New(t);
         constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("path"), PathGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("flags"), FlagsGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("mapsize"), SizeGetter);
         constructor_template->SetClassName(String::NewSymbol("LMDBEnv"));
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "readerCheck", ReaderCheck);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "sync", Sync);
@@ -72,6 +75,29 @@ public:
         LMDB_ENV *env = ObjectWrap::Unwrap < LMDB_ENV > (args.This());
         return scope.Close(Integer::New(mdb_env_sync(env->env, force)));
     }
+    static Handle<Value> PathGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        LMDB_ENV* env = ObjectWrap::Unwrap < LMDB_ENV > (accessor.This());
+        const char *path = "";
+        mdb_env_get_path(env->env, &path);
+        return scope.Close(String::New(path));
+    }
+
+    static Handle<Value> SizeGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        LMDB_ENV* env = ObjectWrap::Unwrap < LMDB_ENV > (accessor.This());
+        MDB_envinfo info;
+        mdb_env_info(env->env, &info);
+        return scope.Close(Integer::New(info.me_mapsize));
+    }
+
+    static Handle<Value> FlagsGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        LMDB_ENV* env = ObjectWrap::Unwrap < LMDB_ENV > (accessor.This());
+        unsigned int flags = 0;
+        mdb_env_get_flags(env->env, &flags);
+        return scope.Close(Integer::New(flags));
+    }
 
     LMDB_ENV(MDB_env *e) : ObjectWrap(), env(e) {}
     ~LMDB_ENV() { if (env) mdb_env_close(env); }
@@ -112,6 +138,8 @@ public:
         Local < FunctionTemplate > t = FunctionTemplate::New(New);
         constructor_template = Persistent < FunctionTemplate > ::New(t);
         constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("open"), OpenGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("name"), NameGetter);
         constructor_template->SetClassName(String::NewSymbol("LMDB"));
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "close", Close);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "drop", Drop);
@@ -121,6 +149,18 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
         target->Set(String::NewSymbol("LMDB"), constructor_template->GetFunction());
+    }
+
+    static Handle<Value> OpenGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        LMDB_DB *db = ObjectWrap::Unwrap < LMDB_DB > (accessor.This());
+        return scope.Close(Integer::New(db->open));
+    }
+
+    static Handle<Value> NameGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        LMDB_DB *db = ObjectWrap::Unwrap < LMDB_DB > (accessor.This());
+        return scope.Close(String::New(db->name.c_str()));
     }
 
     static Handle<Value> New(const Arguments& args) {
@@ -137,7 +177,7 @@ public:
         GETOPT_STR(opts, name);
         GETOPT_INT(opts, flags);
 
-        LMDB_DB* db = new LMDB_DB(env->env, name.size() ? name : NULL, flags);
+        LMDB_DB* db = new LMDB_DB(env->env, name, flags);
         db->Wrap(args.This());
 
         if (cb.IsEmpty()) {
@@ -348,7 +388,7 @@ public:
     }
     int Open() {
         int rc = mdb_txn_begin(env, NULL, 0, &txn);
-        if (!rc) rc = mdb_dbi_open(txn, name.c_str(), flags, &db);
+        if (!rc) rc = mdb_dbi_open(txn, name.size() ? name.c_str() : NULL, flags, &db);
         if (!rc) rc = mdb_txn_commit(txn);
         if (!rc) open = 1;
         txn = NULL;

@@ -752,12 +752,12 @@ validating the signature or session cookies.</p>
 <ul>
 <li>method can be &#39;&#39; in such case all mathods will be matched</li>
 <li>path is a string or regexp of the request URL similr to registering Express routes</li>
-<li>callback is a function with the following parameters: function(req, cb) {}, see <code>checkAccess</code> for the return type
-Example:<pre><code>  api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, function(req, cb) {}))
-  api.registerAccessCheck(&#39;POST&#39;, &#39;account/add&#39;, function(req, cb) {});
-</code></pre></li>
+<li>callback is a function with the following parameters: function(req, cb) {}, see <code>checkAccess</code> for the return type</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, function(req, cb) {}))
+    api.registerAccessCheck(&#39;POST&#39;, &#39;account/add&#39;, function(req, cb) {});
+</code></pre></li>
 </ul>
 
 <ul>
@@ -769,11 +769,11 @@ like redirection or returning something explaining what to do in case of failure
 <li>method can be &#39;&#39; in such case all mathods will be matched</li>
 <li>path is a string or regexp of the request URL similr to registering Express routes</li>
 <li>callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkSignature call, if status != 200 it means
-an error condition, the callback must pass the same or modified status object in its own <code>cb</code> callback
-Example:<pre><code>  api.registerAuthCheck(&#39;GET&#39;, &#39;/account/get&#39;, function(req, status, cb) { if (status.status != 200) status = { status: 302, url: &#39;/error.html&#39; }; cb(status) })
-</code></pre></li>
+an error condition, the callback must pass the same or modified status object in its own <code>cb</code> callback</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>     api.registerAuthCheck(&#39;GET&#39;, &#39;/account/get&#39;, function(req, status, cb) { if (status.status != 200) status = { status: 302, url: &#39;/error.html&#39; }; cb(status) })
+</code></pre></li>
 </ul>
 
 <ul>
@@ -782,7 +782,7 @@ Example:<pre><code>  api.registerAuthCheck(&#39;GET&#39;, &#39;/account/get&#39;
 The purpose is to perform some additional actions after the standard API completed or to customize the result</p>
 <ul>
 <li>method can be &#39;&#39; in such case all mathods will be matched</li>
-<li>path is a string or regexp of the request URL similr to registering Express routes</li>
+<li>path is a string or regexp of the request URL similar to registering Express routes</li>
 <li>callback is a function with the following parameters: function(req, res, rows) where rows is the result returned by the API handler,
 the callback MUST return data back to the client or any other status code</li>
 </ul>
@@ -1228,6 +1228,13 @@ Returns a non-zero handle which must be unsibscribed when not needed. If no pubs
 </ul>
 
 <ul>
+<li><p><code>core.processId()</code></p>
+<p> Return unqiue process id based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
+making it usable for repeating environemnts or storage solutions.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.toTitle(name)</code></p>
 <p> Convert text into captalized words</p>
 </li>
@@ -1538,13 +1545,25 @@ mdate is a Date object with last modified time</p>
 
 <ul>
 <li><p><code>core.makePathSync(dir)</code></p>
-<p> Recursively create all directories, return 1 if created</p>
+<p> Recursively create all directories, return 1 if created or 0 on error, no exceptions are raised, error is logged only</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>core.makePath(dir, callback)</code></p>
-<p> Async version, stops on first error</p>
+<p> Async version of makePath, stops on first error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.unlinkPath(dir, callback)</code></p>
+<p> Recursevily remove all files and folders in the given path, returns an error to the callback if any</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.unlinkPathSync(dir)</code></p>
+<p> Recursevily remove all files and folders in the given path, stops on first error</p>
 </li>
 </ul>
 
@@ -1672,7 +1691,7 @@ keep the original size if smaller than given positive value, if any is 0 that me
 <li>_skip_null - to skip all null properties</li>
 <li>_empty_to_null - convert empty strings into null objects</li>
 <li>_skip_cb - a callback that returns true to skip a property, argumnets are property name and value</li>
-<li>name - a property name to skip, the value is terated depending on the type of the property:<ul>
+<li>name - a property name to skip, the value is treated depending on the type of the property:<ul>
 <li>boolean - skip if true</li>
 <li>integer - skip only if the object&#39;s propetty is a string and greater in lengtth that this value</li>
 </ul>
@@ -1682,7 +1701,7 @@ keep the original size if smaller than given positive value, if any is 0 that me
 <li>if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object</li>
 <li>all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 Example:<pre><code>  core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
-  core.cloneObj({1 : 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
+  core.cloneObj({ 1 : 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 </code></pre></li>
 </ul>
 </li>
@@ -1908,8 +1927,9 @@ string then it is used as a name of the column instead of default mtime name</li
 <ul>
 <li><p><code>db.incr(table, obj, options, callback)</code></p>
 <p> Counter operation, increase or decrease column values, similar to update but all specified columns except primary
-key will be incremented, use negative value to decrease the value
-The record MUST exist already, this is an update only</p>
+key will be incremented, use negative value to decrease the value.</p>
+<p><em>Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
+if does not exist yet.</em></p>
 </li>
 </ul>
 
@@ -2169,6 +2189,14 @@ options may be used to define the following properties:</li>
 </ul>
 
 <ul>
+<li><p><code>db.setProcessRow(table, options, callback)</code></p>
+<p> Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
+specified table thus providing an opportunity to customize the result.
+All assigned callback to tthis table will be called in the order of the assignment.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.sqlCacheColumns(options, callback)</code></p>
 <p> Cache columns using the information_schema</p>
 </li>
@@ -2397,11 +2425,7 @@ with error as first argument and database object as second</p>
 table parameter is ignored, the object only supports the followig properties name and value.
 Options are passed to the LevelDB backend low level driver which is native LevelDB options using the same names:
 <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a>
-The database can only be shared by one process so if no unique options.db is given, it will create a unique database as:</p>
-<ul>
-<li>in the backend home: var/ldb<em>[role]</em>[workerId] where role is core.role set by the server, can be master, server, web, worker.</li>
-<li>workerId is only for workers, in master processes 0 is used.</li>
-</ul>
+The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()</p>
 </li>
 </ul>
 
@@ -2411,7 +2435,7 @@ The database can only be shared by one process so if no unique options.db is giv
 table parameter is ignored, the object only supports the properties name and value in the record objects.
 Options are passed to the LMDB backend low level driver as MDB_ flags, see <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a></p>
 <ul>
-<li>select and sesrch actions support options.end property which defines the end condition for a range retrieval starting
+<li>select and search actions support options.end property which defines the end condition for a range retrieval starting
 with obj.name property. If not end is given, all records till the end will be returned.</li>
 </ul>
 </li>
@@ -2629,26 +2653,18 @@ All spaces must be are replaced with %20 to be used in command line parameterrs<
 
 <ul>
 <li><p><code>server.scheduleCronjob(spec, obj)</code></p>
-<p> Create a new cron job
-Example:</p>
+<p> Create a new cron job, for remote jobs additonal property args can be used in the cron object to define
+arguments to the instance backend process, properties must start with -</p>
+<p>Example:</p>
 <pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },
     { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>server.scheduleLaunchjob(spec, obj)</code></p>
-<p> Create new cron job to be run on a drone in the cloud
-For remote jobs additonal property args can be used in the cron object to define
-arguments to the instance backend process, properties must start with -
-Example:</p>
-<pre><code>    { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
+    { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
 </code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>server.runCronjob(id)</code></p>
-<p> Execute a cronjob by name now</p>
+<p> Execute a cronjob by id now, it must have been scheduled already</p>
 </li>
 </ul>
 
@@ -2675,13 +2691,13 @@ Example:</p>
 </ul>
 </li>
 <li>cron - cron time interval spec: &#39;second&#39; &#39;minute&#39; &#39;hour&#39; &#39;dayOfMonth&#39; &#39;month&#39; &#39;dayOfWeek&#39;</li>
-<li>job - a string as obj.method or an object with job name as property name and the value is an object with
-additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments</li>
-<li>args - additional arguments passwed to the backend in the command line for the remote jobs
-Example:<pre><code>  [ { &quot;type&quot;: &quot;local&quot;, cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
+<li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
 </code></pre></li>
+<li>args - additional arguments passwed to the backend in the command line for the remote jobs</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    [ { &quot;type&quot;: &quot;local&quot;, cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
+</code></pre></li>
 </ul>
 
 <ul>

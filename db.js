@@ -39,7 +39,7 @@ var db = {
 
     // Database connection pools, sqlite default pool is called sqlite, PostgreSQL default pool is pg, DynamoDB is ddb
     dbpool: {},
-    nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, unique: {},
+    nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, dboptions: {},
               get: function() { throw "no pool" }, free :function() { throw "no pool" },
               prepare: function() { throw "no pool" }, put: function() { throw "no pool" },
               cacheColumns: function() { throw "no pool" }, value: function() {} },
@@ -341,6 +341,7 @@ db.createPool = function(name, pool, options)
     pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: table, obj: obj }; };
     pool.query = function(client, req, opts, callback) { callback(null, []); };
     pool.nextToken = function(req, rows, opts) {};
+    pool.processRow = [];
     pool.name = name;
     pool.serial = 0;
     pool.tables = {};
@@ -918,7 +919,7 @@ db.getPublicColumns = function(table, options)
 // Call custom row handler for every row in the result, this assumes that pool.processRow callback has been assigned previously
 db.processRows = function(pool, table, rows, options)
 {
-	if (!pool.processRow && !options.noJson) return;
+	if (!pool.processRow.length && !options.noJson) return;
 
 	var cols = pool.dbcolumns[table.toLowerCase()] || {};
 	rows.forEach(function(row) {
@@ -927,10 +928,21 @@ db.processRows = function(pool, table, rows, options)
 	            if (cols[p].type == "json" || typeof row[p] == "string") try { row[p] = JSON.parse(row[p]); } catch(e) {}
 	        }
 	    }
-	    if (pool.processRow) {
-	        pool.processRow.call(pool, row, options, cols);
+	    if (Array.isArray(pool.processRow)) {
+	        pool.processRow.forEach(function(x) { x.call(pool, row, options, cols); });
 	    }
 	});
+}
+
+// Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
+// specified table thus providing an opportunity to customize the result.
+// All assigned callback to tthis table will be called in the order of the assignment.
+db.setProcessRow = function(table, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    if (!table || !callback) return;
+    var pool = this.getPool(table, options);
+    if (Array.isArray(pool.processRow)) pool.processRow.push(callback);
 }
 
 // Cache columns using the information_schema
@@ -2241,9 +2253,7 @@ db.cassandraCacheColumns = function(options, callback)
 // table parameter is ignored, the object only supports the followig properties name and value.
 // Options are passed to the LevelDB backend low level driver which is native LevelDB options using the same names:
 // http://leveldb.googlecode.com/svn/trunk/doc/index.html
-// The database can only be shared by one process so if no unique options.db is given, it will create a unique database as:
-// - in the backend home: var/ldb_[role]_[workerId] where role is core.role set by the server, can be master, server, web, worker.
-// - workerId is only for workers, in master processes 0 is used.
+// The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()
 db.leveldbInitPool = function(options)
 {
     var self = this;
@@ -2256,7 +2266,7 @@ db.leveldbInitPool = function(options)
         if (this.ldb) return callback(null, this);
         try {
             if (!core.exists(this.create_if_missing)) options.create_if_missing = true;
-            var path = core.path.spool + "/" + (options.db || ('ldb_' + core.role + (cluster.isWorker ? cluster.worker.id : 0)));
+            var path = core.path.spool + "/" + (options.db || ('ldb_' + core.processId()));
             new backend.LevelDB(path, options, function(err) {
                 pool.ldb = this;
                 callback(null, pool);
@@ -2330,7 +2340,7 @@ db.leveldbInitPool = function(options)
 // Setup LMDB database driver, this is simplified driver which supports only basic key-value operations,
 // table parameter is ignored, the object only supports the properties name and value in the record objects.
 // Options are passed to the LMDB backend low level driver as MDB_ flags, see http://symas.com/mdb/doc/
-// - select and sesrch actions support options.end property which defines the end condition for a range retrieval starting
+// - select and search actions support options.end property which defines the end condition for a range retrieval starting
 //   with obj.name property. If not end is given, all records till the end will be returned.
 db.lmdbInitPool = function(options)
 {
@@ -2346,10 +2356,12 @@ db.lmdbInitPool = function(options)
             if (!options.path) options.path = core.path.spool;
             if (!options.flags)  options.flags = backend.MDB_CREATE;
             if (!options.dbs) options.dbs = 1;
-            this.env = new backend.LMDBEnv(options);
+            // Share same environment between multiple pools, each pool works with one db only to keep the API simple
+            if (options.env && options.env instanceof backend.LMDBEnv) this.env = options.env;
+            if (!this.env) this.env = new backend.LMDBEnv(options);
             new backend.LMDB(this.env, { name: options.db, flags: options.flags }, function(err) {
                 pool.lmdb = this;
-                callback(null, pool);
+                callback(err, pool);
             });
         } catch(e) {
             callback(e);
@@ -2359,6 +2371,8 @@ db.lmdbInitPool = function(options)
         var pool = this;
         var table = req.text;
         var obj = req.obj;
+
+        logger.log(req)
 
         switch(req.op) {
         case "create":
