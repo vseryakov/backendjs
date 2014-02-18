@@ -74,6 +74,7 @@ var api = {
                       country: {},
                       latitude: { type: "real", pub: 1 },
                       longitude: { type: "real", pub: 1 },
+                      geohash: { pub: 1 },
                       location: {},
                       ltime: { type: "bigint" },
                       ctime: { type: "bigint" },
@@ -131,7 +132,7 @@ var api = {
                      mtime: { type: "bigint", primary: 1 },
                      type: {},
                      data: {} }
-    },
+    }, // tables
 
     // Access handlers to grant access to the endpoint before checking for signature.
     // Authorization handlers after the account has been authenticated.
@@ -1072,24 +1073,21 @@ api.initLocationAPI = function()
                 var distance = backend.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
                 if (distance < core.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + core.minDistance);
 
-                var obj = { id: req.account.id, mtime: now, ltime: now, latitude: latitude, longitude: longitude, location: req.query.location };
+                var geo = core.geoHash(latitude, longitude, { distance: req.account.distance });
+                var obj = { id: req.account.id, mtime: now, ltime: now, latitude: latitude, longitude: longitude, geohash: geo.geohash, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
+                    self.sendJSON(req, res, self.processAccountRow(obj));
 
                     // Delete current location
-                    var geo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance });
-                    geo.id = req.account.id;
-                    db.del("bk_location", geo);
+                    var oldgeo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance });
+                    oldgeo.id = req.account.id;
+                    db.del("bk_location", oldgeo);
 
                     // Insert new location
-                    geo = core.geoHash(latitude, longitude, { distance: req.account.distance });
                     geo.id = req.account.id;
                     geo.mtime = now;
                     db.put("bk_location", geo);
-
-                    // Update with the actual geohash for postprocessing if any
-                    obj.geohash = geo.geohash;
-                    self.sendJSON(req, res, self.processAccountRow(obj));
 
                     // Update history log
                     if (req.query._history) {

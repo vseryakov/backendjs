@@ -75,7 +75,7 @@ var server = {
 
 module.exports = server;
 
-// Start the server process
+// Start the server process, call the callback to perform some initialization before launchng any server, just after core.init
 server.start = function()
 {
     var self = this;

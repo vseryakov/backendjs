@@ -254,6 +254,11 @@ core.init = function(callback)
                 }
             });
             next();
+        },
+
+        function(next) {
+            if (!self.postInit) return next();
+            self.postInit.call(self, next);
         }],
         // Final callbacks
         function(err) {
@@ -263,6 +268,10 @@ core.init = function(callback)
             });
     });
 }
+
+// Called after the core.init has been initialized successfully, this can be redefined in tha applications to add additional
+// init steps that all processes require to have.
+core.postInit = function(callback) { callback() }
 
 // Run any backend function after environment has been intialized, this is to be used in shell scripts,
 // core.init will parse all command line arguments, the simplest case to run from /data directory and it will use

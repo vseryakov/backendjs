@@ -70,31 +70,36 @@ var db = {
     ],
 
     // Default tables
-    tables: { bk_property: { name: { primary: 1 },
-                             value: {},
-                             mtime: { type: "int" } },
+    tables: {
+        bk_property: { name: { primary: 1 },
+                       value: {},
+                       mtime: { type: "int" }
+        },
 
-              bk_cookies: { id: { primary: 1 },
-                            name: { index: 1 },
-                            domain: {},
-                            path: {},
-                            value: { type: "text" },
-                            expires: { type:" bigint" } },
+        bk_cookies: { id: { primary: 1 },
+                      name: { index: 1 },
+                      domain: {},
+                      path: {},
+                      value: { type: "text" },
+                      expires: { type:" bigint" }
+        },
 
-              bk_queue: { id: { primary: 1 },
-                          url: {},
-                          postdata: { type: "text" },
-                          counter: { type: 'int' },
-                          mtime: { type: "int" } },
+        bk_queue: { id: { primary: 1 },
+                    url: {},
+                    postdata: { type: "text" },
+                    counter: { type: 'int' },
+                    mtime: { type: "int" }
+        },
 
-              bk_jobs: { id: { primary: 1 },
-                         tag: { primary: 1 },
-                         type: { value: "local" },
-                         job: { type: "json" },
-                         cron: {},
-                         args: {},
-                         mtime: { type: 'int'} },
-    }
+        bk_jobs: { id: { primary: 1 },
+                   tag: { primary: 1 },
+                   type: { value: "local" },
+                   job: { type: "json" },
+                   cron: {},
+                   args: {},
+                   mtime: { type: 'int'}
+        },
+    }, // tables
 };
 
 module.exports = db;

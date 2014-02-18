@@ -599,6 +599,98 @@ backend via npm with all dependencies:</p>
 </ul>
 
 <ul>
+<li><p><code>Database tables</code></p>
+<pre><code>      // Authentication by login, only keeps id and secret to check the siganture
+      bk_auth: { login: { primary: 1 },
+                 id: {},
+                 secret: {},
+                 url_deny: {},                        // Deny access to matched url
+                 url_allow: {},                       // Only grant access if matched this regexp
+                 expires: { type: &quot;bigint&quot; },         // Deny access to the account if this value is before current date, milliseconds
+                 mtime: { type: &quot;bigint&quot; } },
+
+      // Basic account information
+      bk_account: { id: { primary: 1, pub: 1 },
+                    login: {},
+                    name: {},
+                    alias: { pub: 1 },
+                    type: {},
+                    status: {},
+                    email: {},
+                    phone: {},
+                    website: {},
+                    birthday: { semipub: 1 },          // used in age calculation
+                    gender: { pub: 1 },
+                    icons: { semipub: 1 },
+                    address: {},
+                    city: {},
+                    state: {},
+                    zipcode: {},
+                    country: {},
+                    latitude: { type: &quot;real&quot;, pub: 1 },
+                    longitude: { type: &quot;real&quot;, pub: 1 },
+                    geohash: { pub: 1 },
+                    location: {},
+                    ltime: { type: &quot;bigint&quot; },
+                    ctime: { type: &quot;bigint&quot; },
+                    mtime: { type: &quot;bigint&quot; } },
+
+     // Locations for all accounts to support distance searches
+     bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
+                    id: { primary: 1 },                     // my account id, part of the primary key for pagination
+                    latitude: { type: &quot;real&quot; },
+                    longitude: { type: &quot;real&quot; },
+                    mtime: { type: &quot;bigint&quot; }},
+
+     // All connections between accounts: like,dislike,friend...
+     bk_connection: { id: { primary: 1 },                    // my account_id
+                      type: { primary: 1 },                  // type:connection_id
+                      state: {},
+                      mtime: { type: &quot;bigint&quot; }},
+
+     // Connections by time to query for recent updates since some time...
+     bk_recent: { id: { primary: 1 },               // my account id
+                  mtime: { primary: 1 },            // mtime:connection_id
+                  type: {} },
+
+     // References from other accounts, likes,dislikes...
+     bk_reference: { id: { primary: 1 },                    // connection_id
+                     type: { primary: 1 },                  // type:account_id
+                     state: {},
+                     mtime: { type: &quot;bigint&quot; }},
+
+     // Messages between accounts
+     bk_message: { id: { primary: 1 },                    // my account_id
+                   mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
+                   status: {},                            // Status flags: R - read
+                   msg: { type: &quot;text&quot; },                 // Text of the message
+                   icon: {}},                             // Icon base64 or url
+
+     // All accumulated counters for accounts
+     bk_counter: { id: { primary: 1 },                                       // my account_id
+                   ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy
+                   like0: { type: &quot;counter&quot;, value: 0, incr: 1 },            // who i liked
+                   like1: { type: &quot;counter&quot;, value: 0 },                     // reversed, who liked me
+                   dislike0: { type: &quot;counter&quot;, value: 0, incr: 1 },
+                   dislike1: { type: &quot;counter&quot;, value: 0 },
+                   follow0: { type: &quot;counter&quot;, value: 0, incr: 1 },
+                   follow1: { type: &quot;counter&quot;, value: 0, },
+                   invite0: { type: &quot;counter&quot;, value: 0, incr: 1 },
+                   invite1: { type: &quot;counter&quot;, value: 0, },
+                   view0: { type: &quot;counter&quot;, value: 0, incr: 1 },
+                   view1: { type: &quot;counter&quot;, value: 0, },
+                   msg_count: { type: &quot;counter&quot;, value: 0 },                  // total msgs received
+                   msg_read: { type: &quot;counter&quot;, value: 0 }},                  // total msgs read
+
+     // Keep historic data about account activity
+     bk_history: { id: { primary: 1 },
+                   mtime: { type: &quot;bigint&quot;, primary: 1 },
+                   type: {},
+                   data: {} }
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>api.init(callback)</code></p>
 <p> Initialize API layer with the active HTTP server</p>
 </li>
@@ -1134,6 +1226,13 @@ Example:
 <ul>
 <li><p><code>core.init(callback)</code></p>
 <p> Main intialization, must be called prior to perform any actions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.postInit(callback)</code></p>
+<p> Called after the core.init has been initialized successfully, this can be redefined in tha applications to add additional
+init steps that all processes require to have.</p>
 </li>
 </ul>
 
@@ -1795,6 +1894,39 @@ data type supported by any particular database and vice versa.</p>
 by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
 API call, all high level operations like add/put/del perform SQL generation for single table on the fly.</p>
 </li>
+</ul>
+
+<ul>
+<li><p><code>Database tables</code></p>
+<pre><code>      bk_property: { name: { primary: 1 },
+                     value: {},
+                     mtime: { type: &quot;int&quot; }
+      },
+
+      bk_cookies: { id: { primary: 1 },
+                    name: { index: 1 },
+                    domain: {},
+                    path: {},
+                    value: { type: &quot;text&quot; },
+                    expires: { type:&quot; bigint&quot; }
+      },
+
+      bk_queue: { id: { primary: 1 },
+                  url: {},
+                  postdata: { type: &quot;text&quot; },
+                  counter: { type: &#39;int&#39; },
+                  mtime: { type: &quot;int&quot; }
+      },
+
+      bk_jobs: { id: { primary: 1 },
+                 tag: { primary: 1 },
+                 type: { value: &quot;local&quot; },
+                 job: { type: &quot;json&quot; },
+                 cron: {},
+                 args: {},
+                 mtime: { type: &#39;int&#39;}
+      },
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2511,7 +2643,7 @@ with obj.name property. If not end is given, all records till the end will be re
 <h2 id="module-server">Module: SERVER</h2>
 <ul>
 <li><p><code>server.start()</code></p>
-<p> Start the server process</p>
+<p> Start the server process, call the callback to perform some initialization before launchng any server, just after core.init</p>
 </li>
 </ul>
 

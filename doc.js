@@ -62,6 +62,18 @@ files.forEach(function(file) {
             doc = "";
             continue;
         }
+        // Tables
+        d = line.match(/^    tables: {$/);
+        if (d) {
+            doc = "* `Database tables`\n\n";
+            while(1) {
+                var line = data[++i];
+                if (line == "    }, // tables") break;
+                doc += "    " + line + "\n";
+            }
+            text += marked(doc, { renderer: renderer }) + "\n";
+            doc = "";
+        }
         doc = "";
     }
 });
