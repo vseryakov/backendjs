@@ -46,6 +46,10 @@ var Backend = {
         var self = this;
         delete obj.secret2;
         this.setCredentials(obj.login, obj.secret);
+        // Replace the actual credentials form the storage in case of scrambling
+        var creds = this.getCredentials();
+        obj.login = creds.login;
+        obj.secret = creds.secret;
         self.send({ type: "POST", url: "/account/add", data: jQuery.param(obj), nosignature: 1 }, function(data) {
             if (callback) callback(null, data);
         }, function(err) {

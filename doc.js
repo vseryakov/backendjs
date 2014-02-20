@@ -66,12 +66,13 @@ files.forEach(function(file) {
         d = line.match(/^    tables: {$/);
         if (d) {
             doc = "* `Database tables`\n\n";
-            while(1) {
+            while (i < data.length) {
                 var line = data[++i];
                 if (line == "    }, // tables") break;
                 doc += "    " + line + "\n";
             }
-            text += marked(doc, { renderer: renderer }) + "\n";
+            // Precaution
+            if (i < data.length) text += marked(doc, { renderer: renderer }) + "\n";
             doc = "";
         }
         doc = "";
