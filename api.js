@@ -1,5 +1,4 @@
 //
-//
 //  Author: Vlad Seryakov vseryakov@gmail.com
 //  Sep 2013
 //
@@ -20,7 +19,7 @@ var formidable = require('formidable');
 var mime = require('mime');
 var consolidate = require('consolidate');
 var domain = require('domain');
-var measured = require('measured');
+var measured = require(__dirname + '/measured');
 var core = require(__dirname + '/core');
 var printf = require('printf');
 var logger = require(__dirname + '/logger');
@@ -194,7 +193,7 @@ api.init = function(callback)
     }
 
     // Performance statistics
-    self.measured = measured.createCollection();
+    self.measured = new measured();
 
     self.app = express();
 
@@ -212,7 +211,14 @@ api.init = function(callback)
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Allow-Headers', 'b-signature,b-next-token');
-        self.measured.meter('requestsPerSecond').mark();
+        // Statistics about requests and reposnses
+        self.measured.Meter('requestsPerSecond').mark();
+        req.stopwatch = self.measured.Timer('requestsResponseTime').start();
+        self.measured.Histogram('requestsInQueue').update(self.measured.Counter('requestsCount').inc());
+        req.on('end', function() {
+            req.stopwatch.end();
+            self.measured.Counter('requestsCount').dec();
+        });
         next();
     });
 

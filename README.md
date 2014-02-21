@@ -12,6 +12,7 @@ Features:
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
 * Supports several cache modes(Redis, memcached, local cache) for the database operations.
+* Supports several PUB/SUB modes of operatios using nanomsg, Redis, RabbitMQ.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
 * nanomsg interface for messaging between processes and servers.
@@ -164,10 +165,14 @@ The accounts API manages accounts and authentication, it provides basic user acc
     - secret - new secret for the account
 
 - `/account/subcribe`
-  Subscribe to account events delivered via HTTP Long Poll, the client makes the connection and waits for events to come, whenever
-  somebody updates the account's counter or send a message or makes a connection to my account the event about it will be sent to this open
-  connection. This is not a persistent queue so if not listening, all events will just be ignored, only events published since the connect will be delivered.
-  To specify what kind of events needs to be delivered, `match` query partameters can be specified which is a RegExp of the whole event body string.
+  Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
+  somebody updates the account's counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
+  connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
+  since the connect will be delivered. To specify what kind of events needs to be delivered, `match` query partameters can be specified which is a
+  RegExp of the whole event body string.
+
+  *Note: On the server side there is a config parameter `subscribeInterval` which defines how often to deliver notifications, by default it is 5 seconds which means
+  only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.*
 
   Example:
 
@@ -490,6 +495,18 @@ The backend directory structure is the following:
 * `var` - database files created by the server
 * `tmp` - temporary files
 * `web` - Web pages served by the static Express middleware
+
+# PUB/SUB configurations
+
+Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
+the backend provides some partially implemented subscription notifications for Web clients using the Long Poll. The Account API call `/account/subscribe`
+can use any pub/sub mode.
+
+## Internal with nanomsg
+
+## Redis
+
+## RabbitMQ
 
 # The backend provisioning utility: rc.backend
 

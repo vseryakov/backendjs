@@ -5,9 +5,10 @@
   "description": "Backend framework",
   "main": "index",
   "preferGlobal": "true",
+  "homepage": "https://github.com/vseryakov/backend",
   "repository": {
     "type": "git",
-    "url": "https://bitbucket.org/vseryakov/backend.git"
+    "url": "https://github.com/vseryakov/backend.git"
   },
   "dependencies": {
     "printf" : "",
