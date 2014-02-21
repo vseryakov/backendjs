@@ -143,9 +143,9 @@ var core = {
             { name: "lru-host", descr: "Address of NNBUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
             { name: "pub-type", descr: "One of the redis, amqp or nn to use for PUB/SUB messaging, default is nanomsg sockets" },
             { name: "pub-server", descr: "Server to listen for published messages using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "pub-host", descr: "Server where clients publish messages using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "pub-host", descr: "Server where clients publish messages to using nanomsg: ipc:///path,tcp://IP:port..." },
             { name: "sub-server", descr: "Server to listen for subscribed clients using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "sub-host", descr: "Server where clients received messages using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "sub-host", descr: "Server where clients received messages from using nanomsg: ipc:///path,tcp://IP:port..." },
             { name: "memcache-host", type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port..." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-host", descr: "Address to Redis server for cache messages" },
@@ -565,13 +565,14 @@ core.ipcInitClient = function()
     switch (self.pubType || "") {
     case "redis":
         self.redisCallbacks = {};
-        self.redisClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
-        self.redisClient.on("ready", function() {
-            self.redisClient.on("pmessage", function(channel, message) {
-                if (self.redisCallbacks[channel]) self.redisCallvack[channel](message);
+        self.redisSubClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
+        self.redisSubClient.on("ready", function() {
+            self.redisSubClient.on("pmessage", function(channel, message) {
+                if (self.redisCallbacks[channel]) self.redisCallback[channel](message);
             });
         });
         break;
+
     case "amqp":
         break;
 
@@ -597,11 +598,11 @@ core.ipcInitClient = function()
         break;
 
     case "redis":
-        if (!self.redisClient) self.redisClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
-        self.ipcPutCache = function(k, v) { self.redisClient.set(k, v, function() {}); }
-        self.ipcIncrCache = function(k, v) { self.redisClient.incr(k, v, function() {}); }
-        self.ipcDelCache = function(k) { self.redisClient.del(k, function() {}); }
-        self.ipcGetCache = function(k, cb) { self.redisClient.get(k, function(e,v) { cb(v) }); }
+        self.redisCacheClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
+        self.ipcPutCache = function(k, v) { self.redisCacheClient.set(k, v, function() {}); }
+        self.ipcIncrCache = function(k, v) { self.redisCacheClient.incr(k, v, function() {}); }
+        self.ipcDelCache = function(k) { self.redisCacheClient.del(k, function() {}); }
+        self.ipcGetCache = function(k, cb) { self.redisCacheClient.get(k, function(e,v) { cb(v) }); }
         break;
     }
     // Event handler for the worker to process response and fire callback
@@ -672,7 +673,7 @@ core.ipcSubscribe = function(key, callback)
     try {
         switch (this.pubType || "") {
         case "redis":
-            this.redisClient.psubscribe(key);
+            this.redisSubClient.psubscribe(key);
             break;
 
         case "amqp":
@@ -699,7 +700,7 @@ core.ipcUnsubscribe = function(sock, key)
     try {
         switch (this.pubType || "") {
         case "redis":
-            this.redisClient.punsubscribe(key);
+            this.redisSubClient.punsubscribe(key);
             break;
 
         case "amqp":
@@ -720,7 +721,7 @@ core.ipcPublish = function(key, data)
     try {
         switch (this.pubType || "") {
         case "redis":
-            this.redisClient.publish(key, data);
+            this.redisSubClient.publish(key, data);
             break;
 
         case "amqp":
