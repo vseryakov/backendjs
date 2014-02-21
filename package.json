@@ -26,6 +26,7 @@
     "memcached": "",
     "redis": "",
     "qs": "",
+    "toobusy": "",
     "measured": "",
     "helenus": "",
     "connect": "",

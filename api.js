@@ -7,10 +7,12 @@ var path = require('path');
 var stream = require('stream');
 var util = require('util');
 var fs = require('fs');
+var os = require('os');
 var http = require('http');
 var https = require('https');
 var url = require('url');
 var qs = require('qs');
+var toobusy = require('toobusy');
 var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
@@ -157,6 +159,7 @@ var api = {
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
            { name: "images-s3", descr: "S3 bucket name where to store images" },
            { name: "files-s3", descr: "S3 bucket name where to store files" },
+           { name: "busy-latency", type: "number", descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
@@ -194,6 +197,11 @@ api.init = function(callback)
 
     // Performance statistics
     self.metrics = new metrics();
+    self.collectStatistics();
+    setInterval(function() { self.collectStatistics() }, 300000);
+
+    // Setup toobusy timer to detect when our requests waiting in the queue for too long
+    if (self.busyLatency) toobusy.maxLag(self.busyLatency); else toobusy.shutdown();
 
     self.app = express();
 
@@ -211,6 +219,7 @@ api.init = function(callback)
 
     // Allow cross site requests
     self.app.use(function(req, res, next) {
+        if (self.busyLatency && toobusy()) return res.send(503, "Server is unavailable");
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Allow-Headers', 'b-signature,b-next-token');
@@ -1169,7 +1178,7 @@ api.initDataAPI = function()
 
     // Return current statistics
     this.app.all("/data/stats", function(req, res) {
-        res.json({ pool: db.getPool().metrics, api: self.metrics });
+        res.json({ toobusy: toobusy.lag(), pool: db.getPool().metrics, api: self.metrics });
     });
 
     // Load columns into the cache
@@ -1552,6 +1561,17 @@ api.deleteAccount = function(obj, callback)
         if (err) return callback ? callback(err) : null;
         db.del("bk_account", { id: obj.id }, callback);
     });
+}
+
+// Metrics about the process
+api.collectStatistics = function()
+{
+    var avg = os.loadavg();
+    var mem = process.memoryUsage();
+    this.metrics.Histogram('rss').update(mem.rss);
+    this.metrics.Histogram('heap').update(mem.heapUsed);
+    this.metrics.Histogram('loadavg').update(avg[2]);
+    this.metrics.Histogram('freemem').update(os.freemem());
 }
 
 // Metrics collection middleware
