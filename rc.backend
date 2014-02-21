@@ -560,11 +560,16 @@ case "$ARG" in
     ;;
 
   put-backend)
-    [ "$2" = "" ] && exit
-    [ "$3" == "-host" -a "$4" != "" ] && BACKEND_MASTER=$4
-    [ "$BACKEND_MASTER" = "" ] && echo "Remote destination path is required" && exit
-    echo "Deploying the module to $BACKEND_MASTER:$2..."
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$2
+    path=node_modules
+    while [ $# -gt 1 ]; do
+      case "$2" in
+      -path) path=$3;shift;shift;;
+      -host) BACKEND_MASTER=$3;shift;shift;;
+      esac
+    done
+    [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
+    echo "Deploying the module to $BACKEND_MASTER:$path/backend ..."
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$path/backend
     ;;
 
   run-backend)
@@ -701,10 +706,16 @@ case "$ARG" in
     ;;
 
   put-app)
-    [ "$3" == "-host" -a "$4" != "" ] && BACKEND_MASTER=$4
-    [ "$BACKEND_MASTER" = "" ] && exit
-    echo "Deploying the app to $BACKEND_MASTER:$2..."
-    rsync -av -e "ssh -l $BACKEND_USER" --exclude build --exclude etc --exclude deps `ls` $BACKEND_MASTER:$2
+    path=""
+    while [ $# -gt 1 ]; do
+      case "$2" in
+      -path) path=$3;shift;shift;;
+      -host) BACKEND_MASTER=$3;shift;shift;;
+      esac
+    done
+    [ "$BACKEND_MASTER" = "" ] && echo "Destination host must be specified with -host or BACKEND_MASTER" && exit
+    echo "Deploying the app to $BACKEND_MASTER:$path ..."
+    rsync -av -e "ssh -l $BACKEND_USER" --exclude build --exclude etc --exclude deps `ls` $BACKEND_MASTER:$path
     ;;
 
   show)

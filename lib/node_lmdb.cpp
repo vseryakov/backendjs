@@ -439,7 +439,7 @@ public:
         if (rc == MDB_NOTFOUND) {
             rc = 0;
         } else {
-            snprintf(n, sizeof(n), "%.*s", (int)v.mv_size, v.mv_data);
+            snprintf(n, sizeof(n), "%.*s", (int)v.mv_size, (char*)v.mv_data);
         }
         if (!rc) {
             snprintf(n, sizeof(n), "%lld", atoll(n) + *num);

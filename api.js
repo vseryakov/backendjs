@@ -628,7 +628,7 @@ api.initAccountAPI = function()
                 if (res.headersSent) return (req.pubSock = core.ipcUnsubscribe(req.pubSock));
                 if (req.pubTimeout) clearTimeout(req.pubTimeout);
                 if (!req.pubData) req.pubData = ""; else req.pubData += ",";
-                req.pubData += data.split("\1").pop();
+                req.pubData += data;
                 req.pubTimeout = setTimeout(function() {
                     if (!res.headersSent) res.type('application/json').send("[" + req.pubData + "]");
                     req.pubSock = core.ipcUnsubscribe(req.pubSock);

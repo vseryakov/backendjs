@@ -21,6 +21,7 @@ var os = require('os');
 var emailjs = require('emailjs');
 var memcached = require('memcached');
 var redis = require("redis");
+var ampq = require('ampq');
 
 // The primary object containing all config options and common functions
 var core = {
@@ -609,17 +610,23 @@ core.ipcIncrCache = function(key, val)
     this.ipcSend("incr", key, val);
 }
 
-// Subscribe to the publishing swrver for messages starting with the given key, the callback will be called only on new data received
+// Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
 // Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.
 core.ipcSubscribe = function(key, callback)
 {
+    // RabbitMQ messaging system
+    if (ampq) {
+
+    }
+
+    // Internal nanomsg based messaging system, non-persistent
     if (!this.pubHost) return null;
     var sock = null;
     try {
         sock = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
         sock.connect(this.pubHost);
         sock.subscribe(key);
-        sock.setCallback(function(err, data) { if (!err) callback.call(this, data); });
+        sock.setCallback(function(err, data) { if (!err) callback.call(this, data.split("\1").pop()); });
     } catch(e) {
         logger.error('ipcSubscribe:', this.pubHost, e);
         sock = null;
