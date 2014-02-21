@@ -141,10 +141,11 @@ var core = {
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache" },
             { name: "lru-server", descr: "LRU server that acts as a NNBUS node to brosadcast cache messages to all connected backends" },
             { name: "lru-host", descr: "Address of NNBUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
-            { name: "pub-server", descr: "Subscribe server to receive messages from using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "sub-server", descr: "Subscribe server to receive messages from using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "sub-host", descr: "Host to subscrbe for message using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "pub-host", descr: "Host to publish messages using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "pub-type", descr: "One of the redis, amqp or nn to use for PUB/SUB messaging, default is nanomsg sockets" },
+            { name: "pub-server", descr: "Server to listen for published messages using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "pub-host", descr: "Server where clients publish messages using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "sub-server", descr: "Server to listen for subscribed clients using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "sub-host", descr: "Server where clients received messages using nanomsg: ipc:///path,tcp://IP:port..." },
             { name: "memcache-host", type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port..." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-host", descr: "Address to Redis server for cache messages" },
@@ -478,19 +479,37 @@ core.ipcInitServer = function()
         }
     }
 
-    // Pub/sub messaging system, server part, listen for incoming messages to be published and forwards then into pub socket, subscribed clients
-    // are directly connected to the sub socket
-    if (self.subServer && self.pubServer) {
-        try {
-            self.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
-            self.subServerSocket.bind(self.subServer);
-            self.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
-            self.pubServerSocket.bind(self.pubServer);
-            self.pubServerSocket.setForward(self.subServerSocket);
-        } catch(e) {
-            logger.error('ipcInit:', self.pubServer, e)
-            self.subServerSocket = null;
-            self.pubServerSocket = null;
+    // Pub/sub messaging system
+    switch (this.pubType || "") {
+    case "redis":
+        break;
+
+    case "amqp":
+        break;
+
+    default:
+        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket
+        if (self.subServer) {
+            try {
+                self.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
+                self.subServerSocket.bind(self.subServer);
+            } catch(e) {
+                logger.error('ipcInit:', self.subServer, e)
+                self.subServerSocket = null;
+            }
+        }
+        // Publish server, it is where the clients send events to, it will forward them to the sub socket if it exists
+        // or it can be used standalone with custom callback
+        if (self.pubServer) {
+            try {
+                self.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
+                self.pubServerSocket.bind(self.pubServer);
+                // Forward all messages to the sub server socket
+                if (self.subServerSocket) self.pubServerSocket.setForward(self.subServerSocket);
+            } catch(e) {
+                logger.error('ipcInit:', self.pubServer, e)
+                self.pubServerSocket = null;
+            }
         }
     }
 
@@ -543,13 +562,28 @@ core.ipcInitClient = function()
 
     // Pub/sub messaging system, client part, sends all publish messages to this socket which will be brodcasted into the
     // publish socket by the receiving end
-    if (self.pubHost) {
-        try {
-            self.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
-            self.pubSocket.connect(self.pubHost);
-        } catch(e) {
-            logger.error('ipcInit:', self.pubHost, e)
-            self.pubSocket = null;
+    switch (self.pubType || "") {
+    case "redis":
+        self.redisCallbacks = {};
+        self.redisClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
+        self.redisClient.on("ready", function() {
+            self.redisClient.on("pmessage", function(channel, message) {
+                if (self.redisCallbacks[channel]) self.redisCallvack[channel](message);
+            });
+        });
+        break;
+    case "amqp":
+        break;
+
+    default:
+        if (self.pubHost) {
+            try {
+                self.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
+                self.pubSocket.connect(self.pubHost);
+            } catch(e) {
+                logger.error('ipcInit:', self.pubHost, e)
+                self.pubSocket = null;
+            }
         }
     }
 
@@ -563,7 +597,7 @@ core.ipcInitClient = function()
         break;
 
     case "redis":
-        self.redisClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
+        if (!self.redisClient) self.redisClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
         self.ipcPutCache = function(k, v) { self.redisClient.set(k, v, function() {}); }
         self.ipcIncrCache = function(k, v) { self.redisClient.incr(k, v, function() {}); }
         self.ipcDelCache = function(k) { self.redisClient.del(k, function() {}); }
@@ -574,7 +608,11 @@ core.ipcInitClient = function()
     process.on("message", function(msg) {
         if (!msg.id) return;
         if (self.ipcs[msg.id]) setImmediate(function() {
-            self.ipcs[msg.id].callback(msg);
+            try {
+                self.ipcs[msg.id].callback(msg);
+            } catch(e) {
+                logger.error('message:', e, msg);
+            }
             delete self.ipcs[msg.id];
         });
 
@@ -631,34 +669,69 @@ core.ipcIncrCache = function(key, val)
 core.ipcSubscribe = function(key, callback)
 {
     var sock = null;
-    // Internal nanomsg based messaging system, non-persistent
-    if (this.subHost) {
-        try {
+    try {
+        switch (this.pubType || "") {
+        case "redis":
+            this.redisClient.psubscribe(key);
+            break;
+
+        case "amqp":
+            break;
+
+        default:
+            // Internal nanomsg based messaging system, non-persistent
+            if (!this.subHost) break;
             sock = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
             sock.connect(this.subHost);
             sock.subscribe(key);
             sock.setCallback(function(err, data) { if (!err) callback.call(this, data.split("\1").pop()); });
-        } catch(e) {
-            logger.error('ipcSubscribe:', this.subHost, e);
-            sock = null;
         }
+    } catch(e) {
+        logger.error('ipcSubscribe:', this.subHost, key, e);
+        sock = null;
     }
     return sock;
 }
 
 // Close subscription
-core.ipcUnsubscribe = function(sock)
+core.ipcUnsubscribe = function(sock, key)
 {
-    if (sock && sock instanceof backend.NNSocket) sock.close();
+    try {
+        switch (this.pubType || "") {
+        case "redis":
+            this.redisClient.punsubscribe(key);
+            break;
+
+        case "amqp":
+            break;
+
+        default:
+            if (sock && sock instanceof backend.NNSocket) sock.close();
+        }
+    } catch(e) {
+        logger.error('ipcUnsubscribe:', e, sock);
+    }
     return null;
 }
 
 // Publish an event to be sent to the subscribed clients
 core.ipcPublish = function(key, data)
 {
-    // Nanomsg socket
-    if (this.pubSocket) {
-        this.pubSocket.send(key + "\1" + JSON.stringify(data));
+    try {
+        switch (this.pubType || "") {
+        case "redis":
+            this.redisClient.publish(key, data);
+            break;
+
+        case "amqp":
+            break;
+
+        default:
+            // Nanomsg socket
+            if (this.pubSocket) this.pubSocket.send(key + "\1" + JSON.stringify(data));
+        }
+    } catch(e) {
+        logger.error('ipcPublish:', e, key);
     }
 }
 

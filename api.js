@@ -622,16 +622,21 @@ api.initAccountAPI = function()
         case "subscribe":
             // Ignore not matching events, the whole string is checked
             if (req.query.match) req.query.match = new RegExp(req.query.match);
+
+            // Returns opaque handle depending on the pub/sub system
             req.pubSock = core.ipcSubscribe(req.account.id, function(data) {
+                if (typeof data != "string") data = JSON.stringify(data);
                 if (req.query.match && !data.match(req.query.match)) return;
                 logger.debug('subscribe:', req.account.id, this.socket, data, res.headersSent);
                 if (res.headersSent) return (req.pubSock = core.ipcUnsubscribe(req.pubSock));
                 if (req.pubTimeout) clearTimeout(req.pubTimeout);
+                // Concatenate all messages received within the interval
                 if (!req.pubData) req.pubData = ""; else req.pubData += ",";
                 req.pubData += data;
                 req.pubTimeout = setTimeout(function() {
                     if (!res.headersSent) res.type('application/json').send("[" + req.pubData + "]");
-                    req.pubSock = core.ipcUnsubscribe(req.pubSock);
+                    // Returns null and clears the reference
+                    req.pubSock = core.ipcUnsubscribe(req.pubSock, req.account.id);
                 }, self.subscribeInterval);
             });
             if (!req.pubSock) return self.sendReply(res, 500, "Service is not activated");
@@ -643,7 +648,7 @@ api.initAccountAPI = function()
             });
             req.on("close", function() {
                 logger.debug('subscribe:', 'close', req.account.id, req.pubSock);
-                req.pubSock = core.ipcUnsubscribe(req.pubSock);
+                req.pubSock = core.ipcUnsubscribe(req.pubSock, req.account.id);
             });
             logger.debug('subscribe:', 'start', req.account.id, req.pubSock);
             break;
