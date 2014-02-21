@@ -447,8 +447,9 @@ Handle<Value> NNSocket::SetProxy(const Arguments& args)
     HandleScope scope;
 
     NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-    REQUIRE_ARGUMENT_OBJECT(0, sock1);
-    NNSocket *sock2 = ObjectWrap::Unwrap< NNSocket > (sock1);
+    REQUIRE_ARGUMENT_OBJECT(0, obj);
+    if (!HasInstance(args[0])) return ThrowException(Exception::Error(String::New("arg 0 be an instance of NNSocket")));
+    NNSocket *sock2 = ObjectWrap::Unwrap< NNSocket > (obj);
 
     int rc = sock->SetProxy(sock2);
     if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(sock->err))));
@@ -462,8 +463,9 @@ Handle<Value> NNSocket::SetForward(const Arguments& args)
     HandleScope scope;
 
     NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-    REQUIRE_ARGUMENT_OBJECT(0, sock1);
-    NNSocket *sock2 = ObjectWrap::Unwrap< NNSocket > (sock1);
+    REQUIRE_ARGUMENT_OBJECT(0, obj);
+    if (!HasInstance(args[0])) return ThrowException(Exception::Error(String::New("arg 0 be an instance of NNSocket")));
+    NNSocket *sock2 = ObjectWrap::Unwrap< NNSocket > (obj);
 
     int rc = sock->SetForward(sock2);
     if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(sock->err))));

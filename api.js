@@ -32,7 +32,7 @@ var api = {
     // No authentication for these urls
     allow: ["^/$",
             ".+\\.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$",
-            "^/public/",
+            "^/public",
             "^/account/add$",
             "^/image/account/" ],
 
@@ -865,7 +865,7 @@ api.initCounterAPI = function()
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
-        var npw = Date.now();
+        var now = Date.now();
 
         switch (req.params[0]) {
         case "put":

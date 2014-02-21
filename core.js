@@ -21,7 +21,7 @@ var os = require('os');
 var emailjs = require('emailjs');
 var memcached = require('memcached');
 var redis = require("redis");
-var ampq = require('ampq');
+var amqp = require('amqp');
 
 // The primary object containing all config options and common functions
 var core = {
@@ -141,11 +141,15 @@ var core = {
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache" },
             { name: "lru-server", descr: "LRU server that acts as a NNBUS node to brosadcast cache messages to all connected backends" },
             { name: "lru-host", descr: "Address of NNBUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
-            { name: "pub-host", descr: "Publish/Subscribe server for messaging between the backend servers: ipc:///path,tcp://IP:port..." },
+            { name: "pub-server", descr: "Subscribe server to receive messages from using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "sub-server", descr: "Subscribe server to receive messages from using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "sub-host", descr: "Host to subscrbe for message using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "pub-host", descr: "Host to publish messages using nanomsg: ipc:///path,tcp://IP:port..." },
             { name: "memcache-host", type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port..." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-host", descr: "Address to Redis server for cache messages" },
             { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
+            { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
             { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
             { name: "no-cache", type:" bool", descr: "Do not use LRU server, all gets will result in miss and puts will have no effect" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
@@ -474,14 +478,19 @@ core.ipcInitServer = function()
         }
     }
 
-    // Pub/sub messaging system
-    if (self.pubHost) {
+    // Pub/sub messaging system, server part, listen for incoming messages to be published and forwards then into pub socket, subscribed clients
+    // are directly connected to the sub socket
+    if (self.subServer && self.pubServer) {
         try {
-            self.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
-            self.pubSocket.bind(self.pubHost);
+            self.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
+            self.subServerSocket.bind(self.subServer);
+            self.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
+            self.pubServerSocket.bind(self.pubServer);
+            self.pubServerSocket.setForward(self.subServerSocket);
         } catch(e) {
-            logger.error('ipcInit:', self.pubHost, e)
-            self.pubSocket = null;
+            logger.error('ipcInit:', self.pubServer, e)
+            self.subServerSocket = null;
+            self.pubServerSocket = null;
         }
     }
 
@@ -491,11 +500,6 @@ core.ipcInitServer = function()
             if (!msg) return false;
             logger.debug('LRU:', msg);
             switch (msg.cmd) {
-            case 'pub':
-                if (!self.pubSocket) break;
-                self.pubSocket.send(msg.key + "\1" + msg.value);
-                break;
-
             case 'keys':
                 msg.value = backend.lruKeys();
                 worker.send(msg);
@@ -536,6 +540,18 @@ core.ipcInitServer = function()
 core.ipcInitClient = function()
 {
     var self = this;
+
+    // Pub/sub messaging system, client part, sends all publish messages to this socket which will be brodcasted into the
+    // publish socket by the receiving end
+    if (self.pubHost) {
+        try {
+            self.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
+            self.pubSocket.connect(self.pubHost);
+        } catch(e) {
+            logger.error('ipcInit:', self.pubHost, e)
+            self.pubSocket = null;
+        }
+    }
 
     switch (this.cacheType || "") {
     case "memcache":
@@ -614,22 +630,18 @@ core.ipcIncrCache = function(key, val)
 // Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.
 core.ipcSubscribe = function(key, callback)
 {
-    // RabbitMQ messaging system
-    if (ampq) {
-
-    }
-
-    // Internal nanomsg based messaging system, non-persistent
-    if (!this.pubHost) return null;
     var sock = null;
-    try {
-        sock = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
-        sock.connect(this.pubHost);
-        sock.subscribe(key);
-        sock.setCallback(function(err, data) { if (!err) callback.call(this, data.split("\1").pop()); });
-    } catch(e) {
-        logger.error('ipcSubscribe:', this.pubHost, e);
-        sock = null;
+    // Internal nanomsg based messaging system, non-persistent
+    if (this.subHost) {
+        try {
+            sock = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
+            sock.connect(this.subHost);
+            sock.subscribe(key);
+            sock.setCallback(function(err, data) { if (!err) callback.call(this, data.split("\1").pop()); });
+        } catch(e) {
+            logger.error('ipcSubscribe:', this.subHost, e);
+            sock = null;
+        }
     }
     return sock;
 }
@@ -644,8 +656,10 @@ core.ipcUnsubscribe = function(sock)
 // Publish an event to be sent to the subscribed clients
 core.ipcPublish = function(key, data)
 {
-    if (!this.pubHost) return 0;
-    this.ipcSend("pub", key, data);
+    // Nanomsg socket
+    if (this.pubSocket) {
+        this.pubSocket.send(key + "\1" + JSON.stringify(data));
+    }
 }
 
 // Encode with additional symbols
