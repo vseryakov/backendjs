@@ -18,6 +18,7 @@ var gpool = require('generic-pool');
 var async = require('async');
 var os = require('os');
 var helenus = require('helenus');
+var metrics = require(__dirname + "/metrics");
 
 // The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
 // The idea is not to introduce new abstraction layer on top of all databases but to make
@@ -39,10 +40,6 @@ var db = {
 
     // Database connection pools, sqlite default pool is called sqlite, PostgreSQL default pool is pg, DynamoDB is ddb
     dbpool: {},
-    nopool: { name: 'none', dbkeys: {}, dbcolumns: {}, dboptions: {},
-              get: function() { throw "no pool" }, free :function() { throw "no pool" },
-              prepare: function() { throw "no pool" }, put: function() { throw "no pool" },
-              cacheColumns: function() { throw "no pool" }, value: function() {} },
 
     // Pools by table name
     tblpool: {},
@@ -108,6 +105,8 @@ module.exports = db;
 db.init = function(callback)
 {
 	var self = this;
+
+	if (!this.nopool) this.nopool = this.createPool("none");
 
 	// Internal Sqlite database is always open
 	self.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
@@ -357,7 +356,7 @@ db.createPool = function(name, pool, options)
     pool.affected_rows = 0;
     pool.inserted_oid = 0;
     pool.next_token = null;
-    pool.stats = { gets: 0, hits: 0, misses: 0, puts: 0, dels: 0, errs: 0 };
+    pool.metrics = new metrics();
     for (var p in options) pool[p] = options[p];
     this.dbpool[name] = pool;
     return pool;
@@ -382,14 +381,31 @@ db.query = function(req, options, callback)
     if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
 
     var pool = this.getPool(req.table, options);
+
+    // Metrics collection
+    var m2 = pool.metrics.Timer('process').start();
+    pool.metrics.Histogram('queue').update(pool.metrics.Counter('count').inc());
+    pool.metrics.Meter('rate').mark();
+
     pool.get(function(err, client) {
-        if (err) return callback ? callback(err, []) : null;
+        if (err) {
+            m2.end();
+            pool.metrics.Counter('count').dec();
+            pool.metrics.Counter("errors").inc();
+            return callback ? callback(err, []) : null;
+        }
         try {
             var t1 = Date.now();
+            var m1 = pool.metrics.Timer('response').start();
+
             pool.query(client, req, options, function(err2, rows) {
                 var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
                 pool.free(client);
+                m1.end();
+                pool.metrics.Counter('count').dec();
                 if (err2) {
+                    m2.end();
+                    pool.metrics.Counter("errors").inc();
                     logger.error("db.query:", pool.name, req.text, req.values, err2, options);
                     return callback ? callback(err2, rows, info) : null;
                 }
@@ -410,10 +426,12 @@ db.query = function(req, options, callback)
                 if (options && options.cached && req.table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
                     self.clearCached(req.table, req.obj, options);
                 }
+                m2.end();
                 logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
                 if (callback) callback(err, rows, info);
              });
         } catch(err) {
+            pool.metrics.Counter("errors").inc();
             logger.error("db.query:", pool.name, req.text, req.values, err, options);
             if (callback) callback(err, [], {});
         }
@@ -689,21 +707,18 @@ db.getCached = function(table, obj, options, callback)
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
     var pool = this.getPool(table, options);
-    pool.stats.gets++;
     var key = this.getCachedKey(table, obj, options);
     core.ipcGetCache(key, function(rc) {
         // Cached value retrieved
         if (rc) {
-            pool.stats.hits++;
+            pool.metrics.Counter("hits").inc();
             return callback ? callback(null, JSON.parse(rc)) : null;
         }
-        pool.stats.misses++;
+        pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
         self.get(table, obj, options, function(err, rows) {
-            if (err) pool.stats.errs++;
             // Store in cache if no error
             if (rows.length && !err) {
-                pool.stats.puts++;
                 core.ipcPutCache(key, core.stringify(rows[0]));
             }
             callback(err, rows.length ? rows[0] : null);

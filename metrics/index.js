@@ -10,25 +10,25 @@ exports.Meter = require('./Meter');
 exports.Histogram = require('./Histogram');
 exports.Timer = require('./Timer');
 
-module.exports = Collection;
+module.exports = Metrics;
 
-function Collection()
+function Metrics()
 {
-    this._metrics = {};
+    this.metrics = {};
 }
 
-Collection.prototype.toJSON = function()
+Metrics.prototype.toJSON = function()
 {
     var json = {};
-    for (var metric in this._metrics) {
-        json[metric] = this._metrics[metric].toJSON();
+    for (var metric in this.metrics) {
+        json[metric] = this.metrics[metric].toJSON();
     }
     return json;
 };
 
-Collection.prototype.end = function()
+Metrics.prototype.end = function()
 {
-    var metrics = this._metrics;
+    var metrics = this.metrics;
     Object.keys(metrics).forEach(function(name) {
         var metric = metrics[name];
         if (metric.end) metric.end();
@@ -37,9 +37,9 @@ Collection.prototype.end = function()
 
 ["Counter", "Meter", "Histogram", "Timer"].forEach(function(name) {
     var mod = exports[name];
-    Collection.prototype[name] = function(name, properties) {
-        if (!this._metrics[name]) this._metrics[name] = new mod(properties);
-        return this._metrics[name];
+    Metrics.prototype[name] = function(name, properties) {
+        if (!this.metrics[name]) this.metrics[name] = new mod(properties);
+        return this.metrics[name];
     };
 });
 

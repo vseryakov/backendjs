@@ -19,7 +19,7 @@ var formidable = require('formidable');
 var mime = require('mime');
 var consolidate = require('consolidate');
 var domain = require('domain');
-var measured = require(__dirname + '/measured');
+var metrics = require(__dirname + '/metrics');
 var core = require(__dirname + '/core');
 var printf = require('printf');
 var logger = require(__dirname + '/logger');
@@ -193,7 +193,7 @@ api.init = function(callback)
     }
 
     // Performance statistics
-    self.measured = new measured();
+    self.metrics = new metrics();
 
     self.app = express();
 
@@ -206,19 +206,14 @@ api.init = function(callback)
         d.run(next);
     });
 
+    // Metrics starts early
+    self.app.use(function(req, res, next) { return self.collectMetrics(req, res, next); });
+
     // Allow cross site requests
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Allow-Headers', 'b-signature,b-next-token');
-        // Statistics about requests and reposnses
-        self.measured.Meter('requestsPerSecond').mark();
-        req.stopwatch = self.measured.Timer('requestsResponseTime').start();
-        self.measured.Histogram('requestsInQueue').update(self.measured.Counter('requestsCount').inc());
-        req.on('end', function() {
-            req.stopwatch.end();
-            self.measured.Counter('requestsCount').dec();
-        });
         next();
     });
 
@@ -1174,7 +1169,7 @@ api.initDataAPI = function()
 
     // Return current statistics
     this.app.all("/data/stats", function(req, res) {
-        res.json({ pool: db.getPool().stats, nnsockets: backend.nnSockets(), metrics: self.measured });
+        res.json({ pool: db.getPool().metrics, api: self.metrics });
     });
 
     // Load columns into the cache
@@ -1559,7 +1554,21 @@ api.deleteAccount = function(obj, callback)
     });
 }
 
-// Custom access logger
+// Metrics collection middleware
+api.collectMetrics = function(req, res, next)
+{
+    var self = this;
+    this.metrics.Meter('rate').mark();
+    req.stopwatch = this.metrics.Timer('response').start();
+    this.metrics.Histogram('queue').update(this.metrics.Counter('count').inc());
+    req.on('end', function() {
+        req.stopwatch.end();
+        self.metrics.Counter('count').dec();
+    });
+    next();
+}
+
+// Custom access logger middleware
 api.accessLogger = function()
 {
     var self = this;
