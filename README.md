@@ -537,6 +537,9 @@ Most common used commands are:
 - rc.backend put-app path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line
 - rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend
 
+# Deployment use cases
+
+
 # Security
 All requests to the API server must be signed with account login/secret pair.
 
