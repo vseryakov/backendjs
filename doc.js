@@ -14,13 +14,15 @@ marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, san
 var renderer = new marked.Renderer();
 
 var header = '<head><title>Backend Documentation</title><link rel="stylesheet" href="css/doc.css"></head>\n';
-var toc = "# Backend Documentation\n##Table of contents:\n";
+var toc = "# Backend Documentation\n##Table of contents\n";
 
 var readme = fs.readFileSync("README.md").toString();
 
 readme.split("\n").forEach(function(x) {
-    var d = x.match(/^# (.+)/);
-    if (d) toc += "* [ " + d[1] + "](#" + d[1].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
+    var d = x.match(/^([#]+) (.+)/);
+    if (!d) return;
+    for (var i = 0; i < d[1].length - 1; i++) toc += " ";
+    toc += "* [ " + d[2] + "](#" + d[2].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
 });
 
 toc += "* Javascript API functions\n";

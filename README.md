@@ -438,7 +438,7 @@ one table and one record without maintaining any other features like auto counte
         /data/put/bk_counter?id=12345&like0=1
         /data/select/bk_account?name=john&_ops=name,gt&_select=name,alias,email
 
-# Backend configuration and directory structure
+# Backend directory structure
 
 When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.
 
@@ -495,6 +495,9 @@ The backend directory structure is the following:
 * `var` - database files created by the server
 * `tmp` - temporary files
 * `web` - Web pages served by the static Express middleware
+
+# Backend config parameters
+
 
 # PUB/SUB configurations
 

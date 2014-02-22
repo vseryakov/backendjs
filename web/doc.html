@@ -6,8 +6,25 @@
 <li><a href="#installation"> Installation</a></li>
 <li><a href="#quick-start"> Quick start</a></li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
-<li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a></li>
+<li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
+<li><a href="#accounts"> Accounts</a></li>
+<li><a href="#connections"> Connections</a></li>
+<li><a href="#locations"> Locations</a></li>
+<li><a href="#messages"> Messages</a></li>
+<li><a href="#icons"> Icons</a></li>
+<li><a href="#counters"> Counters</a></li>
+<li><a href="#history"> History</a></li>
+<li><a href="#data"> Data</a></li>
+</ul>
+</li>
 <li><a href="#backend-configuration-and-directory-structure"> Backend configuration and directory structure</a></li>
+<li><a href="#backend-config-parameters"> Backend config parameters</a></li>
+<li><a href="#pub-sub-configurations"> PUB/SUB configurations</a><ul>
+<li><a href="#internal-with-nanomsg"> Internal with nanomsg</a></li>
+<li><a href="#redis"> Redis</a></li>
+<li><a href="#rabbitmq"> RabbitMQ</a></li>
+</ul>
+</li>
 <li><a href="#the-backend-provisioning-utility-rc-backend"> The backend provisioning utility: rc.backend</a></li>
 <li><a href="#security"> Security</a></li>
 <li><a href="#backend-framework-development-mac-os-x-developers-"> Backend framework development (Mac OS X, developers)</a></li>
@@ -34,6 +51,7 @@
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Local jobs are executed by spawned processes</li>
 <li>Supports several cache modes(Redis, memcached, local cache) for the database operations.</li>
+<li>Supports several PUB/SUB modes of operatios using nanomsg, Redis, RabbitMQ.</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
 <li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
 <li>nanomsg interface for messaging between processes and servers.</li>
@@ -167,10 +185,13 @@ large tables.</p>
 </ul>
 </li>
 <li><p><code>/account/subcribe</code>
-Subscribe to account events delivered via HTTP Long Poll, the client makes the connection and waits for events to come, whenever
-somebody updates the account&#39;s counter or send a message or makes a connection to my account the event about it will be sent to this open
-connection. This is not a persistent queue so if not listening, all events will just be ignored, only events published since the connect will be delivered.
-To specify what kind of events needs to be delivered, <code>match</code> query partameters can be specified which is a RegExp of the whole event body string.</p>
+Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
+somebody updates the account&#39;s counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
+connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
+since the connect will be delivered. To specify what kind of events needs to be delivered, <code>match</code> query partameters can be specified which is a
+RegExp of the whole event body string.</p>
+<p><em>Note: On the server side there is a config parameter <code>subscribeInterval</code> which defines how often to deliver notifications, by default it is 5 seconds which means
+only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.</em></p>
 <p>Example:</p>
 <pre><code>  /account/subscribe?match=connection/add.*type:*like
 </code></pre></li>
@@ -474,6 +495,14 @@ regular parameters are the table columns.</p>
 <li><code>tmp</code> - temporary files</li>
 <li><code>web</code> - Web pages served by the static Express middleware</li>
 </ul>
+<h1 id="backend-config-parameters">Backend config parameters</h1>
+<h1 id="pub-sub-configurations">PUB/SUB configurations</h1>
+<p>Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
+the backend provides some partially implemented subscription notifications for Web clients using the Long Poll. The Account API call <code>/account/subscribe</code>
+can use any pub/sub mode.</p>
+<h2 id="internal-with-nanomsg">Internal with nanomsg</h2>
+<h2 id="redis">Redis</h2>
+<h2 id="rabbitmq">RabbitMQ</h2>
 <h1 id="the-backend-provisioning-utility-rc-backend">The backend provisioning utility: rc.backend</h1>
 <p>The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
@@ -975,8 +1004,20 @@ Return err if something wrong occured in the callback.</p>
 </ul>
 
 <ul>
+<li><p><code>api.collectStatistics()</code></p>
+<p> Metrics about the process</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.collectMetrics(req, res, next)</code></p>
+<p> Metrics collection middleware</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.accessLogger()</code></p>
-<p> Custom access logger</p>
+<p> Custom access logger middleware</p>
 </li>
 </ul>
 
@@ -1303,13 +1344,13 @@ socket and listen for messages.</p>
 
 <ul>
 <li><p><code>core.ipcSubscribe(key, callback)</code></p>
-<p> Subscribe to the publishing swrver for messages starting with the given key, the callback will be called only on new data received
+<p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
 Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.ipcUnsubscribe(sock)</code></p>
+<li><p><code>core.ipcUnsubscribe(sock, key)</code></p>
 <p> Close subscription</p>
 </li>
 </ul>
