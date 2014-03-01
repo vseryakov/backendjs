@@ -93,13 +93,13 @@ $(function() {
         if (this.i >= 0 && this.i >= this.h0.length - 1 && this.h0[this.h0.length - 1] === v) {
             this.h[this.h0.length] = '';
         } else {
+        if (this.h0.indexOf(v) > -1) return false;
             this.h[this.h0.length] = v;
             this.h.push('');
             this.h0.push(v);
             localStorage[this.storageKey] = this.h0.join('\n');
         }
         this.i = this.h0.length;
-        this.element.val('');
         return false;
     }});
 });

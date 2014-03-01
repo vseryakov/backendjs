@@ -36,13 +36,11 @@ applications but still part of the core of the system to be available once neede
 
 * Documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
 
-* Go to http://localhost:8000/api.html for the Web console to test API requests, cancel the login popup after the
-  page is loaded, we do not have yet any account credentials.
+* Go to http://localhost:8000/api.html for the Web console to test API requests.
   For this example let's create couple of accounts, type and execute the following URLs in the Web console
 
         /account/add?name=test1&secret=test1&login=test1@test.com
         /account/add?name=test2&secret=test2&login=test2@test.com
-        /account/add?name=test3&secret=test3&login=test3@test.com
 
 
 * Now login with any of the accounts above, refresh the api.html and enter email and secret in the login popup dialog.
@@ -53,7 +51,7 @@ applications but still part of the core of the system to be available once neede
 
 * To see all public fields for all accounts just execute
 
-        /account/search
+        /account/select
 
 * Shutdown the backend by pressing Ctrl-C
 * To make custom Web app run the following command:
@@ -125,6 +123,17 @@ The accounts API manages accounts and authentication, it provides basic user acc
       return list of account records as JSON
     - _session - after successful login setup a session with cookies so the Web app can perform requests without signing
 
+  Response:
+
+            { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
+              "alias": "Test User",
+              "name": "Real Name",
+              "mtime": 1391824028,
+              "login": "testuser",
+              "icon1": "/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/1",
+              "icon2": "/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/2"
+            }
+
 - `/account/add`
 
   Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, login**.
@@ -149,6 +158,28 @@ The accounts API manages accounts and authentication, it provides basic user acc
             /account/search?email=test&_ops=email,begins_with
             /account/search?name=test&_keys=name
 
+
+  Response:
+
+            {  "data": [{
+                          "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
+                          "alias": "Test User1",
+                          "name": "User1",
+                          "mtime": 1391824028,
+                          "login": "test1",
+                          "icon1": "/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/1'"
+                        },
+                        {
+                          "id": "57d07a4e2824fc43bd669f6c8e04d6c3",
+                          "alias": "Test User2",
+                          "name": "User2",
+                          "mtime": 1391824028,
+                          "login": "test2",
+                          "icon1": "/image/account/57d07a4e2824fc43bd669f6c8e04d6c3/1'"
+                        }],
+                "next_token": ""
+            }
+
 - `/account/del`
 
   Delete current account
@@ -157,12 +188,21 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
   Update current account with new values, the parameters are columns of the table `bk_account`, only columns with non empty values will be updated.
 
+  Example:
+
+            /account/update?name=New%2BName&alias=Hidden%2BName&gender=m
+
 - `/account/put/secret`
 
   Change account secret for the current account
 
   Parameters:
     - secret - new secret for the account
+
+  Example:
+
+            /account/put/secret?secret=blahblahblah
+
 
 - `/account/subcribe`
   Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
@@ -199,13 +239,17 @@ The accounts API manages accounts and authentication, it provides basic user acc
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg
 
+  Example:
+
+        /account/put/icon?type=1&icon=iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADs....
+
 - `/account/del/icon`
 
   Delete account icon
 
   Parameters:
 
-    - type - what icon to delet, if not specified 0 is used
+    - type - what icon to delete, if not specified 0 is used
 
 ## Connections
 The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
@@ -252,12 +296,32 @@ a connection with it. No direct operations on bk_reference is allowed.
         /connection/get?type=invite             - return all accounts who i invited
         /connection/get?type=invite&id=12345
 
+  Response:
+
+        { "data": [ { "id": "12345",
+                      "type": "invite",
+                      "status": "",
+                      "mtime": "12334312543"
+                  }],
+          "next_token": ""
+        }
+
 - `/reference/get`
   Receive all references that connected with my account, i.e. connections made by somebody else with me, works the same way as for connection query call
 
   Example:
 
         /reference/get?type=invite              - return all accounts who invited me
+
+  Response:
+
+        { "data": [ { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
+                      "type": "invite",
+                      "status": "",
+                      "mtime": "12334312543"
+                  }],
+          "next_token": ""
+        }
 
 - `/connection/recent`
   Return all connections made since the given time, parameter `mtime` defiens the point in time which connections have been made after this time, this is for
@@ -268,6 +332,20 @@ a connection with it. No direct operations on bk_reference is allowed.
 
         /connection/recent?mtime=1392185596577
 
+  Response:
+
+        { "data": [ { "id": "12345",
+                      "type": "invite",
+                      "status": "",
+                      "mtime": "12334312543"
+                  },
+                  { "id": "45678",
+                      "type": "like",
+                      "status": "",
+                      "mtime": "12334312543"
+                  }],
+          "next_token": ""
+        }
 
 ## Locations
 The location API maintains a table `bk_location` with geolocation coordinates for accounts and allows searching it by distance.
@@ -292,6 +370,23 @@ The location API maintains a table `bk_location` with geolocation coordinates fo
             /location/get?distance=10&latitude=-118.23434&longitude=23.45665656&_count=25
             /location/get?distance=10&latitude=-118.23434&longitude=23.45665656&_count=25&_token=FGTHTRHRTHRTHTTR.....
 
+  Response:
+
+           { "data": [ { "id": "12345",
+                         "distance": 5,
+                         "latitude": -118.123,
+                         "longitude": 23.45
+                         "mtime": "12334312543"
+                       },
+                       { "id": "45678",
+                         "distance": 5,
+                         "latitude": -118.133,
+                         "longitude": 23.5
+                         "mtime": "12334312543"
+                       }],
+             "next_token": ""
+           }
+
 ## Messages
 The messaging API allows sending and recieving messages between accounts, it supports text and images. The typical usage of this API is to
 poll the counter record using `/counter/get` from time to time and check for `msg_count` and `msg_read` counters, once `msg_count` is greater than `msg_read` this means
@@ -313,6 +408,20 @@ from the last messages received so the next time we will use this time to get on
 
         /message/get
         /message/get?mtime=123475658690
+
+  Response:
+
+        { "data": [ { "sender": "12345",
+                      "msg": "Hi, how r u?",
+                      "mtime": "12334312543"
+                    },
+                    { "sender": "45678",
+                      "msg": "check this out!",
+                      "icon": "/message/image?sender=45678&mtime=12334312543",
+                      "mtime": "12334312543"
+                    }],
+             "next_token": ""
+           }
 
 - `/message/add`
   Send a message to an account, the following parametrrs must be specified:
