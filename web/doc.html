@@ -228,8 +228,15 @@ RegExp of the whole event body string.</p>
 <p><em>Note: On the server side there is a config parameter <code>subscribeInterval</code> which defines how often to deliver notifications, by default it is 5 seconds which means
 only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.</em></p>
 <p>Example:</p>
-<pre><code>  /account/subscribe?match=connection/add.*type:*like
+<pre><code>  /account/subscribe
+  /account/subscribe?match=connection/add.*type:*like
 </code></pre></li>
+</ul>
+<p>  Response:</p>
+<pre><code>    [ { &quot;path&quot;: &quot;/message/add&quot;, &quot;mtime:&quot; 1234566566, &quot;sender&quot;: &quot;23545666787&quot; },
+      { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;data&quot;: { &quot;like&quot;: 1, &quot;invite&quot;: 1 } },
+      { &quot;path&quot; : &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot;, &quot;id&quot;: &quot;123456789&quot; } ]
+</code></pre><ul>
 <li><p><code>/account/get/icon</code></p>
 <p>Return account icon</p>
 <p>Parameters:</p>

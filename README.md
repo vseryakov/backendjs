@@ -216,7 +216,15 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
   Example:
 
+        /account/subscribe
         /account/subscribe?match=connection/add.*type:*like
+
+
+  Response:
+
+        [ { "path": "/message/add", "mtime:" 1234566566, "sender": "23545666787" },
+          { "path": "/counter/incr", "mtime:" 1234566566, "data": { "like": 1, "invite": 1 } },
+          { "path" : "/connection/add", "mtime": 1223345545, "type": "like", "id": "123456789" } ]
 
 - `/account/get/icon`
 

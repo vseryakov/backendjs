@@ -26,7 +26,7 @@ var amqp = require('amqp');
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2013.10.20.0',
+    version: '2014.03.01.0',
 
     // Process and config parameters
     argv: {},
