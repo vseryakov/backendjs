@@ -149,9 +149,6 @@ var api = {
     subscribeTimeout: 600000,
     subscribeInterval: 5000,
 
-    // HTTPS server options, can be updated by the apps before starting the SSL server
-    ssl: {},
-
     // Sessions
     sessionAge: 86400 * 14 * 1000,
 
@@ -300,11 +297,9 @@ api.init = function(callback)
                 this.timeout = core.timeout;
 
                 // Start the SSL server as well
-                if (core.sslKey && core.sslCert) {
-                    self.ssl.key = core.sslKey;
-                    self.ssl.cert = core.sslCert;
-                    server = https.createServer(self.ssl, app).listen(core.sslPort, core.sslBind, function(err) {
-                        if (err) logger.error('api: ssl init:', core.sslPort, core.sslBind, err);
+                if (core.ssl.key || core.ssl.pfx) {
+                    server = https.createServer(core.ssl, app).listen(core.ssl.port, core.ssl.bind, function(err) {
+                        if (err) logger.error('ssl init:', err, core.ssl);
                         this.timeout = core.timeout;
                         if (callback) callback(err);
                     });

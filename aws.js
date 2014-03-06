@@ -738,6 +738,9 @@ aws.ddbScanTable = function(name, condition, options, callback)
     if (options.start) {
         params.ExclusiveStartKey = self.toDynamoDB(options.start);
     }
+    if (options.count) {
+        params.Limit = options.count;
+    }
     for (var name in condition) {
         var val = condition[name];
         var op = (options.ops || {})[name] || "eq";

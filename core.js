@@ -53,9 +53,11 @@ var core = {
     // HTTP settings
     port: 8000,
     bind: '0.0.0.0',
-    sslPort: 443,
     bind: '0.0.0.0',
     timeout: 30000,
+
+    // HTTPS server options, can be updated by the apps before starting the SSL server
+    ssl: { port: 443, bind: '0.0.0.0' },
 
     // Proxy config
     proxyPort: 8000,
@@ -120,10 +122,17 @@ var core = {
             { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },
             { name: "port", type: "number", min: 0, descr: "port to listen for the servers, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
-            { name: "ssl-port", type: "number", min: 0, descr: "port to listen for HTTPS servers, this is global default" },
-            { name: "ssl-bind", descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
-            { name: "ssl-key", type: "path", descr: "Path to SSL prvate key" },
-            { name: "ssl-cert", type: "path", descr: "Path to SSL certificate" },
+            { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS servers, this is global default" },
+            { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
+            { name: "ssl-key", type: "path", obj: 'ssl', descr: "Path to SSL prvate key" },
+            { name: "ssl-cert", type: "path", obj: 'ssl', descr: "Path to SSL certificate" },
+            { name: "ssl-pfx", obj: 'ssl', descr: "A string or Buffer containing the private key, certificate and CA certs of the server in PFX or PKCS12 format. (Mutually exclusive with the key, cert and ca options.)" },
+            { name: "ssl-ca", type: "path", obj: 'ssl', descr: "An array of strings or Buffers of trusted certificates in PEM format. If this is omitted several well known root CAs will be used, like VeriSign. These are used to authorize connections." },
+            { name: "ssl-passphrase", obj: 'ssl', descr: "A string of passphrase for the private key or pfx" },
+            { name: "ssl-crl", obj: 'ssl', descr: "Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)" },
+            { name: "ssl-ciphers", obj: 'ssl', descr: "ciphers: A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
+            { name: "ssl-request-cert", type: "bool", obj: 'ssl', descr: "If true the server will request a certificate from clients that connect and attempt to verify that certificate. " },
+            { name: "ssl-reject-unauthorized", type: "bool", obj: 'ssl', decr: "If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be used only in the command line" },
             { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be used only in the command line" },
@@ -345,6 +354,7 @@ core.processArgs = function(name, ctx, argv, pass)
     if (!ctx) return;
     if (!Array.isArray(ctx.args)) return;
     ctx.args.forEach(function(x) {
+        var obj = ctx;
     	// Process only equal to the given pass phase
     	if (pass && x.pass != pass) return;
         if (typeof x == "string") x = { name: x };
@@ -352,7 +362,14 @@ core.processArgs = function(name, ctx, argv, pass)
         // Core sets global parameters, all others by module
         var cname = (name == "core" ? "" : "-" + name) + '-' + x.name;
         if (argv.indexOf(cname) == -1) return;
-        var key = self.toCamel(x.name);
+        var kname = x.name;
+        // Place inside the object
+        if (x.obj && ctx[x.obj]) {
+            obj = ctx[x.obj];
+            // Strip the prefix if starts with the same name
+            if (x.obj + "-" == kname.substr(0, x.obj.length + 1)) kname = kname.substr(x.obj.length + 1);
+        }
+        var key = self.toCamel(kname);
         var idx = argv.indexOf(cname);
         var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : null;
         if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") return;
@@ -363,38 +380,41 @@ core.processArgs = function(name, ctx, argv, pass)
         case "none":
             break;
         case "bool":
-            ctx[key] = !val ? true : self.toBool(val);
+            obj[key] = !val ? true : self.toBool(val);
             break;
         case "number":
-            ctx[key] = self.toNumber(val, x.decimals, x.value, x.min, x.max);
+            obj[key] = self.toNumber(val, x.decimals, x.value, x.min, x.max);
             break;
         case "list":
-            ctx[key] = self.strSplitUnique(val, x.separator);
+            obj[key] = self.strSplitUnique(val, x.separator);
             break;
         case "regexp":
-            ctx[key] = new RegExp(val);
+            obj[key] = new RegExp(val);
             break;
         case "json":
-            ctx[key] = JSON.parse(val);
+            obj[key] = JSON.parse(val);
             break;
         case "path":
-            ctx[key] = path.resolve(val);
+            obj[key] = path.resolve(val);
+            break;
+        case "file":
+            try { obj[key] = fs.readFileSync(path.resolve(val)); } catch(e) { logger.error('procesArgs:', val, e); }
             break;
         case "push":
             if (x.list) key = x.list;
-            if (!Array.isArray(ctx[key])) ctx[key] = [];
-            ctx[key].push(val);
+            if (!Array.isArray(obj[key])) obj[key] = [];
+            obj[key].push(val);
             break;
         case "callback":
             if (typeof x.value == "string") {
-                ctx[x.value](val);
+                obj[x.value](val);
             } else
             if (typeof x.value == "function") {
-                x.value.call(ctx, val);
+                x.value.call(obj, val);
             }
             break;
         default:
-            ctx[key] = val;
+            obj[key] = val;
         }
         // Append all process arguments into internal list when we processing all arguments, not in a pass
         self.argv[cname.substr(1)] = val || true;
@@ -759,6 +779,12 @@ core.toTitle = function(name)
 core.toCamel = function(name)
 {
     return (name || "").replace(/(?:[-_])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; });
+}
+
+// Convert Camel names into names with dashes
+core.toUncamel = function(str)
+{
+    return str.replace(/([A-Z])/g, function(letter) { return '-' + letter.toLowerCase(); });
 }
 
 // Safe version, use 0 instead of NaN, handle booleans, if decimals specified, returns float
