@@ -477,7 +477,7 @@ case "$ARG" in
     ;;
 
   run-pg)
-    exec hohup $PG_PREFIX/bin/postgres -F -D $PG_DIR >>$BACKEND_ROOT/log/backend.log 2>&1 &
+    exec nohup $PG_PREFIX/bin/postgres -F -D $PG_DIR >>$BACKEND_ROOT/log/backend.log 2>&1 &
     ;;
 
   stop-pg)
@@ -540,7 +540,7 @@ case "$ARG" in
     ;;
 
   run-cdb)
-    $CDB_PREFIX/bin/cassandra
+    $CDB_PREFIX/bin/cassandra >>$BACKEND_ROOT/log/backend.log 2>&1
     ;;
 
   stop-cdb)

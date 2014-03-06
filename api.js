@@ -163,8 +163,8 @@ var api = {
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
-           { name: "allow", type: "push", descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
-           { name: "allow-path", type: "push", list: "allow", descr: "Add to the list of allowed URL paths without authentication" },
+           { name: "allow", array: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
+           { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replace the whole access list"  },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 500, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
@@ -298,7 +298,7 @@ api.init = function(callback)
 
                 // Start the SSL server as well
                 if (core.ssl.key || core.ssl.pfx) {
-                    server = https.createServer(core.ssl, app).listen(core.ssl.port, core.ssl.bind, function(err) {
+                    server = https.createServer(core.ssl, self.app).listen(core.ssl.port, core.ssl.bind, function(err) {
                         if (err) logger.error('ssl init:', err, core.ssl);
                         this.timeout = core.timeout;
                         if (callback) callback(err);

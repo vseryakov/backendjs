@@ -124,13 +124,13 @@ var core = {
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
             { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS servers, this is global default" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
-            { name: "ssl-key", type: "path", obj: 'ssl', descr: "Path to SSL prvate key" },
-            { name: "ssl-cert", type: "path", obj: 'ssl', descr: "Path to SSL certificate" },
-            { name: "ssl-pfx", obj: 'ssl', descr: "A string or Buffer containing the private key, certificate and CA certs of the server in PFX or PKCS12 format. (Mutually exclusive with the key, cert and ca options.)" },
-            { name: "ssl-ca", type: "path", obj: 'ssl', descr: "An array of strings or Buffers of trusted certificates in PEM format. If this is omitted several well known root CAs will be used, like VeriSign. These are used to authorize connections." },
+            { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },
+            { name: "ssl-cert", type: "file", obj: 'ssl', descr: "Path to SSL certificate" },
+            { name: "ssl-pfx", type: "file", obj: 'ssl', descr: "A string or Buffer containing the private key, certificate and CA certs of the server in PFX or PKCS12 format. (Mutually exclusive with the key, cert and ca options.)" },
+            { name: "ssl-ca", type: "file", obj: 'ssl', array: 1, descr: "An array of strings or Buffers of trusted certificates in PEM format. If this is omitted several well known root CAs will be used, like VeriSign. These are used to authorize connections." },
             { name: "ssl-passphrase", obj: 'ssl', descr: "A string of passphrase for the private key or pfx" },
-            { name: "ssl-crl", obj: 'ssl', descr: "Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)" },
-            { name: "ssl-ciphers", obj: 'ssl', descr: "ciphers: A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
+            { name: "ssl-crl", type: "file", obj: 'ssl', array: 1, descr: "Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)" },
+            { name: "ssl-ciphers", obj: 'ssl', descr: "A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
             { name: "ssl-request-cert", type: "bool", obj: 'ssl', descr: "If true the server will request a certificate from clients that connect and attempt to verify that certificate. " },
             { name: "ssl-reject-unauthorized", type: "bool", obj: 'ssl', decr: "If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms" },
@@ -168,7 +168,7 @@ var core = {
             { name: "logwatcher-ignore", descr: "Regexp with patterns that needs to be ignored by logwatcher process" },
             { name: "logwatcher-match", descr: "Regexp patterns that match conditions for logwatcher notifications" },
             { name: "logwatcher-interval", type: "number", min: 300, max: 86400 },
-            { name: "user-agent", type: "push", descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers" },
+            { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers" },
             { name: "backend-host", descr: "Host of the master backend" },
             { name: "backend-login", descr: "Credentials login for the master backend access" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access" },
@@ -353,6 +353,14 @@ core.processArgs = function(name, ctx, argv, pass)
     var self = this;
     if (!ctx) return;
     if (!Array.isArray(ctx.args)) return;
+    function put(obj, key, val, x) {
+        if (x.array) {
+            if (!Array.isArray(obj[key])) obj[key] = [];
+            obj[key].push(val);
+        } else {
+            obj[key] = val;
+        }
+    }
     ctx.args.forEach(function(x) {
         var obj = ctx;
     	// Process only equal to the given pass phase
@@ -362,12 +370,13 @@ core.processArgs = function(name, ctx, argv, pass)
         // Core sets global parameters, all others by module
         var cname = (name == "core" ? "" : "-" + name) + '-' + x.name;
         if (argv.indexOf(cname) == -1) return;
-        var kname = x.name;
+        var kname = x.key || x.name;
         // Place inside the object
-        if (x.obj && ctx[x.obj]) {
+        if (x.obj) {
+            if (!ctx[x.obj]) ctx[x.obj] = {};
             obj = ctx[x.obj];
             // Strip the prefix if starts with the same name
-            if (x.obj + "-" == kname.substr(0, x.obj.length + 1)) kname = kname.substr(x.obj.length + 1);
+            kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
         }
         var key = self.toCamel(kname);
         var idx = argv.indexOf(cname);
@@ -380,30 +389,25 @@ core.processArgs = function(name, ctx, argv, pass)
         case "none":
             break;
         case "bool":
-            obj[key] = !val ? true : self.toBool(val);
+            put(obj, key, !val ? true : self.toBool(val), x);
             break;
         case "number":
-            obj[key] = self.toNumber(val, x.decimals, x.value, x.min, x.max);
+            put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
             break;
         case "list":
-            obj[key] = self.strSplitUnique(val, x.separator);
+            put(obj, key, self.strSplitUnique(val, x.separator), x);
             break;
         case "regexp":
-            obj[key] = new RegExp(val);
+            put(obj, key, new RegExp(val), x);
             break;
         case "json":
-            obj[key] = JSON.parse(val);
+            put(obj, key, JSON.parse(val), x);
             break;
         case "path":
-            obj[key] = path.resolve(val);
+            put(obj, key, path.resolve(val), x);
             break;
         case "file":
-            try { obj[key] = fs.readFileSync(path.resolve(val)); } catch(e) { logger.error('procesArgs:', val, e); }
-            break;
-        case "push":
-            if (x.list) key = x.list;
-            if (!Array.isArray(obj[key])) obj[key] = [];
-            obj[key].push(val);
+            try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', val, e); }
             break;
         case "callback":
             if (typeof x.value == "string") {
@@ -414,7 +418,7 @@ core.processArgs = function(name, ctx, argv, pass)
             }
             break;
         default:
-            obj[key] = val;
+            put(obj, key, val, x);
         }
         // Append all process arguments into internal list when we processing all arguments, not in a pass
         self.argv[cname.substr(1)] = val || true;
