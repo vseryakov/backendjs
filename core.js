@@ -100,17 +100,16 @@ var core = {
     ],
 
     // Config parameters
-    args: [ { name: "help", type: "callback", value: function() { core.help() }, descr: "Print help and exit" },
+    args: [ { name: "help", type: "callback", value: function() { core.showHelp() }, descr: "Print help and exit" },
             { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debugging messages, short of -log debug", pass: 1 },
             { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
-            { name: "log-file", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages", pass: 1 },
-            { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog", pass: 1 },
-            { name: "console", type: "callback", value: function() { core.logFile = null; logger.setFile(null);}, descr: "All logging goes to the console", pass: 1 },
-            { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, current dir if not specified", pass: 1 },
-            { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module" },
-            { name: "umask", descr: "Permissions mask for new files" },
-            { name: "config-file", type: "path", descr: "Path to the config file instead of the default etc/config", pass: 1 },
-            { name: "err-file", type: "path", descr: "Path to the erro log file where daemon will put app errors and crash stacks" },
+            { name: "log-file", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages, if not specified logs display to the console", pass: 1 },
+            { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
+            { name: "console", type: "callback", value: function() { core.logFile = null; logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
+            { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, the server willtry to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
+            { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
+            { name: "config-file", type: "path", descr: "Path to the config file instead of the default etc/config, can be absolute or relative path", pass: 1 },
+            { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks" },
             { name: "etc-dir", type: "callback", value: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
             { name: "web-dir", type: "callback", value: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
             { name: "tmp-dir", type: "callback", value: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
@@ -118,11 +117,12 @@ var core = {
             { name: "log-dir", type: "callback", value: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep log files" },
             { name: "files-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
-            { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after start if running as root" },
-            { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after start if running to root" },
-            { name: "port", type: "number", min: 0, descr: "port to listen for the servers, this is global default" },
+            { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after startup if running as root, used by Web servers and job workers" },
+            { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after startup if running to root" },
+            { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used" },
+            { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
-            { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS servers, this is global default" },
+            { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
             { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },
             { name: "ssl-cert", type: "file", obj: 'ssl', descr: "Path to SSL certificate" },
@@ -133,23 +133,23 @@ var core = {
             { name: "ssl-ciphers", obj: 'ssl', descr: "A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
             { name: "ssl-request-cert", type: "bool", obj: 'ssl', descr: "If true the server will request a certificate from clients that connect and attempt to verify that certificate. " },
             { name: "ssl-reject-unauthorized", type: "bool", obj: 'ssl', decr: "If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true" },
-            { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms" },
-            { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be used only in the command line" },
-            { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be used only in the command line" },
-            { name: "monitor", type: "none", descr: "For production use, monitor the server processes and restart if crashed or exited, can be used only in the command line" },
-            { name: "master", type: "none", descr: "Start the master server, can be used only in the command line" },
-            { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file, can be used only in the command line" },
+            { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
+            { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
+            { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules" },
+            { name: "monitor", type: "none", descr: "For production use, monitor the master and Web server processes and restarts if crashed or exited, can be specified only in the command line" },
+            { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
+            { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line" },
             { name: "proxy-port", type: "number", min: 0, descr: "Proxy server port" },
             { name: "proxy-bind", descr: "Proxy server listen address" },
-            { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port" },
+            { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default" },
             { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified initializes REPL in the Web server process" },
             { name: "repl-bind-web", descr: "Web server REPL listen address" },
             { name: "repl-port", type: "number", min: 1001, descr: "Port for REPL interface in the master, if specified triggers REPL server initialization" },
             { name: "repl-bind", descr: "Listen only on specified address for REPL server in the master process" },
             { name: "repl-file", descr: "User specified file for REPL history" },
-            { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache" },
-            { name: "lru-server", descr: "LRU server that acts as a NNBUS node to brosadcast cache messages to all connected backends" },
-            { name: "lru-host", descr: "Address of NNBUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
+            { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
+            { name: "lru-server", descr: "LRU server that acts as a NN-BUS node to brosadcast cache messages to all connected backends" },
+            { name: "lru-host", descr: "Address of NN-BUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
             { name: "pub-type", descr: "One of the redis, amqp or nn to use for PUB/SUB messaging, default is nanomsg sockets" },
             { name: "pub-server", descr: "Server to listen for published messages using nanomsg: ipc:///path,tcp://IP:port..." },
             { name: "pub-host", descr: "Server where clients publish messages to using nanomsg: ipc:///path,tcp://IP:port..." },
@@ -163,19 +163,19 @@ var core = {
             { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
             { name: "no-cache", type:" bool", descr: "Do not use LRU server, all gets will result in miss and puts will have no effect" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
-            { name: "logwatcher-email", descr: "Email for the logwatcher notifications" },
-            { name: "logwatcher-from", descr: "Email to send logwatcher notifications from" },
+            { name: "logwatcher-email", descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
+            { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-ignore", descr: "Regexp with patterns that needs to be ignored by logwatcher process" },
-            { name: "logwatcher-match", descr: "Regexp patterns that match conditions for logwatcher notifications" },
-            { name: "logwatcher-interval", type: "number", min: 300, max: 86400 },
-            { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers" },
-            { name: "backend-host", descr: "Host of the master backend" },
+            { name: "logwatcher-match", descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
+            { name: "logwatcher-interval", type: "number", min: 300, max: 86400, descr: "How often to check for errors in the log files" },
+            { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
+            { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls" },
             { name: "backend-login", descr: "Credentials login for the master backend access" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access" },
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
-            { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius)" },
-            { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request" },
-            { name: "instance", type: "bool", descr: "Enables instance mode, means the backend is running in the cloud to execute a job" },
+            { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
+            { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
+            { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
             { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace facility, trap crashes and report the backtrace stack" },
             { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development" }
     ],
@@ -426,20 +426,26 @@ core.processArgs = function(name, ctx, argv, pass)
 }
 
 // Print help about command line arguments and exit
-core.help = function()
+core.showHelp = function(options)
 {
     var self = this;
     var args = [ [ '', core.args ] ];
     Object.keys(this.context).forEach(function(n) {
         if (self.context[n].args) args.push([n, self.context[n].args]);
     })
+    var data = "";
     args.forEach(function(x) {
         x[1].forEach(function(y) {
             if (!y.name || !y.descr) return;
             var dflt = (x[0] ? self.context[x[0]] : core)[self.toCamel(y.name)] || "";
-            console.log(printf("%-40s", (x[0] ? x[0] + '-' : '') + y.name), y.descr, dflt ? " Default: " + dflt : "");
+            if (options && options.markdown) {
+                data += " * `" + (x[0] ? x[0] + '-' : '') + y.name + "` - " + y.descr + (dflt ? " Default: " + dflt : "") + "\n";
+            } else {
+                console.log(printf("%-40s", (x[0] ? x[0] + '-' : '') + y.name), y.descr, dflt ? " Default: " + dflt : "");
+            }
         });
     });
+    if (options && options.markdown) return data;
     process.exit(0);
 }
 

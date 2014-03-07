@@ -37,6 +37,9 @@ var api = {
             "^/account/add$",
             "^/image/account/" ],
 
+    // Allow only HTTPS requests
+    alowSsl: null,
+
     // Refuse access to these urls
     deny: null,
 
@@ -149,8 +152,21 @@ var api = {
     subscribeTimeout: 600000,
     subscribeInterval: 5000,
 
+    // Collect body MIME types as binary blobs
+    mimeBody: [],
+
     // Sessions
     sessionAge: 86400 * 14 * 1000,
+
+    // Default endpoints
+    endpoints: { "account": 'initAccountAPI',
+                 "connection": 'initConnectionAPI',
+                 "location": 'initLocationAPI',
+                 "history": 'initHistoryAPI',
+                 "counter": 'initCounterAPI',
+                 "icon": 'initIconAPI',
+                 "message": 'initMessageAPI',
+                 "data": 'initDataAPI' },
 
     // Config parameters
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
@@ -165,6 +181,8 @@ var api = {
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow", array: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
+           { name: "allow-ssl", array: 1, descr: "Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused" },
+           { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replace the whole access list"  },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 500, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
@@ -261,18 +279,14 @@ api.init = function(callback)
     });
 
     // Convert allow/deny lists into single regexp
-    if (this.allow) this.allow = new RegExp(this.allow.map(function(x){return "(" + x + ")"}).join("|"));
-    if (this.deny) this.deny = new RegExp(this.deny.map(function(x){return "(" + x + ")"}).join("|"));
+    if (this.allow) this.allow = new RegExp(this.allow.map(function(x) { return "(" + x + ")"}).join("|"));
+    if (this.allowSsl) this.allowSsl = new RegExp(this.allowSsl.map(function(x) { return "(" + x + ")"}).join("|"));
+    if (this.deny) this.deny = new RegExp(this.deny.map(function(x) { return "(" + x + ")"}).join("|"));
 
     // Managing accounts, basic functionality
-    if (self.disable.indexOf("account") == -1) self.initAccountAPI();
-    if (self.disable.indexOf("connection") == -1) self.initConnectionAPI();
-    if (self.disable.indexOf("location") == -1) self.initLocationAPI();
-    if (self.disable.indexOf("history") == -1) self.initHistoryAPI();
-    if (self.disable.indexOf("counter") == -1) self.initCounterAPI();
-    if (self.disable.indexOf("icon") == -1) self.initIconAPI();
-    if (self.disable.indexOf("message") == -1) self.initMessageAPI();
-    if (self.disable.indexOf("data") == -1) self.initDataAPI();
+    for (var p in self.endpoints) {
+        if (self.disable.indexOf(p) == -1) self[self.endpoints[p]].call(this);
+    }
 
     // Remove default API tables for disabled endpoints
     self.disable.forEach(function(x) { delete self.tables['bk_' + x] });
@@ -299,7 +313,7 @@ api.init = function(callback)
                 // Start the SSL server as well
                 if (core.ssl.key || core.ssl.pfx) {
                     server = https.createServer(core.ssl, self.app).listen(core.ssl.port, core.ssl.bind, function(err) {
-                        if (err) logger.error('ssl init:', err, core.ssl);
+                        if (err) logger.error('api: ssl failed:', err, core.ssl); else logger.log('api: ssl started', 'port:', core.ssl.port, 'bind:', core.ssl.bind, 'timeout:', core.timeout);
                         this.timeout = core.timeout;
                         if (callback) callback(err);
                     });
@@ -354,13 +368,21 @@ api.checkQuery = function(req, res, next)
     req.body = req.body || {};
 
     var type = connect.utils.mime(req);
-    if ('application/json' != type && 'application/x-www-form-urlencoded' != type) return next();
+    switch (type) {
+    case 'application/json':
+    case 'application/x-www-form-urlencoded':
+        req.setEncoding('utf8');
+        break;
+
+    default:
+        // Custom types to be collected
+        if (self.mimeBody.indexOf(type) == -1) return next();
+    }
 
     req._body = true;
     var buf = '', size = 0;
     var sig = core.parseSignature(req);
 
-    req.setEncoding('utf8');
     req.on('data', function(chunk) {
         size += chunk.length;
         if (size > self.uploadLimit) return req.destroy();
@@ -381,9 +403,12 @@ api.checkQuery = function(req, res, next)
 
             case 'application/x-www-form-urlencoded':
                 req.body = buf.length ? qs.parse(buf) : {};
-                // Keep the parametrs in the body so we can distinguish GET and POST requests
-                // but use them in signature verification
+                // Keep the parametrs in the body so we can distinguish GET and POST requests but use them in signature verification
                 sig.query = buf;
+                break;
+
+            default:
+                req.body = buf;
             }
             next();
         } catch (err){

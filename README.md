@@ -613,9 +613,6 @@ The backend directory structure is the following:
 * `tmp` - temporary files
 * `web` - Web pages served by the static Express middleware
 
-# Backend config parameters
-
-
 # PUB/SUB configurations
 
 Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but

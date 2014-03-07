@@ -6,6 +6,7 @@
 var fs = require('fs')
 var path = require("path");
 var marked = require("marked");
+var backend = require("backend");
 
 var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && ["index.js", "tests.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/); });
 
@@ -25,6 +26,7 @@ readme.split("\n").forEach(function(x) {
     toc += "* [ " + d[2] + "](#" + d[2].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
 });
 
+toc += "* [Configuration parameters](#configuration-parameters)\n";
 toc += "* Javascript API functions\n";
 
 files.forEach(function(file) {
@@ -35,6 +37,8 @@ files.forEach(function(file) {
 var text = marked(toc, { renderer: renderer });
 
 text += marked(readme, { renderer: renderer });
+text += marked("## Configuration parameters\n", { renderer: renderer });
+text += marked(backend.core.showHelp({markdown:1}), { renderer: renderer });
 
 files.forEach(function(file) {
     var doc = "";
@@ -82,3 +86,5 @@ files.forEach(function(file) {
 });
 
 console.log(header + text);
+process.exit(0);
+
