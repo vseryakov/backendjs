@@ -149,15 +149,7 @@ db.initPoolTables = function(name, tables, callback)
     // Add tables to the list of all tables this pool supports
     var pool = self.getPool('', { pool: name });
     if (!pool.tables) pool.tables = {};
-    // Only keep tables this pool supports, ignore other tables configured for any particular pool
-    var ptables = {}
-    for (var p in tables) {
-        if (this.getPool(p).name != name) continue;
-        pool.tables[p] = tables[p];
-        ptables[p] = tables[p];
-    }
-
-    var options = { pool: name, tables: ptables };
+    var options = { pool: name, tables: tables };
     self.cacheColumns(options, function() {
     	// Workers do not manage tables, only master process
     	if (cluster.isWorker || core.worker) {

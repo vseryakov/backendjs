@@ -28,6 +28,7 @@ case "$PLATFORM" in
     [ "$BACKEND_OS_TYPE" != "" -a "$BACKEND_MASTER" != "" ] && BACKEND_MASTER=$OS_TYPE-$BACKEND_MASTER
     KILLALL="killall -qr"
     ECHO="echo -e"
+    SED="sed -i"
     ;;
 
   Darwin)
@@ -37,6 +38,7 @@ case "$PLATFORM" in
     [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=$BACKEND_PREFIX/lib/mysql56 && MYSQL_DIR=$BACKEND_PREFIX/var/db/mysql56
     KILLALL="killall -m"
     ECHO=echo
+    SED="sed -i ''"
     ;;
 
   *)
@@ -468,8 +470,8 @@ case "$ARG" in
     if [ ! -d $PG_DIR ]; then
        mkdir -p $PG_DIR
        $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
-       sed -i '' "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf
-       sed -i '' "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
+       $SED "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf
+       $SED "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
        $PG_PREFIX/bin/postgres -F -D $PG_DIR &
        sleep 3
        $PG_PREFIX/bin/createdb -U postgres backend
@@ -527,8 +529,8 @@ case "$ARG" in
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
         tar -C $CDB_PREFIX --strip-components=1 -xzf dsc.tar.gz
         rm -rf dsc.tar.gz
-        sed -i "s|/var/lib/cassandra/|$CDB_DIR/var/|g" $CDB_PREFIX/conf/*
-        sed -i "s|/var/log/cassandra/|$CDB_DIR/log/|g" $CDB_PREFIX/conf/*
+        $SED "s|/var/lib/cassandra/|$CDB_DIR/var/|g" $CDB_PREFIX/conf/*
+        $SED "s|/var/log/cassandra/|$CDB_DIR/log/|g" $CDB_PREFIX/conf/*
         chown -R $BACKEND_USER $CDB_DIR $CDB_PREFIX
     fi
     ;;
@@ -659,6 +661,7 @@ case "$ARG" in
     ;;
 
   init-app)
+    [ -f core.js ] && $ECHO "Cannot create new app inside the backend sources, please use some other directory\n" && exit
     NAME=app
     [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
     mkdir -p etc web
