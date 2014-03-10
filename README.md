@@ -739,3 +739,4 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 # Author
   Vlad Seryakov
 
+Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.

@@ -377,6 +377,7 @@ api.checkQuery = function(req, res, next)
     default:
         // Custom types to be collected
         if (self.mimeBody.indexOf(type) == -1) return next();
+        req.setEncoding('binary');
     }
 
     req._body = true;

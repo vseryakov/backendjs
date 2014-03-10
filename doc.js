@@ -22,6 +22,7 @@ var readme = fs.readFileSync("README.md").toString();
 readme.split("\n").forEach(function(x) {
     var d = x.match(/^([#]+) (.+)/);
     if (!d) return;
+    d[2] = d[2].trim();
     for (var i = 0; i < d[1].length - 1; i++) toc += " ";
     toc += "* [ " + d[2] + "](#" + d[2].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
 });
