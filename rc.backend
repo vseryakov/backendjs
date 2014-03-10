@@ -573,6 +573,11 @@ case "$ARG" in
     ;;
 
   run-backend)
+    if [ ! -e $NODE_BACKEND ]; then
+       $ECHO "There is no global backend module installed or linked, please run the command below to make the module globally available:\n"
+       $ECHO "     rc.backend init-backend\n"
+       exit
+    fi
     killall node
     APP=$NODE_BACKEND/server.js
     [ -f server.js ] && APP=server.js
