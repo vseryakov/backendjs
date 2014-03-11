@@ -565,9 +565,9 @@ db.replace = function(table, obj, options, callback)
 }
 
 // Select objects from the database that match supplied conditions.
-// - obj - can be an object with primary key propeties set for the condition, all matching records will be returned
+// - obj - can be an object with primary key properties set for the condition, all matching records will be returned
 // - obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
-// - options can use the following special propeties:
+// - options can use the following special properties:
 //      - keys - a list of columns for condition or all primary keys will be used for query condition, only keys will be used in WHERE part of the SQL statement
 //      - ops - operators to use for comparison for properties, an object with column name and operator
 //      - opsMap - operator mapping between supplied operators and actual operators supported by the db
@@ -1116,7 +1116,7 @@ db.sqlValueIn = function(list, type)
 }
 
 // Build SQL expressions for the column and value
-// options may contain the following poperties:
+// options may contain the following properties:
 //  - op - SQL operator, default is =
 //  - type - can be data, string, number, float, expr, default is string
 //  - value - default value to use if passed value is null or empty
