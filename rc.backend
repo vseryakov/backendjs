@@ -759,7 +759,7 @@ api.registerAuthCheck('', /^\/test\/list$/, function(req, status, callback) {
 
 backend.server.start();
 @@@
-      $ECHO "{\n \"version\": \"0.1\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"app\",\n \"main\": \"app.js\",\n \"dependencies\": { {\"backend\" : \"\"} },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n "license": "BSD-3-Clause" }" > package.json
+      $ECHO "{\n \"version\": \"0.1\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"app\",\n \"main\": \"app.js\",\n \"dependencies\": { {\"backend\" : \"\"} },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
     fi
     ;;
 

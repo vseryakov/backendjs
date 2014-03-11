@@ -54,11 +54,11 @@ applications but still part of the core of the system to be available once neede
         /account/select
 
 * Shutdown the backend by pressing Ctrl-C
-* To make custom Web app run the following command:
+* To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:
 
-        rc.backend init-app
+        [path/to/backend]/rc.backend init-app
 
-* The app.js file is created with 2 additional API endpoints /test/add and /test/[0-9] to show the simplest way
+* The app.js file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
   of adding new tables and API commands.
 * The app.sh script is created for convenience, it specifies common arguments and can be customized as needed
 * Run new application now, it will start the Web server on port 8000:
@@ -66,7 +66,7 @@ applications but still part of the core of the system to be available once neede
         ./app.sh
 
 
-* Go to http://localhost:8000/api.html and issue /test/add?id=1&name=1 and then /test/1 commands in the console to see it in action
+* Go to http://localhost:8000/api.html and issue `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
 * Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
   is only enabled by default in development mode, check app.sh for parameters before running it in te production.
 
