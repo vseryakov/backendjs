@@ -56,7 +56,7 @@ applications but still part of the core of the system to be available once neede
 * Shutdown the backend by pressing Ctrl-C
 * To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:
 
-        [path/to/backend]/rc.backend init-app
+        rc.backend init-app
 
 * The app.js file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
   of adding new tables and API commands.
