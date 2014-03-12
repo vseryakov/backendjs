@@ -17,6 +17,9 @@ var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
 var connect = require('connect');
+var cookieParser = require('cookie-parser');
+var session = require('cookie-session');
+var serveStatic = require('serve-static');
 var formidable = require('formidable');
 var mime = require('mime');
 var consolidate = require('consolidate');
@@ -242,12 +245,12 @@ api.init = function(callback)
     });
 
     // Request parsers
-    self.app.use(express.cookieParser());
+    self.app.use(cookieParser());
     self.app.use(function(req, res, next) { return self.checkQuery(req, res, next); });
     self.app.use(function(req, res, next) { return self.checkBody(req, res, next); });
 
     // Keep session in the cookies
-    self.app.use(express.cookieSession({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
+    self.app.use(session({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
 
     // Check the signature and make sure the logger is defined to log all requests
     self.app.use(this.accessLogger());
@@ -263,8 +266,8 @@ api.init = function(callback)
     self.app.set('views', fs.existsSync(core.path.web + "/views") ? core.path.web + "/view" : __dirname + '/views');
 
     // Serve from default web location in the package or from application specific location
-    self.app.use(express.static(core.path.web));
-    self.app.use(express.static(__dirname + "/web"));
+    self.app.use(serveStatic(core.path.web));
+    self.app.use(serveStatic(__dirname + "/web"));
 
     self.app.use(self.app.router);
     // Default error handler to show erros in the log

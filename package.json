@@ -32,7 +32,10 @@
     "connect": "",
     "formidable": "",
     "amqp": "",
-    "consolidate": ""
+    "consolidate": "",
+    "cookie-parser": "",
+    "cookie-session": "",
+    "serve-static": ""
   },
   "keywords": [
     "database",
