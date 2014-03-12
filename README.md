@@ -691,9 +691,9 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
 # Backend framework development (Mac OS X, developers)
 
-* `git clone https://github.com/vseryakov/backend.git` or `git clone git@bitbucket.org:vseryakov/backend.git`
+* `git clone https://github.com/vseryakov/backend.git` or `git clone git@github.com:vseryakov/backend.git`
 * cd backend
-* to initialize environment for the backend development it needs to set permissions for $BACKEND_PREFIX(default is /opt/local)
+* to initialize environment for the backend development it needs to set permissions for $BACKEND_PREFIX (default is /opt/local)
   to the current user, this is required to support global NPM modules.
 
 * If $BACKEND_PREFIX needs to be changed, create ~/.backend/etc/profile file, for example:
