@@ -67,7 +67,8 @@ logger.pad = function(n) {
     return n
 }
 
-logger.prefix = function(level) {
+logger.prefix = function(level)
+{
     var d = new Date()
     return d.getFullYear() + "-" +
            this.pad(d.getMonth()+1) + "-" +
@@ -81,7 +82,8 @@ logger.prefix = function(level) {
 }
 
 // Set or close syslog mode
-logger.setSyslog = function (on) {
+logger.setSyslog = function (on)
+{
     var self = this;
     if (on) {
         backend.syslogInit("backend", this.LOG_PID | this.LOG_CONS, this.LOG_LOCAL0);
@@ -111,7 +113,8 @@ logger.setSyslog = function (on) {
 }
 
 // Redirect logging into file
-logger.setFile = function(file) {
+logger.setFile = function(file)
+{
     var self = this;
     if (this.stream && this.stream != process.stdout) {
         this.stream.destroySoon();
@@ -132,14 +135,16 @@ logger.setFile = function(file) {
     }
 }
 
-logger.setDebug = function(level) {
+logger.setDebug = function(level)
+{
 	var self = this;
 	self.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
     backend.logging(self.level + 2);
 }
 
 // Assign output channel to system logger, default is stdout
-logger.setChannel = function(name) {
+logger.setChannel = function(name)
+{
     backend.loggingChannel(name);
 }
 // syslog allows facility to be specified after log level like info:local0 for LOG_LOCAL0
@@ -152,45 +157,49 @@ logger.printStream = function(level, msg) {
     this.stream.write(this.prefix(level) + msg + "\n");
 }
 
-logger.printError = function() {
-    process.stderr.write(this.prefix("ERROR") + util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
+logger.printError = function()
+{
+    process.stderr.write(this.prefix("ERROR") + this.format(arguments) + "\n");
 }
 
-logger.log = function() {
+logger.log = function()
+{
     if (this.level < 0) return;
-    this.print('INFO', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+    this.print('INFO', this.format(arguments));
 }
 
 // Make it one line to preserve space, syslog cannot output very long lines
-logger.debug = function() {
+logger.debug = function()
+{
     if (this.level < 1) return;
-    var str = "";
-    for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
-    this.print('DEBUG', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
+    this.print('DEBUG', this.format(arguments));
 }
 
-logger.dev = function() {
+logger.dev = function()
+{
     if (this.level < 2) return;
-    var str = "";
-    for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
-    this.print('DEV', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
+    this.print('DEV', this.format(arguments));
 }
 
-logger.warn = function() {
+logger.warn = function()
+{
     if (this.level < 0) return;
-    this.print('WARNING', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+    this.print('WARNING', this.format(arguments));
 }
 
-logger.error = function() {
-    this.print('ERROR', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+logger.error = function()
+{
+    this.print('ERROR', arguments);
 }
 
-logger.dump = function() {
-    this.stream.write(util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
+logger.dump = function()
+{
+    this.stream.write(this.format(arguments) + "\n");
 }
 
 // Display error if first argument is an Error object or debug
-logger.edebug = function() {
+logger.edebug = function()
+{
     var args = Array.prototype.slice.call(arguments, 1)
     if (arguments[0] instanceof Error) return this.error.apply(this, arguments);
     this.debug.apply(this, args);
@@ -204,24 +213,35 @@ logger.elog = function() {
 }
 
 // Print stack backtrace as error
-logger.trace = function() {
+logger.trace = function()
+{
     var err = new Error('');
     err.name = 'Trace';
     Error.captureStackTrace(err, arguments.callee);
     this.error(util.format.apply(this, arguments), err.stack);
 }
 
+logger.format = function(args)
+{
+    var str = "";
+    for (var p in  args) str += JSON.stringify(args[p]) + " ";
+    return str;
+}
+
 // Default write handler
-logger.print = function() {
+logger.print = function()
+{
     this.printStream.apply(this, arguments);
 }
 
 // Stream emulation
-logger.write = function(str) {
+logger.write = function(str)
+{
     if (str) this.log(str);
     return true;
 }
 
-logger.end = function(str) {
+logger.end = function(str)
+{
     if (str) this.log(str);
 }
