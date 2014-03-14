@@ -537,6 +537,198 @@ one table and one record without maintaining any other features like auto counte
 
 - `/data/stats`
   Database pool statistics and other diagnostics
+  - pool - database metrics
+    - process - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
+    - response - stats about only response times from the db without any local processing times of the result records
+    - queue - stats about db requests at any given moment queued for the execution
+    - rate - req/sec rates
+  - api - Web requests metrics, same structure as for the db pool metrics
+
+  Response:
+
+         {
+            "toobusy": 0,
+            "pool": {
+                "process": {
+                    "meter": {
+                        "mean": 0.001194894762493158,
+                        "count": 65,
+                        "currentRate": 0.001194894762493158,
+                        "1MinuteRate": 2.413646785930864e-158,
+                        "5MinuteRate": 1.2021442332952544e-33,
+                        "15MinuteRate": 7.127940837162242e-13
+                    },
+                    "histogram": {
+                        "min": 1,
+                        "max": 4,
+                        "sum": 99,
+                        "variance": 0.4096153846153847,
+                        "mean": 1.523076923076923,
+                        "stddev": 0.6400120191179106,
+                        "count": 65,
+                        "median": 1,
+                        "p75": 2,
+                        "p95": 2.6999999999999957,
+                        "p99": 4,
+                        "p999": 4
+                    }
+                },
+                "queue": {
+                    "min": 1,
+                    "max": 1,
+                    "sum": 65,
+                    "variance": 0,
+                    "mean": 1,
+                    "stddev": 0,
+                    "count": 65,
+                    "median": 1,
+                    "p75": 1,
+                    "p95": 1,
+                    "p99": 1,
+                    "p999": 1
+                },
+                "count": 0,
+                "rate": {
+                    "mean": 0.0011948946746301802,
+                    "count": 65,
+                    "currentRate": 0.0011948946746301802,
+                    "1MinuteRate": 2.413646785930864e-158,
+                    "5MinuteRate": 1.2021442332952544e-33,
+                    "15MinuteRate": 7.127940837162242e-13
+                },
+                "response": {
+                    "meter": {
+                        "mean": 0.0011948947405274121,
+                        "count": 65,
+                        "currentRate": 0.0011948947405274121,
+                        "1MinuteRate": 2.413646785930864e-158,
+                        "5MinuteRate": 1.2021442332952544e-33,
+                        "15MinuteRate": 7.127940837162242e-13
+                    },
+                    "histogram": {
+                        "min": 0,
+                        "max": 2,
+                        "sum": 65,
+                        "variance": 0.12500000000000003,
+                        "mean": 1,
+                        "stddev": 0.3535533905932738,
+                        "count": 65,
+                        "median": 1,
+                        "p75": 1,
+                        "p95": 2,
+                        "p99": 2,
+                        "p999": 2
+                    }
+                },
+                "misses": 3,
+                "hits": 50
+            },
+            "api": {
+             "rss": {
+                "min": 77926400,
+                "max": 145408000,
+                "sum": 23414882304,
+                "variance": 234721528417225.16,
+                "mean": 128653199.47252747,
+                "stddev": 15320624.282881724,
+                "count": 182,
+                "median": 124903424,
+                "p75": 144999424,
+                "p95": 145408000,
+                "p99": 145408000,
+                "p999": 145408000
+            },
+            "heap": {
+                "min": 14755896,
+                "max": 31551408,
+                "sum": 4174830592,
+                "variance": 19213862445722.168,
+                "mean": 22938629.626373626,
+                "stddev": 4383362.002586846,
+                "count": 182,
+                "median": 22453472,
+                "p75": 26436622,
+                "p95": 30530277.599999998,
+                "p99": 31331225.599999998,
+                "p999": 31551408
+            },
+            "loadavg": {
+                "min": 0,
+                "max": 0.14208984375,
+                "sum": 8.33349609375,
+                "variance": 0.0013957310299007465,
+                "mean": 0.04578844007554945,
+                "stddev": 0.03735948380131538,
+                "count": 182,
+                "median": 0.043701171875,
+                "p75": 0.0806884765625,
+                "p95": 0.103857421875,
+                "p99": 0.13803710937499994,
+                "p999": 0.14208984375
+            },
+            "freemem": {
+                "min": 1731198976,
+                "max": 1815724032,
+                "sum": 319208222720,
+                "variance": 335910913486664.44,
+                "mean": 1753891333.6263735,
+                "stddev": 18327872.584854588,
+                "count": 182,
+                "median": 1757151232,
+                "p75": 1763340288,
+                "p95": 1785729638.4,
+                "p99": 1798348267.5199997,
+                "p999": 1815724032
+            },
+            "rate": {
+                "mean": 0.005091340673514894,
+                "count": 277,
+                "currentRate": 0.005091340673514894,
+                "1MinuteRate": 0.014712537947741827,
+                "5MinuteRate": 0.003251074139103506,
+                "15MinuteRate": 0.0011131541240945431
+            },
+            "response": {
+                "meter": {
+                    "mean": 0.005072961780912493,
+                    "count": 276,
+                    "currentRate": 0.005072961780912493,
+                    "1MinuteRate": 0.014712537947741827,
+                    "5MinuteRate": 0.003251074139103506,
+                    "15MinuteRate": 0.0011131541240946244
+                },
+                "histogram": {
+                    "min": 1,
+                    "max": 11847,
+                    "sum": 13614,
+                    "variance": 508182.2787351782,
+                    "mean": 49.32608695652174,
+                    "stddev": 712.8690473959282,
+                    "count": 276,
+                    "median": 2,
+                    "p75": 5.75,
+                    "p95": 27.149999999999977,
+                    "p99": 122.99000000000024,
+                    "p999": 11847
+                }
+            },
+            "queue": {
+                "min": 1,
+                "max": 2,
+                "sum": 286,
+                "variance": 0.03154920734578558,
+                "mean": 1.032490974729242,
+                "stddev": 0.17762096538918368,
+                "count": 277,
+                "median": 1,
+                "p75": 1,
+                "p95": 1,
+                "p99": 2,
+                "p999": 2
+            },
+            "count": 1
+            }
+        }
 
 - `/data/columns`
 - `/data/columns/TABLE`

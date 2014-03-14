@@ -89,10 +89,10 @@ For this example let&#39;s create couple of accounts, type and execute the follo
 </code></pre></li>
 <li><p>Shutdown the backend by pressing Ctrl-C</p>
 </li>
-<li><p>To make custom Web app run the following command:</p>
+<li><p>To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:</p>
 <pre><code>  rc.backend init-app
 </code></pre></li>
-<li><p>The app.js file is created with 2 additional API endpoints /test/add and /test/[0-9] to show the simplest way
+<li><p>The app.js file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
 of adding new tables and API commands.</p>
 </li>
 <li>The app.sh script is created for convenience, it specifies common arguments and can be customized as needed</li>
@@ -101,7 +101,7 @@ of adding new tables and API commands.</p>
 </code></pre></li>
 </ul>
 <ul>
-<li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue /test/add?id=1&amp;name=1 and then /test/1 commands in the console to see it in action</li>
+<li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</li>
 <li>Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
 is only enabled by default in development mode, check app.sh for parameters before running it in te production.</li>
 </ul>
@@ -522,7 +522,201 @@ one table and one record without maintaining any other features like auto counte
 <ul>
 <li><p><code>/data/stats</code>
 Database pool statistics and other diagnostics</p>
+<ul>
+<li>pool - database metrics<ul>
+<li>process - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client</li>
+<li>response - stats about only response times from the db without any local processing times of the result records</li>
+<li>queue - stats about db requests at any given moment queued for the execution</li>
+<li>rate - req/sec rates</li>
+</ul>
 </li>
+<li>api - Web requests metrics, same structure as for the db pool metrics</li>
+</ul>
+<p>Response:</p>
+<pre><code>   {
+      &quot;toobusy&quot;: 0,
+      &quot;pool&quot;: {
+          &quot;process&quot;: {
+              &quot;meter&quot;: {
+                  &quot;mean&quot;: 0.001194894762493158,
+                  &quot;count&quot;: 65,
+                  &quot;currentRate&quot;: 0.001194894762493158,
+                  &quot;1MinuteRate&quot;: 2.413646785930864e-158,
+                  &quot;5MinuteRate&quot;: 1.2021442332952544e-33,
+                  &quot;15MinuteRate&quot;: 7.127940837162242e-13
+              },
+              &quot;histogram&quot;: {
+                  &quot;min&quot;: 1,
+                  &quot;max&quot;: 4,
+                  &quot;sum&quot;: 99,
+                  &quot;variance&quot;: 0.4096153846153847,
+                  &quot;mean&quot;: 1.523076923076923,
+                  &quot;stddev&quot;: 0.6400120191179106,
+                  &quot;count&quot;: 65,
+                  &quot;median&quot;: 1,
+                  &quot;p75&quot;: 2,
+                  &quot;p95&quot;: 2.6999999999999957,
+                  &quot;p99&quot;: 4,
+                  &quot;p999&quot;: 4
+              }
+          },
+          &quot;queue&quot;: {
+              &quot;min&quot;: 1,
+              &quot;max&quot;: 1,
+              &quot;sum&quot;: 65,
+              &quot;variance&quot;: 0,
+              &quot;mean&quot;: 1,
+              &quot;stddev&quot;: 0,
+              &quot;count&quot;: 65,
+              &quot;median&quot;: 1,
+              &quot;p75&quot;: 1,
+              &quot;p95&quot;: 1,
+              &quot;p99&quot;: 1,
+              &quot;p999&quot;: 1
+          },
+          &quot;count&quot;: 0,
+          &quot;rate&quot;: {
+              &quot;mean&quot;: 0.0011948946746301802,
+              &quot;count&quot;: 65,
+              &quot;currentRate&quot;: 0.0011948946746301802,
+              &quot;1MinuteRate&quot;: 2.413646785930864e-158,
+              &quot;5MinuteRate&quot;: 1.2021442332952544e-33,
+              &quot;15MinuteRate&quot;: 7.127940837162242e-13
+          },
+          &quot;response&quot;: {
+              &quot;meter&quot;: {
+                  &quot;mean&quot;: 0.0011948947405274121,
+                  &quot;count&quot;: 65,
+                  &quot;currentRate&quot;: 0.0011948947405274121,
+                  &quot;1MinuteRate&quot;: 2.413646785930864e-158,
+                  &quot;5MinuteRate&quot;: 1.2021442332952544e-33,
+                  &quot;15MinuteRate&quot;: 7.127940837162242e-13
+              },
+              &quot;histogram&quot;: {
+                  &quot;min&quot;: 0,
+                  &quot;max&quot;: 2,
+                  &quot;sum&quot;: 65,
+                  &quot;variance&quot;: 0.12500000000000003,
+                  &quot;mean&quot;: 1,
+                  &quot;stddev&quot;: 0.3535533905932738,
+                  &quot;count&quot;: 65,
+                  &quot;median&quot;: 1,
+                  &quot;p75&quot;: 1,
+                  &quot;p95&quot;: 2,
+                  &quot;p99&quot;: 2,
+                  &quot;p999&quot;: 2
+              }
+          },
+          &quot;misses&quot;: 3,
+          &quot;hits&quot;: 50
+      },
+      &quot;api&quot;: {
+       &quot;rss&quot;: {
+          &quot;min&quot;: 77926400,
+          &quot;max&quot;: 145408000,
+          &quot;sum&quot;: 23414882304,
+          &quot;variance&quot;: 234721528417225.16,
+          &quot;mean&quot;: 128653199.47252747,
+          &quot;stddev&quot;: 15320624.282881724,
+          &quot;count&quot;: 182,
+          &quot;median&quot;: 124903424,
+          &quot;p75&quot;: 144999424,
+          &quot;p95&quot;: 145408000,
+          &quot;p99&quot;: 145408000,
+          &quot;p999&quot;: 145408000
+      },
+      &quot;heap&quot;: {
+          &quot;min&quot;: 14755896,
+          &quot;max&quot;: 31551408,
+          &quot;sum&quot;: 4174830592,
+          &quot;variance&quot;: 19213862445722.168,
+          &quot;mean&quot;: 22938629.626373626,
+          &quot;stddev&quot;: 4383362.002586846,
+          &quot;count&quot;: 182,
+          &quot;median&quot;: 22453472,
+          &quot;p75&quot;: 26436622,
+          &quot;p95&quot;: 30530277.599999998,
+          &quot;p99&quot;: 31331225.599999998,
+          &quot;p999&quot;: 31551408
+      },
+      &quot;loadavg&quot;: {
+          &quot;min&quot;: 0,
+          &quot;max&quot;: 0.14208984375,
+          &quot;sum&quot;: 8.33349609375,
+          &quot;variance&quot;: 0.0013957310299007465,
+          &quot;mean&quot;: 0.04578844007554945,
+          &quot;stddev&quot;: 0.03735948380131538,
+          &quot;count&quot;: 182,
+          &quot;median&quot;: 0.043701171875,
+          &quot;p75&quot;: 0.0806884765625,
+          &quot;p95&quot;: 0.103857421875,
+          &quot;p99&quot;: 0.13803710937499994,
+          &quot;p999&quot;: 0.14208984375
+      },
+      &quot;freemem&quot;: {
+          &quot;min&quot;: 1731198976,
+          &quot;max&quot;: 1815724032,
+          &quot;sum&quot;: 319208222720,
+          &quot;variance&quot;: 335910913486664.44,
+          &quot;mean&quot;: 1753891333.6263735,
+          &quot;stddev&quot;: 18327872.584854588,
+          &quot;count&quot;: 182,
+          &quot;median&quot;: 1757151232,
+          &quot;p75&quot;: 1763340288,
+          &quot;p95&quot;: 1785729638.4,
+          &quot;p99&quot;: 1798348267.5199997,
+          &quot;p999&quot;: 1815724032
+      },
+      &quot;rate&quot;: {
+          &quot;mean&quot;: 0.005091340673514894,
+          &quot;count&quot;: 277,
+          &quot;currentRate&quot;: 0.005091340673514894,
+          &quot;1MinuteRate&quot;: 0.014712537947741827,
+          &quot;5MinuteRate&quot;: 0.003251074139103506,
+          &quot;15MinuteRate&quot;: 0.0011131541240945431
+      },
+      &quot;response&quot;: {
+          &quot;meter&quot;: {
+              &quot;mean&quot;: 0.005072961780912493,
+              &quot;count&quot;: 276,
+              &quot;currentRate&quot;: 0.005072961780912493,
+              &quot;1MinuteRate&quot;: 0.014712537947741827,
+              &quot;5MinuteRate&quot;: 0.003251074139103506,
+              &quot;15MinuteRate&quot;: 0.0011131541240946244
+          },
+          &quot;histogram&quot;: {
+              &quot;min&quot;: 1,
+              &quot;max&quot;: 11847,
+              &quot;sum&quot;: 13614,
+              &quot;variance&quot;: 508182.2787351782,
+              &quot;mean&quot;: 49.32608695652174,
+              &quot;stddev&quot;: 712.8690473959282,
+              &quot;count&quot;: 276,
+              &quot;median&quot;: 2,
+              &quot;p75&quot;: 5.75,
+              &quot;p95&quot;: 27.149999999999977,
+              &quot;p99&quot;: 122.99000000000024,
+              &quot;p999&quot;: 11847
+          }
+      },
+      &quot;queue&quot;: {
+          &quot;min&quot;: 1,
+          &quot;max&quot;: 2,
+          &quot;sum&quot;: 286,
+          &quot;variance&quot;: 0.03154920734578558,
+          &quot;mean&quot;: 1.032490974729242,
+          &quot;stddev&quot;: 0.17762096538918368,
+          &quot;count&quot;: 277,
+          &quot;median&quot;: 1,
+          &quot;p75&quot;: 1,
+          &quot;p95&quot;: 1,
+          &quot;p99&quot;: 2,
+          &quot;p999&quot;: 2
+      },
+      &quot;count&quot;: 1
+      }
+  }
+</code></pre></li>
 <li><p><code>/data/columns</code></p>
 </li>
 <li><p><code>/data/columns/TABLE</code>
@@ -671,9 +865,9 @@ customize the running environment, these should be regular shell scripts using b
 <p>See web/js/backend.js for function Backend.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
 <h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
 <ul>
-<li><code>git clone https://github.com/vseryakov/backend.git</code> or <code>git clone git@bitbucket.org:vseryakov/backend.git</code></li>
+<li><code>git clone https://github.com/vseryakov/backend.git</code> or <code>git clone git@github.com:vseryakov/backend.git</code></li>
 <li>cd backend</li>
-<li><p>to initialize environment for the backend development it needs to set permissions for $BACKEND_PREFIX(default is /opt/local)
+<li><p>to initialize environment for the backend development it needs to set permissions for $BACKEND_PREFIX (default is /opt/local)
 to the current user, this is required to support global NPM modules.</p>
 </li>
 <li><p>If $BACKEND_PREFIX needs to be changed, create ~/.backend/etc/profile file, for example:</p>
@@ -830,7 +1024,7 @@ backend via npm with all dependencies:</p>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s)</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store images</li>
 <li><code>api-files-s3</code> - S3 bucket name where to store files</li>
-<li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error</li>
+<li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error Default: 1000</li>
 <li><code>api-access-log</code> - File for access logging</li>
 <li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines, default is ejs</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication Default: 1209600000</li>
@@ -2378,9 +2572,9 @@ if it is an array then check only specified columns</li>
 <li><p><code>db.select(table, obj, options, callback)</code></p>
 <p> Select objects from the database that match supplied conditions.</p>
 <ul>
-<li>obj - can be an object with primary key propeties set for the condition, all matching records will be returned</li>
+<li>obj - can be an object with primary key properties set for the condition, all matching records will be returned</li>
 <li>obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
-<li>options can use the following special propeties:<ul>
+<li>options can use the following special properties:<ul>
 <li>keys - a list of columns for condition or all primary keys will be used for query condition, only keys will be used in WHERE part of the SQL statement</li>
 <li>ops - operators to use for comparison for properties, an object with column name and operator</li>
 <li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
@@ -2643,7 +2837,7 @@ All assigned callback to tthis table will be called in the order of the assignme
 <ul>
 <li><p><code>db.sqlExpr(name, value, options)</code></p>
 <p> Build SQL expressions for the column and value
-options may contain the following poperties:</p>
+options may contain the following properties:</p>
 <ul>
 <li>op - SQL operator, default is =</li>
 <li>type - can be data, string, number, float, expr, default is string</li>

@@ -161,6 +161,9 @@ var api = {
     // Sessions
     sessionAge: 86400 * 14 * 1000,
 
+    // Default busy latency 1 sec
+    busyLatency: 1000,
+
     // Default endpoints
     endpoints: { "account": 'initAccountAPI',
                  "connection": 'initConnectionAPI',
