@@ -149,6 +149,8 @@ db.initPoolTables = function(name, tables, callback)
     // Add tables to the list of all tables this pool supports
     var pool = self.getPool('', { pool: name });
     if (!pool.tables) pool.tables = {};
+    // Collect all tables in the pool to be merged with the actual tables later
+    for (var p in tables) pool.tables[p] = tables[p];
     var options = { pool: name, tables: tables };
     self.cacheColumns(options, function() {
     	// Workers do not manage tables, only master process
