@@ -74,7 +74,7 @@ var core = {
     gid: 0,
     umask: '0002',
 
-    // Watched source files for changes, restartes the process if any file has chaged
+    // Watched source files for changes, restarts the process if any file has changed
     watchdirs: [],
     timers: {},
 
@@ -200,7 +200,7 @@ var core = {
 
 module.exports = core;
 
-// Main intialization, must be called prior to perform any actions
+// Main initialization, must be called prior to perform any actions
 core.init = function(callback)
 {
     var self = this;
@@ -284,11 +284,11 @@ core.init = function(callback)
     });
 }
 
-// Called after the core.init has been initialized successfully, this can be redefined in tha applications to add additional
+// Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
 // init steps that all processes require to have.
 core.postInit = function(callback) { callback() }
 
-// Run any backend function after environment has been intialized, this is to be used in shell scripts,
+// Run any backend function after environment has been initialized, this is to be used in shell scripts,
 // core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
 // default environment or pass -home dir so the script will reuse same config and paths as the server
 // context can be specified for the callback, if no then it run in the core context
@@ -303,7 +303,7 @@ core.run = function(callback)
 }
 
 // Switch to new home directory, exit if we cannot, this is important for relative paths to work if used,
-// no need to do this in worker because we already switched to home diretory in the master and all child processes
+// no need to do this in worker because we already switched to home directory in the master and all child processes
 // inherit current directory
 // Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling
 // it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that.
@@ -590,7 +590,7 @@ core.ipcInitClient = function()
 {
     var self = this;
 
-    // Pub/sub messaging system, client part, sends all publish messages to this socket which will be brodcasted into the
+    // Pub/sub messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
     // publish socket by the receiving end
     switch (self.pubType || "") {
     case "redis":
@@ -696,7 +696,7 @@ core.ipcIncrCache = function(key, val)
 }
 
 // Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
-// Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.
+// Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.
 core.ipcSubscribe = function(key, callback)
 {
     var sock = null;
@@ -772,14 +772,14 @@ core.encodeURIComponent = function(str)
     return encodeURIComponent(str || "").replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
 }
 
-// Return unqiue process id based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
-// making it usable for repeating environemnts or storage solutions.
+// Return unique process id based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
+// making it usable for repeating environments or storage solutions.
 core.processId = function()
 {
     return this.role + (cluster.isWorker ? cluster.worker.id : '');
 }
 
-// Convert text into captalized words
+// Convert text into capitalized words
 core.toTitle = function(name)
 {
     return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y[0].toUpperCase() + y.substr(1) + " "; }, "").trim();
@@ -817,7 +817,7 @@ core.toBool = function(val)
     return !val || val == "false" || val == "FALSE" || val == "f" || val == "F" || val == "0" ? false : true;
 }
 
-// Return Date object for given text or numeric date represantation, for invalid date returns 1969
+// Return Date object for given text or numeric date representation, for invalid date returns 1969
 core.toDate = function(val)
 {
     var d = null;
@@ -864,7 +864,7 @@ core.toValue = function(val, type)
     }
 }
 
-// Evaluate expr, compare 2 values with optional type and opertion
+// Evaluate expr, compare 2 values with optional type and operation
 core.isTrue = function(val1, val2, op, type)
 {
     switch ((op ||"").toLowerCase()) {
@@ -969,14 +969,14 @@ core.isTrue = function(val1, val2, op, type)
 //   - file - file name where to save response, in case of error response the error body will be saved as well
 //   - postdata - data to be sent with the request in the body
 //   - postfile - file to be uploaded in the POST body, not as multipart
-//   - query - aditional query parameters to be added to the url as an object or as encoded string
+//   - query - additional query parameters to be added to the url as an object or as encoded string
 //   - sign - sign request with provided email/secret properties
 // - callback will be called with the arguments:
 //     first argument is error object if any
-//     second is params object itself with updted fields
+//     second is params object itself with updated fields
 //     third is HTTP response object
 // On end, the object params will contains the following updated properties:
-//  - data if file was not specified, data eill contain collected response body as string
+//  - data if file was not specified, data will contain collected response body as string
 //  - status - HTTP response status code
 //  - mtime - Date object with the last modified time of the requested file
 //  - size - size of the response body or file
@@ -987,7 +987,7 @@ core.httpGet = function(uri, params, callback)
     if (typeof params == "function") callback = params, params = null;
     if (!params) params = {};
 
-    // Aditional query parameters as an object
+    // Additional query parameters as an object
     var qtype = this.typeName(params.query);
     switch (this.typeName(uri)) {
     case "object":
@@ -1145,7 +1145,7 @@ core.httpGet = function(uri, params, callback)
                   }
                   logger.dev('httpGet:', 'redirect', uri2);
 
-                  // Ignore redirects we dont want and return data recieved
+                  // Ignore redirects we don't want and return data received
                   if (!params.ignoreredirect[uri2]) {
                       ['method','query','headers','postdata','postfile','poststream','sign','checksum'].forEach(function(x) { delete params[x] });
                       if (params.cookies) params.cookies = true;
@@ -1185,7 +1185,7 @@ core.httpGet = function(uri, params, callback)
     return req;
 }
 
-// Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
+// Produce signed URL to be used in embedded cases or with expiration so the url can be passed and be valid for longer time.
 // Host passed here must be the actual host where the request will be sent
 core.signUrl = function(login, secret, host, uri, options)
 {
@@ -1230,7 +1230,7 @@ core.parseSignature = function(req)
 }
 
 
-// Verify signature with given account, signature is an object reurned by parseSignature
+// Verify signature with given account, signature is an object returned by parseSignature
 core.checkSignature = function(sig, account)
 {
     var shatype = "sha1";
@@ -1252,8 +1252,8 @@ core.checkSignature = function(sig, account)
 }
 
 // Sign HTTP request for the API server:
-// url must include all query parametetrs already encoded and ready to be sent
-// options may con tains the following:
+// url must include all query parameters already encoded and ready to be sent
+// options may contains the following:
 //  - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
 //  - sigversion a version number defining how the signature will be signed
 //  - type - content-type header, may be omitted
@@ -1298,7 +1298,7 @@ core.signRequest = function(login, secret, method, host, uri, options)
 // Returns params as in httpGet with .json property assigned with an object from parsed JSON response
 // Special parameters for options:
 // - login - login to use for access credentials instead of global credentials
-// - secret - secret to use for access intead of global credentials
+// - secret - secret to use for access instead of global credentials
 // - proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
 // - queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
 // - rowid - unique record id to be used in case of queue management
@@ -1398,10 +1398,10 @@ core.sendmail = function(from, to, subject, text, callback)
 
 // Call callback for each line in the file
 // options may specify the following parameters:
-// - sync - read file synchorously and call callback for every line
+// - sync - read file synchronously and call callback for every line
 // - abort - signal to stop processing
 // - limit - number of lines to process and exit
-// - progress - if > 0 report how many lines processed so far evert specified lines
+// - progress - if > 0 report how many lines processed so far every specified lines
 // - until - skip lines until this regexp matches
 core.forEachLine = function(file, options, lineCallback, endCallback)
 {
@@ -1438,7 +1438,7 @@ core.forEachLine = function(file, options, lineCallback, endCallback)
             return (endCallback ? endCallback(err) : null);
         }
         // Synchronous version, read every line and call callback which may not do any async operations
-        // because they will not be executed right away buty only after all lines processed
+        // because they will not be executed right away but only after all lines processed
         if (options.sync) {
             while (!options.abort) {
                 var nread = fs.readSync(fd, buffer, 0, buffer.length, options.lines == 0 ? options.start : null);
@@ -1463,7 +1463,7 @@ core.forEachLine = function(file, options, lineCallback, endCallback)
             return (endCallback ? endCallback() : null);
         }
 
-        // Start reding data from the optional position or from the beginning
+        // Start reading data from the optional position or from the beginning
         readData(fd, options.start, function(err2) {
             fs.close(fd, function() {});
             return (endCallback ? endCallback() : null);
@@ -1472,7 +1472,7 @@ core.forEachLine = function(file, options, lineCallback, endCallback)
 }
 
 // Return object with geohash for given coordinates to be used for location search
-// options may contain the follwong properties:
+// options may contain the following properties:
 //   - distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted
 core.geoHash = function(latitude, longitude, options)
 {
@@ -1480,7 +1480,7 @@ core.geoHash = function(latitude, longitude, options)
 	if (!options) options = {};
 	if (options.distance && options.distance < this.minDistance) options.distance = this.minDistance;
 
-	// Geohash ranges for different lenghts in km
+	// Geohash ranges for different lengths in km
 	var range = [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999]];
 	var size = range.filter(function(x) { return x[1] > self.minDistance })[0];
 	var geohash = backend.geoHashEncode(latitude, longitude);
@@ -1541,10 +1541,14 @@ core.randomInt = function(min, max)
     return min + (0 | Math.random() * (max - min + 1));
 }
 
-// Return number between min and max inclusive
-core.randomNum = function(min, max)
+// Generates a random number between given min and max (required)
+// Optional third parameter indicates the number of decimal points to return:
+//   - If it is not given or is NaN, random number is unmodified
+//   - If >0, then that many decimal points are returned (e.g., "2" -> 12.52
+core.randomNum = function(min, max, decs)
 {
-    return min + (Math.random() * (max - min));
+    var num = min + (Math.random() * (max - min));
+    return (typeof decs !== 'number' || decs <= 0) ? num : parseFloat(num.toFixed(decs));
 }
 
 // Return number of seconds for current time
@@ -1607,7 +1611,7 @@ core.toBase64 = function(data)
 	return new Buffer(JSON.stringify(data)).toString("base64");
 }
 
-// Parse base64 JSON into Javascript object, in some cases this can be just a number then it is passed as it is
+// Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is
 core.toJson = function(data)
 {
 	var rc = "";
@@ -1661,7 +1665,7 @@ core.copyFile = function(src, dst, overwrite, callback)
     fs.stat(dst, copy);
 }
 
-// Run theprocess and return all output to the callback
+// Run the process and return all output to the callback
 core.runProcess = function(cmd, callback)
 {
     exec(cmd, function (err, stdout, stderr) {
@@ -1771,7 +1775,7 @@ core.makePath = function(dir, callback)
     });
 }
 
-// Recursevily remove all files and folders in the given path, returns an error to the callback if any
+// Recursively remove all files and folders in the given path, returns an error to the callback if any
 core.unlinkPath = function(dir, callback)
 {
     var self = this;
@@ -1793,7 +1797,7 @@ core.unlinkPath = function(dir, callback)
     });
 }
 
-// Recursevily remove all files and folders in the given path, stops on first error
+// Recursively remove all files and folders in the given path, stops on first error
 core.unlinkPathSync = function(dir)
 {
     var files = this.findFileSync(dir, function() { return 1 });
@@ -1853,7 +1857,7 @@ core.setTimeout = function(name, callback, timeout)
 core.iconPath = function(id, options)
 {
     if (!options) options = {};
-    // Convert into string and remove all chars except numbers, this will support UUIDs as well as regulat integers
+    // Convert into string and remove all chars except numbers, this will support UUIDs as well as regular integers
     id = String(id).replace(/[^0-9]/g, '');
     return path.join(this.path.images, options.prefix || "", id.substr(-2), id.substr(-4, 2), (options.type ? String(options.type)[0] : "") + id + "." + (options.ext || "jpg"));
 }
@@ -1949,18 +1953,18 @@ core.putIcon = function(file, id, options, callback)
 //     - filter - ImageMagick image filters, default is lanczos
 //     - quality - 0-99 percent, image scaling quality
 //     - ext - image format: png, gif, jpg
-//     - flip - flip gorizontally
+//     - flip - flip horizontally
 //     - flop - flip vertically
-//     - blue_radius, blur_sigma - perform adaptice blur on the image
-//     - crop_x, crop_y, crop_width, crop_height - perform crop using given dimenions
-//     - sharpen_rafius, sharpen_sigma - perform sharpening of the image
+//     - blue_radius, blur_sigma - perform adaptive blur on the image
+//     - crop_x, crop_y, crop_width, crop_height - perform crop using given dimensions
+//     - sharpen_radius, sharpen_sigma - perform sharpening of the image
 //     - brightness - use thing to change brightness of the image
 //     - contrast - set new contrast of the image
 //     - rotate - rotation angle
 //     - bgcolor - color for the background, used in rotation
 //     - quantized - set number of colors for quantize
 //     - treedepth - set tree depth for quantixe process
-//     - dither - set 0 or 1 for quantie and posterize procesees
+//     - dither - set 0 or 1 for quantixe and posterize processes
 //     - posterize - set number of color levels
 //     - normalize - normalize image
 //     - opacity - set image opacity
@@ -2028,10 +2032,10 @@ core.exists = function(obj, name)
 // - second argument can be an object that acts as a filter to skip properties:
 //     - _skip_null - to skip all null properties
 //     - _empty_to_null - convert empty strings into null objects
-//     - _skip_cb - a callback that returns true to skip a property, argumnets are property name and value
+//     - _skip_cb - a callback that returns true to skip a property, arguments are property name and value
 //     - name - a property name to skip, the value is treated depending on the type of the property:
 //          - boolean - skip if true
-//          - integer - skip only if the object's propetty is a string and greater in lengtth that this value
+//          - integer - skip only if the object's property is a string and greater in length that this value
 // - if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 // Example:
@@ -2287,7 +2291,7 @@ core.watchFiles = function(dir, pattern, callback)
         }).forEach(function(file) {
             logger.debug('watchFiles:', file.name, file.stat.size);
             fs.watch(file.name, function(event, filename) {
-                // Check stat if no file name, Mac OSX does not provide it
+                // Check stat if no file name, Mac OS X does not provide it
                 if (!filename && core.statSync(file.name).size == file.stat.size) return;
                 logger.log('watchFiles:', event, filename || file.name);
                 callback(file);
