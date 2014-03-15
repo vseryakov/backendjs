@@ -805,6 +805,77 @@ The backend directory structure is the following:
 * `tmp` - temporary files
 * `web` - Web pages served by the static Express middleware
 
+# Internal backend functions
+
+The backend includes internal C++ module which provide some useful functions available in the Javascript. The backend is exposed as "backend" submodule, to see
+all functions for example run the below:
+
+    var backend = require('backend');
+    console.log(backend.backend)
+
+List of available functions:
+- rungc() - run V8 garbage collector on demand
+- setsegv() - install SEGV signal handler to show crash backtrace
+- setbacktrace() - install special V8-aware backtrace handler
+- backtrace() - show V8 backtrace from current position
+- heapSnapshot(file) - dump current memory heap snapshot into a file
+- splitArray() - split a string into an array separated by commas, supports double quotes
+- logging([level]) - set or return logging level, this is internal C++ logging facility
+- loggingChannel(channelname) - redirect logging into stdout or stderr, this is internal C++ logging
+- countWordsInit()
+- countWords()
+- countAllWords()
+- resizeImage(source, options, callback) - resize image using ImageMagick,
+   - source can be a Buffer or file name
+   - options can have the following properties:
+     - width - output image width
+     - height - output image height
+     - quality - 0 -99
+     - out - output file name
+     - ext - image extention
+
+- resizeImageSync(name,width,height,format,filter,quality,outfile) - resize an image synchronically
+- snappyCompress(str) - compress a string
+- snappyUncompress(str) - decompress a string
+- uuid() - return a new UUID
+- geoDistance(lat1, lon1, lat2, lon2) - return distance between 2 coordinates in km
+- geoBoundingBox(lat, lon, distance) - return bounding box geohash for given point around distance
+- geoHashEncode(lat, lon, len) - return geohash for given coordinate, len defines number of bytesin geohash
+- geoHashDecode(hash) - return coordinates for given geohash
+- geoHashAdjacent()
+- geoHashGrid()
+- geoHashRow()
+- cacheSave()
+- cacheSet()
+- cacheGet()
+- cacheDel()
+- cacheKeys()
+- cacheClear()
+- cacheNames()
+- cacheSize()
+- cacheEach()
+- cacheForEach()
+- cacheForEachNext()
+- cacheBegin()
+- cacheNext()
+- lruInit(max) - init LRU cache with max number of keys, this is in-memory cache which evicts older keys
+- lruStats() - return statistics about the LRU cache
+- lruSize() - return size of the current LRU cache
+- lruCount() - number of keys in the LRU cache
+- lruSet(name, val) - set/replace value by name
+- lruGet(name) - return value by name
+- lruIncr(name, val) - increase value by given number, non existent items assumed to be 0
+- lruDel(name) - delete by name
+- lruKeys() - return all cache key names
+- lruClear() - clear LRU cache
+- lruServer()
+- syslogInit(name, priority, facility)
+- syslogSend(level, text)
+- syslogClose()
+- listStatements() - list all active Sqlite statements
+- nnSockets() - list all open nanomsg sockets
+- NNSocket() - create a new nanomsg socket object
+
 # PUB/SUB configurations
 
 Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
