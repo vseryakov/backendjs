@@ -224,7 +224,7 @@ logger.trace = function()
 logger.format = function(args)
 {
     var str = "";
-    for (var p in  args) str += JSON.stringify(args[p]) + " ";
+    for (var p in  args) str += util.inspect(args[p], { depth: null }).replace(/[ \\\r\n\t]+/g, " ") + " ";
     return str;
 }
 

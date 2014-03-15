@@ -506,7 +506,7 @@ api.checkSignature = function(req, callback)
     var sig = core.parseSignature(req);
 
     // Show request in the log on demand for diagnostics
-    if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', sig, 'hdrs:', req.headers, 'session:', req.session);
+    if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
     // Sanity checks, required headers must be present and not empty
     if (!sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
