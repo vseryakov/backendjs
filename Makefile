@@ -23,3 +23,4 @@ test-db:
 
 doc:
 	node doc.js > web/doc.html
+	-if [ -d ../Backend-Pages ]; then cp web/doc.html ../Backend-Pages/index.html; fi
