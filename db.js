@@ -1964,7 +1964,7 @@ db.dynamodbInitPool = function(options)
         pool.next_token = null;
         var cols = pool.dbcolumns[table] || {};
         // Primary keys
-        var primary_keys = (pool.dbkeys[table] || []).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+        var primary_keys = (pool.dbkeys[table] || []).filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
         switch(req.op) {
         case "create":
             var idxs = [];
@@ -2025,6 +2025,7 @@ db.dynamodbInitPool = function(options)
             // Do not use index name if it is a primary key
             if (options.sort && Object.keys(keys).indexOf(options.sort) > -1) options.sort = null;
             options.select = self.getSelectedColumns(table, options);
+
             var op = Object.keys(keys).sort().toString() == Object.keys(primary_keys).sort().toString() ? 'ddbQueryTable' : 'ddbScanTable';
             aws[op](table, keys, options, function(err, item) {
                 if (err) return callback(err, []);

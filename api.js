@@ -555,6 +555,7 @@ api.checkSignature = function(req, callback)
         // Save account and signature in the request, it will be used later
         req.signature = sig;
         req.account = account;
+        logger.debug(req.path, req.account, req.query);
         return callback({ status: 200, message: "Ok" });
     });
 }
@@ -569,7 +570,6 @@ api.initAccountAPI = function()
     db.setProcessRow('account', self.processAccountRow);
 
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
-        logger.debug(req.path, req.account, req.query, req.session);
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -752,7 +752,6 @@ api.initIconAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9]+)\/?([a-z0-9])?$/, function(req, res) {
-        logger.debug(req.path, req.account.id);
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -788,7 +787,6 @@ api.initMessageAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/message\/([a-z]+)$/, function(req, res) {
-        logger.debug(req.path, req.account.id, req.query);
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -801,9 +799,8 @@ api.initMessageAPI = function()
             break;
 
         case "get":
-            if (!req.query.mtime) req.query.mtime = "";
             options.ops = { mtime: "gt" };
-            db.select("bk_message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows, info) {
+            db.select("bk_message", { id: req.account.id, mtime: req.query.mtime || "" }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 var next_token = info.next_token ? core.toBase64(info.next_token) : "";
                 rows.forEach(function(row) {
@@ -828,6 +825,7 @@ api.initMessageAPI = function()
                     if (err) return self.sendReply(res, db.convertError("bk_message", err));
                     self.sendJSON(req, res, {});
                     core.ipcPublish(req.query.id, { path: req.path, mtime: now, sender: req.query.sender });
+                    db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1, mtime: 1 });
 
                     // Update history log
                     if (req.query._history) {
@@ -870,7 +868,6 @@ api.initHistoryAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/history\/([a-z]+)$/, function(req, res) {
-        logger.debug('history:', req.params[0], req.account, req.query);
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -903,7 +900,6 @@ api.initCounterAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
-        logger.debug(req.path, req.account.id, req.query);
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -956,7 +952,6 @@ api.initConnectionAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
-        logger.debug(req.path, req.account.id, req.query);
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -1007,7 +1002,7 @@ api.initConnectionAPI = function()
 
                     var col = db.getColumn("bk_counter", type + '0');
                     if (col && col.incr) {
-                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0'), { cached: 1, mtime: 1 });
+                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', 1), { cached: 1, mtime: 1 });
                         db.incr("bk_counter", core.newObj('id', id, type + '1', 1), { cached: 1, mtime: 1 });
                     }
                 });
@@ -1097,7 +1092,6 @@ api.initLocationAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
-        logger.debug(req.path, req.account.id, req.query);
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -1584,7 +1578,7 @@ api.deleteAccount = function(obj, callback)
     if (!obj || !obj.id || !obj.login) return callback ? callback(new Error("id, login must be specified")) : null;
     var db = core.context.db;
 
-    db.del("bk_auth", { login: obj.login }, function(err) {
+    db.del("bk_auth", { login: obj.login }, { cached: true }, function(err) {
         if (err) return callback ? callback(err) : null;
         db.del("bk_account", { id: obj.id }, callback);
     });

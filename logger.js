@@ -62,7 +62,8 @@ var logger = {
 
 module.exports = logger;
 
-logger.pad = function(n) {
+logger.pad = function(n)
+{
     if (n >= 0 && n < 10) return "0" + n
     return n
 }
@@ -148,53 +149,59 @@ logger.setChannel = function(name)
     backend.loggingChannel(name);
 }
 // syslog allows facility to be specified after log level like info:local0 for LOG_LOCAL0
-logger.printSyslog = function(level, msg) {
+logger.printSyslog = function(level, msg)
+{
     var code = this.syslogMap[level];
     backend.syslogSend(code || this.LOG_INFO, (code ? "" : level + ": ") + msg);
 }
 
-logger.printStream = function(level, msg) {
+logger.printStream = function(level, msg)
+{
     this.stream.write(this.prefix(level) + msg + "\n");
 }
 
 logger.printError = function()
 {
-    process.stderr.write(this.prefix("ERROR") + this.format(arguments) + "\n");
+    process.stderr.write(this.prefix("ERROR") + util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
 }
 
 logger.log = function()
 {
     if (this.level < 0) return;
-    this.print('INFO', this.format(arguments));
+    this.print('INFO', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
 }
 
 // Make it one line to preserve space, syslog cannot output very long lines
 logger.debug = function()
 {
     if (this.level < 1) return;
-    this.print('DEBUG', this.format(arguments));
+    var str = "";
+    for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
+    this.print('DEBUG', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
 }
 
 logger.dev = function()
 {
     if (this.level < 2) return;
-    this.print('DEV', this.format(arguments));
+    var str = "";
+    for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
+    this.print('DEV', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
 }
 
 logger.warn = function()
 {
     if (this.level < 0) return;
-    this.print('WARNING', this.format(arguments));
+    this.print('WARNING', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
 }
 
 logger.error = function()
 {
-    this.print('ERROR', arguments);
+    this.print('ERROR', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
 }
 
 logger.dump = function()
 {
-    this.stream.write(this.format(arguments) + "\n");
+    this.stream.write(util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
 }
 
 // Display error if first argument is an Error object or debug
@@ -206,7 +213,8 @@ logger.edebug = function()
 }
 
 // Display error if first argument is an Error object or log
-logger.elog = function() {
+logger.elog = function()
+{
     var args = Array.prototype.slice.call(arguments, 1)
     if (arguments[0] instanceof Error) return this.error.apply(this, arguments);
     this.log.apply(this, args);
@@ -219,13 +227,6 @@ logger.trace = function()
     err.name = 'Trace';
     Error.captureStackTrace(err, arguments.callee);
     this.error(util.format.apply(this, arguments), err.stack);
-}
-
-logger.format = function(args)
-{
-    var str = "";
-    for (var p in  args) str += util.inspect(args[p], { depth: null }).replace(/[ \\\r\n\t]+/g, " ") + " ";
-    return str;
 }
 
 // Default write handler
