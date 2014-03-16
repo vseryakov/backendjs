@@ -11,6 +11,7 @@
 <li><a href="#connections"> Connections</a></li>
 <li><a href="#locations"> Locations</a></li>
 <li><a href="#messages"> Messages</a></li>
+<li><a href="#generic-images-endpoint"> Generic Images endpoint</a></li>
 <li><a href="#icons"> Icons</a></li>
 <li><a href="#counters"> Counters</a></li>
 <li><a href="#history"> History</a></li>
@@ -18,6 +19,7 @@
 </ul>
 </li>
 <li><a href="#backend-directory-structure"> Backend directory structure</a></li>
+<li><a href="#internal-backend-functions"> Internal backend functions</a></li>
 <li><a href="#pub-sub-configurations"> PUB/SUB configurations</a><ul>
 <li><a href="#internal-with-nanomsg"> Internal with nanomsg</a></li>
 <li><a href="#redis"> Redis</a></li>
@@ -144,13 +146,13 @@ one or two columns can be marked with primary property while for SQL databases t
 <li><p><code>/account/get</code></p>
 <p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
 returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
-verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.</p>
+verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
+The properties &#39;icon0..iconN&#39; only appear if an icon with corresponding type has been uploaded with <code>/account/icon/put</code> request.</p>
 <p>Parameters:</p>
 <ul>
 <li>no id is given, return only one current account record as JSON</li>
-<li>id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma,
-return list of account records as JSON</li>
-<li>_session - after successful login setup a session with cookies so the Web app can perform requests without signing</li>
+<li>id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma</li>
+<li>_session - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore</li>
 </ul>
 <p>Response:</p>
 <pre><code>      { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
@@ -162,6 +164,8 @@ return list of account records as JSON</li>
         &quot;icon2&quot;: &quot;/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/2&quot;
       }
 </code></pre></li>
+</ul>
+<ul>
 <li><p><code>/account/add</code></p>
 <p>Add new account, all parameters are the columns from the <code>bk_account</code> table, required columns are: <strong>name, secret, login</strong>.</p>
 <p><em>Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
@@ -201,7 +205,7 @@ large tables.</p>
         }
 </code></pre><ul>
 <li><p><code>/account/del</code></p>
-<p>Delete current account</p>
+<p>Delete current account, after this call no more requests will be authenticated with the current credentials</p>
 </li>
 <li><p><code>/account/update</code></p>
 <p>Update current account with new values, the parameters are columns of the table <code>bk_account</code>, only columns with non empty values will be updated.</p>
@@ -209,7 +213,7 @@ large tables.</p>
 <pre><code>      /account/update?name=New%2BName&amp;alias=Hidden%2BName&amp;gender=m
 </code></pre></li>
 <li><p><code>/account/put/secret</code></p>
-<p>Change account secret for the current account</p>
+<p>Change account secret for the current account, no columns except the secret will be updated and expected.</p>
 <p>Parameters:</p>
 <ul>
 <li>secret - new secret for the account</li>
@@ -219,8 +223,8 @@ large tables.</p>
 </code></pre></li>
 </ul>
 <ul>
-<li><p><code>/account/subcribe</code>
-Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
+<li><p><code>/account/subcribe</code></p>
+<p>Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
 somebody updates the account&#39;s counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
 connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
 since the connect will be delivered. To specify what kind of events needs to be delivered, <code>match</code> query partameters can be specified which is a
@@ -238,20 +242,21 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
       { &quot;path&quot; : &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot;, &quot;id&quot;: &quot;123456789&quot; } ]
 </code></pre><ul>
 <li><p><code>/account/get/icon</code></p>
-<p>Return account icon</p>
+<p>Return an account icon, the icon is returned in the body as binary BLOB, if no icon with specified type exists, i.e. never been uploaded the 404 is returned</p>
 <p>Parameters:</p>
 <ul>
 <li>type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used</li>
 </ul>
 </li>
 <li><p><code>/account/put/icon</code></p>
-<p>Upload account icon</p>
+<p>Upload an account icon</p>
 <p>Parameters:</p>
 <ul>
 <li>type - icon type, a number between 0 and 9 or any single letter a..z, if not specified 0 is used</li>
 <li>icon - can be passed as base64 encoded image in the query,<ul>
-<li>can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: &#39;DFRGRGRE...&#39; }</li>
-<li>can be passed in multipart form as a part name</li>
+<li>can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: &#39;iVBORw0KGgoA...&#39; },
+for JSON the Content-Type HTTP headers must be set to <code>application/json</code> and data should be sent with POST request</li>
+<li>can be uploaded from the browser using regular multi-part form</li>
 </ul>
 </li>
 <li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
@@ -267,7 +272,9 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
 <ul>
 <li>type - what icon to delete, if not specified 0 is used</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>  /account/icon/del?type=1
+</code></pre></li>
 </ul>
 <h2 id="connections">Connections</h2>
 <p>The connections API maintains two tables <code>bk_connection</code> and <code>bk_reference</code> for links between accounts of any type. bk_connection table maintains my
@@ -441,8 +448,20 @@ Delete the message by <code>sender</code> and <code>mtime</code> which must be p
 <pre><code>  /message/del?sender=12345&amp;mtime=124345656567676
 </code></pre></li>
 </ul>
-<h2 id="icons">Icons</h2>
-<p>The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
+<h2 id="generic-images-endpoint">Generic Images endpoint</h2>
+<p>This endpoint can server any icon uploaded tot he server for any account, it is non-secure method, i.e. no authentication is performed, by
+default only <code>/image/account</code> is exposed to server account profile icons to anybody but the permissions can be configured which prefix canbe open or closed using
+<code>api-allow</code> or <code>api-allow-path</code> config parameters.
+The format of the endpoint is:</p>
+<pre><code>/image/prefix/id/type
+
+Example:
+
+    /image/account/12345/0
+    /image/account/12345/1
+    Return icons for account 12345 for types 0 and 1
+</code></pre><h2 id="icons">Icons</h2>
+<p>The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
 accounts, within the account icons can be separated by <code>prefix</code> which is just a name assigned to the icons set, for example to keep messages
 icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.</p>
 <ul>
@@ -789,6 +808,80 @@ regular parameters are the table columns.</p>
 <li><code>tmp</code> - temporary files</li>
 <li><code>web</code> - Web pages served by the static Express middleware</li>
 </ul>
+<h1 id="internal-backend-functions">Internal backend functions</h1>
+<p>The backend includes internal C++ module which provide some useful functions available in the Javascript. The backend is exposed as &quot;backend&quot; submodule, to see
+all functions for example run the below:</p>
+<pre><code>var backend = require(&#39;backend&#39;);
+console.log(backend.backend)
+</code></pre><p>List of available functions:</p>
+<ul>
+<li>rungc() - run V8 garbage collector on demand</li>
+<li>setsegv() - install SEGV signal handler to show crash backtrace</li>
+<li>setbacktrace() - install special V8-aware backtrace handler</li>
+<li>backtrace() - show V8 backtrace from current position</li>
+<li>heapSnapshot(file) - dump current memory heap snapshot into a file</li>
+<li>splitArray() - split a string into an array separated by commas, supports double quotes</li>
+<li>logging([level]) - set or return logging level, this is internal C++ logging facility</li>
+<li>loggingChannel(channelname) - redirect logging into stdout or stderr, this is internal C++ logging</li>
+<li>countWordsInit()</li>
+<li>countWords()</li>
+<li>countAllWords()</li>
+<li><p>resizeImage(source, options, callback) - resize image using ImageMagick,</p>
+<ul>
+<li>source can be a Buffer or file name</li>
+<li>options can have the following properties:<ul>
+<li>width - output image width</li>
+<li>height - output image height</li>
+<li>quality - 0 -99</li>
+<li>out - output file name</li>
+<li>ext - image extention</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>resizeImageSync(name,width,height,format,filter,quality,outfile) - resize an image synchronically</p>
+</li>
+<li>snappyCompress(str) - compress a string</li>
+<li>snappyUncompress(str) - decompress a string</li>
+<li>uuid() - return a new UUID</li>
+<li>geoDistance(lat1, lon1, lat2, lon2) - return distance between 2 coordinates in km</li>
+<li>geoBoundingBox(lat, lon, distance) - return bounding box geohash for given point around distance</li>
+<li>geoHashEncode(lat, lon, len) - return geohash for given coordinate, len defines number of bytesin geohash</li>
+<li>geoHashDecode(hash) - return coordinates for given geohash</li>
+<li>geoHashAdjacent()</li>
+<li>geoHashGrid()</li>
+<li>geoHashRow()</li>
+<li>cacheSave()</li>
+<li>cacheSet()</li>
+<li>cacheGet()</li>
+<li>cacheDel()</li>
+<li>cacheKeys()</li>
+<li>cacheClear()</li>
+<li>cacheNames()</li>
+<li>cacheSize()</li>
+<li>cacheEach()</li>
+<li>cacheForEach()</li>
+<li>cacheForEachNext()</li>
+<li>cacheBegin()</li>
+<li>cacheNext()</li>
+<li>lruInit(max) - init LRU cache with max number of keys, this is in-memory cache which evicts older keys</li>
+<li>lruStats() - return statistics about the LRU cache</li>
+<li>lruSize() - return size of the current LRU cache</li>
+<li>lruCount() - number of keys in the LRU cache</li>
+<li>lruSet(name, val) - set/replace value by name</li>
+<li>lruGet(name) - return value by name</li>
+<li>lruIncr(name, val) - increase value by given number, non existent items assumed to be 0</li>
+<li>lruDel(name) - delete by name</li>
+<li>lruKeys() - return all cache key names</li>
+<li>lruClear() - clear LRU cache</li>
+<li>lruServer()</li>
+<li>syslogInit(name, priority, facility)</li>
+<li>syslogSend(level, text)</li>
+<li>syslogClose()</li>
+<li>listStatements() - list all active Sqlite statements</li>
+<li>nnSockets() - list all open nanomsg sockets</li>
+<li>NNSocket() - create a new nanomsg socket object</li>
+</ul>
 <h1 id="pub-sub-configurations">PUB/SUB configurations</h1>
 <p>Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
 the backend provides some partially implemented subscription notifications for Web clients using the Long Poll. The Account API call <code>/account/subscribe</code>
@@ -862,6 +955,9 @@ customize the running environment, these should be regular shell scripts using b
 </li>
 </ul>
 <p>The resulting signature is sent as HTTP header bk-signature: string</p>
+<p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
+which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
+this is the only way to ensure the body is not modified when not using query parameters.</p>
 <p>See web/js/backend.js for function Backend.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
 <h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
 <ul>
@@ -1695,20 +1791,20 @@ Example:
 
 <ul>
 <li><p><code>core.init(callback)</code></p>
-<p> Main intialization, must be called prior to perform any actions</p>
+<p> Main initialization, must be called prior to perform any actions</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>core.postInit(callback)</code></p>
-<p> Called after the core.init has been initialized successfully, this can be redefined in tha applications to add additional
+<p> Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
 init steps that all processes require to have.</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>core.run(callback)</code></p>
-<p> Run any backend function after environment has been intialized, this is to be used in shell scripts,
+<p> Run any backend function after environment has been initialized, this is to be used in shell scripts,
 core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
 default environment or pass -home dir so the script will reuse same config and paths as the server
 context can be specified for the callback, if no then it run in the core context</p>
@@ -1721,7 +1817,7 @@ context can be specified for the callback, if no then it run in the core context
 <ul>
 <li><p><code>core.setHome(home)</code></p>
 <p> Switch to new home directory, exit if we cannot, this is important for relative paths to work if used,
-no need to do this in worker because we already switched to home diretory in the master and all child processes
+no need to do this in worker because we already switched to home directory in the master and all child processes
 inherit current directory
 Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling
 it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that.</p>
@@ -1774,7 +1870,7 @@ socket and listen for messages.</p>
 <ul>
 <li><p><code>core.ipcSubscribe(key, callback)</code></p>
 <p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
-Returns a non-zero handle which must be unsibscribed when not needed. If no pubsub system is available or error occured returns 0.</p>
+Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.</p>
 </li>
 </ul>
 
@@ -1798,14 +1894,14 @@ Returns a non-zero handle which must be unsibscribed when not needed. If no pubs
 
 <ul>
 <li><p><code>core.processId()</code></p>
-<p> Return unqiue process id based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
-making it usable for repeating environemnts or storage solutions.</p>
+<p> Return unique process id based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
+making it usable for repeating environments or storage solutions.</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>core.toTitle(name)</code></p>
-<p> Convert text into captalized words</p>
+<p> Convert text into capitalized words</p>
 </li>
 </ul>
 
@@ -1835,7 +1931,7 @@ making it usable for repeating environemnts or storage solutions.</p>
 
 <ul>
 <li><p><code>core.toDate(val)</code></p>
-<p> Return Date object for given text or numeric date represantation, for invalid date returns 1969</p>
+<p> Return Date object for given text or numeric date representation, for invalid date returns 1969</p>
 </li>
 </ul>
 
@@ -1847,7 +1943,7 @@ making it usable for repeating environemnts or storage solutions.</p>
 
 <ul>
 <li><p><code>core.isTrue(val1, val2, op, type)</code></p>
-<p> Evaluate expr, compare 2 values with optional type and opertion</p>
+<p> Evaluate expr, compare 2 values with optional type and operation</p>
 </li>
 </ul>
 
@@ -1863,16 +1959,16 @@ making it usable for repeating environemnts or storage solutions.</p>
 <li>file - file name where to save response, in case of error response the error body will be saved as well</li>
 <li>postdata - data to be sent with the request in the body</li>
 <li>postfile - file to be uploaded in the POST body, not as multipart</li>
-<li>query - aditional query parameters to be added to the url as an object or as encoded string</li>
+<li>query - additional query parameters to be added to the url as an object or as encoded string</li>
 <li>sign - sign request with provided email/secret properties</li>
 </ul>
 </li>
 <li>callback will be called with the arguments:
  first argument is error object if any
- second is params object itself with updted fields
+ second is params object itself with updated fields
  third is HTTP response object
 On end, the object params will contains the following updated properties:</li>
-<li>data if file was not specified, data eill contain collected response body as string</li>
+<li>data if file was not specified, data will contain collected response body as string</li>
 <li>status - HTTP response status code</li>
 <li>mtime - Date object with the last modified time of the requested file</li>
 <li>size - size of the response body or file
@@ -1883,7 +1979,7 @@ Note: SIDE EFFECT: params object is modified in place so many options will be ch
 
 <ul>
 <li><p><code>core.signUrl(login, secret, host, uri, options)</code></p>
-<p> Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
+<p> Produce signed URL to be used in embedded cases or with expiration so the url can be passed and be valid for longer time.
 Host passed here must be the actual host where the request will be sent</p>
 </li>
 </ul>
@@ -1903,15 +1999,15 @@ If the signature successfully recognized it is saved in the request for subseque
 
 <ul>
 <li><p><code>core.checkSignature(sig, account)</code></p>
-<p> Verify signature with given account, signature is an object reurned by parseSignature</p>
+<p> Verify signature with given account, signature is an object returned by parseSignature</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>core.signRequest(login, secret, method, host, uri, options)</code></p>
 <p> Sign HTTP request for the API server:
-url must include all query parametetrs already encoded and ready to be sent
-options may con tains the following:</p>
+url must include all query parameters already encoded and ready to be sent
+options may contains the following:</p>
 <ul>
 <li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
 <li>sigversion a version number defining how the signature will be signed</li>
@@ -1929,7 +2025,7 @@ Returns params as in httpGet with .json property assigned with an object from pa
 Special parameters for options:</p>
 <ul>
 <li>login - login to use for access credentials instead of global credentials</li>
-<li>secret - secret to use for access intead of global credentials</li>
+<li>secret - secret to use for access instead of global credentials</li>
 <li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
 <li>queue - perform queue management, save in queue if cannot send right now, delete from queue if sent</li>
 <li>rowid - unique record id to be used in case of queue management</li>
@@ -1967,10 +2063,10 @@ Special parameters for options:</p>
 <p> Call callback for each line in the file
 options may specify the following parameters:</p>
 <ul>
-<li>sync - read file synchorously and call callback for every line</li>
+<li>sync - read file synchronously and call callback for every line</li>
 <li>abort - signal to stop processing</li>
 <li>limit - number of lines to process and exit</li>
-<li>progress - if &gt; 0 report how many lines processed so far evert specified lines</li>
+<li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
 <li>until - skip lines until this regexp matches</li>
 </ul>
 </li>
@@ -1979,7 +2075,7 @@ options may specify the following parameters:</p>
 <ul>
 <li><p><code>core.geoHash(latitude, longitude, options)</code></p>
 <p> Return object with geohash for given coordinates to be used for location search
-options may contain the follwong properties:</p>
+options may contain the following properties:</p>
 <ul>
 <li>distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted</li>
 </ul>
@@ -2029,8 +2125,13 @@ options may contain the follwong properties:</p>
 </ul>
 
 <ul>
-<li><p><code>core.randomNum(min, max)</code></p>
-<p> Return number between min and max inclusive</p>
+<li><p><code>core.randomNum(min, max, decs)</code></p>
+<p> Generates a random number between given min and max (required)
+Optional third parameter indicates the number of decimal points to return:</p>
+<ul>
+<li>If it is not given or is NaN, random number is unmodified</li>
+<li>If &gt;0, then that many decimal points are returned (e.g., &quot;2&quot; -&gt; 12.52</li>
+</ul>
 </li>
 </ul>
 
@@ -2066,7 +2167,7 @@ options may contain the follwong properties:</p>
 
 <ul>
 <li><p><code>core.toJson(data)</code></p>
-<p> Parse base64 JSON into Javascript object, in some cases this can be just a number then it is passed as it is</p>
+<p> Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is</p>
 </li>
 </ul>
 
@@ -2084,7 +2185,7 @@ options may contain the follwong properties:</p>
 
 <ul>
 <li><p><code>core.runProcess(cmd, callback)</code></p>
-<p> Run theprocess and return all output to the callback</p>
+<p> Run the process and return all output to the callback</p>
 </li>
 </ul>
 
@@ -2132,13 +2233,13 @@ mdate is a Date object with last modified time</p>
 
 <ul>
 <li><p><code>core.unlinkPath(dir, callback)</code></p>
-<p> Recursevily remove all files and folders in the given path, returns an error to the callback if any</p>
+<p> Recursively remove all files and folders in the given path, returns an error to the callback if any</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>core.unlinkPathSync(dir)</code></p>
-<p> Recursevily remove all files and folders in the given path, stops on first error</p>
+<p> Recursively remove all files and folders in the given path, stops on first error</p>
 </li>
 </ul>
 
@@ -2212,18 +2313,18 @@ keep the original size if smaller than given positive value, if any is 0 that me
 <li>filter - ImageMagick image filters, default is lanczos</li>
 <li>quality - 0-99 percent, image scaling quality</li>
 <li>ext - image format: png, gif, jpg</li>
-<li>flip - flip gorizontally</li>
+<li>flip - flip horizontally</li>
 <li>flop - flip vertically</li>
-<li>blue_radius, blur_sigma - perform adaptice blur on the image</li>
-<li>crop_x, crop_y, crop_width, crop_height - perform crop using given dimenions</li>
-<li>sharpen_rafius, sharpen_sigma - perform sharpening of the image</li>
+<li>blue_radius, blur_sigma - perform adaptive blur on the image</li>
+<li>crop_x, crop_y, crop_width, crop_height - perform crop using given dimensions</li>
+<li>sharpen_radius, sharpen_sigma - perform sharpening of the image</li>
 <li>brightness - use thing to change brightness of the image</li>
 <li>contrast - set new contrast of the image</li>
 <li>rotate - rotation angle</li>
 <li>bgcolor - color for the background, used in rotation</li>
 <li>quantized - set number of colors for quantize</li>
 <li>treedepth - set tree depth for quantixe process</li>
-<li>dither - set 0 or 1 for quantie and posterize procesees</li>
+<li>dither - set 0 or 1 for quantixe and posterize processes</li>
 <li>posterize - set number of color levels</li>
 <li>normalize - normalize image</li>
 <li>opacity - set image opacity</li>
@@ -2265,10 +2366,10 @@ keep the original size if smaller than given positive value, if any is 0 that me
 <li>second argument can be an object that acts as a filter to skip properties:<ul>
 <li>_skip_null - to skip all null properties</li>
 <li>_empty_to_null - convert empty strings into null objects</li>
-<li>_skip_cb - a callback that returns true to skip a property, argumnets are property name and value</li>
+<li>_skip_cb - a callback that returns true to skip a property, arguments are property name and value</li>
 <li>name - a property name to skip, the value is treated depending on the type of the property:<ul>
 <li>boolean - skip if true</li>
-<li>integer - skip only if the object&#39;s propetty is a string and greater in lengtth that this value</li>
+<li>integer - skip only if the object&#39;s property is a string and greater in length that this value</li>
 </ul>
 </li>
 </ul>

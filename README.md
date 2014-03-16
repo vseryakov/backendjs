@@ -115,13 +115,13 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
   returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
   verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
+  The properties 'icon0..iconN' only appear if an icon with corresponding type has been uploaded with `/account/icon/put` request.
 
   Parameters:
 
     - no id is given, return only one current account record as JSON
-    - id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma,
-      return list of account records as JSON
-    - _session - after successful login setup a session with cookies so the Web app can perform requests without signing
+    - id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma
+    - _session - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore
 
   Response:
 
@@ -133,6 +133,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
               "icon1": "/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/1",
               "icon2": "/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/2"
             }
+
 
 - `/account/add`
 
@@ -182,7 +183,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/del`
 
-  Delete current account
+  Delete current account, after this call no more requests will be authenticated with the current credentials
 
 - `/account/update`
 
@@ -194,7 +195,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/put/secret`
 
-  Change account secret for the current account
+  Change account secret for the current account, no columns except the secret will be updated and expected.
 
   Parameters:
     - secret - new secret for the account
@@ -205,6 +206,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 
 - `/account/subcribe`
+
   Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
   somebody updates the account's counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
   connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
@@ -228,21 +230,22 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/get/icon`
 
-  Return account icon
+  Return an account icon, the icon is returned in the body as binary BLOB, if no icon with specified type exists, i.e. never been uploaded the 404 is returned
 
   Parameters:
     - type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used
 
 - `/account/put/icon`
 
-  Upload account icon
+  Upload an account icon
 
   Parameters:
 
     - type - icon type, a number between 0 and 9 or any single letter a..z, if not specified 0 is used
     - icon - can be passed as base64 encoded image in the query,
-        - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: 'DFRGRGRE...' }
-        - can be passed in multipart form as a part name
+        - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: 'iVBORw0KGgoA...' },
+          for JSON the Content-Type HTTP headers must be set to `application/json` and data should be sent with POST request
+        - can be uploaded from the browser using regular multi-part form
     - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg
@@ -258,6 +261,10 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Parameters:
 
     - type - what icon to delete, if not specified 0 is used
+
+  Example:
+
+        /account/icon/del?type=1
 
 ## Connections
 The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
@@ -459,8 +466,22 @@ from the last messages received so the next time we will use this time to get on
 
         /message/del?sender=12345&mtime=124345656567676
 
+## Generic Images endpoint
+This endpoint can server any icon uploaded tot he server for any account, it is non-secure method, i.e. no authentication is performed, by
+default only `/image/account` is exposed to server account profile icons to anybody but the permissions can be configured which prefix canbe open or closed using
+`api-allow` or `api-allow-path` config parameters.
+The format of the endpoint is:
+
+    /image/prefix/id/type
+
+    Example:
+
+        /image/account/12345/0
+        /image/account/12345/1
+        Return icons for account 12345 for types 0 and 1
+
 ## Icons
-The icons API provides ability to an account to store icons of different types. Each account keeps its own icons separate form other
+The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
 accounts, within the account icons can be separated by `prefix` which is just a name assigned to the icons set, for example to keep messages
 icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.
 
@@ -949,6 +970,10 @@ All requests to the API server must be signed with account login/secret pair.
             - Field7: empty, reserved for future use
 
 The resulting signature is sent as HTTP header bk-signature: string
+
+For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
+which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
+this is the only way to ensure the body is not modified when not using query parameters.
 
 See web/js/backend.js for function Backend.sign or function core.signRequest in the core.js for the Javascript implementation.
 
