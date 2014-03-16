@@ -19,8 +19,6 @@ Features:
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
 
-Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.
-
 # Installation
 
         npm install node-backend
@@ -1027,4 +1025,3 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 # Author
   Vlad Seryakov
 
-Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.
