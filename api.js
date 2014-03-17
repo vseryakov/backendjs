@@ -596,13 +596,13 @@ api.initAccountAPI = function()
         	                break;
         	            }
         	        }
-        			res.json(rows[0]);
+        			self.sendJSON(req, res, rows[0]);
         		});
         	} else {
         	    options.public_columns = req.account.id;
         		db.list("bk_account", req.query, options, function(err, rows) {
         			if (err) return self.sendReply(res, err);
-        			res.json(rows);
+        			self.sendJSON(req, res, rows);
         		});
         	}
             break;
@@ -698,7 +698,7 @@ api.initAccountAPI = function()
             db.select("bk_account", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-                res.json({ data: rows, next_token: next_token });
+                self.sendJSON(req, res, { data: rows, next_token: next_token });
             });
             break;
 
@@ -723,11 +723,8 @@ api.initAccountAPI = function()
                 if (err) return self.sendReply(res, err);
                 // Filter out not allowed icons
                 rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
-                rows.forEach(function(x) {
-                    x.type = x.type.split(":").pop();
-                    x.url = '/account/get/icon?id=' + req.query.id + '&type=' + x.type;
-                })
-                res.json(rows);
+                rows.forEach(function(x) { self.formatIcon(req, req.query.id, x); });
+                self.sendJSON(req, res, rows);
             });
             break;
 
@@ -769,14 +766,8 @@ api.initIconAPI = function()
                 if (err) return self.sendReply(res, err);
                 // Filter out not allowed icons
                 rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
-                rows.forEach(function(x) {
-                    var type = x.type.split(":");
-                    x.prefix = type[0];
-                    x.type = type[1];
-                    x.url = self.imagesUrl + '/icon/get/' + x.prefix + "/" + x.type;
-                    if (req.query.id != req.account.id) x.url += "?id=" + req.query.id;
-                });
-                res.json(rows);
+                rows.forEach(function(x) { self.formatIcon(req, req.query.id, x); });
+                self.sendJSON(req, res, rows);
             });
             break;
 
@@ -820,7 +811,7 @@ api.initMessageAPI = function()
                     row.sender = mtime[1];
                     if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
                 });
-                res.json({ data: rows, next_token: next_token });
+                self.sendJSON(req, res, { data: rows, next_token: next_token });
             });
             break;
 
@@ -1056,12 +1047,12 @@ api.initConnectionAPI = function()
                     row.mtime = d[0];
                     row.id = d[1];
                 });
-                if (!req.query._details) return res.json({ data: rows, next_token: next_token });
+                if (!req.query._details) return self.sendJSON(req, res, { data: rows, next_token: next_token });
 
                 // Get all account records for the id list
                 db.list("bk_account", rows, { select: req.query._select, public_columns: req.account.id }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
-                    res.json({ data: rows, next_token: next_token });
+                    self.sendJSON(req, res, { data: rows, next_token: next_token });
                 });
             });
             break;
@@ -1079,12 +1070,12 @@ api.initConnectionAPI = function()
                     row.type = d[0];
                     row.id = d[1];
                 });
-                if (!req.query._details) return res.json({ data: rows, next_token: next_token });
+                if (!req.query._details) return self.sendJSON(req, res, { data: rows, next_token: next_token });
 
                 // Get all account records for the id list
                 db.list("bk_account", rows, { select: req.query._select, public_columns: req.account.id }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
-                    res.json({ data: rows, next_token: next_token });
+                    self.sendJSON(req, res, { data: rows, next_token: next_token });
                 });
             });
             break;
@@ -1172,10 +1163,10 @@ api.initLocationAPI = function()
                             var item = list[row.id];
                             for (var p in item) row[p] = item[p];
                         });
-                        res.json({ data: rows, next_token: next_token });
+                        self.sendJSON(req, res, { data: rows, next_token: next_token });
                     });
                 } else {
-                    res.json({ data: rows, next_token: next_token });
+                    self.sendJSON(req, res, { data: rows, next_token: next_token });
                 }
             });
             break;
@@ -1424,6 +1415,26 @@ api.handleIcon = function(req, res, op, options)
             self.sendReply(res, err);
         });
     });
+}
+
+// Return formatted icon URL for the given account
+api.formatIcon = function(req, id, row)
+{
+    var type = row.type.split(":");
+    row.prefix = type[0];
+    row.type = type[1];
+
+    // Provide public url if allowed
+    if (row.allow && row.allow == "all" && this.allow && ("/image/" + row.prefix + "/").match(this.allow)) {
+        row.url = '/image/' + row.prefix + '/' + req.query.id + '/' + row.type;
+    } else {
+        if (row.prefix == "account") {
+            row.url = '/account/get/icon?type=' + row.type;
+        } else {
+            row.url = '/icon/get/' + row.prefix + "/" + row.type + "?";
+        }
+        if (id != req.account.id) row.url += "&id=" + id;
+    }
 }
 
 // Return icon to the client, checks the bk_icon table for existence and permissions
