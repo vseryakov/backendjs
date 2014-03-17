@@ -8,11 +8,11 @@
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#accounts"> Accounts</a></li>
+<li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
+<li><a href="#icons"> Icons</a></li>
 <li><a href="#connections"> Connections</a></li>
 <li><a href="#locations"> Locations</a></li>
 <li><a href="#messages"> Messages</a></li>
-<li><a href="#generic-images-endpoint"> Generic Images endpoint</a></li>
-<li><a href="#icons"> Icons</a></li>
 <li><a href="#counters"> Counters</a></li>
 <li><a href="#history"> History</a></li>
 <li><a href="#data"> Data</a></li>
@@ -61,6 +61,7 @@
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
 </ul>
+<p>Check out the <a href="https://github.com/vseryakov/backend/wiki">Wiki</a> for more documentation.</p>
 <h1 id="installation">Installation</h1>
 <pre><code>    npm install node-backend
 </code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg and LevelDB. They are not required in all
@@ -79,12 +80,10 @@ For this example let&#39;s create couple of accounts, type and execute the follo
 </code></pre></li>
 </ul>
 <ul>
-<li>Now login with any of the accounts above, refresh the api.html and enter email and secret in the login popup dialog.</li>
+<li>Now login with any of the accounts above, click on Login at the top-right corner and enter email and secret in the login popup dialog.</li>
 <li><p>If no error message appeared after the login, try to get your current account details:</p>
 <pre><code>  /account/get
 </code></pre></li>
-</ul>
-<ul>
 <li><p>To see all public fields for all accounts just execute</p>
 <pre><code>  /account/select
 </code></pre></li>
@@ -145,8 +144,7 @@ one or two columns can be marked with primary property while for SQL databases t
 <li><p><code>/account/get</code></p>
 <p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
 returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
-verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
-The properties &#39;icon0..iconN&#39; only appear if an icon with corresponding type has been uploaded with <code>/account/icon/put</code> request.</p>
+verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.</p>
 <p>Parameters:</p>
 <ul>
 <li>no id is given, return only one current account record as JSON</li>
@@ -159,8 +157,6 @@ The properties &#39;icon0..iconN&#39; only appear if an icon with corresponding 
         &quot;name&quot;: &quot;Real Name&quot;,
         &quot;mtime&quot;: 1391824028,
         &quot;login&quot;: &quot;testuser&quot;,
-        &quot;icon1&quot;: &quot;/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/1&quot;,
-        &quot;icon2&quot;: &quot;/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/2&quot;
       }
 </code></pre></li>
 </ul>
@@ -176,7 +172,7 @@ the login popup will still asking for real name, see backend.js in the web/js fo
 <li><p><code>/account/select</code></p>
 <p>Return list of accounts by the given condition, calls <code>db.select</code> for bk_account table. Parameters are the column values to be matched and
 all parameters starting with underscore are control parameters that goes into options of the <code>db.select</code> call with underscore removed. This will work for SQL
-databases only because DynamoDB or Cassandra will not search by non primary keys. In DynamoDB case this will run ScanTable action which will be very expensive for
+databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
 large tables.</p>
 <p>Example:</p>
 <pre><code>      /account/search?email=test&amp;_ops=email,begins_with
@@ -240,15 +236,34 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
       { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;data&quot;: { &quot;like&quot;: 1, &quot;invite&quot;: 1 } },
       { &quot;path&quot; : &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot;, &quot;id&quot;: &quot;123456789&quot; } ]
 </code></pre><ul>
+<li><p><code>/account/select/icon</code></p>
+<p>Return a list of available account icons, icons that have been uploaded previously with /account/put/icon calls. The <code>url</code> property is an URL to retrieve this particular icon.</p>
+<p>Parameters:</p>
+<ul>
+<li>id - if specified then icons for the given account will be returned</li>
+</ul>
+<p>Example:</p>
+<pre><code>  /account/select/icon?id=12345
+</code></pre><p>Response:</p>
+<pre><code>  [ { id: &#39;12345&#39;, type: &#39;1&#39;, url: &#39;/account/get/icon?id=12345&amp;type=1&#39; },
+    { id: &#39;12345&#39;, type: &#39;2&#39;, url: &#39;/account/get/icon?id=12345&amp;type=2&#39; } ]
+</code></pre></li>
 <li><p><code>/account/get/icon</code></p>
 <p>Return an account icon, the icon is returned in the body as binary BLOB, if no icon with specified type exists, i.e. never been uploaded the 404 is returned</p>
 <p>Parameters:</p>
 <ul>
 <li>type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>  /account/get/icon?type=2
+</code></pre></li>
+</ul>
+<ul>
 <li><p><code>/account/put/icon</code></p>
-<p>Upload an account icon</p>
+<p>Upload an account icon, once uploaded, the next <code>/account/get</code> call will return propertis in the format <code>iconN</code> wheer N is any of the
+type query parameters specified here, for example if we uploaded an icon with type 5, then /account/get will return property icon5 with the URL
+to retrieve this icon.
+<em>By default all icons uploaded only accessible for the account which uploaded them.</em></p>
 <p>Parameters:</p>
 <ul>
 <li>type - icon type, a number between 0 and 9 or any single letter a..z, if not specified 0 is used</li>
@@ -256,6 +271,13 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
 <li>can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: &#39;iVBORw0KGgoA...&#39; },
 for JSON the Content-Type HTTP headers must be set to <code>application/json</code> and data should be sent with POST request</li>
 <li>can be uploaded from the browser using regular multi-part form</li>
+</ul>
+</li>
+<li>allow - icon access permissions:<ul>
+<li>empty - only own account can access</li>
+<li>all - public, everybody can see this icon</li>
+<li>auth - only authenticated users can see this icon</li>
+<li>id,id.. - list of account ids that can see this account</li>
 </ul>
 </li>
 <li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
@@ -273,6 +295,66 @@ for JSON the Content-Type HTTP headers must be set to <code>application/json</co
 </ul>
 <p>Example:</p>
 <pre><code>  /account/icon/del?type=1
+</code></pre></li>
+</ul>
+<h2 id="public-images-endpoint">Public Images endpoint</h2>
+<p>This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signagture
+will be needed once it is confgiured which prefix can be public using <code>api-allow</code> or <code>api-allow-path</code> config parameters.</p>
+<p>The format of the endpoint is:</p>
+<pre><code>/image/prefix/id/type
+
+Example:
+
+    # Configure accounts icons to be public in the etc/config
+    api-allow-path=/image/account/
+
+    # Or pass in the command line
+    ./app.sh -api-allow-path /image/account/
+
+    # Make requests
+    /image/account/12345/0
+    /image/account/12345/1
+
+    #Return icons for account 12345 for types 0 and 1
+</code></pre><h2 id="icons">Icons</h2>
+<p>The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
+accounts, within the account icons can be separated by <code>prefix</code> which is just a name assigned to the icons set, for example to keep messages
+icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.</p>
+<ul>
+<li><code>/icon/get/prefix</code></li>
+<li><p><code>/icon/get/prefix/type</code></p>
+<p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
+ configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
+ separate from other accounts. If <code>type</code> is used to specify any unique icon created with such type which can be any string.</p>
+</li>
+<li><p><code>/icon/put/prefix</code></p>
+</li>
+<li><p><code>/icon/put/prefix/type</code></p>
+<p>Upload new icon for the given account in the folder prefix, if type is specified it creates an icons for this type to separate
+multiple icons for the same prefix. <code>type</code> can be any string consisting from alpha and digits characters.</p>
+<p>The following parameters can be used:</p>
+<ul>
+<li>allow - permissions, see <code>/account/put/icon</code> for the format and usage</li>
+<li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
+<li>_height - height of the icon, same rules apply as for the width above</li>
+<li>_ext - image file format, default is jpg, supports: gif, png, jpg</li>
+</ul>
+</li>
+<li><p><code>/icon/del/prefix</code></p>
+</li>
+<li><p><code>/icon/del/prefix/type</code></p>
+<p> Delete the default icon for the current account in the folder prefix or by type</p>
+</li>
+<li><p><code>/icon/select/prefix</code></p>
+</li>
+<li><p><code>/icon/select/prefix/type</code>
+Return list of available icons for the given prefix adn type, all icons starting with prefix/type will be returned,
+the <code>url</code> property will provide full URL to retrieve the icon contents</p>
+<p>Example:</p>
+<pre><code>  /icon/select/album/me
+</code></pre><p>Response:</p>
+<pre><code>  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me1&#39;, icon: &#39;/icon/get/album/me1&#39; },
+    { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me2&#39;, icon: &#39;/icon/get/album/me2&#39; } ]
 </code></pre></li>
 </ul>
 <h2 id="connections">Connections</h2>
@@ -446,47 +528,6 @@ Delete the message by <code>sender</code> and <code>mtime</code> which must be p
 <p>Example:</p>
 <pre><code>  /message/del?sender=12345&amp;mtime=124345656567676
 </code></pre></li>
-</ul>
-<h2 id="generic-images-endpoint">Generic Images endpoint</h2>
-<p>This endpoint can server any icon uploaded tot he server for any account, it is non-secure method, i.e. no authentication is performed, by
-default only <code>/image/account</code> is exposed to server account profile icons to anybody but the permissions can be configured which prefix canbe open or closed using
-<code>api-allow</code> or <code>api-allow-path</code> config parameters.
-The format of the endpoint is:</p>
-<pre><code>/image/prefix/id/type
-
-Example:
-
-    /image/account/12345/0
-    /image/account/12345/1
-    Return icons for account 12345 for types 0 and 1
-</code></pre><h2 id="icons">Icons</h2>
-<p>The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
-accounts, within the account icons can be separated by <code>prefix</code> which is just a name assigned to the icons set, for example to keep messages
-icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.</p>
-<ul>
-<li><code>/icon/get/prefix</code></li>
-<li><p><code>/icon/get/prefix/id</code></p>
-<p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
- configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
- separate from other accounts. If <code>id</code> is used to specify any unique icon cerated with such id.</p>
-</li>
-<li><p><code>/icon/put/prefix</code></p>
-</li>
-<li><p><code>/icon/put/prefix/id</code></p>
-<p>Upload new icon for the given account in the folder prefix, if id is specified it creates an icons for this id to separate
-multiple icons for the same icon. <code>id</code> can be any string consisting from alpha and digits characters.</p>
-<p>The following parameters can be used:</p>
-<ul>
-<li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
-<li>_height - height of the icon, same rules apply as for the width above</li>
-<li>_ext - image file format, default is jpg, supports: gif, png, jpg</li>
-</ul>
-</li>
-<li><p><code>/icon/del/prefix</code></p>
-</li>
-<li><p><code>/icon/del/prefix/id</code></p>
-<p> Delete the default icon for the current account in the folder prefix or by id</p>
-</li>
 </ul>
 <h2 id="counters">Counters</h2>
 <p>The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
@@ -1009,6 +1050,7 @@ backend via npm with all dependencies:</p>
 </ul>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
+<p>Check out the <a href="https://github.com/vseryakov/backend/wiki">Wiki</a> for more documentation.</p>
 <h2 id="configuration-parameters">Configuration parameters</h2>
 <ul>
 <li><code>help</code> - Print help and exit</li>
@@ -1125,7 +1167,7 @@ backend via npm with all dependencies:</p>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon..... Default: </li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly Default: </li>
-<li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list Default: ^/$,.+.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$,^/public,^/account/add$,^/image/account/</li>
+<li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list Default: ^/$,.+.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$,^/public,^/account/add$</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused</li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing Default: </li>
@@ -1173,7 +1215,6 @@ backend via npm with all dependencies:</p>
                     website: {},
                     birthday: { semipub: 1 },          // used in age calculation
                     gender: { pub: 1 },
-                    icons: { semipub: 1 },
                     address: {},
                     city: {},
                     state: {},
@@ -1186,6 +1227,11 @@ backend via npm with all dependencies:</p>
                     ltime: { type: &quot;bigint&quot; },
                     ctime: { type: &quot;bigint&quot; },
                     mtime: { type: &quot;bigint&quot; } },
+
+     // Keep track of icons uploaded
+     bk_icon: { id: { primary: 1 },                         // Account id
+                type: { primary: 1 },                       // prefix:type
+                allow: {} },                                // Who can see it: all, auth, id:id...
 
      // Locations for all accounts to support distance searches
      bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
@@ -1464,8 +1510,20 @@ the callback MUST return data back to the client or any other status code</li>
 </ul>
 
 <ul>
+<li><p><code>api.handleIcon(req, res, op, options)</code></p>
+<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.getIcon(req, res, id, options)</code></p>
-<p> Return icon to the client</p>
+<p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkIcon(req, id, row)</code></p>
+<p> Verify icon permissions for given account id, returns true if allowed</p>
 </li>
 </ul>
 
