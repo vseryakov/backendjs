@@ -150,9 +150,15 @@ tests.account = function(callback)
             });
         },
         function(next) {
+            var options = { login: login, secret: secret, query: { icon: icon, type: 2 }  }
+            core.sendRequest("/account/put/icon", options, function(err, params) {
+                next(err);
+            });
+        },
+        function(next) {
             var options = { login: login, secret: secret, query: { _consistent: 1 } }
-            core.sendRequest("/account/get", options, function(err, params) {
-                next(err || !params.obj || !params.obj.icon1 ? ("err2:" + err + util.inspect(params.obj)) : 0);
+            core.sendRequest("/account/select/icon", options, function(err, params) {
+                next(err || !params.obj || params.obj.length!=2 ? ("err2:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {

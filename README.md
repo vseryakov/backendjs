@@ -19,6 +19,8 @@ Features:
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
 
+Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.
+
 # Installation
 
         npm install node-backend
@@ -41,11 +43,10 @@ applications but still part of the core of the system to be available once neede
         /account/add?name=test2&secret=test2&login=test2@test.com
 
 
-* Now login with any of the accounts above, refresh the api.html and enter email and secret in the login popup dialog.
+* Now login with any of the accounts above, click on Login at the top-right corner and enter email and secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
 
         /account/get
-
 
 * To see all public fields for all accounts just execute
 
@@ -113,7 +114,6 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
   returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
   verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
-  The properties 'icon0..iconN' only appear if an icon with corresponding type has been uploaded with `/account/icon/put` request.
 
   Parameters:
 
@@ -128,8 +128,6 @@ The accounts API manages accounts and authentication, it provides basic user acc
               "name": "Real Name",
               "mtime": 1391824028,
               "login": "testuser",
-              "icon1": "/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/1",
-              "icon2": "/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/2"
             }
 
 
@@ -149,7 +147,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
   Return list of accounts by the given condition, calls `db.select` for bk_account table. Parameters are the column values to be matched and
   all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed. This will work for SQL
-  databases only because DynamoDB or Cassandra will not search by non primary keys. In DynamoDB case this will run ScanTable action which will be very expensive for
+  databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
   large tables.
 
   Example:
@@ -226,6 +224,22 @@ The accounts API manages accounts and authentication, it provides basic user acc
           { "path": "/counter/incr", "mtime:" 1234566566, "data": { "like": 1, "invite": 1 } },
           { "path" : "/connection/add", "mtime": 1223345545, "type": "like", "id": "123456789" } ]
 
+- `/account/select/icon`
+
+  Return a list of available account icons, icons that have been uploaded previously with /account/put/icon calls. The `url` property is an URL to retrieve this particular icon.
+
+  Parameters:
+    - id - if specified then icons for the given account will be returned
+
+  Example:
+
+        /account/select/icon?id=12345
+
+  Response:
+
+        [ { id: '12345', type: '1', url: '/account/get/icon?id=12345&type=1' },
+          { id: '12345', type: '2', url: '/account/get/icon?id=12345&type=2' } ]
+
 - `/account/get/icon`
 
   Return an account icon, the icon is returned in the body as binary BLOB, if no icon with specified type exists, i.e. never been uploaded the 404 is returned
@@ -233,9 +247,17 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Parameters:
     - type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used
 
+  Example:
+
+        /account/get/icon?type=2
+
+
 - `/account/put/icon`
 
-  Upload an account icon
+  Upload an account icon, once uploaded, the next `/account/get` call will return propertis in the format `iconN` wheer N is any of the
+  type query parameters specified here, for example if we uploaded an icon with type 5, then /account/get will return property icon5 with the URL
+  to retrieve this icon.
+  *By default all icons uploaded only accessible for the account which uploaded them.*
 
   Parameters:
 
@@ -244,6 +266,11 @@ The accounts API manages accounts and authentication, it provides basic user acc
         - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: 'iVBORw0KGgoA...' },
           for JSON the Content-Type HTTP headers must be set to `application/json` and data should be sent with POST request
         - can be uploaded from the browser using regular multi-part form
+    - allow - icon access permissions:
+      - empty - only own account can access
+      - all - public, everybody can see this icon
+      - auth - only authenticated users can see this icon
+      - id,id.. - list of account ids that can see this account
     - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg
@@ -263,6 +290,71 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Example:
 
         /account/icon/del?type=1
+
+## Public Images endpoint
+This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signagture
+will be needed once it is confgiured which prefix can be public using `api-allow` or `api-allow-path` config parameters.
+
+The format of the endpoint is:
+
+    /image/prefix/id/type
+
+    Example:
+
+        # Configure accounts icons to be public in the etc/config
+        api-allow-path=/image/account/
+
+        # Or pass in the command line
+        ./app.sh -api-allow-path /image/account/
+
+        # Make requests
+        /image/account/12345/0
+        /image/account/12345/1
+
+        #Return icons for account 12345 for types 0 and 1
+
+## Icons
+The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
+accounts, within the account icons can be separated by `prefix` which is just a name assigned to the icons set, for example to keep messages
+icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.
+
+- `/icon/get/prefix`
+- `/icon/get/prefix/type`
+
+   Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
+   configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
+   separate from other accounts. If `type` is used to specify any unique icon created with such type which can be any string.
+
+- `/icon/put/prefix`
+- `/icon/put/prefix/type`
+
+  Upload new icon for the given account in the folder prefix, if type is specified it creates an icons for this type to separate
+  multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters.
+
+  The following parameters can be used:
+    - allow - permissions, see `/account/put/icon` for the format and usage
+    - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
+    - _height - height of the icon, same rules apply as for the width above
+    - _ext - image file format, default is jpg, supports: gif, png, jpg
+
+- `/icon/del/prefix`
+- `/icon/del/prefix/type`
+
+   Delete the default icon for the current account in the folder prefix or by type
+
+- `/icon/select/prefix`
+- `/icon/select/prefix/type`
+  Return list of available icons for the given prefix adn type, all icons starting with prefix/type will be returned,
+  the `url` property will provide full URL to retrieve the icon contents
+
+  Example:
+
+        /icon/select/album/me
+
+  Response:
+
+        [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me1', icon: '/icon/get/album/me1' },
+          { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me2', icon: '/icon/get/album/me2' } ]
 
 ## Connections
 The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
@@ -464,47 +556,6 @@ from the last messages received so the next time we will use this time to get on
 
         /message/del?sender=12345&mtime=124345656567676
 
-## Generic Images endpoint
-This endpoint can server any icon uploaded tot he server for any account, it is non-secure method, i.e. no authentication is performed, by
-default only `/image/account` is exposed to server account profile icons to anybody but the permissions can be configured which prefix canbe open or closed using
-`api-allow` or `api-allow-path` config parameters.
-The format of the endpoint is:
-
-    /image/prefix/id/type
-
-    Example:
-
-        /image/account/12345/0
-        /image/account/12345/1
-        Return icons for account 12345 for types 0 and 1
-
-## Icons
-The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
-accounts, within the account icons can be separated by `prefix` which is just a name assigned to the icons set, for example to keep messages
-icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.
-
-- `/icon/get/prefix`
-- `/icon/get/prefix/id`
-
-   Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
-   configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
-   separate from other accounts. If `id` is used to specify any unique icon cerated with such id.
-
-- `/icon/put/prefix`
-- `/icon/put/prefix/id`
-
-  Upload new icon for the given account in the folder prefix, if id is specified it creates an icons for this id to separate
-  multiple icons for the same icon. `id` can be any string consisting from alpha and digits characters.
-
-  The following parameters can be used:
-    - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
-    - _height - height of the icon, same rules apply as for the width above
-    - _ext - image file format, default is jpg, supports: gif, png, jpg
-
-- `/icon/del/prefix`
-- `/icon/del/prefix/id`
-
-   Delete the default icon for the current account in the folder prefix or by id
 
 ## Counters
 The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
@@ -1025,3 +1076,4 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 # Author
   Vlad Seryakov
 
+Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.

@@ -37,8 +37,7 @@ var api = {
     allow: ["^/$",
             ".+\\.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$",
             "^/public",
-            "^/account/add$",
-            "^/image/account/" ],
+            "^/account/add$" ],
 
     // Allow only HTTPS requests
     alowSsl: null,
@@ -73,7 +72,6 @@ var api = {
                       website: {},
                       birthday: { semipub: 1 },          // used in age calculation
                       gender: { pub: 1 },
-                      icons: { semipub: 1 },
                       address: {},
                       city: {},
                       state: {},
@@ -86,6 +84,11 @@ var api = {
                       ltime: { type: "bigint" },
                       ctime: { type: "bigint" },
                       mtime: { type: "bigint" } },
+
+       // Keep track of icons uploaded
+       bk_icon: { id: { primary: 1 },                         // Account id
+                  type: { primary: 1 },                       // prefix:type
+                  allow: {} },                                // Who can see it: all, auth, id:id...
 
        // Locations for all accounts to support distance searches
        bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
@@ -617,7 +620,7 @@ api.initAccountAPI = function()
             db.add("bk_auth", auth, function(err) {
                 if (err) return self.sendReply(res, db.convertError("bk_auth", err));
 
-                ["type","secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+                ["type","secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
                 db.add("bk_account", req.query, function(err) {
                     if (err) {
                         db.del("bk_auth", auth);
@@ -636,7 +639,7 @@ api.initAccountAPI = function()
             req.query.mtime = Date.now();
             req.query.id = req.account.id;
             // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
-            ["type","secret","icons","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+            ["type","secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
             db.update("bk_account", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, self.processAccountRow(req.query));
@@ -709,34 +712,30 @@ api.initAccountAPI = function()
             break;
 
         case "get/icon":
-            self.getIcon(req, res, req.account.id, { prefix: 'account', type: String(req.query.type)[0] || '0' });
+            if (!req.query.id) req.query.id = req.account.id;
+            self.getIcon(req, res, req.query.id, { prefix: 'account', type: String(req.query.type)[0] || '0' });
+            break;
+
+        case "select/icon":
+            if (!req.query.id) req.query.id = req.account.id;
+            options.ops = { type: "begins_with" };
+            db.select("bk_icon", { id: req.query.id, type: "account:" }, options, function(err, rows) {
+                if (err) return self.sendReply(res, err);
+                // Filter out not allowed icons
+                rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
+                rows.forEach(function(x) {
+                    x.type = x.type.split(":").pop();
+                    x.url = '/account/get/icon?id=' + req.query.id + '&type=' + x.type;
+                })
+                res.json(rows);
+            });
             break;
 
         case "put/icon":
         case "del/icon":
-            // Add icon to the account, support any number of additonal icons using req.query.type, any letter or digit
-            var op = req.params[0].replace('/i', 'I');
-            options.force = true; // always overwrite the icon file
-            options.prefix = 'account';
-            options.type = String(req.query.type)[0] || '0';
-            self[op](req, req.account.id, options, function(err, icon) {
-                if (err || !icon) return self.sendReply(res, err);
-
-                // Get current account icons
-                db.get("bk_account", { id: req.account.id }, { select: 'id,icons' }, function(err, rows) {
-                    if (err) return self.sendReply(res, err);
-
-                    // Add/remove given type from the list of icons
-                    rows[0].icons = core.strSplitUnique((rows[0].icons || '') + "," + options.type);
-                    if (op == 'delIcon') rows[0].icons = rows[0].icons.filter(function(x) { return x != options.type } );
-
-                    var obj = { id: req.account.id, mtime: Date.now(), icons: rows[0].icons.join(",") };
-                    db.update("bk_account", obj, function(err) {
-                        if (err) return self.sendReply(res, err);
-                        self.sendJSON(req, res, self.processAccountRow(rows[0]));
-                    });
-                });
-            });
+            req.query.prefix = 'account';
+            req.query.type = String(req.query.type)[0] || '0';
+            self.handleIcon(req, res, req.params[0].substr(0, 3), options);
             break;
 
         default:
@@ -755,23 +754,35 @@ api.initIconAPI = function()
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
+        if (!req.query.id) req.query.id = req.account.id;
+        req.query.prefix = req.params[1];
+        req.query.type = req.params[2] || "";
+
         switch (req.params[0]) {
         case "get":
-            self.getIcon(req, res, req.account.id, { prefix: req.params[1], type: req.params[2] });
+            self.getIcon(req, res, req.query.id, { prefix: req.query.prefix, type: req.query.type });
+            break;
+
+        case "select":
+            options.ops = { type: "begins_with" };
+            db.select("bk_icon", { id: req.query.id, type: req.query.prefix + ":" + req.query.type }, options, function(err, rows) {
+                if (err) return self.sendReply(res, err);
+                // Filter out not allowed icons
+                rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
+                rows.forEach(function(x) {
+                    var type = x.type.split(":");
+                    x.prefix = type[0];
+                    x.type = type[1];
+                    x.url = self.imagesUrl + '/icon/get/' + x.prefix + "/" + x.type;
+                    if (req.query.id != req.account.id) x.url += "?id=" + req.query.id;
+                });
+                res.json(rows);
+            });
             break;
 
         case "del":
         case "put":
-            options.force = true; // always overwrite the icon file
-            options.prefix = req.params[1];
-            options.type = req.params[2] || "";
-            self[req.params[0] + 'Icon'](req, req.account.id, options, function(err) {
-                if (err) return self.sendReply(res, err);
-                req.query.type = options.type;
-                req.query.prefix = options.prefix;
-                req.query.icon = self.imagesUrl + '/image/' + options.prefix + '/' + req.account.id + '/' + options.type;
-                self.sendJSON(req, res, req.query);
-            });
+            self.handleIcon(req, res, req.params[0], options);
             break;
 
         default:
@@ -1183,11 +1194,6 @@ api.processAccountRow = function(row, options, cols)
     	row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     }
     delete row.birthday;
-    // List all available icons, on icon put, we save icon type in the icons property
-    core.strSplitUnique(row.icons).forEach(function(x) {
-        row['icon' + x] = core.context.api.imagesUrl + '/image/account/' + row.id + '/' + x;
-    });
-    delete row.icons;
     return row;
 }
 
@@ -1398,22 +1404,61 @@ api.sendFile = function(req, res, file, redirect)
     });
 }
 
-// Return icon to the client
+// Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
+api.handleIcon = function(req, res, op, options)
+{
+    var self = this;
+    var db = core.context.db;
+
+    if (!req.query.type) req.query.type = "";
+
+    var obj = { id: req.account.id, type: req.query.prefix + ":" + req.query.type, allow: req.query.allow };
+    db[op]("bk_icon", obj, function(err, rows) {
+        if (err) return self.sendReply(res, err);
+
+        options.force = true;
+        options.prefix = req.query.prefix;
+        options.type = req.query.type;
+        self[op + 'Icon'](req, req.account.id, options, function(err, icon) {
+            if ((err || !icon) && op == "put") db.del('bk_icon', obj);
+            self.sendReply(res, err);
+        });
+    });
+}
+
+// Return icon to the client, checks the bk_icon table for existence and permissions
 api.getIcon = function(req, res, id, options)
 {
     var self = this;
 
-    var icon = core.iconPath(id, options);
-    if (this.imagesS3) {
-        var aws = core.context.aws;
-        aws.queryS3(this.imagesS3, icon, options, function(err, params) {
-            if (err) return self.sendReply(res, err);
-            res.type("image/" + (options.ext || "jpeg"));
-            res.send(200, params.data);
-        });
-    } else {
-        this.sendFile(req, res, icon);
-    }
+    db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, rows) {
+        if (err) return self.sendReply(res, err);
+        if (!rows.length) return self.sendReply(res, 404, "Not found");
+        if (!self.checkIcon(req, id, rows[0])) return self.sendReply(res, 401, "Not allowed");
+
+        var icon = core.iconPath(id, options);
+        if (self.imagesS3) {
+            var aws = core.context.aws;
+            aws.queryS3(self.imagesS3, icon, options, function(err, params) {
+                if (err) return self.sendReply(res, err);
+
+                res.type("image/" + (options.ext || "jpeg"));
+                res.send(200, params.data);
+            });
+        } else {
+            self.sendFile(req, res, icon);
+        }
+    });
+}
+
+// Verify icon permissions for given account id, returns true if allowed
+api.checkIcon = function(req, id, row)
+{
+    var allow = row.allow || "";
+    if (allow == "all") return true;
+    if (allow == "auth" && req.account) return true;
+    if (allow.split(",").filter(function(x) { return x == id }).length) return true;
+    return id == req.account.id;
 }
 
 // Store an icon for account, .type defines icon prefix
