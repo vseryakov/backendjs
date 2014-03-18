@@ -2025,8 +2025,7 @@ db.dynamodbInitPool = function(options)
             // Do not use index name if it is a primary key
             if (options.sort && Object.keys(keys).indexOf(options.sort) > -1) options.sort = null;
             options.select = self.getSelectedColumns(table, options);
-
-            var op = Object.keys(keys).sort().toString() == Object.keys(primary_keys).sort().toString() ? 'ddbQueryTable' : 'ddbScanTable';
+            var op = Object.keys(keys).length && Object.keys(keys).sort().toString() == Object.keys(primary_keys).sort().toString() ? 'ddbQueryTable' : 'ddbScanTable';
             aws[op](table, keys, options, function(err, item) {
                 if (err) return callback(err, []);
                 var count = options.count || 0;

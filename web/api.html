@@ -134,9 +134,9 @@ $(function() {
          $('#icon').empty();
 
          // Request for an image, re-route to image container
-         if (/^\/([^\/]+)\/image\/([a-z])?\/?([0-9]+)|(^\/logo\/[a-z0-9]+)/.test(url)) {
+         if (/^\/image\/|(^\/account\/get\/icon)|(^\/icon\/get\/)/.test(url)) {
              self.apiResponse("");
-             $("<img />").attr('src', url).load(function() {
+             $("<img />").attr('src', self.signUrl(url)).load(function() {
                  if (this.complete && this.naturalWidth) $("#icon").append(this);
              });
          } else {

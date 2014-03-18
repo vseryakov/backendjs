@@ -28,6 +28,7 @@ var Backend = {
         localStorage.backendLogin = login ? String(login) : "";
         localStorage.backendSecret = secret ? String(secret) : "";
         localStorage.backendSigVersion = version || this.sigversion || 1;
+        if (this.debug) this.log('set:', this.scramble, this.getCredentials());
     },
 
     // Retrieve account record, call the callback with the object or error
@@ -103,7 +104,7 @@ var Backend = {
 
     // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
     signUrl: function(url, expires) {
-        var hdrs = signRequest("GET", url, expires);
+        var hdrs = this.sign("GET", url, "", { expires: expires });
         return url + (url.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
     },
 

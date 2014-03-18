@@ -1223,8 +1223,6 @@ core.parseSignature = function(req)
     rc.signature = d[4];
     rc.expires = this.toNumber(d[5]);
     rc.checksum = d[6] || "";
-    // Strip the signature from the url
-    rc.url = req.url.replace(/bk-signature=([^& ]+)/g, "");
     req.signature = rc;
     return rc;
 }
@@ -1234,7 +1232,7 @@ core.parseSignature = function(req)
 core.checkSignature = function(sig, account)
 {
     var shatype = "sha1";
-    var query = (sig.query).split("&").sort().filter(function(x) { return x != ""; }).join("&");
+    var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != "bk-signature"; }).join("&");
     switch (sig.sigversion) {
     case 2:
         if (!sig.session) break;

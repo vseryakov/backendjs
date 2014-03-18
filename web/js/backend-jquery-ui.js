@@ -59,8 +59,10 @@ Backend.dialogLogin = function(action, callback, errmsg)
 {
     var self = this;
 
-    var div= $(
-            '<div>\
+    var div = $('#backend-login-div');
+    if (!div.length)
+        div= $(
+            '<div id=backend-login-div>\
             <p class="ui-title">Please provide your account login and password.</p>\
             <p class="ui-error"></p>\
             <form id=backend-login-form>\
@@ -74,6 +76,7 @@ Backend.dialogLogin = function(action, callback, errmsg)
             </div>');
 
     function submit(cb) {
+        self.log('submit:', $('#backend-login').val(),  $('#backend-secret').val())
         self.setCredentials($('#backend-login').val(),  $('#backend-secret').val());
         $('#backend-secret').val('');
         div.dialog("close");
@@ -110,6 +113,8 @@ Backend.dialogLogin = function(action, callback, errmsg)
             var reg = $('#dialog-register').length;
             if (reg) $(this).find('.ui-title').html("Please provide your account email and password.<br/>If you dont have an account, please use Register button below.");
             self.enableButton(this, 'Register', reg);
+            $('#backend-login').val("");
+            $('#backend-secret').val("");
         },
     });
 

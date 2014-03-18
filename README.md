@@ -242,7 +242,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/get/icon`
 
-  Return an account icon, the icon is returned in the body as binary BLOB, if no icon with specified type exists, i.e. never been uploaded the 404 is returned
+  Return an account icon, *the icon is returned in the body as binary BLOB*, if no icon with specified type exists, i.e. never been uploaded then 404 is returned.
 
   Parameters:
     - type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used

@@ -1,5 +1,5 @@
 <head><title>Backend Documentation</title><link rel="stylesheet" href="css/doc.css"></head>
-<h1 id="backend-documentation">Backend Documentation</h1>
+<h1 id="-backend-img-logo-png-backend-documentation"><img src="img/logo.png" alt="Backend"> Backend Documentation</h1>
 <h2 id="table-of-contents">Table of contents</h2>
 <ul>
 <li><a href="#backend-framework-for-node-js"> Backend framework for node.js</a></li>
@@ -249,7 +249,7 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
     { id: &#39;12345&#39;, type: &#39;2&#39;, url: &#39;/account/get/icon?id=12345&amp;type=2&#39; } ]
 </code></pre></li>
 <li><p><code>/account/get/icon</code></p>
-<p>Return an account icon, the icon is returned in the body as binary BLOB, if no icon with specified type exists, i.e. never been uploaded the 404 is returned</p>
+<p>Return an account icon, <em>the icon is returned in the body as binary BLOB</em>, if no icon with specified type exists, i.e. never been uploaded then 404 is returned.</p>
 <p>Parameters:</p>
 <ul>
 <li>type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used</li>
@@ -1512,6 +1512,12 @@ the callback MUST return data back to the client or any other status code</li>
 <ul>
 <li><p><code>api.handleIcon(req, res, op, options)</code></p>
 <p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.formatIcon(req, id, row)</code></p>
+<p> Return formatted icon URL for the given account</p>
 </li>
 </ul>
 
