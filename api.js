@@ -1441,6 +1441,7 @@ api.formatIcon = function(req, id, row)
 api.getIcon = function(req, res, id, options)
 {
     var self = this;
+    var db = core.context.db;
 
     db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, rows) {
         if (err) return self.sendReply(res, err);
