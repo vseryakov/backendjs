@@ -135,6 +135,16 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
   Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, login**.
 
+  By default, this URL is in the list of allowed paths that do not need authentication, this means that anybody can add an account. For the real
+  application this may not be a good choice so the simplest way to disable it to add api-disallow-path=^/account/add$ to the config file or
+  specify in the command line. More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
+  for example with invitation codes....
+
+  In the table `bk_auth`, the column type is used to distinguish between account roles, by default only account with type `admin` can
+  add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
+  all columns of this table are avaailable as `req.account` object after the successful authentication where req is Express request object used in the middleware
+  parameters.
+
   *Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
   backend Web client is to scramble login/secret using HMAC-SHA1 and keep them in the local storage, this way the real login and secret is never exposed but
   the login popup will still asking for real name, see backend.js in the web/js folder for more details.*

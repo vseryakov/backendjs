@@ -52,9 +52,10 @@ var api = {
 
     tables: {
         // Authentication by login, only keeps id and secret to check the siganture
-        bk_auth: { login: { primary: 1 },
-                   id: {},
-                   secret: {},
+        bk_auth: { login: { primary: 1 },               // Account login
+                   id: {},                              // Auto generated UUID
+                   secret: {},                          // Account password
+                   type: {},                            // Account type: admin, ....
                    url_deny: {},                        // Deny access to matched url
                    url_allow: {},                       // Only grant access if matched this regexp
                    expires: { type: "bigint" },         // Deny access to the account if this value is before current date, milliseconds
@@ -65,7 +66,6 @@ var api = {
                       login: {},
                       name: {},
                       alias: { pub: 1 },
-                      type: {},
                       status: {},
                       email: {},
                       phone: {},
@@ -190,9 +190,11 @@ var api = {
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow", array: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
+           { name: "disallow-path", type: "callback", value: function(v) {var i=this.allow.indexOf(v);if(i>-1) this.allow.splice(i,1)}, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
            { name: "allow-ssl", array: 1, descr: "Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
-           { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replace the whole access list"  },
+           { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
+           { name: "deny-path", array: 1, key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 500, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
@@ -543,7 +545,7 @@ api.checkSignature = function(req, callback)
             return callback({ status: 401, message: "Not permitted" });
         }
 
-        // Deal with encrypted body, use out account secret to decrypt, this is for raw data requests
+        // Deal with encrypted body, use our account secret to decrypt, this is for raw data requests
         // if it is JSON or query it needs to be reparsed in the application
         if (req.body && req.get("content-encoding") == "encrypted") {
             req.body = core.decrypt(account.secret, req.body);
@@ -617,10 +619,12 @@ api.initAccountAPI = function()
             req.query.mtime = req.query.ctime = Date.now();
             // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
             var auth = { id: req.query.id, login: req.query.login, secret: req.query.secret };
+            // Only admin can add accounts with the type
+            if (req.account && req.account.type == "admin" && req.query.type) auth.type = req.query.type;
             db.add("bk_auth", auth, function(err) {
                 if (err) return self.sendReply(res, db.convertError("bk_auth", err));
 
-                ["type","secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+                ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
                 db.add("bk_account", req.query, function(err) {
                     if (err) {
                         db.del("bk_auth", auth);
@@ -639,7 +643,7 @@ api.initAccountAPI = function()
             req.query.mtime = Date.now();
             req.query.id = req.account.id;
             // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
-            ["type","secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+            ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
             db.update("bk_account", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, self.processAccountRow(req.query));
@@ -713,7 +717,8 @@ api.initAccountAPI = function()
 
         case "get/icon":
             if (!req.query.id) req.query.id = req.account.id;
-            self.getIcon(req, res, req.query.id, { prefix: 'account', type: String(req.query.type)[0] || '0' });
+            if (!req.query.type) req.query.type = '0';
+            self.getIcon(req, res, req.query.id, { prefix: 'account', type: req.query.type });
             break;
 
         case "select/icon":
@@ -731,7 +736,7 @@ api.initAccountAPI = function()
         case "put/icon":
         case "del/icon":
             req.query.prefix = 'account';
-            req.query.type = String(req.query.type)[0] || '0';
+            if (!req.query.type) req.query.type = '0';
             self.handleIcon(req, res, req.params[0].substr(0, 3), options);
             break;
 

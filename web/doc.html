@@ -163,6 +163,14 @@ verifying if the given login and secret are valid, there is no special login API
 <ul>
 <li><p><code>/account/add</code></p>
 <p>Add new account, all parameters are the columns from the <code>bk_account</code> table, required columns are: <strong>name, secret, login</strong>.</p>
+<p>By default, this URL is in the list of allowed paths that do not need authentication, this means that anybody can add an account. For the real
+application this may not be a good choice so the simplest way to disable it to add api-disallow-path=^/account/add$ to the config file or
+specify in the command line. More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
+for example with invitation codes....</p>
+<p>In the table <code>bk_auth</code>, the column type is used to distinguish between account roles, by default only account with type <code>admin</code> can
+add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
+all columns of this table are avaailable as <code>req.account</code> object after the successful authentication where req is Express request object used in the middleware
+parameters.</p>
 <p><em>Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
 backend Web client is to scramble login/secret using HMAC-SHA1 and keep them in the local storage, this way the real login and secret is never exposed but
 the login popup will still asking for real name, see backend.js in the web/js folder for more details.</em></p>
@@ -1129,7 +1137,7 @@ backend via npm with all dependencies:</p>
 <li><code>min-distance</code> - Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table Default: 5</li>
 <li><code>instance</code> - Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
 <li><code>backtrace</code> - Enable backtrace facility, trap crashes and report the backtrace stack</li>
-<li><code>watch</code> - Watch sources directory for file changes to restart the server, for development</li>
+<li><code>watch</code> - Watch sources directory for file changes to restart the server, for development, the backend module files will be added to the watch list automatically, so only app specific directores should be added</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified Default: sqlite</li>
 <li><code>db-no-pools</code> - Do not use other db pools except default sqlite</li>
 <li><code>db-sqlite-max</code> - Max number of open connection for the pool</li>
@@ -1169,9 +1177,11 @@ backend via npm with all dependencies:</p>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly Default: </li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list Default: ^/$,.+.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$,^/public,^/account/add$</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
+<li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused</li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing Default: </li>
-<li><code>api-deny</code> - Regexp for URLs that will be denied access, replace the whole access list</li>
+<li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list</li>
+<li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds Default: 600000</li>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds Default: 5000</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes Default: 10485760</li>
@@ -1195,9 +1205,10 @@ backend via npm with all dependencies:</p>
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Authentication by login, only keeps id and secret to check the siganture
-      bk_auth: { login: { primary: 1 },
-                 id: {},
-                 secret: {},
+      bk_auth: { login: { primary: 1 },               // Account login
+                 id: {},                              // Auto generated UUID
+                 secret: {},                          // Account password
+                 type: {},                            // Account type: admin, ....
                  url_deny: {},                        // Deny access to matched url
                  url_allow: {},                       // Only grant access if matched this regexp
                  expires: { type: &quot;bigint&quot; },         // Deny access to the account if this value is before current date, milliseconds
@@ -1208,7 +1219,6 @@ backend via npm with all dependencies:</p>
                     login: {},
                     name: {},
                     alias: { pub: 1 },
-                    type: {},
                     status: {},
                     email: {},
                     phone: {},

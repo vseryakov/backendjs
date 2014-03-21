@@ -177,7 +177,7 @@ var core = {
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
             { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
             { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace facility, trap crashes and report the backtrace stack" },
-            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development" }
+            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development, the backend module files will be added to the watch list automatically, so only app specific directores should be added" }
     ],
 
     // Geo min distance for the hash key, km
