@@ -88,7 +88,8 @@ var api = {
        // Keep track of icons uploaded
        bk_icon: { id: { primary: 1 },                         // Account id
                   type: { primary: 1 },                       // prefix:type
-                  allow: {} },                                // Who can see it: all, auth, id:id...
+                  allow: {},                                  // Who can see it: all, auth, id:id...
+                  mtime: { type: "bigint" }},                 // Last time added/updated
 
        // Locations for all accounts to support distance searches
        bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
@@ -1316,12 +1317,17 @@ api.addHook = function(type, method, path, callback)
 // validating the signature or session cookies.
 // - method can be '' in such case all mathods will be matched
 // - path is a string or regexp of the request URL similr to registering Express routes
-// - callback is a function with the following parameters: function(req, cb) {}, see `checkAccess` for the return type
+// - callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
+//   with the callback with status: and message: properties, status != 200 means error
 //
 // Example:
 //
-//          api.registerAccessCheck('', 'account', function(req, cb) {}))
-//          api.registerAccessCheck('POST', 'account/add', function(req, cb) {});
+//          api.registerAccessCheck('', 'account', function(req, cb) { cb({status:500,message:"access disabled"}) }))
+//
+//          api.registerAccessCheck('POST', 'account/add', function(req, cb) {
+//             if (!req.query.invitecode) return cb({ status: 400, message: "invitation code is required" });
+//             cb();
+//          });
 api.registerAccessCheck = function(method, path, callback)
 {
     this.addHook('access', method, path, callback);
@@ -1337,7 +1343,10 @@ api.registerAccessCheck = function(method, path, callback)
 //
 // Example:
 //
-//           api.registerAuthCheck('GET', '/account/get', function(req, status, cb) { if (status.status != 200) status = { status: 302, url: '/error.html' }; cb(status) })
+//           api.registerAuthCheck('GET', '/account/get', function(req, status, cb) {
+//                if (status.status != 200) status = { status: 302, url: '/error.html' };
+//                cb(status)
+//           });
 api.registerAuthCheck = function(method, path, callback)
 {
     this.addHook('auth', method, path, callback);
@@ -1415,7 +1424,7 @@ api.handleIcon = function(req, res, op, options)
 
     if (!req.query.type) req.query.type = "";
 
-    var obj = { id: req.account.id, type: req.query.prefix + ":" + req.query.type, allow: req.query.allow };
+    var obj = { id: req.account.id, type: req.query.prefix + ":" + req.query.type, allow: req.query.allow, mtime: Date.now() };
     db[op]("bk_icon", obj, function(err, rows) {
         if (err) return self.sendReply(res, err);
 
