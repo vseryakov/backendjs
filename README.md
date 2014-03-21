@@ -615,6 +615,13 @@ The history API maintains one table for all application specific logging records
 The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...
 
+*Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
+who can access it.*
+  - To disable this endpoint completely in the config: api-disable=data
+  - To allow admins to access it only:
+
+        api.registerAuthCheck('GET', '/data', function(req, status, cb) { if (req.account.type != "admin") return cb({ status: 401, message: 'access denied' }; cb(status)); });
+
 - `/data/stats`
   Database pool statistics and other diagnostics
   - pool - database metrics

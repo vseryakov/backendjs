@@ -1222,7 +1222,7 @@ api.initDataAPI = function()
     });
 
     // Basic operations on a table
-    this.app.all(/^\/data\/(select|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
+    this.app.all(/^\/data\/(select|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res, info) {
         // Table must exist
         var dbcols = db.getColumns(req.params[1]);
         if (!dbcols) return self.sendReply(res, "Unknown table");
@@ -1232,7 +1232,14 @@ api.initDataAPI = function()
 
         db[req.params[0]](req.params[1], req.query, options, function(err, rows) {
             if (err) return self.sendReply(res, err);
-            self.sendJSON(req, res, rows);
+            switch (req.params[0]) {
+            case "select":
+            case "search":
+                self.sendJSON(req, res, { data: rows, next_token: info.next_token });
+                break;
+            default:
+                self.sendJSON(req, res, rows);
+            }
         });
     });
 

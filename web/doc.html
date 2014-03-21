@@ -586,6 +586,14 @@ all available records or specify <code>mtime=</code> with the timestamp in milli
 <h2 id="data">Data</h2>
 <p>The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...</p>
+<p><em>Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
+who can access it.</em></p>
+<ul>
+<li>To disable this endpoint completely in the config: api-disable=data</li>
+<li><p>To allow admins to access it only:</p>
+<pre><code>api.registerAuthCheck(&#39;GET&#39;, &#39;/data&#39;, function(req, status, cb) { if (req.account.type != &quot;admin&quot;) return cb({ status: 401, message: &#39;access denied&#39; }; cb(status)); });
+</code></pre></li>
+</ul>
 <ul>
 <li><p><code>/data/stats</code>
 Database pool statistics and other diagnostics</p>
