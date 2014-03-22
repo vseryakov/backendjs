@@ -1222,7 +1222,7 @@ the worker processes if they die and restart them automatically. How many proces
                  url_deny: {},                        // Deny access to matched url
                  url_allow: {},                       // Only grant access if matched this regexp
                  expires: { type: &quot;bigint&quot; },         // Deny access to the account if this value is before current date, milliseconds
-                 mtime: { type: &quot;bigint&quot; } },
+                 mtime: { type: &quot;bigint&quot;, now: 1 } },
 
       // Basic account information
       bk_account: { id: { primary: 1, pub: 1 },
@@ -1246,26 +1246,26 @@ the worker processes if they die and restart them automatically. How many proces
                     location: {},
                     ltime: { type: &quot;bigint&quot; },
                     ctime: { type: &quot;bigint&quot; },
-                    mtime: { type: &quot;bigint&quot; } },
+                    mtime: { type: &quot;bigint&quot;, now: 1 } },
 
      // Keep track of icons uploaded
      bk_icon: { id: { primary: 1 },                         // Account id
                 type: { primary: 1 },                       // prefix:type
                 allow: {},                                  // Who can see it: all, auth, id:id...
-                mtime: { type: &quot;bigint&quot; }},                 // Last time added/updated
+                mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
 
      // Locations for all accounts to support distance searches
      bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
                     id: { primary: 1 },                     // my account id, part of the primary key for pagination
                     latitude: { type: &quot;real&quot; },
                     longitude: { type: &quot;real&quot; },
-                    mtime: { type: &quot;bigint&quot; }},
+                    mtime: { type: &quot;bigint&quot;, now: 1 }},
 
      // All connections between accounts: like,dislike,friend...
      bk_connection: { id: { primary: 1 },                    // my account_id
                       type: { primary: 1 },                  // type:connection_id
                       state: {},
-                      mtime: { type: &quot;bigint&quot; }},
+                      mtime: { type: &quot;bigint&quot;, now: 1 }},
 
      // Connections by time to query for recent updates since some time...
      bk_recent: { id: { primary: 1 },               // my account id
@@ -1276,7 +1276,7 @@ the worker processes if they die and restart them automatically. How many proces
      bk_reference: { id: { primary: 1 },                    // connection_id
                      type: { primary: 1 },                  // type:account_id
                      state: {},
-                     mtime: { type: &quot;bigint&quot; }},
+                     mtime: { type: &quot;bigint&quot;, now: 1 }},
 
      // Messages between accounts
      bk_message: { id: { primary: 1 },                    // my account_id
@@ -1287,6 +1287,7 @@ the worker processes if they die and restart them automatically. How many proces
 
      // All accumulated counters for accounts
      bk_counter: { id: { primary: 1 },                                       // my account_id
+                   mtime: { type: &quot;bigint&quot;, now: 1 },
                    ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy
                    like0: { type: &quot;counter&quot;, value: 0, incr: 1 },            // who i liked
                    like1: { type: &quot;counter&quot;, value: 0 },                     // reversed, who liked me
@@ -1303,7 +1304,7 @@ the worker processes if they die and restart them automatically. How many proces
 
      // Keep historic data about account activity
      bk_history: { id: { primary: 1 },
-                   mtime: { type: &quot;bigint&quot;, primary: 1 },
+                   mtime: { type: &quot;bigint&quot;, primary: 1, now: 1 },
                    type: {},
                    data: {} }
 </code></pre></li>
@@ -2576,7 +2577,7 @@ API call, all high level operations like add/put/del perform SQL generation for 
 <li><p><code>Database tables</code></p>
 <pre><code>      bk_property: { name: { primary: 1 },
                      value: {},
-                     mtime: { type: &quot;bigint&quot; }
+                     mtime: { type: &quot;bigint&quot;, now: 1 }
       },
 
       bk_cookies: { id: { primary: 1 },
@@ -2591,7 +2592,7 @@ API call, all high level operations like add/put/del perform SQL generation for 
                   url: {},
                   postdata: { type: &quot;text&quot; },
                   counter: { type: &#39;int&#39; },
-                  mtime: { type: &quot;bigint&quot; }
+                  mtime: { type: &quot;bigint&quot;, now: 1 }
       },
 
       bk_jobs: { id: { primary: 1 },
@@ -2600,7 +2601,7 @@ API call, all high level operations like add/put/del perform SQL generation for 
                  job: { type: &quot;json&quot; },
                  cron: {},
                  args: {},
-                 mtime: { type: &#39;bigint&#39; }
+                 mtime: { type: &#39;bigint&#39;, now: 1 }
       },
 </code></pre></li>
 </ul>
@@ -2876,7 +2877,8 @@ contain the following properties:</p>
 <li>value - default value for the column</li>
 <li>len - column length</li>
 <li>pub - columns is public</li>
-<li>semipub - column is not public but still retrieved to support other public columns, must be deleted after use
+<li>semipub - column is not public but still retrieved to support other public columns, must be deleted after use</li>
+<li>now - means on every add/put/update set this column with current time as Date.now()
 Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2</li>
 </ul>
 </li>
