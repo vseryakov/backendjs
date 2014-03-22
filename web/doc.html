@@ -1206,7 +1206,9 @@ backend via npm with all dependencies:</p>
 <h2 id="module-api">Module: API</h2>
 <ul>
 <li><p><code>api</code></p>
-<p> HTTP API to the server from the clients</p>
+<p> HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
+incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
+the worker processes if they die and restart them automatically. How many processes to spawn can be configured via <code>-server-max-workers</code> config parameter.</p>
 </li>
 </ul>
 
@@ -1309,7 +1311,9 @@ backend via npm with all dependencies:</p>
 
 <ul>
 <li><p><code>api.init(callback)</code></p>
-<p> Initialize API layer with the active HTTP server</p>
+<p> Initialize API layer, this mut be called before the api module can be used but it is called by the server module automatically so api.init is
+rearely need to used directly, only for new server implementation or if using in the shell for testing.
+During the init sequence, this function calls api.initMiddleware and api.initApplication methods which by default are empty but can be redefined in the user aplications.</p>
 </li>
 </ul>
 
@@ -2559,14 +2563,20 @@ data type supported by any particular database and vice versa.</p>
 <p>Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
 by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
 API call, all high level operations like add/put/del perform SQL generation for single table on the fly.</p>
-</li>
+<p>Before the DB functions can be used as opposed to the core module the <code>core.init</code> MUST be called first, the typical usage:</p>
+<pre><code>    var backend = require(&quot;backend&quot;), core = backend.core, db = backend.db;
+    core.init(function(err) {
+        db.add(...
+        ...
+    });
+</code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      bk_property: { name: { primary: 1 },
                      value: {},
-                     mtime: { type: &quot;int&quot; }
+                     mtime: { type: &quot;bigint&quot; }
       },
 
       bk_cookies: { id: { primary: 1 },
@@ -2581,7 +2591,7 @@ API call, all high level operations like add/put/del perform SQL generation for 
                   url: {},
                   postdata: { type: &quot;text&quot; },
                   counter: { type: &#39;int&#39; },
-                  mtime: { type: &quot;int&quot; }
+                  mtime: { type: &quot;bigint&quot; }
       },
 
       bk_jobs: { id: { primary: 1 },
@@ -2590,7 +2600,7 @@ API call, all high level operations like add/put/del perform SQL generation for 
                  job: { type: &quot;json&quot; },
                  cron: {},
                  args: {},
-                 mtime: { type: &#39;int&#39;}
+                 mtime: { type: &#39;bigint&#39; }
       },
 </code></pre></li>
 </ul>

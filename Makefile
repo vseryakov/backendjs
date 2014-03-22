@@ -26,5 +26,5 @@ doc:
 	-if [ -d pages ]; then cp web/doc.html pages/index.html; fi
 
 push:
-	git push
+	git commit -a -m "Updated docs, minor bugfixes" && git push
 	-if [ -d pages ]; then cd pages && (git commit -a -m docs && git push); fi

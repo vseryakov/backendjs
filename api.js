@@ -30,7 +30,9 @@ var printf = require('printf');
 var logger = require(__dirname + '/logger');
 var backend = require(__dirname + '/build/backend');
 
-// HTTP API to the server from the clients
+// HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
+// incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
+// the worker processes if they die and restart them automatically. How many processes to spawn can be configured via `-server-max-workers` config parameter.
 var api = {
 
     // No authentication for these urls
@@ -59,7 +61,7 @@ var api = {
                    url_deny: {},                        // Deny access to matched url
                    url_allow: {},                       // Only grant access if matched this regexp
                    expires: { type: "bigint" },         // Deny access to the account if this value is before current date, milliseconds
-                   mtime: { type: "bigint" } },
+                   mtime: { type: "bigint", now: 1 } },
 
         // Basic account information
         bk_account: { id: { primary: 1, pub: 1 },
@@ -83,26 +85,26 @@ var api = {
                       location: {},
                       ltime: { type: "bigint" },
                       ctime: { type: "bigint" },
-                      mtime: { type: "bigint" } },
+                      mtime: { type: "bigint", now: 1 } },
 
        // Keep track of icons uploaded
        bk_icon: { id: { primary: 1 },                         // Account id
                   type: { primary: 1 },                       // prefix:type
                   allow: {},                                  // Who can see it: all, auth, id:id...
-                  mtime: { type: "bigint" }},                 // Last time added/updated
+                  mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
        bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
                       id: { primary: 1 },                     // my account id, part of the primary key for pagination
                       latitude: { type: "real" },
                       longitude: { type: "real" },
-                      mtime: { type: "bigint" }},
+                      mtime: { type: "bigint", now: 1 }},
 
        // All connections between accounts: like,dislike,friend...
        bk_connection: { id: { primary: 1 },                    // my account_id
                         type: { primary: 1 },                  // type:connection_id
                         state: {},
-                        mtime: { type: "bigint" }},
+                        mtime: { type: "bigint", now: 1 }},
 
        // Connections by time to query for recent updates since some time...
        bk_recent: { id: { primary: 1 },               // my account id
@@ -113,7 +115,7 @@ var api = {
        bk_reference: { id: { primary: 1 },                    // connection_id
                        type: { primary: 1 },                  // type:account_id
                        state: {},
-                       mtime: { type: "bigint" }},
+                       mtime: { type: "bigint", now: 1 }},
 
        // Messages between accounts
        bk_message: { id: { primary: 1 },                    // my account_id
@@ -124,6 +126,7 @@ var api = {
 
        // All accumulated counters for accounts
        bk_counter: { id: { primary: 1 },                                       // my account_id
+                     mtime: { type: "bigint", now: 1 },
                      ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy
                      like0: { type: "counter", value: 0, incr: 1 },            // who i liked
                      like1: { type: "counter", value: 0 },                     // reversed, who liked me
@@ -140,7 +143,7 @@ var api = {
 
        // Keep historic data about account activity
        bk_history: { id: { primary: 1 },
-                     mtime: { type: "bigint", primary: 1 },
+                     mtime: { type: "bigint", primary: 1, now: 1 },
                      type: {},
                      data: {} }
     }, // tables
@@ -203,7 +206,9 @@ var api = {
 
 module.exports = api;
 
-// Initialize API layer with the active HTTP server
+// Initialize API layer, this mut be called before the api module can be used but it is called by the server module automatically so api.init is
+// rearely need to used directly, only for new server implementation or if using in the shell for testing.
+// During the init sequence, this function calls api.initMiddleware and api.initApplication methods which by default are empty but can be redefined in the user aplications.
 api.init = function(callback)
 {
     var self = this;
@@ -833,7 +838,7 @@ api.initMessageAPI = function()
                     if (err) return self.sendReply(res, db.convertError("bk_message", err));
                     self.sendJSON(req, res, {});
                     core.ipcPublish(req.query.id, { path: req.path, mtime: now, sender: req.query.sender });
-                    db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1, mtime: 1 });
+                    db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1 });
 
                     // Update history log
                     if (req.query._history) {
@@ -847,7 +852,7 @@ api.initMessageAPI = function()
             if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
             req.query.mtime += ":" + req.query.sender;
             db.update("bk_message", { id: req.account.id, mtime: req.query.mtime, status: "R" }, function(err, rows) {
-                if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1, mtime: 1 });
+                if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
                 self.sendReply(res, err);
             });
             break;
@@ -858,7 +863,7 @@ api.initMessageAPI = function()
             req.query.id = req.account.id;
             db.del("bk_message", req.query, {}, function(err, rows) {
                 if (err) return self.sendReply(res, err);
-                db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1, mtime: 1 });
+                db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 });
                 self.sendJSON(req, res, {});
             });
             break;
@@ -920,18 +925,18 @@ api.initCounterAPI = function()
         case "incr":
             // Remove non public columns when updating other account
             if (req.query.id && req.query.id != req.account.id) {
-                var obj = { id: req.query.id, mtime: Date.now() };
+                var obj = { id: req.query.id };
                 db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[p]) obj[p] = req.query[p]; });
             } else {
                 var obj = req.query;
                 obj.id = req.account.id;
             }
-            db[req.params[0]]("bk_counter", obj, { cached: 1, mtime: 1 }, function(err, rows) {
+            db[req.params[0]]("bk_counter", obj, { cached: 1 }, function(err, rows) {
                 if (err) return self.sendReply(res, db.convertError("bk_counter", err));
 
                 // Update history log
                 if (req.query._history) {
-                    db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: core.cloneObj(obj, { mtime: 1 }) });
+                    db.add("bk_history", { id: req.account.id, type: req.path, data: core.cloneObj(obj, { mtime: 1 }) });
                 }
 
                 self.sendJSON(req, res, rows);
@@ -1002,7 +1007,7 @@ api.initConnectionAPI = function()
 
                     // Update history log
                     if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: type + ":" + id });
+                        db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
                     }
 
                     // Update accumulated counter if we support this column and do it automatically
@@ -1010,8 +1015,8 @@ api.initConnectionAPI = function()
 
                     var col = db.getColumn("bk_counter", type + '0');
                     if (col && col.incr) {
-                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', 1), { cached: 1, mtime: 1 });
-                        db.incr("bk_counter", core.newObj('id', id, type + '1', 1), { cached: 1, mtime: 1 });
+                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', 1), { cached: 1 });
+                        db.incr("bk_counter", core.newObj('id', id, type + '1', 1), { cached: 1 });
                     }
                 });
             });
@@ -1029,14 +1034,14 @@ api.initConnectionAPI = function()
 
                     // Update history log
                     if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: type + ":" + id });
+                        db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
                     }
 
                     // Update accumulated counter if we support this column and do it automatically
                     var col = db.getColumn("bk_counter", req.query.type + "0");
                     if (col && col.incr) {
-                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1, mtime: 1 });
-                        db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1, mtime: 1 });
+                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
+                        db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
                     }
                 });
             });
@@ -1118,7 +1123,7 @@ api.initLocationAPI = function()
                 if (distance < core.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + core.minDistance);
 
                 var geo = core.geoHash(latitude, longitude, { distance: req.account.distance });
-                var obj = { id: req.account.id, mtime: now, ltime: now, latitude: latitude, longitude: longitude, geohash: geo.geohash, location: req.query.location };
+                var obj = { id: req.account.id, ltime: now, latitude: latitude, longitude: longitude, geohash: geo.geohash, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
                     self.sendJSON(req, res, self.processAccountRow(obj));
@@ -1135,7 +1140,7 @@ api.initLocationAPI = function()
 
                     // Update history log
                     if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: Date.now(), data: geo.hash + ":" + latitude + ":" + longitude });
+                        db.add("bk_history", { id: req.account.id, type: req.path, data: geo.hash + ":" + latitude + ":" + longitude });
                     }
                 });
             });
@@ -1424,7 +1429,7 @@ api.handleIcon = function(req, res, op, options)
 
     if (!req.query.type) req.query.type = "";
 
-    var obj = { id: req.account.id, type: req.query.prefix + ":" + req.query.type, allow: req.query.allow, mtime: Date.now() };
+    var obj = { id: req.account.id, type: req.query.prefix + ":" + req.query.type, allow: req.query.allow };
     db[op]("bk_icon", obj, function(err, rows) {
         if (err) return self.sendReply(res, err);
 

@@ -26,7 +26,7 @@ var amqp = require('amqp');
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2014.03.01.0',
+    version: '2014.03.20.0',
 
     // Process and config parameters
     argv: {},
@@ -2365,7 +2365,7 @@ core.watchLogs = function(callback)
                        // Separator between log files
                        if (errors.length > 1) errors += "\n\n";
                        // Save current size to start next time from
-                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size, mtime: Date.now() }, function(e) {
+                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, function(e) {
                            if (e) logger.error('watchLogs:', file, e);
                            fs.close(fd, function() {});
                            next();

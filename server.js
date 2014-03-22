@@ -794,7 +794,7 @@ server.submitJob = function(options, callback)
     var self = this;
     if (!options || core.typeName(options.job) != "object") return logger.error('submitJob:', 'invalid job spec, must be an object:', options);
     logger.debug('submitJob:', options);
-    db.put("bk_jobs", { id: options.tag || self.jobsTag, tag: core.hash(options.job), job: options.job, cron: options.cron, args: options.args, type: options.type, mtime: core.now() }, function() {
+    db.put("bk_jobs", { id: options.tag || self.jobsTag, tag: core.hash(options.job), job: options.job, cron: options.cron, args: options.args, type: options.type }, function() {
         if (callback) callback();
     });
 }

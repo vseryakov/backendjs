@@ -31,7 +31,15 @@ var metrics = require(__dirname + "/metrics");
 // Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
 // by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
 // API call, all high level operations like add/put/del perform SQL generation for single table on the fly.
-
+//
+// Before the DB functions can be used as opposed to the core module the `core.init` MUST be called first, the typical usage:
+//
+//          var backend = require("backend"), core = backend.core, db = backend.db;
+//          core.init(function(err) {
+//              db.add(...
+//              ...
+//          });
+//
 var db = {
     name: 'db',
 
@@ -70,7 +78,7 @@ var db = {
     tables: {
         bk_property: { name: { primary: 1 },
                        value: {},
-                       mtime: { type: "int" }
+                       mtime: { type: "bigint", now: 1 }
         },
 
         bk_cookies: { id: { primary: 1 },
@@ -85,7 +93,7 @@ var db = {
                     url: {},
                     postdata: { type: "text" },
                     counter: { type: 'int' },
-                    mtime: { type: "int" }
+                    mtime: { type: "bigint", now: 1 }
         },
 
         bk_jobs: { id: { primary: 1 },
@@ -94,7 +102,7 @@ var db = {
                    job: { type: "json" },
                    cron: {},
                    args: {},
-                   mtime: { type: 'int'}
+                   mtime: { type: 'bigint', now: 1 }
         },
     }, // tables
 };
@@ -744,6 +752,7 @@ db.getCachedKey = function(table, obj, options)
 // - len - column length
 // - pub - columns is public
 // - semipub - column is not public but still retrieved to support other public columns, must be deleted after use
+// - now - means on every add/put/update set this column with current time as Date.now()
 // Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2
 db.create = function(table, columns, options, callback)
 {
@@ -787,9 +796,17 @@ db.drop = function(table, options, callback)
 // Returns prepared object to be passed to the driver's .query method.
 db.prepare = function(op, table, obj, options)
 {
-    // Add curent timestamp
-    if (options.mtime) {
-        if (typeof options.mtime == "string") obj[options.mtime] = Date.now(); else obj.mtime = Date.now();
+    // Process special columns
+    switch (op) {
+    case "add":
+    case "put":
+    case "incr":
+    case "update":
+        var cols = this.getColumns(table, options);
+        for (var p in cols) {
+            if (cols[p].now) obj[p] = Date.now();
+        }
+        break;
     }
     return this.getPool(table, options).prepare(op, table, obj, options);
 }
@@ -2444,6 +2461,15 @@ db.lmdbInitPool = function(options)
     return pool;
 }
 
-// Make sure the empty pool is crested to properly report init issues
+// Make sure the empty pool is created to properly report init issues
 db.nopool = db.createPool("none");
-db.nopool.get = function(callback) { logger.error("none: core.init must be called before using the backend DB functions"); callback(null, this); }
+db.nopool.prepare = function(op, table, obj, options)
+{
+    switch (op) {
+    case "create":
+    case "upgrade":
+        break;
+    default:
+        logger.error("none: core.init must be called before using the backend DB functions:", op, table, obj);
+    }
+}
