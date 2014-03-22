@@ -106,8 +106,6 @@ db.init = function(callback)
 {
 	var self = this;
 
-	if (!this.nopool) this.nopool = this.createPool("none");
-
 	// Internal Sqlite database is always open
 	self.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
 	(self['sqliteTables'] || []).forEach(function(y) { self.tblpool[y] = 'sqlite'; });
@@ -261,11 +259,12 @@ db.initPool = function(options, createcb)
     }
     // Execute initial statements to setup the environment, like pragmas
     pool.setup = function(client, callback) {
+        var me = this;
         var init = Array.isArray(options.init) ? options.init : [];
         async.forEachSeries(init, function(sql, next) {
             client.query(sql, next);
         }, function(err) {
-            if (err) logger.error('db.setup:', err);
+            if (err) logger.error('db.setup:', me.name, err);
             callback(err, client);
         });
     }
@@ -358,8 +357,8 @@ db.createPool = function(name, pool, options)
 
 // Execute query using native database driver, the query is passed directly to the driver.
 // - req - can be a string or an object with the following properties:
-// - text - SQL statement or other query in the format of the native driver, can be a list of statements
-// - values - parameter values for sql bindings or other driver specific data
+//   - text - SQL statement or other query in the format of the native driver, can be a list of statements
+//   - values - parameter values for sql bindings or other driver specific data
 // - options may have the following properties:
 //     - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
 // Callback is called with the following params:
@@ -2444,3 +2443,7 @@ db.lmdbInitPool = function(options)
     };
     return pool;
 }
+
+// Make sure the empty pool is crested to properly report init issues
+db.nopool = db.createPool("none");
+db.nopool.get = function(callback) { logger.error("none: core.init must be called before using the backend DB functions"); callback(null, this); }

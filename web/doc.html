@@ -1249,7 +1249,8 @@ backend via npm with all dependencies:</p>
      // Keep track of icons uploaded
      bk_icon: { id: { primary: 1 },                         // Account id
                 type: { primary: 1 },                       // prefix:type
-                allow: {} },                                // Who can see it: all, auth, id:id...
+                allow: {},                                  // Who can see it: all, auth, id:id...
+                mtime: { type: &quot;bigint&quot; }},                 // Last time added/updated
 
      // Locations for all accounts to support distance searches
      bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
@@ -1460,11 +1461,16 @@ validating the signature or session cookies.</p>
 <ul>
 <li>method can be &#39;&#39; in such case all mathods will be matched</li>
 <li>path is a string or regexp of the request URL similr to registering Express routes</li>
-<li>callback is a function with the following parameters: function(req, cb) {}, see <code>checkAccess</code> for the return type</li>
+<li>callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
+with the callback with status: and message: properties, status != 200 means error</li>
 </ul>
 <p>Example:</p>
-<pre><code>    api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, function(req, cb) {}))
-    api.registerAccessCheck(&#39;POST&#39;, &#39;account/add&#39;, function(req, cb) {});
+<pre><code>    api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, function(req, cb) { cb({status:500,message:&quot;access disabled&quot;}) }))
+
+    api.registerAccessCheck(&#39;POST&#39;, &#39;account/add&#39;, function(req, cb) {
+       if (!req.query.invitecode) return cb({ status: 400, message: &quot;invitation code is required&quot; });
+       cb();
+    });
 </code></pre></li>
 </ul>
 
@@ -1480,7 +1486,10 @@ like redirection or returning something explaining what to do in case of failure
 an error condition, the callback must pass the same or modified status object in its own <code>cb</code> callback</li>
 </ul>
 <p>Example:</p>
-<pre><code>     api.registerAuthCheck(&#39;GET&#39;, &#39;/account/get&#39;, function(req, status, cb) { if (status.status != 200) status = { status: 302, url: &#39;/error.html&#39; }; cb(status) })
+<pre><code>     api.registerAuthCheck(&#39;GET&#39;, &#39;/account/get&#39;, function(req, status, cb) {
+          if (status.status != 200) status = { status: 302, url: &#39;/error.html&#39; };
+          cb(status)
+     });
 </code></pre></li>
 </ul>
 
@@ -2654,9 +2663,11 @@ due to some error.</p>
 <li><p><code>db.query(req, options, callback)</code></p>
 <p> Execute query using native database driver, the query is passed directly to the driver.</p>
 <ul>
-<li>req - can be a string or an object with the following properties:</li>
+<li>req - can be a string or an object with the following properties:<ul>
 <li>text - SQL statement or other query in the format of the native driver, can be a list of statements</li>
 <li>values - parameter values for sql bindings or other driver specific data</li>
+</ul>
+</li>
 <li>options may have the following properties:<ul>
 <li>filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
 Callback is called with the following params:</li>

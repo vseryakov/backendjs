@@ -572,7 +572,7 @@ case "$ARG" in
     done
     [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
     echo "Deploying the module to $BACKEND_MASTER:$path/backend ..."
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$path/backend
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude pages --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$path/backend
     ;;
 
   run-backend)
