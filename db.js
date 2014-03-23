@@ -24,8 +24,8 @@ var metrics = require(__dirname + "/metrics");
 // The idea is not to introduce new abstraction layer on top of all databases but to make
 // the API usable for common use cases. On the source code level access to all databases will be possible using
 // this API but any specific usage like SQL queries syntax or data types available only for some databases will not be
-// unified or automatically converted but passed to the database directly. Only conversion between Javascript types and
-// database types is unified to some degree meaning Javascript data type will be converted into the corresponding
+// unified or automatically converted but passed to the database directly. Only conversion between JavaScript types and
+// database types is unified to some degree meaning JavaScript data type will be converted into the corresponding
 // data type supported by any particular database and vice versa.
 //
 // Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
@@ -46,7 +46,7 @@ var db = {
     // Default database pool for the backend
     pool: 'sqlite',
 
-    // Database connection pools, sqlite default pool is called sqlite, PostgreSQL default pool is pg, DynamoDB is ddb
+    // Database connection pools, SQLite default pool is called SQLite, PostgreSQL default pool is pg, DynamoDB is ddb
     dbpool: {},
 
     // Pools by table name
@@ -114,7 +114,7 @@ db.init = function(callback)
 {
 	var self = this;
 
-	// Internal Sqlite database is always open
+	// Internal SQLite database is always open
 	self.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
 	(self['sqliteTables'] || []).forEach(function(y) { self.tblpool[y] = 'sqlite'; });
 
@@ -195,9 +195,9 @@ db.dropPoolTables = function(name, tables, callback)
 }
 
 // Return all tables know to the given pool, returned tables are in the object with
-// column information merged from cached columns from the database with descrpition columns
+// column information merged from cached columns from the database with description columns
 // given by the application. Property fake: 1 in any column signifies not a real column but
-// a column described by the application and not yet c reated by the database driver or could not be added
+// a column described by the application and not yet created by the database driver or could not be added
 // due to some error.
 db.getPoolTables = function(name)
 {
@@ -207,7 +207,7 @@ db.getPoolTables = function(name)
 
 // Create a database pool
 // - options - an object defining the pool, the following properties define the pool:
-//     - pool - pool name/type, of not specified sqlite is used
+//     - pool - pool name/type, of not specified SQLite is used
 //     - max - max number of clients to be allocated in the pool
 //     - idle - after how many milliseconds an idle client will be destroyed
 // - createcb - a callback to be called when actual database client needs to be created, the callback signature is
@@ -250,7 +250,7 @@ db.initPool = function(options, createcb)
                                                                   typesMap: { counter: "int", bigint: "int" },
                                                                   opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } } });
 
-    // Aquire a connection with error reporting
+    // Acquire a connection with error reporting
     pool.get = function(callback) {
         this.acquire(function(err, client) {
             if (err) logger.error('pool:', err);
@@ -332,8 +332,8 @@ db.initPool = function(options, createcb)
 }
 
 // Create a new database pool with default methods and properties
-// - pool - if given it is used as the object prototype, the new database pool will extend this object, otherise new object is created
-// - options - an object with defaqult pool properties
+// - pool - if given it is used as the object prototype, the new database pool will extend this object, otherwise new object is created
+// - options - an object with default pool properties
 db.createPool = function(name, pool, options)
 {
     if (!pool) pool = {};
@@ -366,7 +366,7 @@ db.createPool = function(name, pool, options)
 // Execute query using native database driver, the query is passed directly to the driver.
 // - req - can be a string or an object with the following properties:
 //   - text - SQL statement or other query in the format of the native driver, can be a list of statements
-//   - values - parameter values for sql bindings or other driver specific data
+//   - values - parameter values for SQL bindings or other driver specific data
 // - options may have the following properties:
 //     - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
 // Callback is called with the following params:
@@ -440,7 +440,7 @@ db.query = function(req, options, callback)
 }
 
 // Insert new object into the database
-// - obj - an Javascript object with properties for the record, primary key properties must be supplied
+// - obj - an JavaScript object with properties for the record, primary key properties must be supplied
 // - options may contain the following properties:
 //      - all_columns - do not check for actual columns defined in the pool tables and add all properties from the obj, only will work for NoSQL dbs,
 //        by default all properties in the obj not described in the table definition for the given table will be ignored.
@@ -504,7 +504,7 @@ db.incr = function(table, obj, options, callback)
 
 // Delete object in the database, no error if the object does not exist
 // - obj - an object with primary key properties only, other properties will be ignored
-// - options - same propetties as for `db.update` method
+// - options - same properties as for `db.update` method
 db.del = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -514,10 +514,10 @@ db.del = function(table, obj, options, callback)
 }
 
 // Add/update the object, check existence by the primary key or by other keys specified.
-// - obj is a Javascript object with properties that correspond to the table columns
+// - obj is a JavaScript object with properties that correspond to the table columns
 // - options define additional flags that may
 //      - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-//        then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE caluse
+//        then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE clause
 //      - check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value
 //      - check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
 //        if it is an array then check only specified columns
@@ -620,7 +620,7 @@ db.list = function(table, obj, options, callback)
 
 // Perform full text search on the given table, the database implementation may ignore table name completely
 // in case of global text index. Options takes same properties as in the select method. Without full text support
-// this works the sme way as the `select` method.
+// this works the same way as the `select` method.
 db.search = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -741,7 +741,7 @@ db.getCachedKey = function(table, obj, options)
     return prefix + (this.getKeys(table, options) || []).map(function(x) { return ":" + obj[x] });
 }
 
-// Create a table using column definitions represented as a list of objects. Each column definiton can
+// Create a table using column definitions represented as a list of objects. Each column definition can
 // contain the following properties:
 // - name - column name
 // - type - column type, one of: int, real, string, counter or other supported type
@@ -825,13 +825,13 @@ db.getOptions = function(table, options)
     return core.mergeObj(pool.dboptions, options);
 }
 
-// Return cached columns for a table or null, columns is an object with column names and objects for definiton
+// Return cached columns for a table or null, columns is an object with column names and objects for definition
 db.getColumns = function(table, options)
 {
     return this.getPool(table, options).dbcolumns[table.toLowerCase()] || {};
 }
 
-// Return the column definitoon for a table
+// Return the column definition for a table
 db.getColumn = function(table, name, options)
 {
     return this.getColumns(table, options)[name];
@@ -869,7 +869,7 @@ db.getKeys = function(table, options)
 // is used for SQL parametrized statements
 // Parameters:
 //  - options - standard pool parameters with pool: property for specific pool
-//  - val - the Javascript value to convert into bind parameter
+//  - val - the JavaScript value to convert into bind parameter
 //  - info - column definition for the value from the cached columns
 db.getBindValue = function(table, options, val, info)
 {
@@ -913,7 +913,7 @@ db.cacheColumns = function(options, callback)
     });
 }
 
-// Merge Javascript column definitions with the db cached columns
+// Merge JavaScript column definitions with the db cached columns
 db.mergeColumns = function(pool)
 {
 	var tables = pool.tables;
@@ -967,7 +967,7 @@ db.processRows = function(pool, table, rows, options)
 
 // Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
 // specified table thus providing an opportunity to customize the result.
-// All assigned callback to tthis table will be called in the order of the assignment.
+// All assigned callback to this table will be called in the order of the assignment.
 db.setProcessRow = function(table, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
@@ -1313,7 +1313,7 @@ db.sqlTime = function(d)
 //     - group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)
 //     - always - only use default value if true
 //     - required - value default or supplied must be in the query, otherwise return empty SQL
-//     - search - aditional name for a value, for cases when generic field is used for search but we search specific column
+//     - search - additional name for a value, for cases when generic field is used for search but we search specific column
 // - values - actual values for the condition as an object, usually req.query
 // - params - if given will contain values for binding parameters
 db.sqlFilter = function(columns, values, params)
@@ -1329,7 +1329,7 @@ db.sqlFilter = function(columns, values, params)
         if (!col.always) {
             if (values[name]) value = values[name];
             // In addition to exact field name there could be query alias to be used for this column in case of generic search field
-            // which should be applied for multiple columns, this is useful to search across multiple columns or use diferent formats
+            // which should be applied for multiple columns, this is useful to search across multiple columns or use different formats
             var search = col.search;
             if (search) {
                 if (!Array.isArray(col.search)) search = [ search ];
@@ -1341,10 +1341,10 @@ db.sqlFilter = function(columns, values, params)
         if (typeof value =="undefined" || (typeof value == "string" && !value)) {
             // Required filed is missing, return empty query
             if (col.required) return "";
-            // Allow empty values excplicitely
+            // Allow empty values explicitly
             if (!col.empty) continue;
         }
-        // Uset actual column name now once we got the value
+        // Uses actual column name now once we got the value
         if (col.col) name = col.col;
         // Table prefix in case of joins
         if (col.alias) name = col.alias + '.' + name;
@@ -1433,7 +1433,7 @@ db.sqlWhere = function(table, obj, keys, options)
     var self = this;
     if (!options) options = {};
 
-    // List of records to return by primary key, when only one primary key property is provided use IN operator otherise combine all conditions with OR
+    // List of records to return by primary key, when only one primary key property is provided use IN operator otherwise combine all conditions with OR
     if (Array.isArray(obj)) {
         if (!obj.length) return "";
         var props = Object.keys(obj[0]);
@@ -1465,13 +1465,13 @@ db.sqlWhere = function(table, obj, keys, options)
 //      - type - type of the column, default is TEXT, options: int, real or other supported types
 //      - value - default value for the column
 //      - primary - part of the primary key
-//      - index - indexed column, part of the compisite index
+//      - index - indexed column, part of the composite index
 //      - unique - must be combined with index property to specify unique composite index
 //      - len - max length of the column
 //      - notnull - true if should be NOT NULL
 // - options may contains:
 //      - upgrade - perform alter table instead of create
-//      - typesMap - type mapping, convert lowecase type into other type supported by any specific database
+//      - typesMap - type mapping, convert lowercase type into other type supported by any specific database
 //      - noDefaults - ignore default value if not supported (Cassandra)
 //      - noNulls - NOT NULL restriction is not supported (Cassandra)
 //      - noMultiSQL - return as a list, the driver does not support multiple SQL commands
@@ -1534,7 +1534,7 @@ db.sqlDrop = function(table, obj, options)
 }
 
 // Select object from the database,
-// options may define the follwong properties:
+// options may define the following properties:
 // - keys is a list of columns for condition
 //  - select is list of columns or expressions to return
 db.sqlSelect = function(table, obj, options)
@@ -1725,7 +1725,7 @@ db.pgsqlCacheIndexes = function(options, callback)
     });
 }
 
-// Convert js array into db PostgreSQL array format: {..}
+// Convert JS array into db PostgreSQL array format: {..}
 db.pgsqlBindValue = function(val, opts)
 {
     function toArray(v) {
@@ -1755,7 +1755,7 @@ db.pgsqlBindValue = function(val, opts)
     return val;
 }
 
-// Initialize local Sqlite cache database by name, the db files are open in read only mode and are watched for changes,
+// Initialize local SQLite cache database by name, the db files are open in read only mode and are watched for changes,
 // if new file got copied from the master, we reopen local database
 db.sqliteInitPool = function(options)
 {
@@ -1775,7 +1775,7 @@ db.sqliteInitPool = function(options)
     return pool;
 }
 
-// Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
+// Common code to open or create local SQLite databases, execute all required initialization statements, calls callback
 // with error as first argument and database object as second
 db.sqliteOpen = function(options, callback)
 {
@@ -1855,7 +1855,7 @@ db.sqliteCacheColumns = function(options, callback)
     });
 }
 
-// Setup Mysql database driver
+// Setup MySQL database driver
 db.mysqlInitPool = function(options)
 {
     if (!backend.MysqlDatabase) return this.nopool;
@@ -2281,7 +2281,7 @@ db.cassandraCacheColumns = function(options, callback)
 }
 
 // Setup LevelDB database driver, this is simplified driver which supports only basic key-value operations,
-// table parameter is ignored, the object only supports the followig properties name and value.
+// table parameter is ignored, the object only supports the following properties name and value.
 // Options are passed to the LevelDB backend low level driver which is native LevelDB options using the same names:
 // http://leveldb.googlecode.com/svn/trunk/doc/index.html
 // The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()
