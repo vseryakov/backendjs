@@ -32,7 +32,7 @@ var metrics = require(__dirname + "/metrics");
 // by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
 // API call, all high level operations like add/put/del perform SQL generation for single table on the fly.
 //
-// Before the DB functions can be used as opposed to the core module the `core.init` MUST be called first, the typical usage:
+// Before the DB functions can be used the `core.init` MUST be called first, the typical usage:
 //
 //          var backend = require("backend"), core = backend.core, db = backend.db;
 //          core.init(function(err) {
@@ -753,7 +753,8 @@ db.getCachedKey = function(table, obj, options)
 // - pub - columns is public
 // - semipub - column is not public but still retrieved to support other public columns, must be deleted after use
 // - now - means on every add/put/update set this column with current time as Date.now()
-// Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2
+//
+// Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table
 db.create = function(table, columns, options, callback)
 {
     if (typeof options == "function") callback = options,options = {};

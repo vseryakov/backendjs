@@ -2564,7 +2564,7 @@ data type supported by any particular database and vice versa.</p>
 <p>Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
 by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
 API call, all high level operations like add/put/del perform SQL generation for single table on the fly.</p>
-<p>Before the DB functions can be used as opposed to the core module the <code>core.init</code> MUST be called first, the typical usage:</p>
+<p>Before the DB functions can be used the <code>core.init</code> MUST be called first, the typical usage:</p>
 <pre><code>    var backend = require(&quot;backend&quot;), core = backend.core, db = backend.db;
     core.init(function(err) {
         db.add(...
@@ -2878,9 +2878,9 @@ contain the following properties:</p>
 <li>len - column length</li>
 <li>pub - columns is public</li>
 <li>semipub - column is not public but still retrieved to support other public columns, must be deleted after use</li>
-<li>now - means on every add/put/update set this column with current time as Date.now()
-Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2</li>
+<li>now - means on every add/put/update set this column with current time as Date.now()</li>
 </ul>
+<p>Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table</p>
 </li>
 </ul>
 
