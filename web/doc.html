@@ -2560,8 +2560,8 @@ This function is not async-safe, it uses sync calls</p>
 The idea is not to introduce new abstraction layer on top of all databases but to make
 the API usable for common use cases. On the source code level access to all databases will be possible using
 this API but any specific usage like SQL queries syntax or data types available only for some databases will not be
-unified or automatically converted but passed to the database directly. Only conversion between Javascript types and
-database types is unified to some degree meaning Javascript data type will be converted into the corresponding
+unified or automatically converted but passed to the database directly. Only conversion between JavaScript types and
+database types is unified to some degree meaning JavaScript data type will be converted into the corresponding
 data type supported by any particular database and vice versa.</p>
 <p>Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
 by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
@@ -2639,9 +2639,9 @@ API call, all high level operations like add/put/del perform SQL generation for 
 <ul>
 <li><p><code>db.getPoolTables(name)</code></p>
 <p> Return all tables know to the given pool, returned tables are in the object with
-column information merged from cached columns from the database with descrpition columns
+column information merged from cached columns from the database with description columns
 given by the application. Property fake: 1 in any column signifies not a real column but
-a column described by the application and not yet c reated by the database driver or could not be added
+a column described by the application and not yet created by the database driver or could not be added
 due to some error.</p>
 </li>
 </ul>
@@ -2651,7 +2651,7 @@ due to some error.</p>
 <p> Create a database pool</p>
 <ul>
 <li>options - an object defining the pool, the following properties define the pool:<ul>
-<li>pool - pool name/type, of not specified sqlite is used</li>
+<li>pool - pool name/type, of not specified SQLite is used</li>
 <li>max - max number of clients to be allocated in the pool</li>
 <li>idle - after how many milliseconds an idle client will be destroyed</li>
 </ul>
@@ -2666,8 +2666,8 @@ due to some error.</p>
 <li><p><code>db.createPool(name, pool, options)</code></p>
 <p> Create a new database pool with default methods and properties</p>
 <ul>
-<li>pool - if given it is used as the object prototype, the new database pool will extend this object, otherise new object is created</li>
-<li>options - an object with defaqult pool properties</li>
+<li>pool - if given it is used as the object prototype, the new database pool will extend this object, otherwise new object is created</li>
+<li>options - an object with default pool properties</li>
 </ul>
 </li>
 </ul>
@@ -2678,7 +2678,7 @@ due to some error.</p>
 <ul>
 <li>req - can be a string or an object with the following properties:<ul>
 <li>text - SQL statement or other query in the format of the native driver, can be a list of statements</li>
-<li>values - parameter values for sql bindings or other driver specific data</li>
+<li>values - parameter values for SQL bindings or other driver specific data</li>
 </ul>
 </li>
 <li>options may have the following properties:<ul>
@@ -2697,7 +2697,7 @@ Callback is called with the following params:</li>
 <li><p><code>db.add(table, obj, options, callback)</code></p>
 <p> Insert new object into the database</p>
 <ul>
-<li>obj - an Javascript object with properties for the record, primary key properties must be supplied</li>
+<li>obj - an JavaScript object with properties for the record, primary key properties must be supplied</li>
 <li>options may contain the following properties:<ul>
 <li>all_columns - do not check for actual columns defined in the pool tables and add all properties from the obj, only will work for NoSQL dbs,
 by default all properties in the obj not described in the table definition for the given table will be ignored.</li>
@@ -2751,7 +2751,7 @@ if does not exist yet.</em></p>
 <p> Delete object in the database, no error if the object does not exist</p>
 <ul>
 <li>obj - an object with primary key properties only, other properties will be ignored</li>
-<li>options - same propetties as for <code>db.update</code> method</li>
+<li>options - same properties as for <code>db.update</code> method</li>
 </ul>
 </li>
 </ul>
@@ -2760,10 +2760,10 @@ if does not exist yet.</em></p>
 <li><p><code>db.replace(table, obj, options, callback)</code></p>
 <p> Add/update the object, check existence by the primary key or by other keys specified.</p>
 <ul>
-<li>obj is a Javascript object with properties that correspond to the table columns</li>
+<li>obj is a JavaScript object with properties that correspond to the table columns</li>
 <li>options define additional flags that may<ul>
 <li>keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE caluse</li>
+then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE clause</li>
 <li>check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value</li>
 <li>check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
 if it is an array then check only specified columns</li>
@@ -2812,7 +2812,7 @@ On return, the callback can check third argument which is an object with the fol
 <li><p><code>db.search(table, obj, options, callback)</code></p>
 <p> Perform full text search on the given table, the database implementation may ignore table name completely
 in case of global text index. Options takes same properties as in the select method. Without full text support
-this works the sme way as the <code>select</code> method.</p>
+this works the same way as the <code>select</code> method.</p>
 </li>
 </ul>
 
@@ -2868,7 +2868,7 @@ Additional options:</p>
 
 <ul>
 <li><p><code>db.create(table, columns, options, callback)</code></p>
-<p> Create a table using column definitions represented as a list of objects. Each column definiton can
+<p> Create a table using column definitions represented as a list of objects. Each column definition can
 contain the following properties:</p>
 <ul>
 <li>name - column name</li>
@@ -2919,13 +2919,13 @@ Returns prepared object to be passed to the driver&#39;s .query method.</p>
 
 <ul>
 <li><p><code>db.getColumns(table, options)</code></p>
-<p> Return cached columns for a table or null, columns is an object with column names and objects for definiton</p>
+<p> Return cached columns for a table or null, columns is an object with column names and objects for definition</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>db.getColumn(table, name, options)</code></p>
-<p> Return the column definitoon for a table</p>
+<p> Return the column definition for a table</p>
 </li>
 </ul>
 
@@ -2954,7 +2954,7 @@ is used for SQL parametrized statements
 Parameters:</p>
 <ul>
 <li>options - standard pool parameters with pool: property for specific pool</li>
-<li>val - the Javascript value to convert into bind parameter</li>
+<li>val - the JavaScript value to convert into bind parameter</li>
 <li>info - column definition for the value from the cached columns</li>
 </ul>
 </li>
@@ -2980,7 +2980,7 @@ Parameters:</p>
 
 <ul>
 <li><p><code>db.mergeColumns(pool)</code></p>
-<p> Merge Javascript column definitions with the db cached columns</p>
+<p> Merge JavaScript column definitions with the db cached columns</p>
 </li>
 </ul>
 
@@ -3006,7 +3006,7 @@ options may be used to define the following properties:</li>
 <li><p><code>db.setProcessRow(table, options, callback)</code></p>
 <p> Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
 specified table thus providing an opportunity to customize the result.
-All assigned callback to tthis table will be called in the order of the assignment.</p>
+All assigned callback to this table will be called in the order of the assignment.</p>
 </li>
 </ul>
 
@@ -3074,7 +3074,7 @@ options may contain the following properties:</p>
 <li>group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)</li>
 <li>always - only use default value if true</li>
 <li>required - value default or supplied must be in the query, otherwise return empty SQL</li>
-<li>search - aditional name for a value, for cases when generic field is used for search but we search specific column</li>
+<li>search - additional name for a value, for cases when generic field is used for search but we search specific column</li>
 </ul>
 </li>
 <li>values - actual values for the condition as an object, usually req.query</li>
@@ -3116,7 +3116,7 @@ options may contain the following properties:</p>
 <li>type - type of the column, default is TEXT, options: int, real or other supported types</li>
 <li>value - default value for the column</li>
 <li>primary - part of the primary key</li>
-<li>index - indexed column, part of the compisite index</li>
+<li>index - indexed column, part of the composite index</li>
 <li>unique - must be combined with index property to specify unique composite index</li>
 <li>len - max length of the column</li>
 <li>notnull - true if should be NOT NULL</li>
@@ -3124,7 +3124,7 @@ options may contain the following properties:</p>
 </li>
 <li>options may contains:<ul>
 <li>upgrade - perform alter table instead of create</li>
-<li>typesMap - type mapping, convert lowecase type into other type supported by any specific database</li>
+<li>typesMap - type mapping, convert lowercase type into other type supported by any specific database</li>
 <li>noDefaults - ignore default value if not supported (Cassandra)</li>
 <li>noNulls - NOT NULL restriction is not supported (Cassandra)</li>
 <li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
@@ -3151,7 +3151,7 @@ options may contain the following properties:</p>
 <ul>
 <li><p><code>db.sqlSelect(table, obj, options)</code></p>
 <p> Select object from the database,
-options may define the follwong properties:</p>
+options may define the following properties:</p>
 <ul>
 <li>keys is a list of columns for condition</li>
 <li>select is list of columns or expressions to return</li>
@@ -3197,27 +3197,27 @@ options may define the follwong properties:</p>
 
 <ul>
 <li><p><code>db.pgsqlBindValue(val, opts)</code></p>
-<p> Convert js array into db PostgreSQL array format: {..}</p>
+<p> Convert JS array into db PostgreSQL array format: {..}</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>db.sqliteInitPool(options)</code></p>
-<p> Initialize local Sqlite cache database by name, the db files are open in read only mode and are watched for changes,
+<p> Initialize local SQLite cache database by name, the db files are open in read only mode and are watched for changes,
 if new file got copied from the master, we reopen local database</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>db.sqliteOpen(options, callback)</code></p>
-<p> Common code to open or create local Sqlite databases, execute all required initialization statements, calls callback
+<p> Common code to open or create local SQLite databases, execute all required initialization statements, calls callback
 with error as first argument and database object as second</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>db.mysqlInitPool(options)</code></p>
-<p> Setup Mysql database driver</p>
+<p> Setup MySQL database driver</p>
 </li>
 </ul>
 
@@ -3236,7 +3236,7 @@ with error as first argument and database object as second</p>
 <ul>
 <li><p><code>db.leveldbInitPool(options)</code></p>
 <p> Setup LevelDB database driver, this is simplified driver which supports only basic key-value operations,
-table parameter is ignored, the object only supports the followig properties name and value.
+table parameter is ignored, the object only supports the following properties name and value.
 Options are passed to the LevelDB backend low level driver which is native LevelDB options using the same names:
 <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a>
 The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()</p>
