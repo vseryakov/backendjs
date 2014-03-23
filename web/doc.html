@@ -1137,7 +1137,7 @@ backend via npm with all dependencies:</p>
 <li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files Default: 3600</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers Default: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:20.0) Gecko/20100101 Firefox/20.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.29.13 (KHTML, like Gecko) Version/6.0.4 Safari/536.29.13,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.65 Safari/537.31,Mozilla/5.0 (X11; Linux i686) AppleWebKit/534.34 (KHTML, like Gecko) Safari/534.34,Opera/9.80 (Macintosh; Intel Mac OS X 10.7.5) Presto/2.12.388 Version/12.15,Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.2; BRI/2</li>
-<li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls</li>
+<li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access</li>
 <li><code>backend-secret</code> - Credentials secret for the master backend access</li>
 <li><code>domain</code> - Domain to use for communications, default is current domain of the host machine</li>
@@ -2115,7 +2115,9 @@ options may contains the following:</p>
 <li><p><code>core.sendRequest(uri, options, callback)</code></p>
 <p> Make a request to the backend endpoint, save data in the queue in case of error, if data specified,
 POST request is made, if data is an object, it is converted into string.
-Returns params as in httpGet with .json property assigned with an object from parsed JSON response
+Returns params as in httpGet with .json property assigned with an object from parsed JSON response.
+<em>When used with API endpoints, the <code>backend-host</code> parameter must be set in the config or command line to the base URL of the backend,
+like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <code>uri</code> is relative URL. Absolute URLs do not need this parameter.</em>
 Special parameters for options:</p>
 <ul>
 <li>login - login to use for access credentials instead of global credentials</li>

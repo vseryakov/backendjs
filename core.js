@@ -26,7 +26,7 @@ var amqp = require('amqp');
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2014.03.20.0',
+    version: '2014.03.22.0',
 
     // Process and config parameters
     argv: {},
@@ -169,7 +169,7 @@ var core = {
             { name: "logwatcher-match", descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
             { name: "logwatcher-interval", type: "number", min: 300, max: 86400, descr: "How often to check for errors in the log files" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
-            { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls" },
+            { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access" },
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
@@ -1293,7 +1293,9 @@ core.signRequest = function(login, secret, method, host, uri, options)
 
 // Make a request to the backend endpoint, save data in the queue in case of error, if data specified,
 // POST request is made, if data is an object, it is converted into string.
-// Returns params as in httpGet with .json property assigned with an object from parsed JSON response
+// Returns params as in httpGet with .json property assigned with an object from parsed JSON response.
+// *When used with API endpoints, the `backend-host` parameter must be set in the config or command line to the base URL of the backend,
+// like http://localhost:8000, this is when `uri` is relative URL. Absolute URLs do not need this parameter.*
 // Special parameters for options:
 // - login - login to use for access credentials instead of global credentials
 // - secret - secret to use for access instead of global credentials

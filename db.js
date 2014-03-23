@@ -952,7 +952,7 @@ db.processRows = function(pool, table, rows, options)
 {
 	if (!pool.processRow.length && !options.noJson) return;
 
-	var cols = pool.dbcolumns[table.toLowerCase()] || {};
+	var cols = pool.dbcolumns[(table || "").toLowerCase()] || {};
 	rows.forEach(function(row) {
 	    if (options.noJson) {
 	        for (var p in cols) {
