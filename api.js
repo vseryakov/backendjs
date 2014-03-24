@@ -72,32 +72,32 @@ var api = {
                       email: {},
                       phone: {},
                       website: {},
-                      birthday: { semipub: 1 },          // used in age calculation
-                      gender: { pub: 1 },
+                      birthday: {},
+                      gender: {},
                       address: {},
                       city: {},
                       state: {},
                       zipcode: {},
                       country: {},
-                      latitude: { type: "real", pub: 1 },
-                      longitude: { type: "real", pub: 1 },
-                      geohash: { pub: 1 },
+                      latitude: { type: "real" },
+                      longitude: { type: "real" },
+                      geohash: {},
                       location: {},
                       ltime: { type: "bigint" },
                       ctime: { type: "bigint" },
                       mtime: { type: "bigint", now: 1 } },
 
        // Keep track of icons uploaded
-       bk_icon: { id: { primary: 1 },                         // Account id
-                  type: { primary: 1 },                       // prefix:type
+       bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
+                  type: { primary: 1, pub: 1 },               // prefix:type
                   allow: {},                                  // Who can see it: all, auth, id:id...
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
-       bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
-                      id: { primary: 1 },                     // my account id, part of the primary key for pagination
-                      latitude: { type: "real" },
-                      longitude: { type: "real" },
+       bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
+                      id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
+                      latitude: { type: "real", semipub: 1 },     // for distance must be semipub or no distance and no coordinates
+                      longitude: { type: "real", semipub: 1 },
                       mtime: { type: "bigint", now: 1 }},
 
        // All connections between accounts: like,dislike,friend...
@@ -125,7 +125,7 @@ var api = {
                      icon: {}},                             // Icon base64 or url
 
        // All accumulated counters for accounts
-       bk_counter: { id: { primary: 1 },                                       // my account_id
+       bk_counter: { id: { primary: 1, pub: 1 },                               // account id
                      mtime: { type: "bigint", now: 1 },
                      ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy
                      like0: { type: "counter", value: 0, incr: 1 },            // who i liked
@@ -577,9 +577,6 @@ api.initAccountAPI = function()
     var self = this;
     var db = core.context.db;
 
-    // Assign row handler for the account table
-    db.setProcessRow('account', self.processAccountRow);
-
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
 
         if (req.method == "POST") req.query = req.body;
@@ -607,8 +604,7 @@ api.initAccountAPI = function()
         			self.sendJSON(req, res, rows[0]);
         		});
         	} else {
-        	    options.public_columns = req.account.id;
-        		db.list("bk_account", req.query, options, function(err, rows) {
+        		db.list("bk_account", req.query.id, options, function(err, rows) {
         			if (err) return self.sendReply(res, err);
         			self.sendJSON(req, res, rows);
         		});
@@ -640,7 +636,7 @@ api.initAccountAPI = function()
                     req.account = req.query;
                     // Some dbs require the record to exist, just make one with default values
                     db.put("bk_counter", { id: req.query.id, like0: 0 });
-                    self.sendJSON(req, res, self.processAccountRow(req.query));
+                    self.sendJSON(req, res, req.query);
                 });
             });
             break;
@@ -652,7 +648,7 @@ api.initAccountAPI = function()
             ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
             db.update("bk_account", req.query, function(err) {
                 if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, self.processAccountRow(req.query));
+                self.sendJSON(req, res, {});
             });
             break;
 
@@ -704,7 +700,6 @@ api.initAccountAPI = function()
             break;
 
         case "select":
-            options.public_columns = req.account.id;
             db.select("bk_account", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 var next_token = info.next_token ? core.toBase64(info.next_token) : "";
@@ -946,7 +941,6 @@ api.initCounterAPI = function()
 
         case "get":
             var id = req.query.id || req.account.id;
-            options.public_columns = id == req.account.id ? 0 : req.account.id;
             db.getCached("bk_counter", { id: id }, options, function(err, row) {
                 res.json(row);
             });
@@ -1061,7 +1055,7 @@ api.initConnectionAPI = function()
                 if (!req.query._details) return self.sendJSON(req, res, { data: rows, next_token: next_token });
 
                 // Get all account records for the id list
-                db.list("bk_account", rows, { select: req.query._select, public_columns: req.account.id }, function(err, rows) {
+                db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     self.sendJSON(req, res, { data: rows, next_token: next_token });
                 });
@@ -1084,7 +1078,7 @@ api.initConnectionAPI = function()
                 if (!req.query._details) return self.sendJSON(req, res, { data: rows, next_token: next_token });
 
                 // Get all account records for the id list
-                db.list("bk_account", rows, { select: req.query._select, public_columns: req.account.id }, function(err, rows) {
+                db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
                     self.sendJSON(req, res, { data: rows, next_token: next_token });
                 });
@@ -1126,7 +1120,7 @@ api.initLocationAPI = function()
                 var obj = { id: req.account.id, ltime: now, latitude: latitude, longitude: longitude, geohash: geo.geohash, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, self.processAccountRow(obj));
+                    self.sendJSON(req, res, obj);
 
                     // Delete current location
                     var oldgeo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance });
@@ -1150,7 +1144,9 @@ api.initLocationAPI = function()
             // Perform location search based on hash key that covers the whole region for our configured max distance
             if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
             // Limit the distance within our configured range
-            req.query.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
+            options.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
+            options.latitude = req.query.latitude;
+            options.longitude = req.query.longitude;
             // Continue pagination using the search token
             var token = core.toJson(req.query._token);
             if (token && token.geohash) {
@@ -1159,7 +1155,7 @@ api.initLocationAPI = function()
             }
             db.getLocations("bk_location", options, function(err, rows, info) {
                 // Return accounts with locations
-                if (req.query._details) {
+                if (req.query._details && rows.length) {
                     var list = {}, ids = [];
                     rows = rows.map(function(row) {
                         ids.push({ id: row.id });
@@ -1167,7 +1163,7 @@ api.initLocationAPI = function()
                         return row;
                     });
                     var next_token = core.toBase64(info);
-                	db.list("bk_account", ids, { select: req.query._select, public_columns: req.account.id }, function(err, rows) {
+                	db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         // Merge locations and accounts
                         rows.forEach(function(row) {
@@ -1186,17 +1182,6 @@ api.initLocationAPI = function()
             self.sendReply(res, 400, "Invalid command");
         }
     });
-}
-
-// Prepare an account record for response, set required fields, icons
-api.processAccountRow = function(row, options, cols)
-{
-    var self = this;
-    if (row.birthday) {
-    	row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-    }
-    delete row.birthday;
-    return row;
 }
 
 // API for internal provisioning, by default supports access to all tables
@@ -1260,9 +1245,8 @@ api.initTables = function(callback)
 // Convert query options into database options
 api.getOptions = function(req)
 {
-    var options = {};
+    var options = { check_public: req.account ? req.account.id : null };
     if (req.query._select) options.select = req.query._select;
-    if (req.query._public) options.public_columns = req.account.id;
     if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50);
     if (req.query._consistent) options.consistent = core.toBool(req.query._consistent);
     if (req.query._start) options.start = core.toJson(req.query._start);
@@ -1272,7 +1256,6 @@ api.getOptions = function(req)
     if (req.query._keys) options.keys = core.strSplit(req.query._keys);
     if (req.query._width) options.width = core.toNumber(req.query._width);
     if (req.query._height) options.height = core.toNumber(req.query._height);
-    if (req.query._calc_distance) options.calc_distance = core.toNumber(req.query._calc_distance);
     if (req.query._ext) options.ext = req.query._ext;
     if (req.query._ops) {
         if (!options.ops) options.ops = {};

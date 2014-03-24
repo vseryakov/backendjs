@@ -343,7 +343,7 @@ db.createPool = function(name, pool, options)
     pool.watch = function(client) {}
     pool.cacheColumns = function(opts, callback) { callback(); };
     pool.cacheIndexes = function(opts, callback) { callback(); };
-    pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: table, obj: obj }; };
+    pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj }; };
     pool.query = function(client, req, opts, callback) { callback(null, []); };
     pool.nextToken = function(req, rows, opts) {};
     pool.processRow = [];
@@ -411,13 +411,13 @@ db.query = function(req, options, callback)
                     return callback ? callback(err2, rows, info) : null;
                 }
                 // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-                if (options && options.public_columns) {
-                    var col = options.public_key || 'id';
-                    var cols = self.getPublicColumns(req.table, options);
-                    if (cols.length) {
+                if (options && options.check_public) {
+                    var cols = pool.dbcolumns[req.table || ""];
+                    if (cols) {
+                        var key = pool.dbkeys[req.table][0];
                         rows.forEach(function(row) {
-                            if (row[col] == options.public_columns) return;
-                            for (var p in row)  if (cols.indexOf(p) == -1) delete row[p];
+                            if (row[key] == options.check_public) return;
+                            for (var p in row) if (cols[p] && !cols[p].pub && !cols[p].semipub) delete row[p];
                         });
                     }
                 }
@@ -585,8 +585,7 @@ db.replace = function(table, obj, options, callback)
 //      - start - start records with this primary key, this is the next_token passed by the previous query
 //      - count - how many records to return
 //      - sort - sort by this column
-//      - public_columns - value to be used to filter non-public columns (marked by .pub property), compared to public_key column or 'id'
-//      - public_key - name of the column to be used in public columns filtering, default is 'id'
+//      - check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column
 //      - desc - if sorting, do in descending order
 //      - page - starting page number for pagination, uses count to find actual record to start
 // On return, the callback can check third argument which is an object with the following properties:
@@ -602,6 +601,11 @@ db.select = function(table, obj, options, callback)
 }
 
 // Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column
+// Example
+//
+//      db.list("bk_account", ["id1", "id2"], function(err, rows) { console.log(err, rows) });
+//      db.list("bk_account", "id1,id2", function(err, rows) { console.log(err, rows) });
+//
 db.list = function(table, obj, options, callback)
 {
 	switch (core.typeName(obj)) {
@@ -609,6 +613,7 @@ db.list = function(table, obj, options, callback)
 		var keys = options && options.keys ? options.keys : this.getKeys(table, options);
 		if (!keys || !keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
 		obj = core.strSplit(obj).map(function(x) { return core.newObj(keys[0], x) });
+
 	case "array":
 	case "object":
 		break;
@@ -636,14 +641,24 @@ db.search = function(table, obj, options, callback)
 //  - latitude and longitude as floating numbers
 // On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
 // the next_token returned by the previous call
-// Specific options properties:
-//   - calc_distance - calculate the distance between query and the actual position and save it in distance property for each record
 // On return, the callback's third argument contains the object that must be provided for subsequent searches until rows array is empty.
+//
+//  Example
+//
+//          db.getLocations("bk_location", { latitude: -118, longitude: 30, distance: 10 }, function(err, rows, info) {
+//              ...
+//              // Get next page
+//              db.getLocations("bk_location", info, function(err, rows, info) {
+//                  ...
+//              });
+//          });
+//
 db.getLocations = function(table, options, callback)
 {
 	var latitude = options.latitude, longitude = options.longitude;
     var distance = core.toNumber(options.distance, 0, 2, 1, 999);
     var count = core.toNumber(options.count, 0, 50, 0, 250);
+    var cols = db.getColumns(table);
     if (!options.geohash) {
     	var geo = core.geoHash(latitude, longitude, { distance: distance });
     	for (var p in geo) options[p] = geo[p];
@@ -656,7 +671,9 @@ db.getLocations = function(table, options, callback)
     	if (err) return callback ? callback(err, rows, info) : null;
     	count -= rows.length;
         async.until(
-            function() { return count <= 0 || options.neighbors.length == 0; },
+            function() {
+                return count <= 0 || options.neighbors.length == 0;
+            },
             function(next) {
                 options.id = "";
                 options.count = count;
@@ -667,9 +684,15 @@ db.getLocations = function(table, options, callback)
                     next(err);
                 });
             }, function(err) {
-                if (options.calc_distance) {
-                    rows.forEach(function(row) { row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude); });
-                }
+                rows.forEach(function(row) {
+                    // Have to deal with public columns here if we have lat/long semipub for distance
+                    row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude);
+                    // Round the distance according to the minimal distance configured
+                    var decs = String(core.minDistance).split(".")[1];
+                    row.distance = parseFloat(Number(row.distance).toFixed(decs ? decs.length : 0));
+                    if (cols.latitude && !cols.latitude.pub) delete row.latitude;
+                    if (cols.longitude && !cols.longitude.pub) delete row.longitude;
+                });
                 // Restore original count because we pass this whole options object on the next run
                 options.count = options.nrows;
                 // Make the last row our next starting point
@@ -968,6 +991,16 @@ db.processRows = function(pool, table, rows, options)
 // Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
 // specified table thus providing an opportunity to customize the result.
 // All assigned callback to this table will be called in the order of the assignment.
+// The callback accepts 3 arguments:
+// function(row, options, columns)
+// where - row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
+//
+//  Example
+//
+//      db.setProcessRow("bk_account", function(row, opts, cols) {
+//          if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+//          delete row.birthday;
+//      });
 db.setProcessRow = function(table, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
@@ -1077,7 +1110,7 @@ db.sqlPrepare = function(op, table, obj, options)
     }
     // Pass original object for custom processing or callbacks
     if (!req) req = {};
-    req.table = table;
+    req.table = table.toLowerCase();
     req.obj = obj;
     req.op = op;
     return req;
@@ -1979,9 +2012,10 @@ db.dynamodbInitPool = function(options)
         var obj = req.obj;
         var options = core.extendObj(opts, "db", pool.db);
         pool.next_token = null;
-        var cols = pool.dbcolumns[table] || {};
+        var dbcols = pool.dbcolumns[table] || {};
+        var dbkeys = pool.dbkeys[table] || [];
         // Primary keys
-        var primary_keys = (pool.dbkeys[table] || []).filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+        var primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
         switch(req.op) {
         case "create":
             var idxs = [];
@@ -2025,7 +2059,7 @@ db.dynamodbInitPool = function(options)
             // If we have other key columns we have to use custom filter
             var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 });
             // Only primary key columns are allowed
-            var keys = (options.keys || pool.dbkeys[table] || []).filter(function(x) { return other.indexOf(x) == -1 && obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            var keys = (options.keys || dbkeys).filter(function(x) { return other.indexOf(x) == -1 && obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var filter = function(items) {
                 if (other.length > 0) {
                     if (!options.ops) options.ops = {};
@@ -2040,7 +2074,7 @@ db.dynamodbInitPool = function(options)
                 return options.filter ? items.filter(function(row) { return options.filter(row, options); }) : items;
             }
             // Do not use index name if it is a primary key
-            if (options.sort && Object.keys(keys).indexOf(options.sort) > -1) options.sort = null;
+            if (options.sort && dbkeys.indexOf(options.sort) > -1) options.sort = null;
             options.select = self.getSelectedColumns(table, options);
             var op = Object.keys(keys).length && Object.keys(keys).sort().toString() == Object.keys(primary_keys).sort().toString() ? 'ddbQueryTable' : 'ddbScanTable';
             aws[op](table, keys, options, function(err, item) {
@@ -2092,8 +2126,7 @@ db.dynamodbInitPool = function(options)
 
         case "add":
             // Add only listed columns if there is a .columns property specified
-        	var cols = pool.dbcolumns[table] || {};
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, cols); } });
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, dbcols); } });
             options.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
             aws.ddbPutItem(table, o, options, function(err, rc) {
                 callback(err, []);
@@ -2102,7 +2135,7 @@ db.dynamodbInitPool = function(options)
 
         case "put":
             // Add/put only listed columns if there is a .columns property specified
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, cols); } });
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, dbcols); } });
             aws.ddbPutItem(table, o, options, function(err, rc) {
                 callback(err, []);
             });
@@ -2113,9 +2146,8 @@ db.dynamodbInitPool = function(options)
 
         case "incr":
             // Skip special columns, primary key columns. If we have specific list of allowed columns only keep those.
-        	var cols = pool.dbcolumns[table] || {};
             // Keep nulls and empty strings, it means we have to delete this property.
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return primary_keys[n] || self.skipColumn(n, v, options, cols); }, _empty_to_null: 1 });
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return primary_keys[n] || self.skipColumn(n, v, options, dbcols); }, _empty_to_null: 1 });
             // Increment counters, only specified columns will use ADD operation, they must be numbers
             if (!options.ops) options.ops = {};
             if (options.counter) options.counter.forEach(function(x) { options.ops[x] = 'ADD'; });
@@ -2164,7 +2196,7 @@ db.cassandraInitPool = function(options)
     };
     pool.nextToken = function(req, rows, opts) {
         if (!rows.length) return;
-        var keys = this.dbkeys[req.table.toLowerCase()] || [];
+        var keys = this.dbkeys[req.table] || [];
         this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
     }
     pool.prepare = function(op, table, obj, opts) {

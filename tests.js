@@ -310,7 +310,7 @@ tests.location = function(callback)
 
         },
         function(next) {
-            var options = { latitude: latitude, longitude: longitude, distance: distance, count: count, calc_distance: 1 };
+            var options = { latitude: latitude, longitude: longitude, distance: distance, count: count };
             db.getLocations("geo", options, function(err, rows, info) {
             	token = info;
             	rows.forEach(function(x) { rc2.push(x.geohash + x.id)})
@@ -412,7 +412,7 @@ tests.db = function(callback)
 	    },
         function(next) {
             logger.log('TEST: list2');
-            db.list("test1", String([id,id2]), { public_columns: id }, function(err, rows) {
+            db.list("test1", String([id,id2]), { check_public: id }, function(err, rows) {
                 var row1 = rows.filter(function(x) { return x.id==id}).pop();
                 var row2 = rows.filter(function(x) { return x.id==id2}).pop();
                 next(err || rows.length!=2 || !row1.email || row2.email ? ("err5:" + err + util.inspect(rows)) : 0);

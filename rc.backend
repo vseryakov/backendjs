@@ -553,11 +553,18 @@ case "$ARG" in
   init-backend)
     echo "Settings permissions for $BACKEND_PREFIX to $(whoami)..."
     sudo chown -R $(whoami) $BACKEND_PREFIX
-    mkdir -p $BACKEND_ROOT/etc
-    echo "Creating default config file in $BACKEND_ROOT/etc/config..."
-    $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n#db-mysql-pool=mysql:///backend\n" > $BACKEND_ROOT/etc/config
-    echo "Making global backend module accessible in $NODE_BACKEND..."
-    rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
+    case "$PLATFORM" in
+     Darwin)
+         mkdir -p $BACKEND_ROOT/etc
+         echo "Creating default config file in $BACKEND_ROOT/etc/config..."
+         $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n#db-mysql-pool=mysql:///backend\n" > $BACKEND_ROOT/etc/config
+         echo "Making global backend module accessible in $NODE_BACKEND..."
+         rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
+         ;;
+
+     Linux)
+         ;;
+    esac
     echo "Linking $BACKEND_PREFIX/bin/rc.backend to $(pwd)/rc.backend"
     rm -rf $BACKEND_PREFIX/bin/rc.backend && ln -s $(pwd)/rc.backend $BACKEND_PREFIX/bin/rc.backend
     ;;
