@@ -1233,32 +1233,32 @@ the worker processes if they die and restart them automatically. How many proces
                     email: {},
                     phone: {},
                     website: {},
-                    birthday: { semipub: 1 },          // used in age calculation
-                    gender: { pub: 1 },
+                    birthday: {},
+                    gender: {},
                     address: {},
                     city: {},
                     state: {},
                     zipcode: {},
                     country: {},
-                    latitude: { type: &quot;real&quot;, pub: 1 },
-                    longitude: { type: &quot;real&quot;, pub: 1 },
-                    geohash: { pub: 1 },
+                    latitude: { type: &quot;real&quot; },
+                    longitude: { type: &quot;real&quot; },
+                    geohash: {},
                     location: {},
                     ltime: { type: &quot;bigint&quot; },
                     ctime: { type: &quot;bigint&quot; },
                     mtime: { type: &quot;bigint&quot;, now: 1 } },
 
      // Keep track of icons uploaded
-     bk_icon: { id: { primary: 1 },                         // Account id
-                type: { primary: 1 },                       // prefix:type
+     bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
+                type: { primary: 1, pub: 1 },               // prefix:type
                 allow: {},                                  // Who can see it: all, auth, id:id...
                 mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
 
      // Locations for all accounts to support distance searches
-     bk_location: { geohash: { primary: 1 },                // geohash, minDistance defines the size
-                    id: { primary: 1 },                     // my account id, part of the primary key for pagination
-                    latitude: { type: &quot;real&quot; },
-                    longitude: { type: &quot;real&quot; },
+     bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
+                    id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
+                    latitude: { type: &quot;real&quot;, semipub: 1 },     // for distance must be semipub or no distance and no coordinates
+                    longitude: { type: &quot;real&quot;, semipub: 1 },
                     mtime: { type: &quot;bigint&quot;, now: 1 }},
 
      // All connections between accounts: like,dislike,friend...
@@ -1286,7 +1286,7 @@ the worker processes if they die and restart them automatically. How many proces
                    icon: {}},                             // Icon base64 or url
 
      // All accumulated counters for accounts
-     bk_counter: { id: { primary: 1 },                                       // my account_id
+     bk_counter: { id: { primary: 1, pub: 1 },                               // account id
                    mtime: { type: &quot;bigint&quot;, now: 1 },
                    ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy
                    like0: { type: &quot;counter&quot;, value: 0, incr: 1 },            // who i liked
@@ -1419,12 +1419,6 @@ Check access permissions, calls the callback with the following argument:</p>
 <ul>
 <li><p><code>api.initLocationAPI()</code></p>
 <p> Geo locations management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.processAccountRow(row, options, cols)</code></p>
-<p> Prepare an account record for response, set required fields, icons</p>
 </li>
 </ul>
 
@@ -2788,8 +2782,7 @@ if it is an array then check only specified columns</li>
 <li>start - start records with this primary key, this is the next_token passed by the previous query</li>
 <li>count - how many records to return</li>
 <li>sort - sort by this column</li>
-<li>public_columns - value to be used to filter non-public columns (marked by .pub property), compared to public_key column or &#39;id&#39;</li>
-<li>public_key - name of the column to be used in public columns filtering, default is &#39;id&#39;</li>
+<li>check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column</li>
 <li>desc - if sorting, do in descending order</li>
 <li>page - starting page number for pagination, uses count to find actual record to start
 On return, the callback can check third argument which is an object with the following properties:</li>
@@ -2804,8 +2797,11 @@ On return, the callback can check third argument which is an object with the fol
 
 <ul>
 <li><p><code>db.list(table, obj, options, callback)</code></p>
-<p> Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column</p>
-</li>
+<p> Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column
+Example</p>
+<pre><code>db.list(&quot;bk_account&quot;, [&quot;id1&quot;, &quot;id2&quot;], function(err, rows) { console.log(err, rows) });
+db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { console.log(err, rows) });
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2826,13 +2822,17 @@ split and saved as property id in the record</li>
 <li>latitude and longitude as floating numbers
 On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
 the next_token returned by the previous call
-Specific options properties:<ul>
-<li>calc_distance - calculate the distance between query and the actual position and save it in distance property for each record
 On return, the callback&#39;s third argument contains the object that must be provided for subsequent searches until rows array is empty.</li>
 </ul>
-</li>
-</ul>
-</li>
+<p>Example</p>
+<pre><code>    db.getLocations(&quot;bk_location&quot;, { latitude: -118, longitude: 30, distance: 10 }, function(err, rows, info) {
+        ...
+        // Get next page
+        db.getLocations(&quot;bk_location&quot;, info, function(err, rows, info) {
+            ...
+        });
+    });
+</code></pre></li>
 </ul>
 
 <ul>
@@ -3006,8 +3006,16 @@ options may be used to define the following properties:</li>
 <li><p><code>db.setProcessRow(table, options, callback)</code></p>
 <p> Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
 specified table thus providing an opportunity to customize the result.
-All assigned callback to this table will be called in the order of the assignment.</p>
-</li>
+All assigned callback to this table will be called in the order of the assignment.
+The callback accepts 3 arguments:
+function(row, options, columns)
+where - row is a row from the table, options are the obj passed to the db called and columns is an object with table&#39;s columns</p>
+<p>Example</p>
+<pre><code>db.setProcessRow(&quot;bk_account&quot;, function(row, opts, cols) {
+    if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+    delete row.birthday;
+});
+</code></pre></li>
 </ul>
 
 <ul>
