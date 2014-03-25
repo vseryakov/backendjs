@@ -19,7 +19,7 @@ Features:
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
 
-Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.
+Check out the [Documentation](http://vseryakov.github.io/backend/) for more documentation.
 
 # Installation (Not available yet)
 
@@ -1103,4 +1103,5 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 # Author
   Vlad Seryakov
 
-Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.
+Check out the [Documentation](http://vseryakov.github.io/backend/) for more documentation.
+

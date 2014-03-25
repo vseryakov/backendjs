@@ -3,7 +3,7 @@
 <h2 id="table-of-contents">Table of contents</h2>
 <ul>
 <li><a href="#backend-framework-for-node-js"> Backend framework for node.js</a></li>
-<li><a href="#installation"> Installation</a></li>
+<li><a href="#installation-not-available-yet-"> Installation (Not available yet)</a></li>
 <li><a href="#quick-start"> Quick start</a></li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
@@ -61,9 +61,9 @@
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
 </ul>
-<p>Check out the <a href="https://github.com/vseryakov/backend/wiki">Wiki</a> for more documentation.</p>
-<h1 id="installation">Installation</h1>
-<pre><code>    npm install node-backend
+<p>Check out the <a href="http://vseryakov.github.io/backend/">Documentation</a> for more documentation.</p>
+<h1 id="installation-not-available-yet-">Installation (Not available yet)</h1>
+<pre><code>    npm install backend
 </code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg and LevelDB. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
 <h1 id="quick-start">Quick start</h1>
@@ -966,6 +966,17 @@ customize the running environment, these should be regular shell scripts using b
 <li>rc.backend put-app path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line</li>
 <li>rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend</li>
 </ul>
+<p>Here is the typical example how to setup new AWS server:</p>
+<ul>
+<li>start new AWS instance via AWS console, use Amazon Linuxc or CentOS 6</li>
+<li>copy rc.backend to the <code>ec2-user</code> home directory of the new instance</li>
+<li>login as <code>ec2-user</code></li>
+<li>run <code>sudo ./rc.backend setup-server</code></li>
+<li>now the instance is ready to run the backend, global system-wide options can be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables,
+if not set the defaults will be used.</li>
+<li>reboot</li>
+<li>login as <code>backend</code> user now using the AWS keypair private key</li>
+</ul>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <h1 id="security">Security</h1>
 <p>All requests to the API server must be signed with account login/secret pair.</p>
@@ -1037,12 +1048,12 @@ to the current user, this is required to support global NPM modules.</p>
 </ul>
 <ul>
 <li><p>once node.js is installed, make sure all required modules are installed, this is required because we did not install the
-backend via npm with all dependencies:</p>
+backend via npm with all dependencies, make sure this runs in the core backend directory:</p>
 <pre><code>  ./rc.backend npm-deps
 </code></pre></li>
 </ul>
 <ul>
-<li><p>now run the init command to prepare the environment, rc.backend will source .backendrc</p>
+<li><p>now run the init command to prepare the environment, rc.backend will source .backendrc, this is required when the backend is used from the sources only</p>
 <pre><code>  ./rc.backend init-backend
 </code></pre></li>
 <li><p>to compile the binary module and all required dependencies just type <code>make</code></p>
@@ -1066,7 +1077,7 @@ backend via npm with all dependencies:</p>
 </ul>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
-<p>Check out the <a href="https://github.com/vseryakov/backend/wiki">Wiki</a> for more documentation.</p>
+<p>Check out the <a href="http://vseryakov.github.io/backend/">Documentation</a> for more documentation.</p>
 <h2 id="configuration-parameters">Configuration parameters</h2>
 <ul>
 <li><code>help</code> - Print help and exit</li>
@@ -2998,7 +3009,10 @@ options may be used to define the following properties:</li>
 
 <ul>
 <li><p><code>db.processRows(pool, table, rows, options)</code></p>
-<p> Call custom row handler for every row in the result, this assumes that pool.processRow callback has been assigned previously</p>
+<p> Custom row handler that is called for every row in the result, this assumes that pool.processRow callback has been assigned previously by db.setProcessRow.
+This function is called automatically by the db.query but can be called manually for rows that are not received from the database, for example on
+adding new records and returning them back to the client. In such case, the <code>pool</code> argument can be passed as null, it will be found by the table name.
+<code>rows</code> can be list of records or single record.</p>
 </li>
 </ul>
 

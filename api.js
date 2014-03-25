@@ -1110,7 +1110,7 @@ api.initLocationAPI = function()
             if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
             // Get current location
             db.get("bk_account", { id: req.account.id }, { select: 'latitude,longitude' }, function(err, rows) {
-                if (err) return self.sendReply(res, err);
+                if (err || !rows.length) return self.sendReply(res, err);
                 req.account.latitude = rows[0].latitude;
                 req.account.longitude = rows[0].longitude;
                 // Skip if within minimal distance

@@ -164,6 +164,8 @@ case "$ARG" in
        echo 'alias mc="mc -b"' >> .bashrc
        echo 'ulimit -c unlimited' >> .bash_profile
        echo 'export JAVA_HOME=/usr' >> .bash_profile
+       echo 'export PGUSER=postgres' >> .bash_profile
+       echo 'export PGDATABASE=backend' >> .bash_profile
        chmod -R g-rwx,o-rwx .ssh
        chown -R $BACKEND_USER /home/$BACKEND_USER
     fi

@@ -970,7 +970,10 @@ db.getPublicColumns = function(table, options)
     return Object.keys(cols).filter(function(x) { return cols[x].pub || cols[x].semipub });
 }
 
-// Call custom row handler for every row in the result, this assumes that pool.processRow callback has been assigned previously
+// Custom row handler that is called for every row in the result, this assumes that pool.processRow callback has been assigned previously by db.setProcessRow.
+// This function is called automatically by the db.query but can be called manually for rows that are not received from the database, for example on
+// adding new records and returning them back to the client. In such case, the `pool` argument can be passed as null, it will be found by the table name.
+// `rows` can be list of records or single record.
 db.processRows = function(pool, table, rows, options)
 {
     if (!pool) pool = this.getPool(table, options);
