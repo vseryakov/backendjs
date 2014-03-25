@@ -894,7 +894,7 @@ The backend directory structure is the following:
 
 # Internal backend functions
 
-The backend includes internal C++ module which provide some useful functions available in the Javascript. The backend is exposed as "backend" submodule, to see
+The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as "backend" submodule, to see
 all functions for example run the below:
 
     var backend = require('backend');
@@ -906,7 +906,7 @@ List of available functions:
 - setbacktrace() - install special V8-aware backtrace handler
 - backtrace() - show V8 backtrace from current position
 - heapSnapshot(file) - dump current memory heap snapshot into a file
-- splitArray() - split a string into an array separated by commas, supports double quotes
+- splitArray(str) - split a string into an array separated by commas, supports double quotes
 - logging([level]) - set or return logging level, this is internal C++ logging facility
 - loggingChannel(channelname) - redirect logging into stdout or stderr, this is internal C++ logging
 - countWordsInit()
@@ -960,7 +960,6 @@ List of available functions:
 - syslogSend(level, text)
 - syslogClose()
 - listStatements() - list all active Sqlite statements
-- nnSockets() - list all open nanomsg sockets
 - NNSocket() - create a new nanomsg socket object
 
 # PUB/SUB configurations

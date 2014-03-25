@@ -541,7 +541,7 @@ db.replace = function(table, obj, options, callback)
         if (!select) select = options.keys[0];
     }
 
-    var req = this.prepare("get", table, obj, { select: select });
+    var req = this.prepare("get", table, obj, { select: select, pool: options.pool });
     if (!req) {
         if (options.put_only) return callback ? callback(null, []) : null;
         return self.add(table, obj, options, callback);
@@ -550,7 +550,7 @@ db.replace = function(table, obj, options, callback)
     // Create deep copy of the object so we have it complete inside the callback
     obj = core.cloneObj(obj);
 
-    self.query(req, function(err, rows) {
+    self.query(req, options, function(err, rows) {
         if (err) return callback ? callback(err, []) : null;
 
         logger.debug('db.replace:', req, rows.length);
@@ -621,6 +621,49 @@ db.list = function(table, obj, options, callback)
 		return callback ? callback(new Error("invalid list"), []) : null;
 	}
     this.select(table, obj, options, callback);
+}
+
+// Convenient helpr for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
+// records matching given criteria. The obj is the same as passed to the `db.select` method which defined a condition which records to get.
+// The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
+// once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
+// Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.
+// Parameters:
+//  - table - table to scan
+//  - obj - an object with query conditions, same as in `db.select`
+//  - options - same as in `db.select`, the only required property is `count` to specify sixe of every batch, default is 100
+//  - rowCallback - process records when called like this `callback(rows, next)
+//  - endCallback - end of scan when called like this: `callback(err)
+//
+//  Example:
+//
+//          db.scan("bk_account", {}, { count:10, pool:"dynamodb" }, function(rows, next) {
+//              async.forEachSeries(rows, function(row, next2) {
+//                  // Copy all accounts from one db into another
+//                  db.add("bk_account", row, { pool: "pgsql" })
+//              }, next);
+//          }, function(err) { });
+//
+db.scan = function(table, obj, options, rowCallback, callback)
+{
+    if (typeof options == "function") rowCallback = options,options = null;
+    options = this.getOptions(table, options);
+    if (!options.count) options.count = 100;
+    options.start = "";
+
+    async.whilst(
+      function() { return options.start != null; },
+      function(next) {
+          db.select(table, obj, options, function(err, rows, info) {
+              if (err) return next(err);
+              rowCallback(rows, function(err) {
+                  options.start = info.next_token;
+                  next(err);
+              });
+          });
+      }, function(err) {
+          if (callback) callback(err);
+      });
 }
 
 // Perform full text search on the given table, the database implementation may ignore table name completely
@@ -1708,7 +1751,7 @@ db.pgsqlInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
     var pool = this.initPool(options, self.pgsqlOpen);
-    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { real: "numeric" }, noIfExists: 1, noReplace: 1, schema: ['public'] });
+    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { real: "numeric", bigint: "bigint" }, noIfExists: 1, noReplace: 1, schema: ['public'] });
     pool.bindValue = self.pgsqlBindValue;
     pool.cacheIndexes = self.pgsqlCacheIndexes;
     // No REPLACE INTO support, do it manually

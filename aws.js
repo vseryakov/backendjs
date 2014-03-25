@@ -735,8 +735,14 @@ aws.ddbScanTable = function(name, condition, options, callback)
     for (var p in options) {
         if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
     }
+    if (options.consistent) {
+        params.ConsistentRead = true;
+    }
     if (options.start) {
         params.ExclusiveStartKey = self.toDynamoDB(options.start);
+    }
+    if (options.select) {
+        params.AttributesToGet = core.strSplit(options.select);
     }
     if (options.count) {
         params.Limit = options.count;
