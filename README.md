@@ -21,9 +21,9 @@ Features:
 
 Check out the [Wiki](https://github.com/vseryakov/backend/wiki) for more documentation.
 
-# Installation
+# Installation (Not available yet)
 
-        npm install node-backend
+        npm install backend
 
 This may take some time because of compiling required dependencies like ImageMagick, nanomsg and LevelDB. They are not required in all
 applications but still part of the core of the system to be available once needed.
@@ -1001,6 +1001,16 @@ Most common used commands are:
 - rc.backend put-app path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line
 - rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend
 
+Here is the typical example how to setup new AWS server:
+- start new AWS instance via AWS console, use Amazon Linuxc or CentOS 6
+- copy rc.backend to the `ec2-user` home directory of the new instance
+- login as `ec2-user`
+- run `sudo ./rc.backend setup-server`
+- now the instance is ready to run the backend, global system-wide options can be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables,
+  if not set the defaults will be used.
+- reboot
+- login as `backend` user now using the AWS keypair private key
+
 # Deployment use cases
 
 
@@ -1064,11 +1074,11 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
         ./rc.backend build-node
 
 - once node.js is installed, make sure all required modules are installed, this is required because we did not install the
-  backend via npm with all dependencies:
+  backend via npm with all dependencies, make sure this runs in the core backend directory:
 
         ./rc.backend npm-deps
 
-* now run the init command to prepare the environment, rc.backend will source .backendrc
+* now run the init command to prepare the environment, rc.backend will source .backendrc, this is required when the backend is used from the sources only
 
         ./rc.backend init-backend
 
