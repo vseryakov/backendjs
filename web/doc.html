@@ -865,7 +865,7 @@ regular parameters are the table columns.</p>
 <li><code>web</code> - Web pages served by the static Express middleware</li>
 </ul>
 <h1 id="internal-backend-functions">Internal backend functions</h1>
-<p>The backend includes internal C++ module which provide some useful functions available in the Javascript. The backend is exposed as &quot;backend&quot; submodule, to see
+<p>The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as &quot;backend&quot; submodule, to see
 all functions for example run the below:</p>
 <pre><code>var backend = require(&#39;backend&#39;);
 console.log(backend.backend)
@@ -876,7 +876,7 @@ console.log(backend.backend)
 <li>setbacktrace() - install special V8-aware backtrace handler</li>
 <li>backtrace() - show V8 backtrace from current position</li>
 <li>heapSnapshot(file) - dump current memory heap snapshot into a file</li>
-<li>splitArray() - split a string into an array separated by commas, supports double quotes</li>
+<li>splitArray(str) - split a string into an array separated by commas, supports double quotes</li>
 <li>logging([level]) - set or return logging level, this is internal C++ logging facility</li>
 <li>loggingChannel(channelname) - redirect logging into stdout or stderr, this is internal C++ logging</li>
 <li>countWordsInit()</li>
@@ -935,7 +935,6 @@ console.log(backend.backend)
 <li>syslogSend(level, text)</li>
 <li>syslogClose()</li>
 <li>listStatements() - list all active Sqlite statements</li>
-<li>nnSockets() - list all open nanomsg sockets</li>
 <li>NNSocket() - create a new nanomsg socket object</li>
 </ul>
 <h1 id="pub-sub-configurations">PUB/SUB configurations</h1>
@@ -2812,6 +2811,31 @@ On return, the callback can check third argument which is an object with the fol
 Example</p>
 <pre><code>db.list(&quot;bk_account&quot;, [&quot;id1&quot;, &quot;id2&quot;], function(err, rows) { console.log(err, rows) });
 db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { console.log(err, rows) });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>db.scan(table, obj, options, rowCallback, callback)</code></p>
+<p> Convenient helpr for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
+records matching given criteria. The obj is the same as passed to the <code>db.select</code> method which defined a condition which records to get.
+The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
+once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
+Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.
+Parameters:</p>
+<ul>
+<li>table - table to scan</li>
+<li>obj - an object with query conditions, same as in <code>db.select</code></li>
+<li>options - same as in <code>db.select</code>, the only required property is <code>count</code> to specify sixe of every batch, default is 100</li>
+<li>rowCallback - process records when called like this `callback(rows, next)</li>
+<li>endCallback - end of scan when called like this: `callback(err)</li>
+</ul>
+<p>Example:</p>
+<pre><code>    db.scan(&quot;bk_account&quot;, {}, { count:10, pool:&quot;dynamodb&quot; }, function(rows, next) {
+        async.forEachSeries(rows, function(row, next2) {
+            // Copy all accounts from one db into another
+            db.add(&quot;bk_account&quot;, row, { pool: &quot;pgsql&quot; })
+        }, next);
+    }, function(err) { });
 </code></pre></li>
 </ul>
 
