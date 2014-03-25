@@ -190,6 +190,7 @@ var api = {
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
+           { name: "data-endpoint-unsecure", type: "bool", descr: "Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow", array: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
@@ -1154,6 +1155,8 @@ api.initLocationAPI = function()
             	if (token.latitude != req.query.latitude ||	token.longitude != req.query.longitude) return self.sendRepy(res, 400, "invalid token");
             	options = token;
             }
+            // Rounded distance, not precise to keep from pin-pointing locations
+            options.round = core.minDistance;
             db.getLocations("bk_location", options, function(err, rows, info) {
                 // Return accounts with locations
                 if (req.query._details && rows.length) {
@@ -1221,6 +1224,12 @@ api.initDataAPI = function()
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
+
+        // Allow access to all columns and db pools
+        if (self.dataEndpointUnsecure) {
+            delete options.check_public;
+            if (req.query._pool) options.pool = req.query._pool;
+        }
 
         db[req.params[0]](req.params[1], req.query, options, function(err, rows) {
             if (err) return self.sendReply(res, err);

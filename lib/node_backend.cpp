@@ -558,7 +558,7 @@ static Handle<Value> splitArray(const Arguments& args)
 {
    HandleScope scope;
 
-   REQUIRE_ARGUMENT_STRING(0, str);
+   REQUIRE_ARGUMENT_AS_STRING(0, str);
    OPTIONAL_ARGUMENT_STRING(1, delim);
    OPTIONAL_ARGUMENT_STRING(2, quotes);
 
@@ -583,7 +583,7 @@ static Handle<Value> geoHashDecode(const Arguments& args)
 {
    HandleScope scope;
 
-   REQUIRE_ARGUMENT_STRING(0, hash);
+   REQUIRE_ARGUMENT_AS_STRING(0, hash);
 
    vector<double> rc = vGeoHashDecode(*hash);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));

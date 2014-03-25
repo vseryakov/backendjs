@@ -728,13 +728,22 @@ db.getLocations = function(table, options, callback)
                 });
             }, function(err) {
                 rows.forEach(function(row) {
+                    // If no coordinates but only geohash decode it, it must be at least semipub as well
+                    if (!row.latitude && !row.longitude && row.geohash) {
+                        var coords = backend.geoHashDecode(row.geohash);
+                        row.latitude = coords[0];
+                        row.longitude = coords[1];
+                    }
                     // Have to deal with public columns here if we have lat/long semipub for distance
                     row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude);
-                    // Round the distance according to the minimal distance configured
-                    var decs = String(core.minDistance).split(".")[1];
-                    row.distance = parseFloat(Number(row.distance).toFixed(decs ? decs.length : 0));
+                    // Round the distance to the closes edge and fixed number of decimals
+                    if (options.round && typeof options.round == "number") {
+                        var decs = String(options.round).split(".")[1];
+                        row.distance = parseFloat(Number(Math.round(row.distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
+                    }
                     if (cols.latitude && !cols.latitude.pub) delete row.latitude;
                     if (cols.longitude && !cols.longitude.pub) delete row.longitude;
+                    if (cols.geohash && !cols.geohash.pub) delete row.geohash;
                 });
                 // Restore original count because we pass this whole options object on the next run
                 options.count = options.nrows;
