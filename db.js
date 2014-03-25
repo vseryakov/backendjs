@@ -973,10 +973,11 @@ db.getPublicColumns = function(table, options)
 // Call custom row handler for every row in the result, this assumes that pool.processRow callback has been assigned previously
 db.processRows = function(pool, table, rows, options)
 {
+    if (!pool) pool = this.getPool(table, options);
 	if (!pool.processRow.length && !options.noJson) return;
 
 	var cols = pool.dbcolumns[(table || "").toLowerCase()] || {};
-	rows.forEach(function(row) {
+	function processRow(row) {
 	    if (options.noJson) {
 	        for (var p in cols) {
 	            if (cols[p].type == "json" || typeof row[p] == "string") try { row[p] = JSON.parse(row[p]); } catch(e) {}
@@ -985,7 +986,8 @@ db.processRows = function(pool, table, rows, options)
 	    if (Array.isArray(pool.processRow)) {
 	        pool.processRow.forEach(function(x) { x.call(pool, row, options, cols); });
 	    }
-	});
+	}
+	if (Array.isArray(rows)) rows.forEach(processRow); else processRow(rows);
 }
 
 // Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
