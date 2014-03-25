@@ -1191,6 +1191,7 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines, default is ejs</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication Default: 1209600000</li>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
+<li><code>api-data-endpoint-unsecure</code> - Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution</li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon..... Default: </li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly Default: </li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list Default: ^/$,.+.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$,^/public,^/account/add$</li>
