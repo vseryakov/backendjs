@@ -1012,6 +1012,22 @@ Here is the typical example how to setup new AWS server:
 
 # Deployment use cases
 
+The first thing when deploying the backnd into production is to change API port, by default is is 800, but we would want port 80 so regardless
+how the environment is setup it is ultimatley 2 way to specify the port for HTTP server to use:
+- config file
+
+  The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
+  defined via command line arguments as `-home` or via environment variables when using rc.backend. See rc.backend documentation but on AWS instances created with rc.backend
+  `setup-server` command, for non-standard home use `/etc/backendrc` profile, specify `BACKEND_HOME=/home/backend` there and the rest will be takedn care of
+
+- command line arguments
+
+  When running node scripts which use the backend, just specify `-home` command line argument with the directory where yor backend should be and the backend will use it
+
+  Example:
+
+        node test_backend.js -home $HOME
+
 
 # Security
 All requests to the API server must be signed with account login/secret pair.

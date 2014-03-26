@@ -977,6 +977,20 @@ if not set the defaults will be used.</li>
 <li>login as <code>backend</code> user now using the AWS keypair private key</li>
 </ul>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
+<p>The first thing when deploying the backnd into production is to change API port, by default is is 800, but we would want port 80 so regardless
+how the environment is setup it is ultimatley 2 way to specify the port for HTTP server to use:</p>
+<ul>
+<li><p>config file</p>
+<p>The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
+defined via command line arguments as <code>-home</code> or via environment variables when using rc.backend. See rc.backend documentation but on AWS instances created with rc.backend
+<code>setup-server</code> command, for non-standard home use <code>/etc/backendrc</code> profile, specify <code>BACKEND_HOME=/home/backend</code> there and the rest will be takedn care of</p>
+</li>
+<li><p>command line arguments</p>
+<p>When running node scripts which use the backend, just specify <code>-home</code> command line argument with the directory where yor backend should be and the backend will use it</p>
+<p>Example:</p>
+<pre><code>  node test_backend.js -home $HOME
+</code></pre></li>
+</ul>
 <h1 id="security">Security</h1>
 <p>All requests to the API server must be signed with account login/secret pair.</p>
 <ul>
