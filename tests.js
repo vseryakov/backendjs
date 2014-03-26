@@ -150,7 +150,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: 2 }  }
+            var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: 2, _width: 128, _height: 128 }  }
             core.sendRequest("/account/put/icon", options, function(err, params) {
                 next(err);
             });
