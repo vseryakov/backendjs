@@ -24,7 +24,7 @@ case "$PLATFORM" in
   Linux)
     [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
-    # In multi-os environment have to sync by os type due to different dependencies in each distro
+    # In multi-OS environment have to sync by OS type due to different dependencies in each distro
     [ "$BACKEND_OS_TYPE" != "" -a "$BACKEND_MASTER" != "" ] && BACKEND_MASTER=$OS_TYPE-$BACKEND_MASTER
     KILLALL="killall -qr"
     ECHO="echo -e"
@@ -150,6 +150,7 @@ case "$ARG" in
        mkdir -p /home/$BACKEND_USER/.ssh
        cd /home/$BACKEND_USER
        ln -s $BACKEND_PREFIX
+       mkdir -p $NODE_PATH
        ln -s $NODE_PATH
        echo "StrictHostKeyChecking no" >> .ssh/config
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys .ssh
@@ -272,7 +273,7 @@ case "$ARG" in
        service dnsmasq restart
     fi
 
-    # Make sure we use right java
+    # Make sure we use right Java
     if [ -f /usr/local/java ]; then
        alternatives --install /usr/bin/java java /usr/local/java/bin/java 20000
     fi
@@ -326,7 +327,7 @@ case "$ARG" in
        ($0 sync-$dir)
     done
 
-    # Make sure instances are not running indefinetely
+    # Make sure instances are not running indefinitely
     rm -rf /etc/cron.hourly/check-idle
     if [[ $BACKEND_ARGS =~ \-(instance ) ]]; then
        ln -sf $BACKEND_PREFIX/bin/rc.backend /etc/cron.hourly/check-idle
@@ -442,7 +443,7 @@ case "$ARG" in
     # Database backup if exists
     if [ "$BACKUP_PG" != "" -a -d $PG_DIR/base ]; then
        BACKUP_TAR_FILES="$TAR_FILES $PG_DIR/*.conf"
-       # PG directry on CentOS is separate
+       # PG directory on CentOS is separate
        [ -e $PG_PREFIX ] && BACKUP_TAR_FILES="$BACKUP_TAR_FILES $PG_PREFIX"
        $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_PG > $BACKUP_DIR/$FILE.pgsql.dump
     fi
@@ -640,7 +641,7 @@ case "$ARG" in
     CFLAGS="-fPIC -I$BACKEND_PREFIX/include"
     LDFLAGS="-L$BACKEND_PREFIX/lib"
     [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include"
-    [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/locall/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
+    [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/local/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
     mkdir -p deps
 
     if [ ! -d deps/nanomsg ]; then
@@ -806,8 +807,8 @@ backend.server.start();
     echo "  restart - restart the backend server"
     echo "  stop - stop the backend server"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
-    echo "  init-server - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
-    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change sytem config files for production use (Amazon AMI, CentOS)"
+    echo "  init - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
+    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
     echo "  run-server - run the backend server process"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  sync - synchronize the backend code from the master server, uses '$BACKEND_MASTER' hostname to rsync over ssh"
@@ -824,23 +825,23 @@ backend.server.start();
     echo "  init-cdb - run Cassandra server and create backend keyspace"
     echo "  run-cdb - run local Cassandra server installed in $BACKEND_PREFIX/cassandra"
     echo "  stop-cdb - stop local Cassandra server"
-    echo "  init-mysql - run Mysql server and create backend database"
-    echo "  run-mysql - run local Mysql server installed in $MYSQL_DIR"
-    echo "  stop-mysql - stop local Mysql server"
+    echo "  init-mysql - run MySQL server and create backend database"
+    echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
+    echo "  stop-mysql - stop local MySQL server"
     echo "  build-deps - build all required software for the backend binary module"
     echo "  build-node - build node and install in $BACKEND_PREFIX"
     echo "  clean-deps - clean dependencies binary and object files"
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"
-    echo "  init-backend - init core backend environment, for the core developemnt only, links NPM global backend module $NODE_BACKEND back to this sources"
+    echo "  init-backend - init core backend environment, for the core development only, links NPM global backend module $NODE_BACKEND back to this sources"
     echo "  put-backend path [-host host] - push the backend code to the master server, uses env BACKEND_MASTER or host form the command line"
     echo "  run-backend - run local backend server"
     echo "  show-help - show all backend command line and config parameters"
     echo "  clean-backend - clean the source directory"
-    echo "  build-backend - compile all required modules and libraries for the bakend development(node.js, libs)"
+    echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
     echo "  run-app - run the application created with init-app, default is port 8000"
-    echo "  put-app [path [-host host]] - push the app code to the master server,  uses env BACKEND_MASTER or host from the command line"
+    echo "  put-app [path [-host host]] - push the app code to the master server, uses env BACKEND_MASTER or host from the command line"
     ;;
 esac
 
