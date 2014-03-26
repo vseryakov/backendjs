@@ -26,7 +26,7 @@ var amqp = require('amqp');
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2014.03.22.0',
+    version: '2014.03.25.0',
 
     // Process and config parameters
     argv: {},
@@ -1860,8 +1860,8 @@ core.iconPath = function(id, options)
 {
     if (!options) options = {};
     // Convert into string and remove all chars except numbers, this will support UUIDs as well as regular integers
-    id = String(id).replace(/[^0-9]/g, '');
-    return path.join(this.path.images, options.prefix || "", id.substr(-2), id.substr(-4, 2), (options.type ? String(options.type)[0] : "") + id + "." + (options.ext || "jpg"));
+    var num = String(id).replace(/[^0-9]/g, '');
+    return path.join(this.path.images, options.prefix || "", num.substr(-2), num.substr(-4, 2), (options.type ? String(options.type)[0] : "") + id + "." + (options.ext || "jpg"));
 }
 
 // Download image and convert into JPG, store under core.path.images

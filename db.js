@@ -741,9 +741,12 @@ db.getLocations = function(table, options, callback)
                         var decs = String(options.round).split(".")[1];
                         row.distance = parseFloat(Number(Math.round(row.distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
                     }
-                    if (cols.latitude && !cols.latitude.pub) delete row.latitude;
-                    if (cols.longitude && !cols.longitude.pub) delete row.longitude;
-                    if (cols.geohash && !cols.geohash.pub) delete row.geohash;
+                    // Remove semipub columns
+                    if (options.check_public && row.id != options.check_public) {
+                        if (cols.latitude && !cols.latitude.pub) delete row.latitude;
+                        if (cols.longitude && !cols.longitude.pub) delete row.longitude;
+                        if (cols.geohash && !cols.geohash.pub) delete row.geohash;
+                    }
                 });
                 // Restore original count because we pass this whole options object on the next run
                 options.count = options.nrows;

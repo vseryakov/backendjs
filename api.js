@@ -94,7 +94,7 @@ var api = {
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
-       bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
+       bk_location: { geohash: { primary: 1, semipub: 1 },        // geohash, minDistance defines the size
                       id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
                       latitude: { type: "real", semipub: 1 },     // for distance must be semipub or no distance and no coordinates
                       longitude: { type: "real", semipub: 1 },
