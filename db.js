@@ -734,14 +734,8 @@ db.getLocations = function(table, options, callback)
                         row.latitude = coords[0];
                         row.longitude = coords[1];
                     }
+                    row.distance = core.geoDistance(latitude, longitude, row.latitude, row.longitude, options);
                     // Have to deal with public columns here if we have lat/long semipub for distance
-                    row.distance = backend.geoDistance(latitude, longitude, row.latitude, row.longitude);
-                    // Round the distance to the closes edge and fixed number of decimals
-                    if (options.round && typeof options.round == "number") {
-                        var decs = String(options.round).split(".")[1];
-                        row.distance = parseFloat(Number(Math.round(row.distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
-                    }
-                    // Remove semipub columns
                     if (options.check_public && row.id != options.check_public) {
                         if (cols.latitude && !cols.latitude.pub) delete row.latitude;
                         if (cols.longitude && !cols.longitude.pub) delete row.longitude;

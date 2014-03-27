@@ -1493,6 +1493,27 @@ core.geoHash = function(latitude, longitude, options)
 			 distance: options.distance || 0 };
 }
 
+// Return distance between two locations, options can specify the following properties:
+// - round - a number how to round the distance
+// - miles - return in miles, not km, rounding will apply to miles
+//
+//  Example: round to the nearest full 5 km and use only 1 decimal point, if the distance is 13, it will be 15.0
+//
+//      core.geoDistance(34, -188, 34.4, -119, { round: 5.1 })
+//
+core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
+{
+    var distance = backend.geoDistance(latitude1, longitude1, latitude2, longitude2);
+    // Convert to miles before rounding
+    if (options && options.miles) distance = distance * 0.6;
+    // Round the distance to the closes edge and fixed number of decimals
+    if (options && options.round && typeof options.round == "number") {
+        var decs = String(options.round).split(".")[1];
+        distance = parseFloat(Number(Math.round(distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
+    }
+    return distance;
+}
+
 // Encrypt data with the given key code
 core.encrypt = function(key, data, algorithm)
 {
