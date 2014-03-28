@@ -1256,7 +1256,6 @@ api.initTables = function(callback)
 api.getOptions = function(req)
 {
     var options = { check_public: req.account ? req.account.id : null };
-    options.miles = core.toNumber(req.query._miles, 0, 1, 0, 1);
     if (req.query._select) options.select = req.query._select;
     if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50);
     if (req.query._consistent) options.consistent = core.toBool(req.query._consistent);

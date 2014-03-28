@@ -682,8 +682,7 @@ db.search = function(table, obj, options, callback)
 //  - geohash and id as strings, this is the primary key
 //    split and saved as property id in the record
 //  - latitude and longitude as floating numbers
-// othr optional properties:
-// - miles - 0 or 1 to use miles or km for distance
+// other optional properties:
 // - round - a number that defines the "precision" of  the distance, it rounds the distance to the nearest
 //   round number and uses decimal point of the round number to limit decimals in the distance
 // On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
