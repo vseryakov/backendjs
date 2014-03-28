@@ -474,11 +474,14 @@ The location API maintains a table `bk_location` with geolocation coordinates fo
         /location/put?latitude=-188.23232&longitude=23.4545454
 
 - `/location/get`
-  Return matched accounts within the distance specified by `distance=` parameter in kilometers and current position specified by latitude/longitude paraemeters. This
+  Return matched accounts within the distance(radius) specified by `distance=` parameter in kilometers and current position specified by latitude/longitude paraemeters. This
   call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
   point. If there are more matched records than specified by the `_count`, the `next_token` property is set with the token to be used in the subsequent call,
   it must be passed as is as `_token=` parameter with all original query parameters.
+
   By default only locations with account ids will be returned, specifying `_details=1` will return public account columns like name as well.
+
+  Note: The current account will not be present in the results  even if it is within the range.
 
   Example:
 
