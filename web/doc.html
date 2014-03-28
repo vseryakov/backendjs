@@ -459,10 +459,6 @@ call returns results in chunks and requires navigation through all pages to rece
 point. If there are more matched records than specified by the <code>_count</code>, the <code>next_token</code> property is set with the token to be used in the subsequent call,
 it must be passed as is as <code>_token=</code> parameter with all original query parameters.
 By default only locations with account ids will be returned, specifying <code>_details=1</code> will return public account columns like name as well.</p>
-<p>Query parameters:</p>
-<ul>
-<li>_miles - by defalt disyance is in miles but specifying _miles=0 will switch to km</li>
-</ul>
 <p>Example:</p>
 <pre><code>      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25
       /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25&amp;_token=FGTHTRHRTHRTHTTR.....
@@ -2209,7 +2205,6 @@ options may contain the following properties:</p>
 <p> Return distance between two locations, options can specify the following properties:</p>
 <ul>
 <li>round - a number how to round the distance</li>
-<li>miles - return in miles, not km, rounding will apply to miles</li>
 </ul>
 <p>Example: round to the nearest full 5 km and use only 1 decimal point, if the distance is 13, it will be 15.0</p>
 <pre><code>core.geoDistance(34, -188, 34.4, -119, { round: 5.1 })
@@ -2889,8 +2884,7 @@ table must be defined with the following required columns:</p>
 <li>geohash and id as strings, this is the primary key
 split and saved as property id in the record</li>
 <li>latitude and longitude as floating numbers
-othr optional properties:</li>
-<li>miles - 0 or 1 to use miles or km for distance</li>
+other optional properties:</li>
 <li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
 round number and uses decimal point of the round number to limit decimals in the distance
 On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain

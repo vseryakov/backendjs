@@ -480,9 +480,6 @@ The location API maintains a table `bk_location` with geolocation coordinates fo
   it must be passed as is as `_token=` parameter with all original query parameters.
   By default only locations with account ids will be returned, specifying `_details=1` will return public account columns like name as well.
 
-  Query parameters:
-  - _miles - by defalt disyance is in miles but specifying _miles=0 will switch to km
-
   Example:
 
             /location/get?distance=10&latitude=-118.23434&longitude=23.45665656&_count=25
