@@ -151,11 +151,16 @@ verifying if the given login and secret are valid, there is no special login API
 <li>id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma</li>
 <li>_session - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore</li>
 </ul>
+<p>Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as <code>pub</code> in the
+<code>bk_account</code> table will be returned.</p>
 <p>Response:</p>
 <pre><code>      { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
         &quot;alias&quot;: &quot;Test User&quot;,
         &quot;name&quot;: &quot;Real Name&quot;,
         &quot;mtime&quot;: 1391824028,
+        &quot;latitude&quot;: 34,
+        &quot;longitude&quot;: -118,
+        &quot;geohash&quot;: &quot;9qh1&quot;,
         &quot;login&quot;: &quot;testuser&quot;,
       }
 </code></pre></li>
@@ -459,7 +464,7 @@ call returns results in chunks and requires navigation through all pages to rece
 point. If there are more matched records than specified by the <code>_count</code>, the <code>next_token</code> property is set with the token to be used in the subsequent call,
 it must be passed as is as <code>_token=</code> parameter with all original query parameters.</p>
 <p>By default only locations with account ids will be returned, specifying <code>_details=1</code> will return public account columns like name as well.</p>
-<p>Note: The current account will not be present in the results  even if it is within the range.</p>
+<p>Note: The current account will not be present in the results  even if it is within the range, to know my own location use <code>/account/get</code> call.</p>
 <p>Example:</p>
 <pre><code>      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25
       /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25&amp;_token=FGTHTRHRTHRTHTTR.....

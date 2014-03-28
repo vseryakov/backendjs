@@ -121,12 +121,18 @@ The accounts API manages accounts and authentication, it provides basic user acc
     - id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma
     - _session - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore
 
+  Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as `pub` in the
+  `bk_account` table will be returned.
+
   Response:
 
             { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
               "alias": "Test User",
               "name": "Real Name",
               "mtime": 1391824028,
+              "latitude": 34,
+              "longitude": -118,
+              "geohash": "9qh1",
               "login": "testuser",
             }
 
@@ -481,7 +487,7 @@ The location API maintains a table `bk_location` with geolocation coordinates fo
 
   By default only locations with account ids will be returned, specifying `_details=1` will return public account columns like name as well.
 
-  Note: The current account will not be present in the results  even if it is within the range.
+  Note: The current account will not be present in the results  even if it is within the range, to know my own location use `/account/get` call.
 
   Example:
 
