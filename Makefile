@@ -21,6 +21,9 @@ clean:
 test-db:
 	for d in sqlite pgsql mysql dynamodb cassandra; do node tests.js -cmd db -db-pool $$d -log log; done
 
+pages:
+	git-new-workdir `pwd` ./pages gh-pages
+
 doc:
 	node doc.js > web/doc.html
 	-if [ -d pages ]; then cp web/doc.html pages/index.html; fi

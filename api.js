@@ -126,7 +126,6 @@ var api = {
 
        // All accumulated counters for accounts
        bk_counter: { id: { primary: 1, pub: 1 },                               // account id
-                     mtime: { type: "bigint", now: 1 },
                      ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy
                      like0: { type: "counter", value: 0, incr: 1 },            // who i liked
                      like1: { type: "counter", value: 0 },                     // reversed, who liked me
@@ -430,8 +429,7 @@ api.checkQuery = function(req, res, next)
                 req.body = buf;
             }
             next();
-        } catch (err){
-            err.body = buf;
+        } catch (err) {
             err.status = 400;
             next(err);
         }
@@ -473,6 +471,7 @@ api.checkBody = function(req, res, next)
             req.files = qs.parse(files);
             next();
         } catch (err) {
+            err.status = 400;
             next(err);
         }
     });

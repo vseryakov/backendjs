@@ -109,7 +109,6 @@ $(function() {
      Backend.apiResponse = ko.observable('');
      Backend.apiUrl = ko.observable('');
      Backend.apiEmail = ko.observable();
-     Backend.apiImages = false;
      Backend.apiTable = false;
 
      Backend.doLogin = function() {
@@ -144,20 +143,19 @@ $(function() {
              Backend.send(options, function(data) {
                  var name = url.split('/')[1];
                  try {
-                     if (self.apiTable && data.length) {
+                     if (self.apiTable) {
+                         var d = data.length ? data : (data.data || []);
                          var html = "<table><tr>";
-                         for (var p in data[0]) {
+                         for (var p in d[0]) {
                              if (p.substr(-3) == "_ts") continue;
                              html += "<th>" + p + "</th>"
                          }
                          html += "</tr>";
-                         for (var i in data) {
+                         for (var i in d) {
                              html += "<tr>"
-                             if (self.apiImages && data[i].id) html += "<td><img src='/image/" +  name + "/" + data[i].id + "' width=32 height=32'></td>";
-                             for (var p in data[i]) {
-                                 if (p.substr(-3) == "_ts") continue;
-                                 if (String(data[i][p]).indexOf("http://") == 0) data[i][p] = "<a href=" + data[i][p] + ">" + data[i][p] + "</a>";
-                                 html += "<td>" + data[i][p] + "</td>";
+                             for (var p in d[i]) {
+                                 if (String(d[i][p]).indexOf("http://") == 0) d[i][p] = "<a href=" + d[i][p] + ">" + d[i][p] + "</a>";
+                                 html += "<td>" + d[i][p] + "</td>";
                              }
                              html += "</tr>"
                          }
@@ -201,8 +199,6 @@ $(function() {
       <tr><td>URL:</td>
           <td><input id="url" type="search" size=80" /></td>
           <td colspan=3><button type="submit" >Run</button></td>
-          <td><input type="checkbox" data-bind="checked: apiImages" title="Show images by id"/></td>
-          <td>Show Icons</td>
           <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/></td>
           <td>Tabular</td>
           <td colspan=2><img id="loading" src="img/loading.gif"></td>

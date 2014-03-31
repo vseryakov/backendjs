@@ -88,7 +88,9 @@ server.start = function()
 
         // REPL shell
         if (process.argv.indexOf("-shell") > 0) {
-            return core.createRepl();
+            core.context.api.initTables(function(err) {
+                return core.createRepl();
+            });
         }
 
         // Go to background
