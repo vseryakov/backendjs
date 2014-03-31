@@ -90,7 +90,7 @@ var api = {
        // Keep track of icons uploaded
        bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
                   type: { primary: 1, pub: 1 },               // prefix:type
-                  allow: {},                                  // Who can see it: all, auth, id:id...
+                  auth: {},                                   // Who can see it: all, auth, id:id...
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
@@ -1486,7 +1486,7 @@ api.getIcon = function(req, res, id, options)
 // Verify icon permissions for given account id, returns true if allowed
 api.checkIcon = function(req, id, row)
 {
-    var allow = row.allow || "";
+    var allow = row.auth || row.allow || "";
     if (allow == "all") return true;
     if (allow == "auth" && req.account) return true;
     if (allow.split(",").filter(function(x) { return x == id }).length) return true;

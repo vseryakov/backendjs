@@ -282,8 +282,8 @@ The accounts API manages accounts and authentication, it provides basic user acc
         - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: 'iVBORw0KGgoA...' },
           for JSON the Content-Type HTTP headers must be set to `application/json` and data should be sent with POST request
         - can be uploaded from the browser using regular multi-part form
-    - allow - icon access permissions:
-      - empty - only own account can access
+    - auth - icon access permissions:
+      - "" (empty) - only own account can access
       - all - public, everybody can see this icon
       - auth - only authenticated users can see this icon
       - id,id.. - list of account ids that can see this account
@@ -348,7 +348,7 @@ icons separate from albums, or use prefix for each separate album. Within the pr
   multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters.
 
   The following parameters can be used:
-    - allow - permissions, see `/account/put/icon` for the format and usage
+    - auth - permissions, see `/account/put/icon` for the format and usage
     - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg
