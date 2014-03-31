@@ -37,7 +37,10 @@ var api = {
 
     // No authentication for these urls
     allow: ["^/$",
-            ".+\\.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$",
+            "\\.html$",
+            "\\.(ico|gif|png|jpg|svg)$",
+            "\\.(ttf|eof|woff)$",
+            "\\.(js|css)$",
             "^/public",
             "^/account/add$" ],
 
@@ -58,8 +61,8 @@ var api = {
                    id: {},                              // Auto generated UUID
                    secret: {},                          // Account password
                    type: {},                            // Account type: admin, ....
-                   url_deny: {},                        // Deny access to matched url
-                   url_allow: {},                       // Only grant access if matched this regexp
+                   acl_deny: {},                        // Deny access to matched url
+                   acl_allow: {},                       // Only grant access if matched this regexp
                    expires: { type: "bigint" },         // Deny access to the account if this value is before current date, milliseconds
                    mtime: { type: "bigint", now: 1 } },
 
@@ -194,7 +197,7 @@ var api = {
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow", array: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
-           { name: "disallow-path", type: "callback", value: function(v) {var i=this.allow.indexOf(v);if(i>-1) this.allow.splice(i,1)}, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
+           { name: "disallow-path", type: "callback", value: function(v) {this.allow.splice(this.allow.indexOf(v),1)}, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
            { name: "allow-ssl", array: 1, descr: "Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
            { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
@@ -544,10 +547,10 @@ api.checkSignature = function(req, callback)
         }
 
         // Verify ACL regex if specified, test the whole query string as it appears in the request query line
-        if (account.url_deny && sig.url.match(account.url_deny)) {
+        if (account.acl_deny && sig.url.match(account.acl_deny)) {
             return callback({ status: 401, message: "Access denied" });
         }
-        if (account.url_allow && !sig.url.match(account.url_allow)) {
+        if (account.acl_allow && !sig.url.match(account.acl_allow)) {
             return callback({ status: 401, message: "Not permitted" });
         }
 
@@ -1486,10 +1489,10 @@ api.getIcon = function(req, res, id, options)
 // Verify icon permissions for given account id, returns true if allowed
 api.checkIcon = function(req, id, row)
 {
-    var allow = row.auth || row.allow || "";
-    if (allow == "all") return true;
-    if (allow == "auth" && req.account) return true;
-    if (allow.split(",").filter(function(x) { return x == id }).length) return true;
+    var acl = row.acl_allow || row.allow || "";
+    if (acl == "all") return true;
+    if (acl == "auth" && req.account) return true;
+    if (acl.split(",").filter(function(x) { return x == id }).length) return true;
     return id == req.account.id;
 }
 

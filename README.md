@@ -282,7 +282,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
         - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: 'iVBORw0KGgoA...' },
           for JSON the Content-Type HTTP headers must be set to `application/json` and data should be sent with POST request
         - can be uploaded from the browser using regular multi-part form
-    - auth - icon access permissions:
+    - acl_allow - icon access permissions:
       - "" (empty) - only own account can access
       - all - public, everybody can see this icon
       - auth - only authenticated users can see this icon
@@ -348,7 +348,7 @@ icons separate from albums, or use prefix for each separate album. Within the pr
   multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters.
 
   The following parameters can be used:
-    - auth - permissions, see `/account/put/icon` for the format and usage
+    - acl_allow - allow access permissions, see `/account/put/icon` for the format and usage
     - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg
@@ -981,7 +981,75 @@ can use any pub/sub mode.
 
 ## Redis
 
-## RabbitMQ
+# Security configurations
+
+## API only
+This is default setup of the backend when all API requests except `/account/add` must provide valid signature and all HTML, Javascript, CSS and image files
+are available to everyone. This mode assumes that Web developmnt will be based on 'single-page' design when only data is requested from the Web server and all
+rendering is done using Javascript. This is how the `api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
+
+To see current default config parameters run any of the following commands:
+
+        rc.backend run-backend -help | grep api-allow
+
+        node -e 'require("backend").core.showHelp()'
+
+To disable open registration in this mode just add config parameter `api-disallow-path=^/account/add$` or if developing an application add this in the initMiddleware
+
+        api.initMiddleware = function(callback) {
+            this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
+        }
+
+## Secure Web site, client verificastion
+This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined 'Backend.session = true'
+during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.
+
+The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
+this assumes the default path '/public' still allowed without the signature:
+
+        <link href="/styles/jquery-ui.css" rel="stylesheet" type="text/css" />
+        <script src="/js/jquery.js" type="text/javascript"></script>
+        <script src="/js/jquery-ui.js" type="text/javascript"></script>
+        <script src="/js/knockout.js" type="text/javascript"></script>
+        <script src="/js/crypto.js" type="text/javascript"></script>
+        <script src="js/backend.js" type="text/javascript"></script>
+        <script src="js/backend-jquery-ui.js" type="text/javascript"></script>
+        <script>
+        $(function () {
+            Backend.session = true;
+            Backend.scramble = true;
+            ko.applyBindings(Backend);
+
+            Backend.login(function(err, data) {
+                if (err) window.location='/public/index.html';
+            });
+        });
+        </script>
+
+## Secure Web site, backend verification
+On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
+in case of error will be redirected to the login page by the server. Note, in the login page `Backend.session` must be set to true for all
+html pages to work after login without singing every API request.
+
+First we disable all allowed paths to the html and registration:
+
+        api.initMiddleware = function(callback) {
+            self.allow.splice(self.allow.indexOf('^/$'), 1);
+            self.allow.splice(self.allow.indexOf('\\.html$'), 1);
+            self.allow.splice(self.allow.indexOf('^/account/add$'), 1);
+        }
+
+
+Second we define auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
+will never end up in this callback because it is called after the signature check but allowed pages are served before that:
+
+        api.registerAuthCheck('', /^\/$|\.html$/, function(req, status, callback) {
+            if (status.status != 200) {
+                status.status = 302;
+                status.url = '/public/index.html';
+            }
+            callback(status);
+        });
 
 # The backend provisioning utility: rc.backend
 
