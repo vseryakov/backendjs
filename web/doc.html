@@ -23,7 +23,12 @@
 <li><a href="#pub-sub-configurations"> PUB/SUB configurations</a><ul>
 <li><a href="#internal-with-nanomsg"> Internal with nanomsg</a></li>
 <li><a href="#redis"> Redis</a></li>
-<li><a href="#rabbitmq"> RabbitMQ</a></li>
+</ul>
+</li>
+<li><a href="#security-configurations"> Security configurations</a><ul>
+<li><a href="#api-only"> API only</a></li>
+<li><a href="#secure-web-site-client-verificastion"> Secure Web site, client verificastion</a></li>
+<li><a href="#secure-web-site-backend-verification"> Secure Web site, backend verification</a></li>
 </ul>
 </li>
 <li><a href="#the-backend-provisioning-utility-rc-backend"> The backend provisioning utility: rc.backend</a></li>
@@ -286,8 +291,8 @@ for JSON the Content-Type HTTP headers must be set to <code>application/json</co
 <li>can be uploaded from the browser using regular multi-part form</li>
 </ul>
 </li>
-<li>allow - icon access permissions:<ul>
-<li>empty - only own account can access</li>
+<li>acl_allow - icon access permissions:<ul>
+<li>&quot;&quot; (empty) - only own account can access</li>
 <li>all - public, everybody can see this icon</li>
 <li>auth - only authenticated users can see this icon</li>
 <li>id,id.. - list of account ids that can see this account</li>
@@ -347,7 +352,7 @@ icons separate from albums, or use prefix for each separate album. Within the pr
 multiple icons for the same prefix. <code>type</code> can be any string consisting from alpha and digits characters.</p>
 <p>The following parameters can be used:</p>
 <ul>
-<li>allow - permissions, see <code>/account/put/icon</code> for the format and usage</li>
+<li>acl_allow - allow access permissions, see <code>/account/put/icon</code> for the format and usage</li>
 <li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
 <li>_height - height of the icon, same rules apply as for the width above</li>
 <li>_ext - image file format, default is jpg, supports: gif, png, jpg</li>
@@ -949,8 +954,62 @@ the backend provides some partially implemented subscription notifications for W
 can use any pub/sub mode.</p>
 <h2 id="internal-with-nanomsg">Internal with nanomsg</h2>
 <h2 id="redis">Redis</h2>
-<h2 id="rabbitmq">RabbitMQ</h2>
-<h1 id="the-backend-provisioning-utility-rc-backend">The backend provisioning utility: rc.backend</h1>
+<h1 id="security-configurations">Security configurations</h1>
+<h2 id="api-only">API only</h2>
+<p>This is default setup of the backend when all API requests except <code>/account/add</code> must provide valid signature and all HTML, Javascript, CSS and image files
+are available to everyone. This mode assumes that Web developmnt will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
+rendering is done using Javascript. This is how the <code>api.html</code> develpers console is implemented, using JQuery-UI and Knockout.js.</p>
+<p>To see current default config parameters run any of the following commands:</p>
+<pre><code>    rc.backend run-backend -help | grep api-allow
+
+    node -e &#39;require(&quot;backend&quot;).core.showHelp()&#39;
+</code></pre><p>To disable open registration in this mode just add config parameter <code>api-disallow-path=^/account/add$</code> or if developing an application add this in the initMiddleware</p>
+<pre><code>    api.initMiddleware = function(callback) {
+        this.allow.splice(this.allow.indexOf(&#39;^/account/add$&#39;), 1);
+    }
+</code></pre><h2 id="secure-web-site-client-verificastion">Secure Web site, client verificastion</h2>
+<p>This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined &#39;Backend.session = true&#39;
+during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.</p>
+<p>The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
+this assumes the default path &#39;/public&#39; still allowed without the signature:</p>
+<pre><code>    &lt;link href=&quot;/styles/jquery-ui.css&quot; rel=&quot;stylesheet&quot; type=&quot;text/css&quot; /&gt;
+    &lt;script src=&quot;/js/jquery.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;/js/jquery-ui.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;/js/crypto.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;js/backend.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;js/backend-jquery-ui.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script&gt;
+    $(function () {
+        Backend.session = true;
+        Backend.scramble = true;
+        ko.applyBindings(Backend);
+
+        Backend.login(function(err, data) {
+            if (err) window.location=&#39;/public/index.html&#39;;
+        });
+    });
+    &lt;/script&gt;
+</code></pre><h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
+<p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
+in case of error will be redirected to the login page by the server. Note, in the login page <code>Backend.session</code> must be set to true for all
+html pages to work after login without singing every API request.</p>
+<p>First we disable all allowed paths to the html and registration:</p>
+<pre><code>    api.initMiddleware = function(callback) {
+        self.allow.splice(self.allow.indexOf(&#39;^/$&#39;), 1);
+        self.allow.splice(self.allow.indexOf(&#39;\\.html$&#39;), 1);
+        self.allow.splice(self.allow.indexOf(&#39;^/account/add$&#39;), 1);
+    }
+</code></pre><p>Second we define auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
+will never end up in this callback because it is called after the signature check but allowed pages are served before that:</p>
+<pre><code>    api.registerAuthCheck(&#39;&#39;, /^\/$|\.html$/, function(req, status, callback) {
+        if (status.status != 200) {
+            status.status = 302;
+            status.url = &#39;/public/index.html&#39;;
+        }
+        callback(status);
+    });
+</code></pre><h1 id="the-backend-provisioning-utility-rc-backend">The backend provisioning utility: rc.backend</h1>
 <p>The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.</p>
@@ -1217,7 +1276,7 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>api-data-endpoint-unsecure</code> - Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution</li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon..... Default: </li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly Default: </li>
-<li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list Default: ^/$,.+.(ico|gif|png|jpg|js|css|ttf|eof|woff|svg|html)$,^/public,^/account/add$</li>
+<li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list Default: ^/$,.html$,.(ico|gif|png|jpg|svg)$,.(ttf|eof|woff)$,.(js|css)$,^/public,^/account/add$</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused</li>
@@ -1253,8 +1312,8 @@ the worker processes if they die and restart them automatically. How many proces
                  id: {},                              // Auto generated UUID
                  secret: {},                          // Account password
                  type: {},                            // Account type: admin, ....
-                 url_deny: {},                        // Deny access to matched url
-                 url_allow: {},                       // Only grant access if matched this regexp
+                 acl_deny: {},                        // Deny access to matched url
+                 acl_allow: {},                       // Only grant access if matched this regexp
                  expires: { type: &quot;bigint&quot; },         // Deny access to the account if this value is before current date, milliseconds
                  mtime: { type: &quot;bigint&quot;, now: 1 } },
 
@@ -1285,7 +1344,7 @@ the worker processes if they die and restart them automatically. How many proces
      // Keep track of icons uploaded
      bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
                 type: { primary: 1, pub: 1 },               // prefix:type
-                allow: {},                                  // Who can see it: all, auth, id:id...
+                auth: {},                                   // Who can see it: all, auth, id:id...
                 mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
 
      // Locations for all accounts to support distance searches
@@ -1321,7 +1380,6 @@ the worker processes if they die and restart them automatically. How many proces
 
      // All accumulated counters for accounts
      bk_counter: { id: { primary: 1, pub: 1 },                               // account id
-                   mtime: { type: &quot;bigint&quot;, now: 1 },
                    ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy
                    like0: { type: &quot;counter&quot;, value: 0, incr: 1 },            // who i liked
                    like1: { type: &quot;counter&quot;, value: 0 },                     // reversed, who liked me
