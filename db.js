@@ -831,7 +831,9 @@ db.getCachedKey = function(table, obj, options)
 // - index - column is part of an index
 // - value - default value for the column
 // - len - column length
-// - pub - columns is public
+// - pub - columns is public, *this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
+//     credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
+//     so by default only a few columns are marked as public in the bk_account table*
 // - semipub - column is not public but still retrieved to support other public columns, must be deleted after use
 // - now - means on every add/put/update set this column with current time as Date.now()
 //

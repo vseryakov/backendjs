@@ -1344,7 +1344,7 @@ the worker processes if they die and restart them automatically. How many proces
      // Keep track of icons uploaded
      bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
                 type: { primary: 1, pub: 1 },               // prefix:type
-                auth: {},                                   // Who can see it: all, auth, id:id...
+                acl_allow: {},                              // Who can see it: all, auth, id:id...
                 mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
 
      // Locations for all accounts to support distance searches
@@ -3009,7 +3009,9 @@ contain the following properties:</p>
 <li>index - column is part of an index</li>
 <li>value - default value for the column</li>
 <li>len - column length</li>
-<li>pub - columns is public</li>
+<li>pub - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
+ credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
+ so by default only a few columns are marked as public in the bk_account table</em></li>
 <li>semipub - column is not public but still retrieved to support other public columns, must be deleted after use</li>
 <li>now - means on every add/put/update set this column with current time as Date.now()</li>
 </ul>
