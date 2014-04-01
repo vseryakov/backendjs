@@ -280,8 +280,10 @@ static void doResizeImage(uv_work_t *req)
         if (status == MagickFalse) goto err;
     }
     if (baton->d.brightness || baton->d.contrast) {
+#ifdef JincFilter
         status = MagickBrightnessContrastImage(wand, baton->d.brightness, baton->d.contrast);
         if (status == MagickFalse) goto err;
+#endif
     }
     if (baton->d.sharpen_radius || baton->d.sharpen_sigma) {
         status = MagickAdaptiveSharpenImage(wand, baton->d.sharpen_radius, baton->d.sharpen_sigma);
