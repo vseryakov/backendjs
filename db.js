@@ -591,6 +591,7 @@ db.replace = function(table, obj, options, callback)
 //      - check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column
 //      - desc - if sorting, do in descending order
 //      - page - starting page number for pagination, uses count to find actual record to start
+//
 // On return, the callback can check third argument which is an object with the following properties:
 // - affected_rows - how many records this operation affected
 // - inserted_oid - last created auto generated id
@@ -648,6 +649,7 @@ db.list = function(table, obj, options, callback)
 // The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
 // once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
 // Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.
+//
 // Parameters:
 //  - table - table to scan
 //  - obj - an object with query conditions, same as in `db.select`
@@ -702,11 +704,14 @@ db.search = function(table, obj, options, callback)
 //  - geohash and id as strings, this is the primary key
 //    split and saved as property id in the record
 //  - latitude and longitude as floating numbers
+//
 // other optional properties:
 // - round - a number that defines the "precision" of  the distance, it rounds the distance to the nearest
 //   round number and uses decimal point of the round number to limit decimals in the distance
+//
 // On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
 // the next_token returned by the previous call
+//
 // On return, the callback's third argument contains the object that must be provided for subsequent searches until rows array is empty.
 //
 //  Example
@@ -799,6 +804,13 @@ db.get = function(table, obj, options, callback)
 // be the same for every call, especially `select` parameters which tells which columns to retrieve and cache.
 // Additional options:
 // - prefix - prefix to be used for the key instead of table name
+//
+//  Example:
+//
+//      db.getCache("bk_account", { id: req.query.id }, { select: "latitude,longitude" }, function(err, row) {
+//          var distance = backend.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
+//      });
+//
 db.getCached = function(table, obj, options, callback)
 {
     var self = this;
@@ -966,6 +978,7 @@ db.getKeys = function(table, options)
 
 // Return possibly converted value to be used for inserting/updating values in the database,
 // is used for SQL parametrized statements
+//
 // Parameters:
 //  - options - standard pool parameters with pool: property for specific pool
 //  - val - the JavaScript value to convert into bind parameter
@@ -1035,6 +1048,7 @@ db.mergeColumns = function(pool)
 // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
 //  - pub property means public column
 //  - semipub means not allowed but must be returned for calculations in the select to produce another public column
+//
 // options may be used to define the following properties:
 // - columns - list of public columns to be returned, overrides the public columns in the definition list
 db.getPublicColumns = function(table, options)
@@ -1071,10 +1085,11 @@ db.processRows = function(pool, table, rows, options)
 
 // Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
 // specified table thus providing an opportunity to customize the result.
+//
 // All assigned callback to this table will be called in the order of the assignment.
-// The callback accepts 3 arguments:
-// function(row, options, columns)
-// where - row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
+//
+// The callback accepts 3 arguments: function(row, options, columns)
+//   where - row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
 //
 //  Example
 //

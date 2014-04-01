@@ -2888,10 +2888,12 @@ if it is an array then check only specified columns</li>
 <li>sort - sort by this column</li>
 <li>check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column</li>
 <li>desc - if sorting, do in descending order</li>
-<li>page - starting page number for pagination, uses count to find actual record to start
-On return, the callback can check third argument which is an object with the following properties:</li>
+<li>page - starting page number for pagination, uses count to find actual record to start</li>
 </ul>
 </li>
+</ul>
+<p>On return, the callback can check third argument which is an object with the following properties:</p>
+<ul>
 <li>affected_rows - how many records this operation affected</li>
 <li>inserted_oid - last created auto generated id</li>
 <li>next_token - next primary key or offset for pagination by passing it as .start property in the options</li>
@@ -2925,8 +2927,8 @@ db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { conso
 records matching given criteria. The obj is the same as passed to the <code>db.select</code> method which defined a condition which records to get.
 The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
 once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
-Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.
-Parameters:</p>
+Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.</p>
+<p>Parameters:</p>
 <ul>
 <li>table - table to scan</li>
 <li>obj - an object with query conditions, same as in <code>db.select</code></li>
@@ -2959,14 +2961,16 @@ table must be defined with the following required columns:</p>
 <ul>
 <li>geohash and id as strings, this is the primary key
 split and saved as property id in the record</li>
-<li>latitude and longitude as floating numbers
-other optional properties:</li>
-<li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
-round number and uses decimal point of the round number to limit decimals in the distance
-On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
-the next_token returned by the previous call
-On return, the callback&#39;s third argument contains the object that must be provided for subsequent searches until rows array is empty.</li>
+<li>latitude and longitude as floating numbers</li>
 </ul>
+<p>other optional properties:</p>
+<ul>
+<li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
+round number and uses decimal point of the round number to limit decimals in the distance</li>
+</ul>
+<p>On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
+the next_token returned by the previous call</p>
+<p>On return, the callback&#39;s third argument contains the object that must be provided for subsequent searches until rows array is empty.</p>
 <p>Example</p>
 <pre><code>    db.getLocations(&quot;bk_location&quot;, { latitude: -118, longitude: 30, distance: 10 }, function(err, rows, info) {
         ...
@@ -3000,7 +3004,11 @@ Additional options:</p>
 <ul>
 <li>prefix - prefix to be used for the key instead of table name</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>db.getCache(&quot;bk_account&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {
+    var distance = backend.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
+});
+</code></pre></li>
 </ul>
 
 <ul>
@@ -3095,8 +3103,8 @@ Returns prepared object to be passed to the driver&#39;s .query method.</p>
 <ul>
 <li><p><code>db.getBindValue(table, options, val, info)</code></p>
 <p> Return possibly converted value to be used for inserting/updating values in the database,
-is used for SQL parametrized statements
-Parameters:</p>
+is used for SQL parametrized statements</p>
+<p>Parameters:</p>
 <ul>
 <li>options - standard pool parameters with pool: property for specific pool</li>
 <li>val - the JavaScript value to convert into bind parameter</li>
@@ -3134,8 +3142,10 @@ Parameters:</p>
 <p> Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query</p>
 <ul>
 <li>pub property means public column</li>
-<li>semipub means not allowed but must be returned for calculations in the select to produce another public column
-options may be used to define the following properties:</li>
+<li>semipub means not allowed but must be returned for calculations in the select to produce another public column</li>
+</ul>
+<p>options may be used to define the following properties:</p>
+<ul>
 <li>columns - list of public columns to be returned, overrides the public columns in the definition list</li>
 </ul>
 </li>
@@ -3153,11 +3163,10 @@ adding new records and returning them back to the client. In such case, the <cod
 <ul>
 <li><p><code>db.setProcessRow(table, options, callback)</code></p>
 <p> Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
-specified table thus providing an opportunity to customize the result.
-All assigned callback to this table will be called in the order of the assignment.
-The callback accepts 3 arguments:
-function(row, options, columns)
-where - row is a row from the table, options are the obj passed to the db called and columns is an object with table&#39;s columns</p>
+specified table thus providing an opportunity to customize the result.</p>
+<p>All assigned callback to this table will be called in the order of the assignment.</p>
+<p>The callback accepts 3 arguments: function(row, options, columns)
+ where - row is a row from the table, options are the obj passed to the db called and columns is an object with table&#39;s columns</p>
 <p>Example</p>
 <pre><code>db.setProcessRow(&quot;bk_account&quot;, function(row, opts, cols) {
     if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
