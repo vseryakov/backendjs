@@ -6,7 +6,6 @@
 #include "node_backend.h"
 
 #include <wand/MagickWand.h>
-#include <uuid/uuid.h>
 #include "snappy.h"
 
 // Async request for magickwand resize callback
@@ -188,6 +187,7 @@ static FilterTypes getMagickFilter(string filter)
                   filter == "bohman" ? BohmanFilter:
                   filter == "barlett" ? BartlettFilter:
                   filter == "lagrange" ? LagrangeFilter:
+#ifdef JincFilter
                   filter == "jinc" ? JincFilter :
                   filter == "sinc" ? SincFilter :
                   filter == "sincfast" ? SincFastFilter :
@@ -199,6 +199,7 @@ static FilterTypes getMagickFilter(string filter)
                   filter == "cosine" ? CosineFilter:
                   filter == "spline" ? SplineFilter:
                   filter == "lanczosradius" ? LanczosRadiusFilter:
+#endif
                   LanczosFilter;
 }
 
@@ -543,20 +544,6 @@ static Handle<Value> countAllWords(const Arguments& args)
     return scope.Close(obj);
 }
 
-static Handle<Value> uuid(const Arguments& args)
-{
-   HandleScope scope;
-
-   uuid_t myid;
-   char buf[36+1];
-
-   if (args.Length()) uuid_generate_time(myid); else uuid_generate(myid);
-   uuid_unparse(myid, buf);
-
-   Local<String> result = Local<String>::New(String::New(buf));
-   return scope.Close(result);
-}
-
 static Handle<Value> splitArray(const Arguments& args)
 {
    HandleScope scope;
@@ -716,8 +703,6 @@ void backend_init(Handle<Object> target)
 
     NODE_SET_METHOD(target, "snappyCompress", snappyCompress);
     NODE_SET_METHOD(target, "snappyUncompress", snappyUncompress);
-
-    NODE_SET_METHOD(target, "uuid", uuid);
 
     NODE_SET_METHOD(target, "geoDistance", geoDistance);
     NODE_SET_METHOD(target, "geoBoundingBox", geoBoundingBox);

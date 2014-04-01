@@ -42,7 +42,7 @@
            "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)"
         ],
         "libraries": [
-           "-L/opt/local/lib lib/libnanomsg.a -luuid",
+           "-L/opt/local/lib lib/libnanomsg.a",
            "$(shell mysql_config --libs_r 2>/dev/null)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"
@@ -116,7 +116,7 @@
                    "-g -fPIC",
                    "$(shell mysql_config --cflags 2>/dev/null)",
                    "$(shell pkg-config --silence-errors --cflags libpq)",
-                   "$(shell ./bin/MagickWand-config --cflags)"
+                   "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --cflags Wand)"
                 ],
              }
            }],
@@ -128,7 +128,7 @@
                 "-g -fPIC -rdynamic",
                 "$(shell mysql_config --cflags 2>/dev/null)",
                 "$(shell pkg-config --silence-errors --cflags libpq)",
-                "$(shell ./bin/MagickWand-config --cflags)",
+                "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --cflags Wand)",
              ]
            }]
         ]

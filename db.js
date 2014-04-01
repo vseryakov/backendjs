@@ -34,7 +34,7 @@ var metrics = require(__dirname + "/metrics");
 //
 // Before the DB functions can be used the `core.init` MUST be called first, the typical usage:
 //
-//          var backend = require("backend"), core = backend.core, db = backend.db;
+//          var backend = require("backendjs"), core = backend.core, db = backend.db;
 //          core.init(function(err) {
 //              db.add(...
 //              ...

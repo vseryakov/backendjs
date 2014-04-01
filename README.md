@@ -24,11 +24,8 @@ Check out the [Documentation](http://vseryakov.github.io/backendjs/) for more do
 # Requirements and dependencies
 
 The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
-on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
-
-The list of packages that backendjs requires to be installed:
-- libuuid
-- libpng
+on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped. also, if ImageMagick is installed
+already the backendjs will use it instead of compiling internal version of it in place.
 
 The list of optional packages that the backendjs may use if available:
 - jpeg - for ImageMagick
@@ -39,11 +36,11 @@ The list of optional packages that the backendjs may use if available:
 
 Installing on CentOS required and optional packages:
 
-        yum -y install libuuid-devel libpng-devel openjpeg-devel libjpeg-turbo-devel jasper postgresql-devel mysql-devel
+        yum -y install libpng-devel openjpeg-devel libjpeg-turbo-devel jasper postgresql-devel mysql-devel
 
 Installing on Mac OS X using macports:
 
-        port install ossp-uuid libpng jpeg tiff jasper mysql56 postgresql93
+        port install libpng jpeg tiff jasper mysql56 postgresql93
 
 # Installation
 
@@ -957,7 +954,6 @@ List of available functions:
 - resizeImageSync(name,width,height,format,filter,quality,outfile) - resize an image synchronically
 - snappyCompress(str) - compress a string
 - snappyUncompress(str) - decompress a string
-- uuid() - return a new UUID
 - geoDistance(lat1, lon1, lat2, lon2) - return distance between 2 coordinates in km
 - geoBoundingBox(lat, lon, distance) - return bounding box geohash for given point around distance
 - geoHashEncode(lat, lon, len) - return geohash for given coordinate, len defines number of bytesin geohash
@@ -1201,7 +1197,7 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 * to compile the binary module and all required dependencies just type ```make```
     * for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
 
-	    port install ossp-uuid libpng jpeg librsvg tiff jasper lcms2 mysql56 postgresql93
+	    port install libpng jpeg librsvg tiff jasper lcms2 mysql56 postgresql93
 
     * to see the actual compiler setting during compile the following helps:
 

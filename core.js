@@ -22,6 +22,7 @@ var emailjs = require('emailjs');
 var memcached = require('memcached');
 var redis = require("redis");
 var amqp = require('amqp');
+var uuid = require('uuid');
 
 // The primary object containing all config options and common functions
 var core = {
@@ -106,7 +107,7 @@ var core = {
             { name: "log-file", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages, if not specified logs display to the console", pass: 1 },
             { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
             { name: "console", type: "callback", value: function() { core.logFile = null; logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
-            { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, the server willtry to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
+            { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "config-file", type: "path", descr: "Path to the config file instead of the default etc/config, can be absolute or relative path", pass: 1 },
             { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks" },
@@ -225,7 +226,13 @@ core.init = function(callback)
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
+            // Default config file from the home
             self.loadConfig(next);
+        },
+
+        function(next) {
+            // Try to load local config file supplied with the app container
+            self.loadConfig("etc/config", next);
         },
 
         // Create all directories, only master should do it once but we resolve absolute paths in any mode
@@ -449,12 +456,13 @@ core.showHelp = function(options)
     process.exit(0);
 }
 
-// Parse local config file
-core.loadConfig = function(callback)
+// Parse the config file, configFile can point to a file or can be skipped and the default file will be loaded
+core.loadConfig = function(configFile, callback)
 {
     var self = this;
+    if (typeof configFile == "function") callback = configFile, configFile = null;
 
-    var file = this.configFile || path.join(self.path.etc, "config");
+    var file = configFile || this.configFile || path.join(self.path.etc, "config");
     logger.debug('loadConfig:', file);
 
     fs.readFile(file, function(err, data) {
@@ -1538,7 +1546,7 @@ core.hash = function (data, algorithm, encode)
 // Return unique Id without any special characters and in lower case
 core.uuid = function()
 {
-    return backend.uuid().replace(/-/g, '').toLowerCase();
+    return uuid.v4().replace(/-/g, '').toLowerCase();
 }
 
 // Generate random key, size if specified defines how many random bits to generate
