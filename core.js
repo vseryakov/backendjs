@@ -292,7 +292,7 @@ core.postInit = function(callback) { callback() }
 // core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
 // default environment or pass -home dir so the script will reuse same config and paths as the server
 // context can be specified for the callback, if no then it run in the core context
-// - require('backend').run(function() {}) is one example where this call is used as a shortcut for ad-hoc scripting
+// - require('backendjs').run(function() {}) is one example where this call is used as a shortcut for ad-hoc scripting
 core.run = function(callback)
 {
     var self = this;

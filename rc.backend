@@ -60,7 +60,7 @@ esac
 [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=/usr
 [ "$DDB_PREFIX" = "" ] && DDB_PREFIX=$BACKEND_PREFIX/dynamodb
 [ "$NODE_PATH" = "" ] && NODE_PATH=$BACKEND_PREFIX/lib/node_modules
-[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/backend
+[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/backendjs
 
 export PATH=$BACKEND_ROOT/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
@@ -559,8 +559,10 @@ case "$ARG" in
     case "$PLATFORM" in
      Darwin)
          mkdir -p $BACKEND_ROOT/etc
-         echo "Creating default config file in $BACKEND_ROOT/etc/config..."
-         $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n#db-mysql-pool=mysql:///backend\n" > $BACKEND_ROOT/etc/config
+         if [ ! -f $BACKEND_ROOT/etc/config ]; then
+            echo "Creating default config file in $BACKEND_ROOT/etc/config..."
+            $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n#db-mysql-pool=mysql:///backend\n" > $BACKEND_ROOT/etc/config
+         fi
          echo "Making global backend module accessible in $NODE_BACKEND..."
          rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
          ;;
@@ -581,8 +583,8 @@ case "$ARG" in
       esac
     done
     [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
-    echo "Deploying the module to $BACKEND_MASTER:$path/backend ..."
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude pages --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$path/backend
+    echo "Deploying the module to $BACKEND_MASTER:$path/backendjs ..."
+    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude pages --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$path/backendjs
     ;;
 
   run-backend)
@@ -606,7 +608,7 @@ case "$ARG" in
     ;;
 
   show-help)
-    $BACKEND_PREFIX/bin/node -e "require('backend').core.help()"
+    $BACKEND_PREFIX/bin/node -e "require('backendjs').core.help()"
     ;;
 
   clean-backend)
@@ -705,7 +707,7 @@ case "$ARG" in
 // Backend app
 // Created by $(whoami) on $(date)
 //
-var backend = require('backend');
+var backend = require('backendjs');
 var express = require('express');
 var db = backend.db;
 var api = backend.api;

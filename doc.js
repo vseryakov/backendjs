@@ -6,7 +6,7 @@
 var fs = require('fs')
 var path = require("path");
 var marked = require("marked");
-var backend = require("backend");
+var backend = require('backendjs');
 
 var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && ["index.js", "tests.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/); });
 

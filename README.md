@@ -895,7 +895,7 @@ The backend directory structure is the following:
 
         2. Define the funtion that the cron will call with the options specified, callback must be called at the end, create this app.js file
 
-                var backend = require("backend");
+                var backend = require("backendjs");
                 backend.api.cleanSessions = function(options, callback) {
                      backend.db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
                 }
@@ -930,7 +930,7 @@ The backend directory structure is the following:
 The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as "backend" submodule, to see
 all functions for example run the below:
 
-    var backend = require('backend');
+    var backend = require('backendjs');
     console.log(backend.backend)
 
 List of available functions:
@@ -1016,7 +1016,7 @@ To see current default config parameters run any of the following commands:
 
         rc.backend run-backend -help | grep api-allow
 
-        node -e 'require("backend").core.showHelp()'
+        node -e 'require("backendjs").core.showHelp()'
 
 To disable open registration in this mode just add config parameter `api-disallow-path=^/account/add$` or if developing an application add this in the initMiddleware
 
