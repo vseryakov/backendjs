@@ -12,7 +12,10 @@
 // Async request for magickwand resize callback
 class MagickBaton {
 public:
-    MagickBaton(): image(0), exception(0), err(0) { memset(&d, 0, sizeof(d)); }
+    MagickBaton(): image(0), exception(0), err(0) {
+        memset(&d, 0, sizeof(d));
+        filter = LanczosFilter;
+    }
     ~MagickBaton() { cb.Dispose(); }
     Persistent<Function> cb;
     unsigned char *image;

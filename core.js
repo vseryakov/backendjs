@@ -871,11 +871,7 @@ core.isTrue = function(val1, val2, op, type)
 {
     switch ((op ||"").toLowerCase()) {
     case 'null':
-        if (v) return false;
-        break;
-
-    case 'not null':
-        if (!v) return false;
+        if (val1) return false;
         break;
 
     case ">":
@@ -899,7 +895,6 @@ core.isTrue = function(val1, val2, op, type)
         break;
 
     case "between":
-    case "not between":
         // If we cannot parse out 2 values, treat this as exact operator
         var list = [];
         switch (core.typeName(val2)) {
@@ -925,31 +920,28 @@ core.isTrue = function(val1, val2, op, type)
         }
         break;
 
-    case '~* any':
-    case '!~* any':
+    case "in":
+        if (this.strSplit(val2).indexOf(String(val1)) == -1) return false;
         break;
 
     case 'like%':
+        if (String(val2).indexOf(String(val1)) != 0) return false;
+        break;
+
     case "ilike%":
-    case "not like%":
-    case "not ilike%":
+        if (String(val2).tpLowerCase().indexOf(String(val1).toLowerCase()) != 0) return false;
         break;
 
     case "!~":
     case "!~*":
     case "iregexp":
-    case "not iregexp":
-        break;
-
-    case "in":
-    case "not in":
+        if (!String(val1).match(new RegExp(String(val2), 'i'))) return false;
         break;
 
     case "~":
     case "~*":
     case "regexp":
-    case "not regexp":
-        break;
+        if (!String(val1).match(String(val2))) return false;
 
     case "!=":
     case "<>":

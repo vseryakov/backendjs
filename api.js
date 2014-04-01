@@ -1111,8 +1111,12 @@ api.initLocationAPI = function()
             var now = Date.now();
             var latitude = req.query.latitude, longitude = req.query.longitude;
             if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-            // Get current location
-            db.get("bk_account", { id: req.account.id }, { select: 'latitude,longitude' }, function(err, rows) {
+            // Get current location, collect all common columns from account into location which might be used for filtering
+            // during location search
+            var acols = db.getColumns('bk_account');
+            var lcols = db.getColumns('bk_location')
+            var select = Object.keys(acols).filter(function(x) { return lcols[x] });
+            db.get("bk_account", { id: req.account.id }, { select: select }, function(err, rows) {
                 if (err || !rows.length) return self.sendReply(res, err);
                 req.account.latitude = rows[0].latitude;
                 req.account.longitude = rows[0].longitude;
@@ -1134,6 +1138,8 @@ api.initLocationAPI = function()
                     // Insert new location
                     geo.id = req.account.id;
                     geo.mtime = now;
+                    // Add additional columns from the account to keep with the location
+                    for (var p in rows[0]) if (!geo[p]) geo[p] = rows[0][p];
                     db.put("bk_location", geo);
 
                     // Update history log
@@ -1147,10 +1153,10 @@ api.initLocationAPI = function()
         case "get":
             // Perform location search based on hash key that covers the whole region for our configured max distance
             if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
+            // Pass all query parameters for custom filters if any
+            for (var p in req.query) options[p] = req.query[p];
             // Limit the distance within our configured range
             options.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
-            options.latitude = req.query.latitude;
-            options.longitude = req.query.longitude;
             // Continue pagination using the search token
             var token = core.toJson(req.query._token);
             if (token && token.geohash) {

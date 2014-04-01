@@ -423,6 +423,10 @@ db.query = function(req, options, callback)
                 }
                 // Convert values if we have custom column callback
                 self.processRows(pool, req.table, rows, options);
+
+                // Custom filter to return the final result set
+                if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
+
                 // Cache notification in case of updates, we must have the request prepared by the db.prepare
                 if (options && options.cached && req.table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
                     self.clearCached(req.table, req.obj, options);
@@ -712,8 +716,10 @@ db.getLocations = function(table, options, callback)
     options.start = null;
     options.nrows = count;
     options.sort = "id";
-    options.ops = { id: "gt" };
-    db.select(table, { geohash: options.geohash, id: options.id || "" }, options, function(err, rows, info) {
+    if (!options.ops) options.ops = {};
+    options.ops.id = "gt";
+
+    db.select(table, options, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;
     	count -= rows.length;
         async.until(
@@ -724,7 +730,7 @@ db.getLocations = function(table, options, callback)
                 options.id = "";
                 options.count = count;
                 options.geohash = options.neighbors.shift();
-                db.select(table, { geohash: options.geohash, id: options.id }, options, function(err, items, info) {
+                db.select(table, options, options, function(err, items, info) {
                     rows.push.apply(rows, items);
                     count -= items.length;
                     next(err);
@@ -2114,21 +2120,21 @@ db.dynamodbInitPool = function(options)
         case "select":
         case "search":
             // If we have other key columns we have to use custom filter
-            var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 });
+            var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && obj[x] });
             // Only primary key columns are allowed
             var keys = (options.keys || dbkeys).filter(function(x) { return other.indexOf(x) == -1 && obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var filter = function(items) {
                 if (other.length > 0) {
                     if (!options.ops) options.ops = {};
-                    if (!options.type) options.type = {};
+                    if (!options.typesMap) options.typesMap = {};
                     // Keep rows which satisfy all conditions
                     items = items.filter(function(row) {
                         return other.every(function(k) {
-                            return core.isTrue(row[k], obj[k], options.ops[k], options.type[k]);
+                            return core.isTrue(row[k], obj[k], options.ops[k], options.typesMap[k]);
                         });
                     });
                 }
-                return options.filter ? items.filter(function(row) { return options.filter(row, options); }) : items;
+                return items;
             }
             // Do not use index name if it is a primary key
             if (options.sort && dbkeys.indexOf(options.sort) > -1) options.sort = null;
@@ -2562,4 +2568,5 @@ db.nopool.prepare = function(op, table, obj, options)
     default:
         logger.error("none: core.init must be called before using the backend DB functions:", op, table, obj);
     }
+    return {};
 }
