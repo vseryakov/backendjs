@@ -26,7 +26,7 @@ var amqp = require('amqp');
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2014.03.25.0',
+    version: '2014.03.25',
 
     // Process and config parameters
     argv: {},
@@ -41,7 +41,7 @@ var core = {
     instance: false,
 
     // Home directory, current by default, must be absolute path
-    home: process.env.HOME + '/.backend',
+    home: process.env.BACKEND_HOME || (process.env.HOME + '/.backend'),
 
     // Various folders, by default relative paths are used
     path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", files: "files", log: "log" },

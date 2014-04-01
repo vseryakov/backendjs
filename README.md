@@ -1,4 +1,4 @@
-# Backend framework for node.js
+# Backend.js framework for node.js
 
 General purpose backend framework.
 
@@ -19,11 +19,35 @@ Features:
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
 
-Check out the [Documentation](http://vseryakov.github.io/backend/) for more documentation.
+Check out the [Documentation](http://vseryakov.github.io/backendjs/) for more documentation.
 
-# Installation (Not available yet)
+# Requirements and dependencies
 
-        npm install backend
+The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
+on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
+
+The list of packages that backendjs requires to be installed:
+- libuuid
+- libpng
+
+The list of optional packages that the backendjs may use if available:
+- jpeg - for ImageMagick
+- jasper - for ImageMagick JPEG200 support
+- tiff - for ImageMagick
+- libpq - PostgreSQL database driver
+- libmysql - MySQL database driver
+
+Installing on CentOS required and optional packages:
+
+        yum -y install libuuid-devel libpng-devel openjpeg-devel libjpeg-turbo-devel jasper postgresql-devel mysql-devel
+
+Installing on Mac OS X using macports:
+
+        port install ossp-uuid libpng jpeg tiff jasper mysql56 postgresql93
+
+# Installation
+
+        npm install backendjs
 
 This may take some time because of compiling required dependencies like ImageMagick, nanomsg and LevelDB. They are not required in all
 applications but still part of the core of the system to be available once needed.
@@ -1147,7 +1171,7 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
 # Backend framework development (Mac OS X, developers)
 
-* `git clone https://github.com/vseryakov/backend.git` or `git clone git@github.com:vseryakov/backend.git`
+* `git clone https://github.com/vseryakov/backendjs.git` or `git clone git@github.com:vseryakov/backendjs.git`
 * cd backend
 * to initialize environment for the backend development it needs to set permissions for $BACKEND_PREFIX (default is /opt/local)
   to the current user, this is required to support global NPM modules.
@@ -1175,9 +1199,9 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
         ./rc.backend init-backend
 
 * to compile the binary module and all required dependencies just type ```make```
-    * for ImageMagick to work propely it needs some dependencies to be installed:
+    * for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
 
-	    port install libpng jpeg librsvg tiff jasper lcms2
+	    port install ossp-uuid libpng jpeg librsvg tiff jasper lcms2 mysql56 postgresql93
 
     * to see the actual compiler setting during compile the following helps:
 
@@ -1199,5 +1223,5 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 # Author
   Vlad Seryakov
 
-Check out the [Documentation](http://vseryakov.github.io/backend/) for more documentation.
+Check out the [Documentation](http://vseryakov.github.io/backendjs/) for more documentation.
 

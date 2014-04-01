@@ -353,9 +353,9 @@ case "$ARG" in
 
     # Install required packages and utilities
     yum -y install gcc-c++ make cmake autoconf automake libtool
-    yum -y install libuuid-devel openssl-devel alsa-lib-devel pcre-devel libxml2-devel readline-devel uuid-devel
+    yum -y install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
     yum -y install jasper libpng-devel openjpeg-devel libjpeg-turbo-devel librsvg2-devel
-    yum -y install postgresql93-devel openldap-devel mysql-devel mysql-server
+    yum -y install postgresql93-devel postgresql93-server mysql-devel mysql-server
 
     ;;
 
