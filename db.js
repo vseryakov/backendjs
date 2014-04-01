@@ -369,10 +369,9 @@ db.createPool = function(name, pool, options)
 //   - values - parameter values for SQL bindings or other driver specific data
 // - options may have the following properties:
 //     - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
-// Callback is called with the following params:
 // - callback(err, rows, info) where
-// - info is an object with information about the last query: inserted_oid,affected_rows,next_token
-// - rows is always returned as a list, even in case of error it is an empty list
+//    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
+//    - rows is always returned as a list, even in case of error it is an empty list
 db.query = function(req, options, callback)
 {
     var self = this;
@@ -596,6 +595,23 @@ db.replace = function(table, obj, options, callback)
 // - affected_rows - how many records this operation affected
 // - inserted_oid - last created auto generated id
 // - next_token - next primary key or offset for pagination by passing it as .start property in the options
+//
+//  Example: (allow all accounts icons to be visible)
+//
+//          db.select("bk_account", {}, function(err, rows) {
+//              rows.forEach(function(row) {
+//                  row.acl_allow = 'auth';
+//                  db.update("bk_icon", row);
+//              });
+//          });
+//
+//
+//  Example: (select account with custom filter, not primary key)
+//
+//      db.select("bk_account", { gender: 'f' }, { keys: ['gender'] }, function(err, rows) {
+//              ....
+//      });
+//
 db.select = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;

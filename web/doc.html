@@ -2779,13 +2779,14 @@ due to some error.</p>
 </ul>
 </li>
 <li>options may have the following properties:<ul>
-<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
-Callback is called with the following params:</li>
+<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)</li>
 </ul>
 </li>
-<li>callback(err, rows, info) where</li>
+<li>callback(err, rows, info) where<ul>
 <li>info is an object with information about the last query: inserted_oid,affected_rows,next_token</li>
 <li>rows is always returned as a list, even in case of error it is an empty list</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -2895,9 +2896,20 @@ On return, the callback can check third argument which is an object with the fol
 <li>inserted_oid - last created auto generated id</li>
 <li>next_token - next primary key or offset for pagination by passing it as .start property in the options</li>
 </ul>
-</li>
+<p>Example: (allow all accounts icons to be visible)</p>
+<pre><code>    db.select(&quot;bk_account&quot;, {}, function(err, rows) {
+        rows.forEach(function(row) {
+            row.acl_allow = &#39;auth&#39;;
+            db.update(&quot;bk_icon&quot;, row);
+        });
+    });
+</code></pre></li>
 </ul>
-
+<p>  Example: (select account with custom filter, not primary key)</p>
+<pre><code>  db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, { keys: [&#39;gender&#39;] }, function(err, rows) {
+          ....
+  });
+</code></pre>
 <ul>
 <li><p><code>db.list(table, obj, options, callback)</code></p>
 <p> Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column
