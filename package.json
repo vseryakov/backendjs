@@ -1,8 +1,8 @@
 {
   "version": "0.9.0",
   "author": "Vlad Seryakov",
-  "name": "backend",
-  "description": "Backend framework",
+  "name": "backendjs",
+  "description": "Backend.js framework",
   "main": "index",
   "preferGlobal": "true",
   "homepage": "https://github.com/vseryakov/backend",
