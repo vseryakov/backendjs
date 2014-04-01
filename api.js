@@ -93,7 +93,7 @@ var api = {
        // Keep track of icons uploaded
        bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
                   type: { primary: 1, pub: 1 },               // prefix:type
-                  auth: {},                                   // Who can see it: all, auth, id:id...
+                  acl_allow: {},                              // Who can see it: all, auth, id:id...
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
