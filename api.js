@@ -28,7 +28,7 @@ var metrics = require(__dirname + '/metrics');
 var core = require(__dirname + '/core');
 var printf = require('printf');
 var logger = require(__dirname + '/logger');
-var backend = require(__dirname + '/build/backend');
+var backend = require(__dirname + '/build/Release/backend');
 
 // HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
 // incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors

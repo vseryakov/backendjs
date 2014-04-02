@@ -14,16 +14,6 @@
 #include <v8-profiler.h>
 #include <uv.h>
 #include "bksqlite.h"
-#include <nanomsg/nn.h>
-#include <nanomsg/bus.h>
-#include <nanomsg/tcp.h>
-#include <nanomsg/ipc.h>
-#include <nanomsg/pair.h>
-#include <nanomsg/inproc.h>
-#include <nanomsg/survey.h>
-#include <nanomsg/pipeline.h>
-#include <nanomsg/pubsub.h>
-#include <nanomsg/reqrep.h>
 
 using namespace node;
 using namespace v8;

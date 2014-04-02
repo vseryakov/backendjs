@@ -6,6 +6,9 @@
 all:
 	./rc.backend build-backend
 
+force:
+	./rc.backend build-backend --backend_deps_force
+
 run:
 	./rc.backend run-backend
 

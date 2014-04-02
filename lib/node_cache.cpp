@@ -5,6 +5,10 @@
 
 #include "node_backend.h"
 
+#ifdef USE_NANOMSG
+#include <nanomsg/nn.h>
+#endif
+
 struct lruSocket {
 	int sock1;
 	int sock2;
@@ -480,6 +484,7 @@ static Handle<Value> lruStats(const Arguments& args)
     return scope.Close(obj);
 }
 
+#ifdef USE_NANOMSG
 static void lruHandleRead(uv_poll_t *w, int status, int revents)
 {
 	if (status == -1 || !(revents & UV_READABLE)) return;
@@ -532,10 +537,12 @@ static void lruHandleRead(uv_poll_t *w, int status, int revents)
 		nn_freemsg(buf);
 	}
 }
+#endif
 
 static Handle<Value> lruServer(const Arguments& args)
 {
     HandleScope scope;
+#ifdef USE_NANOMSG
 
     REQUIRE_ARGUMENT_INT(0, type);
     REQUIRE_ARGUMENT_INT(1, sock1);
@@ -556,7 +563,9 @@ static Handle<Value> lruServer(const Arguments& args)
     p->data = d;
 
     LogDebug("type=%d, sock1=%d, sock2=%d, rfd=%d", type, sock1, sock2, rfd);
-
+#else
+    return ThrowException(Exception::Error(String::New("nanomsg is not compiled in")));
+#endif
     return scope.Close(Undefined());
 }
 

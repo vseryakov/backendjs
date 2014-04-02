@@ -3,7 +3,7 @@
 //  Sep 2013
 //
 
-exports.backend = require(__dirname + '/build/backend');
+exports.backend = require(__dirname + '/build/Release/backend');
 exports.core = require(__dirname + '/core');
 exports.logger = require(__dirname + '/logger');
 exports.aws = require(__dirname + '/aws');

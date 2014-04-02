@@ -643,7 +643,6 @@ case "$ARG" in
 
   build-deps)
     BACKEND_PREFIX=$(pwd)/build
-    PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$BACKEND_PREFIX/lib/pkgconfig"
     CFLAGS="-fPIC -I$BACKEND_PREFIX/include"
     LDFLAGS="-L$BACKEND_PREFIX/lib"
     [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include"
@@ -651,7 +650,7 @@ case "$ARG" in
     mkdir -p deps
 
     pkg-config --silence-errors --exists libnanomsg
-    if [ "$?" = "1" ]; then
+    if [ "$?" = "1" -a "$npm_config_backend_deps_force" != "" ]; then
         if [ ! -d deps/nanomsg ]; then
            (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
         fi
@@ -661,7 +660,7 @@ case "$ARG" in
     fi
 
     pkg-config --silence-errors --exists Wand
-    if [ "$?" = "1" ]; then
+    if [ "$?" = "1" -a "$npm_config_backend_deps_force" != "" ]; then
         if [ ! -d deps/ImageMagick ]; then
            mkdir -p deps/ImageMagick
            curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
@@ -739,6 +738,8 @@ api.initMiddleware = function()
 {
     // Use web pages from current directory
     this.app.use(express.static(__dirname + '/web'));
+    // Allow special URL without signature
+    self.allow.push('/free/access');
 }
 
 api.initApplication = function(callback)
@@ -827,7 +828,7 @@ backend.server.start();
     echo "  init-mysql - run MySQL server and create backend database"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
     echo "  stop-mysql - stop local MySQL server"
-    echo "  build-deps - build all required software for the backend binary module"
+    echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BACKEND_PREFIX"
     echo "  clean-deps - clean dependencies binary and object files"
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"

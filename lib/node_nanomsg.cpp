@@ -7,6 +7,17 @@
 
 #ifdef USE_NANOMSG
 
+#include <nanomsg/nn.h>
+#include <nanomsg/bus.h>
+#include <nanomsg/tcp.h>
+#include <nanomsg/ipc.h>
+#include <nanomsg/pair.h>
+#include <nanomsg/inproc.h>
+#include <nanomsg/survey.h>
+#include <nanomsg/pipeline.h>
+#include <nanomsg/pubsub.h>
+#include <nanomsg/reqrep.h>
+
 #if defined __GNUC__ || defined __llvm__
 #define nn_fast(x) __builtin_expect ((x), 1)
 #define nn_slow(x) __builtin_expect ((x), 0)

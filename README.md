@@ -47,7 +47,15 @@ Installing on Mac OS X using macports:
 
 # Installation
 
+To install the module with all optional dependencies if they are available in the system
+
+Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(PostgreSQL, MySQL) and nanomsg.
+
         npm install backendjs
+
+To force internal nanomsg and ImageMagick to be compiled the following command must be used:
+
+        npm install backendjs --backend_deps_force
 
 This may take some time because of compiling required dependencies like ImageMagick, nanomsg and LevelDB. They are not required in all
 applications but still part of the core of the system to be available once needed.
@@ -1204,6 +1212,10 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
     * to see the actual compiler setting during compile the following helps:
 
             make V=1
+
+    * to compile with internal nanomsg and ImageMagick use:
+
+            make force V=1
 
 * to run local server on port 8000 run command:
 

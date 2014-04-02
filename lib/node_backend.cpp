@@ -4,11 +4,11 @@
 //
 
 #include "node_backend.h"
-
-#include <wand/MagickWand.h>
 #include "snappy.h"
 
 #ifdef USE_WAND
+#include <wand/MagickWand.h>
+
 // Async request for magickwand resize callback
 class MagickBaton {
 public:
@@ -692,7 +692,6 @@ void backend_init(Handle<Object> target)
 
     vlib_init();
     vsqlite_init();
-    MagickWandGenesis();
 
     DebugInit(target);
 
@@ -706,6 +705,7 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "countAllWords", countAllWords);
 
 #ifdef USE_WAND
+    MagickWandGenesis();
     NODE_SET_METHOD(target, "resizeImage", resizeImage);
     NODE_SET_METHOD(target, "resizeImageSync", resizeImageSync);
 #endif
