@@ -24,13 +24,15 @@ Check out the [Documentation](http://vseryakov.github.io/backendjs/) for more do
 # Requirements and dependencies
 
 The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
-on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped. also, if ImageMagick is installed
-already the backendjs will use it instead of compiling internal version of it in place.
+on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped. Also, if ImageMagick is installed
+already the backendjs will use it instead of downloading and compiling it during the installation.
 
 The list of optional packages that the backendjs may use if available:
-- jpeg - for ImageMagick
-- jasper - for ImageMagick JPEG200 support
-- tiff - for ImageMagick
+- nanomsg - messaging, caching and pub/sub services
+- ImageMagick - image manipulation
+  - jpeg - for ImageMagick
+  - jasper - for ImageMagick JPEG200 support
+  - tiff - for ImageMagick
 - libpq - PostgreSQL database driver
 - libmysql - MySQL database driver
 

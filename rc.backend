@@ -637,15 +637,6 @@ case "$ARG" in
     (cd deps/node && git pull && make install clean)
     ;;
 
-  build-nanomsg)
-    if [ ! -d deps/nanomsg ]; then
-       (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
-    fi
-    (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
-    (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
-    (cd deps/nanomsg && make install)
-    ;;
-
   build-deps)
     BACKEND_PREFIX=$(pwd)/build
     PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$BACKEND_PREFIX/lib/pkgconfig"
@@ -655,16 +646,26 @@ case "$ARG" in
     [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/local/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
     mkdir -p deps
 
-    pkg-config --silence-errors --exists Wand
-    [ "$?" = "0" ] && exit
-
-    if [ ! -d deps/ImageMagick ]; then
-       mkdir -p deps/ImageMagick
-       curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
-       tar -C deps/ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
+    pkg-config --silence-errors --exists libnanomsg
+    if [ "$?" = "1" ]; then
+        if [ ! -d deps/nanomsg ]; then
+           (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
+        fi
+        (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
+        (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
+        (cd deps/nanomsg && make install)
     fi
-    (cd deps/ImageMagick && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS")
-    (cd deps/ImageMagick && make install)
+
+    pkg-config --silence-errors --exists Wand
+    if [ "$?" = "1" ]; then
+        if [ ! -d deps/ImageMagick ]; then
+           mkdir -p deps/ImageMagick
+           curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
+           tar -C deps/ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
+        fi
+        (cd deps/ImageMagick && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS")
+        (cd deps/ImageMagick && make install)
+    fi
     exit 0
     ;;
 
