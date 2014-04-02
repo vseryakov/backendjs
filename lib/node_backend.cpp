@@ -8,6 +8,7 @@
 #include <wand/MagickWand.h>
 #include "snappy.h"
 
+#ifdef USE_WAND
 // Async request for magickwand resize callback
 class MagickBaton {
 public:
@@ -51,6 +52,7 @@ public:
         double opacity;
     } d;
 };
+#endif
 
 class BKBaton {
 public:
@@ -165,6 +167,8 @@ Handle<Value> toArray(vector<pair<string,string> > &list)
     }
     return scope.Close(rc);
 }
+
+#ifdef USE_WAND
 
 static FilterTypes getMagickFilter(string filter)
 {
@@ -447,6 +451,7 @@ err:
     ThrowException(Exception::Error(String::New(msg.c_str())));
     return scope.Close(Undefined());
 }
+#endif
 
 static Handle<Value> countWords(const Arguments& args)
 {
@@ -700,8 +705,10 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "countWords", countWords);
     NODE_SET_METHOD(target, "countAllWords", countAllWords);
 
+#ifdef USE_WAND
     NODE_SET_METHOD(target, "resizeImage", resizeImage);
     NODE_SET_METHOD(target, "resizeImageSync", resizeImageSync);
+#endif
 
     NODE_SET_METHOD(target, "snappyCompress", snappyCompress);
     NODE_SET_METHOD(target, "snappyUncompress", snappyUncompress);

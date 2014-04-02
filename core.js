@@ -151,7 +151,7 @@ var core = {
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
             { name: "lru-server", descr: "LRU server that acts as a NN-BUS node to brosadcast cache messages to all connected backends" },
             { name: "lru-host", descr: "Address of NN-BUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
-            { name: "pub-type", descr: "One of the redis, amqp or nn to use for PUB/SUB messaging, default is nanomsg sockets" },
+            { name: "pub-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
             { name: "pub-server", descr: "Server to listen for published messages using nanomsg: ipc:///path,tcp://IP:port..." },
             { name: "pub-host", descr: "Server where clients publish messages to using nanomsg: ipc:///path,tcp://IP:port..." },
             { name: "sub-server", descr: "Server to listen for subscribed clients using nanomsg: ipc:///path,tcp://IP:port..." },

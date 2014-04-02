@@ -39,12 +39,15 @@
         "target_name": "backend",
         "defines": [
            "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
-           "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)"
+           "<!@(if pkg-config --exists libpq; then echo USE_PGSQL; fi)",
+           "<!@(PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if pkg-config --exists Wand; then echo USE_WAND; fi)",
+           "<!@(PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if pkg-config --exists libnanomsg; then echo USE_NANOMSG; fi)",
         ],
         "libraries": [
-           "-L/opt/local/lib lib/libnanomsg.a",
+           "-L/opt/local/lib",
            "$(shell mysql_config --libs_r 2>/dev/null)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
+           "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs libnanomsg)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --static --libs Wand)"
         ],
         "sources": [

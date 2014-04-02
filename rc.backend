@@ -637,6 +637,15 @@ case "$ARG" in
     (cd deps/node && git pull && make install clean)
     ;;
 
+  build-nanomsg)
+    if [ ! -d deps/nanomsg ]; then
+       (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
+    fi
+    (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
+    (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
+    (cd deps/nanomsg && make install)
+    ;;
+
   build-deps)
     BACKEND_PREFIX=$(pwd)/build
     PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$BACKEND_PREFIX/lib/pkgconfig"
@@ -645,13 +654,6 @@ case "$ARG" in
     [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include"
     [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/local/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
     mkdir -p deps
-
-    if [ ! -d deps/nanomsg ]; then
-       (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
-    fi
-    (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
-    (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
-    (cd deps/nanomsg && make install)
 
     pkg-config --silence-errors --exists Wand
     [ "$?" = "0" ] && exit
