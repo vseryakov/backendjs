@@ -8,6 +8,7 @@
 *.swp
 *.*~
 *.log
+*.tgz
 *xcshareddata*
 *xcuserdata*
 .settings

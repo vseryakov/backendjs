@@ -575,16 +575,20 @@ case "$ARG" in
     ;;
 
   put-backend)
-    path=node_modules
+    path=node_modules/backendjs
     while [ $# -gt 1 ]; do
       case "$2" in
       -path) path=$3;shift;shift;;
       -host) BACKEND_MASTER=$3;shift;shift;;
+      -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $3";shift;shift;;
       esac
     done
     [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
-    echo "Deploying the module to $BACKEND_MASTER:$path/backendjs ..."
-    rsync -av -e "ssh -l $BACKEND_USER" --delete --exclude build --exclude pages --exclude etc --exclude deps .rsync-filter `ls` $BACKEND_MASTER:$path/backendjs
+    for f in build pages etc deps log tmp var images files; do
+        BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
+    done
+    echo "Deploying the module to $BACKEND_MASTER:$path ...exclude: $BACKEND_EXCLUDE"
+    rsync -av -e "ssh -l $BACKEND_USER" --delete $BACKEND_EXCLUDE `ls` $BACKEND_MASTER:$path
     ;;
 
   run-backend)
@@ -788,19 +792,6 @@ backend.server.start();
     $BACKEND_PREFIX/bin/node $NAME.js -debug -watch `pwd` -web $@
     ;;
 
-  put-app)
-    path=""
-    while [ $# -gt 1 ]; do
-      case "$2" in
-      -path) path=$3;shift;shift;;
-      -host) BACKEND_MASTER=$3;shift;shift;;
-      esac
-    done
-    [ "$BACKEND_MASTER" = "" ] && echo "Destination host must be specified with -host or BACKEND_MASTER" && exit
-    echo "Deploying the app to $BACKEND_MASTER:$path ..."
-    rsync -av -e "ssh -l $BACKEND_USER" --exclude build --exclude etc --exclude deps `ls` $BACKEND_MASTER:$path
-    ;;
-
   show)
     set
     ;;
@@ -843,13 +834,11 @@ backend.server.start();
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or an application based on the backend"
     echo "  init-backend - init core backend environment, for the core development only, links NPM global backend module $NODE_BACKEND back to this sources"
     echo "  put-backend path [-host host] - push the backend code to the master server, uses env BACKEND_MASTER or host form the command line"
-    echo "  run-backend - run local backend server"
+    echo "  run-backend - run local backend server or the app.js"
     echo "  show-help - show all backend command line and config parameters"
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
-    echo "  run-app - run the application created with init-app, default is port 8000"
-    echo "  put-app [path [-host host]] - push the app code to the master server, uses env BACKEND_MASTER or host from the command line"
     ;;
 esac
 

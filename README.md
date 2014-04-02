@@ -24,19 +24,20 @@ Check out the [Documentation](http://vseryakov.github.io/backendjs/) for more do
 # Requirements and dependencies
 
 The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
-on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped. Also, if ImageMagick is installed
-already the backendjs will use it instead of downloading and compiling it during the installation.
+on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
 
-The list of optional packages that the backendjs may use if available:
-- nanomsg - messaging, caching and pub/sub services
-- ImageMagick - image manipulation
-  - jpeg - for ImageMagick
-  - jasper - for ImageMagick JPEG200 support
-  - tiff - for ImageMagick
+The list of optional packages that the backendjs may use if available, resolving packages is done by pkg-config:
+- nanomsg - messaging, caching and pub/sub services, this package is not in the repisotories so manual installation
+       may require or the backendjs will do it during the installaton automatically
+- ImageMagick - image manipulation with optional dependencies, will be compiled if not installed already:
+  - jpeg - for regular JPEG format
+  - jasper - for JPEG 2000 format
+  - tiff - image format
+  - rsvg - image format
 - libpq - PostgreSQL database driver
 - libmysql - MySQL database driver
 
-Installing on CentOS required and optional packages:
+Installing on CentOS:
 
         yum -y install libpng-devel openjpeg-devel libjpeg-turbo-devel jasper postgresql-devel mysql-devel
 
@@ -882,7 +883,7 @@ The backend directory structure is the following:
             db-dynamodb-pool=http://localhost:9000
             db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 
-            To specify other config file: rc.backend run-app -config-file file
+            To specify other config file: rc.backend run-backend -config-file file
 
     * `etc/crontab` - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
 
@@ -902,7 +903,7 @@ The backend directory structure is the following:
 
         3. Start the scheduler and the web server at once
 
-                rc.backend run-app -master -web
+                rc.backend run-backend -master -web
 
     * `etc/proxy` - HTTP proxy config file, from http-proxy (https://github.com/nodejitsu/node-http-proxy)
 
@@ -1095,8 +1096,7 @@ Most common used commands are:
 - rc.backend run-backend - run the backend or the app for development purposes
 - rc.backend run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
 - rc.backend init-app - create the app skeleton
-- rc.backend run-app - run the local app in dev mode
-- rc.backend put-app path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line
+- rc.backend put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line
 - rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend
 
 Here is the typical example how to setup new AWS server:
