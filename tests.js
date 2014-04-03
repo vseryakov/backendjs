@@ -144,13 +144,13 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { icon: icon, type: 1 }  }
+            var options = { login: login, secret: secret, query: { icon: icon, type: 1, acl_allow: "all" }  }
             core.sendRequest("/account/put/icon", options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: 2, _width: 128, _height: 128 }  }
+            var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: 2, _width: 128, _height: 128, acl_allow: "auth" }  }
             core.sendRequest("/account/put/icon", options, function(err, params) {
                 next(err);
             });
@@ -158,7 +158,7 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret, query: { _consistent: 1 } }
             core.sendRequest("/account/select/icon", options, function(err, params) {
-                next(err || !params.obj || params.obj.length!=2 ? ("err2:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.length!=2 || !params.obj[0].acl_allow ? ("err2:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
