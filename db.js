@@ -751,16 +751,21 @@ db.getLocations = function(table, options, callback)
 	var latitude = options.latitude, longitude = options.longitude;
     var distance = core.toNumber(options.distance, 0, 2, 1, 999);
     var count = core.toNumber(options.count, 0, 50, 0, 250);
-    var cols = db.getColumns(table);
+    var cols = db.getColumns(table, options);
+    var keys = db.getKeys(table, options);
     if (!options.geohash) {
     	var geo = core.geoHash(latitude, longitude, { distance: distance });
     	for (var p in geo) options[p] = geo[p];
     }
     options.start = null;
     options.nrows = count;
-    options.sort = "id";
     if (!options.ops) options.ops = {};
-    options.ops.id = "gt";
+
+    // Sort by the second part of the primary key, first is always geohash, this is mostly for SQL databases because DyanmoDB sorts by range key automatically
+    if (!options.sort && keys.length) {
+        options.sort = keys[keys.length - 1];
+        options.ops[options.sort] = "gt";
+    }
 
     db.select(table, options, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;
