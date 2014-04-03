@@ -1434,7 +1434,7 @@ api.handleIcon = function(req, res, op, options)
 
     if (!req.query.type) req.query.type = "";
 
-    var obj = { id: req.account.id, type: req.query.prefix + ":" + req.query.type, allow: req.query.allow };
+    var obj = { id: req.account.id, type: req.query.prefix + ":" + req.query.type, acl_allow: req.query.acl_allow };
     db[op]("bk_icon", obj, function(err, rows) {
         if (err) return self.sendReply(res, err);
 
