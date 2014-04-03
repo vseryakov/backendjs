@@ -808,7 +808,7 @@ api.initMessageAPI = function()
         switch (req.params[0]) {
         case "image":
             if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
-            self.getIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
+            self.sendIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
             break;
 
         case "get":
@@ -833,7 +833,7 @@ api.initMessageAPI = function()
             req.query.mtime = now + ":" + req.query.sender;
             self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
                 if (err) return self.sendReply(res, err);
-                if (icon) req.query.icon = 1;
+                req.query.icon = icon ? 1 : "0";
                 db.add("bk_message", req.query, {}, function(err, rows) {
                     if (err) return self.sendReply(res, db.convertError("bk_message", err));
                     self.sendJSON(req, res, {});
@@ -1173,7 +1173,7 @@ api.initLocationAPI = function()
                 if (core.toNumber(req.query._details) && rows.length) {
                     var list = {}, ids = [];
                     rows = rows.map(function(row) {
-                        if (list[row.id]) return row; 
+                        if (list[row.id]) return row;
                         ids.push({ id: row.id });
                         list[row.id] = row;
                         return row;
@@ -1478,26 +1478,34 @@ api.getIcon = function(req, res, id, options)
         if (err) return self.sendReply(res, err);
         if (!rows.length) return self.sendReply(res, 404, "Not found");
         if (!self.checkIcon(req, id, rows[0])) return self.sendReply(res, 401, "Not allowed");
-
-        var icon = core.iconPath(id, options);
-        if (self.imagesS3) {
-            var aws = core.context.aws;
-            aws.queryS3(self.imagesS3, icon, options, function(err, params) {
-                if (err) return self.sendReply(res, err);
-
-                res.type("image/" + (options.ext || "jpeg"));
-                res.send(200, params.data);
-            });
-        } else {
-            self.sendFile(req, res, icon);
-        }
+        self.sendIcon(req, res, id, options);
     });
+}
+
+// Send an icon to the client, only handles files
+api.sendIcon = function(req, res, id, options)
+{
+    var self = this;
+    var aws = core.context.aws;
+    var icon = core.iconPath(id, options);
+    logger.log('sendIcon:', icon, id, options)
+
+    if (self.imagesS3) {
+        aws.queryS3(self.imagesS3, icon, options, function(err, params) {
+            if (err) return self.sendReply(res, err);
+
+            res.type("image/" + (options.ext || "jpeg"));
+            res.send(200, params.data);
+        });
+    } else {
+        self.sendFile(req, res, icon);
+    }
 }
 
 // Verify icon permissions for given account id, returns true if allowed
 api.checkIcon = function(req, id, row)
 {
-    var acl = row.acl_allow || row.allow || "";
+    var acl = row.acl_allow || "";
     if (acl == "all") return true;
     if (acl == "auth" && req.account) return true;
     if (acl.split(",").filter(function(x) { return x == id }).length) return true;
