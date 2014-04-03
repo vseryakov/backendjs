@@ -1429,11 +1429,11 @@ the worker processes if they die and restart them automatically. How many proces
 
 <ul>
 <li><p><code>api.init(callback)</code></p>
-<p> Initialize API layer, this mut be called before the api module can be used but it is called by the server module automatically so api.init is
-rearely need to used directly, only for new server implementation or if using in the shell for testing.
-During the init sequence, this function calls api.initMiddleware and api.initApplication methods which by default are empty but can be redefined in the user aplications.</p>
-<p>The backend.js uses its own query and POST parsers that place query parameters into <code>req.query</code> or <code>req.body</code> depending on the method.</p>
-<p>For GET method, <code>req.query</code> contains all url-encoded parameters, for method POST <code>req.body</code> contains url-encoded parmeters or parsed JSON payload.</p>
+<p> Initialize API layer, this must be called before the <code>api</code> module can be used but it is called by the server module automatically so <code>api.init</code> is
+rearely need to called directly, only for new server implementation or if using in the shell for testing.</p>
+<p>During the init sequence, this function calls <code>api.initMiddleware</code> and <code>api.initApplication</code> methods which by default are empty but can be redefined in the user aplications.</p>
+<p>The backend.js uses its own request parser that places query parameters into <code>req.query</code> or <code>req.body</code> depending on the method.</p>
+<p>For GET method, <code>req.query</code> contains all url-encoded parameters, for POST method <code>req.body</code> contains url-encoded parameters or parsed JSON payload or multipart payload.</p>
 <p>The simple way to dealing transpartently with htis is to check for method in the route handler like this</p>
 <pre><code>if (req.method == &quot;POST&quot;) req.query = req.body;
 </code></pre><p>The reason not to do this by default is that this may not be the alwayse wanted case and distinguishing data coming in the request or in the body may be desirable,

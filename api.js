@@ -208,13 +208,14 @@ var api = {
 
 module.exports = api;
 
-// Initialize API layer, this mut be called before the api module can be used but it is called by the server module automatically so api.init is
-// rearely need to used directly, only for new server implementation or if using in the shell for testing.
-// During the init sequence, this function calls api.initMiddleware and api.initApplication methods which by default are empty but can be redefined in the user aplications.
+// Initialize API layer, this must be called before the `api` module can be used but it is called by the server module automatically so `api.init` is
+// rearely need to called directly, only for new server implementation or if using in the shell for testing.
 //
-// The backend.js uses its own query and POST parsers that place query parameters into `req.query` or `req.body` depending on the method.
+// During the init sequence, this function calls `api.initMiddleware` and `api.initApplication` methods which by default are empty but can be redefined in the user aplications.
 //
-// For GET method, `req.query` contains all url-encoded parameters, for method POST `req.body` contains url-encoded parmeters or parsed JSON payload.
+// The backend.js uses its own request parser that places query parameters into `req.query` or `req.body` depending on the method.
+//
+// For GET method, `req.query` contains all url-encoded parameters, for POST method `req.body` contains url-encoded parameters or parsed JSON payload or multipart payload.
 //
 // The simple way to dealing transpartently with htis is to check for method in the route handler like this
 //
