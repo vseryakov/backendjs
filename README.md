@@ -212,7 +212,6 @@ The accounts API manages accounts and authentication, it provides basic user acc
                           "name": "User1",
                           "mtime": 1391824028,
                           "login": "test1",
-                          "icon1": "/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/1'"
                         },
                         {
                           "id": "57d07a4e2824fc43bd669f6c8e04d6c3",
@@ -220,7 +219,6 @@ The accounts API manages accounts and authentication, it provides basic user acc
                           "name": "User2",
                           "mtime": 1391824028,
                           "login": "test2",
-                          "icon1": "/image/account/57d07a4e2824fc43bd669f6c8e04d6c3/1'"
                         }],
                 "next_token": ""
             }

@@ -230,7 +230,6 @@ large tables.</p>
                       &quot;name&quot;: &quot;User1&quot;,
                       &quot;mtime&quot;: 1391824028,
                       &quot;login&quot;: &quot;test1&quot;,
-                      &quot;icon1&quot;: &quot;/image/account/57d07a4e28fc4f33bdca9f6c8e04d6c3/1&#39;&quot;
                     },
                     {
                       &quot;id&quot;: &quot;57d07a4e2824fc43bd669f6c8e04d6c3&quot;,
@@ -238,7 +237,6 @@ large tables.</p>
                       &quot;name&quot;: &quot;User2&quot;,
                       &quot;mtime&quot;: 1391824028,
                       &quot;login&quot;: &quot;test2&quot;,
-                      &quot;icon1&quot;: &quot;/image/account/57d07a4e2824fc43bd669f6c8e04d6c3/1&#39;&quot;
                     }],
             &quot;next_token&quot;: &quot;&quot;
         }
@@ -1673,6 +1671,12 @@ the callback MUST return data back to the client or any other status code</li>
 </ul>
 
 <ul>
+<li><p><code>api.sendIcon(req, res, id, options)</code></p>
+<p> Send an icon to the client, only handles files</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.checkIcon(req, id, row)</code></p>
 <p> Verify icon permissions for given account id, returns true if allowed</p>
 </li>
@@ -2058,7 +2062,7 @@ type can be bool, number, list, json</p>
 </ul>
 
 <ul>
-<li><p><code>core.loadConfig(configFile, callback)</code></p>
+<li><p><code>core.loadConfig(file, callback)</code></p>
 <p> Parse the config file, configFile can point to a file or can be skipped and the default file will be loaded</p>
 </li>
 </ul>
