@@ -516,6 +516,28 @@ db.del = function(table, obj, options, callback)
     this.query(req, options, callback);
 }
 
+// Delete all records that match given condition, one by one, th einput is the same as for `db.select` and every record
+// returned will be deleted using `db.del` call.
+// special properties that canbe in the options for this call:
+// - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
+//   in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
+//   as `options.process(row, options)`
+db.delAll = function(table, obj, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options,options = {};
+    options = this.getOptions(table, options);
+
+    self.select(table, obj, options, function(err, rows) {
+        if (err) return callback ? callback(err) : null;
+
+        async.forEachSeries(rows, function(row, next) {
+            if (options && options.process) options.process(row, options);
+            self.del(table, row, options, next);
+        }, callback);
+    });
+}
+
 // Add/update the object, check existence by the primary key or by other keys specified.
 // - obj is a JavaScript object with properties that correspond to the table columns
 // - options define additional flags that may
@@ -2207,7 +2229,9 @@ db.dynamodbInitPool = function(options)
                 var moreKeys = item.UnprocessedKeys || null;
                 var items = item.Responses[table] || [];
                 async.until(
-                    function() { return moreKeys; },
+                    function() {
+                        return moreKeys;
+                    },
                     function(next) {
                         options.RequestItems = moreKeys;
                         aws.ddbBatchGetItem({}, options, function(err, item) {

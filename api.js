@@ -16,7 +16,6 @@ var toobusy = require('toobusy');
 var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
-var connect = require('connect');
 var cookieParser = require('cookie-parser');
 var session = require('cookie-session');
 var serveStatic = require('serve-static');
@@ -287,6 +286,7 @@ api.init = function(callback)
     self.app.use(serveStatic(__dirname + "/web"));
 
     self.app.use(self.app.router);
+
     // Default error handler to show erros in the log
     self.app.use(function(err, req, res, next) {
         console.error(err.stack);
@@ -387,7 +387,7 @@ api.checkQuery = function(req, res, next)
     if (req._body) return next();
     req.body = req.body || {};
 
-    var type = connect.utils.mime(req);
+    var type = (req.get("content-type") || "").split(";")[0];
     switch (type) {
     case 'application/json':
     case 'application/x-www-form-urlencoded':
@@ -447,7 +447,8 @@ api.checkBody = function(req, res, next)
     req.files = req.files || {};
 
     if ('GET' == req.method || 'HEAD' == req.method) return next();
-    if ('multipart/form-data' != connect.utils.mime(req)) return next();
+    var type = (req.get("content-type") || "").split(";")[0];
+    if (type != 'multipart/form-data') return next();
     req._body = true;
 
     var data = {}, files = {}, done;
@@ -707,7 +708,7 @@ api.initAccountAPI = function()
             db.select("bk_account", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-                self.sendJSON(req, res, { data: rows, next_token: next_token });
+                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
             });
             break;
 
@@ -821,7 +822,7 @@ api.initMessageAPI = function()
                     row.sender = mtime[1];
                     if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
                 });
-                self.sendJSON(req, res, { data: rows, next_token: next_token });
+                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
             });
             break;
 
@@ -1056,12 +1057,12 @@ api.initConnectionAPI = function()
                     row.mtime = d[0];
                     row.id = d[1];
                 });
-                if (!req.query._details) return self.sendJSON(req, res, { data: rows, next_token: next_token });
+                if (!core.toNumber(req.query._details)) return self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
 
                 // Get all account records for the id list
                 db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, { data: rows, next_token: next_token });
+                    self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
                 });
             });
             break;
@@ -1079,12 +1080,12 @@ api.initConnectionAPI = function()
                     row.type = d[0];
                     row.id = d[1];
                 });
-                if (!req.query._details) return self.sendJSON(req, res, { data: rows, next_token: next_token });
+                if (!core.toNumber(req.query._details)) return self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
 
                 // Get all account records for the id list
                 db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
                     if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, { data: rows, next_token: next_token });
+                    self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
                 });
             });
             break;
@@ -1124,14 +1125,14 @@ api.initLocationAPI = function()
                 var distance = backend.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
                 if (distance < core.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + core.minDistance);
 
-                var geo = core.geoHash(latitude, longitude, { distance: req.account.distance });
+                var geo = core.geoHash(latitude, longitude);
                 var obj = { id: req.account.id, ltime: now, latitude: latitude, longitude: longitude, geohash: geo.geohash, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
                     self.sendJSON(req, res, obj);
 
                     // Delete current location
-                    var oldgeo = core.geoHash(req.account.latitude, req.account.longitude, { distance: req.account.distance });
+                    var oldgeo = core.geoHash(req.account.latitude, req.account.longitude);
                     oldgeo.id = req.account.id;
                     db.del("bk_location", oldgeo);
 
@@ -1169,7 +1170,7 @@ api.initLocationAPI = function()
                 // Ignore current account, db still retrieves it but in the API we skip it
                 rows = rows.filter(function(row) { return row.id != req.account.id });
                 // Return accounts with locations
-                if (req.query._details && rows.length) {
+                if (core.toNumber(req.query._details) && rows.length) {
                     var list = {}, ids = [];
                     rows = rows.map(function(row) {
                         ids.push({ id: row.id });
@@ -1184,10 +1185,10 @@ api.initLocationAPI = function()
                             var item = list[row.id];
                             for (var p in item) row[p] = item[p];
                         });
-                        self.sendJSON(req, res, { data: rows, next_token: next_token });
+                        self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
                     });
                 } else {
-                    self.sendJSON(req, res, { data: rows, next_token: next_token });
+                    self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
                 }
             });
             break;
@@ -1246,7 +1247,7 @@ api.initDataAPI = function()
             switch (req.params[0]) {
             case "select":
             case "search":
-                self.sendJSON(req, res, { data: rows, next_token: info.next_token });
+                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token });
                 break;
             default:
                 self.sendJSON(req, res, rows);
@@ -1657,16 +1658,57 @@ api.deleteFile = function(file, options, callback)
     }
 }
 
+// Delete all connections and references for the given account
+api.deleteConnections = function(obj, callback)
+{
+    var db = core.context.db;
+
+    db.select("bk_connection", { id: obj.id }, function(err, rows) {
+        if (err) return callback ? callback(err) : null;
+
+        async.forEachSeries(rows, function(row, next) {
+            var type = row.type.split(":");
+            db.del("bk_reference", { id: type[1], type: type[0] + ":" + obj.id }, function(err) {
+                db.del("bk_connection", row, next);
+            });
+        }, callback);
+    });
+}
+
 // Delete account specified in the obj, this must be merged object from bk_auth and bk_account tables.
 // Return err if something wrong occured in the callback.
 api.deleteAccount = function(obj, callback)
 {
+    var self = this;
     if (!obj || !obj.id || !obj.login) return callback ? callback(new Error("id, login must be specified")) : null;
     var db = core.context.db;
 
-    db.del("bk_auth", { login: obj.login }, { cached: true }, function(err) {
-        if (err) return callback ? callback(err) : null;
-        db.del("bk_account", { id: obj.id }, callback);
+    db.get("bk_account", { id: obj.id }, function(err, rows) {
+        if (err || !rows.length) if (err) return callback ? callback(err) : null;
+
+        async.series([
+           function(next) {
+               db.del("bk_auth", { login: obj.login }, { cached: true }, next);
+           },
+           function(next) {
+               db.del("bk_account", { id: obj.id }, function() { next() });
+           },
+           function(next) {
+               db.del("bk_counter", { id: obj.id }, function() { next() });
+           },
+           function(next) {
+               self.deleteConnections(obj, function() { next() });
+           },
+           function(next) {
+               db.delAll("bk_message", { id: obj.id }, function() { next() });
+           },
+           function(next) {
+               db.delAll("bk_icon", { id: obj.id }, function() { next() });
+           },
+           function(next) {
+               var geo = core.geoHash(rows[0].latitude, rows[0].longitude);
+               db.del("bk_location", { geohash: geo.geohash, id: obj.id }, next);
+           }], callback);
     });
 }
 

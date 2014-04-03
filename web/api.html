@@ -26,6 +26,11 @@
     height: 20px;
 }
 
+#history {
+    width: 200px;
+    max-width: 200px;
+}
+
 .header {
     font-weight: bold;
     font: bold 0.9em 'Trebuchet MS',Arial, Helvetica;
@@ -174,6 +179,13 @@ $(function() {
          }
      }
 
+     var list = localStorage['inputHistory.url'];
+     (list || "").split('\n').sort().forEach(function(x) { $('#history').append(new Option(x)); });
+     $('#history').on('change', function() {
+        $('#url').val($('#history').val());
+        Backend.doRun();
+     });
+
      $('#url').inputHistory({
          enter: function() { Backend.doRun() }
      });
@@ -199,6 +211,7 @@ $(function() {
       <tr><td>URL:</td>
           <td><input id="url" type="search" size=80" /></td>
           <td colspan=3><button type="submit" >Run</button></td>
+          <td colspan=3><select id="history"><option>History...</option></select></td>
           <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/></td>
           <td>Tabular</td>
           <td colspan=2><img id="loading" src="img/loading.gif"></td>
