@@ -211,6 +211,18 @@ module.exports = api;
 // Initialize API layer, this mut be called before the api module can be used but it is called by the server module automatically so api.init is
 // rearely need to used directly, only for new server implementation or if using in the shell for testing.
 // During the init sequence, this function calls api.initMiddleware and api.initApplication methods which by default are empty but can be redefined in the user aplications.
+//
+// The backend.js uses its own query and POST parsers that place query parameters into `req.query` or `req.body` depending on the method.
+//
+// For GET method, `req.query` contains all url-encoded parameters, for method POST `req.body` contains url-encoded parmeters or parsed JSON payload.
+//
+// The simple way to dealing transpartently with htis is to check for method in the route handler like this
+//
+//      if (req.method == "POST") req.query = req.body;
+//
+// The reason not to do this by default is that this may not be the alwayse wanted case and distinguishing data coming in the request or in the body may be desirable,
+// also, this will needed only for Express handlers `.all`, when registering handler by method like `.get` or `.post` then the handler needs to deal with only either source of the request data.
+//
 api.init = function(callback)
 {
     var self = this;
