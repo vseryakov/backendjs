@@ -1132,16 +1132,15 @@ api.initLocationAPI = function()
                     self.sendJSON(req, res, obj);
 
                     // Delete current location
-                    var oldgeo = core.geoHash(req.account.latitude, req.account.longitude);
-                    oldgeo.id = req.account.id;
-                    db.del("bk_location", oldgeo);
-
-                    // Insert new location
-                    geo.id = req.account.id;
-                    geo.mtime = now;
-                    // Add additional columns from the account to keep with the location
-                    for (var p in rows[0]) if (!geo[p]) geo[p] = rows[0][p];
-                    db.put("bk_location", geo);
+                    var old = core.geoHash(req.account.latitude, req.account.longitude);
+                    db.del("bk_location", { geohash: old.geohash, id: req.account.id }, function() {
+                        // Insert new location
+                        geo.id = req.account.id;
+                        geo.mtime = now;
+                        // Add additional columns from the account to keep with the location
+                        for (var p in rows[0]) if (!geo[p]) geo[p] = rows[0][p];
+                        db.put("bk_location", geo);
+                    });
 
                     // Update history log
                     if (req.query._history) {
@@ -1167,18 +1166,20 @@ api.initLocationAPI = function()
             // Rounded distance, not precise to keep from pin-pointing locations
             options.round = core.minDistance;
             db.getLocations("bk_location", options, function(err, rows, info) {
+                logger.log('INFO:', info);
+                var next_token = info.more ? core.toBase64(info) : null;
                 // Ignore current account, db still retrieves it but in the API we skip it
                 rows = rows.filter(function(row) { return row.id != req.account.id });
                 // Return accounts with locations
                 if (core.toNumber(req.query._details) && rows.length) {
                     var list = {}, ids = [];
                     rows = rows.map(function(row) {
+                        // Skip duplicates
                         if (list[row.id]) return row;
                         ids.push({ id: row.id });
                         list[row.id] = row;
                         return row;
                     });
-                    var next_token = core.toBase64(info);
                 	db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
                         if (err) return self.sendReply(res, err);
                         // Merge locations and accounts

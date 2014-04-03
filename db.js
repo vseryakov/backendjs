@@ -732,7 +732,7 @@ db.search = function(table, obj, options, callback)
 // - round - a number that defines the "precision" of  the distance, it rounds the distance to the nearest
 //   round number and uses decimal point of the round number to limit decimals in the distance
 //
-// On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
+// On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 // the next_token returned by the previous call
 //
 // On return, the callback's third argument contains the object that must be provided for subsequent searches until rows array is empty.
@@ -741,7 +741,7 @@ db.search = function(table, obj, options, callback)
 //
 //          db.getLocations("bk_location", { latitude: -118, longitude: 30, distance: 10 }, function(err, rows, info) {
 //              ...
-//              // Get next page
+//              // Get next page using previous info object
 //              db.getLocations("bk_location", info, function(err, rows, info) {
 //                  ...
 //              });
@@ -762,11 +762,11 @@ db.getLocations = function(table, options, callback)
     options.nrows = count;
     if (!options.ops) options.ops = {};
 
-    // Sort by the second part of the primary key, first is always geohash, this is mostly for SQL databases because DyanmoDB sorts by range key automatically
-    if (!options.sort && keys.length) {
-        options.sort = keys[keys.length - 1];
-        options.ops[options.sort] = "gt";
-    }
+    // Sort by the second part of the primary key, first is always geohash, this is mostly for SQL databases because DynamoDB sorts by range key automatically
+    options.sort = options.range = keys.length ? keys[keys.length - 1] : "id";
+    options.ops[options.range] = "gt";
+
+    logger.log('getLocations:', options);
 
     db.select(table, options, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;
@@ -776,7 +776,7 @@ db.getLocations = function(table, options, callback)
                 return count <= 0 || options.neighbors.length == 0;
             },
             function(next) {
-                options.id = "";
+                options[options.range] = "";
                 options.count = count;
                 options.geohash = options.neighbors.shift();
                 db.select(table, options, options, function(err, items, info) {
@@ -800,10 +800,12 @@ db.getLocations = function(table, options, callback)
                         if (cols.geohash && !cols.geohash.pub) delete row.geohash;
                     }
                 });
+                // Indicates that there could be more rows still even if we reached our count
+                options.more = rows.length && options.neighbors.length ? true : false;
                 // Restore original count because we pass this whole options object on the next run
                 options.count = options.nrows;
                 // Make the last row our next starting point
-                if (rows.length) options.id = rows[rows.length -1].id;
+                options[options.range] = rows.length ? rows[rows.length -1][options.range] : null;
                 if (callback) callback(err, rows, options);
             });
     });
@@ -2216,7 +2218,9 @@ db.dynamodbInitPool = function(options)
 
                 // Keep retrieving items until we reach the end or our limit
                 async.until(
-                    function() { return pool.next_token == null || count <= 0; },
+                    function() {
+                        return pool.next_token == null || count <= 0;
+                    },
                     function(next) {
                         options.start = pool.next_token;
                         aws.ddbQueryTable(table, keys, options, function(err, item) {
