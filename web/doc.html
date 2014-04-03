@@ -1227,9 +1227,9 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>proxy-port</code> - Proxy server port Default: 8000</li>
 <li><code>proxy-bind</code> - Proxy server listen address Default: 0.0.0.0</li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default</li>
-<li><code>repl-port-web</code> - Web server REPL port, if specified initializes REPL in the Web server process</li>
+<li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server process</li>
 <li><code>repl-bind-web</code> - Web server REPL listen address Default: 0.0.0.0</li>
-<li><code>repl-port</code> - Port for REPL interface in the master, if specified triggers REPL server initialization</li>
+<li><code>repl-port</code> - Port for REPL interface in the master, if specified it initializes REPL in the master server process</li>
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process Default: 0.0.0.0</li>
 <li><code>repl-file</code> - User specified file for REPL history Default: .history</li>
 <li><code>lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes Default: 50000</li>
@@ -3021,13 +3021,13 @@ split and saved as property id in the record</li>
 <li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
 round number and uses decimal point of the round number to limit decimals in the distance</li>
 </ul>
-<p>On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent call options.start must contain
+<p>On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 the next_token returned by the previous call</p>
 <p>On return, the callback&#39;s third argument contains the object that must be provided for subsequent searches until rows array is empty.</p>
 <p>Example</p>
 <pre><code>    db.getLocations(&quot;bk_location&quot;, { latitude: -118, longitude: 30, distance: 10 }, function(err, rows, info) {
         ...
-        // Get next page
+        // Get next page using previous info object
         db.getLocations(&quot;bk_location&quot;, info, function(err, rows, info) {
             ...
         });
@@ -3689,15 +3689,22 @@ All spaces must be are replaced with %20 to be used in command line parameterrs<
 arguments to the instance backend process, properties must start with -</p>
 <p>Example:</p>
 <pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },
-    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
+    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;id&quot;: &quot;processQueue&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
     { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
 </code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>server.runCronjob(id)</code></p>
-<p> Execute a cronjob by id now, it must have been scheduled already</p>
-</li>
+<p> Execute a cronjob by id now, it must have been scheduled already and id property must be specified in the crontab
+When REPL is activated on the master server with -repl-port then connecting to the running master server via telnet it is possible to execute
+cron jobs manually</p>
+<p>Example:</p>
+<pre><code>// Start the backend with repl-port like rc.backend run-backend -repl-port 2080
+
+# telnet localhost 2080
+&gt; server.runCronjob(&quot;processQueue&quot;)
+</code></pre></li>
 </ul>
 
 <ul>

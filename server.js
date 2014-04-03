@@ -689,7 +689,7 @@ server.execQueue = function()
 // Example:
 //
 //          { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
-//          { "type": "local", "cron": "0 10 7 * * *", "job": "api.processQueue" }
+//          { "type": "local", "cron": "0 10 7 * * *", "id": "processQueue", "job": "api.processQueue" }
 //          { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
 server.scheduleCronjob = function(spec, obj)
 {
@@ -712,7 +712,17 @@ server.scheduleCronjob = function(spec, obj)
     this.crontab.push(cj);
 }
 
-// Execute a cronjob by id now, it must have been scheduled already
+// Execute a cronjob by id now, it must have been scheduled already and id property must be specified in the crontab
+// When REPL is activated on the master server with -repl-port then connecting to the running master server via telnet it is possible to execute
+// cron jobs manually
+//
+//  Example:
+//
+//      // Start the backend with repl-port like rc.backend run-backend -repl-port 2080
+//
+//      # telnet localhost 2080
+//      > server.runCronjob("processQueue")
+//
 server.runCronjob = function(id)
 {
     this.crontab.forEach(function(x) {

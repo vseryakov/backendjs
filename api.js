@@ -1166,7 +1166,6 @@ api.initLocationAPI = function()
             // Rounded distance, not precise to keep from pin-pointing locations
             options.round = core.minDistance;
             db.getLocations("bk_location", options, function(err, rows, info) {
-                logger.log('INFO:', info);
                 var next_token = info.more ? core.toBase64(info) : null;
                 // Ignore current account, db still retrieves it but in the API we skip it
                 rows = rows.filter(function(row) { return row.id != req.account.id });
