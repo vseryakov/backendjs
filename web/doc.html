@@ -1729,6 +1729,12 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <ul>
+<li><p><code>api.deleteConnections(obj, callback)</code></p>
+<p> Delete all connections and references for the given account</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.deleteAccount(obj, callback)</code></p>
 <p> Delete account specified in the obj, this must be merged object from bk_auth and bk_account tables.
 Return err if something wrong occured in the callback.</p>
@@ -2877,6 +2883,19 @@ if does not exist yet.</em></p>
 <ul>
 <li>obj - an object with primary key properties only, other properties will be ignored</li>
 <li>options - same properties as for <code>db.update</code> method</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.delAll(table, obj, options, callback)</code></p>
+<p> Delete all records that match given condition, one by one, th einput is the same as for <code>db.select</code> and every record
+returned will be deleted using <code>db.del</code> call.
+special properties that canbe in the options for this call:</p>
+<ul>
+<li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
+in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
+as <code>options.process(row, options)</code></li>
 </ul>
 </li>
 </ul>
