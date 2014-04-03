@@ -1173,6 +1173,7 @@ api.initLocationAPI = function()
                 if (core.toNumber(req.query._details) && rows.length) {
                     var list = {}, ids = [];
                     rows = rows.map(function(row) {
+                        if (list[row.id]) return row; 
                         ids.push({ id: row.id });
                         list[row.id] = row;
                         return row;

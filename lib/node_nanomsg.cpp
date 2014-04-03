@@ -304,13 +304,6 @@ void NNSocket::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "setForward", SetForward);
 
     target->Set(String::NewSymbol("NNSocket"), constructor_template->GetFunction());
-}
-
-void NanoMsgInit(Handle<Object> target)
-{
-    HandleScope scope;
-
-    NNSocket::Init(target);
 
     for (int i = 0; ; i++) {
         int val;
@@ -318,9 +311,19 @@ void NanoMsgInit(Handle<Object> target)
         if (!name) break;
         target->Set(String::NewSymbol(name), Integer::New(val), static_cast<PropertyAttribute>(ReadOnly | DontDelete) );
     }
+}
+#endif
 
+void NanoMsgInit(Handle<Object> target)
+{
+    HandleScope scope;
+
+#ifdef USE_NANOMSG
+    NNSocket::Init(target);
+#endif
 }
 
+#ifdef USE_NANOMSG
 Handle<Value> NNSocket::New(const Arguments& args)
 {
     HandleScope scope;

@@ -360,6 +360,7 @@ db.createPool = function(name, pool, options)
     pool.metrics = new metrics();
     for (var p in options) pool[p] = options[p];
     this.dbpool[name] = pool;
+    logger.debug('db.createPool:', name);
     return pool;
 }
 
@@ -1691,7 +1692,7 @@ db.sqlDrop = function(table, obj, options)
 
 // Select object from the database,
 // options may define the following properties:
-// - keys is a list of columns for condition
+//  - keys is a list of columns for condition
 //  - select is list of columns or expressions to return
 db.sqlSelect = function(table, obj, options)
 {
@@ -1820,7 +1821,10 @@ db.sqlDelete = function(table, obj, options)
 // Setup PostgreSQL pool driver
 db.pgsqlInitPool = function(options)
 {
-    if (!backend.PgSQLDatabase) return this.nopool;
+    if (!backend.PgSQLDatabase) {
+        logger.error("PostgreSQL driver is not compiled in, consider to install postgresql libpq library");
+        return this.nopool;
+    }
 
     var self = this;
     if (!options) options = {};
@@ -2014,7 +2018,10 @@ db.sqliteCacheColumns = function(options, callback)
 // Setup MySQL database driver
 db.mysqlInitPool = function(options)
 {
-    if (!backend.MysqlDatabase) return this.nopool;
+    if (!backend.MysqlDatabase) {
+        logger.error("MySQL driver is not compiled in, consider to install libmysqlclient library");
+        return this.nopool;
+    }
 
     var self = this;
     if (!options) options = {};

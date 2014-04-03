@@ -205,6 +205,8 @@ module.exports = core;
 core.init = function(callback)
 {
     var self = this;
+    var db = self.context.db;
+
     // Initial args to run before the config file
     self.processArgs("core", self, process.argv, 1);
 
@@ -220,18 +222,18 @@ core.init = function(callback)
     });
     // Default domain from local host name
     self.domain = self.domainName(os.hostname());
-
-    var db = self.context.db;
+    var configFile = path.resolve(this.configFile || path.join(self.path.etc, "config"));
 
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
             // Default config file from the home
-            self.loadConfig(next);
+            self.loadConfig(configFile, next);
         },
 
         function(next) {
             // Try to load local config file supplied with the app container
+            if (path.resolve("etc/config") == configFile) return next();
             self.loadConfig("etc/config", next);
         },
 
@@ -266,14 +268,8 @@ core.init = function(callback)
         },
 
         function(next) {
-            // Watch config directory for changes
-            fs.watch(self.etc, function (event, filename) {
-                logger.debug('watcher:', event, filename);
-                switch (filename) {
-                case "config":
-                    self.setTimeout(filename, function() { self.loadConfig(); }, 5000);
-                    break;
-                }
+            fs.watch(configFile, function (event, filename) {
+                self.setTimeout(filename, function() { self.loadConfig(configFile); }, 5000);
             });
             next();
         },
@@ -391,7 +387,7 @@ core.processArgs = function(name, ctx, argv, pass)
         if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") return;
         // Ignore the value if it is a parameter
         if (val && val[0] == '-') val = "";
-        logger.dev("processArgs:", name, 'type:', x.type, "set:", key, "=", val);
+        logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, "=", val);
         switch (x.type || "") {
         case "none":
             break;
@@ -457,12 +453,11 @@ core.showHelp = function(options)
 }
 
 // Parse the config file, configFile can point to a file or can be skipped and the default file will be loaded
-core.loadConfig = function(configFile, callback)
+core.loadConfig = function(file, callback)
 {
     var self = this;
-    if (typeof configFile == "function") callback = configFile, configFile = null;
+    if (!file) return callback ? callback() : null;
 
-    var file = configFile || this.configFile || path.join(self.path.etc, "config");
     logger.debug('loadConfig:', file);
 
     fs.readFile(file, function(err, data) {
