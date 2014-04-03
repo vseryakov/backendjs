@@ -1968,8 +1968,9 @@ core.putIcon = function(file, id, options, callback)
 // - infile can be a string with file name or a Buffer with actual image data
 // - options can specify image properties:
 //     - outfile - if not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback as a buffer
-//     - width, height - new dimensions if width or height is negative this means do not perform upscale,
-//       keep the original size if smaller than given positive value, if any is 0 that means keep the original
+//     - width, height - new image dimensions
+//          - if width or height is negative this means do not perform upscale, keep the original size if smaller than given positive value,
+//          - if any is 0 that means keep the original size
 //     - filter - ImageMagick image filters, default is lanczos
 //     - quality - 0-99 percent, image scaling quality
 //     - ext - image format: png, gif, jpg

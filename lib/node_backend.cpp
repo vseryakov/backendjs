@@ -298,7 +298,9 @@ static void doResizeImage(uv_work_t *req)
         while (fmt && *fmt && *fmt == '.') fmt++;
         MagickSetImageFormat(wand, fmt);
     }
-    if (baton->d.quality <= 100) MagickSetImageCompressionQuality(wand, baton->d.quality);
+    if (baton->d.quality <= 100) {
+        MagickSetImageCompressionQuality(wand, baton->d.quality);
+    }
     if (baton->out.size()) {
     	// Make sure all subdirs exist
     	if (vMakePath(baton->out)) {

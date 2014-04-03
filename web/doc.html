@@ -923,8 +923,8 @@ console.log(backend.backend)
 <ul>
 <li>source can be a Buffer or file name</li>
 <li>options can have the following properties:<ul>
-<li>width - output image width</li>
-<li>height - output image height</li>
+<li>width - output image width, if negative and the original image width is smaller than the specified, nothing happens</li>
+<li>height - output image height, if negative and the original image height is smaller this the specified, nothing happens</li>
 <li>quality - 0 -99</li>
 <li>out - output file name</li>
 <li>ext - image extention</li>
@@ -2534,8 +2534,11 @@ Valid properties in the options:</p>
 <li>infile can be a string with file name or a Buffer with actual image data</li>
 <li>options can specify image properties:<ul>
 <li>outfile - if not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback as a buffer</li>
-<li>width, height - new dimensions if width or height is negative this means do not perform upscale,
-keep the original size if smaller than given positive value, if any is 0 that means keep the original</li>
+<li>width, height - new image dimensions<ul>
+<li>if width or height is negative this means do not perform upscale, keep the original size if smaller than given positive value,</li>
+<li>if any is 0 that means keep the original size</li>
+</ul>
+</li>
 <li>filter - ImageMagick image filters, default is lanczos</li>
 <li>quality - 0-99 percent, image scaling quality</li>
 <li>ext - image format: png, gif, jpg</li>
