@@ -778,6 +778,7 @@ db.getLocations = function(table, options, callback)
             function(next) {
                 options[options.range] = "";
                 options.count = count;
+                options.start = null;
                 options.geohash = options.neighbors.shift();
                 db.select(table, options, options, function(err, items, info) {
                     rows.push.apply(rows, items);

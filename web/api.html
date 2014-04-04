@@ -62,9 +62,7 @@ $(function() {
     _create:function() {
         var s, _this = this;
         this.storageKey = 'inputHistory.' + this.element.attr('id');
-        this.h0 = [];
-        var list = (s = localStorage[this.storageKey]) ? s.split('\n') : [];
-        list.forEach(function(x) { if (_this.h0.indexOf(x) == -1) _this.h0.push(x) });
+        this.h0 = Backend.getHistory();
         this.h = this.h0.concat(['']);
         this.i = this.h0.length;
         return this.element.keydown(function(event) {
@@ -118,6 +116,26 @@ $(function() {
      Backend.apiEmail = ko.observable();
      Backend.apiTable = false;
 
+     Backend.getHistory = function(sort) {
+        var list = localStorage['inputHistory.url'], a = [];
+        list = (list || "").split('\n');
+        if (sort) list.sort();
+        list.forEach(function(x) { if (x && a.indexOf(x) == -1) a.push(x) });
+        return a;
+     }
+     Backend.clearHistory = function() {
+        var url = $('#url').val();
+        if (!url) return;
+        var list = this.getHistory();
+        list.splice(list.indexOf(url), 1);
+        localStorage['inputHistory.url'] = list.join('\n');
+        this.initHistory();
+     }
+     Backend.initHistory = function() {
+        var list = $('#history');
+        list.find('option:not(:first)').remove();
+        this.getHistory(true).forEach(function(x) { list.append(new Option(x)); });
+     }
      Backend.doLogin = function() {
         Backend.getAccount(function(err, data) {
             Backend.apiEmail(err || data.login);
@@ -181,10 +199,6 @@ $(function() {
          }
      }
 
-     var list = localStorage['inputHistory.url'], a = [];
-     (list || "").split('\n').sort().forEach(function(x) { if (x && a.indexOf(x) == -1) a.push(x) });
-     a.forEach(function(x) { $('#history').append(new Option(x)); });
-
      $('#history').on('change', function() {
         $('#url').val($('#history').val());
         Backend.doRun();
@@ -195,6 +209,7 @@ $(function() {
      });
      ko.applyBindings(Backend);
      Backend.doLogin();
+     Backend.initHistory();
  });
  </script>
 
@@ -213,12 +228,13 @@ $(function() {
      <form data-bind="submit: doRun">
      <table border=0>
       <tr><td>URL:</td>
-          <td><input id="url" type="search" size=120" /></td>
-          <td colspan=3><button type="submit" >Run</button></td>
-          <td colspan=3><select id="history"><option>History...</option></select></td>
+          <td><input id="url" type="search" size=100" /></td>
+          <td><button type="submit" >Run</button></td>
+          <td><select id="history"><option>History...</option></select></td>
+          <td><button onclick="Backend.clearHistory()" title="Remove current request from the history">Clear</button></td>
           <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/></td>
           <td>Tabular</td>
-          <td colspan=2><img id="loading" src="img/loading.gif"></td>
+          <td><img id="loading" src="img/loading.gif"></td>
       </tr>
      </table>
      </form>

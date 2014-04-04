@@ -217,7 +217,7 @@ module.exports = api;
 //
 // For GET method, `req.query` contains all url-encoded parameters, for POST method `req.body` contains url-encoded parameters or parsed JSON payload or multipart payload.
 //
-// The simple way to dealing transpartently with htis is to check for method in the route handler like this
+// The simple way of dealing transparently with this is to check for method in the route handler like this:
 //
 //      if (req.method == "POST") req.query = req.body;
 //
