@@ -2172,7 +2172,6 @@ db.dynamodbInitPool = function(options)
                                map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
-            logger.log('CREATE', obj, attrs, keys, idxs);
             aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
                 callback(err, item.Item ? [item.Item] : []);
             });

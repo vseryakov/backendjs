@@ -2423,6 +2423,12 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
+<li><p><code>core.arrayUnique(list, key)</code></p>
+<p> Returns only unique items in the array, optional <code>key</code> specified the name of the column to use when determining uniqueness if items are objects.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.toBase64(data)</code></p>
 <p> Stringify JSON into base64 string</p>
 </li>
@@ -3045,14 +3051,18 @@ this works the same way as the <code>select</code> method.</p>
 <p> Geo locations search, paginate all results until the end.
 table must be defined with the following required columns:</p>
 <ul>
-<li>geohash and id as strings, this is the primary key
-split and saved as property id in the record</li>
+<li>geohash - location as primary key hash,</li>
+<li>id or other column name to be used as a RANGE key for DynamoDB or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases</li>
 <li>latitude and longitude as floating numbers</li>
 </ul>
 <p>other optional properties:</p>
 <ul>
 <li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
 round number and uses decimal point of the round number to limit decimals in the distance</li>
+<li>sort - sorting order, by default the RANGE key is used for DynamoDB , it is possinle to specify Local Index as well,
+for SQL the second part of the primary key if exists or id
+-unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+table for the same id only one instance will be returned</li>
 </ul>
 <p>On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 the next_token returned by the previous call</p>

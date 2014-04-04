@@ -1140,7 +1140,7 @@ api.initLocationAPI = function()
                 req.query.id = req.account.id;
                 req.query.geohash = geo.geohash;
 
-                var obj = { id: geo.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
+                var obj = { id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
 
