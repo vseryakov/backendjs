@@ -724,13 +724,17 @@ db.search = function(table, obj, options, callback)
 
 // Geo locations search, paginate all results until the end.
 // table must be defined with the following required columns:
-//  - geohash and id as strings, this is the primary key
-//    split and saved as property id in the record
+//  - geohash - location as primary key hash,
+//  - id or other column name to be used as a RANGE key for DynamoDB or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases
 //  - latitude and longitude as floating numbers
 //
 // other optional properties:
 // - round - a number that defines the "precision" of  the distance, it rounds the distance to the nearest
 //   round number and uses decimal point of the round number to limit decimals in the distance
+// - sort - sorting order, by default the RANGE key is used for DynamoDB , it is possinle to specify Local Index as well,
+//   for SQL the second part of the primary key if exists or id
+// -unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+//   table for the same id only one instance will be returned
 //
 // On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 // the next_token returned by the previous call
@@ -763,13 +767,15 @@ db.getLocations = function(table, options, callback)
     if (!options.ops) options.ops = {};
 
     // Sort by the second part of the primary key, first is always geohash, this is mostly for SQL databases because DynamoDB sorts by range key automatically
-    options.sort = options.range = keys.length ? keys[keys.length - 1] : "id";
+    if (!options.sort) options.sort = keys.length ? keys[keys.length - 1] : "id";
+    options.range = options.sort;
     options.ops[options.range] = "gt";
 
     logger.log('getLocations:', options);
 
     db.select(table, options, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;
+    	if (options.unique) rows = core.arrayUnique(rows, options.unique);
     	count -= rows.length;
         async.until(
             function() {
@@ -781,6 +787,7 @@ db.getLocations = function(table, options, callback)
                 options.start = null;
                 options.geohash = options.neighbors.shift();
                 db.select(table, options, options, function(err, items, info) {
+                    if (options.unique) items = core.arrayUnique(items, options.unique);
                     rows.push.apply(rows, items);
                     count -= items.length;
                     next(err);
@@ -2119,9 +2126,9 @@ db.dynamodbInitPool = function(options)
                     });
                     (rc.Table.LocalSecondaryIndexes || []).forEach(function(x) {
                         x.KeySchema.forEach(function(y) {
-                            if (!pool.dbindexes[y.IndexName]) pool.dbindexes[y.IndexName] = [];
-                            pool.dbindexes[y.IndexName].push(y.AttributeName);
-                            pool.dbcolumns[y.IndexName][y.AttributeName].index = 1;
+                            if (!pool.dbindexes[x.IndexName]) pool.dbindexes[x.IndexName] = [];
+                            pool.dbindexes[x.IndexName].push(y.AttributeName);
+                            pool.dbcolumns[table][y.AttributeName].index = 1;
                         });
                     });
                     next();
@@ -2151,20 +2158,21 @@ db.dynamodbInitPool = function(options)
         var primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
         switch(req.op) {
         case "create":
-            var idxs = [];
-            var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary}).
+            var idxs = {};
+            var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
-            if (keys.length == 2) {
+            if (Object.keys(keys).length == 2) {
                 idxs = Object.keys(obj).filter(function(x) { return obj[x].index }).
                               map(function(x) { return [x, core.newObj(Object.keys(obj).filter(function(y) { return obj[y].primary })[0], 'HASH', x, 'RANGE') ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             }
-            var attrs = Object.keys(obj).filter(function(x) { return obj[x].primary || (idxs.length && obj[x].index) }).
+            var attrs = Object.keys(obj).concat(Object.keys(idxs)).filter(function(x) { return obj[x].primary || obj[x].index }).
                                map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
+            logger.log('CREATE', obj, attrs, keys, idxs);
             aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
                 callback(err, item.Item ? [item.Item] : []);
             });

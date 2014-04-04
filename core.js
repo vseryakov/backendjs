@@ -1620,6 +1620,22 @@ core.strSplitUnique = function(str, sep)
     return rc;
 }
 
+// Returns only unique items in the array, optional `key` specified the name of the column to use when determining uniqueness if items are objects.
+core.arrayUnique = function(list, key)
+{
+    if (!Array.isArray(list)) return this.strSplitUnique(list);
+    var rc = [], keys = {};
+    list.forEach(function(x) {
+        if (key) {
+            if (!keys[x[key]]) rc.push(x);
+            keys[x[key]] = 1;
+        } else {
+            if (rc.indexOf(x) == -1) rc.push(x);
+        }
+    });
+    return rc;
+}
+
 // Stringify JSON into base64 string
 core.toBase64 = function(data)
 {

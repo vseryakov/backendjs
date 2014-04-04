@@ -1125,34 +1125,34 @@ api.initLocationAPI = function()
             var now = Date.now();
             var latitude = req.query.latitude, longitude = req.query.longitude;
             if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-            // Get current location, collect all common columns from account into location which might be used for filtering
-            // during location search
-            var acols = db.getColumns('bk_account');
-            var lcols = db.getColumns('bk_location')
-            var select = Object.keys(acols).filter(function(x) { return lcols[x] });
-            db.get("bk_account", { id: req.account.id }, { select: select }, function(err, rows) {
+            // Get current location
+            db.get("bk_account", { id: req.account.id }, { select: "id,geohash,latitude,longitude" }, function(err, rows) {
                 if (err || !rows.length) return self.sendReply(res, err);
-                req.account.latitude = rows[0].latitude;
-                req.account.longitude = rows[0].longitude;
+                // Keep old coordinates in the account record
+                var old = rows[0];
+
                 // Skip if within minimal distance
-                var distance = backend.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
+                var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
                 if (distance < core.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + core.minDistance);
 
+                // Build new location record
                 var geo = core.geoHash(latitude, longitude);
-                var obj = { id: req.account.id, ltime: now, latitude: latitude, longitude: longitude, geohash: geo.geohash, location: req.query.location };
+                req.query.id = req.account.id;
+                req.query.geohash = geo.geohash;
+
+                var obj = { id: geo.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
                 db.update("bk_account", obj, function(err) {
                     if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, obj);
 
-                    // Delete current location
-                    var old = core.geoHash(req.account.latitude, req.account.longitude);
-                    db.del("bk_location", { geohash: old.geohash, id: req.account.id }, function() {
-                        // Insert new location
-                        geo.id = req.account.id;
-                        geo.mtime = now;
-                        // Add additional columns from the account to keep with the location
-                        for (var p in rows[0]) if (!geo[p]) geo[p] = rows[0][p];
-                        db.put("bk_location", geo);
+                    db.put("bk_location", req.query, function(err) {
+                        if (err) return self.sendRepy(res, err);
+
+                        // Return new location record with the old coordinates
+                        req.query.old = old;
+                        self.sendJSON(req, res, req.query);
+
+                        // Delete the old location, no need to wait even if fails we still have a new one recorded
+                        db.del("bk_location", old);
                     });
 
                     // Update history log
