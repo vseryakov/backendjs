@@ -642,6 +642,33 @@ Database pool statistics and other diagnostics</p>
 </li>
 <li>api - Web requests metrics, same structure as for the db pool metrics</li>
 </ul>
+<p>Individual sub-objects:</p>
+<ul>
+<li>rate or meter - Things that are measured as events / interval.<ul>
+<li>mean: The average rate since the meter was started.</li>
+<li>count: The total of all values added to the meter.</li>
+<li>currentRate: The rate of the meter since the last toJSON() call.</li>
+<li>1MinuteRate: The rate of the meter biased towards the last 1 minute.</li>
+<li>5MinuteRate: The rate of the meter biased towards the last 5 minutes.</li>
+<li>15MinuteRate: The rate of the meter biased towards the last 15 minutes.</li>
+</ul>
+</li>
+<li>queue or histogram - Keeps a resevoir of statistically relevant values biased towards the last 5 minutes to explore their distribution<ul>
+<li>min: The lowest observed value.</li>
+<li>max: The highest observed value.</li>
+<li>sum: The sum of all observed values.</li>
+<li>variance: The variance of all observed values.</li>
+<li>mean: The average of all observed values.</li>
+<li>stddev: The stddev of all observed values.</li>
+<li>count: The number of observed values.</li>
+<li>median: 50% of all values in the resevoir are at or below this value.</li>
+<li>p75: See median, 75% percentile.</li>
+<li>p95: See median, 95% percentile.</li>
+<li>p99: See median, 99% percentile.</li>
+<li>p999: See median, 99.9% percentile.</li>
+</ul>
+</li>
+</ul>
 <p>Response:</p>
 <pre><code>   {
       &quot;toobusy&quot;: 0,
@@ -1434,7 +1461,7 @@ rearely need to called directly, only for new server implementation or if using 
 <p>During the init sequence, this function calls <code>api.initMiddleware</code> and <code>api.initApplication</code> methods which by default are empty but can be redefined in the user aplications.</p>
 <p>The backend.js uses its own request parser that places query parameters into <code>req.query</code> or <code>req.body</code> depending on the method.</p>
 <p>For GET method, <code>req.query</code> contains all url-encoded parameters, for POST method <code>req.body</code> contains url-encoded parameters or parsed JSON payload or multipart payload.</p>
-<p>The simple way to dealing transpartently with htis is to check for method in the route handler like this</p>
+<p>The simple way of dealing transparently with this is to check for method in the route handler like this:</p>
 <pre><code>if (req.method == &quot;POST&quot;) req.query = req.body;
 </code></pre><p>The reason not to do this by default is that this may not be the alwayse wanted case and distinguishing data coming in the request or in the body may be desirable,
 also, this will needed only for Express handlers <code>.all</code>, when registering handler by method like <code>.get</code> or <code>.post</code> then the handler needs to deal with only either source of the request data.</p>

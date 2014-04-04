@@ -134,7 +134,7 @@ $(function() {
      Backend.initHistory = function() {
         var list = $('#history');
         list.find('option:not(:first)').remove();
-        this.getHistory(true).forEach(function(x) { list.append(new Option(x)); });
+        this.getHistory(true).forEach(function(x) { list.append(new Option(x.substr(0, 150), x)); });
      }
      Backend.doLogin = function() {
         Backend.getAccount(function(err, data) {

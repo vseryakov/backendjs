@@ -670,6 +670,28 @@ who can access it.*
     - rate - req/sec rates
   - api - Web requests metrics, same structure as for the db pool metrics
 
+  Individual sub-objects:
+  - rate or meter - Things that are measured as events / interval.
+     - mean: The average rate since the meter was started.
+     - count: The total of all values added to the meter.
+     - currentRate: The rate of the meter since the last toJSON() call.
+     - 1MinuteRate: The rate of the meter biased towards the last 1 minute.
+     - 5MinuteRate: The rate of the meter biased towards the last 5 minutes.
+     - 15MinuteRate: The rate of the meter biased towards the last 15 minutes.
+  - queue or histogram - Keeps a resevoir of statistically relevant values biased towards the last 5 minutes to explore their distribution
+      - min: The lowest observed value.
+      - max: The highest observed value.
+      - sum: The sum of all observed values.
+      - variance: The variance of all observed values.
+      - mean: The average of all observed values.
+      - stddev: The stddev of all observed values.
+      - count: The number of observed values.
+      - median: 50% of all values in the resevoir are at or below this value.
+      - p75: See median, 75% percentile.
+      - p95: See median, 95% percentile.
+      - p99: See median, 99% percentile.
+      - p999: See median, 99.9% percentile.
+
   Response:
 
          {
