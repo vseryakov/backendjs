@@ -528,10 +528,13 @@ Return the image data for the given message, the required parameters are:</p>
 </ul>
 </li>
 <li><p><code>/message/get</code>
-Receive messages, the parameter <code>mtime</code> defines which mesages to get, if omitted all messages will be returned. By <code>mtime</code> it is possible to
+Receive messages, the parameter <code>mtime</code> defines which messages to get, if omitted all messages will be returned. By <code>mtime</code> it is possible to
 specify that only messages received since that time to return, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
 Date.now() return in Javascript. The images are not returned, only link to the image in <code>icon</code> property of reach record,
 the actual image data must be retrieved separately.</p>
+<p>NOTE: The <code>mtime</code> is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
+also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
+result in mtimes that do not correspond to actual times when the message has been sent.</p>
 <p>Example:</p>
 <pre><code>  /message/get
   /message/get?mtime=123475658690
@@ -548,6 +551,9 @@ the actual image data must be retrieved separately.</p>
        &quot;next_token&quot;: &quot;&quot;
      }
 </code></pre></li>
+<li><p><code>/message/get/unread</code> - read all unread messages, i.e. the meesages that never been issues <code>/message/read</code> call. This call does not require any query
+parameters, it will return all unread messages from all senders.</p>
+</li>
 <li><p><code>/message/add</code>
 Send a message to an account, the following parametrrs must be specified:</p>
 <ul>
@@ -1426,7 +1432,7 @@ the worker processes if they die and restart them automatically. How many proces
      // Messages between accounts
      bk_message: { id: { primary: 1 },                    // my account_id
                    mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
-                   status: {},                            // Status flags: R - read
+                   status: { index: 1 },                  // Status: R:mtime:sender or N:mtime:sender, where R - read, N - new
                    msg: { type: &quot;text&quot; },                 // Text of the message
                    icon: {}},                             // Icon base64 or url
 
