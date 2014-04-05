@@ -553,10 +553,14 @@ from the last messages received so the next time we will use this time to get on
     - mtime - exact timestamp of the message
 
 - `/message/get`
-  Receive messages, the parameter `mtime` defines which mesages to get, if omitted all messages will be returned. By `mtime` it is possible to
+  Receive messages, the parameter `mtime` defines which messages to get, if omitted all messages will be returned. By `mtime` it is possible to
   specify that only messages received since that time to return, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
   Date.now() return in Javascript. The images are not returned, only link to the image in `icon` property of reach record,
   the actual image data must be retrieved separately.
+
+  NOTE: The `mtime` is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
+  also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
+  result in mtimes that do not correspond to actual times when the message has been sent.
 
   Example:
 
@@ -576,6 +580,9 @@ from the last messages received so the next time we will use this time to get on
                     }],
              "next_token": ""
            }
+
+- `/message/get/unread` - read all unread messages, i.e. the meesages that never been issues `/message/read` call. This call does not require any query
+  parameters, it will return all unread messages from all senders.
 
 - `/message/add`
   Send a message to an account, the following parametrrs must be specified:

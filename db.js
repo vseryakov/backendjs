@@ -2199,6 +2199,13 @@ db.dynamodbInitPool = function(options)
         case "search":
             // If we have other key columns we have to use custom filter
             var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && obj[x] });
+            // Do not use index name if it is a primary key
+            if (options.sort && dbkeys.indexOf(options.sort) > -1) options.sort = null;
+            // Use primary keys from the local secondary index
+            if (options.sort && pool.dbindexes[options.sort]) {
+                dbkeys = pool.dbindexes[options.sort];
+                primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            }
             // Only primary key columns are allowed
             var keys = (options.keys || dbkeys).filter(function(x) { return other.indexOf(x) == -1 && obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var filter = function(items) {
@@ -2214,8 +2221,6 @@ db.dynamodbInitPool = function(options)
                 }
                 return items;
             }
-            // Do not use index name if it is a primary key
-            if (options.sort && dbkeys.indexOf(options.sort) > -1) options.sort = null;
             options.select = self.getSelectedColumns(table, options);
             var op = Object.keys(keys).length && Object.keys(keys).sort().toString() == Object.keys(primary_keys).sort().toString() ? 'ddbQueryTable' : 'ddbScanTable';
             aws[op](table, keys, options, function(err, item) {

@@ -122,7 +122,7 @@ var api = {
        // Messages between accounts
        bk_message: { id: { primary: 1 },                    // my account_id
                      mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
-                     status: {},                            // Status flags: R - read
+                     status: { index: 1 },                  // Status: R:mtime:sender or N:mtime:sender, where R - read, N - new
                      msg: { type: "text" },                 // Text of the message
                      icon: {}},                             // Icon base64 or url
 
@@ -812,7 +812,18 @@ api.initMessageAPI = function()
     var self = this;
     var db = core.context.db;
 
-    this.app.all(/^\/message\/([a-z]+)$/, function(req, res) {
+    function processRows(rows) {
+        rows.forEach(function(row) {
+            var mtime = row.mtime.split(":");
+            row.mtime = mtime[0];
+            row.sender = mtime[1];
+            row.status = row.status[0];
+            if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+        });
+        return rows;
+    }
+
+    this.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -829,13 +840,18 @@ api.initMessageAPI = function()
             db.select("bk_message", { id: req.account.id, mtime: req.query.mtime || "" }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-                rows.forEach(function(row) {
-                    var mtime = row.mtime.split(":");
-                    row.mtime = mtime[0];
-                    row.sender = mtime[1];
-                    if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
-                });
-                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
+                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: next_token });
+            });
+            break;
+
+        case "get/unread":
+            options.ops = { status: "begins_with" };
+            options.sort = "status";
+            db.select("bk_message", { id: req.account.id, status: "N:" }, options, function(err, rows, info) {
+                if (err) return self.sendReply(res, err);
+                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
+
+                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: next_token });
             });
             break;
 
@@ -844,6 +860,7 @@ api.initMessageAPI = function()
             if (!req.query.msg && !req.query.icon) return self.sendReply(res, 400, "msg or icon is required");
             req.query.sender = req.account.id;
             req.query.mtime = now + ":" + req.query.sender;
+            req.query.status = 'N:' + req.query.mtime;
             self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
                 if (err) return self.sendReply(res, err);
                 req.query.icon = icon ? 1 : "0";
@@ -864,6 +881,7 @@ api.initMessageAPI = function()
         case "read":
             if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
             req.query.mtime += ":" + req.query.sender;
+            req.query.status = 'R:' + req.query.mtime;
             db.update("bk_message", { id: req.account.id, mtime: req.query.mtime, status: "R" }, function(err, rows) {
                 if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
                 self.sendReply(res, err);

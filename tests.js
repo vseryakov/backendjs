@@ -220,21 +220,34 @@ tests.account = function(callback)
             });
         },
         function(next) {
+            var options = { login: login, secret: secret, query: { } }
+            core.sendRequest("/message/get/unread", options, function(err, params) {
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=2 ? ("err10:" + err + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
             var options = { login: login, secret: secret, query: { sender: msgs.data[0].sender, mtime: msgs.data[0].mtime } }
             core.sendRequest("/message/read", options, function(err, params) {
-                next(err || !params.obj ? ("err10:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj ? ("err11:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { sender: msgs.data[1].sender, mtime: msgs.data[1].mtime } }
             core.sendRequest("/message/image", options, function(err, params) {
-                next(err ? ("err11:" + err) : 0);
+                next(err ? ("err12:" + err) : 0);
+            });
+        },
+        function(next) {
+            var options = { login: login, secret: secret, query: { } }
+            core.sendRequest("/message/get/unread", options, function(err, params) {
+                msgs = params.obj;
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=1 ? ("err13:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.msg_count!=2 || params.obj.msg_read!=1 ? ("err12:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.msg_count!=2 || params.obj.msg_read!=1 ? ("err14:" + err + util.inspect(params.obj)) : 0);
             });
         },
     ],
