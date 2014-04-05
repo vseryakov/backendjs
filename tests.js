@@ -416,12 +416,18 @@ tests.db = function(callback)
 	        logger.log('TEST: add4');
 	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 0, num2: num2, mtime: now }, next);
 	    },
+	    function(next) {
+            logger.log('TEST: custom filter');
+            db.select("test2", { id: id2 }, { filter: function(row, o) { return row.id2 == '1' } }, function(err, rows) {
+                next(err || rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 ? ("err5:" + err + util.inspect(rows)) : 0);
+            });
+        },
         function(next) {
             logger.log('TEST: list2');
             db.list("test1", String([id,id2]), { check_public: id }, function(err, rows) {
                 var row1 = rows.filter(function(x) { return x.id==id}).pop();
                 var row2 = rows.filter(function(x) { return x.id==id2}).pop();
-                next(err || rows.length!=2 || !row1.email || row2.email ? ("err5:" + err + util.inspect(rows)) : 0);
+                next(err || rows.length!=2 || !row1.email || row2.email ? ("err6:" + err + util.inspect(rows)) : 0);
             });
         },
 	    function(next) {
@@ -437,13 +443,13 @@ tests.db = function(callback)
 	    function(next) {
 	        logger.log('TEST: get after incr');
 	    	db.get("test3", { id: id }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id && rows[0].num != 1 ? ("err6:" + err + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].id != id && rows[0].num != 1 ? ("err7:" + err + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
 	        logger.log('TEST: select columns');
 	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2 ? ("err7:" + err + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2 ? ("err8:" + err + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -463,7 +469,7 @@ tests.db = function(callback)
 	    function(next) {
 	        logger.log('TEST: get after update');
 	    	db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num == 9 || !Array.isArray(rows[0].json) ? ("err5:" + err + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num == 9 || !Array.isArray(rows[0].json) ? ("err9:" + err + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -474,7 +480,7 @@ tests.db = function(callback)
 	    function(next) {
 	        logger.log('TEST: get after replace');
 	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 || core.typeName(rows[0].json)!="object" || rows[0].json.a!=1 ? ("err6:" + err + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 || core.typeName(rows[0].json)!="object" || rows[0].json.a!=1 ? ("err10:" + err + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -489,7 +495,7 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: put series');
-	    	async.forEachSeries([1,2,3,4,5,6,7,8,9,10], function(i, next2) {
+	    	async.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
 	    		db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, mtime: now }, next2);
 	    	}, function(err) {
 	    		next(err);
@@ -497,16 +503,21 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: select id2');
-	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, count: 2, select: 'id,id2' }, function(err, rows, info) {
+	    	db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, count: 5, select: 'id,id2' }, function(err, rows, info) {
 	    		next_token = info.next_token;
-	    		next(err || rows.length!=2 || !info.next_token ? ("err9:" + err + util.inspect(rows, info)) : 0);
+	    		next(err || rows.length!=5 || !info.next_token ? ("err11:" + err + util.inspect(rows, info)) : 0);
 	    	});
 	    },
+        function(next) {
+            logger.log('TEST: next page: next_token=', next_token);
+            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: 5, select: 'id,id2' }, function(err, rows, info) {
+                next_token = info.next_token;
+                next(err || rows.length!=4 || rows[0].id2 !='6' ? ("err12:" + err + util.inspect(rows, info)) : 0);
+            });
+        },
 	    function(next) {
-	        logger.log('TEST: select next id2');
-	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, start: next_token, count: 2, select: 'id,id2' }, function(err, rows, info) {
-	    		next(err || rows.length!=2 || rows[0].id2 !='3' || !info.next_token ? ("err10:" + err + util.inspect(rows, info)) : 0);
-	    	});
+	        logger.log('TEST: end page: next_token=', next_token);
+	        next(next_token ? ("err13:" + util.inspect(next_token)) : 0);
 	    },
 	],
 	function(err) {

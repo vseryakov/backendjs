@@ -356,8 +356,13 @@ Handle<Value> PgSQLDatabase::Query(const Arguments& args)
         int nvalues = nparams;
         char* values[nvalues];
         for (int i = 0; i < nparams; i++) {
-            String::Utf8Value str(params->Get(i)->ToString());
-            values[i] = strdup(*str);
+            Local<Value> val = params->Get(i);
+            if (!val->IsNull()) {
+                String::Utf8Value str(val->ToString());
+                values[i] = strdup(*str);
+            } else {
+                values[i] = NULL;
+            }
         }
         rc = PQsendQueryParams(db->handle, *sql, nvalues, NULL, values, NULL, NULL, 0);
         for (int i = 0; i < nvalues; i++) free(values[i]);

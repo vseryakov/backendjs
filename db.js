@@ -82,7 +82,7 @@ var db = {
         },
 
         bk_cookies: { id: { primary: 1 },
-                      name: { index: 1 },
+                      name: {},
                       domain: {},
                       path: {},
                       value: { type: "text" },
@@ -308,25 +308,19 @@ db.initPool = function(options, createcb)
         if (!req.values) req.values = [];
 
         if (!Array.isArray(req.text)) {
-            client.query(req.text, req.values, function(err, rows) {
-                pool.nextToken(req, rows, opts);
-                if (!err && opts && opts.filter) rows = rows.filter(function(row) { return opts.filter(row, opts); });
-                callback(err, rows);
-            });
+            client.query(req.text, req.values, callback);
         }  else {
             var rows = [];
             async.forEachSeries(req.text, function(text, next) {
                 client.query(text, function(err, rc) { if (rc) rows = rc; next(err); });
             }, function(err) {
-                pool.nextToken(req, rows, opts);
-                if (!err && opts && opts.filter) rows = rows.filter(function(row) { return opts.filter(row, opts); });
                 callback(err, rows);
             });
         }
     }
     // Support for pagination, for SQL this is the OFFSET for the next request
     pool.nextToken = function(req, rows, opts) {
-        if (opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
+        if (opts.count && rows.length == opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
     }
     return pool;
 }
@@ -398,8 +392,9 @@ db.query = function(req, options, callback)
         try {
             var t1 = Date.now();
             var m1 = pool.metrics.Timer('response').start();
-
+            pool.next_token = client.next_token = null;
             pool.query(client, req, options, function(err2, rows) {
+                pool.nextToken(req, rows, options);
                 var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
                 pool.free(client);
                 m1.end();
@@ -437,7 +432,7 @@ db.query = function(req, options, callback)
              });
         } catch(err) {
             pool.metrics.Counter("errors").inc();
-            logger.error("db.query:", pool.name, req.text, req.values, err, options);
+            logger.error("db.query:", pool.name, req.text, req.values, err, options, err.stack);
             if (callback) callback(err, [], {});
         }
     });
@@ -618,7 +613,7 @@ db.replace = function(table, obj, options, callback)
 // On return, the callback can check third argument which is an object with the following properties:
 // - affected_rows - how many records this operation affected
 // - inserted_oid - last created auto generated id
-// - next_token - next primary key or offset for pagination by passing it as .start property in the options
+// - next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query
 //
 //  Example: (allow all accounts icons to be visible)
 //
@@ -685,7 +680,7 @@ db.list = function(table, obj, options, callback)
 //          db.scan("bk_account", {}, { count:10, pool:"dynamodb" }, function(rows, next) {
 //              async.forEachSeries(rows, function(row, next2) {
 //                  // Copy all accounts from one db into another
-//                  db.add("bk_account", row, { pool: "pgsql" })
+//                  db.add("bk_account", row, { pool: "pgsql" }, next2)
 //              }, next);
 //          }, function(err) { });
 //
@@ -697,7 +692,9 @@ db.scan = function(table, obj, options, rowCallback, callback)
     options.start = "";
 
     async.whilst(
-      function() { return options.start != null; },
+      function() {
+          return options.start != null;
+      },
       function(next) {
           db.select(table, obj, options, function(err, rows, info) {
               if (err) return next(err);
@@ -947,12 +944,17 @@ db.drop = function(table, options, callback)
 db.prepare = function(op, table, obj, options)
 {
     // Process special columns
+    var cols = this.getColumns(table, options);
     switch (op) {
     case "add":
     case "put":
+        // Set all default values if any
+        for (var p in cols) {
+            if (typeof cols[p].value != "undefined" && !obj[p]) obj[p] = cols[p].value;
+        }
+
     case "incr":
     case "update":
-        var cols = this.getColumns(table, options);
         for (var p in cols) {
             if (cols[p].now) obj[p] = Date.now();
         }
@@ -1741,7 +1743,7 @@ db.sqlInsert = function(table, obj, options)
         // Filter not allowed columns or only allowed columns
         if (this.skipColumn(p, v, options, cols)) continue;
         // Avoid int parse errors with empty strings
-        if (v === "" && ["number","json"].indexOf(col.db_type) > -1) v = null;
+        if ((v === "null" || v === "") && ["number","json"].indexOf(col.db_type) > -1) v = null;
         // Pass number as number, some databases strict about this
         if (v && col.db_type == "number" && typeof v != "number") v = core.toNumber(v);
         names.push(p);
@@ -1777,7 +1779,7 @@ db.sqlUpdate = function(table, obj, options)
         // Do not update primary columns
         if (col.primary) continue;
         // Avoid int parse errors with empty strings
-        if (v === "" && ["number","json"].indexOf(col.db_type) > -1) v = null;
+        if ((v === "null" || v === "") && ["number","json"].indexOf(col.db_type) > -1) v = null;
         // Pass number as number, some databases strict about this
         if (v && col.db_type == "number" && typeof v != "number") v = core.toNumber(v);
         var placeholder = (options.placeholder || ("$" + i));
@@ -1896,12 +1898,12 @@ db.pgsqlCacheIndexes = function(options, callback)
 }
 
 // Convert JS array into db PostgreSQL array format: {..}
-db.pgsqlBindValue = function(val, opts)
+db.pgsqlBindValue = function(val, options)
 {
     function toArray(v) {
         return '{' + v.map(function(x) { return Array.isArray(x) ? toArray(x) : typeof x === 'undefined' || x === null ? 'NULL' : JSON.stringify(x); } ).join(',') + '}';
     }
-    switch (opts && opts.data_type ? opts.data_type : "") {
+    switch (options && options.data_type ? options.data_type : "") {
     case "json":
         val = JSON.stringify(val);
         break;
@@ -2151,7 +2153,6 @@ db.dynamodbInitPool = function(options)
         var table = req.text;
         var obj = req.obj;
         var options = core.extendObj(opts, "db", pool.db);
-        pool.next_token = null;
         var dbcols = pool.dbcolumns[table] || {};
         var dbkeys = pool.dbkeys[table] || [];
         // Primary keys
@@ -2339,7 +2340,7 @@ db.cassandraInitPool = function(options)
         self.update(table, obj, opts, callback);
     };
     pool.nextToken = function(req, rows, opts) {
-        if (!rows.length) return;
+        if (!rows.length || rows.length < opts.count) return;
         var keys = this.dbkeys[req.table] || [];
         this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
     }
