@@ -2759,7 +2759,7 @@ API call, all high level operations like add/put/del perform SQL generation for 
       },
 
       bk_cookies: { id: { primary: 1 },
-                    name: { index: 1 },
+                    name: {},
                     domain: {},
                     path: {},
                     value: { type: &quot;text&quot; },
@@ -2988,7 +2988,7 @@ if it is an array then check only specified columns</li>
 <ul>
 <li>affected_rows - how many records this operation affected</li>
 <li>inserted_oid - last created auto generated id</li>
-<li>next_token - next primary key or offset for pagination by passing it as .start property in the options</li>
+<li>next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query</li>
 </ul>
 <p>Example: (allow all accounts icons to be visible)</p>
 <pre><code>    db.select(&quot;bk_account&quot;, {}, function(err, rows) {
@@ -3032,7 +3032,7 @@ Basically, db.scan is the same as db.select but can be used to retrieve large nu
 <pre><code>    db.scan(&quot;bk_account&quot;, {}, { count:10, pool:&quot;dynamodb&quot; }, function(rows, next) {
         async.forEachSeries(rows, function(row, next2) {
             // Copy all accounts from one db into another
-            db.add(&quot;bk_account&quot;, row, { pool: &quot;pgsql&quot; })
+            db.add(&quot;bk_account&quot;, row, { pool: &quot;pgsql&quot; }, next2)
         }, next);
     }, function(err) { });
 </code></pre></li>
@@ -3457,7 +3457,7 @@ options may define the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.pgsqlBindValue(val, opts)</code></p>
+<li><p><code>db.pgsqlBindValue(val, options)</code></p>
 <p> Convert JS array into db PostgreSQL array format: {..}</p>
 </li>
 </ul>
