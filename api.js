@@ -839,8 +839,7 @@ api.initMessageAPI = function()
             options.ops = { mtime: "gt" };
             db.select("bk_message", { id: req.account.id, mtime: req.query.mtime || "" }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: next_token });
+                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
@@ -849,9 +848,7 @@ api.initMessageAPI = function()
             options.sort = "status";
             db.select("bk_message", { id: req.account.id, status: "N:" }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-
-                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: next_token });
+                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
