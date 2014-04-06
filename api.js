@@ -269,7 +269,7 @@ api.init = function(callback)
         if (self.busyLatency && toobusy()) return res.send(503, "Server is unavailable");
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
-        res.header('Access-Control-Allow-Headers', 'b-signature,b-next-token');
+        res.header('Access-Control-Allow-Headers', 'b-signature');
         next();
     });
 
