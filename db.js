@@ -328,6 +328,13 @@ db.initPool = function(options, createcb)
 // Create a new database pool with default methods and properties
 // - pool - if given it is used as the object prototype, the new database pool will extend this object, otherwise new object is created
 // - options - an object with default pool properties
+// The following pool callback can be assigned to the pool object:
+// - bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
+//   may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds
+// - convertError - a callback function(table, err, options) that converts native DB driver error into other human readable format
+// - resolveTable - a callback function(op, table, obj, options) that returns poosible different table at the time of the query, it is called by the `db.prepare` method
+//   and if exist it must return the same or new table name for the given query parameters.
+//
 db.createPool = function(name, pool, options)
 {
     if (!pool) pool = {};
@@ -943,8 +950,13 @@ db.drop = function(table, options, callback)
 // Returns prepared object to be passed to the driver's .query method.
 db.prepare = function(op, table, obj, options)
 {
+    var pool = this.getPool(table, options);
+
+    // Check for table name, it can be determined in the real time
+    if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
+
     // Process special columns
-    var cols = this.getColumns(table, options);
+    var cols = pool.dbcolumns[table.toLowerCase()] || {};
     switch (op) {
     case "add":
     case "put":
@@ -960,7 +972,7 @@ db.prepare = function(op, table, obj, options)
         }
         break;
     }
-    return this.getPool(table, options).prepare(op, table, obj, options);
+    return pool.prepare(op, table, obj, options);
 }
 
 // Return database pool by name or default pool
@@ -1898,12 +1910,12 @@ db.pgsqlCacheIndexes = function(options, callback)
 }
 
 // Convert JS array into db PostgreSQL array format: {..}
-db.pgsqlBindValue = function(val, options)
+db.pgsqlBindValue = function(val, info)
 {
     function toArray(v) {
         return '{' + v.map(function(x) { return Array.isArray(x) ? toArray(x) : typeof x === 'undefined' || x === null ? 'NULL' : JSON.stringify(x); } ).join(',') + '}';
     }
-    switch (options && options.data_type ? options.data_type : "") {
+    switch (info && info.data_type ? info.data_type : "") {
     case "json":
         val = JSON.stringify(val);
         break;
