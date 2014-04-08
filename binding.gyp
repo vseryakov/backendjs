@@ -53,6 +53,7 @@
         "sources": [
            "lib/node_backend.cpp",
            "lib/node_debug.cpp",
+           "lib/node_image.cpp",
            "lib/node_sqlite.cpp",
            "lib/node_syslog.cpp",
            "lib/node_nanomsg.cpp",
