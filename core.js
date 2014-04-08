@@ -26,8 +26,8 @@ var uuid = require('uuid');
 
 // The primary object containing all config options and common functions
 var core = {
-    name: 'backend',
-    version: '2014.03.25',
+    name: 'backendjs',
+    version: '2014.04.07',
 
     // Process and config parameters
     argv: {},
@@ -53,7 +53,6 @@ var core = {
 
     // HTTP settings
     port: 8000,
-    bind: '0.0.0.0',
     bind: '0.0.0.0',
     timeout: 30000,
 
@@ -2142,27 +2141,28 @@ core.delObj = function()
     return arguments[0];
 }
 
-// Merge obj with the options, all options properties override existing in the obj
+// Merge obj with the options, all options properties override existing in the obj, return a new object
 core.mergeObj = function(obj, options)
 {
-    if (!options) options = {};
+    var rc = {}
+    for (var p in options) rc[p] = options[p];
     for (var p in obj) {
         var val = obj[p];
         switch (core.typeName(val)) {
         case "object":
-            if (!options[p]) options[p] = {};
+            if (!rc[p]) rc[p] = {};
             for (var c in val) {
-                if (!options[p][c]) options[p][c] = val[c];
+                if (!rc[p][c]) rc[p][c] = val[c];
             }
             break;
         case "null":
         case "undefined":
             break;
         default:
-            if (!options[p]) options[p] = val;
+            if (!rc[p]) rc[p] = val;
         }
     }
-    return options;
+    return rc;
 }
 
 // JSON stringify without empty properties
