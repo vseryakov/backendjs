@@ -1141,7 +1141,7 @@ api.initLocationAPI = function()
             var latitude = req.query.latitude, longitude = req.query.longitude;
             if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
             // Get current location
-            db.get("bk_account", { id: req.account.id }, { select: "id,geohash,latitude,longitude" }, function(err, rows) {
+            db.get("bk_account", { id: req.account.id }, function(err, rows) {
                 if (err || !rows.length) return self.sendReply(res, err);
                 // Keep old coordinates in the account record
                 var old = rows[0];
@@ -1154,6 +1154,10 @@ api.initLocationAPI = function()
                 var geo = core.geoHash(latitude, longitude);
                 req.query.id = req.account.id;
                 req.query.geohash = geo.geohash;
+                var cols = db.getColumns("bk_location", options);
+                // Update all account columns in the location, they are very tightly connected and custom filters can
+                // be used for filtering locations based on other account properties like gender.
+                for (var p in cols) if (old[p] && !req.query[p]) req.query[p] = old[p];
 
                 var obj = { id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
                 db.update("bk_account", obj, function(err) {

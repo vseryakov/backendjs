@@ -940,7 +940,6 @@ db.drop = function(table, options, callback)
             var pool = self.getPool(table, options);
             delete pool.dbcolumns[table];
             delete pool.dbkeys[table];
-            delete pool.tables[table];
         }
         if (callback) callback(err, rows, info);
     });
@@ -1006,7 +1005,9 @@ db.getSelectedColumns = function(table, options)
     var self = this;
     var cols = this.getColumns(table, options);
     if (options.select) options.select = core.strSplitUnique(options.select);
-    var select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols); });
+    var select = Object.keys(cols).filter(function(x) {
+        return !self.skipColumn(x, "", options, cols) && (!options.select || options.select.indexOf(name) > -1);
+    });
     return select.length ? select : null;
 }
 
@@ -1016,8 +1017,7 @@ db.skipColumn = function(name, val, options, columns)
 	var rc = !name || name[0] == '_' || typeof val == "undefined" ||
 	         (options.skip_null && val === null) ||
 	         (!options.all_columns && (!columns || !columns[name])) ||
-	         (options.skip_columns && options.skip_columns.indexOf(name) > -1) ||
-	         (options.select && options.select.indexOf(name) == -1) ? true : false;
+	         (options.skip_columns && options.skip_columns.indexOf(name) > -1) ? true : false;
 	logger.dev('skipColumn:', name, val, rc);
 	return rc;
 }
