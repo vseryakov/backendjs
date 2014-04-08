@@ -26,7 +26,7 @@ var uuid = require('uuid');
 
 // The primary object containing all config options and common functions
 var core = {
-    name: 'backendjs',
+    name: 'backend',
     version: '2014.04.07',
 
     // Process and config parameters
