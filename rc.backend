@@ -471,7 +471,7 @@ case "$ARG" in
     ;;
 
   init-pg)
-    if [ ! -d $PG_DIR ]; then
+    if [ ! -f $PG_DIR/postgresql.conf ]; then
        mkdir -p $PG_DIR
        $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
        $SED "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf

@@ -105,7 +105,6 @@ static void doResizeImage(uv_work_t *req)
     int width = MagickGetImageWidth(wand);
     int height = MagickGetImageHeight(wand);
     if (status == MagickFalse) goto err;
-    LogNotice("%dx%d: w=%d, h=%d", width, height, baton->d.width, baton->d.height);
 
     // Negative width or height means we should not upscale if the image is already below the given dimensions
     if (baton->d.width < 0) {
@@ -116,7 +115,6 @@ static void doResizeImage(uv_work_t *req)
         baton->d.height *= -1;
         if (height <= baton->d.height) baton->d.height = 0;
     }
-    LogNotice("%dx%d: w=%d, h=%d", width, height, baton->d.width, baton->d.height);
 
     // Keep the aspect if no dimensions given
     if (baton->d.height == 0 || baton->d.width == 0) {
@@ -124,7 +122,6 @@ static void doResizeImage(uv_work_t *req)
         if (baton->d.height == 0) baton->d.height = baton->d.width * (1.0/aspectRatio); else
         if (baton->d.width == 0) baton->d.width = baton->d.height * aspectRatio;
     }
-    LogNotice("%dx%d: w=%d, h=%d", width, height, baton->d.width, baton->d.height);
     if (baton->d.crop_width && baton->d.crop_height) {
         status = MagickCropImage(wand, baton->d.crop_width, baton->d.crop_height, baton->d.crop_x, baton->d.crop_y);
         if (status == MagickFalse) goto err;

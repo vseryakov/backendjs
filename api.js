@@ -815,7 +815,7 @@ api.initMessageAPI = function()
     function processRows(rows) {
         rows.forEach(function(row) {
             var mtime = row.mtime.split(":");
-            row.mtime = mtime[0];
+            row.mtime = core.toNumber(mtime[0]);
             row.sender = mtime[1];
             row.status = row.status[0];
             if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
@@ -863,7 +863,7 @@ api.initMessageAPI = function()
                 req.query.icon = icon ? 1 : "0";
                 db.add("bk_message", req.query, {}, function(err, rows) {
                     if (err) return self.sendReply(res, db.convertError("bk_message", err));
-                    self.sendJSON(req, res, {});
+                    self.sendJSON(req, res, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon });
                     core.ipcPublish(req.query.id, { path: req.path, mtime: now, sender: req.query.sender });
                     db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1 });
 
