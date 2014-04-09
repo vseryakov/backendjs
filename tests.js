@@ -195,9 +195,15 @@ tests.account = function(callback)
             });
         },
         function(next) {
+            var options = { login: login, secret: secret, query: { ping: "1" } }
+            core.sendRequest("/counter/incr", options, function(err, params) {
+                next(err);
+            });
+        },
+        function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.like0!=1 ? ("err6:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.like0!=1 || params.obj.ping!=1? ("err66:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {

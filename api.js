@@ -836,15 +836,16 @@ api.initMessageAPI = function()
             break;
 
         case "get":
-            options.ops = { mtime: "gt" };
-            db.select("bk_message", { id: req.account.id, mtime: req.query.mtime || "" }, options, function(err, rows, info) {
+            options.ops.mtime = "gt";
+            req.query.id = req.account.id;
+            db.select("bk_message", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
         case "get/unread":
-            options.ops = { status: "begins_with" };
+            options.ops.status = "begins_with";
             options.sort = "status";
             db.select("bk_message", { id: req.account.id, status: "N:" }, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
@@ -954,7 +955,7 @@ api.initCounterAPI = function()
             // Remove non public columns when updating other account
             if (req.query.id && req.query.id != req.account.id) {
                 var obj = { id: req.query.id };
-                db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[p]) obj[p] = req.query[p]; });
+                db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[x]) obj[x] = req.query[x]; });
             } else {
                 var obj = req.query;
                 obj.id = req.account.id;
@@ -1098,8 +1099,9 @@ api.initConnectionAPI = function()
         case "get":
             if (!req.query.type) return self.sendReply(res, 400, "type is required");
             req.query.type += ":" + (req.query.id || "");
-            options.ops = { type: "begins_with" };
-            db.select("bk_" + req.params[0], { id: req.account.id, type: req.query.type }, options, function(err, rows, info) {
+            req.query.id = req.account.id;
+            options.ops.type = "begins_with";
+            db.select("bk_" + req.params[0], req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 var next_token = info.next_token ? core.toBase64(info.next_token) : "";
                 // Split type and reference id
@@ -1299,7 +1301,7 @@ api.initTables = function(callback)
 // Convert query options into database options
 api.getOptions = function(req)
 {
-    var options = { check_public: req.account ? req.account.id : null };
+    var options = { check_public: req.account ? req.account.id : null, ops: {} };
     if (req.query._select) options.select = req.query._select;
     if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50);
     if (req.query._consistent) options.consistent = core.toBool(req.query._consistent);

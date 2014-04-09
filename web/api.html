@@ -158,7 +158,7 @@ $(function() {
          $('#icon').empty();
 
          // Request for an image, re-route to image container
-         if (/^\/image\/|(^\/account\/get\/icon)|(^\/icon\/get\/)/.test(url)) {
+         if (/^\/image\/|(^\/account\/get\/icon)|(^\/icon\/get\/)|(^\/message\/image)/.test(url)) {
              self.apiResponse("");
              $("<img />").attr('src', self.signUrl(url)).load(function() {
                  if (this.complete && this.naturalWidth) $("#icon").append(this);

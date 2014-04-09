@@ -965,6 +965,11 @@ db.prepare = function(op, table, obj, options)
         }
 
     case "incr":
+        // All values must be numbers
+        for (var p in cols) {
+            if (typeof obj[p] != "undefined" && cols[p].type == "counter") obj[p] = core.toNumber(obj[p]);
+        }
+
     case "update":
         for (var p in cols) {
             if (cols[p].now) obj[p] = Date.now();
@@ -1006,7 +1011,7 @@ db.getSelectedColumns = function(table, options)
     var cols = this.getColumns(table, options);
     if (options.select) options.select = core.strSplitUnique(options.select);
     var select = Object.keys(cols).filter(function(x) {
-        return !self.skipColumn(x, "", options, cols) && (!options.select || options.select.indexOf(name) > -1);
+        return !self.skipColumn(x, "", options, cols) && (!options.select || options.select.indexOf(x) > -1);
     });
     return select.length ? select : null;
 }
