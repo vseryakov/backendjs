@@ -237,7 +237,7 @@ api.init = function(callback)
     } else
     if (self.accessLog) {
         self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
-        self.accesslog.on('error', function(err) { logger.error('accesslog:', err); })
+        self.accesslog.on('error', function(err) { logger.error('accesslog:', err); self.accesslog = logger; })
     } else {
         self.accesslog = logger;
     }
@@ -273,6 +273,28 @@ api.init = function(callback)
         next();
     });
 
+    // Custom access logger middleware
+    self.app.use(function(req, res, next) {
+        req._startTime = new Date;
+        req.on("end", function() {
+            if (req._skipAccessLog) return;
+            var now = new Date();
+            var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
+                       (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
+                       req.method + " " +
+                       (req.originalUrl || req.url) + " " +
+                       "HTTP/" + req.httpVersionMajor + '.' + req.httpVersionMinor + " " +
+                       res.statusCode + " " +
+                       ((res._headers || {})["content-length"] || '-') + " - " +
+                       (now - req._startTime) + " ms - " +
+                       (req.headers['user-agent'] || "-") + " " +
+                       (req.headers['version'] || "-") + " " +
+                       (req.account ? req.account.login : "-") + "\n";
+            self.accesslog.write(line);
+        });
+        next();
+    });
+
     // Request parsers
     self.app.use(cookieParser());
     self.app.use(function(req, res, next) { return self.checkQuery(req, res, next); });
@@ -281,8 +303,7 @@ api.init = function(callback)
     // Keep session in the cookies
     self.app.use(session({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
 
-    // Check the signature and make sure the logger is defined to log all requests
-    self.app.use(function(req, res, next) { return self.logRequest(req, res, next); });
+    // Check the signature
     self.app.use(function(req, res, next) { return self.checkRequest(req, res, next); });
 
     // Assign custom middleware just after the security handler
@@ -1790,30 +1811,6 @@ api.collectMetrics = function(req, res, next)
     req.on('end', function() {
         req.stopwatch.end();
         self.metrics.Counter('count').dec();
-    });
-    next();
-}
-
-// Custom access logger middleware
-api.logRequest = function(req, res, next)
-{
-    var self = this;
-    if (!self.accesslog || req._skipAccessLog) return;
-    req._startTime = new Date;
-    req.on("end", function() {
-        var now = new Date();
-        var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
-                   (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
-                   req.method + " " +
-                   (req.originalUrl || req.url) + " " +
-                   "HTTP/" + req.httpVersionMajor + '.' + req.httpVersionMinor + " " +
-                   res.statusCode + " " +
-                   ((res._headers || {})["content-length"] || '-') + " - " +
-                   (now - req._startTime) + " ms - " +
-                   (req.headers['user-agent'] || "-") + " " +
-                   (req.headers['version'] || "-") + " " +
-                   (req.account ? req.account.login : "-") + "\n";
-        self.accesslog.write(line);
     });
     next();
 }
