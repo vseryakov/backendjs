@@ -462,7 +462,10 @@ a connection with it. No direct operations on bk_reference is allowed.
 
   Example:
 
-        /reference/get?type=invite              - return all accounts who invited me
+        # Return all accounts who invited me
+        /reference/get?type=invite
+        # Return accounts who invited me after specified mtime
+        /reference/get?type=invite&_keys=id,type,mtime&_ops=mtime,gt&mtime=12334312543
 
   Response:
 
@@ -564,8 +567,12 @@ from the last messages received so the next time we will use this time to get on
 
   Example:
 
+        # Get all messages
         /message/get
+        # Get al lmessages received after given mtime
         /message/get?mtime=123475658690
+        # Get all messages with custom filter: if msg text contains Hi
+        /message/get?_keys=id,mtime,msg&_ops=msg,iregexp&msg=Hi
 
   Response:
 
@@ -581,8 +588,12 @@ from the last messages received so the next time we will use this time to get on
              "next_token": ""
            }
 
-- `/message/get/unread` - read all unread messages, i.e. the meesages that never been issues `/message/read` call. This call does not require any query
-  parameters, it will return all unread messages from all senders.
+- `/message/get/unread`
+  Read all unread messages, i.e. the messages that never been issued `/message/read` call.
+
+  Parameters:
+   - `_read` - if set to 1, all returned messages will be marked as read automatically, so no individual /message/read call needed
+
 
 - `/message/add`
   Send a message to an account, the following parametrrs must be specified:

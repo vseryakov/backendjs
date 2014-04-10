@@ -605,8 +605,13 @@ db.replace = function(table, obj, options, callback)
 // - obj - can be an object with primary key properties set for the condition, all matching records will be returned
 // - obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
 // - options can use the following special properties:
-//      - keys - a list of columns for condition or all primary keys will be used for query condition, only keys will be used in WHERE part of the SQL statement
-//      - ops - operators to use for comparison for properties, an object with column name and operator
+//      - keys - a list of columns for condition or all primary keys will be used for query condition, only keys will be used in WHERE part of the SQL statement.
+//
+//        By default primary keys are used only but if any other columns specified they will be treated as primary keys, some databases like DynamoDB may restrict which
+//        columns can be used, for example for DynamoDB keys must contain hash, range keys first and then any other columns can be added which will be filtered by the backend
+//        after all records are received from the database using has,range combination.
+//      - ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
+//         `>, gt, <, lt, =, !=, <>, >=, ge, <=, le, in, between, regexp, iregexp, begins_with, like%, ilike%`
 //      - opsMap - operator mapping between supplied operators and actual operators supported by the db
 //      - typesMap - type mapping between supplied and actual column types, an object
 //      - select - a list of columns or expressions to return or all columns if not specified
@@ -2230,11 +2235,13 @@ db.dynamodbInitPool = function(options)
                     if (!options.ops) options.ops = {};
                     if (!options.typesMap) options.typesMap = {};
                     // Keep rows which satisfy all conditions
+                    logger.log(obj, items)
                     items = items.filter(function(row) {
                         return other.every(function(k) {
                             return core.isTrue(row[k], obj[k], options.ops[k], options.typesMap[k]);
                         });
                     });
+                    logger.log(items)
                 }
                 return items;
             }

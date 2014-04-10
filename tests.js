@@ -244,16 +244,22 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { } }
+            var options = { login: login, secret: secret, query: { _read: 1 } }
             core.sendRequest("/message/get/unread", options, function(err, params) {
                 msgs = params.obj;
                 next(err || !params.obj || !params.obj.data || params.obj.data.length!=1 ? ("err13:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
+            var options = { login: login, secret: secret, query: { } }
+            core.sendRequest("/message/get/unread", options, function(err, params) {
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=0 ? ("err14:" + err + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.msg_count!=2 || params.obj.msg_read!=1 ? ("err14:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.msg_count!=2 || params.obj.msg_read!=2 ? ("err15:" + err + util.inspect(params.obj)) : 0);
             });
         },
     ],

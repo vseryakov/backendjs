@@ -584,11 +584,12 @@ case "$ARG" in
       esac
     done
     [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
-    for f in build pages etc deps log tmp var images files; do
+    for f in build pages etc deps log tmp var images files web; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
     echo "Deploying the module to $BACKEND_MASTER:$path ...exclude: $BACKEND_EXCLUDE"
     rsync -av -e "ssh -l $BACKEND_USER" --delete $BACKEND_EXCLUDE `ls` $BACKEND_MASTER:$path
+    rsync -av -e "ssh -l $BACKEND_USER" web $BACKEND_MASTER:$path
     ;;
 
   run-backend)
@@ -836,7 +837,7 @@ backend.server.start();
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  init-backend - init core backend environment, for the core development only, links NPM global backend module $NODE_BACKEND back to this sources"
-    echo "  put-backend path [-host host] - push the backend code to the master server, uses env BACKEND_MASTER or host parameter from the command line"
+    echo "  put-backend path [-host host] - push the backend code to the master server, uses env BACKEND_MASTER or host parameter from the command line, replaces all files and removed non-existing on the dest except in web/ directory, there files are only added, never removed"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"

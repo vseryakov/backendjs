@@ -847,9 +847,25 @@ api.initMessageAPI = function()
         case "get/unread":
             options.ops.status = "begins_with";
             options.sort = "status";
-            db.select("bk_message", { id: req.account.id, status: "N:" }, options, function(err, rows, info) {
+            req.query.id = req.account.id;
+            req.query.status = "N:";
+            db.select("bk_message", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+                // Mark all existing as read
+                if (core.toBool(req.query._read)) {
+                    var nread = 0;
+                    async.forEachSeries(rows, function(row, next) {
+                        db.update("bk_message", { id: req.account.id, mtime: row.mtime, status: 'R:' + row.mtime }, function(err) {
+                            if (!err) nread++;
+                            next();
+                        });
+                    }, function(err) {
+                        if (nread) db.incr("bk_counter", { id: req.account.id, msg_read: nread }, { cached: 1 });
+                        self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+                    });
+                } else {
+                    self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+                }
             });
             break;
 
@@ -879,8 +895,7 @@ api.initMessageAPI = function()
         case "read":
             if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
             req.query.mtime += ":" + req.query.sender;
-            req.query.status = 'R:' + req.query.mtime;
-            db.update("bk_message", { id: req.account.id, mtime: req.query.mtime, status: "R" }, function(err, rows) {
+            db.update("bk_message", { id: req.account.id, mtime: req.query.mtime, status: "R:" + req.query.mtime }, function(err, rows) {
                 if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
                 self.sendReply(res, err);
             });
@@ -888,9 +903,8 @@ api.initMessageAPI = function()
 
         case "del":
             if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
-            req.query.mtime = now + ":" + req.query.sender;
-            req.query.id = req.account.id;
-            db.del("bk_message", req.query, {}, function(err, rows) {
+            req.query.mtime += ":" + req.query.sender;
+            db.del("bk_message", { id: req.account.id, mtime: req.query.mtime }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 });
                 self.sendJSON(req, res, {});

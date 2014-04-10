@@ -927,11 +927,14 @@ core.isTrue = function(val1, val2, op, type)
         break;
 
     case 'like%':
-        if (String(val2).indexOf(String(val1)) != 0) return false;
+    case 'begins_with':
+        var v1 = String(val1);
+        if (String(val2).substr(0, v1.length) != v1) return false;
         break;
 
     case "ilike%":
-        if (String(val2).tpLowerCase().indexOf(String(val1).toLowerCase()) != 0) return false;
+        var v1 = String(val1).toLowerCase();
+        if (String(val2).substr(0, v1.length).toLowerCase() != v1) return false;
         break;
 
     case "!~":
@@ -943,7 +946,8 @@ core.isTrue = function(val1, val2, op, type)
     case "~":
     case "~*":
     case "regexp":
-        if (!String(val1).match(String(val2))) return false;
+        if (!String(val1).match(new RegExp(String(val2)))) return false;
+        break;
 
     case "!=":
     case "<>":
