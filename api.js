@@ -282,7 +282,7 @@ api.init = function(callback)
     self.app.use(session({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
 
     // Check the signature and make sure the logger is defined to log all requests
-    self.app.use(this.accessLogger());
+    self.app.use(function(req, res, next) { return self.logRequest(req, res, next); });
     self.app.use(function(req, res, next) { return self.checkRequest(req, res, next); });
 
     // Assign custom middleware just after the security handler
@@ -1795,35 +1795,25 @@ api.collectMetrics = function(req, res, next)
 }
 
 // Custom access logger middleware
-api.accessLogger = function()
+api.logRequest = function(req, res, next)
 {
     var self = this;
-
-    var format = function(req, res) {
+    if (!self.accesslog || req._skipAccessLog) return;
+    req._startTime = new Date;
+    req.on("end", function() {
         var now = new Date();
-        return (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
-               (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
-               req.method + " " +
-               (req.originalUrl || req.url) + " " +
-               "HTTP/" + req.httpVersionMajor + '.' + req.httpVersionMinor + " " +
-               res.statusCode + " " +
-               ((res._headers || {})["content-length"] || '-') + " - " +
-               (now - req._startTime) + " ms - " +
-               (req.headers['user-agent'] || "-") + " " +
-               (req.headers['version'] || "-") + " " +
-               (req.account ? req.account.login : "-") + "\n";
-    }
-
-    return function logger(req, res, next) {
-        req._startTime = new Date;
-        res._end = res.end;
-        res.end = function(chunk, encoding) {
-            res._end(chunk, encoding);
-            if (!self.accesslog || req._skipAccessLog) return;
-            var line = format(req, res);
-            if (!line) return;
-            self.accesslog.write(line);
-        }
-        next();
-    }
+        var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
+                   (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
+                   req.method + " " +
+                   (req.originalUrl || req.url) + " " +
+                   "HTTP/" + req.httpVersionMajor + '.' + req.httpVersionMinor + " " +
+                   res.statusCode + " " +
+                   ((res._headers || {})["content-length"] || '-') + " - " +
+                   (now - req._startTime) + " ms - " +
+                   (req.headers['user-agent'] || "-") + " " +
+                   (req.headers['version'] || "-") + " " +
+                   (req.account ? req.account.login : "-") + "\n";
+        self.accesslog.write(line);
+    });
+    next();
 }
