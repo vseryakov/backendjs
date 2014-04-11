@@ -70,7 +70,7 @@ var server = {
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
            { name: "max-jobs", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue only" },
-           { name: "jobs-interval", type: "number", min: 60000, max: 900000, descr: "Interval between executing job queue" } ],
+           { name: "jobs-interval", type: "number", descr: "Interval between executing job queue, 0 disables job processing, min interval os 60 secs" } ],
 };
 
 module.exports = server;
@@ -199,7 +199,7 @@ server.startMaster = function()
         }, 30000);
 
         // Primary jobs
-        setInterval(function() { self.processJobs() }, self.jobsInterval);
+        if (self.jobsInterval >= 60000) setInterval(function() { self.processJobs() }, self.jobsInterval);
 
         logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
     } else {

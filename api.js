@@ -229,19 +229,6 @@ api.init = function(callback)
     var self = this;
     var db = core.context.db;
 
-    // Access log via file or syslog
-    if (logger.syslog) {
-        self.accesslog = new stream.Stream();
-        self.accesslog.writable = true;
-        self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; }
-    } else
-    if (self.accessLog) {
-        self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
-        self.accesslog.on('error', function(err) { logger.error('accesslog:', err); self.accesslog = logger; })
-    } else {
-        self.accesslog = logger;
-    }
-
     // Performance statistics
     self.metrics = new metrics();
     self.collectStatistics();
@@ -273,11 +260,23 @@ api.init = function(callback)
         next();
     });
 
-    // Custom access logger middleware
+    // Access log via file or syslog
+    if (logger.syslog) {
+        self.accesslog = new stream.Stream();
+        self.accesslog.writable = true;
+        self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; }
+    } else
+    if (self.accessLog) {
+        self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
+        self.accesslog.on('error', function(err) { logger.error('accesslog:', err); self.accesslog = logger; })
+    } else {
+        self.accesslog = logger;
+    }
     self.app.use(function(req, res, next) {
         req._startTime = new Date;
         req.on("end", function() {
-            if (req._skipAccessLog) return;
+            if (req._accessLog) return;
+            req._accessLog = true;
             var now = new Date();
             var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
                        (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
@@ -285,7 +284,7 @@ api.init = function(callback)
                        (req.originalUrl || req.url) + " " +
                        "HTTP/" + req.httpVersionMajor + '.' + req.httpVersionMinor + " " +
                        res.statusCode + " " +
-                       ((res._headers || {})["content-length"] || '-') + " - " +
+                       (res.get("Content-Length") || '-') + " - " +
                        (now - req._startTime) + " ms - " +
                        (req.headers['user-agent'] || "-") + " " +
                        (req.headers['version'] || "-") + " " +
@@ -859,6 +858,8 @@ api.initMessageAPI = function()
         case "get":
             options.ops.mtime = "gt";
             req.query.id = req.account.id;
+            // Must be a string for DynamoDB at least
+            if (req.query.mtime) req.query.mtime = String(req.query.mtime);
             db.select("bk_message", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
@@ -1088,25 +1089,22 @@ api.initConnectionAPI = function()
         case "del":
             var id = req.query.id, type = req.query.type;
             if (!id || !type) return self.sendReply(res, 400, "id and type are required");
-            db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, function(err) {
+            self.deleteConnection(req.account.id, req.query, function(err) {
                 if (err) return self.sendReply(res, err);
-                db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, function(err) {
-                    if (err) self.sendReply(res, err);
-                    self.sendJSON(req, res, {});
-                    core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
+                self.sendJSON(req, res, {});
+                core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
 
-                    // Update history log
-                    if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
-                    }
+                // Update history log
+                if (req.query._history) {
+                    db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
+                }
 
-                    // Update accumulated counter if we support this column and do it automatically
-                    var col = db.getColumn("bk_counter", req.query.type + "0");
-                    if (col && col.incr) {
-                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
-                        db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
-                    }
-                });
+                // Update accumulated counter if we support this column and do it automatically
+                var col = db.getColumn("bk_counter", req.query.type + "0");
+                if (col && col.incr) {
+                    db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
+                    db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
+                }
             });
             break;
 
@@ -1734,6 +1732,19 @@ api.deleteFile = function(file, options, callback)
             if (callback) callback(err, outfile);
         })
     }
+}
+
+// Delete one connection between 2 accounts, id is the account id, primary connection holder, obj contains query
+// confitions, at least id: and type: properties must be defined
+api.deleteConnection = function(id, obj, callback)
+{
+    if (!obj || !obj.id || !obj.type) return callback ? callback(new Error("id and type must be specified")) : null;
+
+    db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function(err) {
+        if (err) return callback ? callback(err) : null;
+
+        db.del("bk_reference", { id: obj.id, type: obj.type + ":" + id }, callback);
+    });
 }
 
 // Delete all connections and references for the given account
