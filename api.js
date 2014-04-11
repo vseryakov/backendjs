@@ -272,11 +272,15 @@ api.init = function(callback)
     } else {
         self.accesslog = logger;
     }
+
     self.app.use(function(req, res, next) {
+        if (req._accessLog) return;
+        req._accessLog = true;
         req._startTime = new Date;
-        req.on("end", function() {
-            if (req._accessLog) return;
-            req._accessLog = true;
+        var end = res.end;
+        res.end = function(chunk, encoding) {
+            res.end = end;
+            res.end(chunk, encoding);
             var now = new Date();
             var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
                        (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
@@ -290,7 +294,7 @@ api.init = function(callback)
                        (req.headers['version'] || "-") + " " +
                        (req.account ? req.account.login : "-") + "\n";
             self.accesslog.write(line);
-        });
+        }
         next();
     });
 
@@ -1739,6 +1743,7 @@ api.deleteFile = function(file, options, callback)
 api.deleteConnection = function(id, obj, callback)
 {
     if (!obj || !obj.id || !obj.type) return callback ? callback(new Error("id and type must be specified")) : null;
+    var db = core.context.db;
 
     db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function(err) {
         if (err) return callback ? callback(err) : null;
