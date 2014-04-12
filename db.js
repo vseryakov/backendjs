@@ -661,7 +661,7 @@ db.list = function(table, obj, options, callback)
 {
 	switch (core.typeName(obj)) {
 	case "string":
-		var keys = options && options.keys ? options.keys : this.getKeys(table, options);
+		var keys = this.getSearchKeys(table, options);
 		if (!keys || !keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
 		obj = core.strSplit(obj).map(function(x) { return core.newObj(keys[0], x) });
 
@@ -890,10 +890,10 @@ db.clearCached = function(table, obj, options)
     core.ipcDelCache(this.getCachedKey(table, obj, options));
 }
 
+// Returns concatenated values for the primary keys, this is used for caching records by primary key
 db.getCachedKey = function(table, obj, options)
 {
     var prefix = options.prefix || table;
-    var keys = options.keys || this.getKeys(table, options) || [];
     return prefix + (this.getKeys(table, options) || []).map(function(x) { return ":" + obj[x] });
 }
 
@@ -1009,15 +1009,14 @@ db.getColumn = function(table, name, options)
     return this.getColumns(table, options)[name];
 }
 
-// Return list of selected or allowed only columns, empty list of no condition given
+// Return list of selected or allowed only columns, empty list if no options.select is specified
 db.getSelectedColumns = function(table, options)
 {
     var self = this;
+    if (!options.select || !options.select.length) return null;
     var cols = this.getColumns(table, options);
-    if (options.select) options.select = core.strSplitUnique(options.select);
-    var select = Object.keys(cols).filter(function(x) {
-        return !self.skipColumn(x, "", options, cols) && (!options.select || options.select.indexOf(x) > -1);
-    });
+    options.select = core.strSplitUnique(options.select);
+    var select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols) && options.select.indexOf(x) > -1; });
     return select.length ? select : null;
 }
 
@@ -1036,6 +1035,17 @@ db.skipColumn = function(name, val, options, columns)
 db.getKeys = function(table, options)
 {
     return this.getPool(table, options).dbkeys[table.toLowerCase()];
+}
+
+// Return keys for the table search, if options.keys provided and not empty it will be used otherwise
+// table's primary keys will be returned. This is a wrapper that makes sure that valid keys are used and
+// deals with input errors like empty keys list to be consistent between different databases.
+// This function always returns an Array even if it is empty.
+db.getSearchKeys = function(table, options)
+{
+    var keys = options && options.keys ? options.keys : null;
+    if (!keys || !keys.length) keys = this.getKeys(table, options);
+    return keys || [];
 }
 
 // Return possibly converted value to be used for inserting/updating values in the database,
@@ -1732,8 +1742,7 @@ db.sqlSelect = function(table, obj, options)
 {
 	var self = this;
     if (!options) options = {};
-    var keys = options.keys;
-    if (!keys || !keys.length) keys = this.getKeys(table, options) || [];
+    var keys = this.getSearchKeys(table, options);
 
     // Requested columns, support only existing
     var select = "*";
@@ -1790,8 +1799,7 @@ db.sqlUpdate = function(table, obj, options)
     if (!options) options = {};
     var sets = [], req = { values: [] }, i = 1;
     var cols = this.getColumns(table, options) || {};
-    var keys = options.keys;
-    if (!keys || !keys.length) keys = this.getKeys(table, options) || [];
+    var keys = this.getSearchKeys(table, options);
 
     for (p in obj) {
         var v = obj[p];
@@ -1838,8 +1846,7 @@ db.sqlUpdate = function(table, obj, options)
 db.sqlDelete = function(table, obj, options)
 {
     if (!options) options = {};
-    var keys = options.keys;
-    if (!keys || !keys.length) keys = this.getKeys(table, options) || [];
+    var keys = this.getSearchKeys(table, options);
 
     var where = this.sqlWhere(table, obj, keys, options);
     if (!where) {
@@ -2220,7 +2227,8 @@ db.dynamodbInitPool = function(options)
         case "select":
         case "search":
             // If we have other key columns we have to use custom filter
-            var other = (options.keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && obj[x] });
+            var keys = options.keys && options.keys.length ? options.keys : null;
+            var other = (keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && obj[x] });
             // Do not use index name if it is a primary key
             if (options.sort && dbkeys.indexOf(options.sort) > -1) options.sort = null;
             // Use primary keys from the local secondary index
@@ -2229,7 +2237,7 @@ db.dynamodbInitPool = function(options)
                 primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             }
             // Only primary key columns are allowed
-            var keys = (options.keys || dbkeys).filter(function(x) { return other.indexOf(x) == -1 && obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            keys = (keys || dbkeys).filter(function(x) { return other.indexOf(x) == -1 && obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var filter = function(items) {
                 if (other.length > 0) {
                     if (!options.ops) options.ops = {};

@@ -911,7 +911,7 @@ api.initMessageAPI = function()
                     db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1 });
 
                     // Update history log
-                    if (req.query._history) {
+                    if (options.history) {
                         db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: req.query.id });
                     }
                 });
@@ -1004,7 +1004,7 @@ api.initCounterAPI = function()
                 if (err) return self.sendReply(res, db.convertError("bk_counter", err));
 
                 // Update history log
-                if (req.query._history) {
+                if (options.history) {
                     db.add("bk_history", { id: req.account.id, type: req.path, data: core.cloneObj(obj, { mtime: 1 }) });
                 }
 
@@ -1042,73 +1042,16 @@ api.initConnectionAPI = function()
         case "add":
         case "put":
         case "update":
-            var id = req.query.id, type = req.query.type;
-            if (!id || !type) return self.sendReply(res, 400, "id and type are required");
-            if (id == req.account.id) return self.sendReply(res, 400, "cannot connect to itself");
-            // Override primary key properties, the rest of the properties will be added as is
-            req.query.id = req.account.id;
-            req.query.type = type + ":" + id;
-            req.query.mtime = now;
-            db[req.params[1]]("bk_connection", req.query, function(err) {
-                if (err) return self.sendReply(res, db.convertError("bk_connection", err));
-
-                // Maintain recent mtime for connections so we can query who's new connected
-                db.add("bk_recent", { id: req.account.id, mtime: now + ":" + id, type: type });
-
-                // Reverse reference to the same connection
-                req.query.id = id;
-                req.query.type = type + ":"+ req.account.id;
-                db[req.params[1]]("bk_reference", req.query, function(err) {
-                    if (err) {
-                        db.del("bk_connection", { id: req.account.id, type: type + ":" + id });
-                        return self.sendReply(res, err);
-                    }
-                    // We need to know if the other side is connected too, this will save one extra API call
-                    if (req.query._connected) {
-                        db.get("bk_connection", req.query, function(err, rows) {
-                            self.sendJSON(req, res, { connected: rows.length });
-                        });
-                    } else {
-                        self.sendJSON(req, res, {});
-                    }
-                    core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
-
-                    // Update history log
-                    if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
-                    }
-
-                    // Update accumulated counter if we support this column and do it automatically
-                    if (req.params[1] == 'update') return;
-
-                    var col = db.getColumn("bk_counter", type + '0');
-                    if (col && col.incr) {
-                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', 1), { cached: 1 });
-                        db.incr("bk_counter", core.newObj('id', id, type + '1', 1), { cached: 1 });
-                    }
-                });
+            self.putConnections(req, options, function(err, data) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, data);
             });
             break;
 
         case "del":
-            var id = req.query.id, type = req.query.type;
-            if (!id || !type) return self.sendReply(res, 400, "id and type are required");
-            self.deleteConnection(req.account.id, req.query, function(err) {
+            self.delConnections(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, {});
-                core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
-
-                // Update history log
-                if (req.query._history) {
-                    db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
-                }
-
-                // Update accumulated counter if we support this column and do it automatically
-                var col = db.getColumn("bk_counter", req.query.type + "0");
-                if (col && col.incr) {
-                    db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
-                    db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
-                }
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -1123,7 +1066,7 @@ api.initConnectionAPI = function()
                     row.mtime = d[0];
                     row.id = d[1];
                 });
-                if (!core.toNumber(req.query._details)) return self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
+                if (!core.toNumber(options.details)) return self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
 
                 // Get all account records for the id list
                 db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
@@ -1134,26 +1077,9 @@ api.initConnectionAPI = function()
             break;
 
         case "get":
-            if (!req.query.type) return self.sendReply(res, 400, "type is required");
-            req.query.type += ":" + (req.query.id || "");
-            req.query.id = req.account.id;
-            options.ops.type = "begins_with";
-            db.select("bk_" + req.params[0], req.query, options, function(err, rows, info) {
+            self.getConnections(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
-                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-                // Split type and reference id
-                rows.forEach(function(row) {
-                    var d = row.type.split(":");
-                    row.type = d[0];
-                    row.id = d[1];
-                });
-                if (!core.toNumber(req.query._details)) return self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
-
-                // Get all account records for the id list
-                db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
-                    if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
-                });
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -1176,92 +1102,16 @@ api.initLocationAPI = function()
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "put":
-            var now = Date.now();
-            var latitude = req.query.latitude, longitude = req.query.longitude;
-            if (!latitude || !longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-            // Get current location
-            db.get("bk_account", { id: req.account.id }, function(err, rows) {
-                if (err || !rows.length) return self.sendReply(res, err);
-                // Keep old coordinates in the account record
-                var old = rows[0];
-
-                // Skip if within minimal distance
-                var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
-                if (distance < core.minDistance) return self.sendReply(res, 305, "ignored, min distance: " + core.minDistance);
-
-                // Build new location record
-                var geo = core.geoHash(latitude, longitude);
-                req.query.id = req.account.id;
-                req.query.geohash = geo.geohash;
-                var cols = db.getColumns("bk_location", options);
-                // Update all account columns in the location, they are very tightly connected and custom filters can
-                // be used for filtering locations based on other account properties like gender.
-                for (var p in cols) if (old[p] && !req.query[p]) req.query[p] = old[p];
-
-                var obj = { id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
-                db.update("bk_account", obj, function(err) {
-                    if (err) return self.sendReply(res, err);
-
-                    db.put("bk_location", req.query, function(err) {
-                        if (err) return self.sendRepy(res, err);
-
-                        // Return new location record with the old coordinates
-                        req.query.old = old;
-                        self.sendJSON(req, res, req.query);
-
-                        // Delete the old location, no need to wait even if fails we still have a new one recorded
-                        db.del("bk_location", old);
-                    });
-
-                    // Update history log
-                    if (req.query._history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, data: geo.hash + ":" + latitude + ":" + longitude });
-                    }
-                });
+            self.putLocations(req, options, function(err, data) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, data);
             });
             break;
 
         case "get":
-            // Perform location search based on hash key that covers the whole region for our configured max distance
-            if (!req.query.latitude || !req.query.longitude) return self.sendReply(res, 400, "latitude/longitude are required");
-            // Pass all query parameters for custom filters if any
-            for (var p in req.query) options[p] = req.query[p];
-            // Limit the distance within our configured range
-            options.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
-            // Continue pagination using the search token
-            var token = core.toJson(req.query._token);
-            if (token && token.geohash) {
-            	if (token.latitude != req.query.latitude ||	token.longitude != req.query.longitude) return self.sendRepy(res, 400, "invalid token");
-            	options = token;
-            }
-            // Rounded distance, not precise to keep from pin-pointing locations
-            options.round = core.minDistance;
-            db.getLocations("bk_location", options, function(err, rows, info) {
-                var next_token = info.more ? core.toBase64(info) : null;
-                // Ignore current account, db still retrieves it but in the API we skip it
-                rows = rows.filter(function(row) { return row.id != req.account.id });
-                // Return accounts with locations
-                if (core.toNumber(req.query._details) && rows.length) {
-                    var list = {}, ids = [];
-                    rows = rows.map(function(row) {
-                        // Skip duplicates
-                        if (list[row.id]) return row;
-                        ids.push({ id: row.id });
-                        list[row.id] = row;
-                        return row;
-                    });
-                	db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
-                        if (err) return self.sendReply(res, err);
-                        // Merge locations and accounts
-                        rows.forEach(function(row) {
-                            var item = list[row.id];
-                            for (var p in item) row[p] = item[p];
-                        });
-                        self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
-                    });
-                } else {
-                    self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
-                }
+            self.getLocations(req, options, function(err, data) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -1339,14 +1189,18 @@ api.initTables = function(callback)
 api.getOptions = function(req)
 {
     var options = { check_public: req.account ? req.account.id : null, ops: {} };
+    ["recent", "details", "consistent", "desc", "total"].forEach(function(x) {
+        if (typeof req.query["_" + x] != "undefined") options[x] = core.toBool(req.query["_" + x]);
+    });
     if (req.query._select) options.select = req.query._select;
     if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50);
-    if (req.query._consistent) options.consistent = core.toBool(req.query._consistent);
     if (req.query._start) options.start = core.toJson(req.query._start);
     if (req.query._sort) options.sort = req.query._sort;
     if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
-    if (req.query._desc) options.sort = core.toBool(req.query._desc);
-    if (req.query._keys) options.keys = core.strSplit(req.query._keys);
+    if (req.query._keys) {
+        options.keys = core.strSplit(req.query._keys);
+        if (!options.keys.length) delete options.keys;
+    }
     if (req.query._width) options.width = core.toNumber(req.query._width);
     if (req.query._height) options.height = core.toNumber(req.query._height);
     if (req.query._ext) options.ext = req.query._ext;
@@ -1355,7 +1209,6 @@ api.getOptions = function(req)
         var ops = core.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) options.ops[ops[i]] = ops[i+1];
     }
-    if (req.query._total) options.total = core.toBool(req.query._total);
     return options;
 }
 
@@ -1455,7 +1308,7 @@ api.sendJSON = function(req, res, rows)
 // Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
 api.sendReply = function(res, status, msg)
 {
-    if (status instanceof Error) msg = status.message, status = 500;
+    if (status instanceof Error || status instanceof Object) msg = status.message, status = status.status || 500;
     if (!status) status = 200, msg = "";
     return this.sendStatus(res, { status: status, message: String(msg || "") });
 }
@@ -1537,6 +1390,251 @@ api.formatIcon = function(req, id, row)
         }
         if (id != req.account.id) row.url += "&id=" + id;
     }
+}
+
+// Return all connections for the current account, this function is called by the `/connection/get` API call.
+api.getConnections = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    if (!req.query.type) return callback(new Error("type is required"));
+
+    req.query.type += ":" + (req.query.id || "");
+    req.query.id = req.account.id;
+    options.ops.type = "begins_with";
+    db.select("bk_" + req.params[0], req.query, options, function(err, rows, info) {
+        if (err) return self.sendReply(res, err);
+        var next_token = info.next_token ? core.toBase64(info.next_token) : "";
+        // Split type and reference id
+        rows.forEach(function(row) {
+            var d = row.type.split(":");
+            row.type = d[0];
+            row.id = d[1];
+        });
+        if (!core.toNumber(options.details)) return callback(null, { count: rows.length, data: rows, next_token: next_token });
+
+        // Get all account records for the id list
+        db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
+            if (err) return self.sendReply(res, err);
+            callback(null, { count: rows.length, data: rows, next_token: next_token });
+        });
+    });
+}
+
+// Create a connection between 2 accounts, this function is called by the `/connection/add` API call.
+api.putConnections = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var now = Date.now();
+
+    var id = req.query.id, type = req.query.type;
+    if (!id || !type) return callback(new Error("id and type are required"));
+    if (id == req.account.id) return callback(new Error("cannot connect to itself"));
+
+    // Override primary key properties, the rest of the properties will be added as is
+    req.query.id = req.account.id;
+    req.query.type = type + ":" + id;
+    req.query.mtime = now;
+    db[req.params[1]]("bk_connection", req.query, function(err) {
+        if (err) return callback(db.convertError("bk_connection", err));
+
+        // Reverse reference to the same connection
+        req.query.id = id;
+        req.query.type = type + ":"+ req.account.id;
+        db[req.params[1]]("bk_reference", req.query, function(err) {
+            if (err) {
+                db.del("bk_connection", { id: req.account.id, type: type + ":" + id });
+                return callback(err);
+            }
+            // We need to know if the other side is connected too, this will save one extra API call
+            if (req.query._connected) {
+                db.get("bk_connection", req.query, function(err, rows) {
+                    callback(null, { connected: rows.length });
+                });
+            } else {
+                callback(null, {});
+            }
+            core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
+
+            async.series([
+               function(next) {
+                   // Update history log
+                   if (!options.history) return next();
+                   db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id }, next);
+               },
+               function(next) {
+                   // Update accumulated counter if we support this column and do it automatically
+                   next(req.params[1] == 'update' ? new Error("stop") : null);
+               },
+               function(next) {
+                   // Maintain recent mtime for connections so we can query who's new connected
+                   if (!options.recent) return next();
+                   db.add("bk_recent", { id: req.account.id, mtime: now + ":" + id, type: type }, next);
+               },
+               function(next) {
+                   var col = db.getColumn("bk_counter", type + '0');
+                   if (!col || !col.incr) return next();
+                   db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', 1), { cached: 1 }, function() {
+                       db.incr("bk_counter", core.newObj('id', id, type + '1', 1), { cached: 1 }, next);
+                   });
+               }]);
+        });
+    });
+}
+
+// Delete a connection, this function is called by the `/connection/del` API call
+api.delConnections = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var now = Date.now();
+
+    var id = req.query.id, type = req.query.type;
+    if (!id || !type) return callback(new Error("id and type are required"));
+
+    self.deleteConnection(req.account.id, req.query, function(err) {
+        if (err) return callback(err);
+
+        callback(null, {});
+        core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
+
+        // Update history log
+        if (options.history) {
+            db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
+        }
+
+        // Update accumulated counter if we support this column and do it automatically
+        var col = db.getColumn("bk_counter", req.query.type + "0");
+        if (col && col.incr) {
+            db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
+            db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
+        }
+    });
+}
+
+// Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
+// is used in `/location/get` request. It can be used in the applications with customized input and output if neccesary for the application specific logic.
+//
+// Example
+//
+//          # Request will look like: /recent/locations?latitude=34.1&longitude=-118.1&mtime=123456789
+//          this.app.all(/^\/recent\/locations$/, function(req, res) {
+//              var options = self.getOptions(req);
+//              options.keys = ["geohash","mtime"];
+//              options.ops = { mtime: 'gt' };
+//              options.details = true;
+//              self.getLocations(req, options, function(err, data) {
+//                  self.sendJSON(req, res, data);
+//              });
+//          });
+//
+api.getLocations = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    // Perform location search based on hash key that covers the whole region for our configured max distance
+    if (!req.query.latitude || !req.query.longitude) return callback({ status: 400, message: "latitude/longitude are required" });
+
+    // Pass all query parameters for custom filters if any, do not override existing options
+    for (var p in req.query) {
+        if (p[0] != "_" && !options[p]) options[p] = req.query[p];
+    }
+    // Limit the distance within our configured range
+    options.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
+
+    // Continue pagination using the search token
+    var token = core.toJson(req.query._token);
+    if (token && token.geohash) {
+        if (token.latitude != options.latitude ||
+            token.longitude != options.longitude ||
+            token.distance != options.distance) return callback({ status: 400, message: "invalid token, latitude, longitude and distance must be the same" });
+        options = token;
+    }
+    // Rounded distance, not precise to keep from pin-pointing locations
+    if (!options.round) options.round = core.minDistance;
+
+    db.getLocations("bk_location", options, function(err, rows, info) {
+        var next_token = info.more ? core.toBase64(info) : null;
+        // Ignore current account, db still retrieves it but in the API we skip it
+        rows = rows.filter(function(row) { return row.id != req.account.id });
+        // Return accounts with locations
+        if (core.toNumber(options.details) && rows.length) {
+            var list = {}, ids = [];
+            rows = rows.map(function(row) {
+                // Skip duplicates
+                if (list[row.id]) return row;
+                ids.push({ id: row.id });
+                list[row.id] = row;
+                return row;
+            });
+            db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
+                if (err) return self.sendReply(res, err);
+                // Merge locations and accounts
+                rows.forEach(function(row) {
+                    var item = list[row.id];
+                    for (var p in item) row[p] = item[p];
+                });
+                callback(null, { count: rows.length, data: rows, next_token: next_token });
+            });
+        } else {
+            callback(null, { count: rows.length, data: rows, next_token: next_token });
+        }
+    });
+}
+
+// Save locstion coordinates for current account, this function is called by the `/location/put` API call
+api.putLocations = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var now = Date.now();
+
+    var latitude = req.query.latitude, longitude = req.query.longitude;
+    if (!latitude || !longitude) return callback({ status: 400, message: "latitude/longitude are required" });
+
+    // Get current location
+    db.get("bk_account", { id: req.account.id }, function(err, rows) {
+        if (err || !rows.length) return callback(err);
+        // Keep old coordinates in the account record
+        var old = rows[0];
+
+        // Skip if within minimal distance
+        var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
+        if (distance < core.minDistance) return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
+
+        // Build new location record
+        var geo = core.geoHash(latitude, longitude);
+        req.query.id = req.account.id;
+        req.query.geohash = geo.geohash;
+        var cols = db.getColumns("bk_location", options);
+        // Update all account columns in the location, they are very tightly connected and custom filters can
+        // be used for filtering locations based on other account properties like gender.
+        for (var p in cols) if (old[p] && !req.query[p]) req.query[p] = old[p];
+
+        var obj = { id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
+        db.update("bk_account", obj, function(err) {
+            if (err) return callback(err);
+
+            db.put("bk_location", req.query, function(err) {
+                if (err) return callback(err);
+
+                // Return new location record with the old coordinates
+                req.query.old = old;
+                callback(null, req.query);
+
+                // Delete the old location, no need to wait even if fails we still have a new one recorded
+                db.del("bk_location", old);
+            });
+
+            // Update history log
+            if (options.history) {
+                db.add("bk_history", { id: req.account.id, type: req.path, data: geo.hash + ":" + latitude + ":" + longitude });
+            }
+        });
+    });
 }
 
 // Return icon to the client, checks the bk_icon table for existence and permissions
