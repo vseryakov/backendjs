@@ -1365,7 +1365,7 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>server-job</code> - Job specification, JSON encoded as base64 of the job object</li>
 <li><code>server-jobs-tag</code> - This server executes jobs that match this tag, cannot be empty, default is current hostname Default: Vlad-Macbook</li>
 <li><code>server-max-jobs</code> - How many jobs to execute at any iteration, this relates to the bk_jobs queue only Default: 1</li>
-<li><code>server-jobs-interval</code> - Interval between executing job queue Default: 180000</li>
+<li><code>server-jobs-interval</code> - Interval between executing job queue, 0 disables job processing, min interval os 60 secs Default: 180000</li>
 </ul>
 <h2 id="module-api">Module: API</h2>
 <ul>
@@ -1717,6 +1717,48 @@ the callback MUST return data back to the client or any other status code</li>
 </ul>
 
 <ul>
+<li><p><code>api.getConnections(req, options, callback)</code></p>
+<p> Return all connections for the current account, this function is called by the <code>/connection/get</code> API call.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putConnections(req, options, callback)</code></p>
+<p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delConnections(req, options, callback)</code></p>
+<p> Delete a connection, this function is called by the <code>/connection/del</code> API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getLocations(req, options, callback)</code></p>
+<p> Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
+is used in <code>/location/get</code> request. It can be used in the applications with customized input and output if neccesary for the application specific logic.</p>
+<p>Example</p>
+<pre><code>    # Request will look like: /recent/locations?latitude=34.1&amp;longitude=-118.1&amp;mtime=123456789
+    this.app.all(/^\/recent\/locations$/, function(req, res) {
+        var options = self.getOptions(req);
+        options.keys = [&quot;geohash&quot;,&quot;mtime&quot;];
+        options.ops = { mtime: &#39;gt&#39; };
+        options.details = true;
+        self.getLocations(req, options, function(err, data) {
+            self.sendJSON(req, res, data);
+        });
+    });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>api.putLocations(req, options, callback)</code></p>
+<p> Save locstion coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.getIcon(req, res, id, options)</code></p>
 <p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
 </li>
@@ -1785,6 +1827,13 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <ul>
+<li><p><code>api.deleteConnection(id, obj, callback)</code></p>
+<p> Delete one connection between 2 accounts, id is the account id, primary connection holder, obj contains query
+confitions, at least id: and type: properties must be defined</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.deleteConnections(obj, callback)</code></p>
 <p> Delete all connections and references for the given account</p>
 </li>
@@ -1806,12 +1855,6 @@ Return err if something wrong occured in the callback.</p>
 <ul>
 <li><p><code>api.collectMetrics(req, res, next)</code></p>
 <p> Metrics collection middleware</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.accessLogger()</code></p>
-<p> Custom access logger middleware</p>
 </li>
 </ul>
 
@@ -3145,6 +3188,12 @@ Additional options:</p>
 </ul>
 
 <ul>
+<li><p><code>db.getCachedKey(table, obj, options)</code></p>
+<p> Returns concatenated values for the primary keys, this is used for caching records by primary key</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.create(table, columns, options, callback)</code></p>
 <p> Create a table using column definitions represented as a list of objects. Each column definition can
 contain the following properties:</p>
@@ -3211,7 +3260,7 @@ Returns prepared object to be passed to the driver&#39;s .query method.</p>
 
 <ul>
 <li><p><code>db.getSelectedColumns(table, options)</code></p>
-<p> Return list of selected or allowed only columns, empty list of no condition given</p>
+<p> Return list of selected or allowed only columns, empty list if no options.select is specified</p>
 </li>
 </ul>
 
@@ -3224,6 +3273,15 @@ Returns prepared object to be passed to the driver&#39;s .query method.</p>
 <ul>
 <li><p><code>db.getKeys(table, options)</code></p>
 <p> Return cached primary keys for a table or null</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getSearchKeys(table, options)</code></p>
+<p> Return keys for the table search, if options.keys provided and not empty it will be used otherwise
+table&#39;s primary keys will be returned. This is a wrapper that makes sure that valid keys are used and
+deals with input errors like empty keys list to be consistent between different databases.
+This function always returns an Array even if it is empty.</p>
 </li>
 </ul>
 
