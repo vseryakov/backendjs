@@ -1698,14 +1698,19 @@ api.checkIcon = function(req, id, row)
 api.putIcon = function(req, id, options, callback)
 {
     var self = this;
-    // Multipart upload can provide more than one icon, file name can be accompanied by file_type property
-    // to define type for each icon
-    if (req.files && Object.keys(req.files).length) {
+    // Multipart upload can provide more than one icon, file name can be accompanied by file_type property to define type for each icon, for
+    // only one uploaded file req.query.type still will be used
+    var nfiles = req.files ? Object.keys(req.files).length : 0;
+    if (nfiles) {
+        var outfile = null, type = req.query.type;
         async.forEachSeries(Object.keys(req.files), function(f, next) {
-            var opts = core.extendObj(options, 'type', req.body[f + '_type']);
-            self.storeIcon(req.files[f].path, id, opts, next);
+            var opts = core.extendObj(options, 'type', req.body[f + '_type'] || (type && nfiles == 1 ? type : ""));
+            self.storeIcon(req.files[f].path, id, opts, function(err, ofile) {
+                outfile = ofile;
+                next(err);
+            });
         }, function(err) {
-            callback(err);
+            callback(err, outfile);
         });
     } else
     // JSON object submitted with .icon property

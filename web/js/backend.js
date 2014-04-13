@@ -34,7 +34,7 @@ var Backend = {
     // Retrieve account record, call the callback with the object or error
     getAccount: function(callback) {
         var self = this;
-        self.send("/account/get?" + (this.session ? "_session=1" : ""), function(data) {
+        self.send("/account/get?" + (this.session ? "_session=1" : "_session=0"), function(data) {
             if (callback) callback(null, data);
         }, function(err) {
             self.setCredentials();
@@ -79,13 +79,14 @@ var Backend = {
         var expires = options.expires || 0;
         if (!expires || typeof expires != "number") expires = now + 30000;
         if (expires < now) expires += now;
-        var type = options.type || "";
-        if (!type && method == "POST") type = "application/x-www-form-urlencoded; charset=UTF-8";
+        var ctype = options.contentType || "";
+        if (!ctype && method == "POST") type = "application/x-www-form-urlencoded; charset=UTF-8";
         var q = String(url || "/").split("?");
         url = q[0];
         if (!query) query = q[1] || "";
+        if (query instanceof FormData) query = "";
         query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
-        var str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
+        var str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
         switch (creds.sigversion) {
         case 1:
             hmac = b64_hmac_sha1(creds.secret, str);

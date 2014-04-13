@@ -31,6 +31,10 @@
     max-width: 200px;
 }
 
+#file {
+    max-width: 200px;
+}
+
 .header {
     font-weight: bold;
     font: bold 0.9em 'Trebuchet MS',Arial, Helvetica;
@@ -115,6 +119,11 @@ $(function() {
      Backend.apiUrl = ko.observable('');
      Backend.apiEmail = ko.observable();
      Backend.apiTable = false;
+     Backend.apiSession = ko.observable(0);
+     Backend.apiSession.subscribe(function(val) {
+        Backend.session = val;
+        Backend.getAccount();
+     });
 
      Backend.getHistory = function(sort) {
         var list = localStorage['inputHistory.url'], a = [];
@@ -151,6 +160,27 @@ $(function() {
             return 1;
         });
      }
+     Backend.doPrepare = function(options) {
+        var file = $("#file")[0];
+        if (!file.files.length) return;
+        var form = new FormData(), obj = {}, fn = "icon";
+        if (options.url.indexOf("?") > -1) {
+            var url = options.url.split("?");
+            var q = url[1].replace(/\+/gi," ").split("&");
+            for (var i in q) {
+                var v = q[i].split("=");
+                fn = unescape(v[0]);
+                if (v[1]) form.append(fn, unescape(v[1]));
+            }
+            options.url = url[0];
+        }
+        form.append(fn, file.files[0]);
+        options.type = "POST";
+        options.data = form;
+        options.contentType = false;
+        options.nosignature = true;
+        options.processData = false;
+     }
      Backend.doRun = function() {
          var self = this;
          var url = $('#url').val();
@@ -162,9 +192,11 @@ $(function() {
              self.apiResponse("");
              $("<img />").attr('src', self.signUrl(url)).load(function() {
                  if (this.complete && this.naturalWidth) $("#icon").append(this);
+                 $("#file").val('');
              });
          } else {
              var options = { url: url };
+             Backend.doPrepare(options);
              Backend.send(options, function(data) {
                  var name = url.split('/')[1];
                  try {
@@ -190,11 +222,14 @@ $(function() {
                          data = Backend.formatJSON(data, " ");
                      }
                      self.apiResponse(data);
+                     $("#file").val('');
                  } catch(e) {
                      self.apiResponse(e.toString())
+                     $("#file").val('');
                  }
              }, function(msg, xhr, status, error) {
                  self.apiResponse(error + "\n" + xhr.responseText);
+                 $("#file").val('');
              });
          }
      }
@@ -232,8 +267,12 @@ $(function() {
           <td><button type="submit" >Run</button></td>
           <td><select id="history"><option>History...</option></select></td>
           <td><button onclick="Backend.clearHistory()" title="Remove current request from the history">Clear</button></td>
-          <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/></td>
-          <td>Tabular</td>
+          <td><input type="file" id="file" name="file" title="Upload a file, the last param in url must be empty like '/account/put/icon?type=0&icon=', it will be used for a file"/></td>
+       </tr>
+       <tr>
+          <td colspan=2></td>
+          <td><input type="checkbox" data-bind="checked: apiSession" title="Create a web session, it is needed to use file uploads from the console"/> Session</td>
+          <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/> Tabular</td>
           <td><img id="loading" src="img/loading.gif"></td>
       </tr>
      </table>
