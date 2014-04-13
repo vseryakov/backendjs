@@ -241,6 +241,7 @@ api.init = function(callback)
 
     // Wrap all calls in domain to catch exceptions
     self.app.use(function(req, res, next) {
+        if (self.busyLatency && toobusy()) return res.send(503, "Server is unavailable");
         var d = domain.create();
         d.add(req);
         d.add(res);
@@ -248,15 +249,26 @@ api.init = function(callback)
         d.run(next);
     });
 
-    // Metrics starts early
-    self.app.use(function(req, res, next) { return self.collectMetrics(req, res, next); });
-
     // Allow cross site requests
     self.app.use(function(req, res, next) {
-        if (self.busyLatency && toobusy()) return res.send(503, "Server is unavailable");
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Allow-Headers', 'b-signature');
+        next();
+    });
+
+    // Metrics starts early
+    self.app.use(function(req, res, next) {
+        self.metrics.Meter('rate').mark();
+        req.stopwatch = self.metrics.Timer('response').start();
+        self.metrics.Histogram('queue').update(self.metrics.Counter('count').inc());
+        var end = res.end;
+        res.end = function(chunk, encoding) {
+            res.end = end;
+            res.end(chunk, encoding);
+            req.stopwatch.end();
+            self.metrics.Counter('count').dec();
+        }
         next();
     });
 
@@ -1129,7 +1141,7 @@ api.initDataAPI = function()
 
     // Return current statistics
     this.app.all("/data/stats", function(req, res) {
-        res.json({ toobusy: toobusy.lag(), pool: db.getPool().metrics, api: self.metrics });
+        res.json(self.getStatistics());
     });
 
     // Load columns into the cache
@@ -1185,7 +1197,8 @@ api.initTables = function(callback)
     core.context.db.initTables(this.tables, callback);
 }
 
-// Convert query options into database options
+// Convert query options into database options, most options are the same as for `db.select` but prepended with underscore to
+// distinguish control parameters from query parameters.
 api.getOptions = function(req)
 {
     var options = { check_public: req.account ? req.account.id : null, ops: {} };
@@ -1904,6 +1917,12 @@ api.deleteAccount = function(obj, callback)
     });
 }
 
+// Returns an object with collected db and api statstics and metrics
+api.getStatistics = function()
+{
+    return { toobusy: toobusy.lag(), pool: core.context.db.getPool().metrics, api: this.metrics };
+}
+
 // Metrics about the process
 api.collectStatistics = function()
 {
@@ -1915,16 +1934,3 @@ api.collectStatistics = function()
     this.metrics.Histogram('freemem').update(os.freemem());
 }
 
-// Metrics collection middleware
-api.collectMetrics = function(req, res, next)
-{
-    var self = this;
-    this.metrics.Meter('rate').mark();
-    req.stopwatch = this.metrics.Timer('response').start();
-    this.metrics.Histogram('queue').update(this.metrics.Counter('count').inc());
-    req.on('end', function() {
-        req.stopwatch.end();
-        self.metrics.Counter('count').dec();
-    });
-    next();
-}

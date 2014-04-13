@@ -217,7 +217,7 @@ the login popup will still asking for real name, see backend.js in the web/js fo
 <p>Return list of accounts by the given condition, calls <code>db.select</code> for bk_account table. Parameters are the column values to be matched and
 all parameters starting with underscore are control parameters that goes into options of the <code>db.select</code> call with underscore removed. This will work for SQL
 databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
-large tables.</p>
+large tables. Supports special query parameters <code>_select,_keys,_ops</code>, see docs about <code>db.select</code> for more info.</p>
 <p>Example:</p>
 <pre><code>      /account/search?email=test&amp;_ops=email,begins_with
       /account/search?name=test&amp;_keys=name
@@ -410,7 +410,8 @@ Create or replace a connection between two accounts, required parameters are:</p
 <ul>
 <li><code>id</code> - id of account to connect to</li>
 <li><code>type</code> - type of connection, like,dislike,....</li>
-<li>_connected - the reply will contain a property connected set to 1 if the other side of our connection is connected to me as well</li>
+<li>_connected - the reply will contain a property <code>connected</code> set to 1 if the other side of our connection is connected to us as well</li>
+<li>_recent - if 1 tells to updte bk_recent table wich maintains list of recent connections for an account and can be queried using <code>/connection/recent</code> API call</li>
 </ul>
 <p>This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
 &#39;&#39;who is connected to me&#39;&#39; and auto-increment like0, like1 counters for both accounts in the bk_counter table.</p>
@@ -431,7 +432,8 @@ Delete existing connection, <code>id</code> and <code>type</code> must be specif
 <pre><code>  /connection/del?type=invite&amp;id=12345
 </code></pre></li>
 <li><p><code>/connection/get</code>
-Receive all my connections of the given type, i.e. connection(s) i made, if <code>id</code> is given only one record for the specified connection will be returned</p>
+Receive all my connections of the given type, i.e. connection(s) i made, if <code>id</code> is given only one record for the specified connection will be returned. Supports special
+query parameters <code>_select,_keys,_ops</code>, see docs about <code>db.select</code> for more info.</p>
 <p>Example:</p>
 <pre><code>  /connection/get?type=invite             - return all accounts who i invited
   /connection/get?type=invite&amp;id=12345
@@ -464,6 +466,7 @@ Receive all references that connected with my account, i.e. connections made by 
 Return all connections made since the given time, parameter <code>mtime</code> defiens the point in time which connections have been made after this time, this is for
 fast retrieval only recent connections without pulling a long list every time to see who connected. This requires for the client to maintain the timestamp of the last
 request and update it with the mtime from the most recent connection.</p>
+<p>NOTE: This table is filled only if <code>/connection/add</code> contains <code>_recent=1</code> parameter.</p>
 <p>Example:</p>
 <pre><code>  /connection/recent?mtime=1392185596577
 </code></pre><p>Response:</p>
@@ -1605,7 +1608,8 @@ Check access permissions, calls the callback with the following argument:</p>
 
 <ul>
 <li><p><code>api.getOptions(req)</code></p>
-<p> Convert query options into database options</p>
+<p> Convert query options into database options, most options are the same as for <code>db.select</code> but prepended with underscore to
+distinguish control parameters from query parameters.</p>
 </li>
 </ul>
 
@@ -1847,14 +1851,14 @@ Return err if something wrong occured in the callback.</p>
 </ul>
 
 <ul>
-<li><p><code>api.collectStatistics()</code></p>
-<p> Metrics about the process</p>
+<li><p><code>api.getStatistics()</code></p>
+<p> Returns an object with collected db and api statstics and metrics</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.collectMetrics(req, res, next)</code></p>
-<p> Metrics collection middleware</p>
+<li><p><code>api.collectStatistics()</code></p>
+<p> Metrics about the process</p>
 </li>
 </ul>
 

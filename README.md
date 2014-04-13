@@ -196,7 +196,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Return list of accounts by the given condition, calls `db.select` for bk_account table. Parameters are the column values to be matched and
   all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed. This will work for SQL
   databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
-  large tables.
+  large tables. Supports special query parameters `_select,_keys,_ops`, see docs about `db.select` for more info.
 
   Example:
 
@@ -412,7 +412,8 @@ a connection with it. No direct operations on bk_reference is allowed.
   Create or replace a connection between two accounts, required parameters are:
     - `id` - id of account to connect to
     - `type` - type of connection, like,dislike,....
-    - _connected - the reply will contain a property connected set to 1 if the other side of our connection is connected to me as well
+    - _connected - the reply will contain a property `connected` set to 1 if the other side of our connection is connected to us as well
+    - _recent - if 1 tells to updte bk_recent table wich maintains list of recent connections for an account and can be queried using `/connection/recent` API call
 
   This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
   ''who is connected to me'' and auto-increment like0, like1 counters for both accounts in the bk_counter table.
@@ -440,7 +441,8 @@ a connection with it. No direct operations on bk_reference is allowed.
         /connection/del?type=invite&id=12345
 
 - `/connection/get`
-  Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned
+  Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned. Supports special
+  query parameters `_select,_keys,_ops`, see docs about `db.select` for more info.
 
   Example:
 
@@ -481,6 +483,8 @@ a connection with it. No direct operations on bk_reference is allowed.
   Return all connections made since the given time, parameter `mtime` defiens the point in time which connections have been made after this time, this is for
   fast retrieval only recent connections without pulling a long list every time to see who connected. This requires for the client to maintain the timestamp of the last
   request and update it with the mtime from the most recent connection.
+
+  NOTE: This table is filled only if `/connection/add` contains `_recent=1` parameter.
 
   Example:
 
