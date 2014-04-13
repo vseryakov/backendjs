@@ -2627,8 +2627,8 @@ Options may be controlled using the properties:</p>
 <ul>
 <li><p><code>core.putIcon(file, id, options, callback)</code></p>
 <p> Put original or just downloaded file in the proper location according to the types for given id,
-this function is used after downloading new image or when moving images from other places
-Rescale all required icons by setting force to true in the options
+this function is used after downloading new image or when moving images from other places. On success
+the callback will be called with the second argument set to the output file name where the image has been saved.
 Valid properties in the options:</p>
 <ul>
 <li>type - icon type, this will be prepended to the name of the icon</li>
