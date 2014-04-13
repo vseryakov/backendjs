@@ -1595,7 +1595,7 @@ core.strftime = function(date, fmt, utc)
         p: function(t) { return this.H(t) < 12 ? 'AM' : 'PM'; },
         S: function(t) { return zeropad(utc ? t.getUTCSeconds() : t.getSeconds()) },
         w: function(t) { return utc ? t.getUTCDay() : t.getDay() }, // 0..6 == sun..sat
-        W: function(t) { var d = utc ? Date.UTC(utc ? t.getUTCFullYear() : t.getFullYear(), 0, 1) : new Date(t.getFullYear(), 0, 1); return zeropad(Math.ceil((((t - d) / 86400000) + d.getDay() + 1) / 7)); },
+        W: function(t) { var d = new Date(t.getFullYear(), 0, 1); return zeropad(Math.ceil((((t - d) / 86400000) + (utc ? d.getUTCDay() : d.getDay()) + 1) / 7)); },
         y: function(t) { return zeropad(this.Y(t) % 100); },
         Y: function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
         t: function(t) { return t.getTime() },

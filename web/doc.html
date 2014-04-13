@@ -1959,9 +1959,12 @@ Example:</p>
 <li>keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE</li>
 <li>indexes can be an array in native DDB JSON format or an object with each property for an index name and
 value in the same format as for primary keys, additional property _projection defines projection type for an index.</li>
-<li>options may contain any valid native property if it starts with capital letter.
-Example:<pre><code>  ddbCreateTable(&#39;users&#39;, {id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;}, {id:&#39;HASH&#39;,name:&#39;RANGE&#39;}, {mtime:{mtime:&quot;HASH&quot;,_projection:&quot;ALL&quot;}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});
+<li>options may contain any valid native property if it starts with capital letter and the following:<ul>
+<li>projection - an object with index name and list of projected properties to be included in the index or string &quot;ALL&quot; for all properties
+Example:<pre><code>ddbCreateTable(&#39;users&#39;, {id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;}, {id:&#39;HASH&#39;,name:&#39;RANGE&#39;}, {mtime:{mtime:&quot;HASH&quot;}}, {projection:{mtime:[&#39;gender&#39;,&#39;age&#39;]}, ReadCapacityUnits:1,WriteCapacityUnits:1});
 </code></pre></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -3134,8 +3137,8 @@ table must be defined with the following required columns:</p>
 <li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
 round number and uses decimal point of the round number to limit decimals in the distance</li>
 <li>sort - sorting order, by default the RANGE key is used for DynamoDB , it is possinle to specify Local Index as well,
-for SQL the second part of the primary key if exists or id
--unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+for SQL the second part of the primary key if exists or id</li>
+<li>unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
 table for the same id only one instance will be returned</li>
 </ul>
 <p>On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
