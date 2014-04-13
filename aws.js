@@ -385,9 +385,10 @@ aws.ddbDescribeTable = function(name, options, callback)
 // - keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE
 // - indexes can be an array in native DDB JSON format or an object with each property for an index name and
 //   value in the same format as for primary keys, additional property _projection defines projection type for an index.
-// - options may contain any valid native property if it starts with capital letter.
+// - options may contain any valid native property if it starts with capital letter and the following:
+//   - projection - an object with index name and list of projected properties to be included in the index or string "ALL" for all properties
 // Example:
-//          ddbCreateTable('users', {id:'S',mtime:'N',name:'S'}, {id:'HASH',name:'RANGE'}, {mtime:{mtime:"HASH",_projection:"ALL"}}, {ReadCapacityUnits:1,WriteCapacityUnits:1});
+//          ddbCreateTable('users', {id:'S',mtime:'N',name:'S'}, {id:'HASH',name:'RANGE'}, {mtime:{mtime:"HASH"}}, {projection:{mtime:['gender','age']}, ReadCapacityUnits:1,WriteCapacityUnits:1});
 aws.ddbCreateTable = function(name, attrs, keys, indexes, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
@@ -417,9 +418,9 @@ aws.ddbCreateTable = function(name, attrs, keys, indexes, options, callback)
             for (var p in idx) {
                 index.KeySchema.push({ AttributeName: p, KeyType: String(idx[p]).toUpperCase() })
             }
-            if (idx._projection) {
-                index.Projection = { ProjectionType: Array.isArray(idx._projection) ? "INLCUDE" : String(idx._projection).toUpperCase() };
-                if (index.Projection.ProjectionType == "INLCLUDE") index.Projection.NonKeyAttributes = idx._projection;
+            if (options.projection && options.projection[n]) {
+                index.Projection = { ProjectionType: Array.isArray(options.projection[n]) ? "INCLUDE" : String(options.projection[n]).toUpperCase() };
+                if (index.Projection.ProjectionType == "INCLUDE") index.Projection.NonKeyAttributes = options.projection[n];
             } else {
                 index.Projection = { ProjectionType: "KEYS_ONLY" };
             }

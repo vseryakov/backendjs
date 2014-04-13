@@ -742,7 +742,7 @@ db.search = function(table, obj, options, callback)
 //   round number and uses decimal point of the round number to limit decimals in the distance
 // - sort - sorting order, by default the RANGE key is used for DynamoDB , it is possinle to specify Local Index as well,
 //   for SQL the second part of the primary key if exists or id
-// -unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+// - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
 //   table for the same id only one instance will be returned
 //
 // On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
@@ -2188,15 +2188,19 @@ db.dynamodbInitPool = function(options)
         var primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
         switch(req.op) {
         case "create":
-            var idxs = {};
+            var idxs = {}, projection = {};
             var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
             if (Object.keys(keys).length == 2) {
-                idxs = Object.keys(obj).filter(function(x) { return obj[x].index }).
-                              map(function(x) { return [x, core.newObj(Object.keys(obj).filter(function(y) { return obj[y].primary })[0], 'HASH', x, 'RANGE') ] }).
-                              reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                ["", "1", "2"].forEach(function(n) {
+                    var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; }).reduce(function(a,b) { if (!a) a = b; return a }, "");
+                    if (!idx) return;
+                    idxs[idx] = core.newObj(Object.keys(keys)[0], 'HASH', idx, 'RANGE');
+                    if (obj[idx].projection) projection[idx] = obj[idx].projection;
+                });
+                options.projection = projection;
             }
             var attrs = Object.keys(obj).concat(Object.keys(idxs)).filter(function(x) { return obj[x].primary || obj[x].index }).
                                map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
@@ -2243,13 +2247,11 @@ db.dynamodbInitPool = function(options)
                     if (!options.ops) options.ops = {};
                     if (!options.typesMap) options.typesMap = {};
                     // Keep rows which satisfy all conditions
-                    logger.log(obj, items)
                     items = items.filter(function(row) {
                         return other.every(function(k) {
                             return core.isTrue(row[k], obj[k], options.ops[k], options.typesMap[k]);
                         });
                     });
-                    logger.log(items)
                 }
                 return items;
             }
@@ -2616,8 +2618,6 @@ db.lmdbInitPool = function(options)
         var pool = this;
         var table = req.text;
         var obj = req.obj;
-
-        logger.log(req)
 
         switch(req.op) {
         case "create":
