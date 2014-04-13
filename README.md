@@ -992,9 +992,9 @@ List of available functions:
 - splitArray(str) - split a string into an array separated by commas, supports double quotes
 - logging([level]) - set or return logging level, this is internal C++ logging facility
 - loggingChannel(channelname) - redirect logging into stdout or stderr, this is internal C++ logging
-- countWordsInit()
-- countWords()
-- countAllWords()
+- countWords(word, text) - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm
+- countAllWords(list, text) - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm
+- countWordsInit() - clears word counting cache
 - resizeImage(source, options, callback) - resize image using ImageMagick,
    - source can be a Buffer or file name
    - options can have the following properties:
@@ -1014,7 +1014,7 @@ List of available functions:
 - geoHashAdjacent()
 - geoHashGrid()
 - geoHashRow()
-- cacheSave()
+- cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap
 - cacheSet()
 - cacheGet()
 - cacheDel()
@@ -1038,7 +1038,7 @@ List of available functions:
 - lruKeys() - return all cache key names
 - lruClear() - clear LRU cache
 - lruServer()
-- syslogInit(name, priority, facility)
+- syslogInit(name, priority, facility) - initialize syslog client, used by the logger module
 - syslogSend(level, text)
 - syslogClose()
 - listStatements() - list all active Sqlite statements
@@ -1073,7 +1073,7 @@ To disable open registration in this mode just add config parameter `api-disallo
             this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
         }
 
-## Secure Web site, client verificastion
+## Secure Web site, client verification
 This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined 'Backend.session = true'
 during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.
 

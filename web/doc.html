@@ -28,7 +28,7 @@
 </li>
 <li><a href="#security-configurations"> Security configurations</a><ul>
 <li><a href="#api-only"> API only</a></li>
-<li><a href="#secure-web-site-client-verificastion"> Secure Web site, client verificastion</a></li>
+<li><a href="#secure-web-site-client-verification"> Secure Web site, client verification</a></li>
 <li><a href="#secure-web-site-backend-verification"> Secure Web site, backend verification</a></li>
 </ul>
 </li>
@@ -963,9 +963,9 @@ console.log(backend.backend)
 <li>splitArray(str) - split a string into an array separated by commas, supports double quotes</li>
 <li>logging([level]) - set or return logging level, this is internal C++ logging facility</li>
 <li>loggingChannel(channelname) - redirect logging into stdout or stderr, this is internal C++ logging</li>
-<li>countWordsInit()</li>
-<li>countWords()</li>
-<li>countAllWords()</li>
+<li>countWords(word, text) - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm</li>
+<li>countAllWords(list, text) - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm</li>
+<li>countWordsInit() - clears word counting cache</li>
 <li><p>resizeImage(source, options, callback) - resize image using ImageMagick,</p>
 <ul>
 <li>source can be a Buffer or file name</li>
@@ -990,7 +990,7 @@ console.log(backend.backend)
 <li>geoHashAdjacent()</li>
 <li>geoHashGrid()</li>
 <li>geoHashRow()</li>
-<li>cacheSave()</li>
+<li>cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap</li>
 <li>cacheSet()</li>
 <li>cacheGet()</li>
 <li>cacheDel()</li>
@@ -1014,7 +1014,7 @@ console.log(backend.backend)
 <li>lruKeys() - return all cache key names</li>
 <li>lruClear() - clear LRU cache</li>
 <li>lruServer()</li>
-<li>syslogInit(name, priority, facility)</li>
+<li>syslogInit(name, priority, facility) - initialize syslog client, used by the logger module</li>
 <li>syslogSend(level, text)</li>
 <li>syslogClose()</li>
 <li>listStatements() - list all active Sqlite statements</li>
@@ -1039,7 +1039,7 @@ rendering is done using Javascript. This is how the <code>api.html</code> develp
 <pre><code>    api.initMiddleware = function(callback) {
         this.allow.splice(this.allow.indexOf(&#39;^/account/add$&#39;), 1);
     }
-</code></pre><h2 id="secure-web-site-client-verificastion">Secure Web site, client verificastion</h2>
+</code></pre><h2 id="secure-web-site-client-verification">Secure Web site, client verification</h2>
 <p>This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined &#39;Backend.session = true&#39;
 during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.</p>
 <p>The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
