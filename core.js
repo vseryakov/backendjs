@@ -898,23 +898,7 @@ core.isTrue = function(val1, val2, op, type)
 
     case "between":
         // If we cannot parse out 2 values, treat this as exact operator
-        var list = [];
-        switch (core.typeName(val2)) {
-        case "array":
-            list = val2;
-            break;
-
-        case "string":
-            // For number array allow to be separated by comma as well, either one but not to be mixed
-            if ((type == "number" || type == "int") && val2.indexOf(',') > -1) {
-                list = val2.split(',');
-                break;
-            } else
-            if (value.indexOf('|') > -1) {
-                list = val2.split('|');
-                break;
-            }
-        }
+        var list = Array.isArray(val2) ? val2 : this.strSplit(val2);
         if (list.length > 1) {
             if (this.toValue(val1, type) < this.toValue(list[0], type) || this.toValue(val1, type) > this.toValue(list[1], type)) return false;
         } else {
@@ -923,7 +907,8 @@ core.isTrue = function(val1, val2, op, type)
         break;
 
     case "in":
-        if (this.strSplit(val2).indexOf(String(val1)) == -1) return false;
+        var list = Array.isArray(val2) ? val2 : this.strSplit(val2);
+        if (list.indexOf(String(val1)) == -1) return false;
         break;
 
     case 'like%':
@@ -2178,7 +2163,7 @@ core.stringify = function(obj)
 // Return cookies that match given domain
 core.cookieGet = function(domain, callback)
 {
-    this.context.db.select("bk_cookies", {}, function(err, rows) {
+    this.context.db.select("bk_cookies", {}, { pool: 'sqlite' }, function(err, rows) {
         var cookies = [];
         rows.forEach(function(cookie) {
             if (cookie.expires <= Date.now()) return;
@@ -2246,7 +2231,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
     async.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
         if (!rec.id) rec.id = core.hash(rec.name + ':' + rec.domain + ':' + rec.path);
-        self.context.db.put("bk_cookies", rec, function() { next() });
+        self.context.db.put("bk_cookies", rec, { pool: 'sqlite' }, function() { next() });
     }, function() {
         if (callback) callback();
     });
@@ -2363,7 +2348,7 @@ core.watchLogs = function(callback)
     var db = self.context.db;
 
     // Load all previous positions for every log file, we start parsing file from the previous last stop
-    db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' } }, function(err, rows) {
+    db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' }, pool: 'sqlite' }, function(err, rows) {
         var lastpos = {};
         for (var i = 0; i < rows.length; i++) {
             lastpos[rows[i].name] = rows[i].value;
@@ -2403,7 +2388,7 @@ core.watchLogs = function(callback)
                        // Separator between log files
                        if (errors.length > 1) errors += "\n\n";
                        // Save current size to start next time from
-                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, function(e) {
+                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, { pool: 'sqlite' }, function(e) {
                            if (e) logger.error('watchLogs:', file, e);
                            fs.close(fd, function() {});
                            next();

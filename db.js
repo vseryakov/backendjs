@@ -610,6 +610,8 @@ db.replace = function(table, obj, options, callback)
 //        By default primary keys are used only but if any other columns specified they will be treated as primary keys, some databases like DynamoDB may restrict which
 //        columns can be used, for example for DynamoDB keys must contain hash, range keys first and then any other columns can be added which will be filtered by the backend
 //        after all records are received from the database using has,range combination.
+//
+//        NOTE: keys can refer only to the columns in the table, any artificial or computed properties can be filtered by using .filter callback
 //      - ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
 //         `>, gt, <, lt, =, !=, <>, >=, ge, <=, le, in, between, regexp, iregexp, begins_with, like%, ilike%`
 //      - opsMap - operator mapping between supplied operators and actual operators supported by the db
@@ -979,6 +981,20 @@ db.prepare = function(op, table, obj, options)
         for (var p in cols) {
             if (cols[p].now) obj[p] = Date.now();
         }
+        break;
+
+    case "select":
+        if (options && options.ops) {
+            for (var p in options.ops) {
+                switch (options.ops[p]) {
+                case "in":
+                case "between":
+                    if (obj[p] && !Array.isArray(obj[p])) obj[p] = core.strSplit(obj[p]);
+                    break;
+                }
+            }
+        }
+        logger.log(obj)
         break;
     }
     return pool.prepare(op, table, obj, options);

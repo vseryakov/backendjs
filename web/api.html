@@ -162,7 +162,11 @@ $(function() {
      }
      Backend.doPrepare = function(options) {
         var file = $("#file")[0];
-        if (!file.files.length) return;
+        if (!file.files.length) return true;
+        if (!Backend.session) {
+            Backend.apiResponse("Please enable session in order to upload files.");
+            return false;
+        }
         var form = new FormData(), obj = {}, fn = "icon";
         if (options.url.indexOf("?") > -1) {
             var url = options.url.split("?");
@@ -180,6 +184,7 @@ $(function() {
         options.contentType = false;
         options.nosignature = true;
         options.processData = false;
+        return true;
      }
      Backend.doRun = function() {
          var self = this;
@@ -196,8 +201,9 @@ $(function() {
              });
          } else {
              var options = { url: url };
-             Backend.doPrepare(options);
+             if (!Backend.doPrepare(options)) return;
              Backend.send(options, function(data) {
+                 $("#file").val('');
                  var name = url.split('/')[1];
                  try {
                      if (self.apiTable) {
@@ -222,14 +228,12 @@ $(function() {
                          data = Backend.formatJSON(data, " ");
                      }
                      self.apiResponse(data);
-                     $("#file").val('');
                  } catch(e) {
                      self.apiResponse(e.toString())
-                     $("#file").val('');
                  }
              }, function(msg, xhr, status, error) {
-                 self.apiResponse(error + "\n" + xhr.responseText);
                  $("#file").val('');
+                 self.apiResponse(error + "\n" + xhr.responseText);
              });
          }
      }
