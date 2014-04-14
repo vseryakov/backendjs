@@ -3050,6 +3050,7 @@ if it is an array then check only specified columns</li>
 <p>By default primary keys are used only but if any other columns specified they will be treated as primary keys, some databases like DynamoDB may restrict which
 columns can be used, for example for DynamoDB keys must contain hash, range keys first and then any other columns can be added which will be filtered by the backend
 after all records are received from the database using has,range combination.</p>
+<p>NOTE: keys can refer only to the columns in the table, any artificial or computed properties can be filtered by using .filter callback</p>
 </li>
 <li>ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
  <code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, in, between, regexp, iregexp, begins_with, like%, ilike%</code></li>
