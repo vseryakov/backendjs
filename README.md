@@ -413,7 +413,6 @@ a connection with it. No direct operations on bk_reference is allowed.
     - `id` - id of account to connect to
     - `type` - type of connection, like,dislike,....
     - _connected - the reply will contain a property `connected` set to 1 if the other side of our connection is connected to us as well
-    - _recent - if 1 tells to updte bk_recent table wich maintains list of recent connections for an account and can be queried using `/connection/recent` API call
 
   This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
   ''who is connected to me'' and auto-increment like0, like1 counters for both accounts in the bk_counter table.
@@ -473,32 +472,6 @@ a connection with it. No direct operations on bk_reference is allowed.
 
         { "data": [ { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
                       "type": "invite",
-                      "status": "",
-                      "mtime": "12334312543"
-                  }],
-          "next_token": ""
-        }
-
-- `/connection/recent`
-  Return all connections made since the given time, parameter `mtime` defiens the point in time which connections have been made after this time, this is for
-  fast retrieval only recent connections without pulling a long list every time to see who connected. This requires for the client to maintain the timestamp of the last
-  request and update it with the mtime from the most recent connection.
-
-  NOTE: This table is filled only if `/connection/add` contains `_recent=1` parameter.
-
-  Example:
-
-        /connection/recent?mtime=1392185596577
-
-  Response:
-
-        { "data": [ { "id": "12345",
-                      "type": "invite",
-                      "status": "",
-                      "mtime": "12334312543"
-                  },
-                  { "id": "45678",
-                      "type": "like",
                       "status": "",
                       "mtime": "12334312543"
                   }],

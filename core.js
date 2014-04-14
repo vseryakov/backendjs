@@ -78,12 +78,15 @@ var core = {
     watchdirs: [],
     timers: {},
 
+    // Local db pool, sqlite is default
+    localDbPool: 'sqlite',
+
     // Log watcher config, watch for server restarts as well
     logwatcherMax: 1000000,
     logwatcherInterval: 3600,
-    logwatcherIgnore: "NOTICE: |DEBUG: |DEV: ",
-    logwatcherFiles: [ { file: "/var/log/messages", match: /\[[0-9]+\]: (ERROR|WARNING): |message":"ERROR:|queryAWS:.+Errors:|startServer:|startFrontend:/ },
-                       { name: "logFile", match: /\[[0-9]+\]: ERROR: |message":"ERROR:|queryAWS:.+Errors:|startServer:|startFrontend:/ },
+    logwatcherIgnore: ["NOTICE: ", "DEBUG: ", "DEV: "],
+    logwatcherFiles: [ { file: "/var/log/messages", match: /\[[0-9]+\]: (ERROR|WARNING): |message":"ERROR:|queryAWS:.+Errors:/ },
+                       { name: "logFile", match: /\[[0-9]+\]: ERROR: |message":"ERROR:|queryAWS:.+Errors:/ },
                        { name: "errFile", match: /.+/, } ],
 
     // User agent
@@ -141,6 +144,7 @@ var core = {
             { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line" },
             { name: "proxy-port", type: "number", min: 0, descr: "Proxy server port" },
             { name: "proxy-bind", descr: "Proxy server listen address" },
+            { name: "local-db-pool", descr: "Local database pool for properties, cookies and other instance specific stuff" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default" },
             { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server process" },
             { name: "repl-bind-web", descr: "Web server REPL listen address" },
@@ -148,7 +152,7 @@ var core = {
             { name: "repl-bind", descr: "Listen only on specified address for REPL server in the master process" },
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
-            { name: "lru-server", descr: "LRU server that acts as a NN-BUS node to brosadcast cache messages to all connected backends" },
+            { name: "lru-server", descr: "LRU server that acts as a NN-BUS node to broadcast cache messages to all connected backends" },
             { name: "lru-host", descr: "Address of NN-BUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
             { name: "pub-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
             { name: "pub-server", descr: "Server to listen for published messages using nanomsg: ipc:///path,tcp://IP:port..." },
@@ -165,8 +169,8 @@ var core = {
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-email", descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
-            { name: "logwatcher-ignore", descr: "Regexp with patterns that needs to be ignored by logwatcher process" },
-            { name: "logwatcher-match", descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
+            { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns" },
+            { name: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
             { name: "logwatcher-interval", type: "number", min: 300, max: 86400, descr: "How often to check for errors in the log files" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
@@ -358,7 +362,11 @@ core.processArgs = function(name, ctx, argv, pass)
     function put(obj, key, val, x) {
         if (x.array) {
             if (!Array.isArray(obj[key])) obj[key] = [];
-            obj[key].push(val);
+            if (Array.isArray(val)) {
+                val.forEach(function(x) { obj[key].push(x); });
+            } else {
+                obj[key].push(val);
+            }
         } else {
             obj[key] = val;
         }
@@ -2163,7 +2171,7 @@ core.stringify = function(obj)
 // Return cookies that match given domain
 core.cookieGet = function(domain, callback)
 {
-    this.context.db.select("bk_cookies", {}, { pool: 'sqlite' }, function(err, rows) {
+    this.context.db.select("bk_cookies", {}, { pool: this.localDbPool }, function(err, rows) {
         var cookies = [];
         rows.forEach(function(cookie) {
             if (cookie.expires <= Date.now()) return;
@@ -2231,7 +2239,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
     async.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
         if (!rec.id) rec.id = core.hash(rec.name + ':' + rec.domain + ':' + rec.path);
-        self.context.db.put("bk_cookies", rec, { pool: 'sqlite' }, function() { next() });
+        self.context.db.put("bk_cookies", rec, { pool: self.localDbPool }, function() { next() });
     }, function() {
         if (callback) callback();
     });
@@ -2339,16 +2347,16 @@ core.watchLogs = function(callback)
 
     var match = null;
     if (self.logwatcherMatch) {
-        try { match = new RegExp(self.logwatcherIgnore); } catch(e) {}
+        try { match = new RegExp(self.logwatcherMatch.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) {}
     }
     var ignore = null
     if (self.logwatcherIgnore) {
-        try { ignore = new RegExp(self.logwatcherIgnore); } catch(e) {}
+        try { ignore = new RegExp(self.logwatcherIgnore.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) {}
     }
     var db = self.context.db;
 
     // Load all previous positions for every log file, we start parsing file from the previous last stop
-    db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' }, pool: 'sqlite' }, function(err, rows) {
+    db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' }, pool: self.localDbPool }, function(err, rows) {
         var lastpos = {};
         for (var i = 0; i < rows.length; i++) {
             lastpos[rows[i].name] = rows[i].value;
@@ -2388,7 +2396,7 @@ core.watchLogs = function(callback)
                        // Separator between log files
                        if (errors.length > 1) errors += "\n\n";
                        // Save current size to start next time from
-                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, { pool: 'sqlite' }, function(e) {
+                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, { pool: self.localDbPool }, function(e) {
                            if (e) logger.error('watchLogs:', file, e);
                            fs.close(fd, function() {});
                            next();

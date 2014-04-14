@@ -40,6 +40,13 @@ var metrics = require(__dirname + "/metrics");
 //              ...
 //          });
 //
+// All database methods can use default db pool or any other available db pool by using pool: name in the options. If not specified,
+// then default db pool is used, sqlite is default if not -db-pool config parameter specified in the command line or the config file.
+//
+// Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using `db-pool-tables` parameters
+// thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
+// database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.
+//
 var db = {
     name: 'db',
 
@@ -57,21 +64,21 @@ var db = {
            { name: "no-pools", type:" bool", descr: "Do not use other db pools except default sqlite" },
            { name: "sqlite-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool" },
            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "sqlite-tables", type: "list", descr: "Sqlite tables, list of tables that belong to this pool only" },
+           { name: "sqlite-tables", type: "list", array: 1, descr: "Sqlite tables, list of tables that belong to this pool only" },
            { name: "pgsql-pool", descr: "PostgreSQL pool access url or options string" },
            { name: "pgsql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "pgsql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "pgsql-tables", type: "list", descr: "PostgreSQL tables, list of tables that belong to this pool only" },
+           { name: "pgsql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "mysql-pool", descr: "MySQL pool access url in the format: myql://user:pass@host/db" },
            { name: "mysql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "mysql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "mysql-tables", type: "list", descr: "PostgreSQL tables, list of tables that belong to this pool only" },
+           { name: "mysql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "dynamodb-pool", descr: "DynamoDB endpoint url" },
-           { name: "dynamodb-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to this pool only" },
+           { name: "dynamodb-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "cassandra-pool", descr: "Casandra endpoint url" },
            { name: "cassandra-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "cassandra-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "cassandra-tables", type: "list", descr: "DynamoDB tables, list of tables that belong to this pool only" },
+           { name: "cassandra-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
     ],
 
     // Default tables
@@ -370,6 +377,11 @@ db.createPool = function(name, pool, options)
 //   - text - SQL statement or other query in the format of the native driver, can be a list of statements
 //   - values - parameter values for SQL bindings or other driver specific data
 // - options may have the following properties:
+//     - pool - name of the database pool where to execute this query.
+//
+//       The difference with the high level functions that take a table name as their firt argument, this function must use pool
+//       explicitely if it is different from the default. Other functions can resolve
+//       the pool by table name if some tables are assigned to any specific pool by configuration parameters `db-pool-tables`.
 //     - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
 // - callback(err, rows, info) where
 //    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
@@ -720,6 +732,70 @@ db.scan = function(table, obj, options, rowCallback, callback)
       }, function(err) {
           if (callback) callback(err);
       });
+}
+
+// Migrate a table via temporary table, copies all records into a temp table, then re-create the table with up-to-date definitions and copies all records back into the new table.
+// The following options can be used:
+// - preprocess - a callback function(row, options, next) that is called for every row on the original table, next must be called to move to the next row, if err is returned as first arg then the processing will stop
+// - postprocess - a callback function(row, options, next) that is called for every row on the destination table, same rules as for preprocess
+// - tmppool - the db pool to be used for temporary table
+// - tpmdrop - if 1 then the temporary table willbe dropped at the end in case of success, by default it is kept
+db.migrate = function(table, options, callback)
+{
+    if (!options) options = {};
+    if (!options.preprocess) options.preprocess = function(row, options, next) { next() }
+    if (!options.postprocess) options.postprocess = function(row, options, next) { next() }
+    var pool = db.getPool(table, options);
+    var cols = db.getColumns(table, options);
+    var tmptable = table + "_tmp";
+    var obj = pool.tables[table];
+
+    async.series([
+        function(next) {
+            db.drop(tmptable, { pool: options.tmppool }, next);
+        },
+        function(next) {
+            db.create(tmptable, obj, { pool: options.tmppool }, next);
+        },
+        function(next) {
+            db.cacheColumns({ pool: options.tmppool }, next);
+        },
+        function(next) {
+            db.scan(table, {}, options, function(rows, next) {
+                async.forEachSeries(rows, function(row, next2) {
+                    options.preprocess(row, options, function(err) {
+                        if (err) return next2(err);
+                        db.add(tmptable, row, { pool: options.tmppool }, next2);
+                    });
+                }, next);
+            }, next);
+        },
+        function(next) {
+            db.drop(table, options, next);
+        },
+        function(next) {
+            db.create(table, obj, options, next);
+        },
+        function(next) {
+            db.cacheColumns(options, next);
+        },
+        function(next) {
+            db.scan(tmptable, {}, { pool: options.tmppool }, function(rows, next) {
+                async.forEachSeries(rows, function(row, next2) {
+                    options.postprocess(row, options, function(err) {
+                        if (err) return next2(err);
+                        db.add(table, row, options, next2);
+                    });
+                }, next);
+            }, next);
+        },
+        function(next) {
+            if (!options.tmpdrop) return next();
+            db.drop(tmptable, options, next);
+        }],
+        function(err) {
+            if (callback) callback(err);
+    });
 }
 
 // Perform full text search on the given table, the database implementation may ignore table name completely

@@ -108,11 +108,6 @@ var api = {
                         state: {},
                         mtime: { type: "bigint", now: 1 }},
 
-       // Connections by time to query for recent updates since some time...
-       bk_recent: { id: { primary: 1 },               // my account id
-                    mtime: { primary: 1 },            // mtime:connection_id
-                    type: {} },
-
        // References from other accounts, likes,dislikes...
        bk_reference: { id: { primary: 1 },                    // connection_id
                        type: { primary: 1 },                  // type:account_id
@@ -665,44 +660,16 @@ api.initAccountAPI = function()
             break;
 
         case "add":
-            // Verify required fields
-            if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-            if (!req.query.name) return self.sendReply(res, 400, "name is required");
-            if (!req.query.login) return self.sendReply(res, 400, "login is required");
-            if (!req.query.alias) req.query.alias = req.query.name;
-            req.query.id = core.uuid();
-            req.query.mtime = req.query.ctime = Date.now();
-            // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
-            var auth = { id: req.query.id, login: req.query.login, secret: req.query.secret };
-            // Only admin can add accounts with the type
-            if (req.account && req.account.type == "admin" && req.query.type) auth.type = req.query.type;
-            db.add("bk_auth", auth, function(err) {
-                if (err) return self.sendReply(res, db.convertError("bk_auth", err));
-
-                ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-                db.add("bk_account", req.query, function(err) {
-                    if (err) {
-                        db.del("bk_auth", auth);
-                        return self.sendReply(res, db.convertError("bk_account", err));
-                    }
-                    db.processRows(null, "bk_account", req.query, options);
-                    // Link account record for other middleware
-                    req.account = req.query;
-                    // Some dbs require the record to exist, just make one with default values
-                    db.put("bk_counter", { id: req.query.id, like0: 0 });
-                    self.sendJSON(req, res, req.query);
-                });
+            self.addAccount(req, options, function(err, data) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, data);
             });
             break;
 
         case "update":
-            req.query.mtime = Date.now();
-            req.query.id = req.account.id;
-            // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
-            ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
-            db.update("bk_account", req.query, function(err) {
+            self.updateAccount(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, {});
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -1067,27 +1034,6 @@ api.initConnectionAPI = function()
             });
             break;
 
-        case "recent":
-            options.ops = { type: "gt" };
-            db.select("bk_recent", { id: req.account.id, mtime: req.query.mtime || "0" }, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-                // Split mtime and reference id
-                rows.forEach(function(row) {
-                    var d = row.mtime.split(":");
-                    row.mtime = d[0];
-                    row.id = d[1];
-                });
-                if (!core.toNumber(options.details)) return self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
-
-                // Get all account records for the id list
-                db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
-                    if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
-                });
-            });
-            break;
-
         case "get":
             self.getConnections(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
@@ -1202,7 +1148,7 @@ api.initTables = function(callback)
 api.getOptions = function(req)
 {
     var options = { check_public: req.account ? req.account.id : null, ops: {} };
-    ["recent", "details", "consistent", "desc", "total"].forEach(function(x) {
+    ["details", "consistent", "desc", "total"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") options[x] = core.toBool(req.query["_" + x]);
     });
     if (req.query._select) options.select = req.query._select;
@@ -1411,7 +1357,7 @@ api.getConnections = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
-    if (!req.query.type) return callback(new Error("type is required"));
+    if (!req.query.type) return callback({ status: 400, message: "type is required"});
 
     req.query.type += ":" + (req.query.id || "");
     req.query.id = req.account.id;
@@ -1443,8 +1389,8 @@ api.putConnections = function(req, options, callback)
     var now = Date.now();
 
     var id = req.query.id, type = req.query.type;
-    if (!id || !type) return callback(new Error("id and type are required"));
-    if (id == req.account.id) return callback(new Error("cannot connect to itself"));
+    if (!id || !type) return callback({ status: 400, message: "id and type are required"});
+    if (id == req.account.id) return callback({ status: 400, message: "cannot connect to itself"});
 
     // Override primary key properties, the rest of the properties will be added as is
     req.query.id = req.account.id;
@@ -1482,11 +1428,6 @@ api.putConnections = function(req, options, callback)
                    next(req.params[1] == 'update' ? new Error("stop") : null);
                },
                function(next) {
-                   // Maintain recent mtime for connections so we can query who's new connected
-                   if (!options.recent) return next();
-                   db.add("bk_recent", { id: req.account.id, mtime: now + ":" + id, type: type }, next);
-               },
-               function(next) {
                    var col = db.getColumn("bk_counter", type + '0');
                    if (!col || !col.incr) return next();
                    db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', 1), { cached: 1 }, function() {
@@ -1505,7 +1446,7 @@ api.delConnections = function(req, options, callback)
     var now = Date.now();
 
     var id = req.query.id, type = req.query.type;
-    if (!id || !type) return callback(new Error("id and type are required"));
+    if (!id || !type) return callback({ status: 400, message: "id and type are required"});
 
     self.deleteConnection(req.account.id, req.query, function(err) {
         if (err) return callback(err);
@@ -1883,6 +1824,54 @@ api.deleteConnections = function(obj, callback)
             });
         }, callback);
     });
+}
+
+// Register new account, used in /account/add API call
+api.addAccount = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    // Verify required fields
+    if (!req.query.secret) return callback({ status: 400, message: "secret is required"});
+    if (!req.query.name) return callback({ status: 400, message: "name is required"});
+    if (!req.query.login) return callback({ status: 400, message: "login is required"});
+    if (!req.query.alias) req.query.alias = req.query.name;
+    req.query.id = core.uuid();
+    req.query.mtime = req.query.ctime = Date.now();
+    // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
+    var auth = { id: req.query.id, login: req.query.login, secret: req.query.secret };
+    // Only admin can add accounts with the type
+    if (req.account && req.account.type == "admin" && req.query.type) auth.type = req.query.type;
+    db.add("bk_auth", auth, function(err) {
+        if (err) return callback(db.convertError("bk_auth", err));
+
+        ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+        db.add("bk_account", req.query, function(err) {
+            if (err) {
+                db.del("bk_auth", auth);
+                return callback(db.convertError("bk_account", err));
+            }
+            db.processRows(null, "bk_account", req.query, options);
+            // Link account record for other middleware
+            req.account = req.query;
+            // Some dbs require the record to exist, just make one with default values
+            db.put("bk_counter", { id: req.query.id, like0: 0 });
+            callback(null, req.query);
+        });
+    });
+}
+
+// Update existing account, used in /account/update API call
+api.updateAccount = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    req.query.mtime = Date.now();
+    req.query.id = req.account.id;
+    // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
+    ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+    db.update("bk_account", req.query, callback);
 }
 
 // Delete account specified in the obj, this must be merged object from bk_auth and bk_account tables.
