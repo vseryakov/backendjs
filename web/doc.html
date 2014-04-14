@@ -411,7 +411,6 @@ Create or replace a connection between two accounts, required parameters are:</p
 <li><code>id</code> - id of account to connect to</li>
 <li><code>type</code> - type of connection, like,dislike,....</li>
 <li>_connected - the reply will contain a property <code>connected</code> set to 1 if the other side of our connection is connected to us as well</li>
-<li>_recent - if 1 tells to updte bk_recent table wich maintains list of recent connections for an account and can be queried using <code>/connection/recent</code> API call</li>
 </ul>
 <p>This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
 &#39;&#39;who is connected to me&#39;&#39; and auto-increment like0, like1 counters for both accounts in the bk_counter table.</p>
@@ -456,27 +455,6 @@ Receive all references that connected with my account, i.e. connections made by 
 </code></pre><p>Response:</p>
 <pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
                 &quot;type&quot;: &quot;invite&quot;,
-                &quot;status&quot;: &quot;&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-            }],
-    &quot;next_token&quot;: &quot;&quot;
-  }
-</code></pre></li>
-<li><p><code>/connection/recent</code>
-Return all connections made since the given time, parameter <code>mtime</code> defiens the point in time which connections have been made after this time, this is for
-fast retrieval only recent connections without pulling a long list every time to see who connected. This requires for the client to maintain the timestamp of the last
-request and update it with the mtime from the most recent connection.</p>
-<p>NOTE: This table is filled only if <code>/connection/add</code> contains <code>_recent=1</code> parameter.</p>
-<p>Example:</p>
-<pre><code>  /connection/recent?mtime=1392185596577
-</code></pre><p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;12345&quot;,
-                &quot;type&quot;: &quot;invite&quot;,
-                &quot;status&quot;: &quot;&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-            },
-            { &quot;id&quot;: &quot;45678&quot;,
-                &quot;type&quot;: &quot;like&quot;,
                 &quot;status&quot;: &quot;&quot;,
                 &quot;mtime&quot;: &quot;12334312543&quot;
             }],
@@ -1275,6 +1253,7 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>proxy</code> - Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line</li>
 <li><code>proxy-port</code> - Proxy server port Default: 8000</li>
 <li><code>proxy-bind</code> - Proxy server listen address Default: 0.0.0.0</li>
+<li><code>local-db-pool</code> - Local database pool for properties, cookies and other instance specific stuff Default: sqlite</li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default</li>
 <li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server process</li>
 <li><code>repl-bind-web</code> - Web server REPL listen address Default: 0.0.0.0</li>
@@ -1282,7 +1261,7 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process Default: 0.0.0.0</li>
 <li><code>repl-file</code> - User specified file for REPL history Default: .history</li>
 <li><code>lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes Default: 50000</li>
-<li><code>lru-server</code> - LRU server that acts as a NN-BUS node to brosadcast cache messages to all connected backends</li>
+<li><code>lru-server</code> - LRU server that acts as a NN-BUS node to broadcast cache messages to all connected backends</li>
 <li><code>lru-host</code> - Address of NN-BUS servers for cache broadcasts: ipc:///path,tcp://IP:port...</li>
 <li><code>pub-type</code> - One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets</li>
 <li><code>pub-server</code> - Server to listen for published messages using nanomsg: ipc:///path,tcp://IP:port...</li>
@@ -1299,7 +1278,7 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
-<li><code>logwatcher-ignore</code> - Regexp with patterns that needs to be ignored by logwatcher process Default: NOTICE: |DEBUG: |DEV: </li>
+<li><code>logwatcher-ignore</code> - Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns Default: NOTICE: ,DEBUG: ,DEV: </li>
 <li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files Default: 3600</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers Default: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:20.0) Gecko/20100101 Firefox/20.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.29.13 (KHTML, like Gecko) Version/6.0.4 Safari/536.29.13,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.65 Safari/537.31,Mozilla/5.0 (X11; Linux i686) AppleWebKit/534.34 (KHTML, like Gecko) Safari/534.34,Opera/9.80 (Macintosh; Intel Mac OS X 10.7.5) Presto/2.12.388 Version/12.15,Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.2; BRI/2</li>
@@ -1433,11 +1412,6 @@ the worker processes if they die and restart them automatically. How many proces
                       type: { primary: 1 },                  // type:connection_id
                       state: {},
                       mtime: { type: &quot;bigint&quot;, now: 1 }},
-
-     // Connections by time to query for recent updates since some time...
-     bk_recent: { id: { primary: 1 },               // my account id
-                  mtime: { primary: 1 },            // mtime:connection_id
-                  type: {} },
 
      // References from other accounts, likes,dislikes...
      bk_reference: { id: { primary: 1 },                    // connection_id
@@ -1840,6 +1814,18 @@ confitions, at least id: and type: properties must be defined</p>
 <ul>
 <li><p><code>api.deleteConnections(obj, callback)</code></p>
 <p> Delete all connections and references for the given account</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.addAccount(req, options, callback)</code></p>
+<p> Register new account, used in /account/add API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.updateAccount(req, options, callback)</code></p>
+<p> Update existing account, used in /account/update API call</p>
 </li>
 </ul>
 
@@ -2817,7 +2803,12 @@ API call, all high level operations like add/put/del perform SQL generation for 
         db.add(...
         ...
     });
-</code></pre></li>
+</code></pre><p>All database methods can use default db pool or any other available db pool by using pool: name in the options. If not specified,
+then default db pool is used, sqlite is default if not -db-pool config parameter specified in the command line or the config file.</p>
+<p>Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-pool-tables</code> parameters
+thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
+database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.</p>
+</li>
 </ul>
 
 <ul>
@@ -2932,7 +2923,13 @@ and if exist it must return the same or new table name for the given query param
 <li>values - parameter values for SQL bindings or other driver specific data</li>
 </ul>
 </li>
-<li>options may have the following properties:<ul>
+<li><p>options may have the following properties:</p>
+<ul>
+<li><p>pool - name of the database pool where to execute this query.</p>
+<p>The difference with the high level functions that take a table name as their firt argument, this function must use pool
+explicitely if it is different from the default. Other functions can resolve
+the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</p>
+</li>
 <li>filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)</li>
 </ul>
 </li>
@@ -3118,6 +3115,19 @@ Basically, db.scan is the same as db.select but can be used to retrieve large nu
         }, next);
     }, function(err) { });
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>db.migrate(table, options, callback)</code></p>
+<p> Migrate a table via temporary table, copies all records into a temp table, then re-create the table with up-to-date definitions and copies all records back into the new table.
+The following options can be used:</p>
+<ul>
+<li>preprocess - a callback function(row, options, next) that is called for every row on the original table, next must be called to move to the next row, if err is returned as first arg then the processing will stop</li>
+<li>postprocess - a callback function(row, options, next) that is called for every row on the destination table, same rules as for preprocess</li>
+<li>tmppool - the db pool to be used for temporary table</li>
+<li>tpmdrop - if 1 then the temporary table willbe dropped at the end in case of success, by default it is kept</li>
+</ul>
+</li>
 </ul>
 
 <ul>
