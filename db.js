@@ -895,6 +895,8 @@ db.getLocations = function(table, options, callback)
                         if (cols.geohash && !cols.geohash.pub) delete row.geohash;
                     }
                 });
+                // Limit the distance within the round or minimal range
+                rows = rows.filter(function(row) { return row.distance - options.distance <= (options.round || core.minDistance) });
                 // Indicates that there could be more rows still even if we reached our count
                 options.more = rows.length && options.neighbors.length ? true : false;
                 // Restore original count because we pass this whole options object on the next run

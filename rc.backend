@@ -273,7 +273,7 @@ case "$ARG" in
        service dnsmasq restart
     fi
 
-    # Make sure we use right Java
+    # Make sure we use right Java, DynamoDB/Cassandra requires version 7, has to be installed manually on CentOS
     if [ -f /usr/local/java ]; then
        alternatives --install /usr/bin/java java /usr/local/java/bin/java 20000
     fi
