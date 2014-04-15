@@ -526,16 +526,22 @@ Receive messages, the parameter <code>mtime</code> defines which messages to get
 specify that only messages received since that time to return, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
 Date.now() return in Javascript. The images are not returned, only link to the image in <code>icon</code> property of reach record,
 the actual image data must be retrieved separately.</p>
+<p>When <code>sender</code> is specified then all messages for given sender will be returned.</p>
 <p>NOTE: The <code>mtime</code> is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
 also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
 result in mtimes that do not correspond to actual times when the message has been sent.</p>
 <p>Example:</p>
 <pre><code>  # Get all messages
   /message/get
-  # Get al lmessages received after given mtime
+
+  # Get all messages received after given mtime
   /message/get?mtime=123475658690
+
   # Get all messages with custom filter: if msg text contains Hi
   /message/get?_keys=id,mtime,msg&amp;_ops=msg,iregexp&amp;msg=Hi
+
+  # Get all messages for specific sender
+  /message/get?sender=12345
 </code></pre><p>Response:</p>
 <pre><code>  { &quot;data&quot;: [ { &quot;sender&quot;: &quot;12345&quot;,
                 &quot;msg&quot;: &quot;Hi, how r u?&quot;,
@@ -1396,11 +1402,11 @@ the worker processes if they die and restart them automatically. How many proces
                     state: {},
                     zipcode: {},
                     country: {},
-                    latitude: { type: &quot;real&quot; },
-                    longitude: { type: &quot;real&quot; },
-                    geohash: {},
-                    location: {},
-                    ltime: { type: &quot;bigint&quot; },
+                    latitude: { type: &quot;real&quot;, noadd: 1 },
+                    longitude: { type: &quot;real&quot;, noadd: 1 },
+                    geohash: { noadd: 1 },
+                    location: { noadd: 1 },
+                    ltime: { type: &quot;bigint&quot;, noadd: 1 },
                     ctime: { type: &quot;bigint&quot; },
                     mtime: { type: &quot;bigint&quot;, now: 1 } },
 
@@ -1436,7 +1442,8 @@ the worker processes if they die and restart them automatically. How many proces
      // Messages between accounts
      bk_message: { id: { primary: 1 },                    // my account_id
                    mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
-                   status: { index: 1 },                  // Status: R:mtime:sender or N:mtime:sender, where R - read, N - new
+                   status: { index: 1 },                  // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
+                   sender: { index1: 1 },                 // sender:mtime, reverse index by sender
                    msg: { type: &quot;text&quot; },                 // Text of the message
                    icon: {}},                             // Icon base64 or url
 
@@ -1605,6 +1612,14 @@ distinguish control parameters from query parameters.</p>
 <li><p><code>api.describeTables(tables)</code></p>
 <p> Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes
 Used during initialization of the external modules which may add custom columns to the existing tables.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.clearQuery(req, options, table, name)</code></p>
+<p> Clear request query properties specified in the table definition, if any columns for the table contains the property <code>name</code> nonempty, then
+all request properties with the same name as this column name will be removed from the query. This for example is used for the <code>bk_account</code>
+table to disable updating location related columns because speial location API maintains location data and updates the accounts table.</p>
 </li>
 </ul>
 
@@ -1819,21 +1834,14 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <ul>
-<li><p><code>api.deleteConnection(id, obj, callback)</code></p>
-<p> Delete one connection between 2 accounts, id is the account id, primary connection holder, obj contains query
-confitions, at least id: and type: properties must be defined</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.deleteConnections(obj, callback)</code></p>
-<p> Delete all connections and references for the given account</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.addMessage(req, options, callback)</code></p>
-<p> Add new message, usedin /message/add API call</p>
+<p> Add new message, used in /message/add API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delMessage(req, options, callback)</code></p>
+<p> Delete a message or all messages for the given account from the given sender, used in /messge/del` API call</p>
 </li>
 </ul>
 
@@ -1850,7 +1858,7 @@ confitions, at least id: and type: properties must be defined</p>
 </ul>
 
 <ul>
-<li><p><code>api.deleteAccount(obj, callback)</code></p>
+<li><p><code>api.deleteAccount(obj, options, callback)</code></p>
 <p> Delete account specified in the obj, this must be merged object from bk_auth and bk_account tables.
 Return err if something wrong occured in the callback.</p>
 </li>
