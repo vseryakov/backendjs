@@ -81,11 +81,11 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
-                      latitude: { type: "real" },
-                      longitude: { type: "real" },
-                      geohash: {},
-                      location: {},
-                      ltime: { type: "bigint" },
+                      latitude: { type: "real", noadd: 1 },
+                      longitude: { type: "real", noadd: 1 },
+                      geohash: { noadd: 1 },
+                      location: { noadd: 1 },
+                      ltime: { type: "bigint", noadd: 1 },
                       ctime: { type: "bigint" },
                       mtime: { type: "bigint", now: 1 } },
 
@@ -1178,6 +1178,17 @@ api.describeTables = function(tables)
     }
 }
 
+// Clear request query properties specified in the table definition, if any columns for the table contains the property `name` nonempty, then
+// all request properties with the same name as this column name will be removed from the query. This for example is used for the `bk_account`
+// table to disable updating location related columns because speial location API maintains location data and updates the accounts table.
+api.clearQuery = function(req, options, table, name)
+{
+    var cols = core.context.db.getColumns(table, options);
+    for (var p in cols) {
+        if (cols[p][name]) delete req.query[p];
+    }
+}
+
 // Find registered hook for given type and path
 api.findHook = function(type, method, path)
 {
@@ -1868,8 +1879,8 @@ api.addAccount = function(req, options, callback)
     if (req.account && req.account.type == "admin" && req.query.type) auth.type = req.query.type;
     db.add("bk_auth", auth, function(err) {
         if (err) return callback(db.convertError("bk_auth", err));
-
-        ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+        // Skip location related properties
+        self.clearQuery(req, options, "bk_account", "noadd");
         db.add("bk_account", req.query, function(err) {
             if (err) {
                 db.del("bk_auth", auth);
@@ -1892,8 +1903,8 @@ api.updateAccount = function(req, options, callback)
     var db = core.context.db;
     req.query.mtime = Date.now();
     req.query.id = req.account.id;
-    // Make sure we dont add extra properties in case of noSQL database or update columns we do not support here
-    ["secret","ctime","ltime","latitude","longitude","location"].forEach(function(x) { delete req.query[x] });
+    // Skip location related properties
+    self.clearQuery(req, options, "bk_account", "noadd");
     db.update("bk_account", req.query, callback);
 }
 
