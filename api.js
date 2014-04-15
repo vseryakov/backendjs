@@ -875,25 +875,9 @@ api.initMessageAPI = function()
             break;
 
         case "add":
-            if (!req.query.id) return self.sendReply(res, 400, "receiver id is required");
-            if (!req.query.msg && !req.query.icon) return self.sendReply(res, 400, "msg or icon is required");
-            req.query.sender = req.account.id;
-            req.query.mtime = now + ":" + req.query.sender;
-            req.query.status = 'N:' + req.query.mtime;
-            self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
+            self.addMessage(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
-                req.query.icon = icon ? 1 : "0";
-                db.add("bk_message", req.query, {}, function(err, rows) {
-                    if (err) return self.sendReply(res, db.convertError("bk_message", err));
-                    self.sendJSON(req, res, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon });
-                    core.ipcPublish(req.query.id, { path: req.path, mtime: now, sender: req.query.sender });
-                    db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1 });
-
-                    // Update history log
-                    if (options.history) {
-                        db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: req.query.id });
-                    }
-                });
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -1823,6 +1807,36 @@ api.deleteConnections = function(obj, callback)
                 db.del("bk_connection", row, next);
             });
         }, callback);
+    });
+}
+
+// Add new message, usedin /message/add API call
+api.addMessage = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var now = Date.now();
+
+    if (!req.query.id) return callback({ status: 400, message: "receiver id is required" });
+    if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
+    req.query.sender = req.account.id;
+    req.query.mtime = now + ":" + req.query.sender;
+    req.query.status = 'N:' + req.query.mtime;
+    self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
+        if (err) return callback(err);
+        req.query.icon = icon ? 1 : "0";
+        db.add("bk_message", req.query, {}, function(err, rows) {
+            if (err) return callback(db.convertError("bk_message", err));
+            callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon });
+
+            core.ipcPublish(req.query.id, { path: req.path, mtime: now, sender: req.query.sender });
+            db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1 });
+
+            // Update history log
+            if (options.history) {
+                db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: req.query.id });
+            }
+        });
     });
 }
 
