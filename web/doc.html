@@ -360,14 +360,19 @@ Example:
     #Return icons for account 12345 for types 0 and 1
 </code></pre><h2 id="icons">Icons</h2>
 <p>The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
-accounts, within the account icons can be separated by <code>prefix</code> which is just a name assigned to the icons set, for example to keep messages
-icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.</p>
+accounts, within the account icons can be separated by <code>prefix</code> which is just a namespace assigned to the icons set, for example to keep messages
+icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique type which can be any string.</p>
+<p>Prefix and type can consist from alphabetical characters and numbers, dots, underscores and dashes: [a-z0-9._-]. This means, they are identificators, not real titles or names,
+a special mapping between prefix/type and album titles for example needs to be created separately.</p>
+<p>The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
+by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
+then retrieving all icons for an album would be only query with album1: prefix.</p>
 <ul>
 <li><code>/icon/get/prefix</code></li>
 <li><p><code>/icon/get/prefix/type</code></p>
 <p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
  configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
- separate from other accounts. If <code>type</code> is used to specify any unique icon created with such type which can be any string.</p>
+ separate from other accounts. <code>type</code> is used to specify unique icon created with such type which can be any string.</p>
 </li>
 <li><p><code>/icon/put/prefix</code></p>
 </li>
@@ -376,6 +381,8 @@ icons separate from albums, or use prefix for each separate album. Within the pr
 multiple icons for the same prefix. <code>type</code> can be any string consisting from alpha and digits characters.</p>
 <p>The following parameters can be used:</p>
 <ul>
+<li>descr - optional description of the icon</li>
+<li>latitude, longitude - optional coordinates for the icon</li>
 <li>acl_allow - allow access permissions, see <code>/account/put/icon</code> for the format and usage</li>
 <li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
 <li>_height - height of the icon, same rules apply as for the width above</li>
@@ -394,9 +401,12 @@ Return list of available icons for the given prefix adn type, all icons starting
 the <code>url</code> property will provide full URL to retrieve the icon contents</p>
 <p>Example:</p>
 <pre><code>  /icon/select/album/me
-</code></pre><p>Response:</p>
-<pre><code>  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me1&#39;, icon: &#39;/icon/get/album/me1&#39; },
-    { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me2&#39;, icon: &#39;/icon/get/album/me2&#39; } ]
+  /icon/select/album/12345
+</code></pre><p>Responses:</p>
+<pre><code>  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-1&#39;, icon: &#39;/icon/get/album/me1&#39; },
+    { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-2&#39;, icon: &#39;/icon/get/album/me2&#39; } ]
+
+  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;12345-f0deaa81a&#39;, icon: &#39;/icon/get/album/12345-f0deaa81a&#39; } ]
 </code></pre></li>
 </ul>
 <h2 id="connections">Connections</h2>
@@ -1398,6 +1408,10 @@ the worker processes if they die and restart them automatically. How many proces
      bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
                 type: { primary: 1, pub: 1 },               // prefix:type
                 acl_allow: {},                              // Who can see it: all, auth, id:id...
+                descr: {},
+                latitude: { type: &quot;real&quot; },
+                longitude: { type: &quot;real&quot; },
+                geohash: {},
                 mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
 
      // Locations for all accounts to support distance searches
@@ -1683,18 +1697,6 @@ the callback MUST return data back to the client or any other status code</li>
 </ul>
 
 <ul>
-<li><p><code>api.handleIcon(req, res, op, options)</code></p>
-<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.formatIcon(req, id, row)</code></p>
-<p> Return formatted icon URL for the given account</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.getConnections(req, options, callback)</code></p>
 <p> Return all connections for the current account, this function is called by the <code>/connection/get</code> API call.</p>
 </li>
@@ -1733,6 +1735,18 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>api.putLocations(req, options, callback)</code></p>
 <p> Save locstion coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleIcon(req, res, options)</code></p>
+<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.formatIcon(req, id, row)</code></p>
+<p> Return formatted icon URL for the given account</p>
 </li>
 </ul>
 
@@ -1814,6 +1828,12 @@ confitions, at least id: and type: properties must be defined</p>
 <ul>
 <li><p><code>api.deleteConnections(obj, callback)</code></p>
 <p> Delete all connections and references for the given account</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.addMessage(req, options, callback)</code></p>
+<p> Add new message, usedin /message/add API call</p>
 </li>
 </ul>
 
