@@ -55,12 +55,16 @@ tests.start = function(type)
 	}
 
 	switch (core.getArg("-bbox")) {
+	case "DC":
+	    location = "Washingtn, DC";
+	    bbox = [ 30.10, -77.5, 38.60, -76.5 ];
+	    break;
 	case "SF":
-		location = "San Francisco";
+		location = "San Francisco, CA";
 		bbox = [ 37.32833975233156, -122.86154379633437, 38.22666024766845, -121.96045620366564 ];  // San Francisco 37.77750, -122.41100
 		break;
 	case "SD":
-		location = "San Diego";
+		location = "San Diego, CA";
 		bbox = [ 32.26553975233155, -118.8279466261797, 33.163860247668445, -115.4840533738203 ]; // San Diego 32.71470, -117.15600
 		break;
 	}
@@ -226,6 +230,13 @@ tests.account = function(callback)
             });
         },
         function(next) {
+            var options = { login: login, secret: secret, query: { sender: myid } }
+            core.sendRequest("/message/get", options, function(err, params) {
+                msgs = params.obj;
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=2 ? ("err9-1:" + err + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/message/get/unread", options, function(err, params) {
                 next(err || !params.obj || !params.obj.data || params.obj.data.length!=2 ? ("err10:" + err + util.inspect(params.obj)) : 0);
@@ -254,6 +265,18 @@ tests.account = function(callback)
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/message/get/unread", options, function(err, params) {
                 next(err || !params.obj || !params.obj.data || params.obj.data.length!=0 ? ("err14:" + err + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { login: login, secret: secret, query: { sender: myid } }
+            core.sendRequest("/message/del", options, function(err, params) {
+                next(err ? ("err14-1:" + err + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var options = { login: login, secret: secret, query: { sender: myid } }
+            core.sendRequest("/message/get", options, function(err, params) {
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=0 ? ("err14-2:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -675,6 +698,16 @@ tests.publish = function(callback)
            logger.log('sockets2:', bn.nnSockets())
            callback(err);
        });
+}
+
+tests.cacheServer = function(callback)
+{
+
+}
+
+tests.cacheClient = function(callback)
+{
+
 }
 
 backend.run(function() {

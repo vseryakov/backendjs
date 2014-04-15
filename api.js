@@ -121,7 +121,8 @@ var api = {
        // Messages between accounts
        bk_message: { id: { primary: 1 },                    // my account_id
                      mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
-                     status: { index: 1 },                  // Status: R:mtime:sender or N:mtime:sender, where R - read, N - new
+                     status: { index: 1 },                  // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
+                     sender: { index1: 1 },                 // sender:mtime, reverse index by sender
                      msg: { type: "text" },                 // Text of the message
                      icon: {}},                             // Icon base64 or url
 
@@ -683,7 +684,7 @@ api.initAccountAPI = function()
                 if (!rows.length) return self.sendReply(res, 404);
                 // Pass the whole account record downstream to the possible hooks and return it as well to our client
                 for (var p in rows[0]) req.account[p] = rows[0][p];
-                self.deleteAccount(req.account, function(err) {
+                self.deleteAccount(req.account, options, function(err) {
                     if (err) return self.sendReply(res, err);
                     self.sendJSON(req, res, core.cloneObj(req.account, { secret: true }));
                 });
@@ -845,10 +846,19 @@ api.initMessageAPI = function()
             break;
 
         case "get":
-            options.ops.mtime = "gt";
             req.query.id = req.account.id;
             // Must be a string for DynamoDB at least
-            if (req.query.mtime) req.query.mtime = String(req.query.mtime);
+            if (req.query.mtime) {
+                options.ops.mtime = "gt";
+                req.query.mtime = String(req.query.mtime);
+            }
+            // Using sender index, all msgs from the sender
+            if (req.query.sender) {
+                options.sort = "sender";
+                options.ops.sender = "begins_with";
+                options.select = Object.keys(db.getColumns("bk_message", options));
+                req.query.sender += ":";
+            }
             db.select("bk_message", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
@@ -856,10 +866,10 @@ api.initMessageAPI = function()
             break;
 
         case "get/unread":
-            options.ops.status = "begins_with";
-            options.sort = "status";
             req.query.id = req.account.id;
             req.query.status = "N:";
+            options.sort = "status";
+            options.ops.status = "begins_with";
             db.select("bk_message", req.query, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 // Mark all existing as read
@@ -880,13 +890,6 @@ api.initMessageAPI = function()
             });
             break;
 
-        case "add":
-            self.addMessage(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
-            });
-            break;
-
         case "read":
             if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
             req.query.mtime += ":" + req.query.sender;
@@ -896,13 +899,17 @@ api.initMessageAPI = function()
             });
             break;
 
-        case "del":
-            if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
-            req.query.mtime += ":" + req.query.sender;
-            db.del("bk_message", { id: req.account.id, mtime: req.query.mtime }, function(err, rows) {
+        case "add":
+            self.addMessage(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
-                db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 });
-                self.sendJSON(req, res, {});
+                self.sendJSON(req, res, data);
+            });
+            break;
+
+        case "del":
+            self.delMessage(req, options, function(err, data) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -1407,23 +1414,27 @@ api.delConnections = function(req, options, callback)
     var id = req.query.id, type = req.query.type;
     if (!id || !type) return callback({ status: 400, message: "id and type are required"});
 
-    self.deleteConnection(req.account.id, req.query, function(err) {
+    db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, options, function(err) {
         if (err) return callback(err);
 
-        callback(null, {});
-        core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
+        db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, function(err) {
+            if (err) return callback(err);
 
-        // Update history log
-        if (options.history) {
-            db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
-        }
+            callback(null, {});
+            core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
 
-        // Update accumulated counter if we support this column and do it automatically
-        var col = db.getColumn("bk_counter", req.query.type + "0");
-        if (col && col.incr) {
-            db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
-            db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
-        }
+            // Update history log
+            if (options.history) {
+                db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
+            }
+
+            // Update accumulated counter if we support this column and do it automatically
+            var col = db.getColumn("bk_counter", req.query.type + "0");
+            if (col && col.incr) {
+                db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
+                db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
+            }
+        });
     });
 }
 
@@ -1799,38 +1810,7 @@ api.deleteFile = function(file, options, callback)
     }
 }
 
-// Delete one connection between 2 accounts, id is the account id, primary connection holder, obj contains query
-// confitions, at least id: and type: properties must be defined
-api.deleteConnection = function(id, obj, callback)
-{
-    if (!obj || !obj.id || !obj.type) return callback ? callback(new Error("id and type must be specified")) : null;
-    var db = core.context.db;
-
-    db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function(err) {
-        if (err) return callback ? callback(err) : null;
-
-        db.del("bk_reference", { id: obj.id, type: obj.type + ":" + id }, callback);
-    });
-}
-
-// Delete all connections and references for the given account
-api.deleteConnections = function(obj, callback)
-{
-    var db = core.context.db;
-
-    db.select("bk_connection", { id: obj.id }, function(err, rows) {
-        if (err) return callback ? callback(err) : null;
-
-        async.forEachSeries(rows, function(row, next) {
-            var type = row.type.split(":");
-            db.del("bk_reference", { id: type[1], type: type[0] + ":" + obj.id }, function(err) {
-                db.del("bk_connection", row, next);
-            });
-        }, callback);
-    });
-}
-
-// Add new message, usedin /message/add API call
+// Add new message, used in /message/add API call
 api.addMessage = function(req, options, callback)
 {
     var self = this;
@@ -1839,8 +1819,8 @@ api.addMessage = function(req, options, callback)
 
     if (!req.query.id) return callback({ status: 400, message: "receiver id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
-    req.query.sender = req.account.id;
-    req.query.mtime = now + ":" + req.query.sender;
+    req.query.mtime = now + ":" + req.account.id;
+    req.query.sender = req.account.id + ":" + now;
     req.query.status = 'N:' + req.query.mtime;
     self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
         if (err) return callback(err);
@@ -1858,6 +1838,40 @@ api.addMessage = function(req, options, callback)
             }
         });
     });
+}
+
+// Delete a message or all messages for the given account from the given sender, used in /messge/del` API call
+api.delMessage = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    if (!req.query.sender) return callback({ status: 400, message: "sender is required" });
+
+    if (req.query.mtime) {
+        req.query.mtime += ":" + req.query.sender;
+        db.del("bk_message", { id: req.account.id, mtime: req.query.mtime }, function(err, rows) {
+            if (err) return callback(err);
+            db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 });
+            callback(null, {});
+        });
+    } else {
+        options.sort = "sender";
+        options.ops = { sender: "begins_with" };
+        db.select("bk_message", { id: req.account.id, sender: req.query.sender + ":" }, options, function(err, rows) {
+            if (err) return callback(err);
+            async.forEachSeries(rows, function(row, next) {
+                var sender = row.sender.split(":");
+                row.mtime = sender[1] + ":" + sender[0];
+                db.del("bk_message", row, options, next);
+            }, function(err) {
+                if (!err && rows.count) {
+                    db.incr("bk_counter", { id: req.account.id, msg_count: -rows.count }, { cached: 1 });
+                }
+                callback(null, {});
+            });
+        });
+    }
 }
 
 // Register new account, used in /account/add API call
@@ -1910,37 +1924,53 @@ api.updateAccount = function(req, options, callback)
 
 // Delete account specified in the obj, this must be merged object from bk_auth and bk_account tables.
 // Return err if something wrong occured in the callback.
-api.deleteAccount = function(obj, callback)
+api.deleteAccount = function(obj, options, callback)
 {
     var self = this;
-    if (!obj || !obj.id || !obj.login) return callback ? callback(new Error("id, login must be specified")) : null;
-    var db = core.context.db;
 
-    db.get("bk_account", { id: obj.id }, function(err, rows) {
+    if (!obj || !obj.id || !obj.login) return callback ? callback(new Error("id, login must be specified")) : null;
+
+    if (typeof options == "function") callback = options, options = {};
+    var db = core.context.db;
+    options = db.getOptions("bk_account", options);
+
+    db.get("bk_account", { id: obj.id }, options, function(err, rows) {
         if (err || !rows.length) if (err) return callback ? callback(err) : null;
 
         async.series([
            function(next) {
-               db.del("bk_auth", { login: obj.login }, { cached: true }, next);
+               options.cached = true
+               db.del("bk_auth", { login: obj.login }, options, function(err) {
+                   options.cached = false;
+                   next(err);
+               });
            },
            function(next) {
-               db.del("bk_account", { id: obj.id }, function() { next() });
+               db.del("bk_account", { id: obj.id }, options, function() { next() });
            },
            function(next) {
-               db.del("bk_counter", { id: obj.id }, function() { next() });
+               db.del("bk_counter", { id: obj.id }, options, function() { next() });
            },
            function(next) {
-               self.deleteConnections(obj, function() { next() });
+               db.select("bk_connection", { id: obj.id }, options, function(err, rows) {
+                   if (err) return next(err)
+                   async.forEachSeries(rows, function(row, next2) {
+                       var type = row.type.split(":");
+                       db.del("bk_reference", { id: type[1], type: type[0] + ":" + obj.id }, options, function(err) {
+                           db.del("bk_connection", row, options, next2);
+                       });
+                   }, next);
+               });
            },
            function(next) {
-               db.delAll("bk_message", { id: obj.id }, function() { next() });
+               db.delAll("bk_message", { id: obj.id }, options, function() { next() });
            },
            function(next) {
-               db.delAll("bk_icon", { id: obj.id }, function() { next() });
+               db.delAll("bk_icon", { id: obj.id }, options, function() { next() });
            },
            function(next) {
                var geo = core.geoHash(rows[0].latitude, rows[0].longitude);
-               db.del("bk_location", { geohash: geo.geohash, id: obj.id }, next);
+               db.del("bk_location", { geohash: geo.geohash, id: obj.id }, options, next);
            }], callback);
     });
 }

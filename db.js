@@ -2296,7 +2296,7 @@ db.dynamodbInitPool = function(options)
                 });
                 options.projection = projection;
             }
-            var attrs = Object.keys(obj).concat(Object.keys(idxs)).filter(function(x) { return obj[x].primary || obj[x].index }).
+            var attrs = Object.keys(obj).concat(Object.keys(idxs)).filter(function(x) { return obj[x].primary || obj[x].index || obj[x].index1 || obj[x].index2 }).
                                map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 

@@ -550,6 +550,8 @@ from the last messages received so the next time we will use this time to get on
   Date.now() return in Javascript. The images are not returned, only link to the image in `icon` property of reach record,
   the actual image data must be retrieved separately.
 
+  When `sender` is specified then all messages for given sender will be returned.
+
   NOTE: The `mtime` is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
   also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
   result in mtimes that do not correspond to actual times when the message has been sent.
@@ -558,10 +560,15 @@ from the last messages received so the next time we will use this time to get on
 
         # Get all messages
         /message/get
-        # Get al lmessages received after given mtime
+
+        # Get all messages received after given mtime
         /message/get?mtime=123475658690
+
         # Get all messages with custom filter: if msg text contains Hi
         /message/get?_keys=id,mtime,msg&_ops=msg,iregexp&msg=Hi
+
+        # Get all messages for specific sender
+        /message/get?sender=12345
 
   Response:
 
