@@ -361,15 +361,22 @@ The format of the endpoint is:
 
 ## Icons
 The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
-accounts, within the account icons can be separated by `prefix` which is just a name assigned to the icons set, for example to keep messages
-icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique id which can be any string.
+accounts, within the account icons can be separated by `prefix` which is just a namespace assigned to the icons set, for example to keep messages
+icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique type which can be any string.
+
+Prefix and type can consist from alphabetical characters and numbers, dots, underscores and dashes: [a-z0-9._-]. This means, they are identificators, not real titles or names,
+a special mapping between prefix/type and album titles for example needs to be created separately.
+
+The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
+by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
+then retrieving all icons for an album would be only query with album1: prefix.
 
 - `/icon/get/prefix`
 - `/icon/get/prefix/type`
 
    Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
    configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
-   separate from other accounts. If `type` is used to specify any unique icon created with such type which can be any string.
+   separate from other accounts. `type` is used to specify unique icon created with such type which can be any string.
 
 - `/icon/put/prefix`
 - `/icon/put/prefix/type`
@@ -378,6 +385,8 @@ icons separate from albums, or use prefix for each separate album. Within the pr
   multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters.
 
   The following parameters can be used:
+    - descr - optional description of the icon
+    - latitude, longitude - optional coordinates for the icon
     - acl_allow - allow access permissions, see `/account/put/icon` for the format and usage
     - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
     - _height - height of the icon, same rules apply as for the width above
@@ -396,11 +405,14 @@ icons separate from albums, or use prefix for each separate album. Within the pr
   Example:
 
         /icon/select/album/me
+        /icon/select/album/12345
 
-  Response:
+  Responses:
 
-        [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me1', icon: '/icon/get/album/me1' },
-          { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me2', icon: '/icon/get/album/me2' } ]
+        [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me-1', icon: '/icon/get/album/me1' },
+          { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me-2', icon: '/icon/get/album/me2' } ]
+
+        [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: '12345-f0deaa81a', icon: '/icon/get/album/12345-f0deaa81a' } ]
 
 ## Connections
 The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my

@@ -93,6 +93,10 @@ var api = {
        bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
                   type: { primary: 1, pub: 1 },               // prefix:type
                   acl_allow: {},                              // Who can see it: all, auth, id:id...
+                  descr: {},
+                  latitude: { type: "real" },
+                  longitude: { type: "real" },
+                  geohash: {},
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
@@ -757,9 +761,10 @@ api.initAccountAPI = function()
 
         case "put/icon":
         case "del/icon":
+            options.op = req.params[0].substr(0, 3);
             req.query.prefix = 'account';
             if (!req.query.type) req.query.type = '0';
-            self.handleIcon(req, res, req.params[0].substr(0, 3), options);
+            self.handleIcon(req, res, options);
             break;
 
         default:
@@ -774,7 +779,7 @@ api.initIconAPI = function()
     var self = this;
     var db = core.context.db;
 
-    this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9]+)\/?([a-z0-9])?$/, function(req, res) {
+    this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9\.\_\-]+)\/?([a-z0-9\.\_\-])?$/, function(req, res) {
 
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -800,7 +805,8 @@ api.initIconAPI = function()
 
         case "del":
         case "put":
-            self.handleIcon(req, res, req.params[0], options);
+            options.op = req.params[0];
+            self.handleIcon(req, res, options);
             break;
 
         default:
@@ -1293,48 +1299,6 @@ api.sendFile = function(req, res, file, redirect)
     });
 }
 
-// Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
-api.handleIcon = function(req, res, op, options)
-{
-    var self = this;
-    var db = core.context.db;
-
-    if (!req.query.type) req.query.type = "";
-
-    var obj = { id: req.account.id, type: req.query.prefix + ":" + req.query.type, acl_allow: req.query.acl_allow };
-    db[op]("bk_icon", obj, function(err, rows) {
-        if (err) return self.sendReply(res, err);
-
-        options.force = true;
-        options.prefix = req.query.prefix;
-        options.type = req.query.type;
-        self[op + 'Icon'](req, req.account.id, options, function(err, icon) {
-            if ((err || !icon) && op == "put") db.del('bk_icon', obj);
-            self.sendReply(res, err);
-        });
-    });
-}
-
-// Return formatted icon URL for the given account
-api.formatIcon = function(req, id, row)
-{
-    var type = row.type.split(":");
-    row.prefix = type[0];
-    row.type = type[1];
-
-    // Provide public url if allowed
-    if (row.allow && row.allow == "all" && this.allow && ("/image/" + row.prefix + "/").match(this.allow)) {
-        row.url = '/image/' + row.prefix + '/' + req.query.id + '/' + row.type;
-    } else {
-        if (row.prefix == "account") {
-            row.url = '/account/get/icon?type=' + row.type;
-        } else {
-            row.url = '/icon/get/' + row.prefix + "/" + row.type + "?";
-        }
-        if (id != req.account.id) row.url += "&id=" + id;
-    }
-}
-
 // Return all connections for the current account, this function is called by the `/connection/get` API call.
 api.getConnections = function(req, options, callback)
 {
@@ -1573,6 +1537,51 @@ api.putLocations = function(req, options, callback)
             }
         });
     });
+}
+
+// Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
+api.handleIcon = function(req, res, options)
+{
+    var self = this;
+    var db = core.context.db;
+    var op = options.op || "put";
+    if (!req.query.type) req.query.type = "";
+
+    req.query.id = req.account.id;
+    req.query.type = req.query.prefix + ":" + req.query.type;
+    if (req.query.latitude && req.query.longitude) req.query.geohash = core.geoHash(req.query.latitude, req.query.longitude);
+
+    db[op]("bk_icon", req.query, function(err, rows) {
+        if (err) return self.sendReply(res, err);
+
+        options.force = true;
+        options.prefix = req.query.prefix;
+        options.type = req.query.type;
+        self[op + 'Icon'](req, req.account.id, options, function(err, icon) {
+            if ((err || !icon) && op == "put") db.del('bk_icon', obj);
+            self.sendReply(res, err);
+        });
+    });
+}
+
+// Return formatted icon URL for the given account
+api.formatIcon = function(req, id, row)
+{
+    var type = row.type.split(":");
+    row.prefix = type[0];
+    row.type = type[1];
+
+    // Provide public url if allowed
+    if (row.allow && row.allow == "all" && this.allow && ("/image/" + row.prefix + "/").match(this.allow)) {
+        row.url = '/image/' + row.prefix + '/' + req.query.id + '/' + row.type;
+    } else {
+        if (row.prefix == "account") {
+            row.url = '/account/get/icon?type=' + row.type;
+        } else {
+            row.url = '/icon/get/' + row.prefix + "/" + row.type + "?";
+        }
+        if (id != req.account.id) row.url += "&id=" + id;
+    }
 }
 
 // Return icon to the client, checks the bk_icon table for existence and permissions
