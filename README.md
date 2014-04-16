@@ -445,7 +445,7 @@ a connection with it. No direct operations on bk_reference is allowed.
         /connection/update?id=12345&type=invite&state=accepted
 
 - `/connection/del`
-  Delete existing connection, `id` and `type` must be specified, mass-deletion is not supported only one conection by one.
+  Delete existing connection(s), `id` and/or `type` may be be specified, if not all existing connections will be deleted.
 
   Example:
 
@@ -613,7 +613,7 @@ from the last messages received so the next time we will use this time to get on
         /message/read?sender=12345&mtime=12366676434
 
 - `/message/del`
-  Delete the message by `sender` and `mtime` which must be passed as query parameters.
+  Delete the message by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
 
   Example:
 

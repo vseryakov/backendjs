@@ -1323,9 +1323,7 @@ api.getConnections = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
-    if (!req.query.type) return callback({ status: 400, message: "type is required"});
-
-    req.query.type += ":" + (req.query.id || "");
+    if (req.query.type) req.query.type += ":" + (req.query.id || "");
     req.query.id = req.account.id;
     options.ops.type = "begins_with";
     db.select("bk_" + req.params[0], req.query, options, function(err, rows, info) {
@@ -1410,32 +1408,69 @@ api.delConnections = function(req, options, callback)
     var self = this;
     var db = core.context.db;
     var now = Date.now();
+    var id = req.query.id;
+    var type = req.query.type;
 
-    var id = req.query.id, type = req.query.type;
-    if (!id || !type) return callback({ status: 400, message: "id and type are required"});
-
-    db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, options, function(err) {
-        if (err) return callback(err);
-
-        db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, function(err) {
+    if (id && type) {
+        db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, options, function(err) {
             if (err) return callback(err);
+            db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, function(err) {
+                if (err) return callback(err);
 
-            callback(null, {});
-            core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
+                callback(null, {});
+                core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
 
-            // Update history log
-            if (options.history) {
-                db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
-            }
+                // Update history log
+                if (options.history) {
+                    db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
+                }
 
-            // Update accumulated counter if we support this column and do it automatically
-            var col = db.getColumn("bk_counter", req.query.type + "0");
-            if (col && col.incr) {
-                db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
-                db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
-            }
+                // Update accumulated counter if we support this column and do it automatically
+                var col = db.getColumn("bk_counter", req.query.type + "0");
+                if (col && col.incr) {
+                    db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
+                    db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
+                }
+            });
         });
-    });
+    } else {
+        var counters = {};
+        db.select("bk_connection", { id: req.account.id }, options, function(err, rows) {
+            if (err) return next(err)
+            async.forEachSeries(rows, function(row, next2) {
+                var t = row.type.split(":");
+                if (id && t[1] != id) return next2();
+                if (type && t[0] != type) return next2();
+                // Keep track of all counters
+                var name0 = t[0] + '0', name1 = t[0] + '1';
+                var col = db.getColumn("bk_counter", name0);
+                if (col && col.incr) {
+                    if (!counters[req.account.id]) counters[req.account.id] = { id: req.account.id };
+                    if (!counters[req.account.id][name0]) counters[req.account.id][name0] = 0;
+                    counters[req.account.id][name0]--;
+                    if (!counters[t[1]]) counters[t[1]] = { id: t[1] };
+                    if (!counters[t[1]][name1]) counters[t[1]][name1] = 0;
+                    counters[t[1]][name1]--;
+                }
+                db.del("bk_reference", { id: t[1], type: t[0] + ":" + req.account.id }, options, function(err) {
+                    db.del("bk_connection", row, options, next2);
+                });
+            }, function(err) {
+                if (err) return callback(err);
+                // Update history log
+                if (options.history) {
+                    db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
+                }
+                logger.log('COUNTERS:', counters)
+                // Update all counters for each id
+                async.forEachSeries(Object.keys(counters), function(id, next) {
+                    db.incr("bk_counter", counters[id], { cached: 1 }, next);
+                }, function(err) {
+                    callback(err, {});
+                });
+            });
+        });
+    }
 }
 
 // Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
