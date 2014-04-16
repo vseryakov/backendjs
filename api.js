@@ -1089,11 +1089,14 @@ api.initDataAPI = function()
 
     this.app.all(/^\/data\/cache\/(.+)$/, function(req, res) {
         switch (req.params[0]) {
+        case 'stats':
+            core.ipcStatsCache(function(data) { res.send(data) });
+            break;
         case "keys":
-            core.ipcSend("keys", "", function(data) { res.send(data) });
+            core.ipcKeysCache(function(data) { res.send(data) });
             break;
         case "clear":
-            core.ipcSend("clear", "");
+            core.ipcClearCache();
             res.json();
             break;
         case "get":
@@ -1101,12 +1104,15 @@ api.initDataAPI = function()
             break;
         case "del":
             core.ipcDelCache(req.query.name);
+            res.json();
             break;
         case "incr":
             core.ipcIncrCache(req.query.name, core.toNumber(req.query.value));
+            res.json();
             break;
         case "put":
             core.ipcPutCache(req.params[0].split("/").pop(), req.query);
+            res.json();
             break;
         default:
             res.send(404);
@@ -1656,12 +1662,12 @@ api.formatIcon = function(req, id, row)
 
     // Provide public url if allowed
     if (row.allow && row.allow == "all" && this.allow && ("/image/" + row.prefix + "/").match(this.allow)) {
-        row.url = '/image/' + row.prefix + '/' + req.query.id + '/' + row.type;
+        row.url = this.imagesUrl + '/image/' + row.prefix + '/' + req.query.id + '/' + row.type;
     } else {
         if (row.prefix == "account") {
-            row.url = '/account/get/icon?type=' + row.type;
+            row.url = this.imagesUrl + '/account/get/icon?type=' + row.type;
         } else {
-            row.url = '/icon/get/' + row.prefix + "/" + row.type + "?";
+            row.url = this.imagesUrl + '/icon/get/' + row.prefix + "/" + row.type + "?";
         }
         if (id != req.account.id) row.url += "&id=" + id;
     }

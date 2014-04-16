@@ -169,6 +169,7 @@ var core = {
             { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
             { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
             { name: "no-cache", type:" bool", descr: "Do not use LRU server, all gets will result in miss and puts will have no effect" },
+            { name: "no-remote-config", type: "bool", descr: "Disable any attempts to read config from supported remote destinations like DNS..." },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
@@ -245,6 +246,7 @@ core.init = function(callback)
 
         // Try to load config from the DNS or other remote config server
         function(next) {
+            if (self.noRemoteConfig) return next();
             self.retrieveConfig(next);
         },
 

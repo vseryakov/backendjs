@@ -75,7 +75,7 @@ applications but still part of the core of the system to be available once neede
         /account/add?name=test2&secret=test2&login=test2@test.com
 
 
-* Now login with any of the accounts above, click on Login at the top-right corner and enter email and secret in the login popup dialog.
+* Now login with any of the accounts above, click on Login at the top-right corner and enter login and secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
 
         /account/get
@@ -1035,6 +1035,46 @@ List of available functions:
 - syslogClose()
 - listStatements() - list all active Sqlite statements
 - NNSocket() - create a new nanomsg socket object
+
+# Cache configurations
+Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it
+will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
+that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
+and refresh the cache, that is `{ cached: true }` can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
+it is required to clear cache manually there is `db.clearCached` method for that.
+
+## Internal with nanomsg
+
+For cache management signaling, all servers maintain local cache per machine, it is called `LRU` cache. This cache is maintained in the master Web process and
+serves all Web worker processes via IPC channel.
+
+Any server in the cluster that modifies a record sends 'del' command to the master process to clear local cache so the actual record will be re-read from
+the database next time. If no nanomsg LRU server is configured, nothing happens after this but if there is such server then the same 'del' command is sent to
+that server via nanomsg socket that is kept connect all the time by nanomsg library.
+
+The architecture with nanomsg LRU servers can look like this for example:
+
+- node1 runs the LRU server, i.e. listens for requests and re-broadcasts to all connected clients via nanomsg BUS socket, config
+   parameters lru-server is set as lru-server=tcp://node1:1234
+- node2 runs LRU server as well as a backup, it has lru-server=tcp://node2:1234
+- there are 2 more nodes running in the network, node3 and node4
+- all nodes also have the config parameter lru-host setup to point to both LRU servers: lru-host=tcp://node1:1234,tcp://node2:1234,
+   nanomsg sockets may be connected to multiple endpoints thus we have 2 cache servers for redundency
+- now, any node which is requsted for a cached record asks its local cache for such key and if it not found, retrieves it from the database and puts into local cache,
+   if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db
+- An update requests comes to node3 which deletes a key from the local cache.
+   - node3 also sends 'del' request for the requested key to both node1 and node2 servers via connected sockets.
+   - node1 and node2 servers receive 'del' request and delete such key from their local caches
+   - node1 and node2 re-send same request to all connected clients which is all nodes in the network, so all nodes receive 'del' cache request
+   - because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
+     costs nothing, both requests will be receive winin milliseonds from each other.
+   - next request to any of the nodes for the key just deleeted from the cache will result in retrieving the item from the database and putting back to the cache
+     on every node again until the next 'del' request.
+- For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliable and similar to
+  what memcached or Redis server would do as well. The only benefit of this is not to run any separate servers and dealing with its own configuration and support, using nanomsg
+  internal backendjs cache system is self contained and does not need additional external resources, any node can be LRU server which only role is to make sure all other
+  nodes flush their caches if needed. Using redundant broadcast servers is to be sure such flush requests reach all nodes in the cluster.
+
 
 # PUB/SUB configurations
 
