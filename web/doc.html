@@ -436,7 +436,7 @@ the type of the connection.</p>
 <pre><code>  /connection/update?id=12345&amp;type=invite&amp;state=accepted
 </code></pre></li>
 <li><p><code>/connection/del</code>
-Delete existing connection, <code>id</code> and <code>type</code> must be specified, mass-deletion is not supported only one conection by one.</p>
+Delete existing connection(s), <code>id</code> and/or <code>type</code> may be be specified, if not all existing connections will be deleted.</p>
 <p>Example:</p>
 <pre><code>  /connection/del?type=invite&amp;id=12345
 </code></pre></li>
@@ -583,7 +583,7 @@ Mark a message as read, this will update account counter <code>msg_read</code> a
 <pre><code>  /message/read?sender=12345&amp;mtime=12366676434
 </code></pre></li>
 <li><p><code>/message/del</code>
-Delete the message by <code>sender</code> and <code>mtime</code> which must be passed as query parameters.</p>
+Delete the message by <code>sender</code> and/or <code>mtime</code> which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.</p>
 <p>Example:</p>
 <pre><code>  /message/del?sender=12345&amp;mtime=124345656567676
 </code></pre></li>
@@ -1840,7 +1840,7 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <ul>
-<li><p><code>api.delMessage(req, options, callback)</code></p>
+<li><p><code>api.delMessages(req, options, callback)</code></p>
 <p> Delete a message or all messages for the given account from the given sender, used in /messge/del` API call</p>
 </li>
 </ul>

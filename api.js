@@ -907,7 +907,7 @@ api.initMessageAPI = function()
             break;
 
         case "del":
-            self.delMessage(req, options, function(err, data) {
+            self.delMessages(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, data);
             });
@@ -1876,7 +1876,7 @@ api.addMessage = function(req, options, callback)
 }
 
 // Delete a message or all messages for the given account from the given sender, used in /messge/del` API call
-api.delMessage = function(req, options, callback)
+api.delMessages = function(req, options, callback)
 {
     var self = this;
     var db = core.context.db;
