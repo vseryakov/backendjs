@@ -1087,6 +1087,32 @@ api.initDataAPI = function()
         res.json(self.getStatistics());
     });
 
+    this.app.all(/^\/data\/cache\/(.+)$/, function(req, res) {
+        switch (req.params[0]) {
+        case "keys":
+            core.ipcSend("keys", "", function(data) { res.send(data) });
+            break;
+        case "clear":
+            core.ipcSend("clear", "");
+            res.json();
+            break;
+        case "get":
+            core.ipcGetCache(req.query.name, function(data) { res.send(data) });
+            break;
+        case "del":
+            core.ipcDelCache(req.query.name);
+            break;
+        case "incr":
+            core.ipcIncrCache(req.query.name, core.toNumber(req.query.value));
+            break;
+        case "put":
+            core.ipcPutCache(req.params[0].split("/").pop(), req.query);
+            break;
+        default:
+            res.send(404);
+        }
+    });
+
     // Load columns into the cache
     this.app.all("/data/columns", function(req, res) {
         db.cacheColumns({}, function() {
