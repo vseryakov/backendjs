@@ -533,18 +533,6 @@ core.ipcInitServer = function()
     // Attach our message handler to all workers, process requests from workers
     backend.lruInit(self.lruMax);
 
-    // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts
-    // it to other connected servers via the same BUS socket
-    if (self.lruServer) {
-        try {
-            self.lruServerSocket = new backend.NNSocket(backend.AF_SP_RAW, backend.NN_BUS);
-            self.lruServerSocket.bind(self.lruServer);
-            backend.lruServer(0, self.lruServerSocket.socket(), self.lruServerSocket.socket());
-        } catch(e) {
-            logger.error('ipcInit:', self.lruServer, e);
-        }
-    }
-
     // Send cache requests to the LRU hosts to be broadcasted to all other servers
     if (self.lruHost) {
         try {
@@ -553,6 +541,26 @@ core.ipcInitServer = function()
         } catch(e) {
             logger.error('ipcInit:', self.lruHost, e);
             self.lruSocket = null;
+        }
+        // Check if list of hosts contains our local IP address, this way we can auto-register LRU server
+        if (!self.lruServer) {
+            var hostname = os.hostname().toLowerCase();
+            self.strSplit(self.lruHost).forEach(function(x) {
+                var u = url.parse(x);
+                if (u.hostname == self.ipaddr || u.hostname.toLowerCase() == hostname) self.lruServer = "tcp://*:" + u.port;
+            });
+        }
+    }
+
+    // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts
+    // it to other connected servers via the same BUS socket
+    if (self.lruServer) {
+        try {
+            self.lruServerSocket = new backend.NNSocket(backend.AF_SP_RAW, backend.NN_BUS);
+            self.lruServerSocket.bind(self.lruServer);
+            backend.lruServer(0, self.lruServerSocket.socket, self.lruServerSocket.socket);
+        } catch(e) {
+            logger.error('ipcInit:', self.lruServer, e);
         }
     }
 
