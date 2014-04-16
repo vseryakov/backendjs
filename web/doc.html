@@ -21,6 +21,10 @@
 </li>
 <li><a href="#backend-directory-structure"> Backend directory structure</a></li>
 <li><a href="#internal-backend-functions"> Internal backend functions</a></li>
+<li><a href="#cache-configurations"> Cache configurations</a><ul>
+<li><a href="#internal-with-nanomsg"> Internal with nanomsg</a></li>
+</ul>
+</li>
 <li><a href="#pub-sub-configurations"> PUB/SUB configurations</a><ul>
 <li><a href="#internal-with-nanomsg"> Internal with nanomsg</a></li>
 <li><a href="#redis"> Redis</a></li>
@@ -111,7 +115,7 @@ For this example let&#39;s create couple of accounts, type and execute the follo
 </code></pre></li>
 </ul>
 <ul>
-<li>Now login with any of the accounts above, click on Login at the top-right corner and enter email and secret in the login popup dialog.</li>
+<li>Now login with any of the accounts above, click on Login at the top-right corner and enter login and secret in the login popup dialog.</li>
 <li><p>If no error message appeared after the login, try to get your current account details:</p>
 <pre><code>  /account/get
 </code></pre></li>
@@ -1014,6 +1018,43 @@ console.log(backend.backend)
 <li>listStatements() - list all active Sqlite statements</li>
 <li>NNSocket() - create a new nanomsg socket object</li>
 </ul>
+<h1 id="cache-configurations">Cache configurations</h1>
+<p>Database layer support caching of the responses using <code>db.getCached</code> call, it retrieves exactly one record from the configured cache, if no record exists it
+will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
+that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
+and refresh the cache, that is <code>{ cached: true }</code> can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
+it is required to clear cache manually there is <code>db.clearCached</code> method for that.</p>
+<h2 id="internal-with-nanomsg">Internal with nanomsg</h2>
+<p>For cache management signaling, all servers maintain local cache per machine, it is called <code>LRU</code> cache. This cache is maintained in the master Web process and
+serves all Web worker processes via IPC channel.</p>
+<p>Any server in the cluster that modifies a record sends &#39;del&#39; command to the master process to clear local cache so the actual record will be re-read from
+the database next time. If no nanomsg LRU server is configured, nothing happens after this but if there is such server then the same &#39;del&#39; command is sent to
+that server via nanomsg socket that is kept connect all the time by nanomsg library.</p>
+<p>The architecture with nanomsg LRU servers can look like this for example:</p>
+<ul>
+<li>node1 runs the LRU server, i.e. listens for requests and re-broadcasts to all connected clients via nanomsg BUS socket, config
+ parameters lru-server is set as lru-server=tcp://node1:1234</li>
+<li>node2 runs LRU server as well as a backup, it has lru-server=tcp://node2:1234</li>
+<li>there are 2 more nodes running in the network, node3 and node4</li>
+<li>all nodes also have the config parameter lru-host setup to point to both LRU servers: lru-host=tcp://node1:1234,tcp://node2:1234,
+ nanomsg sockets may be connected to multiple endpoints thus we have 2 cache servers for redundency</li>
+<li>now, any node which is requsted for a cached record asks its local cache for such key and if it not found, retrieves it from the database and puts into local cache,
+ if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db</li>
+<li>An update requests comes to node3 which deletes a key from the local cache.<ul>
+<li>node3 also sends &#39;del&#39; request for the requested key to both node1 and node2 servers via connected sockets.</li>
+<li>node1 and node2 servers receive &#39;del&#39; request and delete such key from their local caches</li>
+<li>node1 and node2 re-send same request to all connected clients which is all nodes in the network, so all nodes receive &#39;del&#39; cache request</li>
+<li>because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
+costs nothing, both requests will be receive winin milliseonds from each other.</li>
+<li>next request to any of the nodes for the key just deleeted from the cache will result in retrieving the item from the database and putting back to the cache
+on every node again until the next &#39;del&#39; request.</li>
+</ul>
+</li>
+<li>For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliable and similar to
+what memcached or Redis server would do as well. The only benefit of this is not to run any separate servers and dealing with its own configuration and support, using nanomsg
+internal backendjs cache system is self contained and does not need additional external resources, any node can be LRU server which only role is to make sure all other
+nodes flush their caches if needed. Using redundant broadcast servers is to be sure such flush requests reach all nodes in the cluster.</li>
+</ul>
 <h1 id="pub-sub-configurations">PUB/SUB configurations</h1>
 <p>Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
 the backend provides some partially implemented subscription notifications for Web clients using the Long Poll. The Account API call <code>/account/subscribe</code>
@@ -1291,6 +1332,7 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>amqp-options</code> - JSON object with options to the AMQP client, see npm doc amqp</li>
 <li><code>cache-type</code> - One of the redis or memcache to use for caching in API requests</li>
 <li><code>no-cache</code> - Do not use LRU server, all gets will result in miss and puts will have no effect</li>
+<li><code>no-remote-config</code> - Disable any attempts to read config from supported remote destinations like DNS...</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
@@ -2184,13 +2226,8 @@ type can be bool, number, list, json</p>
 </ul>
 
 <ul>
-<li><p><code>core.ipcInitServer()</code></p>
-<p> Setup 2-way IPC channel between master and worker.
-Cache management signaling, all servers maintain local cache per process of account, any server in the cluster
-that modifies an account record sends &#39;del&#39; command to clear local caches so the actual record will be re-read from
-the database, all servers share the same database and update it directly. The eviction is done in 2 phases, first local process cache
-is cleared and then it sends a broadcast to all servers in the cluster using nanomsg socket, other servers all subscribed to that
-socket and listen for messages.</p>
+<li><p><code>core.retrieveConfig(callback)</code></p>
+<p> Retrieve config parameters from the network, dns...</p>
 </li>
 </ul>
 
