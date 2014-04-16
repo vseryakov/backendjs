@@ -23,11 +23,14 @@ var memcached = require('memcached');
 var redis = require("redis");
 var amqp = require('amqp');
 var uuid = require('uuid');
+var dns = require('dns');
 
 // The primary object containing all config options and common functions
 var core = {
     name: 'backend',
-    version: '2014.04.07',
+
+    // Protocol version
+    version: '2014.04.15',
 
     // Process and config parameters
     argv: {},
@@ -153,21 +156,21 @@ var core = {
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
             { name: "lru-server", descr: "LRU server that acts as a NN-BUS node to broadcast cache messages to all connected backends" },
-            { name: "lru-host", descr: "Address of NN-BUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
+            { name: "lru-host", dns: 1, descr: "Address of NN-BUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
             { name: "pub-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
             { name: "pub-server", descr: "Server to listen for published messages using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "pub-host", descr: "Server where clients publish messages to using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "pub-host", dns: 1, descr: "Server where clients publish messages to using nanomsg: ipc:///path,tcp://IP:port..." },
             { name: "sub-server", descr: "Server to listen for subscribed clients using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "sub-host", descr: "Server where clients received messages from using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "memcache-host", type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port..." },
+            { name: "sub-host", dns: 1, descr: "Server where clients received messages from using nanomsg: ipc:///path,tcp://IP:port..." },
+            { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port..." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
-            { name: "redis-host", descr: "Address to Redis server for cache messages" },
+            { name: "redis-host", dns: 1, descr: "Address to Redis server for cache messages" },
             { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
             { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
             { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
             { name: "no-cache", type:" bool", descr: "Do not use LRU server, all gets will result in miss and puts will have no effect" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
-            { name: "logwatcher-email", descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
+            { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns" },
             { name: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
@@ -238,6 +241,11 @@ core.init = function(callback)
             // Try to load local config file supplied with the app container
             if (path.resolve("etc/config") == configFile) return next();
             self.loadConfig("etc/config", next);
+        },
+
+        // Try to load config from the DNS or other remote config server
+        function(next) {
+            self.retrieveConfig(next);
         },
 
         // Create all directories, only master should do it once but we resolve absolute paths in any mode
@@ -483,12 +491,39 @@ core.loadConfig = function(file, callback)
     });
 }
 
-// Setup 2-way IPC channel between master and worker.
-// Cache management signaling, all servers maintain local cache per process of account, any server in the cluster
-// that modifies an account record sends 'del' command to clear local caches so the actual record will be re-read from
-// the database, all servers share the same database and update it directly. The eviction is done in 2 phases, first local process cache
-// is cleared and then it sends a broadcast to all servers in the cluster using nanomsg socket, other servers all subscribed to that
-// socket and listen for messages.
+// Retrieve config parameters from the network, dns...
+core.retrieveConfig = function(callback)
+{
+    var self = this;
+
+    var args = [ { name: "", args: this.args } ];
+    for (var p in this.context) {
+        var ctx = self.context[p];
+        if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
+    }
+
+    async.forEachSeries(args, function(ctx, next) {
+        async.forEachLimit(ctx.args, 5, function(arg, next2) {
+            var cname = ctx.name + arg.name;
+            async.series([
+               function(next3) {
+                   // Get DNS TXT record
+                   if (!arg.dns) return next3();
+                   dns.resolveTxt(cname + "." + self.domain, function(err, list) {
+                       if (!err && list && list.length) {
+                           self.argv.push("-" + cname, list[0]);
+                           logger.debug('retrieveConfig:', cname, list[0]);
+                       }
+                       next3();
+                   });
+               }],
+               next2);
+        }, next);
+    }, function(err) {
+        if (callback) callback();
+    });
+}
+
 core.ipcInitServer = function()
 {
     var self = this;
@@ -508,7 +543,7 @@ core.ipcInitServer = function()
         }
     }
 
-    // Send cache requests to the LRU host to be broadcasted to all other servers
+    // Send cache requests to the LRU hosts to be broadcasted to all other servers
     if (self.lruHost) {
         try {
             self.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
@@ -534,7 +569,7 @@ core.ipcInitServer = function()
                 self.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
                 self.subServerSocket.bind(self.subServer);
             } catch(e) {
-                logger.error('ipcInit:', self.subServer, e)
+                logger.error('ipcInit:', self.subServer, e);
                 self.subServerSocket = null;
             }
         }
@@ -547,7 +582,7 @@ core.ipcInitServer = function()
                 // Forward all messages to the sub server socket
                 if (self.subServerSocket) self.pubServerSocket.setForward(self.subServerSocket);
             } catch(e) {
-                logger.error('ipcInit:', self.pubServer, e)
+                logger.error('ipcInit:', self.pubServer, e);
                 self.pubServerSocket = null;
             }
         }
@@ -559,6 +594,11 @@ core.ipcInitServer = function()
             if (!msg) return false;
             logger.debug('LRU:', msg);
             switch (msg.cmd) {
+            case 'stats':
+                msg.value = backend.lruStats();
+                worker.send(msg);
+                break;
+
             case 'keys':
                 msg.value = backend.lruKeys();
                 worker.send(msg);
@@ -602,49 +642,47 @@ core.ipcInitClient = function()
 
     // Pub/sub messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
     // publish socket by the receiving end
-    switch (self.pubType || "") {
-    case "redis":
-        self.redisCallbacks = {};
-        self.redisSubClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
-        self.redisSubClient.on("ready", function() {
-            self.redisSubClient.on("pmessage", function(channel, message) {
-                if (self.redisCallbacks[channel]) self.redisCallback[channel](message);
+    try {
+        switch (self.pubType || "") {
+        case "redis":
+            self.redisCallbacks = {};
+            self.redisSubClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
+            self.redisSubClient.on("ready", function() {
+                self.redisSubClient.on("pmessage", function(channel, message) {
+                    if (self.redisCallbacks[channel]) self.redisCallback[channel](message);
+                });
             });
-        });
-        break;
+            break;
 
-    case "amqp":
-        break;
+        case "amqp":
+            break;
 
-    default:
-        if (self.pubHost) {
-            try {
+        default:
+            if (self.pubHost) {
                 self.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
                 self.pubSocket.connect(self.pubHost);
-            } catch(e) {
-                logger.error('ipcInit:', self.pubHost, e)
-                self.pubSocket = null;
             }
         }
+    } catch(e) {
+        logger.error('ipcInit:', e)
+        self.pubSocket = self.redisSubClient = null;
     }
 
-    switch (this.cacheType || "") {
-    case "memcache":
-        self.memcacheClient = new memcached(self.memcacheHost, self.memcacheOptions || {});
-        self.ipcPutCache = function(k, v) { self.memcacheClient.set(k, v, 0); }
-        self.ipcIncrCache = function(k, v) { self.memcacheClient.incr(k, v, 0); }
-        self.ipcDelCache = function(k) { self.memcacheClient.del(k); }
-        self.ipcGetCache = function(k, cb) { self.memcacheClient.get(k, function(e,v) { cb(v) }); }
-        break;
+    // Setup cache client, just create a connection
+    try {
+        switch (this.cacheType || "") {
+        case "memcache":
+            self.memcacheClient = new memcached(self.memcacheHost, self.memcacheOptions || {});
+            break;
 
-    case "redis":
-        self.redisCacheClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
-        self.ipcPutCache = function(k, v) { self.redisCacheClient.set(k, v, function() {}); }
-        self.ipcIncrCache = function(k, v) { self.redisCacheClient.incr(k, v, function() {}); }
-        self.ipcDelCache = function(k) { self.redisCacheClient.del(k, function() {}); }
-        self.ipcGetCache = function(k, cb) { self.redisCacheClient.get(k, function(e,v) { cb(v) }); }
-        break;
+        case "redis":
+            self.redisCacheClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
+            break;
+        }
+    } catch(e) {
+        logger.error('ipcInit:', e);
     }
+
     // Event handler for the worker to process response and fire callback
     process.on("message", function(msg) {
         if (!msg.id) return;
@@ -681,28 +719,153 @@ core.ipcSend = function(cmd, key, value, callback)
     process.send(msg);
 }
 
+core.ipcStatsCache = function(callback)
+{
+    try {
+        if (this.noCache) return callback({});
+        switch (this.cacheType || "") {
+        case "memcache":
+            this.memcacheClient.stats(function(e,v) { callback(v) });
+            break;
+        case "redis":
+            this.redisCacheClient.info(function(e,v) { callback(v) });
+            break;
+        default:
+            this.ipcSend("stats", "", callback);
+        }
+    } catch(e) {
+        logger.error('ipcStats:', e);
+        callback({});
+    }
+}
+
+core.ipcKeysCache = function(callback)
+{
+    try {
+        if (this.noCache) return callback([]);
+        switch (this.cacheType || "") {
+        case "memcache":
+            self.memcacheClient.items(function(err, items) {
+                if (err || !items || !items.length) return cb([]);
+                var item = items[0], keys = [];
+                var keys = Object.keys(item);
+                keys.pop();
+                async.forEachSeries(keys, function(stats, next) {
+                    memcached.cachedump(item.server, stats, item[stats].number, function(err, response) {
+                        if (response) keys.push(response.key);
+                        next(err);
+                    });
+                }, function() {
+                    callback(keys);
+                });
+            });
+            break;
+        case "redis":
+            this.redisCacheClient.keys("*", function(e,v) { cb(v) });
+            break;
+        default:
+            this.ipcSend("keys", "", callback);
+        }
+    } catch(e) {
+        logger.error('ipcSKeys:', e);
+        callback({});
+    }
+}
+
+core.ipcClearCache = function()
+{
+    try {
+        if (this.noCache) return;
+        switch (this.cacheType || "") {
+        case "memcache":
+            this.memcacheClient.flush();
+            break;
+        case "redis":
+            this.redisCacheClient.flushall();
+            break;
+        default:
+            this.ipcSend("clear", key);
+        }
+    } catch(e) {
+        logger.error('icpClear:', e);
+    }
+}
+
 core.ipcGetCache = function(key, callback)
 {
-    if (this.noCache) return callback ? callback() : null;
-    this.ipcSend("get", key, callback);
+    try {
+        if (this.noCache) return callback();
+        switch (this.cacheType || "") {
+        case "memcache":
+            this.memcacheClient.get(key, function(e,v) { callback(v) });
+            break;
+        case "redis":
+            this.redisCacheClient.get(key, function(e,v) { callback(v) });
+            break;
+        default:
+            this.ipcSend("get", key, callback);
+        }
+    } catch(e) {
+        logger.error('ipcGet:', e);
+        callback();
+    }
 }
 
 core.ipcDelCache = function(key)
 {
-    if (this.noCache) return;
-    this.ipcSend("del", key);
+    try {
+        if (this.noCache) return;
+        switch (this.cacheType || "") {
+        case "memcache":
+            this.memcacheClient.del(key);
+            break;
+        case "redis":
+            this.redisCacheClient.del(key, function() {});
+            break;
+        default:
+            this.ipcSend("del", key);
+        }
+    } catch(e) {
+        logger.error('ipcDel:', e);
+    }
 }
 
 core.ipcPutCache = function(key, val)
 {
-    if (this.noCache) return;
-    this.ipcSend("put", key, val);
+    try {
+        if (this.noCache) return;
+        switch (this.cacheType || "") {
+        case "memcache":
+            this.memcacheClient.set(key, val, 0);
+            break;
+        case "redis":
+            this.redisCacheClient.set(key, val, function() {});
+            break;
+        default:
+            this.ipcSend("put", key, val);
+        }
+    } catch(e) {
+        logger.error('ipcPut:', e);
+    }
 }
 
 core.ipcIncrCache = function(key, val)
 {
-    if (this.noCache) return;
-    this.ipcSend("incr", key, val);
+    try {
+        if (this.noCache) return;
+        switch (this.cacheType || "") {
+        case "memcache":
+            this.memcacheClient.incr(key, val, 0);
+            break;
+        case "redis":
+            this.redisCacheClient.incr(key, val, function() {});
+            break;
+        default:
+            this.ipcSend("incr", key, val);
+        }
+    } catch(e) {
+        logger.error('ipcIncr:', e);
+    }
 }
 
 // Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
