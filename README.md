@@ -927,6 +927,10 @@ The backend directory structure is the following:
 
             To specify other config file: rc.backend run-backend -config-file file
 
+    * some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
+      All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
+      concatenated with the domain and queried for the TXT record, for example: `lru-host` parameter will be queried for lru-host.domain.name for TXT record type.
+
     * `etc/crontab` - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
 
         Example:
@@ -1052,17 +1056,17 @@ Any server in the cluster that modifies a record sends 'del' command to the mast
 the database next time. If no nanomsg LRU server is configured, nothing happens after this but if there is such server then the same 'del' command is sent to
 that server via nanomsg socket that is kept connect all the time by nanomsg library.
 
-The architecture with nanomsg LRU servers can look like this for example:
+The basic flow is the following using some hypothetical example:
 
-- node1 runs the LRU server, i.e. listens for requests and re-broadcasts to all connected clients via nanomsg BUS socket, config
-   parameters lru-server is set as lru-server=tcp://node1:1234
-- node2 runs LRU server as well as a backup, it has lru-server=tcp://node2:1234
-- there are 2 more nodes running in the network, node3 and node4
-- all nodes also have the config parameter lru-host setup to point to both LRU servers: lru-host=tcp://node1:1234,tcp://node2:1234,
-   nanomsg sockets may be connected to multiple endpoints thus we have 2 cache servers for redundency
+- there are 4 nodes running in the network: node1, node2, node3 and node4, instead of the names nodeX we can use IP addresses as well.
+- all nodes have the config parameter `lru-host` to point to 2 LRU servers: lru-host=tcp://node1:1234,tcp://node2:1234,
+   nanomsg sockets may be connected to multiple endpoints, so can have 2 cache servers for redundency. This config parameter can be specified in the local config file on all nodes
+   or can be defined in the DNS server as TXT record `lru-host`. If running in AWS the config parameters also can be specified in the user-data the same was as command line arguments.
+- during the startup, node1 and node2 will detect that `lru-host` contains its own IP or name and auto-register `lru-server` for the given port, basically
+  if a node detects that it must send LRU requests to itself, it must to start LRU server in order to broadcasts to work.
 - now, any node which is requsted for a cached record asks its local cache for such key and if it not found, retrieves it from the database and puts into local cache,
    if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db
-- An update requests comes to node3 which deletes a key from the local cache.
+- An update request comes to the node3 which deletes a key from the local cache:
    - node3 also sends 'del' request for the requested key to both node1 and node2 servers via connected sockets.
    - node1 and node2 servers receive 'del' request and delete such key from their local caches
    - node1 and node2 re-send same request to all connected clients which is all nodes in the network, so all nodes receive 'del' cache request
@@ -1083,6 +1087,13 @@ the backend provides some partially implemented subscription notifications for W
 can use any pub/sub mode.
 
 ## Internal with nanomsg
+To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backend_deps_force`
+options to the npm install, see above how to install the package.
+
+All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
+The config paramters `pub-host` and `sub-host` define where to publish messages and from where these messages can be retrieved. Both can be defined in the
+local config file or in the DNS, similar way as for LRU cache configuration. Also, same rules apply when a node sees itself inthe list of hosts, for example if
+`pub-host` looks like tcp://node1:1234 and node1 is starting up, it will automatically starts the publish server, other nodes will be acting just as clients.
 
 ## Redis
 

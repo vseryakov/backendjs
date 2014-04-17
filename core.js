@@ -156,13 +156,13 @@ var core = {
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
             { name: "lru-server", descr: "LRU server that acts as a NN-BUS node to broadcast cache messages to all connected backends" },
-            { name: "lru-host", dns: 1, descr: "Address of NN-BUS servers for cache broadcasts: ipc:///path,tcp://IP:port..." },
+            { name: "lru-host", dns: 1, descr: "Address of NN-BUS servers for cache broadcasts: tcp:///IP:port,tcp://IP:port.." },
             { name: "pub-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
-            { name: "pub-server", descr: "Server to listen for published messages using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "pub-host", dns: 1, descr: "Server where clients publish messages to using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "sub-server", descr: "Server to listen for subscribed clients using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "sub-host", dns: 1, descr: "Server where clients received messages from using nanomsg: ipc:///path,tcp://IP:port..." },
-            { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port..." },
+            { name: "pub-server", descr: "Server to listen for published messages using nanomsg sockets: tcp:///IP:port,tcp://IP:port.." },
+            { name: "pub-host", dns: 1, descr: "Server where clients publish messages to with nanomsg sockets: tcp:///IP:port,tcp://IP:port.." },
+            { name: "sub-server", descr: "Server to listen for subscribed clients using nanomsg sockets: tcp:///IP:port,tcp://IP:port..." },
+            { name: "sub-host", dns: 1, descr: "Server where clients receive messages from using nanomsg: tcp:///IP:port,tcp://IP:port.." },
+            { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port.." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-host", dns: 1, descr: "Address to Redis server for cache messages" },
             { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
@@ -458,10 +458,12 @@ core.showHelp = function(options)
         x[1].forEach(function(y) {
             if (!y.name || !y.descr) return;
             var dflt = (x[0] ? self.context[x[0]] : core)[self.toCamel(y.name)] || "";
+            var line = (x[0] ? x[0] + '-' : '') + y.name + "` - " + y.descr + (dflt ? ". Default: " + dflt : "");
+            if (y.dns) line += ". DNS TXT configurable.";
             if (options && options.markdown) {
-                data += " * `" + (x[0] ? x[0] + '-' : '') + y.name + "` - " + y.descr + (dflt ? " Default: " + dflt : "") + "\n";
+                data += " * `" +  line + "\n";
             } else {
-                console.log(printf("%-40s", (x[0] ? x[0] + '-' : '') + y.name), y.descr, dflt ? " Default: " + dflt : "");
+                console.log(printf("%-40s", line));
             }
         });
     });
@@ -543,13 +545,7 @@ core.ipcInitServer = function()
             self.lruSocket = null;
         }
         // Check if list of hosts contains our local IP address, this way we can auto-register LRU server
-        if (!self.lruServer) {
-            var hostname = os.hostname().toLowerCase();
-            self.strSplit(self.lruHost).forEach(function(x) {
-                var u = url.parse(x);
-                if (u.hostname == self.ipaddr || u.hostname.toLowerCase() == hostname) self.lruServer = "tcp://*:" + u.port;
-            });
-        }
+        if (!self.lruServer) self.lruServer = self.parseLocalAddress(self.lruHost);
     }
 
     // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts
@@ -573,7 +569,9 @@ core.ipcInitServer = function()
         break;
 
     default:
-        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket
+        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket,
+        // if the current host is mentioned in the client parameter then we use it as the server parameter
+        if (self.subHost && !self.subServer) self.subServer = self.parseLocalAddress(self.subHost);
         if (self.subServer) {
             try {
                 self.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
@@ -583,8 +581,10 @@ core.ipcInitServer = function()
                 self.subServerSocket = null;
             }
         }
-        // Publish server, it is where the clients send events to, it will forward them to the sub socket if it exists
-        // or it can be used standalone with custom callback
+
+        // Publish server, it is where the clients send events to, it will forward them to the sub socket if it exists or it can be used standalone with custom callback.
+        // if the current host is mentioned in the client parameter then we use it as the server parameter
+        if (self.pubHost && !self.pubServer) self.pubServer = self.parseLocalAddress(self.pubHost);
         if (self.pubServer) {
             try {
                 self.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
@@ -1819,6 +1819,18 @@ core.toJson = function(data)
 	    if (data.match(/^[0-9]+$/)) rc = this.toNumber(data); else rc = JSON.parse(new Buffer(data, "base64").toString());
 	} catch(e) {}
 	return rc;
+}
+
+// Given a string with list of urls try to find if any points to our local server using IP address or host name, returns the url
+// in format: protocol://*:port, mostly to be used with nanomsg sockets
+core.parseLocalAddress = function(str)
+{
+    var url = "", ip = this.ipaddr, host = os.hostname().toLowerCase();
+    this.strSplit(str).forEach(function(x) {
+        var u = url.parse(x);
+        if (u.hostname == ip || u.hostname.toLowerCase() == host) url = u.protocol + "//*:" + u.port;
+    });
+    return url;
 }
 
 // Copy file and then remove the source, do not overwrite existing file
