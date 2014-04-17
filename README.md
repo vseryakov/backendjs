@@ -1091,9 +1091,20 @@ To use publish/subcribe with nanomsg, first nanomsg must be compiled in the back
 options to the npm install, see above how to install the package.
 
 All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
-The config paramters `pub-host` and `sub-host` define where to publish messages and from where these messages can be retrieved. Both can be defined in the
-local config file or in the DNS, similar way as for LRU cache configuration. Also, same rules apply when a node sees itself inthe list of hosts, for example if
+The config parameters `pub-host` and `sub-host` define where to publish messages and from where these messages can be retrieved. Both can be defined in the
+local config file or in the DNS, similar way as for LRU cache configuration. Also, same rules apply when a node sees itself in the list of hosts, for example if
 `pub-host` looks like tcp://node1:1234 and node1 is starting up, it will automatically starts the publish server, other nodes will be acting just as clients.
+
+The flow of the pub/sub operqtions is the following:
+- a client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeput`.
+- the backend receives this request, and runs the `core.ipcSubscribe` method with the key being the account id
+  - if nanomsg pub/sub hosts are configured, the method connect to the sub hosts with the subscribtion key and wait for the events to be published
+- some other client makes an API call that triggers an event, like update a counter, sends a message, on such event the backend
+  always runs `core.ipcPublish` method and if there is no publish host configured nothing happens. If there us publish host, it sends a message to it, the message being a JSON object
+  with the API path and mtime, other properties depend on the call made.
+- the publish server receives nanomsg request and broadcasts it to all subscription servers connected, there can be more than one pub/sub host confiogured for redundancy purposes
+- all subscription servers will receive the published message and send it to the connected clients with matched subscribed key
+- the client who issued `/account/subscribe` command may receive the same event more than once, this is expected behaiviour, it is responsibility of the client to handle it
 
 ## Redis
 
