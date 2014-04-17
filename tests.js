@@ -11,6 +11,7 @@ var util = require('util');
 var path = require('path');
 var async = require('async');
 var spawn = require('child_process').spawn;
+var execFile = require('child_process').execFile;
 var backend = require('backendjs')
 core = backend.core;
 api = backend.api;
@@ -42,7 +43,7 @@ var tests = {
 tests.start = function(type)
 {
 	var self = this;
-	if (!this[type]) {
+	if (type == "start" || !this[type]) {
 		logger.error(this.name, 'no such test:', type);
 		process.exit(1);
 	}
@@ -680,50 +681,107 @@ tests.ldbpool = function(callback)
     });
 }
 
-tests.subscribe = function(callback)
+tests.nnpubsub = function(callback)
 {
-    var count = 0;
-    var addr = core.getArg("-addr", "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235");
-    var sock = new bn.NNSocket(bn.AF_SP, bn.NN_SUB);
-    sock.connect(addr);
-    sock.subscribe("");
-    sock.setCallback(function(err, data) {
-        logger.log('subscribe:', err, this.socket, data, 'count:', count++);
-        if (data == "exit") process.exit(0);
-    });
+    if (cluster.isMaster) {
+        var count = 0;
+        var addr = "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235";
+        var sock = new bn.NNSocket(bn.AF_SP, bn.NN_SUB);
+        sock.connect(addr);
+        sock.subscribe("");
+        sock.setCallback(function(err, data) {
+            logger.log('subscribe:', err, this.socket, data, 'count:', count++);
+            if (data == "exit") process.exit(0);
+        });
+    } else {
+        var count = core.getArgInt("-count", 10);
+        var addr = "tcp://127.0.0.1:" + (cluster.worker.id % 2 == 0 ? 1234 : 1235);
+        var sock = new bn.NNSocket(bn.AF_SP, bn.NN_PUB);
+        sock.bind(addr);
 
+        async.whilst(
+           function () { return count > 0; },
+           function (next) {
+               count--;
+               sock.send(addr + ':' + core.random());
+               logger.log('publish:', sock, addr, count);
+               setTimeout(next, core.randomInt(1000));
+           },
+           function(err) {
+               logger.log('sockets1:', bn.nnSockets())
+               sock.send("exit");
+               sock = null;
+               logger.log('sockets2:', bn.nnSockets())
+               callback(err);
+           });
+    }
 }
 
-tests.publish = function(callback)
+tests.nncache = function(callback)
 {
-    var count = core.getArgInt("-count", 10);
-    var addr = core.getArg("-addr", "tcp://127.0.0.1:" + (cluster.isMaster ? 1234 : 1235));
-    var sock = new bn.NNSocket(bn.AF_SP, bn.NN_PUB);
-    sock.bind(addr);
+    var slave = core.getArgInt("-slave", 0);
+    core.lruHost = "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235";
 
-    async.whilst(
-       function () { return count > 0; },
-       function (next) {
-           count--;
-           sock.send(addr + ':' + core.random());
-           logger.log('publish:', sock, addr, count);
-           setTimeout(next, core.randomInt(1000));
-       },
-       function(err) {
-           logger.log('sockets1:', bn.nnSockets())
-           sock.send("exit");
-           sock = null;
-           logger.log('sockets2:', bn.nnSockets())
-           callback(err);
-       });
+    if (cluster.isMaster) {
+        if (!core.lruServer) {
+            main = 1;
+            core.lruServer = "tcp://127.0.0.1:1234";
+            var args = process.argv.slice(1).concat(["-lru-server", "tcp://127.0.0.1:1235", "-slave", "1"]);
+            var pid = execFile(process.argv[0], args, {}, function(err, stdout, stderr) {
+                if (err) console.log(err);
+                if (stderr) console.log(stderr);
+                if (stdout) console.log(stdout);
+                pid = null;
+                if (!Object.keys(cluster.workers).length) process.exit(0);
+            });
+        }
+        core.ipcInitServer();
+        cluster.on('exit', function(worker, code, signal) {
+            if (Object.keys(cluster.workers).length) return;
+            if (slave) process.exit(0);
+            if (!pid) process.exit(0);
+        });
+    } else {
+        core.ipcInitClient();
+        async.series([
+           function(next) {
+               logger.log("step 1");
+               setTimeout(next, 1000);
+           },
+           function(next) {
+               if (slave) return next();
+               logger.log("set 1");
+               db.put("bk_counter", { id: "1", ping: 1 }, { cached: 1 }, next);
+           },
+           function(next) {
+               logger.log("step 2");
+               setTimeout(next, 1000);
+           },
+           function(next) {
+               db.getCached("bk_counter", { id: "1" }, { select: ["id", "ping"] }, function(err, row) {
+                   logger.log("get ", row.ping);
+                   next();
+               });
+           },
+           function(next) {
+               if (slave) return next();
+               logger.log("set 2");
+               db.put("bk_counter", { id: "1", ping: 2 }, { cached: 1 }, next);
+           },
+           function(next) {
+               logger.log("step 3");
+               setTimeout(next, 1000);
+           }],
+           function(err) {
+                db.getCached("bk_counter", { id: "1" }, { select: ["id", "ping"] }, function(err, row) {
+                    logger.log("end ", row.ping);
+                    callback(err);
+                });
+        });
+    }
 }
 
-tests.cacheServer = function(callback)
-{
-
-}
-
-tests.cacheClient = function(callback)
+tests.pubsub = function(callback)
 {
 
 }

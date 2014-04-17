@@ -68,7 +68,10 @@ var core = {
 
     // Number of parallel tasks running at the same time, can be used by various modules
     concurrency: 2,
+
+    // Local host IPs and name
     ipaddr: '',
+    ipaddrs: [],
     hostname: '',
 
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
@@ -223,9 +226,12 @@ core.init = function(callback)
     // Find our IP address
     var intf = os.networkInterfaces();
     Object.keys(intf).forEach(function(x) {
-        if (!self.ipaddr && x.substr(0, 2) != 'lo') {
-            intf[x].forEach(function(y) { if (y.family == 'IPv4' && y.address) self.ipaddr = y.address; });
-        }
+        if (x.substr(0, 2) == 'lo') return;
+        intf[x].forEach(function(y) {
+            if (y.family != 'IPv4' || !y.address) return;
+            if (!self.ipaddr) self.ipaddr = y.address;
+            self.ipaddrs.push(y.address);
+        });
     });
     // Default domain from local host name
     self.domain = self.domainName(os.hostname());
@@ -1825,10 +1831,10 @@ core.toJson = function(data)
 // in format: protocol://*:port, mostly to be used with nanomsg sockets
 core.parseLocalAddress = function(str)
 {
-    var url = "", ip = this.ipaddr, host = os.hostname().toLowerCase();
+    var url = "", ips = this.ipaddrs, host = os.hostname().toLowerCase();
     this.strSplit(str).forEach(function(x) {
         var u = url.parse(x);
-        if (u.hostname == ip || u.hostname.toLowerCase() == host) url = u.protocol + "//*:" + u.port;
+        if (ips.indexOf(u.hostname) > -1 || u.hostname.toLowerCase() == host) url = u.protocol + "//*:" + u.port;
     });
     return url;
 }

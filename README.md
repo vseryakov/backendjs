@@ -1083,8 +1083,8 @@ The basic flow is the following using some hypothetical example:
 # PUB/SUB configurations
 
 Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
-the backend provides some partially implemented subscription notifications for Web clients using the Long Poll. The Account API call `/account/subscribe`
-can use any pub/sub mode.
+the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
+The Account API call `/account/subscribe` can use any pub/sub mode.
 
 ## Internal with nanomsg
 To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backend_deps_force`
