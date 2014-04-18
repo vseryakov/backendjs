@@ -51,8 +51,8 @@ var core = {
     path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", files: "files", log: "log" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
-    logFile: null,
-    errFile: null,
+    logFile: "log/backend.log",
+    errFile: "log/error.log",
 
     // HTTP settings
     port: 8000,
@@ -91,12 +91,15 @@ var core = {
     logwatcherMax: 1000000,
     logwatcherInterval: 3600,
     logwatcherIgnore: ["NOTICE: ", "DEBUG: ", "DEV: "],
-    logwatcherFiles: [ { file: "/var/log/messages", match: /\[[0-9]+\]: (ERROR|WARNING): |message":"ERROR:|queryAWS:.+Errors:/ },
-                       { name: "logFile", match: /\[[0-9]+\]: ERROR: |message":"ERROR:|queryAWS:.+Errors:/ },
+    logwatcherMatch: ['\[[0-9]+\]: (ERROR|WARNING): ',
+                      'message":"ERROR:',
+                      'queryAWS:.+Errors:'],
+    logwatcherFiles: [ { file: "/var/log/messages" },
+                       { name: "logFile" },
                        { name: "errFile", match: /.+/, } ],
 
     // User agent
-    userAgent: ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0",
+    userAgent: [ "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0",
                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0",
                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:20.0) Gecko/20100101 Firefox/20.0",
                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.29.13 (KHTML, like Gecko) Version/6.0.4 Safari/536.29.13",
@@ -112,18 +115,18 @@ var core = {
     args: [ { name: "help", type: "callback", value: function() { core.showHelp() }, descr: "Print help and exit" },
             { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debugging messages, short of -log debug", pass: 1 },
             { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
-            { name: "log-file", type: "callback", value: function(v) { logger.setFile(v); }, descr: "File where to write logging messages, if not specified logs display to the console", pass: 1 },
+            { name: "log-file", type: "callback", value: function(v) { if (v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
-            { name: "console", type: "callback", value: function() { core.logFile = null; logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
+            { name: "console", type: "callback", value: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
             { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "config-file", type: "path", descr: "Path to the config file instead of the default etc/config, can be absolute or relative path", pass: 1 },
-            { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks" },
+            { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks", pass: 1 },
             { name: "etc-dir", type: "callback", value: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
             { name: "web-dir", type: "callback", value: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
             { name: "tmp-dir", type: "callback", value: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
             { name: "spool-dir", type: "callback", value: function(v) { if (v) this.path.spool = v; }, descr: "Path where to keep modifiable files" },
-            { name: "log-dir", type: "callback", value: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep log files" },
+            { name: "log-dir", type: "callback", value: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
             { name: "files-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
             { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after startup if running as root, used by Web servers and job workers" },
@@ -179,11 +182,13 @@ var core = {
             { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns" },
             { name: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
             { name: "logwatcher-interval", type: "number", min: 300, max: 86400, descr: "How often to check for errors in the log files" },
+            { name: "logwatcher-file", type: "callback", value: function(v) { if (v) this.logwatcherFiles.push({file:v}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access" },
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
+            { name: "config-domain", descr: "Domain to query for configuration TXT records, default is current domain of the host machine" },
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
             { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
@@ -519,7 +524,7 @@ core.retrieveConfig = function(callback)
                function(next3) {
                    // Get DNS TXT record
                    if (!arg.dns) return next3();
-                   dns.resolveTxt(cname + "." + self.domain, function(err, list) {
+                   dns.resolveTxt(cname + "." + (self.configDomain || self.domain), function(err, list) {
                        if (!err && list && list.length) {
                            self.argv.push("-" + cname, list[0]);
                            logger.debug('retrieveConfig:', cname, list[0]);
@@ -2036,21 +2041,29 @@ core.unlinkPathSync = function(dir)
     return 1;
 }
 
-// Change file owner do not report errors about non existent files
-core.chownSync = function(file)
+// Change file owner, multiples files can be specified, do not report errors about non existent files
+core.chownSync = function()
 {
-    try {
-        fs.chownSync(file, this.uid, this.gid);
-    } catch(e) {
-        if (e.code != 'ENOENT') logger.error('chownSync:', this.uid, this.gid, file, e);
+    for (var i = 0; i < arguments.length; i++) {
+        var file = arguments[i];
+        if (!file) continue;
+        try {
+            fs.chownSync(file, this.uid, this.gid);
+        } catch(e) {
+            if (e.code != 'ENOENT') logger.error('chownSync:', this.uid, this.gid, file, e);
+        }
     }
 }
 
-// Create a directory if does not exist
-core.mkdirSync = function(dir)
+// Create a directories if do not exist, multiple dirs can be specified
+core.mkdirSync = function()
 {
-    if (!fs.existsSync(dir)) {
-        try { fs.mkdirSync(dir) } catch(e) { logger.error('mkdirSync:', dir, e); }
+    for (var i = 0; i < arguments.length; i++) {
+        var dir = arguments[i];
+        if (!dir) continue;
+        if (!fs.existsSync(dir)) {
+            try { fs.mkdirSync(dir) } catch(e) { logger.error('mkdirSync:', dir, e); }
+        }
     }
 }
 
@@ -2538,11 +2551,11 @@ core.watchLogs = function(callback)
 
     var match = null;
     if (self.logwatcherMatch) {
-        try { match = new RegExp(self.logwatcherMatch.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) {}
+        try { match = new RegExp(self.logwatcherMatch.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) { logger.error('watchLogs:', e, self.logwatcherMatch) }
     }
     var ignore = null
     if (self.logwatcherIgnore) {
-        try { ignore = new RegExp(self.logwatcherIgnore.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) {}
+        try { ignore = new RegExp(self.logwatcherIgnore.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) { logger.error('watchLogs:', e, self.logwatcherIgnore) }
     }
     var db = self.context.db;
 
@@ -2579,8 +2592,8 @@ core.watchLogs = function(callback)
                        for (var i in lines) {
                            // Skip global ignore list first
                            if (ignore && ignore.test(lines[i])) continue;
-                           // Match either global or local filter
-                           if (!log.match || log.match.test(lines[i]) || (match && match.test(lines[i]))) {
+                           // Match both global or local filters
+                           if (log.match && log.match.test(lines[i]) || (match && match.test(lines[i]))) {
                                errors += lines[i] + "\n";
                            }
                        }

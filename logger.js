@@ -134,6 +134,7 @@ logger.setFile = function(file)
     } else {
     	self.stream = process.stdout;
     }
+    this.setSyslog(0);
 }
 
 logger.setDebug = function(level)

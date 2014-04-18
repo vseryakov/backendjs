@@ -695,18 +695,23 @@ api.initAccountAPI = function()
             // Ignore not matching events, the whole string is checked
             if (req.query.match) req.query.match = new RegExp(req.query.match);
 
+            req.pubData = {};
             // Returns opaque handle depending on the pub/sub system
             req.pubSock = core.ipcSubscribe(req.account.id, function(data) {
-                if (typeof data != "string") data = JSON.stringify(data);
-                if (req.query.match && !data.match(req.query.match)) return;
-                logger.debug('subscribe:', req.account.id, this.socket, data, res.headersSent);
+                // If for any reasons the response has been sent we just bail out
                 if (res.headersSent) return (req.pubSock = core.ipcUnsubscribe(req.pubSock));
+                if (typeof data != "string") data = JSON.stringify(data);
+                logger.debug('subscribe:', req.account.id, this.socket, data, res.headersSent);
+                // Filter by matching the whole message
+                if (req.query.match && !data.match(req.query.match)) return;
+                // Check for duplicates within the interval, duplicates from multiple nanomsg pub servers will arrive within the second so we
+                // have a chance to eliminate them here without exposing to the client
+                var hash = core.hash(data);
+                if (req.pubData[hash]) return;
+                req.pubData[hash] = data;
                 if (req.pubTimeout) clearTimeout(req.pubTimeout);
-                // Concatenate all messages received within the interval
-                if (!req.pubData) req.pubData = ""; else req.pubData += ",";
-                req.pubData += data;
                 req.pubTimeout = setTimeout(function() {
-                    if (!res.headersSent) res.type('application/json').send("[" + req.pubData + "]");
+                    if (!res.headersSent) res.type('application/json').send("[" + Object.keys(req.pubData).map(function(x) { return req.pubData[x] }).join(",") + "]");
                     // Returns null and clears the reference
                     req.pubSock = core.ipcUnsubscribe(req.pubSock, req.account.id);
                 }, self.subscribeInterval);

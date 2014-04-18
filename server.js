@@ -399,8 +399,6 @@ server.startDaemon = function()
 	var self = this;
     // Avoid spawning loop, skip daemon flag
     var argv = process.argv.slice(1).filter(function(x) { return x != "-daemon"; });
-    // Default path to the error file if not specified
-    if (!core.errFile) core.errFile = path.join(core.path.log, core.name + ".log");
     var log = "ignore";
 
     try {
