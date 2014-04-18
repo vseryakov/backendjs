@@ -1074,17 +1074,42 @@ The basic flow is the following using some hypothetical example:
      costs nothing, both requests will be receive winin milliseonds from each other.
    - next request to any of the nodes for the key just deleeted from the cache will result in retrieving the item from the database and putting back to the cache
      on every node again until the next 'del' request.
-- For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliable and similar to
-  what memcached or Redis server would do as well. The only benefit of this is not to run any separate servers and dealing with its own configuration and support, using nanomsg
-  internal backendjs cache system is self contained and does not need additional external resources, any node can be LRU server which only role is to make sure all other
-  nodes flush their caches if needed. Using redundant broadcast servers is to be sure such flush requests reach all nodes in the cluster.
 
+For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliably and similar to
+what `memcached` or `Redis` server would do as well.
+
+The benefits of this approach is not to run any separate servers and dealing with its own configuration and support, using nanomsg
+internal backend cache system is self contained and does not need additional external resources, any node can be LRU server whose only role is to make sure all other
+nodes flush their caches if needed. Using redundant broadcast servers makes sure such flush requests reach all nodes in the cluster and there is no single point of failure.
+
+# memcached
+Setting `cache-type=memcache` and pointing `memcache-host` to one or more hosts running memcached servers is what needs to be done only, the rest of the
+system works similar to the internal nanomsg caching but using memcache client instead. The great benefit using memcache is to configure more than one
+server in `memcache-host` separated by comma which makes it more reliable and eliminates single point of failure if one of the memcache servers goes down.
+
+# Redis
+Set `cache-type=redis` and point `redis-host` to the server running Redis server. Only single redis server can be specified.
 
 # PUB/SUB configurations
 
 Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
 the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
 The Account API call `/account/subscribe` can use any pub/sub mode.
+
+The flow of the pub/sub operations is the following:
+- a client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeput`.
+- the backend receives this request, and runs the `core.ipcSubscribe` method with the key being the account id
+  - if nanomsg pub/sub hosts are configured, the method connect to the sub hosts with the subscription key and wait for the events to be published
+- some other client makes an API call that triggers an event, like update a counter, sends a message, on such event the backend
+  always runs `core.ipcPublish` method and if there is no publish host configured nothing happens.
+  If there is a host to publish, it sends the message to it, the message being a JSON object with the request API path and mtime, other properties depend on the call made.
+- this step depends on the pub/sub system being used:
+  - nanomsg, the publish server receives nanomsg request and re-broadcasts it to all subscription servers connected, there can be more than one pub/sub host configured for
+    redundancy purposes and to eliminate single point of failure. All subscription servers will receive the published message and send it to the connected HTTP clients
+    with matched subscribed key.
+  - redis, uses native Redis pub/sub system, every client directly connected to the redis server and subscribed to the events
+- the client who issued `/account/subscribe` command may receive the same event more than once, this is expected behaiviour,
+  it is responsibility of the client to handle duplicates at this moment, this may change in the future.
 
 ## Internal with nanomsg
 To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backend_deps_force`
@@ -1095,18 +1120,10 @@ The config parameters `pub-host` and `sub-host` define where to publish messages
 local config file or in the DNS, similar way as for LRU cache configuration. Also, same rules apply when a node sees itself in the list of hosts, for example if
 `pub-host` looks like tcp://node1:1234 and node1 is starting up, it will automatically starts the publish server, other nodes will be acting just as clients.
 
-The flow of the pub/sub operqtions is the following:
-- a client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeput`.
-- the backend receives this request, and runs the `core.ipcSubscribe` method with the key being the account id
-  - if nanomsg pub/sub hosts are configured, the method connect to the sub hosts with the subscribtion key and wait for the events to be published
-- some other client makes an API call that triggers an event, like update a counter, sends a message, on such event the backend
-  always runs `core.ipcPublish` method and if there is no publish host configured nothing happens. If there us publish host, it sends a message to it, the message being a JSON object
-  with the API path and mtime, other properties depend on the call made.
-- the publish server receives nanomsg request and broadcasts it to all subscription servers connected, there can be more than one pub/sub host confiogured for redundancy purposes
-- all subscription servers will receive the published message and send it to the connected clients with matched subscribed key
-- the client who issued `/account/subscribe` command may receive the same event more than once, this is expected behaiviour, it is responsibility of the client to handle it
-
 ## Redis
+To configure the backend to use Redis for local cache set `pub-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the redis server.
+After that all cache requests will be directed to that redis server. The work flow itself is similar to nanomsg internal system, just instead of nanomsg sockets redis
+client is used.
 
 # Security configurations
 
