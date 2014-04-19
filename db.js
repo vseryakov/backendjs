@@ -531,9 +531,9 @@ db.del = function(table, obj, options, callback)
     this.query(req, options, callback);
 }
 
-// Delete all records that match given condition, one by one, th einput is the same as for `db.select` and every record
-// returned will be deleted using `db.del` call.
-// special properties that canbe in the options for this call:
+// Delete all records that match given condition, one by one, the input is the same as for `db.select` and every record
+// returned will be deleted using `db.del` call. The callback will receive on completion the err and all rows found and deleted.
+// Special properties that can be in the options for this call:
 // - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 //   in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 //   as `options.process(row, options)`
@@ -549,7 +549,9 @@ db.delAll = function(table, obj, options, callback)
         async.forEachSeries(rows, function(row, next) {
             if (options && options.process) options.process(row, options);
             self.del(table, row, options, next);
-        }, callback);
+        }, function(err) {
+            if (callback) callback(err, rows);
+        });
     });
 }
 

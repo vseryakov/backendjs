@@ -137,7 +137,7 @@ case "$ARG" in
     echo "Backend arguments: $BACKEND_ARGS"
 
     # System utilities
-    yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git man telnet jna
+    yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git svn man telnet jna
     yum -y remove sendmail
 
     # Add local user
@@ -155,7 +155,7 @@ case "$ARG" in
        echo "StrictHostKeyChecking no" >> .ssh/config
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys .ssh
        $ECHO -e "global = true\ncolor = false\n" > .npmrc
-       echo 'alias slog="tail -100 $BACKEND_ROOT/log/messages"' >> .bashrc
+       echo 'alias slog="tail -100 $BACKEND_ROOT/log/backend.log"' >> .bashrc
        echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
        echo "alias brc=\"rc.backend\"" >> .bashrc
@@ -211,7 +211,7 @@ case "$ARG" in
     if [ "$(grep '#Backend $BACKEND_ROOT' /etc/logrotate.d/syslog)" = "" ]; then
        echo "Configuring logrotate..."
        echo "#Backend $BACKEND_ROOT" > /etc/logrotate.d/syslog
-       echo "/var/log/cron /var/log/messages $BACKEND_ROOT/log/access.log {" >> /etc/logrotate.d/syslog
+       echo "/var/log/cron /var/log/messages $BACKEND_ROOT/log/backend.log $BACKEND_ROOT/log/access.log {" >> /etc/logrotate.d/syslog
        echo " missingok" >> /etc/logrotate.d/syslog
        echo " weekly" >> /etc/logrotate.d/syslog
        echo " sharedscripts" >> /etc/logrotate.d/syslog
@@ -233,9 +233,10 @@ case "$ARG" in
        echo '$ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat' >> /etc/rsyslog.conf
        echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
        echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
-       echo '*.info;cron.none,local5.none $BACKEND_ROOT/log/messages' >> /etc/rsyslog.conf
+       echo '*.info;cron.none,local0.none,local5.none /var/log/messages' >> /etc/rsyslog.conf
        echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
+       echo "local0.* $BACKEND_ROOT/log/backend.log" >> /etc/rsyslog.conf
        echo "local5.* $BACKEND_ROOT/log/access.log" >> /etc/rsyslog.conf
        killall -HUP rsyslogd
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
@@ -244,7 +245,7 @@ case "$ARG" in
     # Duplicate messages to the console for easier access
     if [[ $BACKEND_ARGS = *-instance* ]]; then
        echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
-       truncate -c -s 0 /var/log/messages
+       truncate -c -s 0 /var/log/messages $BACKEND_ROOT/log/backend.log
        killall -HUP rsyslogd
     fi
 
@@ -297,9 +298,9 @@ case "$ARG" in
     echo "Setting permissions..."
     sed -i 's/requiretty/!requiretty/' /etc/sudoers
     [ ! -f $BACKEND_ROOT ] && mkdir -p $BACKEND_ROOT/etc $BACKEND_ROOT/var $BACKEND_ROOT/log && chown -R $BACKEND_USER $BACKEND_ROOT
-    touch /var/log/messages $BACKEND_ROOT/log/access.log
-    chmod -f g+r /var/log/messages $BACKEND_ROOT/log/access.log
-    chown -fR $BACKEND_USER $BACKEND_PREFIX $BACKEND_ROOT/etc $BACKEND_ROOT/var $BACKEND_ROOT/log/access.log
+    touch /var/log/messages $BACKEND_ROOT/log/access.log $BACKEND_ROOT/log/backend.log
+    chmod -f g+r /var/log/messages $BACKEND_ROOT/log/*.log
+    chown -fR $BACKEND_USER $BACKEND_PREFIX $BACKEND_ROOT/etc $BACKEND_ROOT/var $BACKEND_ROOT/log/*.log
     [ -f $BACKEND_ROOT/postgres ] && chown -fR postgres $BACKEND_ROOT/postgres
 
     # Support for shutdown as normal user for instances
@@ -646,9 +647,19 @@ case "$ARG" in
     BACKEND_PREFIX=$(pwd)/build
     CFLAGS="-fPIC -I$BACKEND_PREFIX/include"
     LDFLAGS="-L$BACKEND_PREFIX/lib"
-    [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include"
+    PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
+    [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include" && PKG_CONFIG_PATH=/opt/local/lib/pkgconfig:$PKG_CONFIG_PATH
     [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/local/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
     mkdir -p deps
+
+    pkg-config --silence-errors --exists libopenjp2
+    if [ "$?" = "1" -o "$npm_config_backend_deps_force" != "" ]; then
+        if [ ! -d deps/openjpeg ]; then
+           (cd deps && svn checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
+        fi
+        (cd deps/openjpeg && cmake -DCMAKE_INSTALL_PREFIX=$BACKEND_PREFIX -DBUILD_SHARED_LIBS:bool=off -DBUILD_CODEC:bool=off . && make)
+        (cd deps/openjpeg && make install)
+    fi
 
     pkg-config --silence-errors --exists libnanomsg
     if [ "$?" = "1" -o "$npm_config_backend_deps_force" != "" ]; then

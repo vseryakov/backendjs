@@ -383,7 +383,7 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "geoHashRow", geoHashRow);
 
     CacheInit(target);
-    ImageInit(target);
+    WandInit(target);
     SyslogInit(target);
     SQLiteInit(target);
     PgSQLInit(target);

@@ -613,45 +613,49 @@ core.ipcInitServer = function()
         // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
         worker.on('message', function(msg) {
             if (!msg) return false;
-            logger.debug('LRU:', msg);
-            switch (msg.cmd) {
-            case 'stats':
-                msg.value = backend.lruStats();
-                worker.send(msg);
-                break;
+            logger.debug('msg:', msg);
+            try {
+                switch (msg.cmd) {
+                case 'stats':
+                    msg.value = backend.lruStats();
+                    worker.send(msg);
+                    break;
 
-            case 'keys':
-                msg.value = backend.lruKeys();
-                worker.send(msg);
-                break;
+                case 'keys':
+                    msg.value = backend.lruKeys();
+                    worker.send(msg);
+                    break;
 
-            case 'get':
-                if (msg.key) msg.value = backend.lruGet(msg.key);
-                worker.send(msg);
-                break;
+                case 'get':
+                    if (msg.key) msg.value = backend.lruGet(msg.key);
+                    worker.send(msg);
+                    break;
 
-            case 'put':
-                if (msg.key && msg.value) backend.lruSet(msg.key, msg.value);
-                if (msg.reply) worker.send({});
-                if (self.lruSocket) self.lruSocket.send(msg.key + "\1" + msg.value);
-                break;
+                case 'put':
+                    if (msg.key && msg.value) backend.lruSet(msg.key, msg.value);
+                    if (msg.reply) worker.send({});
+                    if (self.lruSocket) self.lruSocket.send(msg.key + "\1" + msg.value);
+                    break;
 
-            case 'incr':
-                if (msg.key && msg.value) backend.lruIncr(msg.key, msg.value);
-                if (msg.reply) worker.send({});
-                if (self.lruSocket) self.lruSocket.send(msg.key + "\2" + msg.value);
-                break;
+                case 'incr':
+                    if (msg.key && msg.value) backend.lruIncr(msg.key, msg.value);
+                    if (msg.reply) worker.send({});
+                    if (self.lruSocket) self.lruSocket.send(msg.key + "\2" + msg.value);
+                    break;
 
-            case 'del':
-                if (msg.key) backend.lruDel(msg.key);
-                if (msg.reply) worker.send({});
-                if (self.lruSocket) self.lruSocket.send(msg.key);
-                break;
+                case 'del':
+                    if (msg.key) backend.lruDel(msg.key);
+                    if (msg.reply) worker.send({});
+                    if (self.lruSocket) self.lruSocket.send(msg.key);
+                    break;
 
-            case 'clear':
-                backend.lruClear();
-                if (msg.reply) worker.send({});
-                break;
+                case 'clear':
+                    backend.lruClear();
+                    if (msg.reply) worker.send({});
+                    break;
+                }
+            } catch(e) {
+                logger.error('msg:', e, msg);
             }
         });
     });

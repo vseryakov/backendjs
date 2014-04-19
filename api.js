@@ -689,15 +689,9 @@ api.initAccountAPI = function()
             break;
 
         case "del":
-            db.get("bk_account", { id: req.account.id }, options, function(err, rows) {
+            self.deleteAccount(req.account, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
-                if (!rows.length) return self.sendReply(res, 404);
-                // Pass the whole account record downstream to the possible hooks and return it as well to our client
-                for (var p in rows[0]) req.account[p] = rows[0][p];
-                self.deleteAccount(req.account, options, function(err) {
-                    if (err) return self.sendReply(res, err);
-                    self.sendJSON(req, res, core.cloneObj(req.account, { secret: true }));
-                });
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -770,7 +764,7 @@ api.initAccountAPI = function()
                 if (err) return self.sendReply(res, err);
                 // Filter out not allowed icons
                 rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
-                rows.forEach(function(x) { self.formatIcon(req, req.query.id, x); });
+                rows.forEach(function(x) { self.formatIcon(x, req.account); });
                 self.sendJSON(req, res, rows);
             });
             break;
@@ -814,7 +808,7 @@ api.initIconAPI = function()
                 if (err) return self.sendReply(res, err);
                 // Filter out not allowed icons
                 rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
-                rows.forEach(function(x) { self.formatIcon(req, req.query.id, x); });
+                rows.forEach(function(x) { self.formatIcon(x, req.account); });
                 self.sendJSON(req, res, rows);
             });
             break;
@@ -994,13 +988,17 @@ api.initCounterAPI = function()
             db[req.params[0]]("bk_counter", obj, { cached: 1 }, function(err, rows) {
                 if (err) return self.sendReply(res, db.convertError("bk_counter", err));
 
+                // Notify only the other account
+                if (obj.id != req.account.id) {
+                    core.ipcPublish(obj.id, { path: req.path, mtime: now, type: Object.keys(obj).join(",") });
+                }
+
+                self.sendJSON(req, res, rows);
+
                 // Update history log
                 if (options.history) {
                     db.add("bk_history", { id: req.account.id, type: req.path, data: core.cloneObj(obj, { mtime: 1 }) });
                 }
-
-                self.sendJSON(req, res, rows);
-                core.ipcPublish(req.query.id, { path: req.path, mtime: now, data: core.cloneObj(obj, { id: 1, mtime: 1 })});
             });
             break;
 
@@ -1428,7 +1426,9 @@ api.putConnections = function(req, options, callback)
                 db.del("bk_connection", { id: req.account.id, type: type + ":" + id });
                 return callback(err);
             }
-            // We need to know if the other side is connected too, this will save one extra API call
+            core.ipcPublish(id, { path: req.path, mtime: now, type: type });
+
+            // We need to know if the other side is connected too, this will save one extra API call later
             if (req.query._connected) {
                 db.get("bk_connection", req.query, function(err, rows) {
                     callback(null, { connected: rows.length });
@@ -1436,7 +1436,6 @@ api.putConnections = function(req, options, callback)
             } else {
                 callback(null, {});
             }
-            core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
 
             async.series([
                function(next) {
@@ -1474,20 +1473,24 @@ api.delConnections = function(req, options, callback)
             db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, function(err) {
                 if (err) return callback(err);
 
+                core.ipcPublish(id, { path: req.path, mtime: now, type: type });
+
                 callback(null, {});
-                core.ipcPublish(id, { path: req.path, mtime: now, type: type, id: req.account.id });
 
-                // Update history log
-                if (options.history) {
-                    db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
-                }
-
-                // Update accumulated counter if we support this column and do it automatically
-                var col = db.getColumn("bk_counter", req.query.type + "0");
-                if (col && col.incr) {
-                    db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 });
-                    db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 });
-                }
+                async.series([
+                   function(next) {
+                       // Update history log
+                       if (!options.history) return next();
+                       db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id }, next);
+                   },
+                   function(next) {
+                       // Update accumulated counter if we support this column and do it automatically
+                       var col = db.getColumn("bk_counter", req.query.type + "0");
+                       if (!col || !col.incr) return next();
+                       db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 }, function() {
+                           db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 }, next);
+                       });
+                   }]);
             });
         });
     } else {
@@ -1514,16 +1517,14 @@ api.delConnections = function(req, options, callback)
                 });
             }, function(err) {
                 if (err) return callback(err);
-                // Update history log
-                if (options.history) {
-                    db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id });
-                }
-                logger.log('COUNTERS:', counters)
+
                 // Update all counters for each id
                 async.forEachSeries(Object.keys(counters), function(id, next) {
                     db.incr("bk_counter", counters[id], { cached: 1 }, next);
                 }, function(err) {
-                    callback(err, {});
+                    // Update history log
+                    if (!options.history) return callback(err, {});
+                    db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id }, callback);
                 });
             });
         });
@@ -1641,14 +1642,17 @@ api.putLocations = function(req, options, callback)
                 req.query.old = old;
                 callback(null, req.query);
 
-                // Delete the old location, no need to wait even if fails we still have a new one recorded
-                db.del("bk_location", old);
+                async.series([
+                   function(next) {
+                       // Delete the old location, no need to wait even if fails we still have a new one recorded
+                       db.del("bk_location", old, next);
+                   },
+                   function(next) {
+                       // Update history log
+                       if (!options.history) return next();
+                       db.add("bk_history", { id: req.account.id, type: req.path, data: geo.hash + ":" + latitude + ":" + longitude }, next);
+                   }]);
             });
-
-            // Update history log
-            if (options.history) {
-                db.add("bk_history", { id: req.account.id, type: req.path, data: geo.hash + ":" + latitude + ":" + longitude });
-            }
         });
     });
 }
@@ -1671,30 +1675,40 @@ api.handleIcon = function(req, res, options)
         options.force = true;
         options.prefix = req.query.prefix;
         options.type = req.query.type;
-        self[op + 'Icon'](req, req.account.id, options, function(err, icon) {
-            if ((err || !icon) && op == "put") db.del('bk_icon', obj);
-            self.sendReply(res, err);
-        });
+        switch (op) {
+        case "put":
+            self.putIcon(req, req.account.id, options, function(err, icon) {
+                if (err || !icon) db.del('bk_icon', obj);
+                self.sendReply(res, err);
+            });
+            break;
+
+        case "del":
+            self.delIcon(req.account.id, options, function(err) {
+                self.sendReply(res, err);
+            });
+            break;
+        }
     });
 }
 
 // Return formatted icon URL for the given account
-api.formatIcon = function(req, id, row)
+api.formatIcon = function(row, account)
 {
     var type = row.type.split(":");
+    row.type = type.slice(1).join(":");
     row.prefix = type[0];
-    row.type = type[1];
 
     // Provide public url if allowed
     if (row.allow && row.allow == "all" && this.allow && ("/image/" + row.prefix + "/").match(this.allow)) {
-        row.url = this.imagesUrl + '/image/' + row.prefix + '/' + req.query.id + '/' + row.type;
+        row.url = this.imagesUrl + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
     } else {
         if (row.prefix == "account") {
             row.url = this.imagesUrl + '/account/get/icon?type=' + row.type;
         } else {
             row.url = this.imagesUrl + '/icon/get/' + row.prefix + "/" + row.type + "?";
         }
-        if (id != req.account.id) row.url += "&id=" + id;
+        if (account && row.id != account.id) row.url += "&id=" + row.id;
     }
 }
 
@@ -1786,7 +1800,7 @@ api.storeIcon = function(icon, id, options, callback)
 }
 
 // Delete an icon for account, .type defines icon prefix
-api.delIcon = function(req, id, options, callback)
+api.delIcon = function(id, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -1919,15 +1933,22 @@ api.addMessage = function(req, options, callback)
         req.query.icon = icon ? 1 : "0";
         db.add("bk_message", req.query, {}, function(err, rows) {
             if (err) return callback(db.convertError("bk_message", err));
+
+            if (req.query.id != req.account.id) {
+                core.ipcPublish(req.query.id, { path: req.path, mtime: now, type: req.query.icon });
+            }
+
             callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon });
 
-            core.ipcPublish(req.query.id, { path: req.path, mtime: now, sender: req.query.sender });
-            db.incr("bk_counter", { id: req.account.id, msg_count: 1 }, { cached: 1 });
-
-            // Update history log
-            if (options.history) {
-                db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: req.query.id });
-            }
+            async.series([
+               function(next) {
+                   db.incr("bk_counter", { id: req.query.id, msg_count: 1 }, { cached: 1 }, next);
+               },
+               function(next) {
+                   // Update history log
+                   if (!options.history) return next();
+                   db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: req.query.id }, next);
+               }]);
         });
     });
 }
@@ -1944,8 +1965,7 @@ api.delMessages = function(req, options, callback)
         req.query.mtime += ":" + req.query.sender;
         db.del("bk_message", { id: req.account.id, mtime: req.query.mtime }, function(err, rows) {
             if (err) return callback(err);
-            db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 });
-            callback(null, {});
+            db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 }, callback);
         });
     } else {
         options.sort = "sender";
@@ -1957,10 +1977,8 @@ api.delMessages = function(req, options, callback)
                 row.mtime = sender[1] + ":" + sender[0];
                 db.del("bk_message", row, options, next);
             }, function(err) {
-                if (!err && rows.count) {
-                    db.incr("bk_counter", { id: req.account.id, msg_count: -rows.count }, { cached: 1 });
-                }
-                callback(null, {});
+                if (err || !rows.count) return callback(err, {});
+                db.incr("bk_counter", { id: req.account.id, msg_count: -rows.count }, { cached: 1 }, callback);
             });
         });
     }
@@ -1996,8 +2014,9 @@ api.addAccount = function(req, options, callback)
             // Link account record for other middleware
             req.account = req.query;
             // Some dbs require the record to exist, just make one with default values
-            db.put("bk_counter", { id: req.query.id, like0: 0 });
-            callback(null, req.query);
+            db.put("bk_counter", { id: req.query.id, like0: 0 }, function(err) {
+                callback(err, req.query);
+            });
         });
     });
 }
@@ -2014,23 +2033,29 @@ api.updateAccount = function(req, options, callback)
     db.update("bk_account", req.query, callback);
 }
 
-// Delete account specified in the obj, this must be merged object from bk_auth and bk_account tables.
-// Return err if something wrong occured in the callback.
+// Delete account specified by the obj. Used in `/account/del` API call.
+// The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
+// delete an account but keep all messages and location: keep: { message: 1, location: 1 }
 api.deleteAccount = function(obj, options, callback)
 {
     var self = this;
 
-    if (!obj || !obj.id || !obj.login) return callback ? callback(new Error("id, login must be specified")) : null;
+    if (!obj || !obj.id || !obj.login) return callback({ status: 400, message: "id, login must be specified" });
 
-    if (typeof options == "function") callback = options, options = {};
     var db = core.context.db;
     options = db.getOptions("bk_account", options);
+    if (!options.keep) options.keep = {};
 
     db.get("bk_account", { id: obj.id }, options, function(err, rows) {
-        if (err || !rows.length) if (err) return callback ? callback(err) : null;
+        if (err) return callback(err);
+        if (!rows.length) return callback({ status: 404, message: "No account found" });
+
+        // Merge the records to be returned to the client
+        for (var p in rows[0]) if(!obj[p]) obj[p] = rows[0][p];
 
         async.series([
            function(next) {
+               if (options.keep.auth) return next();
                options.cached = true
                db.del("bk_auth", { login: obj.login }, options, function(err) {
                    options.cached = false;
@@ -2038,12 +2063,15 @@ api.deleteAccount = function(obj, options, callback)
                });
            },
            function(next) {
+               if (options.keep.account) return next();
                db.del("bk_account", { id: obj.id }, options, function() { next() });
            },
            function(next) {
+               if (options.keep.counter) return next();
                db.del("bk_counter", { id: obj.id }, options, function() { next() });
            },
            function(next) {
+               if (options.keep.connection) return next();
                db.select("bk_connection", { id: obj.id }, options, function(err, rows) {
                    if (err) return next(err)
                    async.forEachSeries(rows, function(row, next2) {
@@ -2055,15 +2083,28 @@ api.deleteAccount = function(obj, options, callback)
                });
            },
            function(next) {
+               if (options.keep.message) return next();
                db.delAll("bk_message", { id: obj.id }, options, function() { next() });
            },
            function(next) {
-               db.delAll("bk_icon", { id: obj.id }, options, function() { next() });
+               if (options.keep.icon) return next();
+               db.delAll("bk_icon", { id: obj.id }, options, function(err, rows) {
+                   if (!options.keep.images) return next();
+                   // Delete all image files
+                   async.forEachSeries(rows, function(row, next2) {
+                       self.formatIcon(row);
+                       self.delIcon(obj.id, row, next2);
+                   }, next);
+               });
            },
            function(next) {
+               if (options.keep.location) return next();
                var geo = core.geoHash(rows[0].latitude, rows[0].longitude);
                db.del("bk_location", { geohash: geo.geohash, id: obj.id }, options, next);
-           }], callback);
+           }],
+           function(err) {
+               callback(err, obj);
+        });
     });
 }
 

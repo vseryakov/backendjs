@@ -3,8 +3,9 @@
 //  April 2013
 //
 
-#ifdef USE_WAND
 #include "node_backend.h"
+
+#ifdef USE_WAND
 #include <wand/MagickWand.h>
 
 // Async request for magickwand resize callback
@@ -337,7 +338,7 @@ err:
 }
 #endif
 
-void ImageInit(Handle<Object> target)
+void WandInit(Handle<Object> target)
 {
     HandleScope scope;
 

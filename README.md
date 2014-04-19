@@ -31,7 +31,6 @@ The list of optional packages that the backendjs may use if available, resolving
        may require or the backendjs will do it during the installaton automatically
 - ImageMagick - image manipulation with optional dependencies, will be compiled if not installed already:
   - jpeg - for regular JPEG format
-  - jasper - for JPEG 2000 format
   - tiff - image format
   - rsvg - image format
 - libpq - PostgreSQL database driver
@@ -39,11 +38,11 @@ The list of optional packages that the backendjs may use if available, resolving
 
 Installing on CentOS:
 
-        yum -y install libpng-devel openjpeg-devel libjpeg-turbo-devel jasper postgresql-devel mysql-devel
+        yum -y install libpng-devel libjpeg-turbo-devel postgresql-devel mysql-devel
 
 Installing on Mac OS X using macports:
 
-        port install libpng jpeg tiff jasper mysql56 postgresql93
+        port install libpng jpeg tiff mysql56 postgresql93
 
 # Installation
 
@@ -261,7 +260,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
   somebody updates the account's counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
   connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
-  since the connect will be delivered. To specify what kind of events needs to be delivered, `match` query partameters can be specified which is a
+  since the connect will be delivered. To specify what kind of events needs to be delivered, `match` query parameter can be specified which is a
   RegExp of the whole event body string.
 
   *Note: On the server side there is a config parameter `subscribeInterval` which defines how often to deliver notifications, by default it is 5 seconds which means
@@ -275,9 +274,9 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
   Response:
 
-        [ { "path": "/message/add", "mtime:" 1234566566, "sender": "23545666787" },
-          { "path": "/counter/incr", "mtime:" 1234566566, "data": { "like": 1, "invite": 1 } },
-          { "path" : "/connection/add", "mtime": 1223345545, "type": "like", "id": "123456789" } ]
+        [ { "path": "/message/add", "mtime:" 1234566566, "type": "1" },
+          { "path": "/counter/incr", "mtime:" 1234566566, "type": "like,invite" } },
+          { "path": "/connection/add", "mtime": 1223345545, "type": "like" } ]
 
 - `/account/select/icon`
 
@@ -328,7 +327,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
       - id,id.. - list of account ids that can see this account
     - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
     - _height - height of the icon, same rules apply as for the width above
-    - _ext - image file format, default is jpg, supports: gif, png, jpg
+    - _ext - image file format, default is jpg, supports: gif, png, jpg, jp2
 
   Example:
 
@@ -1329,7 +1328,9 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 * to compile the binary module and all required dependencies just type ```make```
     * for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
 
-	    port install libpng jpeg librsvg tiff jasper lcms2 mysql56 postgresql93
+	    port install libpng jpeg librsvg tiff lcms2 mysql56 postgresql93
+
+    * make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec
 
     * to see the actual compiler setting during compile the following helps:
 
