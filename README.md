@@ -180,7 +180,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
   In the table `bk_auth`, the column type is used to distinguish between account roles, by default only account with type `admin` can
   add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
-  all columns of this table are avaailable as `req.account` object after the successful authentication where req is Express request object used in the middleware
+  all columns of this table are available as `req.account` object after the successful authentication where req is Express request object used in the middleware
   parameters.
 
   *Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
@@ -190,6 +190,15 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Example:
 
             /account/add?name=test&login=test@test.com&secret=test123&gender=f&phone=1234567
+
+
+  How to make an account as admin
+
+            # Run backend shell
+            rc.backend run-shell
+
+            # Update record by login
+            > db.update("bk_auth", { login: 'login@name', type: 'admin' });
 
 - `/account/select`
 

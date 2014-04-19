@@ -194,6 +194,7 @@ var api = {
            { name: "data-endpoint-unsecure", type: "bool", descr: "Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
+           { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints" },
            { name: "allow", array: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "disallow-path", type: "callback", value: function(v) {this.allow.splice(this.allow.indexOf(v),1)}, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
@@ -369,6 +370,15 @@ api.init = function(callback)
             callback();
         });
     });
+
+    // Admin only access
+    if (self.allowAdmin) {
+        this.allowAdmin = new RegExp(this.allowAdmin.map(function(x) { return "(" + x + ")"}).join("|"));
+        api.registerAuthCheck('POST', this.allowAdmin, function(req, cb) {
+            if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
+            cb();
+        });
+    }
 
     // Custom application logic
     self.initApplication.call(self, function(err) {
@@ -1100,12 +1110,12 @@ api.initDataAPI = function()
         case "keys":
             core.ipcKeysCache(function(data) { res.send(data) });
             break;
+        case "get":
+            core.ipcGetCache(req.query.name, function(data) { res.send(data) });
+            break;
         case "clear":
             core.ipcClearCache();
             res.json();
-            break;
-        case "get":
-            core.ipcGetCache(req.query.name, function(data) { res.send(data) });
             break;
         case "del":
             core.ipcDelCache(req.query.name);
@@ -1120,25 +1130,26 @@ api.initDataAPI = function()
             res.json();
             break;
         default:
-            res.send(404);
+            self.sendReply(res, 404, "Invalid command");
         }
     });
 
-    // Load columns into the cache
-    this.app.all("/data/columns", function(req, res) {
-        db.cacheColumns({}, function() {
+    // Return table columns
+    this.app.all(/^\/data\/columns\/?([a-z_0-9]+)?$/, function(req, res) {
+        var options = self.getOptions(req);
+        if (req.params[0]) {
+            return res.json(db.getColumns(req.params[0], options));
+        }
+        // Cache columns and return
+        db.cacheColumns(options, function() {
             res.json(db.getPool().dbcolumns);
         });
     });
 
-    // Return table columns
-    this.app.all(/^\/data\/columns\/([a-z_0-9]+)$/, function(req, res) {
-        res.json(db.getColumns(req.params[0]));
-    });
-
     // Return table keys
     this.app.all(/^\/data\/keys\/([a-z_0-9]+)$/, function(req, res) {
-        res.json(db.getKeys(req.params[0]));
+        var options = self.getOptions(req);
+        res.json(db.getKeys(req.params[0], options));
     });
 
     // Basic operations on a table
@@ -1254,7 +1265,7 @@ api.addHook = function(type, method, path, callback)
 // Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
 // validating the signature or session cookies.
 // - method can be '' in such case all mathods will be matched
-// - path is a string or regexp of the request URL similr to registering Express routes
+// - path is a string or regexp of the request URL similar to registering Express routes
 // - callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
 //   with the callback with status: and message: properties, status != 200 means error
 //
@@ -1262,10 +1273,11 @@ api.addHook = function(type, method, path, callback)
 //
 //          api.registerAccessCheck('', 'account', function(req, cb) { cb({status:500,message:"access disabled"}) }))
 //
-//          api.registerAccessCheck('POST', 'account/add', function(req, cb) {
+//          api.registerAccessCheck('POST', '/account/add', function(req, cb) {
 //             if (!req.query.invitecode) return cb({ status: 400, message: "invitation code is required" });
 //             cb();
 //          });
+//
 api.registerAccessCheck = function(method, path, callback)
 {
     this.addHook('access', method, path, callback);
@@ -1285,6 +1297,14 @@ api.registerAccessCheck = function(method, path, callback)
 //                if (status.status != 200) status = { status: 302, url: '/error.html' };
 //                cb(status)
 //           });
+//
+// Example with admin access only:
+//
+//          api.registerAccessCheck('POST', '/data/', function(req, cb) {
+//              if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
+//              cb();
+//          });
+//
 api.registerAuthCheck = function(method, path, callback)
 {
     this.addHook('auth', method, path, callback);
