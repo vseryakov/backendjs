@@ -83,7 +83,6 @@ on the system before installing the backendjs. Not everything is required, if no
 </code></pre></li>
 <li>ImageMagick - image manipulation with optional dependencies, will be compiled if not installed already:<ul>
 <li>jpeg - for regular JPEG format</li>
-<li>jasper - for JPEG 2000 format</li>
 <li>tiff - image format</li>
 <li>rsvg - image format</li>
 </ul>
@@ -92,9 +91,9 @@ on the system before installing the backendjs. Not everything is required, if no
 <li>libmysql - MySQL database driver</li>
 </ul>
 <p>Installing on CentOS:</p>
-<pre><code>    yum -y install libpng-devel openjpeg-devel libjpeg-turbo-devel jasper postgresql-devel mysql-devel
+<pre><code>    yum -y install libpng-devel libjpeg-turbo-devel postgresql-devel mysql-devel
 </code></pre><p>Installing on Mac OS X using macports:</p>
-<pre><code>    port install libpng jpeg tiff jasper mysql56 postgresql93
+<pre><code>    port install libpng jpeg tiff mysql56 postgresql93
 </code></pre><h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
 <p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(PostgreSQL, MySQL) and nanomsg.</p>
@@ -278,7 +277,7 @@ large tables. Supports special query parameters <code>_select,_keys,_ops</code>,
 <p>Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
 somebody updates the account&#39;s counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
 connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
-since the connect will be delivered. To specify what kind of events needs to be delivered, <code>match</code> query partameters can be specified which is a
+since the connect will be delivered. To specify what kind of events needs to be delivered, <code>match</code> query parameter can be specified which is a
 RegExp of the whole event body string.</p>
 <p><em>Note: On the server side there is a config parameter <code>subscribeInterval</code> which defines how often to deliver notifications, by default it is 5 seconds which means
 only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.</em></p>
@@ -288,9 +287,9 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
 </code></pre></li>
 </ul>
 <p>  Response:</p>
-<pre><code>    [ { &quot;path&quot;: &quot;/message/add&quot;, &quot;mtime:&quot; 1234566566, &quot;sender&quot;: &quot;23545666787&quot; },
-      { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;data&quot;: { &quot;like&quot;: 1, &quot;invite&quot;: 1 } },
-      { &quot;path&quot; : &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot;, &quot;id&quot;: &quot;123456789&quot; } ]
+<pre><code>    [ { &quot;path&quot;: &quot;/message/add&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;1&quot; },
+      { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;like,invite&quot; } },
+      { &quot;path&quot;: &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot; } ]
 </code></pre><ul>
 <li><p><code>/account/select/icon</code></p>
 <p>Return a list of available account icons, icons that have been uploaded previously with /account/put/icon calls. The <code>url</code> property is an URL to retrieve this particular icon.</p>
@@ -338,7 +337,7 @@ for JSON the Content-Type HTTP headers must be set to <code>application/json</co
 </li>
 <li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
 <li>_height - height of the icon, same rules apply as for the width above</li>
-<li>_ext - image file format, default is jpg, supports: gif, png, jpg</li>
+<li>_ext - image file format, default is jpg, supports: gif, png, jpg, jp2</li>
 </ul>
 <p>Example:</p>
 <pre><code>  /account/put/icon?type=1&amp;icon=iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADs....
@@ -1293,7 +1292,9 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><p>to compile the binary module and all required dependencies just type <code>make</code></p>
 <ul>
 <li><p>for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:</p>
-<p>  port install libpng jpeg librsvg tiff jasper lcms2 mysql56 postgresql93</p>
+<p>  port install libpng jpeg librsvg tiff lcms2 mysql56 postgresql93</p>
+</li>
+<li><p>make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec</p>
 </li>
 <li><p>to see the actual compiler setting during compile the following helps:</p>
 <pre><code>  make V=1
@@ -1860,7 +1861,7 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
-<li><p><code>api.formatIcon(req, id, row)</code></p>
+<li><p><code>api.formatIcon(row, account)</code></p>
 <p> Return formatted icon URL for the given account</p>
 </li>
 </ul>
@@ -1896,7 +1897,7 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
-<li><p><code>api.delIcon(req, id, options, callback)</code></p>
+<li><p><code>api.delIcon(id, options, callback)</code></p>
 <p> Delete an icon for account, .type defines icon prefix</p>
 </li>
 </ul>
@@ -1959,8 +1960,9 @@ Output file name is built according to the following options properties:</li>
 
 <ul>
 <li><p><code>api.deleteAccount(obj, options, callback)</code></p>
-<p> Delete account specified in the obj, this must be merged object from bk_auth and bk_account tables.
-Return err if something wrong occured in the callback.</p>
+<p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
+The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
+delete an account but keep all messages and location: keep: { message: 1, location: 1 }</p>
 </li>
 </ul>
 
@@ -3137,9 +3139,9 @@ if does not exist yet.</em></p>
 
 <ul>
 <li><p><code>db.delAll(table, obj, options, callback)</code></p>
-<p> Delete all records that match given condition, one by one, th einput is the same as for <code>db.select</code> and every record
-returned will be deleted using <code>db.del</code> call.
-special properties that canbe in the options for this call:</p>
+<p> Delete all records that match given condition, one by one, the input is the same as for <code>db.select</code> and every record
+returned will be deleted using <code>db.del</code> call. The callback will receive on completion the err and all rows found and deleted.
+Special properties that can be in the options for this call:</p>
 <ul>
 <li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
