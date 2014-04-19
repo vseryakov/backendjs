@@ -211,7 +211,7 @@ specify in the command line. More complex ways to perform registration will requ
 for example with invitation codes....</p>
 <p>In the table <code>bk_auth</code>, the column type is used to distinguish between account roles, by default only account with type <code>admin</code> can
 add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
-all columns of this table are avaailable as <code>req.account</code> object after the successful authentication where req is Express request object used in the middleware
+all columns of this table are available as <code>req.account</code> object after the successful authentication where req is Express request object used in the middleware
 parameters.</p>
 <p><em>Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
 backend Web client is to scramble login/secret using HMAC-SHA1 and keep them in the local storage, this way the real login and secret is never exposed but
@@ -219,6 +219,14 @@ the login popup will still asking for real name, see backend.js in the web/js fo
 <p>Example:</p>
 <pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
 </code></pre></li>
+</ul>
+<p>  How to make an account as admin</p>
+<pre><code>        # Run backend shell
+        rc.backend run-shell
+
+        # Update record by login
+        &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });
+</code></pre><ul>
 <li><p><code>/account/select</code></p>
 <p>Return list of accounts by the given condition, calls <code>db.select</code> for bk_account table. Parameters are the column values to be matched and
 all parameters starting with underscore are control parameters that goes into options of the <code>db.select</code> call with underscore removed. This will work for SQL
@@ -1315,18 +1323,18 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>help</code> - Print help and exit</li>
 <li><code>debug</code> - Enable debugging messages, short of -log debug</li>
 <li><code>log</code> - Set debugging level: none, log, debug, dev</li>
-<li><code>log-file</code> - File where to write logging messages, if not specified logs display to the console</li>
+<li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog. Default: log/backend.log</li>
 <li><code>syslog</code> - Write all logging messages to syslog, connect to the local syslog server over Unix domain socket</li>
 <li><code>console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
 <li><code>home</code> - Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist. Default: /Users/vlad/.backend</li>
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks. Default: 2</li>
 <li><code>config-file</code> - Path to the config file instead of the default etc/config, can be absolute or relative path</li>
-<li><code>err-file</code> - Path to the error log file where daemon will put app errors and crash stacks</li>
+<li><code>err-file</code> - Path to the error log file where daemon will put app errors and crash stacks. Default: log/error.log</li>
 <li><code>etc-dir</code> - Path where to keep config files</li>
 <li><code>web-dir</code> - Path where to keep web pages</li>
 <li><code>tmp-dir</code> - Path where to keep temp files</li>
 <li><code>spool-dir</code> - Path where to keep modifiable files</li>
-<li><code>log-dir</code> - Path where to keep log files</li>
+<li><code>log-dir</code> - Path where to keep other log files, log-file and err-file are not affected by this</li>
 <li><code>files-dir</code> - Path where to keep uploaded files</li>
 <li><code>images-dir</code> - Path where to keep images</li>
 <li><code>uid</code> - User id to switch after startup if running as root, used by Web servers and job workers. Default: 777</li>
@@ -1379,13 +1387,15 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
 <li><code>logwatcher-ignore</code> - Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns. Default: NOTICE: ,DEBUG: ,DEV: </li>
-<li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns</li>
+<li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns. Default: [[0-9]+]: (ERROR|WARNING): ,message&quot;:&quot;ERROR:,queryAWS:.+Errors:</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files. Default: 3600</li>
+<li><code>logwatcher-file</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers. Default: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:20.0) Gecko/20100101 Firefox/20.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.29.13 (KHTML, like Gecko) Version/6.0.4 Safari/536.29.13,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.65 Safari/537.31,Mozilla/5.0 (X11; Linux i686) AppleWebKit/534.34 (KHTML, like Gecko) Safari/534.34,Opera/9.80 (Macintosh; Intel Mac OS X 10.7.5) Presto/2.12.388 Version/12.15,Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.2; BRI/2</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access</li>
 <li><code>backend-secret</code> - Credentials secret for the master backend access</li>
 <li><code>domain</code> - Domain to use for communications, default is current domain of the host machine</li>
+<li><code>config-domain</code> - Domain to query for configuration TXT records, default is current domain of the host machine</li>
 <li><code>max-distance</code> - Max searchable distance(radius) in km, for location searches to limit the upper bound. Default: 50</li>
 <li><code>min-distance</code> - Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. Default: 5</li>
 <li><code>instance</code> - Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
@@ -1429,6 +1439,7 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>api-data-endpoint-unsecure</code> - Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution</li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: </li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: </li>
+<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: ^/$,.html$,.(ico|gif|png|jpg|svg)$,.(ttf|eof|woff)$,.(js|css)$,^/public,^/account/add$</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
@@ -1719,14 +1730,14 @@ table to disable updating location related columns because speial location API m
 validating the signature or session cookies.</p>
 <ul>
 <li>method can be &#39;&#39; in such case all mathods will be matched</li>
-<li>path is a string or regexp of the request URL similr to registering Express routes</li>
+<li>path is a string or regexp of the request URL similar to registering Express routes</li>
 <li>callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
 with the callback with status: and message: properties, status != 200 means error</li>
 </ul>
 <p>Example:</p>
 <pre><code>    api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, function(req, cb) { cb({status:500,message:&quot;access disabled&quot;}) }))
 
-    api.registerAccessCheck(&#39;POST&#39;, &#39;account/add&#39;, function(req, cb) {
+    api.registerAccessCheck(&#39;POST&#39;, &#39;/account/add&#39;, function(req, cb) {
        if (!req.query.invitecode) return cb({ status: 400, message: &quot;invitation code is required&quot; });
        cb();
     });
@@ -1749,6 +1760,11 @@ an error condition, the callback must pass the same or modified status object in
           if (status.status != 200) status = { status: 302, url: &#39;/error.html&#39; };
           cb(status)
      });
+</code></pre><p>Example with admin access only:</p>
+<pre><code>    api.registerAccessCheck(&#39;POST&#39;, &#39;/data/&#39;, function(req, cb) {
+        if (req.account.type != &quot;admin&quot;) return cb({ status: 401, message: &quot;access denied, admins only&quot; });
+        cb();
+    });
 </code></pre></li>
 </ul>
 
@@ -2682,14 +2698,14 @@ mdate is a Date object with last modified time</p>
 </ul>
 
 <ul>
-<li><p><code>core.chownSync(file)</code></p>
-<p> Change file owner do not report errors about non existent files</p>
+<li><p><code>core.chownSync()</code></p>
+<p> Change file owner, multiples files can be specified, do not report errors about non existent files</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.mkdirSync(dir)</code></p>
-<p> Create a directory if does not exist</p>
+<li><p><code>core.mkdirSync()</code></p>
+<p> Create a directories if do not exist, multiple dirs can be specified</p>
 </li>
 </ul>
 
