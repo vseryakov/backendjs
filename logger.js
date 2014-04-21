@@ -98,7 +98,7 @@ logger.setSyslog = function (on)
                                   lpr: this.LOG_LPR, news: this.LOG_NEWS, uucp: this.LOG_UUCP,
                                   cron: this.LOG_CRON, authpriv: this.LOG_AUTHPRIV,
                                   ftp: this.LOG_FTP, local0: this.LOG_LOCAL0, local1: this.LOG_LOCAL1,
-                                  locl2: this.LOG_LOCAL2, local3: this.LOG_LOCAL3, local4: this.LOG_LOCAL4,
+                                  local2: this.LOG_LOCAL2, local3: this.LOG_LOCAL3, local4: this.LOG_LOCAL4,
                                   local5: this.LOG_LOCAL5, local6: this.LOG_LOCAL6, local7: this.LOG_LOCAL7 };
         self.syslogMap = {}
         Object.keys(this.syslogLevels).forEach(function(l) {

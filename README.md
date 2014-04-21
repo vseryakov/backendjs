@@ -1058,29 +1058,25 @@ it is required to clear cache manually there is `db.clearCached` method for that
 ## Internal with nanomsg
 
 For cache management signaling, all servers maintain local cache per machine, it is called `LRU` cache. This cache is maintained in the master Web process and
-serves all Web worker processes via IPC channel.
+serves all Web worker processes via IPC channel. Also every Web master process if compiled with nanomsg can accept cache messages on TCP port (`cache-port=20194`)
+from other backend nodes. So, every time any of the Web workers updates the local cache in the master process, it re-broadcasts the same request
+to all connected cache clients thus keeping in sync caches on all nodes.
 
-Any server in the cluster that modifies a record sends 'del' command to the master process to clear local cache so the actual record will be re-read from
-the database next time. If no nanomsg LRU server is configured, nothing happens after this but if there is such server then the same 'del' command is sent to
-that server via nanomsg socket that is kept connect all the time by nanomsg library.
-
-The basic flow is the following using some hypothetical example:
+The basic flow is the following using a hypothetical example:
 
 - there are 4 nodes running in the network: node1, node2, node3 and node4, instead of the names nodeX we can use IP addresses as well.
-- all nodes have the config parameter `lru-host` to point to 2 LRU servers: lru-host=tcp://node1:1234,tcp://node2:1234,
-   nanomsg sockets may be connected to multiple endpoints, so can have 2 cache servers for redundency. This config parameter can be specified in the local config file on all nodes
-   or can be defined in the DNS server as TXT record `lru-host`. If running in AWS the config parameters also can be specified in the user-data the same was as command line arguments.
-- during the startup, node1 and node2 will detect that `lru-host` contains its own IP or name and auto-register `lru-server` for the given port, basically
-  if a node detects that it must send LRU requests to itself, it must to start LRU server in order to broadcasts to work.
-- now, any node which is requsted for a cached record asks its local cache for such key and if it not found, retrieves it from the database and puts into local cache,
+- all nodes configured with the parameter `cache-host=node1,node2`
+- nanomsg sockets may be connected to multiple endpoints, so we can have 2 cache servers for redundency. This config parameter can be specified in the local config file on all nodes
+   or can be defined in the DNS server as TXT record `cache-host`. If running in AWS the config parameters also can be specified in the user-data the same was as command line arguments.
+- any node which is requested for a cached record asks its local cache for such key and if it not found, retrieves it from the database and puts into local cache,
    if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db
 - An update request comes to the node3 which deletes a key from the local cache:
-   - node3 also sends 'del' request for the requested key to both node1 and node2 servers via connected sockets.
-   - node1 and node2 servers receive 'del' request and delete such key from their local caches
-   - node1 and node2 re-send same request to all connected clients which is all nodes in the network, so all nodes receive 'del' cache request
+   - node3 also sends 'del' request for the requested key to both node1 and node2 servers via connected sockets because of `cache-host` config parameter
+   - node1 and node2 servers receive 'del' request and delete the key from their local caches
+   - node1 and node2 re-send same request to all connected clients which are actually all nodes in the network, so all nodes receive 'del' cache request
    - because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
      costs nothing, both requests will be receive winin milliseonds from each other.
-   - next request to any of the nodes for the key just deleeted from the cache will result in retrieving the item from the database and putting back to the cache
+   - next request to any of the nodes for the key just deleted from the cache will result in retrieving the item from the database and putting back to the local cache
      on every node again until the next 'del' request.
 
 For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliably and similar to
@@ -1089,6 +1085,8 @@ what `memcached` or `Redis` server would do as well.
 The benefits of this approach is not to run any separate servers and dealing with its own configuration and support, using nanomsg
 internal backend cache system is self contained and does not need additional external resources, any node can be LRU server whose only role is to make sure all other
 nodes flush their caches if needed. Using redundant broadcast servers makes sure such flush requests reach all nodes in the cluster and there is no single point of failure.
+
+Essentually, setting `cache-host` to the list of any nodes in the network is what needs to be done to support distributed cache with nanomsg sockets.
 
 # memcached
 Setting `cache-type=memcache` and pointing `memcache-host` to one or more hosts running memcached servers is what needs to be done only, the rest of the
@@ -1124,12 +1122,11 @@ To use publish/subcribe with nanomsg, first nanomsg must be compiled in the back
 options to the npm install, see above how to install the package.
 
 All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
-The config parameters `pub-host` and `sub-host` define where to publish messages and from where these messages can be retrieved. Both can be defined in the
-local config file or in the DNS, similar way as for LRU cache configuration. Also, same rules apply when a node sees itself in the list of hosts, for example if
-`pub-host` looks like tcp://node1:1234 and node1 is starting up, it will automatically starts the publish server, other nodes will be acting just as clients.
+The config parameter `msg-host` defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
+better reliability of delivering messages but may result in message duplication in some cases when some servers are much slower than others for any reason.
 
 ## Redis
-To configure the backend to use Redis for local cache set `pub-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the redis server.
+To configure the backend to use Redis for local cache set `msg-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the redis server.
 After that all cache requests will be directed to that redis server. The work flow itself is similar to nanomsg internal system, just instead of nanomsg sockets redis
 client is used.
 
@@ -1328,7 +1325,7 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 * to compile the binary module and all required dependencies just type ```make```
     * for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
 
-	    port install libpng jpeg librsvg tiff lcms2 mysql56 postgresql93
+	    port install libpng jpeg tiff lcms2 mysql56 postgresql93
 
     * make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec
 

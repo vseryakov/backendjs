@@ -59,6 +59,7 @@ esac
 [ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BACKEND_ROOT/mysql
 [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=/usr
 [ "$DDB_PREFIX" = "" ] && DDB_PREFIX=$BACKEND_PREFIX/dynamodb
+[ "$MONGO_DIR" = "" ] && MONGO_DIR=$BACKEND_ROOT/mongo
 [ "$NODE_PATH" = "" ] && NODE_PATH=$BACKEND_PREFIX/lib/node_modules
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/backendjs
 
@@ -155,7 +156,8 @@ case "$ARG" in
        echo "StrictHostKeyChecking no" >> .ssh/config
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys .ssh
        $ECHO -e "global = true\ncolor = false\n" > .npmrc
-       echo 'alias slog="tail -100 $BACKEND_ROOT/log/backend.log"' >> .bashrc
+       echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
+       echo 'alias blog="tail -100 $BACKEND_ROOT/log/backend.log"' >> .bashrc
        echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
        echo "alias brc=\"rc.backend\"" >> .bashrc
@@ -554,6 +556,21 @@ case "$ARG" in
     kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
     ;;
 
+  init-mdb)
+    curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-osx-x86_64-2.6.0.tgz
+    tar -C $BACKEND_PREFIX/bin --strip-components=1 -xzf mongo.tar.gz '*/bin/*'
+    rm -rf mongo.tar.gz
+    ;;
+
+  run-mdb)
+    mkdir -p $MONGO_DIR
+    $BACKEND_PREFIX/bin/mongod --fork --dbpath $MONGO_DIR >>$BACKEND_ROOT/log/backend.log 2>&1
+    ;;
+
+  stop-mdb)
+    kill $(ps agx|grep mongod|grep -v grep|awk '{print $1}')
+    ;;
+
   init-backend)
     echo "Settings permissions for $BACKEND_PREFIX to $(whoami)..."
     sudo chown -R $(whoami) $BACKEND_PREFIX
@@ -710,15 +727,9 @@ case "$ARG" in
 #db-cassandra-pool=cql://127.0.0.1/backend
 #db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 #db-dynamodb-pool=http://localhost:8181
-#sub-server=ipc://var/sub.sock
-#pub-server=ipc://var/pub.sock
-#pub-host=ipc://var/pub.sock
-#sub-host=ipc://var/sub.sock
 #aws-key=XXXXX
 #aws-secret=XXXXX
 #api-images-s3=S3BucketName
-#lru-server=ipc://var/lru1.sock
-#lru-host=ipc://var/lru1.sock,ipc://var/lru2.sock
 @@@
     fi
 
@@ -834,12 +845,15 @@ backend.server.start();
     echo "  run-ddb - run local DynamoDB server installed in $BACKEND_PREFIX/dynamodb"
     echo "  stop-ddb - stop local DynamoDB server"
     echo "  get-cdb - install Cassandra server in $BACKEND_PREFIX/cassandra"
-    echo "  init-cdb - run Cassandra server and create backend keyspace"
+    echo "  init-cdb - download Cassandra server and create backend keyspace"
     echo "  run-cdb - run local Cassandra server installed in $BACKEND_PREFIX/cassandra"
     echo "  stop-cdb - stop local Cassandra server"
     echo "  init-mysql - init local MySQL server for development and create backend database"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
     echo "  stop-mysql - stop local MySQL server"
+    echo "  init-mdb - download Mongo server and install in $BACKEND_PREFIX/bin"
+    echo "  run-mdb - run local Mongo server installed in $BACKEND_PREFIX/bin"
+    echo "  stop-mdb - stop local Mongo server"
     echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BACKEND_PREFIX"
     echo "  clean-backend - clean the source directory"

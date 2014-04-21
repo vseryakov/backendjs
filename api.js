@@ -1206,6 +1206,7 @@ api.getOptions = function(req)
     if (req.query._width) options.width = core.toNumber(req.query._width);
     if (req.query._height) options.height = core.toNumber(req.query._height);
     if (req.query._ext) options.ext = req.query._ext;
+    if (req.query._quality) options.quality = req.query._quality;
     if (req.query._ops) {
         if (!options.ops) options.ops = {};
         var ops = core.strSplit(req.query._ops);

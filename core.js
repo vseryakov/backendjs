@@ -161,20 +161,19 @@ var core = {
             { name: "repl-bind", descr: "Listen only on specified address for REPL server in the master process" },
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
-            { name: "lru-server", descr: "LRU server that acts as a NN-BUS node to broadcast cache messages to all connected backends" },
-            { name: "lru-host", dns: 1, descr: "Address of NN-BUS servers for cache broadcasts: tcp:///IP:port,tcp://IP:port.." },
-            { name: "pub-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
-            { name: "pub-server", descr: "Server to listen for published messages using nanomsg sockets: tcp:///IP:port,tcp://IP:port.." },
-            { name: "pub-host", dns: 1, descr: "Server where clients publish messages to with nanomsg sockets: tcp:///IP:port,tcp://IP:port.." },
-            { name: "sub-server", descr: "Server to listen for subscribed clients using nanomsg sockets: tcp:///IP:port,tcp://IP:port..." },
-            { name: "sub-host", dns: 1, descr: "Server where clients receive messages from using nanomsg: tcp:///IP:port,tcp://IP:port.." },
+            { name: "no-msg", type: "bool", descr: "Disable nanomsg messaging sockets" },
+            { name: "msg-port", type: "int", descr: "Port to use for nanomsg sockets for message publish, for subscribing next port(+1) will be used" },
+            { name: "msg-type", descr: "One of the redis or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
+            { name: "msg-host", dns: 1, descr: "Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma" },
             { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port.." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-host", dns: 1, descr: "Address to Redis server for cache messages" },
             { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
             { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
             { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
-            { name: "no-cache", type:" bool", descr: "Do not use LRU server, all gets will result in miss and puts will have no effect" },
+            { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma" },
+            { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
+            { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
             { name: "no-remote-config", type: "bool", descr: "Disable any attempts to read config from supported remote destinations like DNS..." },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
@@ -212,6 +211,10 @@ var core = {
     replBind: '0.0.0.0',
     replFile: '.history',
     context: {},
+
+    // Nanomsg ports
+    cachePort: 20194,
+    msgPort: 20195,
 }
 
 module.exports = core;
@@ -547,32 +550,31 @@ core.ipcInitServer = function()
     backend.lruInit(self.lruMax);
 
     // Send cache requests to the LRU hosts to be broadcasted to all other servers
-    if (self.lruHost) {
-        try {
-            self.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
-            self.lruSocket.connect(self.lruHost);
-        } catch(e) {
-            logger.error('ipcInit:', self.lruHost, e);
-            self.lruSocket = null;
+    if (backend.NNSocket && !self.noCache) {
+        if (self.cacheHost) {
+            try {
+                var hosts = self.strSplit(self.cacheHost).map(function(x) { return "tcp://" + x + ":" + self.cachePort });
+                self.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
+                self.lruSocket.connect(hosts);
+            } catch(e) {
+                logger.error('ipcInit:', self.cacheHost, e);
+                self.lruSocket = null;
+            }
         }
-        // Check if list of hosts contains our local IP address, this way we can auto-register LRU server
-        if (!self.lruServer) self.lruServer = self.parseLocalAddress(self.lruHost);
-    }
 
-    // Run LRU cache server, receive cache refreshes from the socket, clears/puts cache entry and broadcasts
-    // it to other connected servers via the same BUS socket
-    if (self.lruServer) {
+        // LRU cache server, receives cache request, updates the local cache and then re-broadcasts it to other connected servers via the same BUS socket
         try {
             self.lruServerSocket = new backend.NNSocket(backend.AF_SP_RAW, backend.NN_BUS);
-            self.lruServerSocket.bind(self.lruServer);
+            self.lruServerSocket.bind("tcp://*:" + self.cachePort);
             backend.lruServer(0, self.lruServerSocket.socket, self.lruServerSocket.socket);
         } catch(e) {
-            logger.error('ipcInit:', self.lruServer, e);
+            logger.error('ipcInit:', e);
+            self.lruServerSocket = null;
         }
     }
 
     // Pub/sub messaging system
-    switch (this.pubType || "") {
+    switch (this.msgType || "") {
     case "redis":
         break;
 
@@ -580,30 +582,24 @@ core.ipcInitServer = function()
         break;
 
     default:
-        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket,
-        // if the current host is mentioned in the client parameter then we use it as the server parameter
-        if (self.subHost && !self.subServer) self.subServer = self.parseLocalAddress(self.subHost);
-        if (self.subServer) {
+        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket
+        if (backend.NNSocket && !self.noMsg) {
             try {
                 self.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
-                self.subServerSocket.bind(self.subServer);
+                self.subServerSocket.bind("tcp://*:" + (self.msgPort + 1));
             } catch(e) {
-                logger.error('ipcInit:', self.subServer, e);
+                logger.error('ipcInit:', e);
                 self.subServerSocket = null;
             }
-        }
 
-        // Publish server, it is where the clients send events to, it will forward them to the sub socket if it exists or it can be used standalone with custom callback.
-        // if the current host is mentioned in the client parameter then we use it as the server parameter
-        if (self.pubHost && !self.pubServer) self.pubServer = self.parseLocalAddress(self.pubHost);
-        if (self.pubServer) {
+            // Publish server, it is where the clients send events to, it will forward them to the sub socket which will distribute to the subscribed clients
             try {
                 self.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
-                self.pubServerSocket.bind(self.pubServer);
+                self.pubServerSocket.bind("tcp://*:" + self.msgPort);
                 // Forward all messages to the sub server socket
                 if (self.subServerSocket) self.pubServerSocket.setForward(self.subServerSocket);
             } catch(e) {
-                logger.error('ipcInit:', self.pubServer, e);
+                logger.error('ipcInit:', e);
                 self.pubServerSocket = null;
             }
         }
@@ -668,7 +664,7 @@ core.ipcInitClient = function()
     // Pub/sub messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
     // publish socket by the receiving end
     try {
-        switch (self.pubType || "") {
+        switch (self.msgType || "") {
         case "redis":
             self.redisCallbacks = {};
             self.redisSubClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
@@ -683,9 +679,13 @@ core.ipcInitClient = function()
             break;
 
         default:
-            if (self.pubHost) {
+            if (backend.NNSocket && self.msgHost && !self.noMsg) {
+                var hosts = self.strSplit(self.msgHost).map(function(x) {
+                    var x = x.split(":");
+                    return "tcp://" + x[0] + ":" + (x[1] ? x[1] : self.msgPort);
+                });
                 self.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
-                self.pubSocket.connect(self.pubHost);
+                self.pubSocket.connect(hosts);
             }
         }
     } catch(e) {
@@ -897,9 +897,10 @@ core.ipcIncrCache = function(key, val)
 // Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.
 core.ipcSubscribe = function(key, callback)
 {
+    var self = this;
     var sock = null;
     try {
-        switch (this.pubType || "") {
+        switch (this.msgType || "") {
         case "redis":
             this.redisSubClient.psubscribe(key);
             break;
@@ -909,9 +910,13 @@ core.ipcSubscribe = function(key, callback)
 
         default:
             // Internal nanomsg based messaging system, non-persistent
-            if (!this.subHost) break;
+            if (!this.msgHost || !backend.NNSocket || this.noMsg) break;
+            var hosts = this.strSplit(this.msgHost).map(function(x) {
+                var x = x.split(":");
+                return "tcp://" + x[0] + ":" + (x[1] ? x[1] : self.msgPort + 1);
+            });
             sock = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
-            sock.connect(this.subHost);
+            sock.connect(hosts);
             sock.subscribe(key);
             sock.setCallback(function(err, data) { if (!err) callback.call(this, data.split("\1").pop()); });
         }
@@ -926,7 +931,7 @@ core.ipcSubscribe = function(key, callback)
 core.ipcUnsubscribe = function(sock, key)
 {
     try {
-        switch (this.pubType || "") {
+        switch (this.msgType || "") {
         case "redis":
             this.redisSubClient.punsubscribe(key);
             break;
@@ -935,6 +940,7 @@ core.ipcUnsubscribe = function(sock, key)
             break;
 
         default:
+            if (!backend.NNSocket || this.noMsg) break;
             if (sock && sock instanceof backend.NNSocket) sock.close();
         }
     } catch(e) {
@@ -947,7 +953,7 @@ core.ipcUnsubscribe = function(sock, key)
 core.ipcPublish = function(key, data)
 {
     try {
-        switch (this.pubType || "") {
+        switch (this.msgType || "") {
         case "redis":
             this.redisSubClient.publish(key, data);
             break;
