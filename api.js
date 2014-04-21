@@ -1383,7 +1383,7 @@ api.incrCounters = function(req, options, callback)
 
         // Update history log
         if (options.history) {
-            db.add("bk_history", { id: req.account.id, type: req.path, data: core.cloneObj(obj, { mtime: 1 }) });
+            db.add("bk_history", { id: obj.id, type: req.path, data: core.cloneObj(obj, { mtime: 1 }) });
         }
     });
 }

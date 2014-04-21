@@ -174,6 +174,7 @@ var core = {
             { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used" },
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
+            { name: "cache-sync", type: "bool", descr: "Maintain all caches in sync when using nanomsg, put/incr commands will be broadcasted, otherwise only del commands" },
             { name: "no-remote-config", type: "bool", descr: "Disable any attempts to read config from supported remote destinations like DNS..." },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
@@ -425,6 +426,8 @@ core.processArgs = function(name, ctx, argv, pass)
         case "bool":
             put(obj, key, !val ? true : self.toBool(val), x);
             break;
+        case "int":
+        case "real":
         case "number":
             put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
             break;
@@ -553,7 +556,10 @@ core.ipcInitServer = function()
     if (backend.NNSocket && !self.noCache) {
         if (self.cacheHost) {
             try {
-                var hosts = self.strSplit(self.cacheHost).map(function(x) { return "tcp://" + x + ":" + self.cachePort });
+                var hosts = self.strSplit(self.cacheHost).map(function(x) {
+                    var x = x.split(":");
+                    return "tcp://" + x[0] + ":" + (x[1] || self.cachePort);
+                });
                 self.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
                 self.lruSocket.connect(hosts);
             } catch(e) {
@@ -630,13 +636,13 @@ core.ipcInitServer = function()
                 case 'put':
                     if (msg.key && msg.value) backend.lruSet(msg.key, msg.value);
                     if (msg.reply) worker.send({});
-                    if (self.lruSocket) self.lruSocket.send(msg.key + "\1" + msg.value);
+                    if (self.lruSocket && self.cacheSync) self.lruSocket.send(msg.key + "\1" + msg.value);
                     break;
 
                 case 'incr':
                     if (msg.key && msg.value) backend.lruIncr(msg.key, msg.value);
                     if (msg.reply) worker.send({});
-                    if (self.lruSocket) self.lruSocket.send(msg.key + "\2" + msg.value);
+                    if (self.lruSocket && self.cacheSync) self.lruSocket.send(msg.key + "\2" + msg.value);
                     break;
 
                 case 'del':

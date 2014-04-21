@@ -720,13 +720,12 @@ tests.nnpubsub = function(callback)
 tests.nncache = function(callback)
 {
     var slave = core.getArgInt("-slave", 0);
-    core.lruHost = "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235";
+    core.cacheHost = "127.0.0.1:20194,127.0.0.1:20197";
 
     if (cluster.isMaster) {
-        if (!core.lruServer) {
+        if (!slave) {
             main = 1;
-            core.lruServer = "tcp://127.0.0.1:1234";
-            var args = process.argv.slice(1).concat(["-lru-server", "tcp://127.0.0.1:1235", "-slave", "1"]);
+            var args = process.argv.slice(1).concat(["-cache-port", "20197", "-msg-port", "20198", "-slave", "1"]);
             var pid = execFile(process.argv[0], args, {}, function(err, stdout, stderr) {
                 if (err) console.log(err);
                 if (stderr) console.log(stderr);

@@ -1076,8 +1076,13 @@ The basic flow is the following using a hypothetical example:
    - node1 and node2 re-send same request to all connected clients which are actually all nodes in the network, so all nodes receive 'del' cache request
    - because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
      costs nothing, both requests will be receive winin milliseonds from each other.
-   - next request to any of the nodes for the key just deleted from the cache will result in retrieving the item from the database and putting back to the local cache
-     on every node again until the next 'del' request.
+   - next request to any of the nodes for the key just deleted will result in retrieving the record from the database and putting back to the local cache
+     of the node until the next 'del' request.
+   - Important: each node maintains its own version of the cache, i.e. all nodes do not have exactly the same
+     items in the cache, over time they all retieve same records but only on demand and when one node puts an item in the cache it is not sent to all other nodes.
+     To make the cache synhronized set `cache-sync=1`, in this case all cache commands will be sent to all nodes, with multiple broadcast nodes
+     the same item will be sent multiple times from each broadcast node, this is why it is disabled by default, sending 'del' multiple times does not add
+     much overhead as opposed to re-sending actual items.
 
 For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliably and similar to
 what `memcached` or `Redis` server would do as well.
