@@ -162,16 +162,16 @@ var core = {
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
             { name: "no-msg", type: "bool", descr: "Disable nanomsg messaging sockets" },
-            { name: "msg-port", type: "int", descr: "Port to use for nanomsg sockets for message publish, for subscribing next port(+1) will be used" },
+            { name: "msg-port", type: "int", descr: "Ports to use for nanomsg sockets for message publish and subscribe, 2 ports will be used, this one and the next" },
             { name: "msg-type", descr: "One of the redis or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
-            { name: "msg-host", dns: 1, descr: "Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma" },
-            { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP:port,IP:port.." },
+            { name: "msg-host", dns: 1, descr: "Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used" },
+            { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP[:port],host[:port].." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-host", dns: 1, descr: "Address to Redis server for cache messages" },
             { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
             { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
             { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
-            { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma" },
+            { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used" },
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
             { name: "no-remote-config", type: "bool", descr: "Disable any attempts to read config from supported remote destinations like DNS..." },
@@ -739,15 +739,14 @@ core.ipcSend = function(cmd, key, value, callback)
         msg.reply = true;
         msg.id = self.ipcId++;
         self.ipcs[msg.id] = { timeout: setTimeout(function() { delete self.ipcs[msg.id]; callback(); }, self.ipcTimeout),
-                              callback: function(m) { clearTimeout(self.ipcs[msg.id].timeout); callback(m.value); } };
+                              callback: function(m) { clearTimeout(self.ipcs[msg.id].timeout); try { callback(m.value); } catch(e) { logger.error('ipc:', e, m.cmd, m.key) } } };
     }
-    process.send(msg);
+    try { process.send(msg); } catch(e) { logger.error('ipcSend:', e, cmd, key); }
 }
 
 core.ipcStatsCache = function(callback)
 {
     try {
-        if (this.noCache) return callback({});
         switch (this.cacheType || "") {
         case "memcache":
             this.memcacheClient.stats(function(e,v) { callback(v) });
@@ -756,6 +755,7 @@ core.ipcStatsCache = function(callback)
             this.redisCacheClient.info(function(e,v) { callback(v) });
             break;
         default:
+            if (this.noCache) return callback({});
             this.ipcSend("stats", "", callback);
         }
     } catch(e) {
@@ -767,7 +767,6 @@ core.ipcStatsCache = function(callback)
 core.ipcKeysCache = function(callback)
 {
     try {
-        if (this.noCache) return callback([]);
         switch (this.cacheType || "") {
         case "memcache":
             self.memcacheClient.items(function(err, items) {
@@ -789,6 +788,7 @@ core.ipcKeysCache = function(callback)
             this.redisCacheClient.keys("*", function(e,v) { cb(v) });
             break;
         default:
+            if (this.noCache) return callback([]);
             this.ipcSend("keys", "", callback);
         }
     } catch(e) {
@@ -800,7 +800,6 @@ core.ipcKeysCache = function(callback)
 core.ipcClearCache = function()
 {
     try {
-        if (this.noCache) return;
         switch (this.cacheType || "") {
         case "memcache":
             this.memcacheClient.flush();
@@ -809,6 +808,7 @@ core.ipcClearCache = function()
             this.redisCacheClient.flushall();
             break;
         default:
+            if (this.noCache) return;
             this.ipcSend("clear", key);
         }
     } catch(e) {
@@ -819,7 +819,6 @@ core.ipcClearCache = function()
 core.ipcGetCache = function(key, callback)
 {
     try {
-        if (this.noCache) return callback();
         switch (this.cacheType || "") {
         case "memcache":
             this.memcacheClient.get(key, function(e,v) { callback(v) });
@@ -828,6 +827,7 @@ core.ipcGetCache = function(key, callback)
             this.redisCacheClient.get(key, function(e,v) { callback(v) });
             break;
         default:
+            if (this.noCache) return callback();
             this.ipcSend("get", key, callback);
         }
     } catch(e) {
@@ -839,7 +839,6 @@ core.ipcGetCache = function(key, callback)
 core.ipcDelCache = function(key)
 {
     try {
-        if (this.noCache) return;
         switch (this.cacheType || "") {
         case "memcache":
             this.memcacheClient.del(key);
@@ -848,6 +847,7 @@ core.ipcDelCache = function(key)
             this.redisCacheClient.del(key, function() {});
             break;
         default:
+            if (this.noCache) return;
             this.ipcSend("del", key);
         }
     } catch(e) {
@@ -858,7 +858,6 @@ core.ipcDelCache = function(key)
 core.ipcPutCache = function(key, val)
 {
     try {
-        if (this.noCache) return;
         switch (this.cacheType || "") {
         case "memcache":
             this.memcacheClient.set(key, val, 0);
@@ -867,6 +866,7 @@ core.ipcPutCache = function(key, val)
             this.redisCacheClient.set(key, val, function() {});
             break;
         default:
+            if (this.noCache) return;
             this.ipcSend("put", key, val);
         }
     } catch(e) {

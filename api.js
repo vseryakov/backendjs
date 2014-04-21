@@ -977,28 +977,10 @@ api.initCounterAPI = function()
             req.query.id = req.account.id;
 
         case "incr":
-            // Remove non public columns when updating other account
-            if (req.query.id && req.query.id != req.account.id) {
-                var obj = { id: req.query.id };
-                db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[x]) obj[x] = req.query[x]; });
-            } else {
-                var obj = req.query;
-                obj.id = req.account.id;
-            }
-            db[req.params[0]]("bk_counter", obj, { cached: 1 }, function(err, rows) {
-                if (err) return self.sendReply(res, db.convertError("bk_counter", err));
-
-                // Notify only the other account
-                if (obj.id != req.account.id) {
-                    core.ipcPublish(obj.id, { path: req.path, mtime: now, type: Object.keys(obj).join(",") });
-                }
-
-                self.sendJSON(req, res, rows);
-
-                // Update history log
-                if (options.history) {
-                    db.add("bk_history", { id: req.account.id, type: req.path, data: core.cloneObj(obj, { mtime: 1 }) });
-                }
+            options.op = req.params[0];
+            self.incrCounters(req, options, function(err, data) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -1031,6 +1013,7 @@ api.initConnectionAPI = function()
         case "add":
         case "put":
         case "update":
+            options.op = req.params[1];
             self.putConnections(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, data);
@@ -1373,6 +1356,38 @@ api.sendFile = function(req, res, file, redirect)
     });
 }
 
+// Increase a counter, used in /counter/incr API call, options.op can be set to 'put'
+api.incrCounters = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var now = Date.now();
+
+    // Remove non public columns when updating other account
+    if (req.query.id && req.query.id != req.account.id) {
+        var obj = { id: req.query.id };
+        db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[x]) obj[x] = req.query[x]; });
+    } else {
+        var obj = req.query;
+        obj.id = req.account.id;
+    }
+    db[options.op || "incr"]("bk_counter", obj, { cached: 1 }, function(err, rows) {
+        if (err) return callback(db.convertError("bk_counter", err));
+
+        // Notify only the other account
+        if (obj.id != req.account.id) {
+            core.ipcPublish(obj.id, { path: req.path, mtime: now, type: Object.keys(obj).join(",") });
+        }
+
+        callback(null, rows);
+
+        // Update history log
+        if (options.history) {
+            db.add("bk_history", { id: req.account.id, type: req.path, data: core.cloneObj(obj, { mtime: 1 }) });
+        }
+    });
+}
+
 // Return all connections for the current account, this function is called by the `/connection/get` API call.
 api.getConnections = function(req, options, callback)
 {
@@ -1407,6 +1422,7 @@ api.putConnections = function(req, options, callback)
     var self = this;
     var db = core.context.db;
     var now = Date.now();
+    var op = options.op || 'put';
 
     var id = req.query.id, type = req.query.type;
     if (!id || !type) return callback({ status: 400, message: "id and type are required"});
@@ -1416,13 +1432,13 @@ api.putConnections = function(req, options, callback)
     req.query.id = req.account.id;
     req.query.type = type + ":" + id;
     req.query.mtime = now;
-    db[req.params[1]]("bk_connection", req.query, function(err) {
+    db[op]("bk_connection", req.query, function(err) {
         if (err) return callback(db.convertError("bk_connection", err));
 
         // Reverse reference to the same connection
         req.query.id = id;
         req.query.type = type + ":"+ req.account.id;
-        db[req.params[1]]("bk_reference", req.query, function(err) {
+        db[op]("bk_reference", req.query, function(err) {
             if (err) {
                 db.del("bk_connection", { id: req.account.id, type: type + ":" + id });
                 return callback(err);
@@ -1446,7 +1462,7 @@ api.putConnections = function(req, options, callback)
                },
                function(next) {
                    // Update accumulated counter if we support this column and do it automatically
-                   next(req.params[1] == 'update' ? new Error("stop") : null);
+                   next(op == 'update' ? new Error("stop") : null);
                },
                function(next) {
                    var col = db.getColumn("bk_counter", type + '0');

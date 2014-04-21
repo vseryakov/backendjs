@@ -18,6 +18,7 @@ var gpool = require('generic-pool');
 var async = require('async');
 var os = require('os');
 var helenus = require('helenus');
+var mongodb = require('mongodb');
 var metrics = require(__dirname + "/metrics");
 
 // The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
@@ -69,7 +70,7 @@ var db = {
            { name: "pgsql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "pgsql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "pgsql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
-           { name: "mysql-pool", descr: "MySQL pool access url in the format: myql://user:pass@host/db" },
+           { name: "mysql-pool", descr: "MySQL pool access url in the format: mysql://user:pass@host/db" },
            { name: "mysql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "mysql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "mysql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
@@ -161,9 +162,9 @@ db.initPoolTables = function(name, tables, callback)
 
     // Add tables to the list of all tables this pool supports
     var pool = self.getPool('', { pool: name });
-    if (!pool.tables) pool.tables = {};
+    if (!pool.dbtables) pool.dbtables = {};
     // Collect all tables in the pool to be merged with the actual tables later
-    for (var p in tables) pool.tables[p] = tables[p];
+    for (var p in tables) pool.dbtables[p] = tables[p];
     var options = { pool: name, tables: tables };
     self.cacheColumns(options, function() {
     	// Workers do not manage tables, only master process
@@ -212,143 +213,96 @@ db.getPoolTables = function(name)
     return pool.dbcolumns || {};
 }
 
-// Create a database pool
-// - options - an object defining the pool, the following properties define the pool:
-//     - pool - pool name/type, of not specified SQLite is used
-//     - max - max number of clients to be allocated in the pool
-//     - idle - after how many milliseconds an idle client will be destroyed
-// - createcb - a callback to be called when actual database client needs to be created, the callback signature is
-//     function(options, callback) and will be called with first arg an error object and second arg is the database instance, required
-db.initPool = function(options, createcb)
-{
-    var self = this;
-    if (!options) options = {};
-    if (!options.pool) options.pool = "sqlite";
-
-    var pool = gpool.Pool({
-        name: options.pool,
-        max: options.max || 5,
-        idleTimeoutMillis: options.idle || 86400 * 1000,
-
-        create: function(callback) {
-            var me = this;
-            createcb.call(self, options, function(err, client) {
-                if (err) return callback(err, client);
-                self.dbpool[me.name].watch(client);
-                self.dbpool[me.name].setup(client, callback);
-            });
-        },
-        validate: function(client) {
-            return self.dbpool[this.name].serial == client.pool_serial;
-        },
-        destroy: function(client) {
-            logger.log('pool:', 'destroy', client.pool_name, "#", client.pool_serial);
-            client.close(function(err) { logger.log("pool: closed", client.pool_name, err || "") });
-        },
-        log: function(str, level) {
-            if (level == 'info') logger.debug('pool:', str);
-            if (level == 'warn') logger.log('pool:', str);
-            if (level == 'error') logger.error('pool:', str);
-        }
-    });
-
-    // Translation map for similar operators from different database drivers
-    this.createPool(options.pool, pool, { sql: true, dboptions: { schema: [],
-                                                                  typesMap: { counter: "int", bigint: "int" },
-                                                                  opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } } });
-
-    // Acquire a connection with error reporting
-    pool.get = function(callback) {
-        this.acquire(function(err, client) {
-            if (err) logger.error('pool:', err);
-            callback(err, client);
-        });
-    }
-    // Release or destroy a client depending on the database watch counter
-    pool.free = function(client) {
-        if (this.serial != client.pool_serial) {
-            this.destroy(client);
-        } else {
-            this.release(client);
-        }
-    }
-    // Execute initial statements to setup the environment, like pragmas
-    pool.setup = function(client, callback) {
-        var me = this;
-        var init = Array.isArray(options.init) ? options.init : [];
-        async.forEachSeries(init, function(sql, next) {
-            client.query(sql, next);
-        }, function(err) {
-            if (err) logger.error('db.setup:', me.name, err);
-            callback(err, client);
-        });
-    }
-    // Watch for changes or syncs and reopen the database file
-    pool.watch = function(client) {
-        var me = this;
-        if (options.watch && options.file && !this.serial) {
-            me.serial = 1;
-            fs.watch(options.file, function(event, filename) {
-                logger.log('pool:', 'changed', me.name, event, filename, options.file, "#", me.serial);
-                me.serial++;
-                me.destroyAllNow();
-            });
-        }
-        // Mark the client with the current db pool serial number, if on release this number differs we
-        // need to destroy the client, not return to the pool
-        client.pool_serial = this.serial;
-        client.pool_name = this.name;
-        logger.debug('pool:', 'open', this.name, "#", this.serial);
-    }
-    // Call column caching callback with our pool name
-    pool.cacheColumns = function(opts, callback) {
-        self.sqlCacheColumns(opts, callback);
-    }
-    // Prepare for execution, return an object with formatted or transformed query request for the database driver of this pool
-    // For SQL databases it creates a SQL statement with parameters
-    pool.prepare = function(op, table, obj, opts) {
-        return self.sqlPrepare(op, table, obj, opts);
-    }
-    // Execute a query, run filter if provided.
-    // If req.text is an Array then run all queries in sequence
-    pool.query = function(client, req, opts, callback) {
-        if (!req.values) req.values = [];
-
-        if (!Array.isArray(req.text)) {
-            client.query(req.text, req.values, callback);
-        }  else {
-            var rows = [];
-            async.forEachSeries(req.text, function(text, next) {
-                client.query(text, function(err, rc) { if (rc) rows = rc; next(err); });
-            }, function(err) {
-                callback(err, rows);
-            });
-        }
-    }
-    // Support for pagination, for SQL this is the OFFSET for the next request
-    pool.nextToken = function(req, rows, opts) {
-        if (opts.count && rows.length == opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
-    }
-    return pool;
-}
-
 // Create a new database pool with default methods and properties
-// - pool - if given it is used as the object prototype, the new database pool will extend this object, otherwise new object is created
 // - options - an object with default pool properties
+//    - pooling - create generic pool for connection caching
+//    - watchfile - file path to be watched for changes, all clients will be destroyed gracefully
 // The following pool callback can be assigned to the pool object:
+// - connect - a callback to be called when actual database client needs to be created, the callback signature is
+//    function(pool, callback) and will be called with first arg an error object and second arg is the database instance, required for pooling
 // - bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
 //   may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds
 // - convertError - a callback function(table, err, options) that converts native DB driver error into other human readable format
 // - resolveTable - a callback function(op, table, obj, options) that returns poosible different table at the time of the query, it is called by the `db.prepare` method
 //   and if exist it must return the same or new table name for the given query parameters.
 //
-db.createPool = function(name, pool, options)
+db.createPool = function(name, options)
 {
-    if (!pool) pool = {};
-    pool.get = function(callback) { callback(null, this); }
-    pool.free = function(client) {}
-    pool.setup = function(client, callback) { callback(err, client); };
-    pool.watch = function(client) {}
+    var self = this;
+    if (!options) options = {};
+
+    if (options.pooling) {
+        var pool = gpool.Pool({
+            name: options.pool,
+            max: options.max || 5,
+            idleTimeoutMillis: options.idle || (86400 * 1000),
+
+            create: function(callback) {
+                var me = self.dbpool[this.name];
+                me.connect.call(self, me, function(err, client) {
+                    if (err) return callback(err, client);
+                    me.watch(client);
+                    me.setup(client, callback);
+                });
+            },
+            validate: function(client) {
+                return self.dbpool[this.name].serialNum == client.pool_serial;
+            },
+            destroy: function(client) {
+                logger.log('db.destroy', client.pool_name, "#", client.pool_serial);
+                client.close(function(err) { logger.log("db.close:", client.pool_name, err || "") });
+            },
+            log: function(str, level) {
+                if (level == 'info') logger.debug('pool:', str);
+                if (level == 'warn') logger.log('pool:', str);
+                if (level == 'error') logger.error('pool:', str);
+            }
+        });
+        // Acquire a connection with error reporting
+        pool.get = function(callback) {
+            this.acquire(function(err, client) {
+                if (err) logger.error('db.get:', err);
+                callback(err, client);
+            });
+        }
+        // Release or destroy a client depending on the database watch counter
+        pool.free = function(client) {
+            if (this.serialNum != client.pool_serial) {
+                this.destroy(client);
+            } else {
+                this.release(client);
+            }
+        }
+    } else {
+        var pool = {};
+        pool.get = function(callback) { callback(null, this); };
+        pool.free = function(client) {};
+        pool.destroyAllNow = function() {};
+    }
+    // Save all options
+    for (var p in options) {
+        if (!pool[p]) pool[p] = options[p];
+    }
+
+    // Watch for changes or syncs and reopen the database file
+    pool.watch = function(client) {
+        var me = this;
+        if (this.watchfile && !this.serialNum) {
+            this.serialNum = 1;
+            fs.watch(this.watchfile, function(event, filename) {
+                logger.log('db.watch:', me.name, event, filename, me.watchfile, "#", me.serialNum);
+                me.serialNum++;
+                me.destroyAllNow();
+            });
+        }
+        // Mark the client with the current db pool serial number, if on release this number differs we
+        // need to destroy the client, not return to the pool
+        client.pool_serial = this.serialNum;
+        client.pool_name = this.name;
+        logger.debug('pool:', 'open', this.name, "#", this.serialNum);
+    }
+    pool.connect = function(opts, callback) { callback(null, opts); };
+    pool.setup = function(client, callback) { callback(null, client); };
     pool.cacheColumns = function(opts, callback) { callback(); };
     pool.cacheIndexes = function(opts, callback) { callback(); };
     pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj }; };
@@ -356,9 +310,8 @@ db.createPool = function(name, pool, options)
     pool.nextToken = function(req, rows, opts) {};
     pool.processRow = [];
     pool.name = name;
-    pool.serial = 0;
-    pool.tables = {};
-    pool.dboptions = {},
+    pool.serialNum = 0;
+    pool.dbtables = {};
     pool.dbcolumns = {};
     pool.dbkeys = {};
     pool.dbindexes = {};
@@ -366,7 +319,8 @@ db.createPool = function(name, pool, options)
     pool.inserted_oid = 0;
     pool.next_token = null;
     pool.metrics = new metrics();
-    for (var p in options) pool[p] = options[p];
+    // Some require properties can be initialized with options
+    if (!pool.dboptions) pool.dboptions = {};
     this.dbpool[name] = pool;
     logger.debug('db.createPool:', name);
     return pool;
@@ -750,7 +704,7 @@ db.migrate = function(table, options, callback)
     var pool = db.getPool(table, options);
     var cols = db.getColumns(table, options);
     var tmptable = table + "_tmp";
-    var obj = pool.tables[table];
+    var obj = pool.dbtables[table];
 
     async.series([
         function(next) {
@@ -1109,10 +1063,15 @@ db.getColumn = function(table, name, options)
 db.getSelectedColumns = function(table, options)
 {
     var self = this;
-    if (!options.select || !options.select.length) return null;
     var cols = this.getColumns(table, options);
-    options.select = core.strSplitUnique(options.select);
-    var select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols) && options.select.indexOf(x) > -1; });
+    var select = [];
+    if (options.select && options.select.length) {
+        options.select = core.strSplitUnique(options.select);
+        select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols) && options.select.indexOf(x) > -1; });
+    } else
+    if (options.skip_columns) {
+        select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols); });
+    }
     return select.length ? select : null;
 }
 
@@ -1196,7 +1155,7 @@ db.cacheColumns = function(options, callback)
 // Merge JavaScript column definitions with the db cached columns
 db.mergeColumns = function(pool)
 {
-	var tables = pool.tables;
+	var tables = pool.dbtables;
 	var dbcolumns = pool.dbcolumns;
     for (var table in tables) {
 		for (var col in tables[table]) {
@@ -1271,6 +1230,67 @@ db.setProcessRow = function(table, options, callback)
     if (!table || !callback) return;
     var pool = this.getPool(table, options);
     if (Array.isArray(pool.processRow)) pool.processRow.push(callback);
+}
+
+// Create a database pool for SQL like databases
+//- options - an object defining the pool, the following properties define the pool:
+//  - pool - pool name/type, of not specified SQLite is used
+//  - max - max number of clients to be allocated in the pool
+//  - idle - after how many milliseconds an idle client will be destroyed
+db.sqlInitPool = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "sqlite";
+
+    options.sql = true;
+    options.pooling = true;
+    // Translation map for similar operators from different database drivers
+    options.dboptions = { schema: [], typesMap: { counter: "int", bigint: "int" }, opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
+
+    var pool = this.createPool(options.pool, options);
+
+    // Execute initial statements to setup the environment, like pragmas
+    pool.setup = function(client, callback) {
+        var me = this;
+        var init = Array.isArray(options.init) ? options.init : [];
+        async.forEachSeries(init, function(sql, next) {
+            client.query(sql, next);
+        }, function(err) {
+            if (err) logger.error('db.setup:', me.name, err);
+            callback(err, client);
+        });
+    }
+    // Call column caching callback with our pool name
+    pool.cacheColumns = function(opts, callback) {
+        self.sqlCacheColumns(opts, callback);
+    }
+    // Prepare for execution, return an object with formatted or transformed query request for the database driver of this pool
+    // For SQL databases it creates a SQL statement with parameters
+    pool.prepare = function(op, table, obj, opts) {
+        return self.sqlPrepare(op, table, obj, opts);
+    }
+    // Execute a query, run filter if provided.
+    // If req.text is an Array then run all queries in sequence
+    pool.query = function(client, req, opts, callback) {
+        if (!req.values) req.values = [];
+
+        if (!Array.isArray(req.text)) {
+            client.query(req.text, req.values, callback);
+        }  else {
+            var rows = [];
+            async.forEachSeries(req.text, function(text, next) {
+                client.query(text, function(err, rc) { if (rc) rows = rc; next(err); });
+            }, function(err) {
+                callback(err, rows);
+            });
+        }
+    }
+    // Support for pagination, for SQL this is the OFFSET for the next request
+    pool.nextToken = function(req, rows, opts) {
+        if (opts.count && rows.length == opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
+    }
+    return pool;
 }
 
 // Cache columns using the information_schema
@@ -1966,8 +1986,9 @@ db.pgsqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
-    var pool = this.initPool(options, self.pgsqlOpen);
+    var pool = this.sqlInitPool(options);
     pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { real: "numeric", bigint: "bigint" }, noIfExists: 1, noReplace: 1, schema: ['public'] });
+    pool.connect = self.pgsqlConnect;
     pool.bindValue = self.pgsqlBindValue;
     pool.cacheIndexes = self.pgsqlCacheIndexes;
     // No REPLACE INTO support, do it manually
@@ -1981,7 +2002,7 @@ db.pgsqlInitPool = function(options)
 }
 
 // Open PostgreSQL connection, execute initial statements
-db.pgsqlOpen = function(options, callback)
+db.pgsqlConnect = function(options, callback)
 {
     new backend.PgSQLDatabase(options.db, function(err) {
         if (err) {
@@ -2066,15 +2087,16 @@ db.sqliteInitPool = function(options)
 
     if (!options.pool) options.pool = "sqlite";
     options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
-    var pool = this.initPool(options, self.sqliteOpen);
+    var pool = this.sqlInitPool(options);
     pool.dboptions = core.mergeObj(pool.dboptions, { noLengths: 1, noMultiSQL: 1 });
+    pool.connect = self.sqliteConnect;
     pool.cacheColumns = self.sqliteCacheColumns;
     return pool;
 }
 
 // Common code to open or create local SQLite databases, execute all required initialization statements, calls callback
 // with error as first argument and database object as second
-db.sqliteOpen = function(options, callback)
+db.sqliteConnect = function(options, callback)
 {
     new backend.SQLiteDatabase(options.file, options.readonly ? backend.OPEN_READONLY : 0, function(err) {
         if (err) {
@@ -2163,7 +2185,8 @@ db.mysqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "mysql";
-    var pool = this.initPool(options, self.mysqlOpen);
+    var pool = this.sqlInitPool(options);
+    pool.connect = self.mysqlConnect;
     pool.cacheIndexes = self.mysqlCacheIndexes;
     pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { json: "text", bigint: "bigint" },
                                                      placeholder: "?",
@@ -2174,7 +2197,7 @@ db.mysqlInitPool = function(options)
     return pool;
 }
 
-db.mysqlOpen = function(options, callback)
+db.mysqlConnect = function(options, callback)
 {
     new backend.MysqlDatabase(options.db, function(err) {
         callback(err, this);
@@ -2227,7 +2250,7 @@ db.dynamodbInitPool = function(options)
     if (!options.pool) options.pool = "dynamodb";
 
     // Redefine pool but implement the same interface
-    var pool = this.createPool(options.pool, null, { db: options.db, dboptions: { noJson: 1} });
+    var pool = this.createPool(options.pool, { db: options.db, dboptions: { noJson: 1} });
 
     pool.cacheColumns = function(opts, callback) {
         var pool = this;
@@ -2449,6 +2472,45 @@ db.dynamodbInitPool = function(options)
     return pool;
 }
 
+// MongoDB pool
+db.mongodbInitPool = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "mongodb";
+
+    var pool = this.createPool(options);
+
+    pool.connect = function(opts, callback) {
+        mongodb.MongoClient.connect(opts.db, opts, function(err, db) {
+            if (err) logger.error('mongodbOpen:', err);
+            if (callback) callback(err, db);
+        });
+    }
+    pool.cacheColumns = function(opts, callback) {
+        if (callback) callback();
+    }
+    pool.nextToken = function(req, rows, opts) {
+        if (!rows.length || rows.length < opts.count) return;
+        var keys = this.dbkeys[req.table] || [];
+        this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
+    }
+    pool.prepare = function(op, table, obj, opts) {
+        switch (op) {
+        case "search":
+        case "select":
+            // Pagination, start must be a token returned by the previous query, this assumes that options.ops stays the same as well
+            if (Array.isArray(opts.start) && typeof opts.start[0] == "object") {
+                obj = core.cloneObj(obj);
+                opts.start.forEach(function(x) { for (var p in x) obj[p] = x[p]; });
+            }
+            break;
+        }
+        return self.sqlPrepare(op, table, obj, opts);
+    }
+    return pool;
+}
+
 // Cassandra pool
 db.cassandraInitPool = function(options)
 {
@@ -2456,7 +2518,7 @@ db.cassandraInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "cassandra";
 
-    var pool = this.initPool(options, self.cassandraOpen);
+    var pool = this.sqlInitPool(options);
     pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { json: "text", real: "double", counter: "counter" },
                                                      opsMap: { begins_with: "begins_with" },
                                                      placeholder: "?",
@@ -2468,6 +2530,7 @@ db.cassandraInitPool = function(options)
                                                      noReplace: 1,
                                                      noJson: 1,
                                                      noMultiSQL: 1 });
+    pool.connect = self.cassandraConnect;
     pool.bindValue = self.cassandraBindValue;
     pool.cacheColumns = self.cassandraCacheColumns;
     // No REPLACE INTO support but UPDATE creates new record if no primary key exists
@@ -2495,7 +2558,7 @@ db.cassandraInitPool = function(options)
     return pool;
 }
 
-db.cassandraOpen = function(options, callback)
+db.cassandraConnect = function(options, callback)
 {
     var opts = url.parse(options.db);
     var db = new helenus.ConnectionPool({ hosts: [opts.host],  keyspace: opts.path.substr(1), user: opts.auth ? opts.auth.split(':')[0] : null, password: opts.auth ? opts.auth.split(':')[1] : null });
@@ -2603,7 +2666,7 @@ db.leveldbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "leveldb";
 
-    var pool = this.createPool(options.pool, null);
+    var pool = this.createPool(options.pool);
 
     pool.get = function(callback) {
         if (this.ldb) return callback(null, this);

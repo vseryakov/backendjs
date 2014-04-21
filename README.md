@@ -1058,9 +1058,9 @@ it is required to clear cache manually there is `db.clearCached` method for that
 ## Internal with nanomsg
 
 For cache management signaling, all servers maintain local cache per machine, it is called `LRU` cache. This cache is maintained in the master Web process and
-serves all Web worker processes via IPC channel. Also every Web master process if compiled with nanomsg can accept cache messages on TCP port (`cache-port=20194`)
-from other backend nodes. So, every time any of the Web workers updates the local cache in the master process, it re-broadcasts the same request
-to all connected cache clients thus keeping in sync caches on all nodes.
+serves all Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (`cache-port=20194`)
+from other backend nodes. Every time any Web worker updates the local cache, its master process re-broadcasts the same request to other connected Web master
+processes on other nodes thus keeping in sync caches on all nodes.
 
 The basic flow is the following using a hypothetical example:
 

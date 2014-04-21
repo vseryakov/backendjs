@@ -547,7 +547,7 @@ tests.db = function(callback)
 	    function(next) {
 	        logger.log('TEST: get after replace');
 	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 || core.typeName(rows[0].json)!="object" || rows[0].json.a!=1 ? ("err10:" + err + util.inspect(rows)) : 0);
+	    		next(err || rows.length!=1 || rows[0].id != id || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 || core.typeName(rows[0].json)!="object" || rows[0].json.a!=1 ? ("err10:" + err + util.inspect(rows)) : 0);
 	    	});
 	    },
 	    function(next) {
