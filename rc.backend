@@ -119,7 +119,11 @@ case "$ARG" in
     if [ "$2" = "-root" -a "$3" != "" ]; then
        BACKEND_ROOT=$3
        $ECHO "BACKEND_ROOT=$BACKEND_ROOT" > /etc/backendrc
-     fi
+    fi
+
+    # System utilities
+    yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git svn man telnet jna
+    yum -y remove sendmail
 
     # Set hostname with unique EC2 instance if not set explicitly
     [ "$BACKEND_NAME" = "" ] && BACKEND_NAME=$(echo "api-$(wget -q -t1 -T1 -O - http://169.254.169.254/latest/meta-data/instance-id)"|sed 's/-$//g')
@@ -136,10 +140,6 @@ case "$ARG" in
     BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
 
     echo "Backend arguments: $BACKEND_ARGS"
-
-    # System utilities
-    yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git svn man telnet jna
-    yum -y remove sendmail
 
     # Add local user
     if [ "$(grep $BACKEND_USER /etc/passwd)" = "" ]; then
