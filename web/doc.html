@@ -1419,6 +1419,8 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 <li><code>db-mysql-tables</code> - PostgreSQL tables, list of tables that belong to this pool only</li>
 <li><code>db-dynamodb-pool</code> - DynamoDB endpoint url</li>
 <li><code>db-dynamodb-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
+<li><code>db-mongodb-pool</code> - MongoDB endpoint url</li>
+<li><code>db-mongodb-tables</code> - MongoDB tables, list of tables that belong to this pool only</li>
 <li><code>db-cassandra-pool</code> - Casandra endpoint url</li>
 <li><code>db-cassandra-max</code> - Max number of open connection for the pool</li>
 <li><code>db-cassandra-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
@@ -1538,12 +1540,12 @@ the worker processes if they die and restart them automatically. How many proces
                      mtime: { type: &quot;bigint&quot;, now: 1 }},
 
      // Messages between accounts
-     bk_message: { id: { primary: 1 },                    // my account_id
-                   mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
-                   status: { index: 1 },                  // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
-                   sender: { index1: 1 },                 // sender:mtime, reverse index by sender
-                   msg: { type: &quot;text&quot; },                 // Text of the message
-                   icon: {}},                             // Icon base64 or url
+     bk_message: { id: { primary: 1, index: 1, index1: 1 },  // my account_id
+                   mtime: { primary: 1 },                    // mtime:sender, the current timestamp in milliseconds and the sender
+                   status: { index: 1 },                     // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
+                   sender: { index1: 1 },                    // sender:mtime, reverse index by sender
+                   msg: { type: &quot;text&quot; },                    // Text of the message
+                   icon: {}},                                // Icon base64 or url
 
      // All accumulated counters for accounts
      bk_counter: { id: { primary: 1, pub: 1 },                               // account id
@@ -3023,10 +3025,11 @@ due to some error.</p>
 </ul>
 
 <ul>
-<li><p><code>db.createPool(name, options)</code></p>
+<li><p><code>db.createPool(options)</code></p>
 <p> Create a new database pool with default methods and properties</p>
 <ul>
 <li>options - an object with default pool properties<ul>
+<li>pool - pool name</li>
 <li>pooling - create generic pool for connection caching</li>
 <li>watchfile - file path to be watched for changes, all clients will be destroyed gracefully
 The following pool callback can be assigned to the pool object:</li>
@@ -3510,13 +3513,13 @@ specified table thus providing an opportunity to customize the result.</p>
 <ul>
 <li><p><code>db.sqlInitPool(options)</code></p>
 <p> Create a database pool for SQL like databases</p>
-</li>
-</ul>
 <ul>
 <li>options - an object defining the pool, the following properties define the pool:<ul>
 <li>pool - pool name/type, of not specified SQLite is used</li>
 <li>max - max number of clients to be allocated in the pool</li>
 <li>idle - after how many milliseconds an idle client will be destroyed</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
