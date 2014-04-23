@@ -226,6 +226,9 @@ core.init = function(callback)
     var self = this;
     var db = self.context.db;
 
+    // Random proces id
+    self.pid = crypto.randomBytes(4).toString('hex');
+
     // Initial args to run before the config file
     self.processArgs("core", self, process.argv, 1);
 
@@ -2361,7 +2364,7 @@ core.delObj = function()
 // Merge obj with the options, all options properties override existing in the obj, return a new object
 core.mergeObj = function(obj, options)
 {
-    var rc = {}
+    var rc = {};
     for (var p in options) rc[p] = options[p];
     for (var p in obj) {
         var val = obj[p];

@@ -51,19 +51,19 @@ esac
 [ "$BACKEND_PREFIX" = "" ] && BACKEND_PREFIX=/usr/local
 [ "$BACKEND_DOMAIN" = "" ] && BACKEND_DOMAIN=localhost
 [ "$BACKUP" = "" ] && BACKUP=$BACKEND_ROOT/backup
-[ "$CDB_PREFIX" = "" ] && CDB_PREFIX=$BACKEND_PREFIX/cassandra
-[ "$CDB_DIR" = "" ] && CDB_DIR=$BACKEND_ROOT/cassandra
+[ "$CASSANDRA_PREFIX" = "" ] && CASSANDRA_PREFIX=$BACKEND_PREFIX/cassandra
+[ "$CASSANDRA_DIR" = "" ] && CASSANDRA_DIR=$BACKEND_ROOT/cassandra
 [ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
 [ "$PG_LIBDIR" = "" ] && PG_LIBDIR=$PG_PREFIX/lib
 [ "$PG_DIR" = "" ] && PG_DIR=$BACKEND_ROOT/postgres
 [ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BACKEND_ROOT/mysql
 [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=/usr
-[ "$DDB_PREFIX" = "" ] && DDB_PREFIX=$BACKEND_PREFIX/dynamodb
+[ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BACKEND_PREFIX/dynamodb
 [ "$MONGO_DIR" = "" ] && MONGO_DIR=$BACKEND_ROOT/mongo
 [ "$NODE_PATH" = "" ] && NODE_PATH=$BACKEND_PREFIX/lib/node_modules
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/backendjs
 
-export PATH=$BACKEND_ROOT/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CDB_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
+export PATH=$BACKEND_ROOT/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
 
 # If started without parameters use script name as a parameter
@@ -473,7 +473,7 @@ case "$ARG" in
     done
     ;;
 
-  init-pg)
+  init-pgsql)
     if [ ! -f $PG_DIR/postgresql.conf ]; then
        mkdir -p $PG_DIR
        $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
@@ -485,11 +485,11 @@ case "$ARG" in
     fi
     ;;
 
-  run-pg)
+  run-pgsql)
     exec nohup $PG_PREFIX/bin/postgres -F -D $PG_DIR >>$BACKEND_ROOT/log/backend.log 2>&1 &
     ;;
 
-  stop-pg)
+  stop-pgsql)
     killall postgres
     ;;
 
@@ -515,59 +515,59 @@ case "$ARG" in
     killall mysqld
     ;;
 
-  get-ddb)
-    mkdir -p $DDB_PREFIX
+  get-dynamodb)
+    mkdir -p $DYNAMODB_PREFIX
     curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz
-    tar -C $DDB_PREFIX --strip-components=1 -xzf ddb.tar.gz
+    tar -C $DYNAMODB_PREFIX --strip-components=1 -xzf ddb.tar.gz
     rm -rf ddb.tar.gz
     ;;
 
-  run-ddb)
-    (cd $BACKEND_ROOT/var && exec nohup java -Djava.library.path=$DDB_PREFIX -jar $DDB_PREFIX/DynamoDBLocal.jar --port 8181 >>$BACKEND_ROOT/log/backend.log 2>&1 &)
+  run-dynamodb)
+    (cd $BACKEND_ROOT/var && exec nohup java -Djava.library.path=$DYNAMODB_PREFIX -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar --port 8181 >>$BACKEND_ROOT/log/backend.log 2>&1 &)
     ;;
 
-  stop-ddb)
+  stop-dynamodb)
     kill $(ps agx|grep dynamodb|grep -v grep|awk '{print $1}')
     ;;
 
-  get-cdb)
-    if [ ! -d $CDB_PREFIX ]; then
-        mkdir -p $CDB_PREFIX $CDB_DIR/var $CDB_DIR/log
+  get-cassandra)
+    if [ ! -d $CASSANDRA_PREFIX ]; then
+        mkdir -p $CASSANDRA_PREFIX $CASSANDRA_DIR/var $CASSANDRA_DIR/log
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
-        tar -C $CDB_PREFIX --strip-components=1 -xzf dsc.tar.gz
+        tar -C $CASSANDRA_PREFIX --strip-components=1 -xzf dsc.tar.gz
         rm -rf dsc.tar.gz
-        $SED "s|/var/lib/cassandra/|$CDB_DIR/var/|g" $CDB_PREFIX/conf/*
-        $SED "s|/var/log/cassandra/|$CDB_DIR/log/|g" $CDB_PREFIX/conf/*
-        chown -R $BACKEND_USER $CDB_DIR $CDB_PREFIX
+        $SED "s|/var/lib/cassandra/|$CASSANDRA_DIR/var/|g" $CASSANDRA_PREFIX/conf/*
+        $SED "s|/var/log/cassandra/|$CASSANDRA_DIR/log/|g" $CASSANDRA_PREFIX/conf/*
+        chown -R $BACKEND_USER $CASSANDRA_DIR $CASSANDRA_PREFIX
     fi
     ;;
 
-  init-cdb)
+  init-cassandra)
     ($0 run-cdb)
     echo "CREATE KEYSPACE BACKEND WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
-    $CDB_PREFIX/bin/cqlsh -f /tmp/cql
+    $CASSANDRA_PREFIX/bin/cqlsh -f /tmp/cql
     ;;
 
-  run-cdb)
-    $CDB_PREFIX/bin/cassandra >>$BACKEND_ROOT/log/backend.log 2>&1
+  run-cassandra)
+    $CASSANDRA_PREFIX/bin/cassandra >>$BACKEND_ROOT/log/backend.log 2>&1
     ;;
 
-  stop-cdb)
+  stop-cassandra)
     kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
     ;;
 
-  init-mdb)
+  get-mongodb)
     curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-osx-x86_64-2.6.0.tgz
     tar -C $BACKEND_PREFIX/bin --strip-components=1 -xzf mongo.tar.gz '*/bin/*'
     rm -rf mongo.tar.gz
     ;;
 
-  run-mdb)
+  run-mongodb)
     mkdir -p $MONGO_DIR
-    $BACKEND_PREFIX/bin/mongod --fork --dbpath $MONGO_DIR >>$BACKEND_ROOT/log/backend.log 2>&1
+    $BACKEND_PREFIX/bin/mongod --fork --dbpath $MONGO_DIR --syslog >>$BACKEND_ROOT/log/backend.log 2>&1
     ;;
 
-  stop-mdb)
+  stop-mongodb)
     kill $(ps agx|grep mongod|grep -v grep|awk '{print $1}')
     ;;
 
@@ -727,6 +727,7 @@ case "$ARG" in
 #db-cassandra-pool=cql://127.0.0.1/backend
 #db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 #db-dynamodb-pool=http://localhost:8181
+#db-mongodb=mongodb://localhost
 #aws-key=XXXXX
 #aws-secret=XXXXX
 #api-images-s3=S3BucketName
@@ -838,22 +839,22 @@ backend.server.start();
     echo "  sync-* - synchronize other directories from the master host, * must be a single word representing a folder inside the backend root"
     echo "  ntp - run ntpdate to keep local clock"
     echo "  backup - run the backup script, store in $BACKEND_ROOT/backup"
-    echo "  init-pg - setup local PostgreSQL server for development, Mac OS X, install in $PG_PREFIX, data files in $PG_DIR"
-    echo "  run-pg - run local PostgreSQL server"
-    echo "  stop-pg - stop local PostgreSQL server"
-    echo "  get-ddb - install local DynamoDB server in $BACKEND_PREFIX/dynamodb"
-    echo "  run-ddb - run local DynamoDB server installed in $BACKEND_PREFIX/dynamodb"
-    echo "  stop-ddb - stop local DynamoDB server"
-    echo "  get-cdb - install Cassandra server in $BACKEND_PREFIX/cassandra"
-    echo "  init-cdb - download Cassandra server and create backend keyspace"
-    echo "  run-cdb - run local Cassandra server installed in $BACKEND_PREFIX/cassandra"
-    echo "  stop-cdb - stop local Cassandra server"
+    echo "  init-pgsql - setup local PostgreSQL server for development, Mac OS X, install in $PG_PREFIX, data files in $PG_DIR"
+    echo "  run-pgsql - run local PostgreSQL server"
+    echo "  stop-pgsql - stop local PostgreSQL server"
+    echo "  get-dynamodb - install local DynamoDB server in $BACKEND_PREFIX/dynamodb"
+    echo "  run-dynamodb - run local DynamoDB server installed in $BACKEND_PREFIX/dynamodb"
+    echo "  stop-dynamodb - stop local DynamoDB server"
+    echo "  get-cassandra - install Cassandra server in $BACKEND_PREFIX/cassandra"
+    echo "  init-cassandra - download Cassandra server and create backend keyspace"
+    echo "  run-cassandra - run local Cassandra server installed in $BACKEND_PREFIX/cassandra"
+    echo "  stop-cassandra - stop local Cassandra server"
     echo "  init-mysql - init local MySQL server for development and create backend database"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
     echo "  stop-mysql - stop local MySQL server"
-    echo "  init-mdb - download Mongo server and install in $BACKEND_PREFIX/bin"
-    echo "  run-mdb - run local Mongo server installed in $BACKEND_PREFIX/bin"
-    echo "  stop-mdb - stop local Mongo server"
+    echo "  get-mongodb - download Mongo server and install in $BACKEND_PREFIX/bin"
+    echo "  run-mongodb - run local Mongo server installed in $BACKEND_PREFIX/bin, db path is $MONGO_DIR"
+    echo "  stop-mongodb - stop local Mongo server"
     echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BACKEND_PREFIX"
     echo "  clean-backend - clean the source directory"

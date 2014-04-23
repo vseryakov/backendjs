@@ -76,6 +76,8 @@ var db = {
            { name: "mysql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "dynamodb-pool", descr: "DynamoDB endpoint url" },
            { name: "dynamodb-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
+           { name: "mongodb-pool", descr: "MongoDB endpoint url" },
+           { name: "mongodb-tables", type: "list", array: 1, descr: "MongoDB tables, list of tables that belong to this pool only" },
            { name: "cassandra-pool", descr: "Casandra endpoint url" },
            { name: "cassandra-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
            { name: "cassandra-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
@@ -215,6 +217,7 @@ db.getPoolTables = function(name)
 
 // Create a new database pool with default methods and properties
 // - options - an object with default pool properties
+//    - pool - pool name
 //    - pooling - create generic pool for connection caching
 //    - watchfile - file path to be watched for changes, all clients will be destroyed gracefully
 // The following pool callback can be assigned to the pool object:
@@ -226,10 +229,10 @@ db.getPoolTables = function(name)
 // - resolveTable - a callback function(op, table, obj, options) that returns poosible different table at the time of the query, it is called by the `db.prepare` method
 //   and if exist it must return the same or new table name for the given query parameters.
 //
-db.createPool = function(name, options)
+db.createPool = function(options)
 {
     var self = this;
-    if (!options) options = {};
+    if (!options || !options.pool) throw "Options with pool: must be provided";
 
     if (options.pooling) {
         var pool = gpool.Pool({
@@ -309,7 +312,7 @@ db.createPool = function(name, options)
     pool.query = function(client, req, opts, callback) { callback(null, []); };
     pool.nextToken = function(req, rows, opts) {};
     pool.processRow = [];
-    pool.name = name;
+    pool.name = pool.pool;
     pool.serialNum = 0;
     pool.dbtables = {};
     pool.dbcolumns = {};
@@ -321,8 +324,8 @@ db.createPool = function(name, options)
     pool.metrics = new metrics();
     // Some require properties can be initialized with options
     if (!pool.dboptions) pool.dboptions = {};
-    this.dbpool[name] = pool;
-    logger.debug('db.createPool:', name);
+    this.dbpool[pool.name] = pool;
+    logger.debug('db.createPool:', pool.name);
     return pool;
 }
 
@@ -1157,6 +1160,7 @@ db.mergeColumns = function(pool)
 {
 	var tables = pool.dbtables;
 	var dbcolumns = pool.dbcolumns;
+	var dboptions = pool.dboptions;
     for (var table in tables) {
 		for (var col in tables[table]) {
 		    if (!dbcolumns[table]) dbcolumns[table] = {};
@@ -1233,10 +1237,10 @@ db.setProcessRow = function(table, options, callback)
 }
 
 // Create a database pool for SQL like databases
-//- options - an object defining the pool, the following properties define the pool:
-//  - pool - pool name/type, of not specified SQLite is used
-//  - max - max number of clients to be allocated in the pool
-//  - idle - after how many milliseconds an idle client will be destroyed
+// - options - an object defining the pool, the following properties define the pool:
+//    - pool - pool name/type, of not specified SQLite is used
+//    - max - max number of clients to be allocated in the pool
+//    - idle - after how many milliseconds an idle client will be destroyed
 db.sqlInitPool = function(options)
 {
     var self = this;
@@ -1245,10 +1249,10 @@ db.sqlInitPool = function(options)
 
     options.sql = true;
     options.pooling = true;
-    // Translation map for similar operators from different database drivers
-    options.dboptions = { schema: [], typesMap: { counter: "int", bigint: "int" }, opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
-
-    var pool = this.createPool(options.pool, options);
+    // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
+    var dboptions = { schema: [], typesMap: { counter: "int", bigint: "int" }, opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
+    options.dboptions = core.mergeObj(dboptions, options.dboptions);
+    var pool = this.createPool(options);
 
     // Execute initial statements to setup the environment, like pragmas
     pool.setup = function(client, callback) {
@@ -1986,8 +1990,8 @@ db.pgsqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
+    options.dboptions = { typesMap: { real: "numeric", bigint: "bigint" }, noIfExists: 1, noReplace: 1, schema: ['public'] };
     var pool = this.sqlInitPool(options);
-    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { real: "numeric", bigint: "bigint" }, noIfExists: 1, noReplace: 1, schema: ['public'] });
     pool.connect = self.pgsqlConnect;
     pool.bindValue = self.pgsqlBindValue;
     pool.cacheIndexes = self.pgsqlCacheIndexes;
@@ -2087,8 +2091,8 @@ db.sqliteInitPool = function(options)
 
     if (!options.pool) options.pool = "sqlite";
     options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
+    options.dboptions = { noLengths: 1, noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
-    pool.dboptions = core.mergeObj(pool.dboptions, { noLengths: 1, noMultiSQL: 1 });
     pool.connect = self.sqliteConnect;
     pool.cacheColumns = self.sqliteCacheColumns;
     return pool;
@@ -2185,15 +2189,10 @@ db.mysqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "mysql";
+    options.dboptions = { typesMap: { json: "text", bigint: "bigint" }, placeholder: "?", defaultType: "VARCHAR(128)", noIfExists: 1, noJson: 1, noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
     pool.connect = self.mysqlConnect;
     pool.cacheIndexes = self.mysqlCacheIndexes;
-    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { json: "text", bigint: "bigint" },
-                                                     placeholder: "?",
-                                                     defaultType: "VARCHAR(128)",
-                                                     noIfExists: 1,
-                                                     noJson: 1,
-                                                     noMultiSQL: 1 });
     return pool;
 }
 
@@ -2249,8 +2248,8 @@ db.dynamodbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "dynamodb";
 
-    // Redefine pool but implement the same interface
-    var pool = this.createPool(options.pool, { db: options.db, dboptions: { noJson: 1} });
+    options.dboptions = { noJson: 1 };
+    var pool = this.createPool(options);
 
     pool.cacheColumns = function(opts, callback) {
         var pool = this;
@@ -2305,6 +2304,7 @@ db.dynamodbInitPool = function(options)
         var dbkeys = pool.dbkeys[table] || [];
         // Primary keys
         var primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+
         switch(req.op) {
         case "create":
             var idxs = {}, projection = {};
@@ -2314,14 +2314,15 @@ db.dynamodbInitPool = function(options)
 
             if (Object.keys(keys).length == 2) {
                 ["", "1", "2"].forEach(function(n) {
-                    var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; }).reduce(function(a,b) { if (!a) a = b; return a }, "");
+                    var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; })[1];
                     if (!idx) return;
                     idxs[idx] = core.newObj(Object.keys(keys)[0], 'HASH', idx, 'RANGE');
                     if (obj[idx].projection) projection[idx] = obj[idx].projection;
                 });
                 options.projection = projection;
             }
-            var attrs = Object.keys(obj).concat(Object.keys(idxs)).filter(function(x) { return obj[x].primary || obj[x].index || obj[x].index1 || obj[x].index2 }).
+            var attrs = Object.keys(keys).
+                               concat(Object.keys(idxs)).
                                map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
@@ -2479,6 +2480,8 @@ db.mongodbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "mongodb";
 
+    options.pooling = true;
+    options.dboptions = { jsonColumns: true };
     var pool = this.createPool(options);
 
     pool.connect = function(opts, callback) {
@@ -2488,26 +2491,174 @@ db.mongodbInitPool = function(options)
         });
     }
     pool.cacheColumns = function(opts, callback) {
-        if (callback) callback();
+        var pool = this;
+        pool.get(function(err, client) {
+            if (err) return callback(err);
+            pool.dbcolumns = {};
+            pool.dbindexes = {};
+            pool.dbkeys = {};
+            client.collectionNames(function(err, items) {
+                (items || []).forEach(function(x) {
+                    x = x.name.split(".");
+                    if (x.length != 2) return;
+                    if (!pool.dbcolumns[x[1]]) pool.dbcolumns[x[1]] = {};
+                    pool.dbcolumns[x[1]]['_id'] = { primary: 1 };
+                });
+                client.indexInformation(null, {full:true}, function(err, items) {
+                    (items || []).forEach(function(x) {
+                        var n = x.ns.split(".").pop();
+                        if (x.key._id) return;
+                        if (x.unique) {
+                            if (!pool.dbkeys[n]) pool.dbkeys[n] = [];
+                            pool.dbkeys[n] = Object.keys(x.key);
+                        } else {
+                            if (!pool.dbindexes[n]) pool.dbindexes[n] = [];
+                            pool.dbindexes[n] = Object.keys(x.key);
+                        }
+                    });
+                    pool.free(client);
+                    callback(err);
+                });
+            });
+        });
     }
-    pool.nextToken = function(req, rows, opts) {
-        if (!rows.length || rows.length < opts.count) return;
-        var keys = this.dbkeys[req.table] || [];
-        this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
+    pool.getKeys = function(obj, name) {
+        return Object.keys(obj).filter(function(x, i) { return obj[x][name] }).map(function(x, i) { return x }).reduce(function(x,y) { x[y] = 1; return x }, {})
     }
-    pool.prepare = function(op, table, obj, opts) {
-        switch (op) {
-        case "search":
-        case "select":
-            // Pagination, start must be a token returned by the previous query, this assumes that options.ops stays the same as well
-            if (Array.isArray(opts.start) && typeof opts.start[0] == "object") {
-                obj = core.cloneObj(obj);
-                opts.start.forEach(function(x) { for (var p in x) obj[p] = x[p]; });
-            }
+    pool.query = function(client, req, opts, callback) {
+        var pool = this;
+        var table = req.text;
+        var obj = req.obj;
+        var options = opts;
+        var dbcols = pool.dbcolumns[table] || {};
+        var dbkeys = pool.dbkeys[table] || [];
+        // Default write concern
+        if (!options.w) options.w = 1;
+        // Primary keys
+        var primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+
+        switch(req.op) {
+        case "create":
+        case "upgrade":
+            var keys = [];
+            keys.push({ cols: pool.getKeys(obj, 'primary'), opts: { unique: true, background: true, w: options.w } });
+
+            ["", "1", "2"].forEach(function(n) {
+                var cols = pool.getKeys(obj, "unique" + n);
+                if (Object.keys(cols).length) keys.push({ cols: cols, opts: { name: Object.keys(cols).join('.'), unique: true, background: true, w: options.w } });
+                cols = pool.getKeys(obj, "index" + n);
+                if (Object.keys(cols).length) keys.push({ cols: cols, opts: { name: Object.keys(cols).join('.'), background: true, w: options.w } });
+            });
+
+            client.createCollection(table, options, function(err, item) {
+                if (err) return callback(err, []);
+
+                async.forEachSeries(keys, function(idx, next) {
+                    client.ensureIndex(table, idx.cols, idx.opts, function(err) {
+                        if (err) logger.error('db.create:', idx, err);
+                        next();
+                    });
+                }, function(err) {
+                    callback(err, []);
+                });
+            });
             break;
+
+        case "drop":
+            client.dropCollection(table, function(err) {
+                callback(err, []);
+            });
+            break;
+
+        case "get":
+            var collection = client.collection(table);
+            var fields = self.getSelectedColumns(table, options);
+            options.fields = (fields || Object.keys(dbcols)).reduce(function(x,y) { x[y] = 1; return x }, {});
+            collection.findOne(obj, options, function(err, item) {
+                logger.log('get:', options, item)
+                callback(err, item ? [item] : []);
+            });
+            break;
+
+        case "select":
+        case "search":
+            var collection = client.collection(table);
+            var fields = self.getSelectedColumns(table, options);
+            options.fields = (fields || Object.keys(dbcols)).reduce(function(x,y) { x[y] = 1; return x }, {});
+            collection.find(obj, options, function(err, rows) {
+                callback(err, rows);
+            });
+            break;
+
+        case "list":
+            var req = {};
+            req[table] = { keys: obj, select: self.getSelectedColumns(table, options), consistent: options.consistent };
+            aws.ddbBatchGetItem(req, options, function(err, item) {
+                if (err) return callback(err, []);
+                // Keep retrieving items until we get all items
+                var moreKeys = item.UnprocessedKeys || null;
+                var items = item.Responses[table] || [];
+                async.until(
+                    function() {
+                        return moreKeys;
+                    },
+                    function(next) {
+                        options.RequestItems = moreKeys;
+                        aws.ddbBatchGetItem({}, options, function(err, item) {
+                            items.push.apply(items, item.Responses[table] || []);
+                            next(err);
+                        });
+                }, function(err) {
+                    callback(err, items);
+                });
+            });
+            break;
+
+        case "add":
+            var collection = client.collection(table);
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, dbcols); } });
+            collection.insert(o, options, function(err, rc) {
+                logger.log('add:', o, options);
+                callback(err, []);
+            });
+            break;
+
+        case "put":
+            options.upsert = true;
+
+        case "update":
+            var collection = client.collection(table);
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return self.skipColumn(n, v, options, dbcols); } });
+            collection.update(primary_keys, o, options, function(err, rc) {
+                logger.log('put:', o, options);
+                callback(err, []);
+            });
+            break;
+
+        case "incr":
+            var collection = client.collection(table);
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return primary_keys[n] || self.skipColumn(n, v, options, dbcols); }, _empty_to_null: 1 });
+            if (options.counter) {
+                o['$inc'] = {};
+                options.counter.forEach(function(x) { o['$inc'][x] = o[x]; delete o[x]; });
+            }
+            collection.update(primary_keys, o, options, function(err, rc) {
+                logger.log('incr:', o, options);
+                callback(err, []);
+            });
+            break;
+
+        case "del":
+            var collection = client.collection(table);
+            collection.remove(primary_keys, options, function(err, rc) {
+                callback(err, []);
+            });
+            break;
+
+        default:
+            callback(new Error("invalid op"), []);
         }
-        return self.sqlPrepare(op, table, obj, opts);
-    }
+    };
     return pool;
 }
 
@@ -2517,19 +2668,18 @@ db.cassandraInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "cassandra";
-
+    options.dboptions = { typesMap: { json: "text", real: "double", counter: "counter" },
+                          opsMap: { begins_with: "begins_with" },
+                          placeholder: "?",
+                          noCoalesce: 1,
+                          noConcat: 1,
+                          noDefaults: 1,
+                          noNulls: 1,
+                          noLengths: 1,
+                          noReplace: 1,
+                          noJson: 1,
+                          noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
-    pool.dboptions = core.mergeObj(pool.dboptions, { typesMap: { json: "text", real: "double", counter: "counter" },
-                                                     opsMap: { begins_with: "begins_with" },
-                                                     placeholder: "?",
-                                                     noCoalesce: 1,
-                                                     noConcat: 1,
-                                                     noDefaults: 1,
-                                                     noNulls: 1,
-                                                     noLengths: 1,
-                                                     noReplace: 1,
-                                                     noJson: 1,
-                                                     noMultiSQL: 1 });
     pool.connect = self.cassandraConnect;
     pool.bindValue = self.cassandraBindValue;
     pool.cacheColumns = self.cassandraCacheColumns;
@@ -2666,7 +2816,7 @@ db.leveldbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "leveldb";
 
-    var pool = this.createPool(options.pool);
+    var pool = this.createPool(options);
 
     pool.get = function(callback) {
         if (this.ldb) return callback(null, this);
@@ -2754,7 +2904,7 @@ db.lmdbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "lmdb";
 
-    var pool = this.createPool(options.pool);
+    var pool = this.createPool(options);
 
     pool.get = function(callback) {
         if (this.lmdb) return callback(null, this);
@@ -2836,7 +2986,7 @@ db.lmdbInitPool = function(options)
 }
 
 // Make sure the empty pool is created to properly report init issues
-db.nopool = db.createPool("none");
+db.nopool = db.createPool({ pool: "none" });
 db.nopool.prepare = function(op, table, obj, options)
 {
     switch (op) {

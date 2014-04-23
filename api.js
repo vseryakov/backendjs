@@ -119,12 +119,12 @@ var api = {
                        mtime: { type: "bigint", now: 1 }},
 
        // Messages between accounts
-       bk_message: { id: { primary: 1 },                    // my account_id
-                     mtime: { primary: 1 },                 // mtime:sender, the current timestamp in milliseconds and the sender
-                     status: { index: 1 },                  // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
-                     sender: { index1: 1 },                 // sender:mtime, reverse index by sender
-                     msg: { type: "text" },                 // Text of the message
-                     icon: {}},                             // Icon base64 or url
+       bk_message: { id: { primary: 1, index: 1, index1: 1 },  // my account_id
+                     mtime: { primary: 1 },                    // mtime:sender, the current timestamp in milliseconds and the sender
+                     status: { index: 1 },                     // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
+                     sender: { index1: 1 },                    // sender:mtime, reverse index by sender
+                     msg: { type: "text" },                    // Text of the message
+                     icon: {}},                                // Icon base64 or url
 
        // All accumulated counters for accounts
        bk_counter: { id: { primary: 1, pub: 1 },                               // account id
@@ -1028,6 +1028,7 @@ api.initConnectionAPI = function()
             break;
 
         case "get":
+            options.op = req.params[0];
             self.getConnections(req, options, function(err, data) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, data);
@@ -1397,7 +1398,7 @@ api.getConnections = function(req, options, callback)
     if (req.query.type) req.query.type += ":" + (req.query.id || "");
     req.query.id = req.account.id;
     options.ops.type = "begins_with";
-    db.select("bk_" + req.params[0], req.query, options, function(err, rows, info) {
+    db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
         if (err) return self.sendReply(res, err);
         var next_token = info.next_token ? core.toBase64(info.next_token) : "";
         // Split type and reference id
