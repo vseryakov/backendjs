@@ -2883,8 +2883,11 @@ Example:<pre><code>  core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4
 
 <ul>
 <li><p><code>core.mergeObj(obj, options)</code></p>
-<p> Merge obj with the options, all options properties override existing in the obj, return a new object</p>
-</li>
+<p> Merge an object with the options, all properties in the options override existing in the object, returns a new object</p>
+<p>Example</p>
+<pre><code>var o = core.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
+o = { a:1, b:2, c:5, d:1 }
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2998,19 +3001,19 @@ database like DynamoDB for real-time requests and slower SQL database running on
 </ul>
 
 <ul>
-<li><p><code>db.init(callback)</code></p>
+<li><p><code>db.init(options, callback)</code></p>
 <p> Initialize database pools</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.initTables(tables, callback)</code></p>
+<li><p><code>db.initTables(tables, options, callback)</code></p>
 <p> Create tables in all pools</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.initPoolTables(name, tables, callback)</code></p>
+<li><p><code>db.initPoolTables(name, tables, options, callback)</code></p>
 <p> Init the pool, create tables and columns:</p>
 <ul>
 <li>name - db pool to create the tables in</li>
@@ -3020,7 +3023,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
 </ul>
 
 <ul>
-<li><p><code>db.dropPoolTables(name, tables, callback)</code></p>
+<li><p><code>db.dropPoolTables(name, tables, options, callback)</code></p>
 <p> Remove all registered tables from the pool</p>
 </li>
 </ul>
@@ -3373,8 +3376,20 @@ contain the following properties:</p>
 <li>semipub - column is not public but still retrieved to support other public columns, must be deleted after use</li>
 <li>now - means on every add/put/update set this column with current time as Date.now()</li>
 </ul>
-<p>Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table</p>
-</li>
+<p>Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
+properties define a composite key in the order of definition.</p>
+<p>Each database pool also can support native options that are passed directly to the driver in the options, these properties are
+defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:</p>
+<pre><code>db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
+                          type: { primary: 1, pub: 1 },
+                          name: { index: 1, pub: 1, dynamodb: { projection: [&#39;type&#39;] } }
+                        });
+
+db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
+                          type: { primary: 1, pub: 1 },
+                          name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
+                        });
+</code></pre></li>
 </ul>
 
 <ul>
@@ -3653,6 +3668,7 @@ options may contain the following properties:</p>
 <li>unique - must be combined with index property to specify unique composite index</li>
 <li>len - max length of the column</li>
 <li>notnull - true if should be NOT NULL</li>
+<li>auto - true for AUTO_INCREMENT column</li>
 </ul>
 </li>
 <li>options may contains:<ul>
@@ -3663,6 +3679,7 @@ options may contain the following properties:</p>
 <li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
 <li>noLengths - ignore column length for columns (Cassandra)</li>
 <li>noIfExists - do not support IF EXISTS on table or indexes</li>
+<li>noauto - no support for auto increment columns</li>
 </ul>
 </li>
 </ul>
