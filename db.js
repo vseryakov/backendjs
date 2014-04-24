@@ -120,9 +120,10 @@ var db = {
 module.exports = db;
 
 // Initialize database pools
-db.init = function(callback)
+db.init = function(options, callback)
 {
 	var self = this;
+	if (typeof options == "function") callback = options, options = null;
 
 	// Internal SQLite database is always open
 	self.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
@@ -138,15 +139,17 @@ db.init = function(callback)
 	}
 
 	// Initialize all pools with common tables
-	self.initTables(self.tables, callback);
+	self.initTables(self.tables, options, callback);
 }
 
 // Create tables in all pools
-db.initTables = function(tables, callback)
+db.initTables = function(tables, options, callback)
 {
 	var self = this;
+    if (typeof options == "function") callback = options, options = null;
+
 	async.forEachSeries(Object.keys(self.dbpool), function(name, next) {
-    	self.initPoolTables(name, tables, next);
+    	self.initPoolTables(name, tables, options, next);
 	}, function(err) {
         if (callback) callback(err);
     });
@@ -156,9 +159,11 @@ db.initTables = function(tables, callback)
 // Init the pool, create tables and columns:
 // - name - db pool to create the tables in
 // - tables - an object with list of tables to create or upgrade
-db.initPoolTables = function(name, tables, callback)
+db.initPoolTables = function(name, tables, options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
 
     logger.debug('initPoolTables:', name, Object.keys(tables));
 
@@ -167,7 +172,8 @@ db.initPoolTables = function(name, tables, callback)
     if (!pool.dbtables) pool.dbtables = {};
     // Collect all tables in the pool to be merged with the actual tables later
     for (var p in tables) pool.dbtables[p] = tables[p];
-    var options = { pool: name, tables: tables };
+    options.pool = name;
+    options.tables = tables;
     self.cacheColumns(options, function() {
     	// Workers do not manage tables, only master process
     	if (cluster.isWorker || core.worker) {
@@ -193,15 +199,17 @@ db.initPoolTables = function(name, tables, callback)
 }
 
 // Remove all registered tables from the pool
-db.dropPoolTables = function(name, tables, callback)
+db.dropPoolTables = function(name, tables, options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    options.pool = name;
     var pool = self.getPool('', { pool: name });
     async.forEachSeries(Object.keys(tables || {}), function(table, next) {
-        self.drop(table, { pool: name }, function() { next() });
-    }, function() {
-        if (callback) callback();
-    });
+        self.drop(table, options, function() { next() });
+    }, callback);
 }
 
 // Return all tables know to the given pool, returned tables are in the object with
@@ -952,7 +960,21 @@ db.getCachedKey = function(table, obj, options)
 // - semipub - column is not public but still retrieved to support other public columns, must be deleted after use
 // - now - means on every add/put/update set this column with current time as Date.now()
 //
-// Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table
+// Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
+// properties define a composite key in the order of definition.
+//
+// Each database pool also can support native options that are passed directly to the driver in the options, these properties are
+// defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:
+//
+//      db.create("test_table", { id: { primary: 1, type: "int", dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
+//                                type: { primary: 1, pub: 1 },
+//                                name: { index: 1, pub: 1, dynamodb: { projection: ['type'] } }
+//                              });
+//
+//      db.create("test_table", { id: { primary: 1, type: "int", mongodb: { w: 1, capped: true, max: 100, size: 100 } },
+//                                type: { primary: 1, pub: 1 },
+//                                name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
+//                              });
 db.create = function(table, columns, options, callback)
 {
     if (typeof options == "function") callback = options,options = {};
@@ -1798,6 +1820,7 @@ db.sqlWhere = function(table, obj, keys, options)
 //      - unique - must be combined with index property to specify unique composite index
 //      - len - max length of the column
 //      - notnull - true if should be NOT NULL
+//      - auto - true for AUTO_INCREMENT column
 // - options may contains:
 //      - upgrade - perform alter table instead of create
 //      - typesMap - type mapping, convert lowercase type into other type supported by any specific database
@@ -1806,6 +1829,7 @@ db.sqlWhere = function(table, obj, keys, options)
 //      - noMultiSQL - return as a list, the driver does not support multiple SQL commands
 //      - noLengths - ignore column length for columns (Cassandra)
 //      - noIfExists - do not support IF EXISTS on table or indexes
+//      - noauto - no support for auto increment columns
 db.sqlCreate = function(table, obj, options)
 {
     var self = this;
@@ -2323,15 +2347,21 @@ db.dynamodbInitPool = function(options)
                     var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; })[1];
                     if (!idx) return;
                     idxs[idx] = core.newObj(Object.keys(keys)[0], 'HASH', idx, 'RANGE');
-                    if (obj[idx].projection) projection[idx] = obj[idx].projection;
                 });
-                options.projection = projection;
             }
             var attrs = Object.keys(keys).
                                concat(Object.keys(idxs)).
-                               map(function(x) { return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ] }).
+                               map(function(x) {
+                                   // All native properties for options from the key columns
+                                   for (var p in obj[x].dynamodb) {
+                                       if (p[0] >= 'A' && p[0] <= 'Z') options[p] = obj[x].dynamodb[p];
+                                       if (p == "projection") projection[x] = obj[x].dynamodb.projection;
+                                   }
+                                   return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ]
+                               }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
+            options.projection = projection;
             aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
                 callback(err, item.Item ? [item.Item] : []);
             });
@@ -2549,13 +2579,22 @@ db.mongodbInitPool = function(options)
         case "create":
         case "upgrade":
             var keys = [];
-            keys.push({ cols: pool.getProps(obj, 'primary'), opts: { unique: true, background: true, w: options.w } });
+            var cols = pool.getProps(obj, 'primary');
+            var opts = core.mergeObj(options, { unique: true, background: true });
+            // Merge with mongo properties from the column, primary key properties also applied for the collection as well
+            Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) options[p] = opts[p] = obj[x].mongodb[p]; });
+            keys.push({ cols: cols, opts: opts });
 
             ["", "1", "2"].forEach(function(n) {
                 var cols = pool.getProps(obj, "unique" + n);
-                if (Object.keys(cols).length) keys.push({ cols: cols, opts: { name: Object.keys(cols).join('.'), unique: true, background: true, w: options.w } });
+                var opts = core.mergeObj(options, { name: Object.keys(cols).join('.'), unique: true, background: true });
+                Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) opts[p] = obj[x].mongodb[p]; });
+
+                if (Object.keys(cols).length) keys.push({ cols: cols, opts: opts });
                 cols = pool.getProps(obj, "index" + n);
-                if (Object.keys(cols).length) keys.push({ cols: cols, opts: { name: Object.keys(cols).join('.'), background: true, w: options.w } });
+                opts = core.mergeObj(options, { name: Object.keys(cols).join('.'), background: true });
+                Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) opts[p] = obj[x].mongodb[p]; });
+                if (Object.keys(cols).length) keys.push({ cols: cols, opts: opts });
             });
 
             client.createCollection(table, options, function(err, item) {

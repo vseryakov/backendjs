@@ -2361,7 +2361,12 @@ core.delObj = function()
     return arguments[0];
 }
 
-// Merge obj with the options, all options properties override existing in the obj, return a new object
+// Merge an object with the options, all properties in the options override existing in the object, returns a new object
+//
+// Example
+//
+//      var o = core.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
+//      o = { a:1, b:2, c:5, d:1 }
 core.mergeObj = function(obj, options)
 {
     var rc = {};
