@@ -413,13 +413,13 @@ tests.db = function(callback)
 	var tables = {
 	        test1: { id: { primary: 1, pub: 1 },
 	                 email: {} },
-			test2: { id: { primary: 1, pub: 1 },
+			test2: { id: { primary: 1, pub: 1, index: 1 },
 			         id2: { primary: 1 },
-			         email: { },
+			         email: {},
 			         alias: { pub: 1 },
 			         birthday: { semipub: 1 },
 			         json: { type: "json" },
-			         num: { type: "int" },
+			         num: { type: "int", index: 1, dynamodb: { projection: ['id2','email'] } },
 			         num2: { type: "real" },
 			         mtime: { type: "int" } },
 			test3: { id : { primary: 1, pub: 1 },
@@ -586,6 +586,10 @@ tests.db = function(callback)
 	        logger.log('TEST: end page: next_token=', next_token);
 	        next(next_token ? ("err13:" + util.inspect(next_token)) : 0);
 	    },
+        function(next) {
+            logger.log('TEST: add more');
+            db.add("test2", { id: id, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
+        },
 	    function(next) {
             logger.log('TEST: query with custom filter');
             db.select("test2", { id: id, id2: '1', num: 9 }, { keys: ['id','id2','num'], ops: { num: 'ge' } }, function(err, rows, info) {
@@ -596,6 +600,12 @@ tests.db = function(callback)
             logger.log('TEST: scan');
             db.select("test2", { num: 9 }, { keys: ['num'], ops: { num: 'ge' } }, function(err, rows, info) {
                 next(err || rows.length==0 || rows[0].num!=9 ? ("err13:" + err + util.inspect(rows, info)) : 0);
+            });
+        },
+        function(next) {
+            logger.log('TEST: sort');
+            db.select("test2", { id: id, num: 0 }, { ops: { num: 'ge' }, sort: "num" }, function(err, rows, info) {
+                next(err || rows.length==0 || rows[0].num!=2 ? ("err14:" + err + util.inspect(rows, info)) : 0);
             });
         },
 	],

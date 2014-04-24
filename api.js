@@ -1208,7 +1208,7 @@ api.describeTables = function(tables)
         if (!self.tables[p]) self.tables[p] = {};
         for (var c in tables[p]) {
             if (!self.tables[p][c]) self.tables[p][c] = {};
-            // Override columns
+            // Merge columns
             for (var k in tables[p][c]) {
                 self.tables[p][c][k] = tables[p][c][k];
             }

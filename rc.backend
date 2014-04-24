@@ -516,11 +516,18 @@ case "$ARG" in
     killall mysqld
     ;;
 
+  init-dynamodb)
+    ($0 get-dynamodb)
+    ($0 run-dynamodb)
+    ;;
+
   get-dynamodb)
-    mkdir -p $DYNAMODB_PREFIX
-    curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz
-    tar -C $DYNAMODB_PREFIX --strip-components=1 -xzf ddb.tar.gz
-    rm -rf ddb.tar.gz
+    if [ ! -d $DYNAMODB_PEFIX ]; then
+       mkdir -p $DYNAMODB_PREFIX
+       curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2013-09-12.tar.gz
+       tar -C $DYNAMODB_PREFIX --strip-components=1 -xzf ddb.tar.gz
+       rm -rf ddb.tar.gz
+    fi
     ;;
 
   run-dynamodb)
@@ -544,6 +551,7 @@ case "$ARG" in
     ;;
 
   init-cassandra)
+    ($0 get-cassandra)
     ($0 run-cassandra)
     echo "CREATE KEYSPACE BACKEND WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
     $CASSANDRA_PREFIX/bin/cqlsh -f /tmp/cql
@@ -566,9 +574,16 @@ case "$ARG" in
        OS=linux
        ;;
     esac
-    curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-2.6.0.tgz
-    tar -C $BACKEND_PREFIX/bin --strip-components=1 -xzf mongo.tar.gz '*/bin/*'
-    rm -rf mongo.tar.gz
+    if [ ! -f $BACKEND_PREFIX/bin/mongod ]; then
+       curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-2.6.0.tgz
+       tar -C $BACKEND_PREFIX/bin --strip-components=1 -xzf mongo.tar.gz '*/bin/*'
+       rm -rf mongo.tar.gz
+    fi
+    ;;
+
+  init-mongodb)
+    ($0 get-mongodb)
+    ($0 run-mongodb)
     ;;
 
   run-mongodb)
@@ -848,19 +863,21 @@ backend.server.start();
     echo "  sync-* - synchronize other directories from the master host, * must be a single word representing a folder inside the backend root"
     echo "  ntp - run ntpdate to keep local clock"
     echo "  backup - run the backup script, store in $BACKEND_ROOT/backup"
-    echo "  init-pgsql - setup local PostgreSQL server for development, Mac OS X, install in $PG_PREFIX, data files in $PG_DIR"
+    echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
+    echo "  init-dynamodb - download and install local DynamoDB, start the server"
     echo "  get-dynamodb - install local DynamoDB server in $BACKEND_PREFIX/dynamodb"
     echo "  run-dynamodb - run local DynamoDB server installed in $BACKEND_PREFIX/dynamodb, data files in $BACKEND_ROOT/var"
     echo "  stop-dynamodb - stop local DynamoDB server"
     echo "  get-cassandra - download and install Cassandra server in $CASSANDRA_PREFIX"
-    echo "  init-cassandra - init Cassandra server and create backend keyspace"
+    echo "  init-cassandra - download and initialize Cassandra, create backend keyspace, run the server"
     echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
     echo "  stop-cassandra - stop local Cassandra server"
-    echo "  init-mysql - init local MySQL server for development and create backend database"
+    echo "  init-mysql - setup MySQL server for development and create backend database, start the server"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
     echo "  stop-mysql - stop local MySQL server"
+    echo "  init-mongodb - download and start the Mongo server"
     echo "  get-mongodb - download Mongo server and install in $BACKEND_PREFIX/bin"
     echo "  run-mongodb - run local Mongo server installed in $BACKEND_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"

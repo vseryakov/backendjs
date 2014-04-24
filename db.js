@@ -608,7 +608,21 @@ db.replace = function(table, obj, options, callback)
 // - inserted_oid - last created auto generated id
 // - next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query
 //
-//  Example: (allow all accounts icons to be visible)
+//  Example: get 2 records by primary key, refer above for default table definitions
+//
+//          db.select("bk_message", { id: myid }, { count: 2 }, function(err, rows) {
+//
+//          });
+//
+//
+//  Example: get unread msgs sorted by time, recent first
+//
+//          db.select("bk_message", { id: myid, status: 'N:' }, { sort: "status", desc: 1, ops: { status: "begins_with" } }, function(err, rows) {
+//
+//          });
+//
+//
+//  Example: allow all accounts icons to be visible
 //
 //          db.select("bk_account", {}, function(err, rows) {
 //              rows.forEach(function(row) {
@@ -618,7 +632,7 @@ db.replace = function(table, obj, options, callback)
 //          });
 //
 //
-//  Example: (select account with custom filter, not primary key)
+//  Example: scan accounts with custom filter, not by primary key
 //
 //      db.select("bk_account", { gender: 'f' }, { keys: ['gender'] }, function(err, rows) {
 //              ....
@@ -1133,7 +1147,7 @@ db.getSearchKeys = function(table, options)
 // will be returned in the query object
 db.getSearchQuery = function(table, obj, options)
 {
-    return this.getSearchKeys(table, options).filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+    return this.getSearchKeys(table, options).filter(function(x) { return typeof obj[x] != "undefined" }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 }
 
 // Return possibly converted value to be used for inserting/updating values in the database,
@@ -1829,6 +1843,7 @@ db.sqlWhere = function(table, obj, keys, options)
 //      - noMultiSQL - return as a list, the driver does not support multiple SQL commands
 //      - noLengths - ignore column length for columns (Cassandra)
 //      - noIfExists - do not support IF EXISTS on table or indexes
+//      - noCompositeIndex - does not support composite indexes (Cassandra)
 //      - noauto - no support for auto increment columns
 db.sqlCreate = function(table, obj, options)
 {
@@ -1836,9 +1851,10 @@ db.sqlCreate = function(table, obj, options)
     if (!options) options = {};
 
     function keys(name) {
-        return Object.keys(obj).filter(function(x) { return obj[x][name]; }).join(',');
+        var cols = Object.keys(obj).filter(function(x) { return obj[x][name]; });
+        if (name == "index" && options.noCompositeIndex) return cols.pop();
+        return cols.join(',');
     }
-
     var pool = this.getPool(table, options);
     var dbcols = pool.dbcolumns[table] || {};
 
@@ -1930,7 +1946,7 @@ db.sqlInsert = function(table, obj, options)
         // Pass number as number, some databases strict about this
         if (v && col.db_type == "number" && typeof v != "number") v = core.toNumber(v);
         names.push(p);
-        pnums.push(options.placeholder || ("$" + i));
+        pnums.push(options.sqlPlaceholder || ("$" + i));
         v = this.getBindValue(table, options, v, col);
         req.values.push(v);
         i++;
@@ -1964,7 +1980,7 @@ db.sqlUpdate = function(table, obj, options)
         if ((v === "null" || v === "") && ["number","json"].indexOf(col.db_type) > -1) v = null;
         // Pass number as number, some databases strict about this
         if (v && col.db_type == "number" && typeof v != "number") v = core.toNumber(v);
-        var placeholder = (options.placeholder || ("$" + i));
+        var placeholder = (options.sqlPlaceholder || ("$" + i));
         // Update only if the value is null, otherwise skip
         if (options.coalesce && options.coalesce.indexOf(p) > -1) {
             sets.push(p + "=COALESCE(" + p + "," + placeholder + ")");
@@ -2221,7 +2237,7 @@ db.mysqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "mysql";
-    options.dboptions = { typesMap: { json: "text", bigint: "bigint" }, placeholder: "?", defaultType: "VARCHAR(128)", noIfExists: 1, noJson: 1, noMultiSQL: 1 };
+    options.dboptions = { typesMap: { json: "text", bigint: "bigint" }, sqlPlaceholder: "?", defaultType: "VARCHAR(128)", noIfExists: 1, noJson: 1, noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
     pool.connect = self.mysqlConnect;
     pool.cacheIndexes = self.mysqlCacheIndexes;
@@ -2395,7 +2411,7 @@ db.dynamodbInitPool = function(options)
             }
             // If we have other key columns we have to use custom filter
             var keys = options.keys && options.keys.length ? options.keys : null;
-            var other = (keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && obj[x] });
+            var other = (keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && typeof obj[x] != "undefined" });
             // Query based on the keys
             keys = self.getSearchQuery(table, obj, { keys: keys || dbkeys });
             // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering
@@ -2634,6 +2650,7 @@ db.mongodbInitPool = function(options)
             options.fields = (fields || Object.keys(dbcols)).reduce(function(x,y) { x[y] = 1; return x }, {});
             if (options.start) options.skip = options.start;
             if (options.count) options.limit = options.count;
+            if (typeof options.sort == "string") options.sort = [[options.sort,options.desc ? -1 : 1]];
             var o = {};
             for (var p in obj) {
                 if (p[0] == '_') continue;
@@ -2707,7 +2724,6 @@ db.mongodbInitPool = function(options)
             var collection = client.collection(table);
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, dbcols); } });
             collection.insert(o, options, function(err, rc) {
-                console.log(rc)
                 callback(err, []);
             });
             break;
@@ -2765,7 +2781,7 @@ db.cassandraInitPool = function(options)
     if (!options.pool) options.pool = "cassandra";
     options.dboptions = { typesMap: { json: "text", real: "double", counter: "counter" },
                           opsMap: { begins_with: "begins_with" },
-                          placeholder: "?",
+                          sqlPlaceholder: "?",
                           noCoalesce: 1,
                           noConcat: 1,
                           noDefaults: 1,
@@ -2773,6 +2789,7 @@ db.cassandraInitPool = function(options)
                           noLengths: 1,
                           noReplace: 1,
                           noJson: 1,
+                          noCompositeIndex: 1,
                           noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
     pool.connect = self.cassandraConnect;

@@ -133,9 +133,9 @@ Before the tables can be queried the schema must be defined and created, the bac
   necessary, all new columns will be detected and the database tables updated accordingly. And it is all Javascript, no need to learn one more language or syntax
   to maintain database tables.
 
-Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hidning all specific, it just provides the same
+Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics, it just provides the same
 API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range key, so when creating table to be used with DynamoDB, only
-one or two columns can be marked with primary property while for SQL databases the composite primary key can conisist more than 2 columns.
+one or two columns can be marked with primary property while for SQL databases the composite primary key can conisit of more than 2 columns.
 
 # API endpoints provided by the backend
 
