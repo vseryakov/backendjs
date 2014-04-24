@@ -39,7 +39,11 @@
 </ul>
 </li>
 <li><a href="#the-backend-provisioning-utility-rc-backend"> The backend provisioning utility: rc.backend</a></li>
-<li><a href="#deployment-use-cases"> Deployment use cases</a></li>
+<li><a href="#deployment-use-cases"> Deployment use cases</a><ul>
+<li><a href="#aws-instance-setup"> AWS instance setup</a></li>
+<li><a href="#configure-http-port"> Configure HTTP port</a></li>
+</ul>
+</li>
 <li><a href="#security"> Security</a></li>
 <li><a href="#backend-framework-development-mac-os-x-developers-"> Backend framework development (Mac OS X, developers)</a></li>
 <li><a href="#author"> Author</a></li>
@@ -66,7 +70,7 @@
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Local jobs are executed by spawned processes</li>
 <li>Supports several cache modes(Redis, memcached, local cache) for the database operations.</li>
-<li>Supports several PUB/SUB modes of operatios using nanomsg, Redis, RabbitMQ.</li>
+<li>Supports several PUB/SUB modes of operatios using nanomsg, Redis.</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
 <li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
 <li>nanomsg interface for messaging between processes and servers.</li>
@@ -77,16 +81,10 @@
 <h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
 <p>The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.</p>
-<p>The list of optional packages that the backendjs may use if available, resolving packages is done by pkg-config:</p>
+<p>The optional packages that the backendjs may use if available, resolving packages is done with pkg-config:</p>
 <ul>
-<li>nanomsg - messaging, caching and pub/sub services, this package is not in the repisotories so manual installation<pre><code> may require or the backendjs will do it during the installaton automatically
-</code></pre></li>
-<li>ImageMagick - image manipulation with optional dependencies, will be compiled if not installed already:<ul>
-<li>jpeg - for regular JPEG format</li>
-<li>tiff - image format</li>
-<li>rsvg - image format</li>
-</ul>
-</li>
+<li>nanomsg - messaging, caching and pub/sub services</li>
+<li>ImageMagick - image manipulation</li>
 <li>libpq - PostgreSQL database driver</li>
 <li>libmysql - MySQL database driver</li>
 </ul>
@@ -100,11 +98,16 @@ on the system before installing the backendjs. Not everything is required, if no
 <pre><code>    npm install backendjs
 </code></pre><p>To force internal nanomsg and ImageMagick to be compiled the following command must be used:</p>
 <pre><code>    npm install backendjs --backend_deps_force
-</code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg and LevelDB. They are not required in all
+</code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
 <h1 id="quick-start">Quick start</h1>
 <ul>
-<li><p>Run default backend without any custom extensions, by default it will use embedded Sqlite database and listen on port 8000</p>
+<li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
+<pre><code>  # node
+  &gt; var bk = require(&#39;backendjs&#39;)
+  &gt; bk.server.start()
+</code></pre></li>
+<li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
 <pre><code>  rc.backend run-backend
 </code></pre></li>
 <li><p>Documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
@@ -1181,42 +1184,44 @@ On startup the rc.backend tries to load and source the following config files:</
 customize the running environment, these should be regular shell scripts using bash syntax.</p>
 <p>Most common used commands are:</p>
 <ul>
-<li>rc.backend run-backend - run the backend or the app for development purposes</li>
+<li>rc.backend run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
 <li>rc.backend run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
 <li>rc.backend init-app - create the app skeleton</li>
-<li>rc.backend put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line</li>
+<li>rc.backend put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only</li>
 <li>rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend</li>
 </ul>
-<p>Here is the typical example how to setup new AWS server:</p>
+<h1 id="deployment-use-cases">Deployment use cases</h1>
+<h2 id="aws-instance-setup">AWS instance setup</h2>
+<p>Here is the typical example how to setup new AWS server, it is not required and completely optional but rc.backend provies some helpful commands that may simplify
+new image configuration.</p>
 <ul>
-<li>start new AWS instance via AWS console, use Amazon Linuxc or CentOS 6</li>
+<li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
 <li>copy rc.backend to the <code>ec2-user</code> home directory of the new instance</li>
 <li>login as <code>ec2-user</code></li>
 <li>run <code>sudo ./rc.backend setup-server</code><ul>
-<li>optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory, for production servers having everything in the
-hidden dor folder is not very effective</li>
-<li>for example this command: <code>sudo ./rc.backend setup-server -root /home/backend</code></li>
-<li>all backend files now are in the home of the backend user which is very convenient</li>
+<li>optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory</li>
+<li>for example this command: <code>sudo ./rc.backend setup-server -root /home/backend</code> will make all backend files in the home of the backend user which is very convenient and easy to support</li>
 </ul>
 </li>
-<li>now the instance is ready to run the backend, global system-wide options can be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables,
-if not set the defaults will be used.</li>
+<li>global system-wide options are defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</li>
 <li>reboot</li>
 <li>login as <code>backend</code> user using the AWS keypair private key</li>
+<li>run <code>ps agx</code>, it should show several backend processes running</li>
+<li>try to access the instance via HTTP port for the API console or documentation</li>
 </ul>
-<h1 id="deployment-use-cases">Deployment use cases</h1>
-<p>The first thing when deploying the backnd into production is to change API port, by default is is 800, but we would want port 80 so regardless
-how the environment is setup it is ultimatley 2 way to specify the port for HTTP server to use:</p>
+<h2 id="configure-http-port">Configure HTTP port</h2>
+<p>The first thing when deploying the backend into production is to change API HTTP port, by default is is 8000, but we would want port 80 so regardless
+how the environment is setup it is ultimatley 2 ways to specify the port for HTTP server to use:</p>
 <ul>
 <li><p>config file</p>
 <p>The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
 defined via command line arguments as <code>-home</code> or via environment variables when using rc.backend. See rc.backend documentation but on AWS instances created with rc.backend
-<code>setup-server</code> command, for non-standard home use <code>/etc/backendrc</code> profile, specify <code>BACKEND_HOME=/home/backend</code> there and the rest will be takedn care of</p>
+<code>setup-server</code> command, for non-standard home use <code>/etc/backendrc</code> profile, specify <code>BACKEND_HOME=/home/backend</code> there and the rest will be taken care of</p>
 </li>
 <li><p>command line arguments</p>
 <p>When running node scripts which use the backend, just specify <code>-home</code> command line argument with the directory where yor backend should be and the backend will use it</p>
 <p>Example:</p>
-<pre><code>  node test_backend.js -home $HOME
+<pre><code>  node test_backend.js -home $HOME -port 80
 </code></pre></li>
 </ul>
 <h1 id="security">Security</h1>
