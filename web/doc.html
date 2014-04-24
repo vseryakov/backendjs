@@ -173,9 +173,9 @@ necessary, all new columns will be detected and the database tables updated acco
 to maintain database tables.</p>
 </li>
 </ul>
-<p>Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hidning all specific, it just provides the same
+<p>Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics, it just provides the same
 API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range key, so when creating table to be used with DynamoDB, only
-one or two columns can be marked with primary property while for SQL databases the composite primary key can conisist more than 2 columns.</p>
+one or two columns can be marked with primary property while for SQL databases the composite primary key can conisit of more than 2 columns.</p>
 <h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
 <h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
@@ -3215,16 +3215,24 @@ after all records are received from the database using has,range combination.</p
 <li>inserted_oid - last created auto generated id</li>
 <li>next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query</li>
 </ul>
-<p>Example: (allow all accounts icons to be visible)</p>
-<pre><code>    db.select(&quot;bk_account&quot;, {}, function(err, rows) {
-        rows.forEach(function(row) {
-            row.acl_allow = &#39;auth&#39;;
-            db.update(&quot;bk_icon&quot;, row);
-        });
+<p>Example: get 2 records by primary key, refer above for default table definitions</p>
+<pre><code>    db.select(&quot;bk_message&quot;, { id: myid }, { count: 2 }, function(err, rows) {
+
     });
 </code></pre></li>
 </ul>
-<p>  Example: (select account with custom filter, not primary key)</p>
+<p>  Example: get unread msgs sorted by time, recent first</p>
+<pre><code>      db.select(&quot;bk_message&quot;, { id: myid, status: &#39;N:&#39; }, { sort: &quot;status&quot;, desc: 1, ops: { status: &quot;begins_with&quot; } }, function(err, rows) {
+
+      });
+</code></pre><p>  Example: allow all accounts icons to be visible</p>
+<pre><code>      db.select(&quot;bk_account&quot;, {}, function(err, rows) {
+          rows.forEach(function(row) {
+              row.acl_allow = &#39;auth&#39;;
+              db.update(&quot;bk_icon&quot;, row);
+          });
+      });
+</code></pre><p>  Example: scan accounts with custom filter, not by primary key</p>
 <pre><code>  db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, { keys: [&#39;gender&#39;] }, function(err, rows) {
           ....
   });
@@ -3679,6 +3687,7 @@ options may contain the following properties:</p>
 <li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
 <li>noLengths - ignore column length for columns (Cassandra)</li>
 <li>noIfExists - do not support IF EXISTS on table or indexes</li>
+<li>noCompositeIndex - does not support composite indexes (Cassandra)</li>
 <li>noauto - no support for auto increment columns</li>
 </ul>
 </li>
