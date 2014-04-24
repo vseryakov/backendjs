@@ -32,11 +32,11 @@ The optional packages that the backendjs may use if available, resolving package
 - libpq - PostgreSQL database driver
 - libmysql - MySQL database driver
 
-Installing on CentOS:
+Installing dependencies on CentOS:
 
         yum -y install libpng-devel libjpeg-turbo-devel postgresql-devel mysql-devel
 
-Installing on Mac OS X using macports:
+Installing dependencies on Mac OS X using macports:
 
         port install libpng jpeg tiff mysql56 postgresql93
 

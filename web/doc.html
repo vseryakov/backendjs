@@ -88,9 +88,9 @@ on the system before installing the backendjs. Not everything is required, if no
 <li>libpq - PostgreSQL database driver</li>
 <li>libmysql - MySQL database driver</li>
 </ul>
-<p>Installing on CentOS:</p>
+<p>Installing dependencies on CentOS:</p>
 <pre><code>    yum -y install libpng-devel libjpeg-turbo-devel postgresql-devel mysql-devel
-</code></pre><p>Installing on Mac OS X using macports:</p>
+</code></pre><p>Installing dependencies on Mac OS X using macports:</p>
 <pre><code>    port install libpng jpeg tiff mysql56 postgresql93
 </code></pre><h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
@@ -3215,14 +3215,18 @@ after all records are received from the database using has,range combination.</p
 <li>inserted_oid - last created auto generated id</li>
 <li>next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query</li>
 </ul>
-<p>Example: get 2 records by primary key, refer above for default table definitions</p>
-<pre><code>    db.select(&quot;bk_message&quot;, { id: myid }, { count: 2 }, function(err, rows) {
+<p>Example: get by primary key, refer above for default table definitions</p>
+<pre><code>    db.select(&quot;bk_message&quot;, { id: &#39;123&#39; }, { count: 2 }, function(err, rows) {
 
     });
 </code></pre></li>
 </ul>
-<p>  Example: get unread msgs sorted by time, recent first</p>
-<pre><code>      db.select(&quot;bk_message&quot;, { id: myid, status: &#39;N:&#39; }, { sort: &quot;status&quot;, desc: 1, ops: { status: &quot;begins_with&quot; } }, function(err, rows) {
+<p>  Example: get all icons with type greater or equal to 2</p>
+<pre><code>      db.select(&quot;bk_icon&quot;, { id: &#39;123&#39;, type: &#39;2&#39; }, { select: &#39;id,type&#39;, ops: { type: &#39;ge&#39; } }, function(err, rows) {
+
+      });
+</code></pre><p>  Example: get unread msgs sorted by time, recent first</p>
+<pre><code>      db.select(&quot;bk_message&quot;, { id: &#39;123&#39;, status: &#39;N:&#39; }, { sort: &quot;status&quot;, desc: 1, ops: { status: &quot;begins_with&quot; } }, function(err, rows) {
 
       });
 </code></pre><p>  Example: allow all accounts icons to be visible</p>
@@ -3233,9 +3237,9 @@ after all records are received from the database using has,range combination.</p
           });
       });
 </code></pre><p>  Example: scan accounts with custom filter, not by primary key</p>
-<pre><code>  db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, { keys: [&#39;gender&#39;] }, function(err, rows) {
-          ....
-  });
+<pre><code>      db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, { keys: [&#39;gender&#39;] }, function(err, rows) {
+
+      });
 </code></pre>
 <ul>
 <li><p><code>db.list(table, obj, options, callback)</code></p>
@@ -3248,7 +3252,7 @@ db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { conso
 
 <ul>
 <li><p><code>db.scan(table, obj, options, rowCallback, callback)</code></p>
-<p> Convenient helpr for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
+<p> Convenient helper for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
 records matching given criteria. The obj is the same as passed to the <code>db.select</code> method which defined a condition which records to get.
 The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
 once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
@@ -3335,7 +3339,11 @@ Options can use the following special properties:</p>
 <li>op - operators to use for comparison for properties, see <code>db.select</code></li>
 <li>cached - if specified it runs getCached version</li>
 </ul>
-</li>
+<p>Example</p>
+<pre><code>    db.get(&quot;bk_account&quot;, { id: &#39;12345&#39; }, function(err, rows) {
+       if (rows.length) console.log(rows);
+    });
+</code></pre></li>
 </ul>
 
 <ul>

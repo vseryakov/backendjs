@@ -608,16 +608,23 @@ db.replace = function(table, obj, options, callback)
 // - inserted_oid - last created auto generated id
 // - next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query
 //
-//  Example: get 2 records by primary key, refer above for default table definitions
+//  Example: get by primary key, refer above for default table definitions
 //
-//          db.select("bk_message", { id: myid }, { count: 2 }, function(err, rows) {
+//          db.select("bk_message", { id: '123' }, { count: 2 }, function(err, rows) {
+//
+//          });
+//
+//
+//  Example: get all icons with type greater or equal to 2
+//
+//          db.select("bk_icon", { id: '123', type: '2' }, { select: 'id,type', ops: { type: 'ge' } }, function(err, rows) {
 //
 //          });
 //
 //
 //  Example: get unread msgs sorted by time, recent first
 //
-//          db.select("bk_message", { id: myid, status: 'N:' }, { sort: "status", desc: 1, ops: { status: "begins_with" } }, function(err, rows) {
+//          db.select("bk_message", { id: '123', status: 'N:' }, { sort: "status", desc: 1, ops: { status: "begins_with" } }, function(err, rows) {
 //
 //          });
 //
@@ -634,9 +641,9 @@ db.replace = function(table, obj, options, callback)
 //
 //  Example: scan accounts with custom filter, not by primary key
 //
-//      db.select("bk_account", { gender: 'f' }, { keys: ['gender'] }, function(err, rows) {
-//              ....
-//      });
+//          db.select("bk_account", { gender: 'f' }, { keys: ['gender'] }, function(err, rows) {
+//
+//          });
 //
 db.select = function(table, obj, options, callback)
 {
@@ -669,7 +676,7 @@ db.list = function(table, obj, options, callback)
     this.select(table, obj, options, callback);
 }
 
-// Convenient helpr for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
+// Convenient helper for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
 // records matching given criteria. The obj is the same as passed to the `db.select` method which defined a condition which records to get.
 // The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
 // once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
@@ -896,6 +903,13 @@ db.getLocations = function(table, options, callback)
 //  - select - a list of columns or expressions to return, default is to return all columns
 //  - op - operators to use for comparison for properties, see `db.select`
 //  - cached - if specified it runs getCached version
+//
+// Example
+//
+//          db.get("bk_account", { id: '12345' }, function(err, rows) {
+//             if (rows.length) console.log(rows);
+//          });
+//
 db.get = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
