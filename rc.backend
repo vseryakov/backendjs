@@ -558,7 +558,15 @@ case "$ARG" in
     ;;
 
   get-mongodb)
-    curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-osx-x86_64-2.6.0.tgz
+    case "$PLATFORM" in
+     Darwin)
+       OS=osx
+       ;;
+     Linux)
+       OS=linux
+       ;;
+    esac
+    curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-2.6.0.tgz
     tar -C $BACKEND_PREFIX/bin --strip-components=1 -xzf mongo.tar.gz '*/bin/*'
     rm -rf mongo.tar.gz
     ;;

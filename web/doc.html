@@ -1192,11 +1192,17 @@ customize the running environment, these should be regular shell scripts using b
 <li>start new AWS instance via AWS console, use Amazon Linuxc or CentOS 6</li>
 <li>copy rc.backend to the <code>ec2-user</code> home directory of the new instance</li>
 <li>login as <code>ec2-user</code></li>
-<li>run <code>sudo ./rc.backend setup-server</code></li>
+<li>run <code>sudo ./rc.backend setup-server</code><ul>
+<li>optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory, for production servers having everything in the
+hidden dor folder is not very effective</li>
+<li>for example this command: <code>sudo ./rc.backend setup-server -root /home/backend</code></li>
+<li>all backend files now are in the home of the backend user which is very convenient</li>
+</ul>
+</li>
 <li>now the instance is ready to run the backend, global system-wide options can be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables,
 if not set the defaults will be used.</li>
 <li>reboot</li>
-<li>login as <code>backend</code> user now using the AWS keypair private key</li>
+<li>login as <code>backend</code> user using the AWS keypair private key</li>
 </ul>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <p>The first thing when deploying the backnd into production is to change API port, by default is is 800, but we would want port 80 so regardless

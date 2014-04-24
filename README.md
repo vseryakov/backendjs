@@ -1235,10 +1235,14 @@ Here is the typical example how to setup new AWS server:
 - copy rc.backend to the `ec2-user` home directory of the new instance
 - login as `ec2-user`
 - run `sudo ./rc.backend setup-server`
+  - optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory, for production servers having everything in the
+    hidden dor folder is not very effective
+  - for example this command: `sudo ./rc.backend setup-server -root /home/backend`
+  - all backend files now are in the home of the backend user which is very convenient
 - now the instance is ready to run the backend, global system-wide options can be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables,
   if not set the defaults will be used.
 - reboot
-- login as `backend` user now using the AWS keypair private key
+- login as `backend` user using the AWS keypair private key
 
 # Deployment use cases
 
