@@ -369,17 +369,17 @@ db.query = function(req, options, callback)
             var t1 = Date.now();
             var m1 = pool.metrics.Timer('response').start();
             pool.next_token = client.next_token = null;
-            pool.query(client, req, options, function(err2, rows) {
+            pool.query(client, req, options, function(err, rows) {
                 pool.nextToken(req, rows, options);
                 var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
                 pool.free(client);
                 m1.end();
                 pool.metrics.Counter('count').dec();
-                if (err2) {
+                if (err) {
                     m2.end();
                     pool.metrics.Counter("errors").inc();
-                    logger.error("db.query:", pool.name, req.text, req.values, err2, options);
-                    return callback ? callback(err2, rows, info) : null;
+                    logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options);
+                    return callback ? callback(err, rows, info) : null;
                 }
                 // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
                 if (options && options.check_public) {
@@ -403,12 +403,12 @@ db.query = function(req, options, callback)
                     self.clearCached(req.table, req.obj, options);
                 }
                 m2.end();
-                logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', req.text, req.values || "", 'info:', info, 'options:', options);
+                logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
                 if (callback) callback(err, rows, info);
              });
         } catch(err) {
             pool.metrics.Counter("errors").inc();
-            logger.error("db.query:", pool.name, req.text, req.values, err, options, err.stack);
+            logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
             if (callback) callback(err, [], {});
         }
     });
@@ -596,7 +596,7 @@ db.replace = function(table, obj, options, callback)
 //      - page - starting page number for pagination, uses count to find actual record to start
 //
 // On return, the callback can check third argument which is an object with the following properties:
-// - affected_rows - how many records this operation affected
+// - affected_rows - how many records this operation affected, for add/put/update
 // - inserted_oid - last created auto generated id
 // - next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query
 //
@@ -867,11 +867,12 @@ db.getLocations = function(table, options, callback)
     });
 }
 
-// Retrieve one record from the database
+// Retrieve one record from the database by primary key, returns an array with found record or empty array
 // Options can use the following special properties:
-//  - keys - a list of columns for condition or all primary keys
-//  - select - a list of columns or expressions to return or *
-//  - op - operators to use for comparison for properties
+//  - keys - a list of columns to be used instead of primary keys, this can be useful in case of another
+//      unique index which is different than the primary key
+//  - select - a list of columns or expressions to return, default is to return all columns
+//  - op - operators to use for comparison for properties, see `db.select`
 //  - cached - if specified it runs getCached version
 db.get = function(table, obj, options, callback)
 {
@@ -1104,6 +1105,13 @@ db.getSearchKeys = function(table, options)
     var keys = options && options.keys ? options.keys : null;
     if (!keys || !keys.length) keys = this.getKeys(table, options);
     return keys || [];
+}
+
+// Return query object based on the keys specified in the options or primary keys for the table, only search properties
+// will be returned in the query object
+db.getSearchQuery = function(table, obj, options)
+{
+    return this.getSearchKeys(table, options).filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 }
 
 // Return possibly converted value to be used for inserting/updating values in the database,
@@ -2302,8 +2310,6 @@ db.dynamodbInitPool = function(options)
         var options = core.extendObj(opts, "db", pool.db);
         var dbcols = pool.dbcolumns[table] || {};
         var dbkeys = pool.dbkeys[table] || [];
-        // Primary keys
-        var primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
         switch(req.op) {
         case "create":
@@ -2342,41 +2348,45 @@ db.dynamodbInitPool = function(options)
             break;
 
         case "get":
+            var keys = self.getSearchQuery(table, obj);
             options.select = self.getSelectedColumns(table, options);
-            aws.ddbGetItem(table, primary_keys, options, function(err, item) {
+            aws.ddbGetItem(table, keys, options, function(err, item) {
                 callback(err, item.Item ? [item.Item] : []);
             });
             break;
 
         case "select":
         case "search":
-            // If we have other key columns we have to use custom filter
-            var keys = options.keys && options.keys.length ? options.keys : null;
-            var other = (keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && obj[x] });
             // Do not use index name if it is a primary key
             if (options.sort && dbkeys.indexOf(options.sort) > -1) options.sort = null;
             // Use primary keys from the local secondary index
             if (options.sort && pool.dbindexes[options.sort]) {
                 dbkeys = pool.dbindexes[options.sort];
-                primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             }
-            // Only primary key columns are allowed
-            keys = (keys || dbkeys).filter(function(x) { return other.indexOf(x) == -1 && obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            // If we have other key columns we have to use custom filter
+            var keys = options.keys && options.keys.length ? options.keys : null;
+            var other = (keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && obj[x] });
+            // Query based on the keys
+            keys = self.getSearchQuery(table, obj, { keys: keys || dbkeys });
+            // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering
+            var op = 'ddbScanTable';
+            if (dbkeys.sort().toString() == Object.keys(keys).filter(function(x) { return dbkeys.indexOf(x) > -1 }).sort().toString()) {
+                op = 'ddbQueryTable';
+                for (var p in keys) if (dbkeys.indexOf(p) == -1) delete keys[p];
+            }
+            // Custom filter function for in-memory filtering of the results using non-indexed properties
             var filter = function(items) {
-                if (other.length > 0) {
-                    if (!options.ops) options.ops = {};
-                    if (!options.typesMap) options.typesMap = {};
-                    // Keep rows which satisfy all conditions
-                    items = items.filter(function(row) {
-                        return other.every(function(k) {
-                            return core.isTrue(row[k], obj[k], options.ops[k], options.typesMap[k]);
-                        });
+                if (op != "ddbQueryTable" || !other.length) return items;
+                if (!options.ops) options.ops = {};
+                if (!options.typesMap) options.typesMap = {};
+                // Keep rows which satisfy all conditions
+                return items.filter(function(row) {
+                    return other.every(function(k) {
+                        return core.isTrue(row[k], obj[k], options.ops[k], options.typesMap[k]);
                     });
-                }
-                return items;
+                });
             }
             options.select = self.getSelectedColumns(table, options);
-            var op = Object.keys(keys).length && Object.keys(keys).sort().toString() == Object.keys(primary_keys).sort().toString() ? 'ddbQueryTable' : 'ddbScanTable';
             aws[op](table, keys, options, function(err, item) {
                 if (err) return callback(err, []);
                 var count = options.count || 0;
@@ -2446,22 +2456,22 @@ db.dynamodbInitPool = function(options)
             break;
 
         case "update":
-            options.expected = primary_keys;
-
         case "incr":
-            // Skip special columns, primary key columns. If we have specific list of allowed columns only keep those.
+            var keys = self.getSearchQuery(table, obj);
             // Keep nulls and empty strings, it means we have to delete this property.
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return primary_keys[n] || self.skipColumn(n, v, options, dbcols); }, _empty_to_null: 1 });
+            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return self.skipColumn(n, v, options, dbcols); }, _empty_to_null: 1 });
             // Increment counters, only specified columns will use ADD operation, they must be numbers
             if (!options.ops) options.ops = {};
             if (options.counter) options.counter.forEach(function(x) { options.ops[x] = 'ADD'; });
-            aws.ddbUpdateItem(table, primary_keys, o, options, function(err, rc) {
+            if (req.op == "update") options.expected = keys;
+            aws.ddbUpdateItem(table, keys, o, options, function(err, rc) {
                 callback(err, []);
             });
             break;
 
         case "del":
-            aws.ddbDeleteItem(table, primary_keys, options, function(err, rc) {
+            var keys = self.getSearchQuery(table, obj);
+            aws.ddbDeleteItem(table, keys, options, function(err, rc) {
                 callback(err, []);
             });
             break;
@@ -2522,7 +2532,7 @@ db.mongodbInitPool = function(options)
             });
         });
     }
-    pool.getKeys = function(obj, name) {
+    pool.getProps = function(obj, name) {
         return Object.keys(obj).filter(function(x, i) { return obj[x][name] }).map(function(x, i) { return x }).reduce(function(x,y) { x[y] = 1; return x }, {})
     }
     pool.query = function(client, req, opts, callback) {
@@ -2534,19 +2544,17 @@ db.mongodbInitPool = function(options)
         var dbkeys = pool.dbkeys[table] || [];
         // Default write concern
         if (!options.w) options.w = 1;
-        // Primary keys
-        var primary_keys = dbkeys.filter(function(x) { return obj[x] }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
         switch(req.op) {
         case "create":
         case "upgrade":
             var keys = [];
-            keys.push({ cols: pool.getKeys(obj, 'primary'), opts: { unique: true, background: true, w: options.w } });
+            keys.push({ cols: pool.getProps(obj, 'primary'), opts: { unique: true, background: true, w: options.w } });
 
             ["", "1", "2"].forEach(function(n) {
-                var cols = pool.getKeys(obj, "unique" + n);
+                var cols = pool.getProps(obj, "unique" + n);
                 if (Object.keys(cols).length) keys.push({ cols: cols, opts: { name: Object.keys(cols).join('.'), unique: true, background: true, w: options.w } });
-                cols = pool.getKeys(obj, "index" + n);
+                cols = pool.getProps(obj, "index" + n);
                 if (Object.keys(cols).length) keys.push({ cols: cols, opts: { name: Object.keys(cols).join('.'), background: true, w: options.w } });
             });
 
@@ -2574,8 +2582,8 @@ db.mongodbInitPool = function(options)
             var collection = client.collection(table);
             var fields = self.getSelectedColumns(table, options);
             options.fields = (fields || Object.keys(dbcols)).reduce(function(x,y) { x[y] = 1; return x }, {});
-            collection.findOne(obj, options, function(err, item) {
-                logger.log('get:', options, item)
+            var keys = self.getSearchQuery(table, obj, options);
+            collection.findOne(keys, options, function(err, item) {
                 callback(err, item ? [item] : []);
             });
             break;
@@ -2585,32 +2593,74 @@ db.mongodbInitPool = function(options)
             var collection = client.collection(table);
             var fields = self.getSelectedColumns(table, options);
             options.fields = (fields || Object.keys(dbcols)).reduce(function(x,y) { x[y] = 1; return x }, {});
-            collection.find(obj, options, function(err, rows) {
+            if (options.start) options.skip = options.start;
+            if (options.count) options.limit = options.count;
+            var o = {};
+            for (var p in obj) {
+                if (p[0] == '_') continue;
+                switch (options.ops ? options.ops[p] : "") {
+                case "regexp":
+                    o[p] = { '$regex': obj[p] };
+                    break;
+
+                case "between":
+                    var val = core.strSplit(obj[p]);
+                    if (val.length == 2) {
+                        o[p] = { '$gte': val[0], '$lte': val[1] };
+                    } else {
+                        o[p] = obj[p];
+                    }
+                    break;
+
+                case "like%":
+                case "begins_with":
+                    o[p] = { '$regex': "^" + obj[p] };
+                    break;
+
+                case "in":
+                    if (!o['$in']) o['$in'] = {};
+                    o['$in'][p] = core.strSplit(obj[p]);
+                    break;
+
+                case ">":
+                case "gt":
+                    o[p] = { '$gt': obj[p] };
+                    break;
+
+                case "<":
+                case "lt":
+                    o[p] = { '$lt': obj[p] };
+                    break;
+
+                case ">=":
+                case "ge":
+                    o[p] = { '$gte': obj[p] };
+                    break;
+
+                case "<=":
+                case "le":
+                    o[p] = { '$lte': obj[p] };
+                    break;
+
+                default:
+                    o[p] = obj[p];
+                }
+            }
+            collection.find(o, options).toArray(function(err, rows) {
                 callback(err, rows);
             });
             break;
 
         case "list":
-            var req = {};
-            req[table] = { keys: obj, select: self.getSelectedColumns(table, options), consistent: options.consistent };
-            aws.ddbBatchGetItem(req, options, function(err, item) {
-                if (err) return callback(err, []);
-                // Keep retrieving items until we get all items
-                var moreKeys = item.UnprocessedKeys || null;
-                var items = item.Responses[table] || [];
-                async.until(
-                    function() {
-                        return moreKeys;
-                    },
-                    function(next) {
-                        options.RequestItems = moreKeys;
-                        aws.ddbBatchGetItem({}, options, function(err, item) {
-                            items.push.apply(items, item.Responses[table] || []);
-                            next(err);
-                        });
-                }, function(err) {
-                    callback(err, items);
-                });
+            var collection = client.collection(table);
+            var fields = self.getSelectedColumns(table, options);
+            options.fields = (fields || Object.keys(dbcols)).reduce(function(x,y) { x[y] = 1; return x }, {});
+            var name = Object.keys(obj[0])[0];
+            var o = {};
+            o[name] = {};
+            o[name]['$in'] = obj.map(function(x) { return x[name] } );
+            collection.find(o, options).toArray(function(err, rows) {
+                callback(err, rows);
             });
             break;
 
@@ -2618,7 +2668,7 @@ db.mongodbInitPool = function(options)
             var collection = client.collection(table);
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, options, dbcols); } });
             collection.insert(o, options, function(err, rc) {
-                logger.log('add:', o, options);
+                console.log(rc)
                 callback(err, []);
             });
             break;
@@ -2628,29 +2678,32 @@ db.mongodbInitPool = function(options)
 
         case "update":
             var collection = client.collection(table);
+            var keys = self.getSearchQuery(table, obj, options);
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return self.skipColumn(n, v, options, dbcols); } });
-            collection.update(primary_keys, o, options, function(err, rc) {
-                logger.log('put:', o, options);
+            collection.update(keys, o, options, function(err, rc) {
                 callback(err, []);
             });
             break;
 
         case "incr":
             var collection = client.collection(table);
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return primary_keys[n] || self.skipColumn(n, v, options, dbcols); }, _empty_to_null: 1 });
+            var keys = self.getSearchQuery(table, obj, options);
+            var o = { '$inc': {} };
             if (options.counter) {
-                o['$inc'] = {};
-                options.counter.forEach(function(x) { o['$inc'][x] = o[x]; delete o[x]; });
+                options.counter.forEach(function(x) {
+                    if (!keys[x]) o['$inc'][x] = core.toNumber(o[x]);
+                    delete o[x];
+                });
             }
-            collection.update(primary_keys, o, options, function(err, rc) {
-                logger.log('incr:', o, options);
+            collection.update(keys, o, options, function(err, rc) {
                 callback(err, []);
             });
             break;
 
         case "del":
             var collection = client.collection(table);
-            collection.remove(primary_keys, options, function(err, rc) {
+            var keys = self.getSearchQuery(table, obj, options);
+            collection.remove(keys, options, function(err, rc) {
                 callback(err, []);
             });
             break;
@@ -2659,6 +2712,9 @@ db.mongodbInitPool = function(options)
             callback(new Error("invalid op"), []);
         }
     };
+    pool.nextToken = function(req, rows, opts) {
+        if (opts.count && rows.length == opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
+    }
     return pool;
 }
 

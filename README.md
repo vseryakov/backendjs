@@ -5,7 +5,7 @@ General purpose backend framework.
 Features:
 
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
-* Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, LMDB databases, easily extendable to support any kind of database.
+* Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB databases, easily extendable to support any kind of database.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
 * Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.

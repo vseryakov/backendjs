@@ -34,11 +34,12 @@ case "$PLATFORM" in
   Darwin)
     OS_TYPE=macosx
     [ "$BACKEND_PREFIX" = "" ] && BACKEND_PREFIX=/opt/local
-    [ "$PG_PREFIX" = "" ] && PG_PREFIX=$BACKEND_PREFIX/lib/postgresql93 && PG_DIR=$BACKEND_PREFIX/var/db/postgres && PG_LIBDIR=$PG_PREFIX
-    [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=$BACKEND_PREFIX/lib/mysql56 && MYSQL_DIR=$BACKEND_PREFIX/var/db/mysql56
+    [ "$PG_PREFIX" = "" ] && PG_PREFIX=$BACKEND_PREFIX/lib/postgresql93 && PG_LIBDIR=$PG_PREFIX
+    [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=$BACKEND_PREFIX/lib/mysql56
+    BACKEND_USER=`whoami`
     KILLALL="killall -m"
     ECHO=echo
-    SED="sed -i ''"
+    SED="sed -i .orig"
     ;;
 
   *)
@@ -357,7 +358,7 @@ case "$ARG" in
     # Install required packages and utilities
     yum -y install gcc-c++ make cmake autoconf automake libtool
     yum -y install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
-    yum -y install jasper libpng-devel openjpeg-devel libjpeg-turbo-devel librsvg2-devel
+    yum -y install libpng-devel libjpeg-turbo-devel librsvg2-devel
     yum -y install postgresql93-devel postgresql93-server mysql-devel mysql-server
 
     ;;
@@ -536,14 +537,14 @@ case "$ARG" in
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
         tar -C $CASSANDRA_PREFIX --strip-components=1 -xzf dsc.tar.gz
         rm -rf dsc.tar.gz
-        $SED "s|/var/lib/cassandra/|$CASSANDRA_DIR/var/|g" $CASSANDRA_PREFIX/conf/*
-        $SED "s|/var/log/cassandra/|$CASSANDRA_DIR/log/|g" $CASSANDRA_PREFIX/conf/*
+        $SED "s|/var/lib/cassandra/|$CASSANDRA_DIR/var/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
+        $SED "s|/var/log/cassandra/|$CASSANDRA_DIR/log/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
         chown -R $BACKEND_USER $CASSANDRA_DIR $CASSANDRA_PREFIX
     fi
     ;;
 
   init-cassandra)
-    ($0 run-cdb)
+    ($0 run-cassandra)
     echo "CREATE KEYSPACE BACKEND WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
     $CASSANDRA_PREFIX/bin/cqlsh -f /tmp/cql
     ;;
@@ -843,11 +844,11 @@ backend.server.start();
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
     echo "  get-dynamodb - install local DynamoDB server in $BACKEND_PREFIX/dynamodb"
-    echo "  run-dynamodb - run local DynamoDB server installed in $BACKEND_PREFIX/dynamodb"
+    echo "  run-dynamodb - run local DynamoDB server installed in $BACKEND_PREFIX/dynamodb, data files in $BACKEND_ROOT/var"
     echo "  stop-dynamodb - stop local DynamoDB server"
-    echo "  get-cassandra - install Cassandra server in $BACKEND_PREFIX/cassandra"
-    echo "  init-cassandra - download Cassandra server and create backend keyspace"
-    echo "  run-cassandra - run local Cassandra server installed in $BACKEND_PREFIX/cassandra"
+    echo "  get-cassandra - download and install Cassandra server in $CASSANDRA_PREFIX"
+    echo "  init-cassandra - init Cassandra server and create backend keyspace"
+    echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
     echo "  stop-cassandra - stop local Cassandra server"
     echo "  init-mysql - init local MySQL server for development and create backend database"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"

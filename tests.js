@@ -522,7 +522,7 @@ tests.db = function(callback)
 	    function(next) {
             logger.log('TEST: select columns2');
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-                next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2 ? ("err8:" + err + util.inspect(rows)) : 0);
+                next(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2 ? ("err8-1:" + err + util.inspect(rows)) : 0);
             });
         },
 	    function(next) {
@@ -586,6 +586,18 @@ tests.db = function(callback)
 	        logger.log('TEST: end page: next_token=', next_token);
 	        next(next_token ? ("err13:" + util.inspect(next_token)) : 0);
 	    },
+	    function(next) {
+            logger.log('TEST: query with custom filter');
+            db.select("test2", { id: id, id2: '1', num: 9 }, { keys: ['id','id2','num'], ops: { num: 'ge' } }, function(err, rows, info) {
+                next(err || rows.length==0 || rows[0].num!=9 ? ("err13:" + err + util.inspect(rows, info)) : 0);
+            });
+        },
+        function(next) {
+            logger.log('TEST: scan');
+            db.select("test2", { num: 9 }, { keys: ['num'], ops: { num: 'ge' } }, function(err, rows, info) {
+                next(err || rows.length==0 || rows[0].num!=9 ? ("err13:" + err + util.inspect(rows, info)) : 0);
+            });
+        },
 	],
 	function(err) {
 		callback(err);
