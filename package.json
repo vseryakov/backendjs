@@ -4,7 +4,6 @@
   "name": "backendjs",
   "description": "Backend.js framework",
   "main": "index",
-  "preferGlobal": "true",
   "homepage": "https://github.com/vseryakov/backendjs",
   "repository": {
     "type": "git",
