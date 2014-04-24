@@ -156,7 +156,6 @@ case "$ARG" in
        ln -s $NODE_PATH
        echo "StrictHostKeyChecking no" >> .ssh/config
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys .ssh
-       $ECHO -e "global = true\ncolor = false\n" > .npmrc
        echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
        echo 'alias blog="tail -100 $BACKEND_ROOT/log/backend.log"' >> .bashrc
        echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> .bashrc
@@ -678,7 +677,7 @@ case "$ARG" in
     if [ ! -d deps/node ]; then
        mkdir -p deps
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
-       $ECHO "global=true\ncolor=false\nnodedir=\${HOME}/deps/node" > $HOME/.npmrc
+       npm config set nodedir "$(pwd)/deps/node"
     fi
     (cd deps/node && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX)
     (cd deps/node && git pull && make install clean)
