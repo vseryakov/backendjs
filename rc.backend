@@ -356,7 +356,7 @@ case "$ARG" in
     esac
 
     # Install required packages and utilities
-    yum -y install gcc-c++ make cmake autoconf automake libtool
+    yum -y install gcc-c++ make cmake28 autoconf automake libtool
     yum -y install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
     yum -y install libpng-devel libjpeg-turbo-devel librsvg2-devel
     yum -y install postgresql93-devel postgresql93-server mysql-devel mysql-server
