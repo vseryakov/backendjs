@@ -59,7 +59,7 @@
 <p>Features:</p>
 <ul>
 <li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
-<li>Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, LMDB databases, easily extendable to support any kind of database.</li>
+<li>Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB databases, easily extendable to support any kind of database.</li>
 <li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.</li>
 <li>Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
@@ -3197,7 +3197,7 @@ after all records are received from the database using has,range combination.</p
 </ul>
 <p>On return, the callback can check third argument which is an object with the following properties:</p>
 <ul>
-<li>affected_rows - how many records this operation affected</li>
+<li>affected_rows - how many records this operation affected, for add/put/update</li>
 <li>inserted_oid - last created auto generated id</li>
 <li>next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query</li>
 </ul>
@@ -3304,12 +3304,13 @@ the next_token returned by the previous call</p>
 
 <ul>
 <li><p><code>db.get(table, obj, options, callback)</code></p>
-<p> Retrieve one record from the database
+<p> Retrieve one record from the database by primary key, returns an array with found record or empty array
 Options can use the following special properties:</p>
 <ul>
-<li>keys - a list of columns for condition or all primary keys</li>
-<li>select - a list of columns or expressions to return or *</li>
-<li>op - operators to use for comparison for properties</li>
+<li>keys - a list of columns to be used instead of primary keys, this can be useful in case of another
+  unique index which is different than the primary key</li>
+<li>select - a list of columns or expressions to return, default is to return all columns</li>
+<li>op - operators to use for comparison for properties, see <code>db.select</code></li>
 <li>cached - if specified it runs getCached version</li>
 </ul>
 </li>
@@ -3432,6 +3433,13 @@ Returns prepared object to be passed to the driver&#39;s .query method.</p>
 table&#39;s primary keys will be returned. This is a wrapper that makes sure that valid keys are used and
 deals with input errors like empty keys list to be consistent between different databases.
 This function always returns an Array even if it is empty.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getSearchQuery(table, obj, options)</code></p>
+<p> Return query object based on the keys specified in the options or primary keys for the table, only search properties
+will be returned in the query object</p>
 </li>
 </ul>
 
