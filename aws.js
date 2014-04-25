@@ -32,7 +32,7 @@ var aws = {
     instanceType: "t1.micro",
 
     // Translation map for operators
-    opMap: { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' },
+    opsMap: { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' },
 }
 
 module.exports = aws;
@@ -694,7 +694,7 @@ aws.ddbQueryTable = function(name, condition, options, callback) {
     for (var name in condition) {
         var val = condition[name];
         var op = (options.ops || {})[name] || "eq";
-        if (this.opMap[op]) op = this.opMap[op];
+        if (this.opsMap[op]) op = this.opsMap[op];
         var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
         switch (cond.ComparisonOperator) {
         case 'BETWEEN':
@@ -751,8 +751,8 @@ aws.ddbScanTable = function(name, condition, options, callback)
     for (var name in condition) {
         var val = condition[name];
         var op = (options.ops || {})[name] || "eq";
-        if (this.opMap[op]) op = this.opMap[op];
-        var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
+        if (this.opsMap[op]) op = this.opsMap[op];
+        var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase().replace(' ', '_') }
         switch (cond.ComparisonOperator) {
         case 'BETWEEN':
             if (args.length < 2) continue;
@@ -760,6 +760,13 @@ aws.ddbScanTable = function(name, condition, options, callback)
             cond.AttributeValueList.push(self.toDynamoDB(val[1]));
             break;
 
+        case 'NULL':
+        case 'NOT_NULL':
+            break;
+        case 'IN':
+        case 'CONTAINS':
+        case 'NOT_CONTAINS':
+        case 'NE':
         case 'EQ':
         case 'LE':
         case 'LT':

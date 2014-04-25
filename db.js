@@ -505,6 +505,40 @@ db.update = function(table, obj, options, callback)
     this.query(req, options, callback);
 }
 
+// Update all records that match given condition, one by one, the input is the same as for `db.select` and every record
+// returned will be updated using `db.update` call by the primary key, so make sure options.select include the primary key for every row found by the select.
+// The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
+// to finish due to sequential update every record one by one.
+// Special properties that can be in the options for this call:
+// - concurrency - how many update queries to execute at the same time, default is 1, this is done by using async.forEachLimit.
+// - process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
+// in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
+// as `options.process(row, options)`
+//
+// Example, update birthday format if not null
+//
+//          db.updateAll("bk_account", { birthday: 1 }, { keys: ["birthday"], ops: { birthday: "not null" }, concurrency: 2, process: function(r, o) { r.birthday = core.strftime(new Date(r.birthday, "%Y-%m-D")) } }, function(err, rows) {
+//          });
+//
+db.updateAll = function(table, obj, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options,options = {};
+    options = this.getOptions(table, options);
+    var opts = core.cloneObj(options, { keys: 1, ops: 1 });
+
+    self.select(table, obj, options, function(err, rows) {
+        if (err) return callback ? callback(err) : null;
+
+        async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
+            if (options && options.process) options.process(row, options);
+            self.update(table, row, opts, next);
+        }, function(err) {
+            if (callback) callback(err, rows);
+        });
+    });
+}
+
 // Counter operation, increase or decrease column values, similar to update but all specified columns except primary
 // key will be incremented, use negative value to decrease the value.
 //
@@ -547,6 +581,7 @@ db.del = function(table, obj, options, callback)
 // Delete all records that match given condition, one by one, the input is the same as for `db.select` and every record
 // returned will be deleted using `db.del` call. The callback will receive on completion the err and all rows found and deleted.
 // Special properties that can be in the options for this call:
+// - concurrency - how many delete requests to execute at the same time by using async.forEachLimit.
 // - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 //   in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 //   as `options.process(row, options)`
@@ -555,13 +590,14 @@ db.delAll = function(table, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
+    var opts = core.cloneObj(options, { keys: 1, ops: 1 });
 
     self.select(table, obj, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
-        async.forEachSeries(rows, function(row, next) {
+        async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             if (options && options.process) options.process(row, options);
-            self.del(table, row, options, next);
+            self.del(table, row, opts, next);
         }, function(err) {
             if (callback) callback(err, rows);
         });
@@ -1143,7 +1179,6 @@ db.prepare = function(op, table, obj, options)
                 }
             }
         }
-        logger.log(obj)
         break;
     }
     return pool.prepare(op, table, obj, options);
@@ -1199,6 +1234,26 @@ db.skipColumn = function(name, val, options, columns)
 	         (options.skip_columns && options.skip_columns.indexOf(name) > -1) ? true : false;
 	logger.dev('skipColumn:', name, val, rc);
 	return rc;
+}
+
+// Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is usee
+// by custom filters in `db.select` by the drivers which cannot perform comparisons with non-indexes columns like DynamoDb, Cassandra.
+// The rows that satisfy primary key conditions are retunred and then called this function to eliminate the records that do not satisfy non-indexed column conditions.
+//
+// Options support the following propertis:
+// - keys - list of columns to check, these may or may not be the primary keys, any columns to be compared
+// - ops - operations for columns
+// - typesMap - types for the columns if different from the actual Javascript type
+db.filterColumns = function(obj, rows, options)
+{
+    if (!options.ops) options.ops = {};
+    if (!options.typesMap) options.typesMap = {};
+    // Keep rows which satisfy all conditions
+    return rows.filter(function(row) {
+        return (options.keys || []).every(function(name) {
+            return core.isTrue(row[name], obj[name], options.ops[name], options.typesMap[name]);
+        });
+    });
 }
 
 // Return cached primary keys for a table or null
@@ -1388,22 +1443,20 @@ db.sqlInitPool = function(options)
     pool.cacheColumns = function(opts, callback) {
         self.sqlCacheColumns(opts, callback);
     }
-    // Prepare for execution, return an object with formatted or transformed query request for the database driver of this pool
-    // For SQL databases it creates a SQL statement with parameters
+    // Prepare for execution, return an object with formatted or transformed SQL query for the database driver of this pool
     pool.prepare = function(op, table, obj, opts) {
         return self.sqlPrepare(op, table, obj, opts);
     }
-    // Execute a query, run filter if provided.
-    // If req.text is an Array then run all queries in sequence
+    // Execute a query or if req.text is an Array then run all queries in sequence
     pool.query = function(client, req, opts, callback) {
         if (!req.values) req.values = [];
 
         if (!Array.isArray(req.text)) {
-            client.query(req.text, req.values, callback);
+            client.query(req.text, req.values, opts, callback);
         }  else {
             var rows = [];
             async.forEachSeries(req.text, function(text, next) {
-                client.query(text, function(err, rc) { if (rc) rows = rc; next(err); });
+                client.query(text, null, opts, function(err, rc) { if (rc) rows = rc; next(err); });
             }, function(err) {
                 callback(err, rows);
             });
@@ -1674,6 +1727,12 @@ db.sqlExpr = function(name, value, options)
         sql += this.sqlQuote(value) + " " + op + "(" + name + ")";
         break;
 
+    case 'contains':
+    case 'not contains':
+        value = '%' + value + '%';
+        sql += name + " LIKE " + this.sqlValue(value, options.type, options.value, options.min, options.max);
+        break;
+
     case 'like%':
     case "ilike%":
     case "not like%":
@@ -1872,6 +1931,7 @@ db.sqlWhere = function(table, obj, keys, options)
 {
     var self = this;
     if (!options) options = {};
+    var cols = this.getColumns(table, options) || {};
 
     // List of records to return by primary key, when only one primary key property is provided use IN operator otherwise combine all conditions with OR
     if (Array.isArray(obj)) {
@@ -1885,7 +1945,7 @@ db.sqlWhere = function(table, obj, keys, options)
     // Regular object with conditions
     var where = [];
     (keys || []).forEach(function(k) {
-        var v = obj[k], op = "", type = "";
+        var v = obj[k], op = "", type = cols[k].type || "";
         if (!v && v != null) return;
         if (options.ops && options.ops[k]) op = options.ops[k];
         if (!op && v == null) op = "null";
@@ -2496,17 +2556,9 @@ db.dynamodbInitPool = function(options)
                 for (var p in keys) if (dbkeys.indexOf(p) == -1) delete keys[p];
             }
             // Custom filter function for in-memory filtering of the results using non-indexed properties
-            var filter = function(items) {
-                if (op != "ddbQueryTable" || !other.length) return items;
-                if (!options.ops) options.ops = {};
-                if (!options.typesMap) options.typesMap = {};
-                // Keep rows which satisfy all conditions
-                return items.filter(function(row) {
-                    return other.every(function(k) {
-                        return core.isTrue(row[k], obj[k], options.ops[k], options.typesMap[k]);
-                    });
-                });
-            }
+            var filter = function(rows) { return rows };
+            if (op == "ddbQueryTable" && other.length) filter = function(rows) { return self.filterRows(obj, rows, { keys: other, ops: options.ops, typesMap: options.typesMap }); }
+
             options.select = self.getSelectedColumns(table, options);
             aws[op](table, keys, options, function(err, item) {
                 if (err) return callback(err, []);
@@ -2864,6 +2916,7 @@ db.cassandraInitPool = function(options)
                           noLengths: 1,
                           noReplace: 1,
                           noJson: 1,
+                          noCustomKey: 1,
                           noCompositeIndex: 1,
                           noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
@@ -2883,6 +2936,21 @@ db.cassandraInitPool = function(options)
         switch (op) {
         case "search":
         case "select":
+            // Cannot search by non primary keys
+            var keys = this.dbkeys[table.toLowerCase()] || [];
+            // Install custom filter if we have other columns in the keys
+            if (opts.keys) {
+                var other = opts.keys.filter(function(x) { return keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
+                // Custom filter function for in-memory filtering of the results using non-indexed properties
+                if (other.length) opts.rowfilter = function(rows) { return self.filterColumns(obj, rows, { keys: other, ops: options.ops, typesMap: options.typesMap }); }
+                opts.keys = null;
+            }
+            // Sorting is limited to a range key so we will do it in memory
+            if (opts.sort && keys.indexOf(opts.sort) == -1) {
+                var sort = opts.sort;
+                opts.rowsort = function(rows) { return rows.sort(function(a,b) { return a[sort] - b[sort] }) }
+                opts.sort = null;
+            }
             // Pagination, start must be a token returned by the previous query, this assumes that options.ops stays the same as well
             if (Array.isArray(opts.start) && typeof opts.start[0] == "object") {
                 obj = core.cloneObj(obj);
@@ -2907,9 +2975,10 @@ db.cassandraConnect = function(options, callback)
     });
 }
 
-db.cassandraQuery = function(text, values, callback)
+db.cassandraQuery = function(text, values, options, callback)
 {
-    if (typeof values == "function") callback = values, values = null;
+    if (typeof values == "function") callback = values, values = null, options = null;
+    if (typeof options == "function") callback = options, options = null;
     try {
         this.cql(text, core.cloneObj(values), function(err, results) {
             if (err || !results) return callback ? callback(err, []) : null;
@@ -2923,6 +2992,8 @@ db.cassandraQuery = function(text, values, callback)
                 });
                 rows.push(obj);
             });
+            if (options && options.rowfilter) rows = options.rowfilter(rows);
+            if (options && options.rowsort) rows = options.rowsort(rows);
             if (callback) callback(err, rows);
         });
     } catch(e) {

@@ -592,20 +592,20 @@ tests.db = function(callback)
         },
 	    function(next) {
             logger.log('TEST: query with custom filter');
-            db.select("test2", { id: id, id2: '1', num: 9 }, { keys: ['id','id2','num'], ops: { num: 'ge' } }, function(err, rows, info) {
+            db.select("test2", { id: id, num: 9 }, { keys: ['id','num'], ops: { num: 'ge' } }, function(err, rows, info) {
                 next(err || rows.length==0 || rows[0].num!=9 ? ("err13:" + err + util.inspect(rows, info)) : 0);
             });
         },
         function(next) {
             logger.log('TEST: scan');
             db.select("test2", { num: 9 }, { keys: ['num'], ops: { num: 'ge' } }, function(err, rows, info) {
-                next(err || rows.length==0 || rows[0].num!=9 ? ("err13:" + err + util.inspect(rows, info)) : 0);
+                next(err || rows.length==0 || rows[0].num!=9 ? ("err14:" + err + util.inspect(rows, info)) : 0);
             });
         },
         function(next) {
             logger.log('TEST: sort');
             db.select("test2", { id: id, num: 0 }, { ops: { num: 'ge' }, sort: "num" }, function(err, rows, info) {
-                next(err || rows.length==0 || rows[0].num!=2 ? ("err14:" + err + util.inspect(rows, info)) : 0);
+                next(err || rows.length==0 || rows[0].num!=2 ? ("err15:" + err + util.inspect(rows, info)) : 0);
             });
         },
 	],

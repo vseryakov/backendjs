@@ -1082,9 +1082,14 @@ core.toValue = function(val, type)
 // Evaluate expr, compare 2 values with optional type and operation
 core.isTrue = function(val1, val2, op, type)
 {
-    switch ((op ||"").toLowerCase()) {
+    op = (op ||"").toLowerCase();
+    var no = false, yes = true;
+    if (op.substr(0, 4) == "not ") no = true, yes = false;
+
+    switch (op) {
     case 'null':
-        if (val1) return false;
+    case "not null":
+        if (val1) return no;
         break;
 
     case ">":
@@ -1118,42 +1123,54 @@ core.isTrue = function(val1, val2, op, type)
         break;
 
     case "in":
+    case "not in":
         var list = Array.isArray(val2) ? val2 : this.strSplit(val2);
-        if (list.indexOf(String(val1)) == -1) return false;
+        if (list.indexOf(String(val1)) == -1) return no;
         break;
 
     case 'like%':
+    case "not like%":
     case 'begins_with':
+    case 'not begins_with':
         var v1 = String(val1);
-        if (String(val2).substr(0, v1.length) != v1) return false;
+        if (String(val2).substr(0, v1.length) != v1) return no;
         break;
 
     case "ilike%":
+    case "not ilike%":
         var v1 = String(val1).toLowerCase();
-        if (String(val2).substr(0, v1.length).toLowerCase() != v1) return false;
+        if (String(val2).substr(0, v1.length).toLowerCase() != v1) return no;
         break;
 
     case "!~":
     case "!~*":
     case "iregexp":
-        if (!String(val1).match(new RegExp(String(val2), 'i'))) return false;
+    case "not iregexp":
+        if (!String(val1).match(new RegExp(String(val2), 'i'))) return no;
         break;
 
     case "~":
     case "~*":
     case "regexp":
+    case "not regexp":
         if (!String(val1).match(new RegExp(String(val2)))) return false;
+        break;
+
+    case "contains":
+    case "not contains":
+        if (!String(val2).indexOf(String(val1)) > -1) return false;
         break;
 
     case "!=":
     case "<>":
+    case "ne":
         if (this.toValue(val1, type) == this.toValue(val2, type)) return false;
         break;
 
     default:
         if (this.toValue(val1, type) != this.toValue(val2, type)) return false;
     }
-    return true;
+    return yes;
 }
 
 // Downloads file using HTTP and pass it to the callback if provided
