@@ -341,6 +341,9 @@ db.createPool = function(options)
 // - req - can be a string or an object with the following properties:
 //   - text - SQL statement or other query in the format of the native driver, can be a list of statements
 //   - values - parameter values for SQL bindings or other driver specific data
+//   - op - operations to be performed, used by non-SQL drivers
+//   - obj - actual object with data for non-SQL drivers
+//   - table - table name for the operation
 // - options may have the following properties:
 //     - pool - name of the database pool where to execute this query.
 //
@@ -351,6 +354,12 @@ db.createPool = function(options)
 // - callback(err, rows, info) where
 //    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
 //    - rows is always returned as a list, even in case of error it is an empty list
+//
+//  Example with SQL driver
+//
+//          db.query({ text: "SELECT a.id,c.type FROM bk_account a,bk_connection c WHERE a.id=c.id and a.id=?", values: ['123'] }, { pool: 'pgsql' }, function(err, rows, info) {
+//          });
+//
 db.query = function(req, options, callback)
 {
     var self = this;
@@ -431,6 +440,12 @@ db.query = function(req, options, callback)
 //      - mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
 //        string then it is used as a name of the column instead of default mtime name
 //      - skip_null - if set, all null values will be skipped, otherwise will be written into the DB as NULLs
+//
+// Example
+//
+//       db.add("bk_account", { id: '123', name: 'test', gender: 'm' }, function(err, rows, info) {
+//       });
+//
 db.add = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -442,6 +457,12 @@ db.add = function(table, obj, options, callback)
 // Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj
 // - obj - an object with record properties, primary key properties must be specified
 // - options - same properties as for `db.add` method
+//
+// Example
+//
+//       db.put("bk_account", { id: '123', name: 'test', gender: 'm' }, function(err, rows, info) {
+//       });
+//
 db.put = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -462,6 +483,20 @@ db.put = function(table, obj, options, callback)
 //      - ops - object for comparison operators for primary key, default is equal operator
 //      - opsMap - operator mapping into supported by the database
 //      - typesMap - type mapping for properties to be used in the condition
+//
+// Note: SQL databases can update more than one record with the corresponding condition but non-SQL databases like
+//  DynamoDB or Cassandra only update one existing record at a time
+//
+// Example
+//
+//          db.update("bk_account", { id: '123', gender: 'm' }, function(err, rows, info) {
+//              console.log('updated:', info.affected_rows);
+//          });
+//
+//          db.update("bk_account", { gender: 'm', prefix: 'Mr' }, { pool: pgsql', keys: ['gender'] }, function(err, rows, info) {
+//              console.log('updated:', info.affected_rows);
+//          });
+//
 db.update = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -475,6 +510,12 @@ db.update = function(table, obj, options, callback)
 //
 // *Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
 // if does not exist yet.*
+//
+// Example
+//
+//       db.incr("bk_counter", { id: '123', like0: 1, invite0: 1 }, function(err, rows, info) {
+//       });
+//
 db.incr = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -488,6 +529,13 @@ db.incr = function(table, obj, options, callback)
 // Delete object in the database, no error if the object does not exist
 // - obj - an object with primary key properties only, other properties will be ignored
 // - options - same properties as for `db.update` method
+//
+// Example
+//
+//       db.del("bk_account", { id: '123' }, function(err, rows, info) {
+//           console.log('updated:', info.affected_rows);
+//       });
+//
 db.del = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -520,14 +568,24 @@ db.delAll = function(table, obj, options, callback)
     });
 }
 
-// Add/update the object, check existence by the primary key or by other keys specified.
+// Add/update the object, check existence by the primary key or by other keys specified. This is not equivalent of REPLACE INTO, it does `db.get`
+// to check if the object exists in the database and performs `db.add` or `db.update` depending on the existence.
 // - obj is a JavaScript object with properties that correspond to the table columns
 // - options define additional flags that may
 //      - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
 //        then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE clause
 //      - check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value
-//      - check_data - tell to verify every value in the given object with actual value in the database and skip update if the record is the same,
+//      - check_data - verify every value in the given object with actual value in the database and skip update if the record is the same,
 //        if it is an array then check only specified columns
+//
+// Example: updates record 123 only if gender is not 'm' or adds new record
+//
+//          db.replace("bk_account", { id: '123', gender: 'm' }, { check_data: true });
+//
+// Example: updates record 123 only if mtime of the record is less or equal yesterday
+//
+//          db.replace("bk_account", { id: '123', mtime: Date.now() - 86400000 }, { check_mtime: 'mtime' });
+//
 db.replace = function(table, obj, options, callback)
 {
     var self = this;
@@ -614,20 +672,17 @@ db.replace = function(table, obj, options, callback)
 //
 //          });
 //
-//
 //  Example: get all icons with type greater or equal to 2
 //
 //          db.select("bk_icon", { id: '123', type: '2' }, { select: 'id,type', ops: { type: 'ge' } }, function(err, rows) {
 //
 //          });
 //
-//
 //  Example: get unread msgs sorted by time, recent first
 //
 //          db.select("bk_message", { id: '123', status: 'N:' }, { sort: "status", desc: 1, ops: { status: "begins_with" } }, function(err, rows) {
 //
 //          });
-//
 //
 //  Example: allow all accounts icons to be visible
 //
@@ -638,10 +693,15 @@ db.replace = function(table, obj, options, callback)
 //              });
 //          });
 //
-//
-//  Example: scan accounts with custom filter, not by primary key
+//  Example: scan accounts with custom filter, not by primary key: all females
 //
 //          db.select("bk_account", { gender: 'f' }, { keys: ['gender'] }, function(err, rows) {
+//
+//          });
+//
+//  Example: select connections using primary key and other filter columns: all likes for the last day
+//
+//          db.select("bk_connection", { id: '123', type: 'like', mtime: Date.now()-86400000 }, { keys: ['id', 'type', 'mtime'], ops: { type: "begins_with", mtime: "gt" } }, function(err, rows) {
 //
 //          });
 //
@@ -1041,7 +1101,8 @@ db.drop = function(table, options, callback)
 }
 
 // Prepare for execution for the given operation: add, del, put, update,...
-// Returns prepared object to be passed to the driver's .query method.
+// Returns prepared object to be passed to the driver's .query method. This method is a part of the driver
+// helpers and is not used directly in the applications.
 db.prepare = function(op, table, obj, options)
 {
     var pool = this.getPool(table, options);

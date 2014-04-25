@@ -1240,8 +1240,8 @@ Here is the typical example how to setup new AWS server, it is not required and 
 new image configuration.
 
 - start new AWS instance via AWS console, use Amazon Linux or CentOS 6
-- copy rc.backend to the `ec2-user` home directory of the new instance
 - login as `ec2-user`
+- get rc.backend: `curl -OL https://raw.githubusercontent.com/vseryakov/backendjs/master/rc.backend'
 - run `sudo ./rc.backend setup-server`
   - optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory
   - for example this command: `sudo ./rc.backend setup-server -root /home/backend` will make all backend files in the home of the backend user which is very convenient and easy to support
