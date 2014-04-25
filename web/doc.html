@@ -3155,6 +3155,25 @@ DynamoDB or Cassandra only update one existing record at a time</p>
 </ul>
 
 <ul>
+<li><p><code>db.updateAll(table, obj, options, callback)</code></p>
+<p> Update all records that match given condition, one by one, the input is the same as for <code>db.select</code> and every record
+returned will be updated using <code>db.update</code> call by the primary key, so make sure options.select include the primary key for every row found by the select.
+The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
+to finish due to sequential update every record one by one.
+Special properties that can be in the options for this call:</p>
+<ul>
+<li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using async.forEachLimit.</li>
+<li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
+in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
+as <code>options.process(row, options)</code></li>
+</ul>
+<p>Example, update birthday format if not null</p>
+<pre><code>    db.updateAll(&quot;bk_account&quot;, { birthday: 1 }, { keys: [&quot;birthday&quot;], ops: { birthday: &quot;not null&quot; }, concurrency: 2, process: function(r, o) { r.birthday = core.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;)) } }, function(err, rows) {
+    });
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>db.incr(table, obj, options, callback)</code></p>
 <p> Counter operation, increase or decrease column values, similar to update but all specified columns except primary
 key will be incremented, use negative value to decrease the value.</p>
@@ -3186,6 +3205,7 @@ if does not exist yet.</em></p>
 returned will be deleted using <code>db.del</code> call. The callback will receive on completion the err and all rows found and deleted.
 Special properties that can be in the options for this call:</p>
 <ul>
+<li>concurrency - how many delete requests to execute at the same time by using async.forEachLimit.</li>
 <li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 as <code>options.process(row, options)</code></li>
@@ -3499,6 +3519,20 @@ helpers and is not used directly in the applications.</p>
 <ul>
 <li><p><code>db.skipColumn(name, val, options, columns)</code></p>
 <p> Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.filterColumns(obj, rows, options)</code></p>
+<p> Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is usee
+by custom filters in <code>db.select</code> by the drivers which cannot perform comparisons with non-indexes columns like DynamoDb, Cassandra.
+The rows that satisfy primary key conditions are retunred and then called this function to eliminate the records that do not satisfy non-indexed column conditions.</p>
+<p>Options support the following propertis:</p>
+<ul>
+<li>keys - list of columns to check, these may or may not be the primary keys, any columns to be compared</li>
+<li>ops - operations for columns</li>
+<li>typesMap - types for the columns if different from the actual Javascript type</li>
+</ul>
 </li>
 </ul>
 
