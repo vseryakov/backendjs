@@ -1687,18 +1687,21 @@ core.forEachLine = function(file, options, lineCallback, endCallback)
 // Return object with geohash for given coordinates to be used for location search
 // options may contain the following properties:
 //   - distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted
+//   - minDistance - radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
+//      this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table
+//      if not specified default `min-distance` value willbe used.
 core.geoHash = function(latitude, longitude, options)
 {
-    var self = this;
 	if (!options) options = {};
-	if (options.distance && options.distance < this.minDistance) options.distance = this.minDistance;
+	var minDistance = options.minDistance || this.minDistance;
+	if (options.distance && options.distance < minDistance) options.distance = minDistance;
 
 	// Geohash ranges for different lengths in km, take the first greater than our min distance
 	var range = [ [12, 0], [8, 0.019], [7, 0.076],
 	              [6, 0.61], [5, 2.4], [4, 20.0],
 	              [3, 78.0], [2, 630.0], [1, 2500.0],
 	              [1, 99999]
-	            ].filter(function(x) { return x[1] > self.minDistance })[0];
+	            ].filter(function(x) { return x[1] > minDistance })[0];
 
 	var geohash = backend.geoHashEncode(latitude, longitude);
 	return { geohash: geohash.substr(0, range[0]),
@@ -1706,6 +1709,7 @@ core.geoHash = function(latitude, longitude, options)
 			 latitude: latitude,
 			 longitude: longitude,
 			 range: range,
+			 minDistance: minDistance,
 			 distance: options.distance || 0 };
 }
 

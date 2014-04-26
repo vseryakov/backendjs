@@ -57,7 +57,8 @@
   },
   "license": "BSD-3-Clause",
   "bin": {
-    "bkjs": "./bkjs"
+    "bkjs": "./bkjs",
+    "bksh": "./bkjs"
   },
   "scripts": {
     "preinstall": "./bkjs build-deps",

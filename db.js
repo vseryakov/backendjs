@@ -896,7 +896,7 @@ db.search = function(table, obj, options, callback)
 // Geo locations search, paginate all results until the end.
 // table must be defined with the following required columns:
 //  - geohash - location as primary key hash,
-//  - id or other column name to be used as a RANGE key for DynamoDB or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases
+//  - id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases
 //  - latitude and longitude as floating numbers
 //
 // other optional properties:

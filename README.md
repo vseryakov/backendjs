@@ -501,10 +501,13 @@ a connection with it. No direct operations on bk_reference is allowed.
         }
 
 ## Locations
-The location API maintains a table `bk_location` with geolocation coordinates for accounts and allows searching it by distance.
+The location API maintains a table `bk_location` with geolocation coordinates for accounts and allows searching it by distance. The configuration parameter
+`min-distance` defines the radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
+this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. By default min-distance is 5 km
+which means all geohashes in bk_location table will have geohash of size 4. Once min-distance is set it cannot be changed without rebuilding the bk_location table with new geohash size.
 
 - `/location/put`
-  Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_accout table as well with
+  Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
   these coordinates
 
   Example:

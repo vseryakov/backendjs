@@ -18,6 +18,7 @@
 [ "$BACKEND_UPTIME" = "" ] && BACKEND_UPTIME=43200
 [ "$BACKEND_SSH_ARGS" = "" ] && BACKEND_SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
 
+BKJS=backendjs
 HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
 case "$PLATFORM" in
@@ -62,7 +63,7 @@ esac
 [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BACKEND_PREFIX/dynamodb
 [ "$MONGO_DIR" = "" ] && MONGO_DIR=$BACKEND_ROOT/mongo
 [ "$NODE_PATH" = "" ] && NODE_PATH=$BACKEND_PREFIX/lib/node_modules
-[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/backendjs
+[ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/$BKJS
 
 export PATH=$BACKEND_ROOT/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
@@ -614,7 +615,7 @@ case "$ARG" in
     ;;
 
   put-backend)
-    path=node_modules/backendjs
+    path=node_modules/$BKJS
     while [ $# -gt 1 ]; do
       case "$2" in
       -path) path=$3;shift;shift;;
@@ -631,28 +632,32 @@ case "$ARG" in
     rsync -av -e "ssh -l $BACKEND_USER" web $BACKEND_MASTER:$path
     ;;
 
-  run-backend)
-    if [ ! -e $NODE_BACKEND ]; then
-       $ECHO "There is no global backend module installed or linked, please run the command below to make the module globally available:\n"
-       $ECHO "     bkjs init-backend\n"
-       exit
-    fi
-    killall node
-    APP=$NODE_BACKEND/server.js
-    [ -f server.js ] && APP=server.js
-    [ -f $BACKEND_ROOT/app.js ] && APP=$BACKEND_ROOT/app.js
-    [ -f app.js ] && APP=app.js
-    $BACKEND_PREFIX/bin/node $APP -debug -watch `pwd` -home $BACKEND_ROOT -master -web $@
-    ;;
-
-  run-shell)
-    SCRIPT=$NODE_BACKEND/server.js
+  run-backend|run-shell|backendjs|bksh)
+    [ -f $NODE_BACKEND/server.js ] && SCRIPT=$NODE_BACKEND/server.js
+    [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
     [ -f server.js ] && SCRIPT=server.js
-    $BACKEND_PREFIX/bin/node $SCRIPT -shell -home $BACKEND_ROOT $@
-    ;;
+    [ -f $BACKEND_ROOT/app.js ] && SCRIPT=$BACKEND_ROOT/app.js
+    [ -f app.js ] && SCRIPT=app.js
+    [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
+    case "$ARG" in
+     run-backend)
+        killall node
+        $BACKEND_PREFIX/bin/node $SCRIPT -debug -watch `pwd` -home $BACKEND_ROOT -master -web $@
+        ;;
+
+     backendjs)
+        killall node
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -master -web $@
+        ;;
+
+     *)
+        $BACKEND_PREFIX/bin/node $SCRIPT -shell -home $BACKEND_ROOT $@
+        ;;
+     esac
+     ;;
 
   show-help)
-    $BACKEND_PREFIX/bin/node -e "require('backendjs').core.help()"
+    $BACKEND_PREFIX/bin/node -e "require('$BKJS').core.help()"
     ;;
 
   clean-backend)
@@ -762,7 +767,7 @@ case "$ARG" in
 // Backend app
 // Created by $(whoami) on $(date)
 //
-var backend = require('backendjs');
+var backend = require('$BKJS');
 var express = require('express');
 var db = backend.db;
 var api = backend.api;
@@ -829,7 +834,7 @@ api.registerAuthCheck('', /^\/test\/list$/, function(req, status, callback) {
 
 backend.server.start();
 @@@
-      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"app\",\n \"main\": \"app.js\",\n \"dependencies\": { \"backendjs\": \">=0.9.0\" },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
+      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"app\",\n \"main\": \"app.js\",\n \"dependencies\": { \"$BKJS\": \">=0.9.0\" },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
     fi
     ;;
 
