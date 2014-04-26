@@ -75,7 +75,7 @@ var core = {
     hostname: '',
 
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
-    // for manual installations rc.backend setup will create a user with this id
+    // for manual installations `bkjs setup-server` will create a user with this id
     uid: 777,
     gid: 0,
     umask: '0002',

@@ -65,7 +65,7 @@ applications but still part of the core of the system to be available once neede
 
 * Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000
 
-        rc.backend run-backend
+        bkjs run-backend
 
 * Documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
 
@@ -88,7 +88,7 @@ applications but still part of the core of the system to be available once neede
 * Shutdown the backend by pressing Ctrl-C
 * To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:
 
-        rc.backend init-app
+        bkjs init-app
 
 * The app.js file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
   of adding new tables and API commands.
@@ -196,7 +196,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
   How to make an account as admin
 
             # Run backend shell
-            rc.backend run-shell
+            bkjs run-shell
 
             # Update record by login
             > db.update("bk_auth", { login: 'login@name', type: 'admin' });
@@ -935,7 +935,7 @@ The backend directory structure is the following:
             db-dynamodb-pool=http://localhost:9000
             db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 
-            To specify other config file: rc.backend run-backend -config-file file
+            To specify other config file: bkjs run-backend -config-file file
 
     * some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
       All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
@@ -959,7 +959,7 @@ The backend directory structure is the following:
 
         3. Start the scheduler and the web server at once
 
-                rc.backend run-backend -master -web
+                bkjs run-backend -master -web
 
     * `etc/proxy` - HTTP proxy config file, from http-proxy (https://github.com/nodejitsu/node-http-proxy)
 
@@ -971,11 +971,11 @@ The backend directory structure is the following:
 
         2. Start the proxy
 
-                rc.backend -proxy
+                bkjs -proxy
 
         3. Now all requests will be sent to localhost:8001
 
-    * `etc/profile` - shell script loaded by the rc.backend utility to customize env variables
+    * `etc/profile` - shell script loaded by the bkjs utility to customize env variables
 * `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
 * `var` - database files created by the server
 * `tmp` - temporary files
@@ -1146,7 +1146,7 @@ rendering is done using Javascript. This is how the `api.html` develpers console
 
 To see current default config parameters run any of the following commands:
 
-        rc.backend run-backend -help | grep api-allow
+        bkjs run-backend -help | grep api-allow
 
         node -e 'require("backendjs").core.showHelp()'
 
@@ -1207,16 +1207,16 @@ will never end up in this callback because it is called after the signature chec
             callback(status);
         });
 
-# The backend provisioning utility: rc.backend
+# The backend provisioning utility: bkjs
 
-The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
+The purpose of the bkjs shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.
 
 Running without arguments will bring help screen with description of all available commands.
 
 The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
-On startup the rc.backend tries to load and source the following config files:
+On startup the bkjs tries to load and source the following config files:
 
         /etc/backendrc
         /usr/local/etc/backendrc
@@ -1226,25 +1226,25 @@ Any of the following config files can redefine any environmnt variable thus poin
 customize the running environment, these should be regular shell scripts using bash syntax.
 
 Most common used commands are:
-- rc.backend run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
-- rc.backend run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
-- rc.backend init-app - create the app skeleton
-- rc.backend put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only
-- rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend
+- bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
+- bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
+- bkjs init-app - create the app skeleton
+- bkjs put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only
+- bkjs setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend
 
 # Deployment use cases
 
 ## AWS instance setup
 
-Here is the typical example how to setup new AWS server, it is not required and completely optional but rc.backend provies some helpful commands that may simplify
+Here is the typical example how to setup new AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
 new image configuration.
 
 - start new AWS instance via AWS console, use Amazon Linux or CentOS 6
 - login as `ec2-user`
-- get rc.backend: `curl -OL https://raw.githubusercontent.com/vseryakov/backendjs/master/rc.backend'
-- run `sudo ./rc.backend setup-server`
+- get bkjs: `curl -OL https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs'
+- run `sudo ./bkjs setup-server`
   - optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory
-  - for example this command: `sudo ./rc.backend setup-server -root /home/backend` will make all backend files in the home of the backend user which is very convenient and easy to support
+  - for example this command: `sudo ./bkjs setup-server -root /home/backend` will make all backend files in the home of the backend user which is very convenient and easy to support
 - global system-wide options are defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables
 - reboot
 - login as `backend` user using the AWS keypair private key
@@ -1259,7 +1259,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 - config file
 
   The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
-  defined via command line arguments as `-home` or via environment variables when using rc.backend. See rc.backend documentation but on AWS instances created with rc.backend
+  defined via command line arguments as `-home` or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
   `setup-server` command, for non-standard home use `/etc/backendrc` profile, specify `BACKEND_HOME=/home/backend` there and the rest will be taken care of
 
 - command line arguments
@@ -1312,41 +1312,35 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
 # Backend framework development (Mac OS X, developers)
 
-* `git clone https://github.com/vseryakov/backendjs.git` or `git clone git@github.com:vseryakov/backendjs.git`
-* cd backend
-* to initialize environment for the backend development it needs to set permissions for $BACKEND_PREFIX (default is /opt/local)
-  to the current user, this is required to support global NPM modules.
+* for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
 
-* If $BACKEND_PREFIX needs to be changed, create ~/.backend/etc/profile file, for example:
+        port install libpng jpeg tiff lcms2 mysql56 postgresql93
+
+* make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec
+
+* `git clone https://github.com/vseryakov/backendjs.git` or `git clone git@github.com:vseryakov/backendjs.git`
+
+* cd backendjs
+
+* if node.js is already installed skip to the next section
+
+    * node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local
+    * to install node into other location, BACKEND_PREFIX needs to be set
+    * to change $BACKEND_PREFIX, create ~/.backend/etc/profile file, for example:
 
         mkdir -p ~/.backend/etc
         echo "BACKEND_PREFIX=$HOME/local" > ~/.backend/etc/profile
 
+    * **Important**: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+      node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile
 
-* **Important**: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-   node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile
+    * to install node.js in $BACKEND_PREFIX/bin run command:
 
-* to install node.js in $BACKEND_PREFIX/bin if not installed already run command:
+            ./bkjs build-node
 
-        ./rc.backend build-node
+* to compile the binary module and all required dependencies just type `make` or `npm build .`
 
-- once node.js is installed, make sure all required modules are installed, this is required because we did not install the
-  backend via npm with all dependencies, make sure this runs in the core backend directory:
-
-        ./rc.backend npm-deps
-
-* now run the init command to prepare the environment, rc.backend will source .backendrc, this is required when the backend is used from the sources only
-
-        ./rc.backend init-backend
-
-* to compile the binary module and all required dependencies just type ```make```
-    * for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
-
-	    port install libpng jpeg tiff lcms2 mysql56 postgresql93
-
-    * make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec
-
-    * to see the actual compiler setting during compile the following helps:
+    * to see the actual compiler settings during compilation the following helps:
 
             make V=1
 
@@ -1354,15 +1348,19 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
             make force V=1
 
+* to install all dependencies and make backendjs module and bkjs globally available:
+
+            npm link
+
 * to run local server on port 8000 run command:
 
-        ./rc.backend run-backend
+        ./bkjs run-backend
 
 * to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
    similar to node.js REPL functionality. All modules are accessible from the command line.
 
-        $ ./rc.backend run-shell
+        $ ./bkjs run-shell
         > core.version
          '2013.10.20.0'
         > logger.setDebug(2)

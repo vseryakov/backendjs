@@ -716,7 +716,7 @@ server.scheduleCronjob = function(spec, obj)
 //
 //  Example:
 //
-//      // Start the backend with repl-port like rc.backend run-backend -repl-port 2080
+//      // Start the backend with repl-port like `bkjs run-backend -repl-port 2080`
 //
 //      # telnet localhost 2080
 //      > server.runCronjob("processQueue")

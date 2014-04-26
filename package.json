@@ -57,11 +57,11 @@
   },
   "license": "BSD-3-Clause",
   "bin": {
-    "rc.backend": "./rc.backend"
+    "bkjs": "./bkjs"
   },
   "scripts": {
-    "preinstall": "./rc.backend build-deps",
+    "preinstall": "./bkjs build-deps",
     "install": "node-gyp configure build",
-    "start": "rc.backend run-backend"
+    "start": "bkjs run-backend"
   }
 }

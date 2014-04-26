@@ -38,7 +38,7 @@
 <li><a href="#secure-web-site-backend-verification"> Secure Web site, backend verification</a></li>
 </ul>
 </li>
-<li><a href="#the-backend-provisioning-utility-rc-backend"> The backend provisioning utility: rc.backend</a></li>
+<li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a><ul>
 <li><a href="#aws-instance-setup"> AWS instance setup</a></li>
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
@@ -108,7 +108,7 @@ applications but still part of the core of the system to be available once neede
   &gt; bk.server.start()
 </code></pre></li>
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
-<pre><code>  rc.backend run-backend
+<pre><code>  bkjs run-backend
 </code></pre></li>
 <li><p>Documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
 </li>
@@ -129,7 +129,7 @@ For this example let&#39;s create couple of accounts, type and execute the follo
 <li><p>Shutdown the backend by pressing Ctrl-C</p>
 </li>
 <li><p>To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:</p>
-<pre><code>  rc.backend init-app
+<pre><code>  bkjs init-app
 </code></pre></li>
 <li><p>The app.js file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
 of adding new tables and API commands.</p>
@@ -224,7 +224,7 @@ the login popup will still asking for real name, see backend.js in the web/js fo
 </ul>
 <p>  How to make an account as admin</p>
 <pre><code>        # Run backend shell
-        rc.backend run-shell
+        bkjs run-shell
 
         # Update record by login
         &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });
@@ -916,7 +916,7 @@ regular parameters are the table columns.</p>
   db-dynamodb-pool=http://localhost:9000
   db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 
-  To specify other config file: rc.backend run-backend -config-file file
+  To specify other config file: bkjs run-backend -config-file file
 </code></pre></li>
 <li><p>some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
 All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
@@ -936,7 +936,7 @@ concatenated with the domain and queried for the TXT record, for example: <code>
  backend.server.start()
 </code></pre></li>
 <li><p>Start the scheduler and the web server at once</p>
-<pre><code> rc.backend run-backend -master -web
+<pre><code> bkjs run-backend -master -web
 </code></pre></li>
 </ol>
 </li>
@@ -947,13 +947,13 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 <pre><code> { &quot;target&quot; : { &quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: 8001 } }
 </code></pre></li>
 <li><p>Start the proxy</p>
-<pre><code> rc.backend -proxy
+<pre><code> bkjs -proxy
 </code></pre></li>
 <li><p>Now all requests will be sent to localhost:8001</p>
 </li>
 </ol>
 </li>
-<li><p><code>etc/profile</code> - shell script loaded by the rc.backend utility to customize env variables</p>
+<li><p><code>etc/profile</code> - shell script loaded by the bkjs utility to customize env variables</p>
 </li>
 </ul>
 </li>
@@ -1121,7 +1121,7 @@ client is used.</p>
 are available to everyone. This mode assumes that Web developmnt will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
 rendering is done using Javascript. This is how the <code>api.html</code> develpers console is implemented, using JQuery-UI and Knockout.js.</p>
 <p>To see current default config parameters run any of the following commands:</p>
-<pre><code>    rc.backend run-backend -help | grep api-allow
+<pre><code>    bkjs run-backend -help | grep api-allow
 
     node -e &#39;require(&quot;backendjs&quot;).core.showHelp()&#39;
 </code></pre><p>To disable open registration in this mode just add config parameter <code>api-disallow-path=^/account/add$</code> or if developing an application add this in the initMiddleware</p>
@@ -1170,13 +1170,13 @@ will never end up in this callback because it is called after the signature chec
         }
         callback(status);
     });
-</code></pre><h1 id="the-backend-provisioning-utility-rc-backend">The backend provisioning utility: rc.backend</h1>
-<p>The purpose of the rc.backend shell script is to act as a helper tool in configuring and managing the backend environment
+</code></pre><h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
+<p>The purpose of the bkjs shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.</p>
 <p>Running without arguments will bring help screen with description of all available commands.</p>
 <p>The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
-On startup the rc.backend tries to load and source the following config files:</p>
+On startup the bkjs tries to load and source the following config files:</p>
 <pre><code>    /etc/backendrc
     /usr/local/etc/backendrc
     ~/.backend/etc/profile
@@ -1184,23 +1184,23 @@ On startup the rc.backend tries to load and source the following config files:</
 customize the running environment, these should be regular shell scripts using bash syntax.</p>
 <p>Most common used commands are:</p>
 <ul>
-<li>rc.backend run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
-<li>rc.backend run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
-<li>rc.backend init-app - create the app skeleton</li>
-<li>rc.backend put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only</li>
-<li>rc.backend setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend</li>
+<li>bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
+<li>bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
+<li>bkjs init-app - create the app skeleton</li>
+<li>bkjs put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only</li>
+<li>bkjs setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend</li>
 </ul>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <h2 id="aws-instance-setup">AWS instance setup</h2>
-<p>Here is the typical example how to setup new AWS server, it is not required and completely optional but rc.backend provies some helpful commands that may simplify
+<p>Here is the typical example how to setup new AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
 new image configuration.</p>
 <ul>
 <li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
 <li>login as <code>ec2-user</code></li>
-<li>get rc.backend: `curl -OL <a href="https://raw.githubusercontent.com/vseryakov/backendjs/master/rc.backend">https://raw.githubusercontent.com/vseryakov/backendjs/master/rc.backend</a>&#39;</li>
-<li>run <code>sudo ./rc.backend setup-server</code><ul>
+<li>get bkjs: `curl -OL <a href="https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs">https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs</a>&#39;</li>
+<li>run <code>sudo ./bkjs setup-server</code><ul>
 <li>optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory</li>
-<li>for example this command: <code>sudo ./rc.backend setup-server -root /home/backend</code> will make all backend files in the home of the backend user which is very convenient and easy to support</li>
+<li>for example this command: <code>sudo ./bkjs setup-server -root /home/backend</code> will make all backend files in the home of the backend user which is very convenient and easy to support</li>
 </ul>
 </li>
 <li>global system-wide options are defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</li>
@@ -1215,7 +1215,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 <ul>
 <li><p>config file</p>
 <p>The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
-defined via command line arguments as <code>-home</code> or via environment variables when using rc.backend. See rc.backend documentation but on AWS instances created with rc.backend
+defined via command line arguments as <code>-home</code> or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
 <code>setup-server</code> command, for non-standard home use <code>/etc/backendrc</code> profile, specify <code>BACKEND_HOME=/home/backend</code> there and the rest will be taken care of</p>
 </li>
 <li><p>command line arguments</p>
@@ -1274,42 +1274,34 @@ this is the only way to ensure the body is not modified when not using query par
 <p>See web/js/backend.js for function Backend.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
 <h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
 <ul>
-<li><code>git clone https://github.com/vseryakov/backendjs.git</code> or <code>git clone git@github.com:vseryakov/backendjs.git</code></li>
-<li>cd backend</li>
-<li><p>to initialize environment for the backend development it needs to set permissions for $BACKEND_PREFIX (default is /opt/local)
-to the current user, this is required to support global NPM modules.</p>
-</li>
-<li><p>If $BACKEND_PREFIX needs to be changed, create ~/.backend/etc/profile file, for example:</p>
-<pre><code>  mkdir -p ~/.backend/etc
-  echo &quot;BACKEND_PREFIX=$HOME/local&quot; &gt; ~/.backend/etc/profile
-</code></pre></li>
-</ul>
-<ul>
-<li><p><strong>Important</strong>: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
- node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile</p>
-</li>
-<li><p>to install node.js in $BACKEND_PREFIX/bin if not installed already run command:</p>
-<pre><code>  ./rc.backend build-node
-</code></pre></li>
-</ul>
-<ul>
-<li><p>once node.js is installed, make sure all required modules are installed, this is required because we did not install the
-backend via npm with all dependencies, make sure this runs in the core backend directory:</p>
-<pre><code>  ./rc.backend npm-deps
-</code></pre></li>
-</ul>
-<ul>
-<li><p>now run the init command to prepare the environment, rc.backend will source .backendrc, this is required when the backend is used from the sources only</p>
-<pre><code>  ./rc.backend init-backend
-</code></pre></li>
-<li><p>to compile the binary module and all required dependencies just type <code>make</code></p>
-<ul>
 <li><p>for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:</p>
-<p>  port install libpng jpeg tiff lcms2 mysql56 postgresql93</p>
-</li>
+<pre><code>  port install libpng jpeg tiff lcms2 mysql56 postgresql93
+</code></pre></li>
 <li><p>make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec</p>
 </li>
-<li><p>to see the actual compiler setting during compile the following helps:</p>
+<li><p><code>git clone https://github.com/vseryakov/backendjs.git</code> or <code>git clone git@github.com:vseryakov/backendjs.git</code></p>
+</li>
+<li><p>cd backendjs</p>
+</li>
+<li><p>if node.js is already installed skip to the next section</p>
+<ul>
+<li>node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local</li>
+<li>to install node into other location, BACKEND_PREFIX needs to be set</li>
+<li><p>to change $BACKEND_PREFIX, create ~/.backend/etc/profile file, for example:</p>
+<p>  mkdir -p ~/.backend/etc
+  echo &quot;BACKEND_PREFIX=$HOME/local&quot; &gt; ~/.backend/etc/profile</p>
+</li>
+<li><p><strong>Important</strong>: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile</p>
+</li>
+<li><p>to install node.js in $BACKEND_PREFIX/bin run command:</p>
+<pre><code>  ./bkjs build-node
+</code></pre></li>
+</ul>
+</li>
+<li><p>to compile the binary module and all required dependencies just type <code>make</code> or <code>npm build .</code></p>
+<ul>
+<li><p>to see the actual compiler settings during compilation the following helps:</p>
 <pre><code>  make V=1
 </code></pre></li>
 <li><p>to compile with internal nanomsg and ImageMagick use:</p>
@@ -1317,13 +1309,16 @@ backend via npm with all dependencies, make sure this runs in the core backend d
 </code></pre></li>
 </ul>
 </li>
+<li><p>to install all dependencies and make backendjs module and bkjs globally available:</p>
+<pre><code>      npm link
+</code></pre></li>
 <li><p>to run local server on port 8000 run command:</p>
-<pre><code>  ./rc.backend run-backend
+<pre><code>  ./bkjs run-backend
 </code></pre></li>
 <li><p>to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
  This command line access allows you to test and run all functions from all modules of the backend without running full server
  similar to node.js REPL functionality. All modules are accessible from the command line.</p>
-<pre><code>  $ ./rc.backend run-shell
+<pre><code>  $ ./bkjs run-shell
   &gt; core.version
    &#39;2013.10.20.0&#39;
   &gt; logger.setDebug(2)
@@ -4128,7 +4123,7 @@ arguments to the instance backend process, properties must start with -</p>
 When REPL is activated on the master server with -repl-port then connecting to the running master server via telnet it is possible to execute
 cron jobs manually</p>
 <p>Example:</p>
-<pre><code>// Start the backend with repl-port like rc.backend run-backend -repl-port 2080
+<pre><code>// Start the backend with repl-port like `bkjs run-backend -repl-port 2080`
 
 # telnet localhost 2080
 &gt; server.runCronjob(&quot;processQueue&quot;)
