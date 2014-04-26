@@ -1079,13 +1079,19 @@ db.getCachedKey = function(table, obj, options)
 // - value - default value for the column
 // - len - column length
 // - pub - columns is public, *this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
-//     credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
-//     so by default only a few columns are marked as public in the bk_account table*
+//    credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
+//    so by default only a few columns are marked as public in the bk_account table*
 // - semipub - column is not public but still retrieved to support other public columns, must be deleted after use
 // - now - means on every add/put/update set this column with current time as Date.now()
+// - autoincr - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name
 //
-// Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
-// properties define a composite key in the order of definition.
+// *Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
+// properties define a composite key in the order of definition or sorted by the property value, for example: `{ a: {index:2 }, b: { index:1 } }` will create index (b,a)
+// because of the index: property value being not the same.*
+//
+// NOTE: Index creation is not required and all index properties can be omitted, it can be done more effectively using native tools for any specific database,
+// this format is for simple and common use cases without using any other tools but it does not cover all possible variations for every database. But all indexes and
+// primary keys created outside of the backend application still be be detected properly by `db.cacheColumns` method for every database.
 //
 // Each database pool also can support native options that are passed directly to the driver in the options, these properties are
 // defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:
@@ -1096,18 +1102,20 @@ db.getCachedKey = function(table, obj, options)
 //                                  });
 //
 // Create DynamoDB table with global secondary index, first index property if not the same as primary key hash defines global index, if it is the same then local,
-// below we create global secondary index on property 'name' only, in the example above it was local secondary index for id and name:
+// below we create global secondary index on property 'name' only, in the example above it was local secondary index for id and name. also local secondary index is
+// created on id,title.
 //
-//          db.create("test_table", { id: { primary: 1, type: "int" },
+//          db.create("test_table", { id: { primary: 1, type: "int", index1: 1 },
 //                                    type: { primary: 1 },
 //                                    name: { index: 1, dynamodb: { projection: ['type'] } }
+//                                    title: { index1: 1 } }
 //                                  });
 //
 // Pass MongoDB options directly:
 //        db.create("test_table", { id: { primary: 1, type: "int", mongodb: { w: 1, capped: true, max: 100, size: 100 } },
 //                                  type: { primary: 1, pub: 1 },
-//                                    name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
-//                                  });
+//                                  name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
+//                                });
 db.create = function(table, columns, options, callback)
 {
     if (typeof options == "function") callback = options,options = {};
@@ -1995,7 +2003,7 @@ db.sqlCreate = function(table, obj, options)
     if (!options) options = {};
 
     function keys(name) {
-        var cols = Object.keys(obj).filter(function(x) { return obj[x][name]; });
+        var cols = Object.keys(obj).filter(function(x) { return obj[x][name]; }).sort(function(a,b) { return obj[a] - obj[b] });
         if (name == "index" && options.noCompositeIndex) return cols.pop();
         return cols.join(',');
     }
@@ -2472,6 +2480,14 @@ db.dynamodbInitPool = function(options)
                             pool.dbcolumns[table][y.AttributeName].index = 1;
                         });
                     });
+                    (rc.Table.GlobalSecondaryIndexes || []).forEach(function(x) {
+                        x.KeySchema.forEach(function(y) {
+                            if (!pool.dbindexes[x.IndexName]) pool.dbindexes[x.IndexName] = [];
+                            pool.dbindexes[x.IndexName].push(y.AttributeName);
+                            pool.dbcolumns[table][y.AttributeName].index = 1;
+                            pool.dbcolumns[table][y.AttributeName].global = 1;
+                        });
+                    });
                     next();
                 });
         }, function(err2) {
@@ -2499,24 +2515,24 @@ db.dynamodbInitPool = function(options)
         case "create":
             var local = {}, global = {}, projection = {};
             var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
+                              sort(function(a,b) { return obj[a] - obj[b] }).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var hash = Object.keys(keys)[0];
 
-            if (Object.keys(keys).length == 2) {
-                ["", "1", "2"].forEach(function(n) {
-                    var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; });
-                    if (!idx.length) return;
-                    if (idx.length == 2 && idx[0] == hash) {
-                        local[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
-                    } else
-                    if (idx.length == 2) {
-                        global[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
-                    } else {
-                        global[idx[0]] = core.newObj(idx[0], 'HASH');
-                    }
-                });
-            }
+            ["","1","2","3","4","5"].forEach(function(n) {
+                var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; }).sort(function(a,b) { return obj[a] - obj[b] });
+                if (!idx.length) return;
+                if (idx.length == 2 && idx[0] == hash) {
+                    local[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
+                } else
+                if (idx.length == 2) {
+                    global[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
+                } else {
+                    global[idx[0]] = core.newObj(idx[0], 'HASH');
+                }
+            });
+
             var attrs = Object.keys(keys).
                                concat(Object.keys(local)).
                                concat(Object.keys(global)).
@@ -2722,9 +2738,6 @@ db.mongodbInitPool = function(options)
             });
         });
     }
-    pool.getProps = function(obj, name) {
-        return Object.keys(obj).filter(function(x, i) { return obj[x][name] }).map(function(x, i) { return x }).reduce(function(x,y) { x[y] = 1; return x }, {})
-    }
     pool.query = function(client, req, opts, callback) {
         var pool = this;
         var table = req.text;
@@ -2739,19 +2752,19 @@ db.mongodbInitPool = function(options)
         case "create":
         case "upgrade":
             var keys = [];
-            var cols = pool.getProps(obj, 'primary');
+            var cols = core.searchObj(obj, { name: 'primary', sort: 1, flag: 1 });
             var opts = core.mergeObj(options, { unique: true, background: true });
             // Merge with mongo properties from the column, primary key properties also applied for the collection as well
             Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) options[p] = opts[p] = obj[x].mongodb[p]; });
             keys.push({ cols: cols, opts: opts });
 
-            ["", "1", "2"].forEach(function(n) {
-                var cols = pool.getProps(obj, "unique" + n);
+            ["", "1", "2", "3", "4", "5"].forEach(function(n) {
+                var cols = core.searchObj(obj, { name: "unique" + n, sort: 1, flag: 1 });
                 var opts = core.mergeObj(options, { name: Object.keys(cols).join('.'), unique: true, background: true });
                 Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) opts[p] = obj[x].mongodb[p]; });
 
                 if (Object.keys(cols).length) keys.push({ cols: cols, opts: opts });
-                cols = pool.getProps(obj, "index" + n);
+                cols = core.searchObj(obj, { name: "index" + n, sort: 1, flag: 1 });
                 opts = core.mergeObj(options, { name: Object.keys(cols).join('.'), background: true });
                 Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) opts[p] = obj[x].mongodb[p]; });
                 if (Object.keys(cols).length) keys.push({ cols: cols, opts: opts });

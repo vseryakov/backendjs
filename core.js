@@ -1693,14 +1693,19 @@ core.geoHash = function(latitude, longitude, options)
 	if (!options) options = {};
 	if (options.distance && options.distance < this.minDistance) options.distance = this.minDistance;
 
-	// Geohash ranges for different lengths in km
-	var range = [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999]];
-	var size = range.filter(function(x) { return x[1] > self.minDistance })[0];
+	// Geohash ranges for different lengths in km, take the first greater than our min distance
+	var range = [ [12, 0], [8, 0.019], [7, 0.076],
+	              [6, 0.61], [5, 2.4], [4, 20.0],
+	              [3, 78.0], [2, 630.0], [1, 2500.0],
+	              [1, 99999]
+	            ].filter(function(x) { return x[1] > self.minDistance })[0];
+
 	var geohash = backend.geoHashEncode(latitude, longitude);
-	return { geohash: geohash.substr(0, size[0]),
-			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, size[0]), Math.floor(options.distance / size[1])).slice(1) : [],
+	return { geohash: geohash.substr(0, range[0]),
+			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, range[0]), Math.floor(options.distance / range[1])).slice(1) : [],
 			 latitude: latitude,
 			 longitude: longitude,
+			 range: range,
 			 distance: options.distance || 0 };
 }
 
@@ -2376,6 +2381,41 @@ core.delObj = function()
     if (!arguments[0] || typeof arguments[0] != "object") return;
     for (var i = 1; i < arguments.length; i++) delete arguments[0][arguments[i]];
     return arguments[0];
+}
+
+// Return an object consisting of properties that matched given criteria in the given object.
+// optins can define the following properties:
+// - name - search by property name, return all objects that contain given property
+// - value - search by value, return all objects that have a property with given value
+// - sort if true then sort found columns by the property value.
+// - names - if true just return list of column names
+// - flag - if true, return object with all properties set to flag value
+//
+// Example
+//
+//          core.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { name: 'index', sort: 1 });
+//          { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
+//
+core.searchObj = function(obj, options)
+{
+    if (!options) options = {};
+    var name = options.name;
+    var val = options.value;
+    var rc = Object.keys(obj).
+                    filter(function(x) {
+                        if (typeof obj[x] != "object") return 0;
+                        if (typeof name != "undefined" && typeof obj[x][name] == "undefined") return 0;
+                        if (typeof val != "undefined" && !Object.keys(obj[x]).some(function(y) { return obj[x][y] == val })) return 0;
+                        return 1;
+                    }).
+                    sort(function(a, b) {
+                        if (options.sort) return obj[a][name] - obj[b][name];
+                        return 0;
+                    }).
+                    reduce(function(x,y) { x[y] = options.flag || obj[y]; return x; }, {});
+
+    if (options.names) return Object.keys(rc);
+    return rc;
 }
 
 // Merge an object with the options, all properties in the options override existing in the object, returns a new object

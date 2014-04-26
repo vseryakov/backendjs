@@ -129,15 +129,15 @@ var api = {
        // All accumulated counters for accounts
        bk_counter: { id: { primary: 1, pub: 1 },                               // account id
                      ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy
-                     like0: { type: "counter", value: 0, incr: 1 },            // who i liked
+                     like0: { type: "counter", value: 0, autoincr: 1 },            // who i liked
                      like1: { type: "counter", value: 0 },                     // reversed, who liked me
-                     dislike0: { type: "counter", value: 0, incr: 1 },
+                     dislike0: { type: "counter", value: 0, autoincr: 1 },
                      dislike1: { type: "counter", value: 0 },
-                     follow0: { type: "counter", value: 0, incr: 1 },
+                     follow0: { type: "counter", value: 0, autoincr: 1 },
                      follow1: { type: "counter", value: 0, },
-                     invite0: { type: "counter", value: 0, incr: 1 },
+                     invite0: { type: "counter", value: 0, autoincr: 1 },
                      invite1: { type: "counter", value: 0, },
-                     view0: { type: "counter", value: 0, incr: 1 },
+                     view0: { type: "counter", value: 0, autoincr: 1 },
                      view1: { type: "counter", value: 0, },
                      msg_count: { type: "counter", value: 0 },                  // total msgs received
                      msg_read: { type: "counter", value: 0 }},                  // total msgs read
@@ -1199,8 +1199,18 @@ api.getOptions = function(req)
     return options;
 }
 
-// Add columns to account tables, makes sense in case of SQL database for extending supported properties and/or adding indexes
-// Used during initialization of the external modules which may add custom columns to the existing tables.
+// Define new tables or extned/customize existing tables. Table definitions are used with every database operation,
+// on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
+// like public columns are only specific to the backend so to mark such columns the table with such properties must be described
+// using this method. Only columns with changed properties need to be specified, other columns will be left as it is.
+//
+// Example
+//
+//          api.describeTables({ bk_account: { name: { pub: 1 } },
+//
+//                               test: { id: { primary: 1, type: "int" },
+//                                       name: { pub: 1, index: 1 } });
+//
 api.describeTables = function(tables)
 {
     var self = this;
@@ -1467,7 +1477,7 @@ api.putConnections = function(req, options, callback)
                },
                function(next) {
                    var col = db.getColumn("bk_counter", type + '0');
-                   if (!col || !col.incr) return next();
+                   if (!col || !col.autoincr) return next();
                    db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', 1), { cached: 1 }, function() {
                        db.incr("bk_counter", core.newObj('id', id, type + '1', 1), { cached: 1 }, next);
                    });
@@ -1504,7 +1514,7 @@ api.delConnections = function(req, options, callback)
                    function(next) {
                        // Update accumulated counter if we support this column and do it automatically
                        var col = db.getColumn("bk_counter", req.query.type + "0");
-                       if (!col || !col.incr) return next();
+                       if (!col || !col.autoincr) return next();
                        db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 }, function() {
                            db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 }, next);
                        });
@@ -1522,7 +1532,7 @@ api.delConnections = function(req, options, callback)
                 // Keep track of all counters
                 var name0 = t[0] + '0', name1 = t[0] + '1';
                 var col = db.getColumn("bk_counter", name0);
-                if (col && col.incr) {
+                if (col && col.autoincr) {
                     if (!counters[req.account.id]) counters[req.account.id] = { id: req.account.id };
                     if (!counters[req.account.id][name0]) counters[req.account.id][name0] = 0;
                     counters[req.account.id][name0]--;
@@ -1636,12 +1646,13 @@ api.putLocations = function(req, options, callback)
         // Keep old coordinates in the account record
         var old = rows[0];
 
-        // Skip if within minimal distance
-        var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
-        if (distance < core.minDistance) return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
-
         // Build new location record
         var geo = core.geoHash(latitude, longitude);
+
+        // Skip if within minimal distance
+        var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
+        if (distance < core.minDistance || old.geohash == geo.geohash) return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
+
         req.query.id = req.account.id;
         req.query.geohash = geo.geohash;
         var cols = db.getColumns("bk_location", options);

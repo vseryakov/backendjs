@@ -424,7 +424,7 @@ aws.ddbDescribeTable = function(name, options, callback)
 // - options may contain any valid native property if it starts with capital letter and the following:
 //   - local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object
 //   - global - an object for global secondary indexes, same format as for local indexes
-//   - projection - an object with index name and list of projected properties to be included in the index or string "ALL" for all properties
+//   - projection - an object with index name and list of projected properties to be included in the index or "ALL" for all properties, if omitted then default KEYS_ONLY is assumed
 // Example:
 //          ddbCreateTable('users', { id:'S',mtime:'N',name:'S'},
 //                                  { id:'HASH',name:'RANGE'},
@@ -717,9 +717,9 @@ aws.ddbBatchGetItem = function(items, options, callback)
 //      - total - return number of matching records
 //      - count - limit number of record in result
 //      - desc - descending order
-//      - sort - index name to use, indexes are named the same as the corresponding column
+//      - sort - index name to use, indexes are named the same as the corresponding column, with index primary keys for Keycondition will be used
 //      - ops - an object with operators to be used for properties if other than EQ.
-//      - keys - list of primary key columns, if there re other properties in the condition then they will be
+//      - keys - list of primary key columns, if there are other properties in the condition then they will be
 //         put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.
 // Example:
 //          ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', ops: { name: 'gt' } })
