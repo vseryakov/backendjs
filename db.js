@@ -237,6 +237,17 @@ db.getPoolTables = function(name)
 // - resolveTable - a callback function(op, table, obj, options) that returns poosible different table at the time of the query, it is called by the `db.prepare` method
 //   and if exist it must return the same or new table name for the given query parameters.
 //
+// The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
+// it is required to call pool.free at the end to return the connection back to the connection pool.
+//
+//          var pool = db.getPool("", { pool: "mongodb" });
+//          pool.get(function(err, client) {
+//              var collection = client.collection('bk_account');
+//              collection.findOne({ id: '123' }, function() {
+//                  pool.free(client);
+//              });
+//          });
+//
 db.createPool = function(options)
 {
     var self = this;

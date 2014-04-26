@@ -117,11 +117,24 @@ case "$ARG" in
     ;;
 
   setup-server)
-    # Root can be specified to force non default root
-    if [ "$2" = "-root" -a "$3" != "" ]; then
-       BACKEND_ROOT=$3
-       $ECHO "BACKEND_ROOT=$BACKEND_ROOT" > /etc/backendrc
-    fi
+    # Optional config parametrrs for the environment
+    rm -rf /etc/backendrc
+    while [ $# -gt 1 ]; do
+      case "$2" in
+      -root)
+         BACKEND_ROOT=$3
+         $ECHO "BACKEND_ROOT=$BACKEND_ROOT" >> /etc/backendrc
+         shift;shift
+         ;;
+
+      -user)
+         BACKEND_USER=$3
+         $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/backendrc
+         $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -uid $(id -u $BACKEND_USER)\"" >> /etc/backendrc
+         shift;shift
+         ;;
+      esac
+    done
 
     # System utilities
     yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git svn man telnet jna
@@ -161,7 +174,6 @@ case "$ARG" in
        echo 'alias blog="tail -100 $BACKEND_ROOT/log/backend.log"' >> .bashrc
        echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
-       echo "alias bksh=\"bkjs run-shell\"" >> .bashrc
        echo 'alias ps="ps augx"' >> .bashrc
        echo 'alias mc="mc -b"' >> .bashrc
        echo 'ulimit -c unlimited' >> .bash_profile
@@ -246,7 +258,7 @@ case "$ARG" in
     # Duplicate messages to the console for easier access
     if [[ $BACKEND_ARGS = *-instance* ]]; then
        echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
-       truncate -c -s 0 /var/log/messages $BACKEND_ROOT/log/backend.log
+       truncate -c -s 0 /var/log/messages $BACKEND_ROOT/log/backend.log $BACKEND_ROOT/log/error.log
        killall -HUP rsyslogd
     fi
 
@@ -358,19 +370,6 @@ case "$ARG" in
     yum -y install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
     yum -y install libpng-devel libjpeg-turbo-devel librsvg2-devel
     yum -y install postgresql93-devel postgresql93-server mysql-devel mysql-server
-
-    ;;
-
-  run-server)
-    # Additional arguments via EC2 instance user data
-    BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
-    [[ $BACKEND_ARGS = *-no-server* ]] && exit
-
-    APP=$NODE_BACKEND/server.js
-    [ -f $BACKEND_ROOT/app.js ] && APP=$BACKEND_ROOT/app.js
-
-    echo "Starting backend $APP $BACKEND_ARGS ..."
-    $BACKEND_PREFIX/bin/node $NODE_ARGS $APP -home $BACKEND_ROOT -daemon -monitor -syslog $BACKEND_ARGS
     ;;
 
   check-idle)
@@ -632,7 +631,7 @@ case "$ARG" in
     rsync -av -e "ssh -l $BACKEND_USER" web $BACKEND_MASTER:$path
     ;;
 
-  run-backend|run-shell|backendjs|bksh)
+  run-backend|run-server|run-shell|backendjs|bksh)
     [ -f $NODE_BACKEND/server.js ] && SCRIPT=$NODE_BACKEND/server.js
     [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
     [ -f server.js ] && SCRIPT=server.js
@@ -640,6 +639,12 @@ case "$ARG" in
     [ -f app.js ] && SCRIPT=app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
     case "$ARG" in
+     run-server)
+        # Additional arguments via EC2 instance user data
+        BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -daemon -monitor -syslog $BACKEND_ARGS $@
+        ;;
+
      run-backend)
         killall node
         $BACKEND_PREFIX/bin/node $SCRIPT -debug -watch `pwd` -home $BACKEND_ROOT -master -web $@
@@ -653,8 +658,8 @@ case "$ARG" in
      *)
         $BACKEND_PREFIX/bin/node $SCRIPT -shell -home $BACKEND_ROOT $@
         ;;
-     esac
-     ;;
+    esac
+    ;;
 
   show-help)
     $BACKEND_PREFIX/bin/node -e "require('$BKJS').core.help()"

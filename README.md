@@ -67,6 +67,10 @@ applications but still part of the core of the system to be available once neede
 
         bkjs run-backend
 
+* To start node.js shell with backendjs loaded and initialized
+
+        bksh
+
 * Documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
 
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
@@ -654,6 +658,10 @@ process for the cached records thus only one copy of the cache per machine even 
     it means i have a new message
   More columns can be added to the bk_counter table.
 
+  NOTE: The columns with suffixes 0 and 1 are special columns that support the Connections API, every time a new connection is created, the type of new connection
+  is checked against any columns in the bk_counter table, if a property type0 exists and marked in the table descriptnio as `autoincr` then the corresponding
+  counter property is increased, this is how every time new connectio like/dislike/invite/follow is added, the counters in the bk_counter table are increased.
+
 - `/counter/put`
   Replace my counters record, all values if not specified will be set to 0
 
@@ -1080,8 +1088,8 @@ The basic flow is the following using a hypothetical example:
    - node1 and node2 servers receive 'del' request and delete the key from their local caches
    - node1 and node2 re-send same request to all connected clients which are actually all nodes in the network, so all nodes receive 'del' cache request
    - because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
-     costs nothing, both requests will be receive winin milliseonds from each other.
-   - next request to any of the nodes for the key just deleted will result in retrieving the record from the database and putting back to the local cache
+     costs nothing, both requests will be received within milliseonds from each other.
+   - next request to any of the nodes for that key we just deleted will result in retrieving the record from the database and putting back to the local cache
      of the node until the next 'del' request.
    - Important: each node maintains its own version of the cache, i.e. all nodes do not have exactly the same
      items in the cache, over time they all retieve same records but only on demand and when one node puts an item in the cache it is not sent to all other nodes.
@@ -1233,7 +1241,8 @@ Most common used commands are:
 - bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
 - bkjs init-app - create the app skeleton
 - bkjs put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only
-- bkjs setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend
+- bkjs setup-server [-root path] [-user user] - initialize Linux instance(Amazon,CentOS) for backend use, optional -root can be specified where the backend
+   home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user backend.
 
 # Deployment use cases
 
@@ -1245,10 +1254,8 @@ new image configuration.
 - start new AWS instance via AWS console, use Amazon Linux or CentOS 6
 - login as `ec2-user`
 - get bkjs: `curl -OL https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs'
-- run `sudo ./bkjs setup-server`
-  - optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory
-  - for example this command: `sudo ./bkjs setup-server -root /home/backend` will make all backend files in the home of the backend user which is very convenient and easy to support
-- global system-wide options are defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables
+- run `sudo ./bkjs setup-server -root /home/backend`
+- global system-wide options will be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables
 - reboot
 - login as `backend` user using the AWS keypair private key
 - run `ps agx`, it should show several backend processes running
@@ -1271,7 +1278,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
   Example:
 
-        node test_backend.js -home $HOME -port 80
+        node app.js -home $HOME -port 80
 
 
 # Security

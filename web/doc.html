@@ -110,6 +110,9 @@ applications but still part of the core of the system to be available once neede
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
 <pre><code>  bkjs run-backend
 </code></pre></li>
+<li><p>To start node.js shell with backendjs loaded and initialized</p>
+<pre><code>  bksh
+</code></pre></li>
 <li><p>Documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
@@ -629,6 +632,9 @@ which by default defines some common columns:</p>
 it means i have a new message
 More columns can be added to the bk_counter table.</li>
 </ul>
+<p>NOTE: The columns with suffixes 0 and 1 are special columns that support the Connections API, every time a new connection is created, the type of new connection
+is checked against any columns in the bk_counter table, if a property type0 exists and marked in the table descriptnio as <code>autoincr</code> then the corresponding
+counter property is increased, this is how every time new connectio like/dislike/invite/follow is added, the counters in the bk_counter table are increased.</p>
 </li>
 <li><p><code>/counter/put</code>
 Replace my counters record, all values if not specified will be set to 0</p>
@@ -1061,8 +1067,8 @@ processes on other nodes thus keeping in sync caches on all nodes.</p>
 <li>node1 and node2 servers receive &#39;del&#39; request and delete the key from their local caches</li>
 <li>node1 and node2 re-send same request to all connected clients which are actually all nodes in the network, so all nodes receive &#39;del&#39; cache request</li>
 <li>because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
-costs nothing, both requests will be receive winin milliseonds from each other.</li>
-<li>next request to any of the nodes for the key just deleted will result in retrieving the record from the database and putting back to the local cache
+costs nothing, both requests will be received within milliseonds from each other.</li>
+<li>next request to any of the nodes for that key we just deleted will result in retrieving the record from the database and putting back to the local cache
 of the node until the next &#39;del&#39; request.</li>
 <li>Important: each node maintains its own version of the cache, i.e. all nodes do not have exactly the same
 items in the cache, over time they all retieve same records but only on demand and when one node puts an item in the cache it is not sent to all other nodes.
@@ -1191,7 +1197,8 @@ customize the running environment, these should be regular shell scripts using b
 <li>bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
 <li>bkjs init-app - create the app skeleton</li>
 <li>bkjs put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only</li>
-<li>bkjs setup-server [-root path] - initialize Amazon instance for backend use, optional -root can be specified where the backend home will be instead of ~/.backend</li>
+<li>bkjs setup-server [-root path] [-user user] - initialize Linux instance(Amazon,CentOS) for backend use, optional -root can be specified where the backend
+ home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user backend.</li>
 </ul>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <h2 id="aws-instance-setup">AWS instance setup</h2>
@@ -1201,12 +1208,8 @@ new image configuration.</p>
 <li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
 <li>login as <code>ec2-user</code></li>
 <li>get bkjs: `curl -OL <a href="https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs">https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs</a>&#39;</li>
-<li>run <code>sudo ./bkjs setup-server</code><ul>
-<li>optionally you can specify the root of the backend instead of default /home/backend/.backend to some other directory</li>
-<li>for example this command: <code>sudo ./bkjs setup-server -root /home/backend</code> will make all backend files in the home of the backend user which is very convenient and easy to support</li>
-</ul>
-</li>
-<li>global system-wide options are defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</li>
+<li>run <code>sudo ./bkjs setup-server -root /home/backend</code></li>
+<li>global system-wide options will be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</li>
 <li>reboot</li>
 <li>login as <code>backend</code> user using the AWS keypair private key</li>
 <li>run <code>ps agx</code>, it should show several backend processes running</li>
@@ -1224,7 +1227,7 @@ defined via command line arguments as <code>-home</code> or via environment vari
 <li><p>command line arguments</p>
 <p>When running node scripts which use the backend, just specify <code>-home</code> command line argument with the directory where yor backend should be and the backend will use it</p>
 <p>Example:</p>
-<pre><code>  node test_backend.js -home $HOME -port 80
+<pre><code>  node app.js -home $HOME -port 80
 </code></pre></li>
 </ul>
 <h1 id="security">Security</h1>
@@ -3097,7 +3100,16 @@ may convert the val into something different depending on the DB driver requirem
 <li>resolveTable - a callback function(op, table, obj, options) that returns poosible different table at the time of the query, it is called by the <code>db.prepare</code> method
 and if exist it must return the same or new table name for the given query parameters.</li>
 </ul>
-</li>
+<p>The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
+it is required to call pool.free at the end to return the connection back to the connection pool.</p>
+<pre><code>    var pool = db.getPool(&quot;&quot;, { pool: &quot;mongodb&quot; });
+    pool.get(function(err, client) {
+        var collection = client.collection(&#39;bk_account&#39;);
+        collection.findOne({ id: &#39;123&#39; }, function() {
+            pool.free(client);
+        });
+    });
+</code></pre></li>
 </ul>
 
 <ul>
