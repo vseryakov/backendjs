@@ -489,10 +489,13 @@ Receive all references that connected with my account, i.e. connections made by 
 </code></pre></li>
 </ul>
 <h2 id="locations">Locations</h2>
-<p>The location API maintains a table <code>bk_location</code> with geolocation coordinates for accounts and allows searching it by distance.</p>
+<p>The location API maintains a table <code>bk_location</code> with geolocation coordinates for accounts and allows searching it by distance. The configuration parameter
+<code>min-distance</code> defines the radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
+this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. By default min-distance is 5 km
+which means all geohashes in bk_location table will have geohash of size 4. Once min-distance is set it cannot be changed without rebuilding the bk_location table with new geohash size.</p>
 <ul>
 <li><p><code>/location/put</code>
-Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_accout table as well with
+Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
 these coordinates</p>
 <p>Example:</p>
 <pre><code>  /location/put?latitude=-188.23232&amp;longitude=23.4545454
@@ -2548,6 +2551,9 @@ options may specify the following parameters:</p>
 options may contain the following properties:</p>
 <ul>
 <li>distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted</li>
+<li>minDistance - radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
+ this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table
+ if not specified default <code>min-distance</code> value willbe used.</li>
 </ul>
 </li>
 </ul>
@@ -3394,7 +3400,7 @@ this works the same way as the <code>select</code> method.</p>
 table must be defined with the following required columns:</p>
 <ul>
 <li>geohash - location as primary key hash,</li>
-<li>id or other column name to be used as a RANGE key for DynamoDB or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases</li>
+<li>id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases</li>
 <li>latitude and longitude as floating numbers</li>
 </ul>
 <p>other optional properties:</p>
