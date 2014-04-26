@@ -419,7 +419,7 @@ tests.db = function(callback)
 			         alias: { pub: 1 },
 			         birthday: { semipub: 1 },
 			         json: { type: "json" },
-			         num: { type: "int", index: 1, dynamodb: { projection: ['id2','email'] } },
+			         num: { type: "int", index: 1, dynamodb: { projection: ['num','id2','email'] } },
 			         num2: { type: "real" },
 			         mtime: { type: "int" } },
 			test3: { id : { primary: 1, pub: 1 },

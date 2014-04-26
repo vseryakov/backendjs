@@ -2488,20 +2488,29 @@ db.dynamodbInitPool = function(options)
 
         switch(req.op) {
         case "create":
-            var idxs = {}, projection = {};
+            var local = {}, global = {}, projection = {};
             var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            var hash = Object.keys(keys)[0];
 
             if (Object.keys(keys).length == 2) {
                 ["", "1", "2"].forEach(function(n) {
-                    var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; })[1];
-                    if (!idx) return;
-                    idxs[idx] = core.newObj(Object.keys(keys)[0], 'HASH', idx, 'RANGE');
+                    var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; });
+                    if (!idx.length) return;
+                    if (idx.length == 2 && idx[0] == hash) {
+                        local[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
+                    } else
+                    if (idx.length == 2) {
+                        global[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
+                    } else {
+                        global[idx[0]] = core.newObj(idx[0], 'HASH');
+                    }
                 });
             }
             var attrs = Object.keys(keys).
-                               concat(Object.keys(idxs)).
+                               concat(Object.keys(local)).
+                               concat(Object.keys(global)).
                                map(function(x) {
                                    // All native properties for options from the key columns
                                    for (var p in obj[x].dynamodb) {
@@ -2512,8 +2521,10 @@ db.dynamodbInitPool = function(options)
                                }).
                                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 
+            options.local = local;
+            options.global = global;
             options.projection = projection;
-            aws.ddbCreateTable(table, attrs, keys, idxs, options, function(err, item) {
+            aws.ddbCreateTable(table, attrs, keys, options, function(err, item) {
                 callback(err, item.Item ? [item.Item] : []);
             });
             break;
@@ -2553,17 +2564,14 @@ db.dynamodbInitPool = function(options)
             var op = 'ddbScanTable';
             if (dbkeys.sort().toString() == Object.keys(keys).filter(function(x) { return dbkeys.indexOf(x) > -1 }).sort().toString()) {
                 op = 'ddbQueryTable';
-                for (var p in keys) if (dbkeys.indexOf(p) == -1) delete keys[p];
+                options.keys = dbkeys;
             }
-            // Custom filter function for in-memory filtering of the results using non-indexed properties
-            var filter = function(rows) { return rows };
-            if (op == "ddbQueryTable" && other.length) filter = function(rows) { return self.filterRows(obj, rows, { keys: other, ops: options.ops, typesMap: options.typesMap }); }
 
             options.select = self.getSelectedColumns(table, options);
             aws[op](table, keys, options, function(err, item) {
                 if (err) return callback(err, []);
                 var count = options.count || 0;
-                var rows = filter(item.Items);
+                var rows = item.Items;
                 pool.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
                 count -= rows.length;
 
@@ -2575,7 +2583,7 @@ db.dynamodbInitPool = function(options)
                     function(next) {
                         options.start = pool.next_token;
                         aws.ddbQueryTable(table, keys, options, function(err, item) {
-                            var items = filter(item.Items);
+                            var items = item.Items;
                             rows.push.apply(rows, items);
                             pool.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
                             count -= items.length;

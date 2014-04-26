@@ -420,18 +420,25 @@ aws.ddbDescribeTable = function(name, options, callback)
 
 // Create a table
 // - attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS
-// - keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE
-// - indexes can be an array in native DDB JSON format or an object with each property for an index name and
-//   value in the same format as for primary keys, additional property _projection defines projection type for an index.
+// - keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys
 // - options may contain any valid native property if it starts with capital letter and the following:
+//   - local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object
+//   - global - an object for global secondary indexes, same format as for local indexes
 //   - projection - an object with index name and list of projected properties to be included in the index or string "ALL" for all properties
 // Example:
-//          ddbCreateTable('users', {id:'S',mtime:'N',name:'S'}, {id:'HASH',name:'RANGE'}, {mtime:{mtime:"HASH"}}, {projection:{mtime:['gender','age']}, ReadCapacityUnits:1,WriteCapacityUnits:1});
-aws.ddbCreateTable = function(name, attrs, keys, indexes, options, callback)
+//          ddbCreateTable('users', { id:'S',mtime:'N',name:'S'},
+//                                  { id:'HASH',name:'RANGE'},
+//                                  { local: { mtime: { mtime: "HASH" } },
+//                                    global: { name: { name: 'HASH', ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
+//                                    projection: { mtime: ['gender','age'],
+//                                                  name: ['name','gender'] },
+//                                    ReadCapacityUnits: 10,
+//                                    WriteCapacityUnits: 10 });
+aws.ddbCreateTable = function(name, attrs, keys, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    var params = { "TableName": name, "AttributeDefinitions": [], "KeySchema": [], "ProvisionedThroughput": {"ReadCapacityUnits": options.ReadCapacityUnits || 10, "WriteCapacityUnits": options.WriteCapacityUnits || 5 }};
+    var params = { TableName: name, AttributeDefinitions: [], KeySchema: [], ProvisionedThroughput: { ReadCapacityUnits: options.ReadCapacityUnits || 10, WriteCapacityUnits: options.WriteCapacityUnits || 5 }};
 
     if (Array.isArray(attrs) && attrs.length) {
         params.AttributeDefinitions = attrs;
@@ -447,14 +454,16 @@ aws.ddbCreateTable = function(name, attrs, keys, indexes, options, callback)
             params.KeySchema.push({ AttributeName: p, KeyType: String(keys[p]).toUpperCase() })
         }
     }
-    if (Array.isArray(indexes) && indexes.length) {
-        params.LocalSecondaryIndexes = indexes;
-    } else {
-        for (var n in indexes) {
-            var idx = indexes[n];
+    ["local","global"].forEach(function(t) {
+        for (var n in options[t]) {
+            var idx = options[t][n];
             var index = { IndexName: n, KeySchema: [] };
             for (var p in idx) {
-                index.KeySchema.push({ AttributeName: p, KeyType: String(idx[p]).toUpperCase() })
+                if (p[0] >= 'A' && p[0] <= 'Z') {
+                    index[p] = idx[p];
+                } else {
+                    index.KeySchema.push({ AttributeName: p, KeyType: String(idx[p]).toUpperCase() })
+                }
             }
             if (options.projection && options.projection[n]) {
                 index.Projection = { ProjectionType: Array.isArray(options.projection[n]) ? "INCLUDE" : String(options.projection[n]).toUpperCase() };
@@ -462,10 +471,22 @@ aws.ddbCreateTable = function(name, attrs, keys, indexes, options, callback)
             } else {
                 index.Projection = { ProjectionType: "KEYS_ONLY" };
             }
-            if (!params.LocalSecondaryIndexes) params.LocalSecondaryIndexes = [];
-            params.LocalSecondaryIndexes.push(index);
+            switch (t) {
+            case "local":
+                if (!params.LocalSecondaryIndexes) params.LocalSecondaryIndexes = [];
+                params.LocalSecondaryIndexes.push(index);
+                break;
+            case "global":
+                if (!index.ProvisionedThroughput) index.ProvisionedThroughput = {};
+                if (!index.ProvisionedThroughput.ReadCapacityUnits) index.ProvisionedThroughput.ReadCapacityUnits = params.ProvisionedThroughput.ReadCapacityUnits;
+                if (!index.ProvisionedThroughput.WriteCapacityUnits) index.ProvisionedThroughput.WriteCapacityUnits = params.ProvisionedThroughput.WriteCapacityUnits;
+                if (!params.GlobalSecondaryIndexes) params.GlobalSecondaryIndexes = [];
+                params.GlobalSecondaryIndexes.push(index);
+                break;
+            }
         }
-    }
+    });
+
     for (var p in options) {
         if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
     }
@@ -698,6 +719,8 @@ aws.ddbBatchGetItem = function(items, options, callback)
 //      - desc - descending order
 //      - sort - index name to use, indexes are named the same as the corresponding column
 //      - ops - an object with operators to be used for properties if other than EQ.
+//      - keys - list of primary key columns, if there re other properties in the condition then they will be
+//         put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.
 // Example:
 //          ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', ops: { name: 'gt' } })
 aws.ddbQueryTable = function(name, condition, options, callback)
@@ -730,7 +753,14 @@ aws.ddbQueryTable = function(name, condition, options, callback)
     if (options.total) {
         params.Select = "COUNT";
     }
-    params.KeyConditions = this.queryFilter(condition, options)
+    if (Array.isArray(options.keys)) {
+        var keys = Object.keys(condition).filter(function(x) { return options.keys.indexOf(x) > -1}).reduce(function(x,y) {x[y] = condition[y]; return x; }, {});
+        var filter = Object.keys(condition).filter(function(x) { return options.keys.indexOf(x) > -1}).reduce(function(x,y) {x[y] = condition[y]; return x; }, {});
+        params.KeyConditions = this.queryFilter(keys, options);
+        params.QueryFilter = this.queryFilter(filter, options);
+    } else {
+        params.KeyConditions = this.queryFilter(condition, options);
+    }
 
     this.queryDDB('Query', params, options, function(err, rc) {
         rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
