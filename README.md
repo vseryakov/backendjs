@@ -1209,7 +1209,7 @@ will never end up in this callback because it is called after the signature chec
 
 # The backend provisioning utility: bkjs
 
-The purpose of the bkjs shell script is to act as a helper tool in configuring and managing the backend environment
+The purpose of the `bkjs` shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.
 

@@ -358,6 +358,44 @@ aws.fromDynamoDB = function(value)
     }
 }
 
+// Build query or scan filter objects for the given object, all properties in the obj are used
+aws.queryFilter = function(obj, options)
+{
+    var filter = {};
+    for (var name in obj) {
+        var val = obj[name];
+        var op = (options.ops || {})[name] || "eq";
+        if (this.opsMap[op]) op = this.opsMap[op];
+        var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase().replace(' ', '_') }
+        switch (cond.ComparisonOperator) {
+        case 'BETWEEN':
+            if (args.length < 2) continue;
+            cond.AttributeValueList.push(this.toDynamoDB(val[0]));
+            cond.AttributeValueList.push(this.toDynamoDB(val[1]));
+            break;
+
+        case 'NULL':
+        case 'NOT_NULL':
+            break;
+
+        case 'IN':
+        case 'CONTAINS':
+        case 'NOT_CONTAINS':
+        case 'NE':
+        case 'EQ':
+        case 'LE':
+        case 'LT':
+        case 'GE':
+        case 'GT':
+        case 'BEGINS_WITH':
+            cond.AttributeValueList.push(this.toDynamoDB(val));
+            break;
+        }
+        filter[name] = cond;
+    }
+    return filter;
+}
+
 // Return list of tables in .TableNames property of the result
 // Example:
 //          { TableNames: [ name, ...] }
@@ -662,7 +700,8 @@ aws.ddbBatchGetItem = function(items, options, callback)
 //      - ops - an object with operators to be used for properties if other than EQ.
 // Example:
 //          ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', ops: { name: 'gt' } })
-aws.ddbQueryTable = function(name, condition, options, callback) {
+aws.ddbQueryTable = function(name, condition, options, callback)
+{
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -691,29 +730,8 @@ aws.ddbQueryTable = function(name, condition, options, callback) {
     if (options.total) {
         params.Select = "COUNT";
     }
-    for (var name in condition) {
-        var val = condition[name];
-        var op = (options.ops || {})[name] || "eq";
-        if (this.opsMap[op]) op = this.opsMap[op];
-        var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase() }
-        switch (cond.ComparisonOperator) {
-        case 'BETWEEN':
-            if (args.length < 2) continue;
-            cond.AttributeValueList.push(self.toDynamoDB(val[0]));
-            cond.AttributeValueList.push(self.toDynamoDB(val[1]));
-            break;
+    params.KeyConditions = this.queryFilter(condition, options)
 
-        case 'EQ':
-        case 'LE':
-        case 'LT':
-        case 'GE':
-        case 'GT':
-        case 'BEGINS_WITH':
-            cond.AttributeValueList.push(self.toDynamoDB(val));
-            break;
-        }
-        params.KeyConditions[name] = cond;
-    }
     this.queryDDB('Query', params, options, function(err, rc) {
         rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
         if (callback) callback(err, rc);
@@ -748,36 +766,8 @@ aws.ddbScanTable = function(name, condition, options, callback)
     if (options.count) {
         params.Limit = options.count;
     }
-    for (var name in condition) {
-        var val = condition[name];
-        var op = (options.ops || {})[name] || "eq";
-        if (this.opsMap[op]) op = this.opsMap[op];
-        var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase().replace(' ', '_') }
-        switch (cond.ComparisonOperator) {
-        case 'BETWEEN':
-            if (args.length < 2) continue;
-            cond.AttributeValueList.push(self.toDynamoDB(val[0]));
-            cond.AttributeValueList.push(self.toDynamoDB(val[1]));
-            break;
+    params.ScanFilter = this.queryFilter(condition, options)
 
-        case 'NULL':
-        case 'NOT_NULL':
-            break;
-        case 'IN':
-        case 'CONTAINS':
-        case 'NOT_CONTAINS':
-        case 'NE':
-        case 'EQ':
-        case 'LE':
-        case 'LT':
-        case 'GE':
-        case 'GT':
-        case 'BEGINS_WITH':
-            cond.AttributeValueList.push(self.toDynamoDB(val));
-            break;
-        }
-        params.ScanFilter[name] = cond;
-    }
     this.queryDDB('Scan', params, options, function(err, rc) {
         rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
         if (callback) callback(err, rc);
