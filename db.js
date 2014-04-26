@@ -1090,15 +1090,24 @@ db.getCachedKey = function(table, obj, options)
 // Each database pool also can support native options that are passed directly to the driver in the options, these properties are
 // defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:
 //
-//      db.create("test_table", { id: { primary: 1, type: "int", dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
-//                                type: { primary: 1, pub: 1 },
-//                                name: { index: 1, pub: 1, dynamodb: { projection: ['type'] } }
-//                              });
+//          db.create("test_table", { id: { primary: 1, type: "int", index: 1, dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
+//                                    type: { primary: 1, pub: 1 },
+//                                    name: { index: 1, pub: 1, dynamodb: { projection: ['type'] } }
+//                                  });
 //
-//      db.create("test_table", { id: { primary: 1, type: "int", mongodb: { w: 1, capped: true, max: 100, size: 100 } },
-//                                type: { primary: 1, pub: 1 },
-//                                name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
-//                              });
+// Create DynamoDB table with global secondary index, first index property if not the same as primary key hash defines global index, if it is the same then local,
+// below we create global secondary index on property 'name' only, in the example above it was local secondary index for id and name:
+//
+//          db.create("test_table", { id: { primary: 1, type: "int" },
+//                                    type: { primary: 1 },
+//                                    name: { index: 1, dynamodb: { projection: ['type'] } }
+//                                  });
+//
+// Pass MongoDB options directly:
+//        db.create("test_table", { id: { primary: 1, type: "int", mongodb: { w: 1, capped: true, max: 100, size: 100 } },
+//                                  type: { primary: 1, pub: 1 },
+//                                    name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
+//                                  });
 db.create = function(table, columns, options, callback)
 {
     if (typeof options == "function") callback = options,options = {};

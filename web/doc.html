@@ -1171,7 +1171,7 @@ will never end up in this callback because it is called after the signature chec
         callback(status);
     });
 </code></pre><h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
-<p>The purpose of the bkjs shell script is to act as a helper tool in configuring and managing the backend environment
+<p>The purpose of the <code>bkjs</code> shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.</p>
 <p>Running without arguments will bring help screen with description of all available commands.</p>
@@ -2072,6 +2072,12 @@ Options may contain the following properties:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.queryFilter(obj, options)</code></p>
+<p> Build query or scan filter objects for the given object, all properties in the obj are used</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.ddbListTables(options, callback)</code></p>
 <p> Return list of tables in .TableNames property of the result
 Example:</p>
@@ -2088,16 +2094,23 @@ Example:</p>
 </ul>
 
 <ul>
-<li><p><code>aws.ddbCreateTable(name, attrs, keys, indexes, options, callback)</code></p>
+<li><p><code>aws.ddbCreateTable(name, attrs, keys, options, callback)</code></p>
 <p> Create a table</p>
 <ul>
 <li>attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS</li>
-<li>keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE</li>
-<li>indexes can be an array in native DDB JSON format or an object with each property for an index name and
-value in the same format as for primary keys, additional property _projection defines projection type for an index.</li>
+<li>keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys</li>
 <li>options may contain any valid native property if it starts with capital letter and the following:<ul>
+<li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
+<li>global - an object for global secondary indexes, same format as for local indexes</li>
 <li>projection - an object with index name and list of projected properties to be included in the index or string &quot;ALL&quot; for all properties
-Example:<pre><code>ddbCreateTable(&#39;users&#39;, {id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;}, {id:&#39;HASH&#39;,name:&#39;RANGE&#39;}, {mtime:{mtime:&quot;HASH&quot;}}, {projection:{mtime:[&#39;gender&#39;,&#39;age&#39;]}, ReadCapacityUnits:1,WriteCapacityUnits:1});
+Example:<pre><code>ddbCreateTable(&#39;users&#39;, { id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;},
+                        { id:&#39;HASH&#39;,name:&#39;RANGE&#39;},
+                        { local: { mtime: { mtime: &quot;HASH&quot; } },
+                          global: { name: { name: &#39;HASH&#39;, ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
+                          projection: { mtime: [&#39;gender&#39;,&#39;age&#39;],
+                                        name: [&#39;name&#39;,&#39;gender&#39;] },
+                          ReadCapacityUnits: 10,
+                          WriteCapacityUnits: 10 });
 </code></pre></li>
 </ul>
 </li>
@@ -2208,7 +2221,9 @@ Example:<pre><code>  { users: { keys: [{ id: 1, name: &quot;john&quot; },{ id: .
 <li>count - limit number of record in result</li>
 <li>desc - descending order</li>
 <li>sort - index name to use, indexes are named the same as the corresponding column</li>
-<li>ops - an object with operators to be used for properties if other than EQ.
+<li>ops - an object with operators to be used for properties if other than EQ.</li>
+<li>keys - list of primary key columns, if there re other properties in the condition then they will be
+ put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.
 Example:
   ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39;, ops: { name: &#39;gt&#39; } })</li>
 </ul>
@@ -3449,15 +3464,21 @@ contain the following properties:</p>
 properties define a composite key in the order of definition.</p>
 <p>Each database pool also can support native options that are passed directly to the driver in the options, these properties are
 defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:</p>
-<pre><code>db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
-                          type: { primary: 1, pub: 1 },
-                          name: { index: 1, pub: 1, dynamodb: { projection: [&#39;type&#39;] } }
-                        });
-
-db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
-                          type: { primary: 1, pub: 1 },
-                          name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
-                        });
+<pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index: 1, dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
+                              type: { primary: 1, pub: 1 },
+                              name: { index: 1, pub: 1, dynamodb: { projection: [&#39;type&#39;] } }
+                            });
+</code></pre><p>Create DynamoDB table with global secondary index, first index property if not the same as primary key hash defines global index, if it is the same then local,
+below we create global secondary index on property &#39;name&#39; only, in the example above it was local secondary index for id and name:</p>
+<pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot; },
+                              type: { primary: 1 },
+                              name: { index: 1, dynamodb: { projection: [&#39;type&#39;] } }
+                            });
+</code></pre><p>Pass MongoDB options directly:</p>
+<pre><code>  db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
+                            type: { primary: 1, pub: 1 },
+                              name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
+                            });
 </code></pre></li>
 </ul>
 
