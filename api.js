@@ -157,6 +157,7 @@ var api = {
     // Disabled API endpoints
     disable: [],
     disableSession: [],
+    caching: [],
 
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
@@ -192,6 +193,7 @@ var api = {
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "data-endpoint-unsecure", type: "bool", descr: "Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
+           { name: "caching", array: 1, descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with whatever cache configured" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints" },
@@ -596,8 +598,11 @@ api.checkSignature = function(req, callback)
         return callback({ status: 400, message: "Expired request" });
     }
 
+    var options = {};
+    if (this.caching.indexOf("bk_auth")) options.cache = 1;
+
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-    core.context.db.getCached("bk_auth", { login: sig.login }, function(err, account) {
+    core.context.db.get("bk_auth", { login: sig.login }, options, function(err, account) {
         if (err) return callback({ status: 500, message: String(err) });
         if (!account) return callback({ status: 404, message: "No account record found" });
 
@@ -647,6 +652,7 @@ api.initAccountAPI = function()
         switch (req.params[0]) {
         case "get":
         	if (!req.query.id) {
+        	    if (self.caching.indexOf("bk_account")) options.cache = 1, options.select = null;
         		db.get("bk_account", { id: req.account.id }, options, function(err, rows) {
         			if (err) return self.sendReply(res, err);
         			if (!rows.length) return self.sendReply(res, 404);
@@ -986,7 +992,8 @@ api.initCounterAPI = function()
 
         case "get":
             var id = req.query.id || req.account.id;
-            db.getCached("bk_counter", { id: id }, options, function(err, row) {
+            if (self.caching.indexOf("bk_counter")) options.cache = 1, options.select = null;
+            db.get("bk_counter", { id: id }, options, function(err, row) {
                 res.json(row);
             });
             break;
@@ -1458,7 +1465,7 @@ api.putConnections = function(req, options, callback)
 
             // We need to know if the other side is connected too, this will save one extra API call later
             if (req.query._connected) {
-                db.get("bk_connection", req.query, function(err, rows) {
+                db.get("bk_connection", req.query, { select: ['id'] }, function(err, rows) {
                     callback(null, { connected: rows.length });
                 });
             } else {
@@ -1747,6 +1754,7 @@ api.getIcon = function(req, res, id, options)
     var self = this;
     var db = core.context.db;
 
+    if (self.caching.indexOf("bk_icon")) options.cache = 1;
     db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, rows) {
         if (err) return self.sendReply(res, err);
         if (!rows.length) return self.sendReply(res, 404, "Not found");
