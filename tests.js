@@ -455,14 +455,14 @@ tests.db = function(callback)
         },
         function(next) {
             logger.log('TEST: get add3');
-            db.get("test3", { id: id }, function(err, rows) {
-                next(err || rows.length!=1 || rows[0].id != id);
+            db.get("test3", { id: id }, function(err, row) {
+                next(err || !row || row.id != id);
             });
         },
         function(next) {
             logger.log('TEST: get add');
-            db.get("test1", { id: id }, function(err, rows) {
-                next(err || rows.length!=1 || rows[0].id != id);
+            db.get("test1", { id: id }, function(err, row) {
+                next(err || !row || row.id != id);
             });
         },
         function(next) {
@@ -509,8 +509,8 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: get after incr');
-	    	db.get("test3", { id: id }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id && rows[0].num != 1 ? ("err7:" + err + util.inspect(rows)) : 0);
+	    	db.get("test3", { id: id }, function(err, row) {
+	    		next(err || !row || row.id != id && row.num != 1 ? ("err7:" + err + util.inspect(row)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -535,8 +535,8 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: get after update');
-	    	db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id  || rows[0].email != id+"@test" || rows[0].num == 9 || !Array.isArray(rows[0].json) ? ("err9:" + err + util.inspect(rows)) : 0);
+	    	db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
+	    		next(err || !row || row.id != id  || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json) ? ("err9:" + err + util.inspect(row)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -546,8 +546,8 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: get after replace');
-	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, rows) {
-	    		next(err || rows.length!=1 || rows[0].id != id || rows[0].alias || rows[0].email != id+"@test" || rows[0].num!=9 || core.typeName(rows[0].json)!="object" || rows[0].json.a!=1 ? ("err10:" + err + util.inspect(rows)) : 0);
+	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, row) {
+	    		next(err || !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || core.typeName(row.json)!="object" || row.json.a!=1 ? ("err10:" + err + util.inspect(row)) : 0);
 	    	});
 	    },
 	    function(next) {
@@ -556,8 +556,8 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	        logger.log('TEST: get after del');
-	    	db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, rows) {
-	    		next(err || rows.length!=0 ? ("del:" + err + util.inspect(rows)) : 0);
+	    	db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, row) {
+	    		next(err || row ? ("del:" + err + util.inspect(row)) : 0);
 	    	});
 	    },
 	    function(next) {

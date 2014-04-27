@@ -599,7 +599,7 @@ api.checkSignature = function(req, callback)
     }
 
     var options = {};
-    if (this.caching.indexOf("bk_auth")) options.cache = 1;
+    if (this.caching.indexOf("bk_auth") > -1) options.cache = 1;
 
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
     core.context.db.get("bk_auth", { login: sig.login }, options, function(err, account) {
@@ -653,9 +653,9 @@ api.initAccountAPI = function()
         case "get":
         	if (!req.query.id) {
         	    if (self.caching.indexOf("bk_account")) options.cache = 1, options.select = null;
-        		db.get("bk_account", { id: req.account.id }, options, function(err, rows) {
+        		db.get("bk_account", { id: req.account.id }, options, function(err, row) {
         			if (err) return self.sendReply(res, err);
-        			if (!rows.length) return self.sendReply(res, 404);
+        			if (row) return self.sendReply(res, 404);
 
         		    // Setup session cookies for automatic authentication without signing
         	        if (req.query._session) {
@@ -670,7 +670,7 @@ api.initAccountAPI = function()
         	                break;
         	            }
         	        }
-        			self.sendJSON(req, res, rows[0]);
+        			self.sendJSON(req, res, row);
         		});
         	} else {
         		db.list("bk_account", req.query.id, options, function(err, rows) {
@@ -754,6 +754,14 @@ api.initAccountAPI = function()
             db.update("bk_auth", req.account, { cached: 1 }, function(err) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, {});
+            });
+            break;
+
+        case "select/location":
+            options.table = "bk_account";
+            self.getLocations(req, options, function(err, data) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, data);
             });
             break;
 
@@ -994,7 +1002,7 @@ api.initCounterAPI = function()
             var id = req.query.id || req.account.id;
             if (self.caching.indexOf("bk_counter")) options.cache = 1, options.select = null;
             db.get("bk_counter", { id: id }, options, function(err, row) {
-                res.json(row);
+                self.sendJSON(req, res, row);
             });
             break;
 
@@ -1465,8 +1473,8 @@ api.putConnections = function(req, options, callback)
 
             // We need to know if the other side is connected too, this will save one extra API call later
             if (req.query._connected) {
-                db.get("bk_connection", req.query, { select: ['id'] }, function(err, rows) {
-                    callback(null, { connected: rows.length });
+                db.get("bk_connection", req.query, { select: ['id'] }, function(err, row) {
+                    callback(null, { connected: row ? 1 : 0 });
                 });
             } else {
                 callback(null, {});
@@ -1586,6 +1594,7 @@ api.getLocations = function(req, options, callback)
 {
     var self = this;
     var db = core.context.db;
+    var table = options.table || "bk_location";
 
     // Perform location search based on hash key that covers the whole region for our configured max distance
     if (!req.query.latitude || !req.query.longitude) return callback({ status: 400, message: "latitude/longitude are required" });
@@ -1608,7 +1617,7 @@ api.getLocations = function(req, options, callback)
     // Rounded distance, not precise to keep from pin-pointing locations
     if (!options.round) options.round = core.minDistance;
 
-    db.getLocations("bk_location", options, function(err, rows, info) {
+    db.getLocations(table, options, function(err, rows, info) {
         var next_token = info.more ? core.toBase64(info) : null;
         // Ignore current account, db still retrieves it but in the API we skip it
         rows = rows.filter(function(row) { return row.id != req.account.id });
@@ -1648,10 +1657,8 @@ api.putLocations = function(req, options, callback)
     if (!latitude || !longitude) return callback({ status: 400, message: "latitude/longitude are required" });
 
     // Get current location
-    db.get("bk_account", { id: req.account.id }, function(err, rows) {
-        if (err || !rows.length) return callback(err);
-        // Keep old coordinates in the account record
-        var old = rows[0];
+    db.get("bk_account", { id: req.account.id }, function(err, old) {
+        if (err || !old) return callback(err);
 
         // Build new location record
         var geo = core.geoHash(latitude, longitude);
@@ -1755,10 +1762,10 @@ api.getIcon = function(req, res, id, options)
     var db = core.context.db;
 
     if (self.caching.indexOf("bk_icon")) options.cache = 1;
-    db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, rows) {
+    db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, row) {
         if (err) return self.sendReply(res, err);
-        if (!rows.length) return self.sendReply(res, 404, "Not found");
-        if (!self.checkIcon(req, id, rows[0])) return self.sendReply(res, 401, "Not allowed");
+        if (row) return self.sendReply(res, 404, "Not found");
+        if (!self.checkIcon(req, id, row)) return self.sendReply(res, 401, "Not allowed");
         self.sendIcon(req, res, id, options);
     });
 }
@@ -2083,12 +2090,12 @@ api.deleteAccount = function(obj, options, callback)
     options = db.getOptions("bk_account", options);
     if (!options.keep) options.keep = {};
 
-    db.get("bk_account", { id: obj.id }, options, function(err, rows) {
+    db.get("bk_account", { id: obj.id }, options, function(err, account) {
         if (err) return callback(err);
-        if (!rows.length) return callback({ status: 404, message: "No account found" });
+        if (!account) return callback({ status: 404, message: "No account found" });
 
         // Merge the records to be returned to the client
-        for (var p in rows[0]) if(!obj[p]) obj[p] = rows[0][p];
+        for (var p in account) if(!obj[p]) obj[p] = account[p];
 
         async.series([
            function(next) {
@@ -2136,8 +2143,7 @@ api.deleteAccount = function(obj, options, callback)
            },
            function(next) {
                if (options.keep.location) return next();
-               var geo = core.geoHash(rows[0].latitude, rows[0].longitude);
-               db.del("bk_location", { geohash: geo.geohash, id: obj.id }, options, next);
+               db.del("bk_location", { geohash: account.geohash, id: obj.id }, options, next);
            }],
            function(err) {
                callback(err, obj);

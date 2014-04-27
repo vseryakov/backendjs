@@ -409,22 +409,31 @@ db.query = function(req, options, callback)
                     logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options);
                     return callback ? callback(err, rows, info) : null;
                 }
+                var cols = pool.dbcolumns[req.table || ""], semipub = 0;
                 // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-                if (options && options.check_public) {
-                    var cols = pool.dbcolumns[req.table || ""];
-                    if (cols) {
-                        var key = pool.dbkeys[req.table][0];
-                        rows.forEach(function(row) {
-                            if (row[key] == options.check_public) return;
-                            for (var p in row) if (cols[p] && !cols[p].pub && !cols[p].semipub) delete row[p];
-                        });
-                    }
+                if (options && options.check_public && cols) {
+                    var key = pool.dbkeys[req.table][0];
+                    rows.forEach(function(row) {
+                        if (row[key] == options.check_public) return;
+                        for (var p in row) {
+                            if (!cols[p]) continue;
+                            if (!cols[p].pub && !cols[p].semipub) delete row[p];
+                            if (cols[p].semipub) semipub = 1;
+                        }
+                    });
                 }
                 // Convert values if we have custom column callback
                 self.processRows(pool, req.table, rows, options);
 
                 // Custom filter to return the final result set
                 if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
+
+                // At the last delete all semipub columns
+                if (options && options.check_public && cols && semipub) {
+                    rows.forEach(function(row) {
+                        for (var p in cols) if (cols[p].semipub) delete row[p];
+                    });
+                }
 
                 // Cache notification in case of updates, we must have the request prepared by the db.prepare
                 if (options && options.cached && req.table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
@@ -953,8 +962,6 @@ db.getLocations = function(table, options, callback)
     options.range = options.sort;
     options.ops[options.range] = "gt";
 
-    logger.log('getLocations:', options);
-
     db.select(table, options, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;
     	if (options.unique) rows = core.arrayUnique(rows, options.unique);
@@ -1003,7 +1010,7 @@ db.getLocations = function(table, options, callback)
     });
 }
 
-// Retrieve one record from the database by primary key, returns an array with found record or empty array
+// Retrieve one record from the database by primary key, returns found record or null if not found
 // Options can use the following special properties:
 //  - keys - a list of columns to be used instead of primary keys, this can be useful in case of another
 //      unique index which is different than the primary key
@@ -1013,8 +1020,8 @@ db.getLocations = function(table, options, callback)
 //
 // Example
 //
-//          db.get("bk_account", { id: '12345' }, function(err, rows) {
-//             if (rows.length) console.log(rows);
+//          db.get("bk_account", { id: '12345' }, function(err, row) {
+//             if (row) console.log(row.name);
 //          });
 //
 db.get = function(table, obj, options, callback)
@@ -1026,7 +1033,9 @@ db.get = function(table, obj, options, callback)
     	return this.getCached(table, obj, options, callback);
     }
     var req = this.prepare("get", table, obj, options);
-    this.query(req, options, callback);
+    this.query(req, options, function(err, rows) {
+        if (callback) callback(err, rows.length ? rows[0] : null);
+    });
 }
 
 // Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
