@@ -205,7 +205,7 @@ var core = {
     ipcs: {},
     ipcId: 1,
     ipcTimeout: 500,
-    lruMax: 50000,
+    lruMax: 10000,
 
     // REPL port for server
     replBindWeb: '0.0.0.0',
@@ -214,7 +214,9 @@ var core = {
     context: {},
 
     // Nanomsg ports
+    cacheType: '',
     cachePort: 20194,
+    msgType: '',
     msgPort: 20195,
 }
 
@@ -548,71 +550,46 @@ core.retrieveConfig = function(callback)
     });
 }
 
+core.ipcInitClient = function()
+{
+    var self = this;
+
+    this.initClientCaching();
+    this.initClientMessaging();
+
+    // Event handler for the worker to process response and fire callback
+    process.on("message", function(msg) {
+        if (msg.id && self.ipcs[msg.id]) setImmediate(function() {
+            try {
+                self.ipcs[msg.id].callback(msg);
+            } catch(e) {
+                logger.error('message:', e, msg);
+            }
+            delete self.ipcs[msg.id];
+        });
+
+        switch (msg.cmd || "") {
+        case "init:cache":
+            self.initClientCaching();
+            break;
+
+        case "init:msg":
+            self.initClientMessaging();
+            break;
+
+        case "heapsnapshot":
+            backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
+            break;
+        }
+    });
+}
+
 core.ipcInitServer = function()
 {
     var self = this;
 
-    // Attach our message handler to all workers, process requests from workers
-    backend.lruInit(self.lruMax);
-
-    // Send cache requests to the LRU hosts to be broadcasted to all other servers
-    if (backend.NNSocket && !self.noCache) {
-        if (self.cacheHost) {
-            try {
-                var hosts = self.strSplit(self.cacheHost).map(function(x) {
-                    var x = x.split(":");
-                    return "tcp://" + x[0] + ":" + (x[1] || self.cachePort);
-                });
-                self.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
-                self.lruSocket.connect(hosts);
-            } catch(e) {
-                logger.error('ipcInit:', self.cacheHost, e);
-                self.lruSocket = null;
-            }
-        }
-
-        // LRU cache server, receives cache request, updates the local cache and then re-broadcasts it to other connected servers via the same BUS socket
-        try {
-            self.lruServerSocket = new backend.NNSocket(backend.AF_SP_RAW, backend.NN_BUS);
-            self.lruServerSocket.bind("tcp://*:" + self.cachePort);
-            backend.lruServer(0, self.lruServerSocket.socket, self.lruServerSocket.socket);
-        } catch(e) {
-            logger.error('ipcInit:', e);
-            self.lruServerSocket = null;
-        }
-    }
-
-    // Pub/sub messaging system
-    switch (this.msgType || "") {
-    case "redis":
-        break;
-
-    case "amqp":
-        break;
-
-    default:
-        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket
-        if (backend.NNSocket && !self.noMsg) {
-            try {
-                self.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
-                self.subServerSocket.bind("tcp://*:" + (self.msgPort + 1));
-            } catch(e) {
-                logger.error('ipcInit:', e);
-                self.subServerSocket = null;
-            }
-
-            // Publish server, it is where the clients send events to, it will forward them to the sub socket which will distribute to the subscribed clients
-            try {
-                self.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
-                self.pubServerSocket.bind("tcp://*:" + self.msgPort);
-                // Forward all messages to the sub server socket
-                if (self.subServerSocket) self.pubServerSocket.setForward(self.subServerSocket);
-            } catch(e) {
-                logger.error('ipcInit:', e);
-                self.pubServerSocket = null;
-            }
-        }
-    }
+    this.initServerCaching();
+    this.initServerMessaging();
 
     cluster.on('fork', function(worker) {
         // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
@@ -621,6 +598,16 @@ core.ipcInitServer = function()
             logger.debug('msg:', msg);
             try {
                 switch (msg.cmd) {
+                case "init:cache":
+                    self.initServerCaching();
+                    for (var p in cluster.workers) cluster.workers[p].send(msg);
+                    break;
+
+                case "init:msg":
+                    self.initServerMessaging();
+                    for (var p in cluster.workers) cluster.workers[p].send(msg);
+                    break;
+
                 case 'stats':
                     msg.value = backend.lruStats();
                     worker.send(msg);
@@ -666,75 +653,166 @@ core.ipcInitServer = function()
     });
 }
 
-core.ipcInitClient = function()
+// Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed
+core.initServerCaching = function()
+{
+    backend.lruInit(this.lruMax);
+
+    switch (this.cacheType || "") {
+    case "memcache":
+        break;
+
+    case "redis":
+        break;
+
+    default:
+        if (!backend.NNSocket || this.noCache) break;
+        var port = this.cachePort;
+
+        if (this.lruSocket instanceof backend.NNSocket) delete this.lruSocket;
+        this.lruSocket = null;
+
+        // Send cache requests to the LRU hosts to be broadcasted to all other servers
+        if (this.cacheHost) {
+            try {
+                var hosts = this.strSplit(this.cacheHost).map(function(x) {
+                    var x = x.split(":");
+                    return "tcp://" + x[0] + ":" + (x[1] || port);
+                });
+                this.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
+                this.lruSocket.connect(hosts);
+            } catch(e) {
+                logger.error('initServerCaching:', self.cacheHost, e);
+                this.lruSocket = null;
+            }
+        }
+
+        // LRU cache server, receives cache request, updates the local cache and then re-broadcasts it to other connected servers via the same BUS socket
+        if (!this.lruServerSocket) {
+            try {
+                this.lruServerSocket = new backend.NNSocket(backend.AF_SP_RAW, backend.NN_BUS);
+                this.lruServerSocket.bind("tcp://*:" + port);
+                backend.lruServerStart(0, this.lruServerSocket.socket, this.lruServerSocket.socket);
+            } catch(e) {
+                logger.error('initServerCaching:', e);
+                this.lruServerSocket = null;
+            }
+        }
+    }
+    logger.debug('initServerCaching:', this.cacheType, this.cachePort, this.cacheHosts, this.lruSocket, this.lruServerSocket);
+}
+
+// Initialize  messaging system for the server process, can be called multiple times in case environment has changed
+core.initServerMessaging = function()
+{
+    switch (this.msgType || "") {
+    case "redis":
+        break;
+
+    case "amqp":
+        break;
+
+    default:
+        if (!backend.NNSocket || this.noMsg) break;
+
+        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket
+        if (!this.subServerSocket) {
+            try {
+                this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
+                this.subServerSocket.bind("tcp://*:" + (this.msgPort + 1));
+            } catch(e) {
+                logger.error('initServerMessaging:', e);
+                this.subServerSocket = null;
+            }
+        }
+
+        // Publish server, it is where the clients send events to, it will forward them to the sub socket which will distribute to the subscribed clients
+        if (!this.pubServerSocket) {
+            try {
+                this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
+                this.pubServerSocket.bind("tcp://*:" + this.msgPort);
+                // Forward all messages to the sub server socket
+                if (this.subServerSocket) this.pubServerSocket.setForward(this.subServerSocket);
+            } catch(e) {
+                logger.error('initServerMessaging:', e);
+                this.pubServerSocket = null;
+            }
+        }
+    }
+    logger.debug('initServerMessaging:', this.msgType, this.msgPort, this.subServerSocket, this.pubServerSocket);
+}
+
+// Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
+// publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.
+core.initClientMessaging = function()
 {
     var self = this;
 
-    // Pub/sub messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
-    // publish socket by the receiving end
-    try {
-        switch (self.msgType || "") {
-        case "redis":
-            self.redisCallbacks = {};
-            self.redisSubClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
-            self.redisSubClient.on("ready", function() {
+    switch (this.msgType || "") {
+    case "redis":
+        if (!redisHost) break;
+        try {
+            this.redisCallbacks = {};
+            this.redisSubClient = redis.createClient(null, this.redisHost, this.redisOptions || {});
+            this.redisSubClient.on("ready", function() {
                 self.redisSubClient.on("pmessage", function(channel, message) {
                     if (self.redisCallbacks[channel]) self.redisCallback[channel](message);
                 });
             });
-            break;
-
-        case "amqp":
-            break;
-
-        default:
-            if (backend.NNSocket && self.msgHost && !self.noMsg) {
-                var hosts = self.strSplit(self.msgHost).map(function(x) {
-                    var x = x.split(":");
-                    return "tcp://" + x[0] + ":" + (x[1] ? x[1] : self.msgPort);
-                });
-                self.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
-                self.pubSocket.connect(hosts);
-            }
+        } catch(e) {
+            logger.error('initClientMessaging:', e);
+            this.redisSubClient = null;
         }
-    } catch(e) {
-        logger.error('ipcInit:', e)
-        self.pubSocket = self.redisSubClient = null;
+        break;
+
+    case "amqp":
+        break;
+
+    default:
+        if (!backend.NNSocket || this.noMsg) break;
+        if (this.pubSocket instanceof backend.NNSocket) delete this.pubSocket;
+        if (!this.msgHost) break;
+        try {
+            var hosts = self.strSplit(this.msgHost).map(function(x) {
+                var x = x.split(":");
+                return "tcp://" + x[0] + ":" + (x[1] ? x[1] : self.msgPort);
+            });
+            this.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
+            this.pubSocket.connect(hosts);
+        } catch(e) {
+            logger.error('initClientMessaging:', e);
+            this.pubSocket = null;
+        }
     }
+    logger.debug('initClientMessaging:', this.msgType, this.msgPort, this.pubSocket, this.redisClient);
+}
 
-    // Setup cache client, just create a connection
-    try {
-        switch (this.cacheType || "") {
-        case "memcache":
-            self.memcacheClient = new memcached(self.memcacheHost, self.memcacheOptions || {});
-            break;
-
-        case "redis":
-            self.redisCacheClient = redis.createClient(null, self.redisHost, self.redisOptions || {});
-            break;
+// Initialize web worker caching system, can be called anytime the environment has changed
+core.initClientCaching = function()
+{
+    switch (this.cacheType || "") {
+    case "memcache":
+        if (!this.memcacheHost) break;
+        try {
+            this.memcacheClient = new memcached(this.memcacheHost, this.memcacheOptions || {});
+        } catch(e) {
+            logger.error('initClientCaching:', e);
+            this.memcacheClient = null;
         }
-    } catch(e) {
-        logger.error('ipcInit:', e);
+        break;
+
+    case "redis":
+        if (!this.redisHost) break;
+        try {
+            this.redisCacheClient = redis.createClient(null, this.redisHost, this.redisOptions || {});
+            this.redisCacheClient.on("error", function(err) { logger.error('redis:', err) });
+        } catch(e) {
+            logger.error('initClientCaching:', e);
+            this.redisCacheClient = null;
+        }
+        break;
     }
-
-    // Event handler for the worker to process response and fire callback
-    process.on("message", function(msg) {
-        if (!msg.id) return;
-        if (self.ipcs[msg.id]) setImmediate(function() {
-            try {
-                self.ipcs[msg.id].callback(msg);
-            } catch(e) {
-                logger.error('message:', e, msg);
-            }
-            delete self.ipcs[msg.id];
-        });
-
-        switch (msg.cmd) {
-        case "heapsnapshot":
-            backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
-            break;
-        }
-    });
+    logger.debug('initClientCaching:', this.cacheType, this.cachePort, this.memcacheClient, this.redisClient);
 }
 
 // Send cache command to the master process via IPC messages, callback is used for commands that return value back
@@ -753,14 +831,23 @@ core.ipcSend = function(cmd, key, value, callback)
     try { process.send(msg); } catch(e) { logger.error('ipcSend:', e, cmd, key); }
 }
 
+// Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
+// reconfiguring itself, this command can be sent by any worker. type can be one of cche or msg
+core.ipcConfigure = function(type)
+{
+    this.ipcSend('init:' + type, "");
+}
+
 core.ipcStatsCache = function(callback)
 {
     try {
         switch (this.cacheType || "") {
         case "memcache":
+            if (!this.memcacheClient) return callback({});
             this.memcacheClient.stats(function(e,v) { callback(v) });
             break;
         case "redis":
+            if (!this.redisCacheClient) return callback({});
             this.redisCacheClient.info(function(e,v) { callback(v) });
             break;
         default:
@@ -778,7 +865,8 @@ core.ipcKeysCache = function(callback)
     try {
         switch (this.cacheType || "") {
         case "memcache":
-            self.memcacheClient.items(function(err, items) {
+            if (!this.memcacheClient) return callback([]);
+            this.memcacheClient.items(function(err, items) {
                 if (err || !items || !items.length) return cb([]);
                 var item = items[0], keys = [];
                 var keys = Object.keys(item);
@@ -794,6 +882,7 @@ core.ipcKeysCache = function(callback)
             });
             break;
         case "redis":
+            if (!this.redisCacheClient) return callback([]);
             this.redisCacheClient.keys("*", function(e,v) { cb(v) });
             break;
         default:
@@ -811,9 +900,11 @@ core.ipcClearCache = function()
     try {
         switch (this.cacheType || "") {
         case "memcache":
+            if (!this.memcacheClient) break;
             this.memcacheClient.flush();
             break;
         case "redis":
+            if (!this.redisCacheClient) break;
             this.redisCacheClient.flushall();
             break;
         default:
@@ -830,9 +921,11 @@ core.ipcGetCache = function(key, callback)
     try {
         switch (this.cacheType || "") {
         case "memcache":
+            if (!this.memcacheClient) return callback({});
             this.memcacheClient.get(key, function(e,v) { callback(v) });
             break;
         case "redis":
+            if (!this.redisCacheClient) return callback();
             this.redisCacheClient.get(key, function(e,v) { callback(v) });
             break;
         default:
@@ -850,9 +943,11 @@ core.ipcDelCache = function(key)
     try {
         switch (this.cacheType || "") {
         case "memcache":
+            if (!this.memcacheClient) break;
             this.memcacheClient.del(key);
             break;
         case "redis":
+            if (!this.redisCacheClient) break;
             this.redisCacheClient.del(key, function() {});
             break;
         default:
@@ -869,9 +964,11 @@ core.ipcPutCache = function(key, val)
     try {
         switch (this.cacheType || "") {
         case "memcache":
+            if (!this.memcacheClient) break;
             this.memcacheClient.set(key, val, 0);
             break;
         case "redis":
+            if (!this.redisCacheClient) break;
             this.redisCacheClient.set(key, val, function() {});
             break;
         default:
@@ -886,15 +983,17 @@ core.ipcPutCache = function(key, val)
 core.ipcIncrCache = function(key, val)
 {
     try {
-        if (this.noCache) return;
         switch (this.cacheType || "") {
         case "memcache":
+            if (!this.memcacheClient) break;
             this.memcacheClient.incr(key, val, 0);
             break;
         case "redis":
+            if (!this.redisCacheClient) break;
             this.redisCacheClient.incr(key, val, function() {});
             break;
         default:
+            if (this.noCache) return;
             this.ipcSend("incr", key, val);
         }
     } catch(e) {
@@ -911,7 +1010,8 @@ core.ipcSubscribe = function(key, callback)
     try {
         switch (this.msgType || "") {
         case "redis":
-            this.redisSubClient.psubscribe(key);
+            if (!this.redisSubClient) break;
+            sock = this.redisSubClient.psubscribe(key);
             break;
 
         case "amqp":
@@ -942,6 +1042,7 @@ core.ipcUnsubscribe = function(sock, key)
     try {
         switch (this.msgType || "") {
         case "redis":
+            if (!this.redisSubClient) break;
             this.redisSubClient.punsubscribe(key);
             break;
 
@@ -950,7 +1051,7 @@ core.ipcUnsubscribe = function(sock, key)
 
         default:
             if (!backend.NNSocket || this.noMsg) break;
-            if (sock && sock instanceof backend.NNSocket) sock.close();
+            if (sock && sock instanceof backend.NNSocket) delete sock;
         }
     } catch(e) {
         logger.error('ipcUnsubscribe:', e, sock);
@@ -964,6 +1065,7 @@ core.ipcPublish = function(key, data)
     try {
         switch (this.msgType || "") {
         case "redis":
+            if (!this.redisSubClient) break;
             this.redisSubClient.publish(key, data);
             break;
 

@@ -4,25 +4,25 @@
 #
 
 all:
-	./rc.backend build-backend
+	npm build . 
 
 force:
-	./rc.backend build-backend --backend_deps_force
+	npm build . --backend_deps_force
 
 run:
-	./rc.backend run-backend
+	./bkjs run-backend
 
 put:
-	./rc.backend put-backend
+	./bkjs put-backend
 
 shell:
-	./rc.backend run-shell
+	./bkjs run-shell
 
 clean:
-	./rc.backend clean-backend
+	./bkjs clean-backend
 
 test-db:
-	for d in sqlite pgsql mysql dynamodb cassandra; do node tests.js -cmd db -db-pool $$d -log log; done
+	for d in sqlite pgsql mysql dynamodb mongodb cassandra; do node tests.js -cmd db -db-pool $$d -log log; done
 
 pages:
 	git-new-workdir `pwd` ./pages gh-pages

@@ -181,6 +181,7 @@ var api = {
                  "counter": 'initCounterAPI',
                  "icon": 'initIconAPI',
                  "message": 'initMessageAPI',
+                 "system": "initSystemAPI",
                  "data": 'initDataAPI' },
 
     // Config parameters
@@ -655,7 +656,7 @@ api.initAccountAPI = function()
         	    if (self.caching.indexOf("bk_account")) options.cache = 1, options.select = null;
         		db.get("bk_account", { id: req.account.id }, options, function(err, row) {
         			if (err) return self.sendReply(res, err);
-        			if (row) return self.sendReply(res, 404);
+        			if (!row) return self.sendReply(res, 404);
 
         		    // Setup session cookies for automatic authentication without signing
         	        if (req.query._session) {
@@ -1088,19 +1089,30 @@ api.initLocationAPI = function()
     });
 }
 
-// API for internal provisioning, by default supports access to all tables
-api.initDataAPI = function()
+// API for internal provisioning and configuration
+api.initSystemAPI = function()
 {
     var self = this;
     var db = core.context.db;
 
     // Return current statistics
-    this.app.all("/data/stats", function(req, res) {
+    this.app.all("/system/stats", function(req, res) {
         res.json(self.getStatistics());
     });
 
-    this.app.all(/^\/data\/cache\/(.+)$/, function(req, res) {
+    this.app.all(/^\/system\/msg\/(.+)$/, function(req, res) {
         switch (req.params[0]) {
+        case 'init':
+            core.ipcConfigure('msg');
+            break;
+        }
+    });
+
+    this.app.all(/^\/system\/cache\/(.+)$/, function(req, res) {
+        switch (req.params[0]) {
+        case 'init':
+            core.ipcConfigure('cache');
+            break;
         case 'stats':
             core.ipcStatsCache(function(data) { res.send(data) });
             break;
@@ -1130,6 +1142,13 @@ api.initDataAPI = function()
             self.sendReply(res, 404, "Invalid command");
         }
     });
+}
+
+// API for full access to all tables
+api.initDataAPI = function()
+{
+    var self = this;
+    var db = core.context.db;
 
     // Return table columns
     this.app.all(/^\/data\/columns\/?([a-z_0-9]+)?$/, function(req, res) {

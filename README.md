@@ -696,7 +696,34 @@ who can access it.*
 
         api.registerAuthCheck('GET', '/data', function(req, status, cb) { if (req.account.type != "admin") return cb({ status: 401, message: 'access denied' }; cb(status)); });
 
-- `/data/stats`
+- `/data/columns`
+- `/data/columns/TABLE`
+  Return columns for all tables or the specific TABLE
+
+- `/data/keys/TABLE`
+  Return primary keys for the given TABLE
+
+- `/data/(select|search|list|get|add|put|update|del|incr|replace)/TABLE`
+  Perform database operation on the given TABLE, all options for the `db` functiobns are passed as query parametrrs prepended with underscore,
+  regular parameters are the table columns.
+
+  Example:
+
+        /data/get/bk_account?id=12345
+        /data/put/bk_counter?id=12345&like0=1
+        /data/select/bk_account?name=john&_ops=name,gt&_select=name,alias,email
+
+## System API
+The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
+default is is open for access to all users but same security considerations apply here as for the Data API.
+
+- `/system/cache/(init|stats|keys|get|set|put|incr|del|clear)`
+    Access to the caching functions
+
+- `/system/msg/(msg)`
+    Access to the messaging functions
+
+- `/system/stats`
   Database pool statistics and other diagnostics
   - pool - database metrics
     - process - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
@@ -913,22 +940,6 @@ who can access it.*
             }
         }
 
-- `/data/columns`
-- `/data/columns/TABLE`
-  Return columns for all tables or the specific TABLE
-
-- `/data/keys/TABLE`
-  Return primary keys for the given TABLE
-
-- `/data/(select|search|list|get|add|put|update|del|incr|replace)/TABLE`
-  Perform database operation on the given TABLE, all options for the `db` functiobns are passed as query parametrrs prepended with underscore,
-  regular parameters are the table columns.
-
-  Example:
-
-        /data/get/bk_account?id=12345
-        /data/put/bk_counter?id=12345&like0=1
-        /data/select/bk_account?name=john&_ops=name,gt&_select=name,alias,email
 
 # Backend directory structure
 

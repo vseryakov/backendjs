@@ -539,7 +539,9 @@ static void lruHandleRead(uv_poll_t *w, int status, int revents)
 }
 #endif
 
-static Handle<Value> lruServer(const Arguments& args)
+static map<int,uv_poll_t*> _socks;
+
+static Handle<Value> lruServerStart(const Arguments& args)
 {
     HandleScope scope;
 #ifdef USE_NANOMSG
@@ -561,10 +563,22 @@ static Handle<Value> lruServer(const Arguments& args)
     uv_poll_init(uv_default_loop(), p, rfd);
     uv_poll_start(p, UV_READABLE, lruHandleRead);
     p->data = d;
+    _socks[sock1] = p;
 
     LogDebug("type=%d, sock1=%d, sock2=%d, rfd=%d", type, sock1, sock2, rfd);
 #else
     return ThrowException(Exception::Error(String::New("nanomsg is not compiled in")));
+#endif
+    return scope.Close(Undefined());
+}
+
+static Handle<Value> lruServerStop(const Arguments& args)
+{
+    HandleScope scope;
+#ifdef USE_NANOMSG
+
+    REQUIRE_ARGUMENT_INT(0, sock);
+    _socks.erase(sock);
 #endif
     return scope.Close(Undefined());
 }
@@ -597,6 +611,7 @@ void CacheInit(Handle<Object> target)
     NODE_SET_METHOD(target, "lruDel", lruDel);
     NODE_SET_METHOD(target, "lruKeys", lruKeys);
     NODE_SET_METHOD(target, "lruClear", lruClear);
-    NODE_SET_METHOD(target, "lruServer", lruServer);
+    NODE_SET_METHOD(target, "lruServerStart", lruServerStart);
+    NODE_SET_METHOD(target, "lruServerStop", lruServerStop);
 }
 
