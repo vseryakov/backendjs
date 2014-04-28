@@ -2161,7 +2161,7 @@ api.deleteAccount = function(obj, options, callback)
                });
            },
            function(next) {
-               if (options.keep.location) return next();
+               if (options.keep.location || !account.geohash) return next();
                db.del("bk_location", { geohash: account.geohash, id: obj.id }, options, next);
            }],
            function(err) {

@@ -755,7 +755,7 @@ aws.ddbQueryTable = function(name, condition, options, callback)
     }
     if (Array.isArray(options.keys)) {
         var keys = Object.keys(condition).filter(function(x) { return options.keys.indexOf(x) > -1}).reduce(function(x,y) {x[y] = condition[y]; return x; }, {});
-        var filter = Object.keys(condition).filter(function(x) { return options.keys.indexOf(x) > -1}).reduce(function(x,y) {x[y] = condition[y]; return x; }, {});
+        var filter = Object.keys(condition).filter(function(x) { return options.keys.indexOf(x) == -1}).reduce(function(x,y) {x[y] = condition[y]; return x; }, {});
         params.KeyConditions = this.queryFilter(keys, options);
         params.QueryFilter = this.queryFilter(filter, options);
     } else {
