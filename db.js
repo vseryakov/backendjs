@@ -60,9 +60,15 @@ var db = {
     // Pools by table name
     tblpool: {},
 
+    // Local db pool, sqlite is default
+    local: 'sqlite',
+
     // Config parameters
     args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type:" bool", descr: "Do not use other db pools except default sqlite" },
+           { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
+           { name: "config", descr: "Configuration database pool for config parameters" },
+           { name: "config-type", descr: "Config group to use when requesting confguration from the database, 'core' group is always read first" },
            { name: "sqlite-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool" },
            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "sqlite-tables", type: "list", array: 1, descr: "Sqlite tables, list of tables that belong to this pool only" },
@@ -86,11 +92,21 @@ var db = {
 
     // Default tables
     tables: {
+        // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
+        // to be used by different backends or workers, 'core' is default global group
+        bk_config: { type: { primary: 1, value: 'core' },       // config group, 'core' is default basic type
+                     name: { primary: 1 },                      // name of the parameter
+                     value: {},                                 // the value
+                     mtime: { type: "bigint", now: 1 }
+        },
+
+        // General purpose properties, can be used to store arbitrary values
         bk_property: { name: { primary: 1 },
                        value: {},
                        mtime: { type: "bigint", now: 1 }
         },
 
+        // Store for cookies
         bk_cookies: { id: { primary: 1 },
                       name: {},
                       domain: {},
@@ -99,6 +115,7 @@ var db = {
                       expires: { type:" bigint" }
         },
 
+        // Pending requests to be sent to the backend by core.sendRequst
         bk_queue: { id: { primary: 1 },
                     url: {},
                     postdata: { type: "text" },
@@ -106,6 +123,7 @@ var db = {
                     mtime: { type: "bigint", now: 1 }
         },
 
+        // Jobs to be executed by the server
         bk_jobs: { id: { primary: 1 },
                    tag: { primary: 1 },
                    type: { value: "local" },

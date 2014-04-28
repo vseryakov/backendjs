@@ -84,9 +84,6 @@ var core = {
     watchdirs: [],
     timers: {},
 
-    // Local db pool, sqlite is default
-    localDbPool: 'sqlite',
-
     // Log watcher config, watch for server restarts as well
     logwatcherMax: 1000000,
     logwatcherInterval: 3600,
@@ -153,8 +150,6 @@ var core = {
             { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line" },
             { name: "proxy-port", type: "number", min: 0, descr: "Proxy server port" },
             { name: "proxy-bind", descr: "Proxy server listen address" },
-            { name: "db-local-pool", descr: "Local database pool for properties, cookies and other instance specific stuff" },
-            { name: "db-config-pool", descr: "Configuration database pool for config parameters" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default" },
             { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server process" },
             { name: "repl-bind-web", descr: "Web server REPL listen address" },
@@ -265,9 +260,8 @@ core.init = function(callback)
             self.loadConfig("etc/config", next);
         },
 
-        // Try to load config from the DNS or other remote config server
+        // Try to load config from the DB, DNS or other remote config server
         function(next) {
-            if (self.noRemoteConfig) return next();
             self.retrieveConfig(next);
         },
 
@@ -388,8 +382,7 @@ core.parseArgs = function(argv)
 core.processArgs = function(name, ctx, argv, pass)
 {
     var self = this;
-    if (!ctx) return;
-    if (!Array.isArray(ctx.args)) return;
+    if (!ctx || !Array.isArray(ctx.args) || !Array.isArray(argv) || !argv.length) return;
     function put(obj, key, val, x) {
         if (x.array) {
             if (!Array.isArray(obj[key])) obj[key] = [];
@@ -518,37 +511,54 @@ core.loadConfig = function(file, callback)
     });
 }
 
-// Retrieve config parameters from the network, dns...
+// Retrieve config parameters from the db, network, dns...
 core.retrieveConfig = function(callback)
 {
     var self = this;
+    var db = this.context.db;
 
-    var args = [ { name: "", args: this.args } ];
-    for (var p in this.context) {
-        var ctx = self.context[p];
-        if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
-    }
-
-    async.forEachSeries(args, function(ctx, next) {
-        async.forEachLimit(ctx.args, 5, function(arg, next2) {
-            var cname = ctx.name + arg.name;
-            async.series([
-               function(next3) {
-                   // Get DNS TXT record
-                   if (!arg.dns) return next3();
-                   dns.resolveTxt(cname + "." + (self.configDomain || self.domain), function(err, list) {
-                       if (!err && list && list.length) {
-                           self.argv.push("-" + cname, list[0]);
-                           logger.debug('retrieveConfig:', cname, list[0]);
-                       }
-                       next3();
-                   });
-               }],
-               next2);
-        }, next);
-    }, function(err) {
-        if (callback) callback();
-    });
+    async.series([
+        // Load all available config parameters from the config database for the specified config type
+        function(next) {
+            if (!db.configType) return next();
+            db.select("bk_config", { type: db.configType }, { select: ['name','value'], pool: db.config }, function(err, rows) {
+                var argv = [];
+                rows.forEach(function(x) {
+                    if (x.name) argv.push('-' + x.name);
+                    if (x.value) argv.push(x.value);
+                });
+                self.parseArgs(argv);
+                next();
+            });
+        },
+        // Load config params from the DNS TXT records, only the ones marked as dns
+        function(next) {
+            if (self.noRemoteConfig) return next();
+            var args = [ { name: "", args: self.args } ];
+            for (var p in this.context) {
+                var ctx = self.context[p];
+                if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
+            }
+            async.forEachSeries(args, function(ctx, next1) {
+                async.forEachLimit(ctx.args, 5, function(arg, next2) {
+                    var cname = ctx.name + arg.name;
+                    async.series([
+                        function(next3) {
+                            // Get DNS TXT record
+                            if (!arg.dns) return next3();
+                            dns.resolveTxt(cname + "." + (self.configDomain || self.domain), function(err, list) {
+                                if (!err && list && list.length) {
+                                    self.argv.push("-" + cname, list[0]);
+                                    logger.debug('retrieveConfig:', cname, list[0]);
+                                }
+                                next3();
+                            });
+                        }],
+                        next2);
+                }, next1);
+            }, next);
+        }],
+        callback);
 }
 
 core.ipcInitClient = function()
@@ -2563,7 +2573,8 @@ core.stringify = function(obj)
 // Return cookies that match given domain
 core.cookieGet = function(domain, callback)
 {
-    this.context.db.select("bk_cookies", {}, { pool: this.localDbPool }, function(err, rows) {
+    var db = this.context.db;
+    db.select("bk_cookies", {}, { pool: db.local }, function(err, rows) {
         var cookies = [];
         rows.forEach(function(cookie) {
             if (cookie.expires <= Date.now()) return;
@@ -2584,6 +2595,7 @@ core.cookieGet = function(domain, callback)
 core.cookieSave = function(cookiejar, setcookies, hostname, callback)
 {
     var self = this;
+    var db = this.context.db;
     var cookies = !setcookies ? [] : Array.isArray(setcookies) ? setcookies : String(setcookies).split(/[:](?=\s*[a-zA-Z0-9_\-]+\s*[=])/g);
     logger.debug('cookieSave:', cookiejar, 'SET:', cookies);
     cookies.forEach(function(cookie) {
@@ -2631,7 +2643,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
     async.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
         if (!rec.id) rec.id = core.hash(rec.name + ':' + rec.domain + ':' + rec.path);
-        self.context.db.put("bk_cookies", rec, { pool: self.localDbPool }, function() { next() });
+        db.put("bk_cookies", rec, { pool: db.local }, function() { next() });
     }, function() {
         if (callback) callback();
     });
@@ -2748,7 +2760,7 @@ core.watchLogs = function(callback)
     var db = self.context.db;
 
     // Load all previous positions for every log file, we start parsing file from the previous last stop
-    db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' }, pool: self.localDbPool }, function(err, rows) {
+    db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' }, pool: db.local }, function(err, rows) {
         var lastpos = {};
         for (var i = 0; i < rows.length; i++) {
             lastpos[rows[i].name] = rows[i].value;
@@ -2788,7 +2800,7 @@ core.watchLogs = function(callback)
                        // Separator between log files
                        if (errors.length > 1) errors += "\n\n";
                        // Save current size to start next time from
-                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, { pool: self.localDbPool }, function(e) {
+                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, { pool: db.local }, function(e) {
                            if (e) logger.error('watchLogs:', file, e);
                            fs.close(fd, function() {});
                            next();
