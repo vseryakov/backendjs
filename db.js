@@ -233,7 +233,7 @@ db.getPoolTables = function(name)
 //    function(pool, callback) and will be called with first arg an error object and second arg is the database instance, required for pooling
 // - bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
 //   may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds
-// - convertError - a callback function(table, err, options) that converts native DB driver error into other human readable format
+// - convertError - a callback function(table, op, err, options) that converts native DB driver error into other human readable format
 // - resolveTable - a callback function(op, table, obj, options) that returns poosible different table at the time of the query, it is called by the `db.prepare` method
 //   and if exist it must return the same or new table name for the given query parameters.
 //
@@ -1057,7 +1057,9 @@ db.getCached = function(table, obj, options, callback)
     options = this.getOptions(table, options);
     var pool = this.getPool(table, options);
     var key = this.getCachedKey(table, obj, options);
+    var m = pool.metrics.Timer('cache').start();
     core.ipcGetCache(key, function(rc) {
+        m.end();
         // Cached value retrieved
         if (rc) {
             pool.metrics.Counter("hits").inc();
@@ -1065,12 +1067,10 @@ db.getCached = function(table, obj, options, callback)
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
-        self.get(table, obj, options, function(err, rows) {
+        self.get(table, obj, options, function(err, row) {
             // Store in cache if no error
-            if (rows.length && !err) {
-                core.ipcPutCache(key, core.stringify(rows[0]));
-            }
-            callback(err, rows.length ? rows[0] : null);
+            if (row && !err) core.ipcPutCache(key, core.stringify(row));
+            callback(err, row);
         });
     });
 
@@ -1341,11 +1341,11 @@ db.getColumnValue = function(table, options, val, info)
 }
 
 // Convert native database error in some generic human readable string
-db.convertError = function(table, err, options)
+db.convertError = function(table, op, err, options)
 {
     if (!err || !(err instanceof Error)) return err;
     var cb = this.getPool(table, options).convertError;
-    return cb ? cb(table, err, options) : err;
+    return cb ? cb(table, op, err, options) : err;
 }
 
 // Reload all columns into the cache for the pool
@@ -2517,8 +2517,9 @@ db.dynamodbInitPool = function(options)
     }
 
     // Convert into human readable messages
-    pool.convertError = function(table, err, opts) {
-        if (err.message == "Attribute found when none expected.") return new Error("Record already exists");
+    pool.convertError = function(table, op, err, opts) {
+        if (op == "add" && err.message == "Attribute found when none expected.") return new Error("Record already exists");
+        if (op == "add" && err.message == "The conditional check failed") return new Error("Record already exists");
         return err;
     }
 
@@ -2606,12 +2607,10 @@ db.dynamodbInitPool = function(options)
             // Query based on the keys
             keys = self.getSearchQuery(table, obj, { keys: keys || dbkeys });
             // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering
-            var op = 'ddbScanTable';
-            if (dbkeys.sort().toString() == Object.keys(keys).filter(function(x) { return dbkeys.indexOf(x) > -1 }).sort().toString()) {
-                op = 'ddbQueryTable';
-                options.keys = dbkeys;
-            }
+            var op = keys[dbkeys[0]] ? 'ddbQueryTable' : 'ddbScanTable';
+            logger.debug('select:', 'dynamodb', op, keys, dbkeys);
 
+            options.keys = dbkeys;
             options.select = self.getSelectedColumns(table, options);
             aws[op](table, keys, options, function(err, item) {
                 if (err) return callback(err, []);

@@ -194,7 +194,7 @@ var api = {
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "data-endpoint-unsecure", type: "bool", descr: "Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
-           { name: "caching", array: 1, descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with whatever cache configured" },
+           { name: "caching", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with whatever cache configured" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints" },
@@ -600,7 +600,7 @@ api.checkSignature = function(req, callback)
     }
 
     var options = {};
-    if (this.caching.indexOf("bk_auth") > -1) options.cache = 1;
+    if (this.caching.indexOf("bk_auth") > -1) options.cached = 1;
 
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
     core.context.db.get("bk_auth", { login: sig.login }, options, function(err, account) {
@@ -653,7 +653,7 @@ api.initAccountAPI = function()
         switch (req.params[0]) {
         case "get":
         	if (!req.query.id) {
-        	    if (self.caching.indexOf("bk_account")) options.cache = 1, options.select = null;
+        	    if (self.caching.indexOf("bk_account")) options.cached = 1, options.select = null;
         		db.get("bk_account", { id: req.account.id }, options, function(err, row) {
         			if (err) return self.sendReply(res, err);
         			if (!row) return self.sendReply(res, 404);
@@ -1001,7 +1001,7 @@ api.initCounterAPI = function()
 
         case "get":
             var id = req.query.id || req.account.id;
-            if (self.caching.indexOf("bk_counter")) options.cache = 1, options.select = null;
+            if (self.caching.indexOf("bk_counter")) options.cached = 1, options.select = null;
             db.get("bk_counter", { id: id }, options, function(err, row) {
                 self.sendJSON(req, res, row);
             });
@@ -1417,7 +1417,7 @@ api.incrCounters = function(req, options, callback)
         obj.id = req.account.id;
     }
     db[options.op || "incr"]("bk_counter", obj, { cached: 1 }, function(err, rows) {
-        if (err) return callback(db.convertError("bk_counter", err));
+        if (err) return callback(db.convertError("bk_counter", "incr", err));
 
         // Notify only the other account
         if (obj.id != req.account.id) {
@@ -1478,7 +1478,7 @@ api.putConnections = function(req, options, callback)
     req.query.type = type + ":" + id;
     req.query.mtime = now;
     db[op]("bk_connection", req.query, function(err) {
-        if (err) return callback(db.convertError("bk_connection", err));
+        if (err) return callback(db.convertError("bk_connection", op, err));
 
         // Reverse reference to the same connection
         req.query.id = id;
@@ -1780,10 +1780,10 @@ api.getIcon = function(req, res, id, options)
     var self = this;
     var db = core.context.db;
 
-    if (self.caching.indexOf("bk_icon")) options.cache = 1;
+    if (self.caching.indexOf("bk_icon")) options.cached = 1;
     db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, row) {
         if (err) return self.sendReply(res, err);
-        if (row) return self.sendReply(res, 404, "Not found");
+        if (!row) return self.sendReply(res, 404, "Not found");
         if (!self.checkIcon(req, id, row)) return self.sendReply(res, 401, "Not allowed");
         self.sendIcon(req, res, id, options);
     });
@@ -1995,7 +1995,7 @@ api.addMessage = function(req, options, callback)
         if (err) return callback(err);
         req.query.icon = icon ? 1 : "0";
         db.add("bk_message", req.query, {}, function(err, rows) {
-            if (err) return callback(db.convertError("bk_message", err));
+            if (err) return callback(db.convertError("bk_message", "add", err));
 
             if (req.query.id != req.account.id) {
                 core.ipcPublish(req.query.id, { path: req.path, mtime: now, type: req.query.icon });
@@ -2065,13 +2065,13 @@ api.addAccount = function(req, options, callback)
     // Only admin can add accounts with the type
     if (req.account && req.account.type == "admin" && req.query.type) auth.type = req.query.type;
     db.add("bk_auth", auth, function(err) {
-        if (err) return callback(db.convertError("bk_auth", err));
+        if (err) return callback(db.convertError("bk_auth", "add", err));
         // Skip location related properties
         self.clearQuery(req, options, "bk_account", "noadd");
         db.add("bk_account", req.query, function(err) {
             if (err) {
                 db.del("bk_auth", auth);
-                return callback(db.convertError("bk_account", err));
+                return callback(db.convertError("bk_account", "add", err));
             }
             db.processRows(null, "bk_account", req.query, options);
             // Link account record for other middleware
