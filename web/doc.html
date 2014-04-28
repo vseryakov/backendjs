@@ -1386,7 +1386,6 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>proxy</code> - Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line</li>
 <li><code>proxy-port</code> - Proxy server port. Default: 8000</li>
 <li><code>proxy-bind</code> - Proxy server listen address. Default: 0.0.0.0</li>
-<li><code>local-db-pool</code> - Local database pool for properties, cookies and other instance specific stuff. Default: sqlite</li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default</li>
 <li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server process</li>
 <li><code>repl-bind-web</code> - Web server REPL listen address. Default: 0.0.0.0</li>
@@ -1429,6 +1428,9 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development, the backend module files will be added to the watch list automatically, so only app specific directores should be added</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: sqlite</li>
 <li><code>db-no-pools</code> - Do not use other db pools except default sqlite</li>
+<li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: sqlite</li>
+<li><code>db-config</code> - Configuration database pool for config parameters</li>
+<li><code>db-config-type</code> - Config group to use when requesting confguration from the database, &#39;core&#39; group is always read first</li>
 <li><code>db-sqlite-max</code> - Max number of open connection for the pool</li>
 <li><code>db-sqlite-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-sqlite-tables</code> - Sqlite tables, list of tables that belong to this pool only</li>
@@ -2349,7 +2351,7 @@ type can be bool, number, list, json</p>
 
 <ul>
 <li><p><code>core.retrieveConfig(callback)</code></p>
-<p> Retrieve config parameters from the network, dns...</p>
+<p> Retrieve config parameters from the db, network, dns...</p>
 </li>
 </ul>
 
@@ -3062,11 +3064,21 @@ database like DynamoDB for real-time requests and slower SQL database running on
 
 <ul>
 <li><p><code>Database tables</code></p>
-<pre><code>      bk_property: { name: { primary: 1 },
+<pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
+      // to be used by different backends or workers, &#39;core&#39; is default global group
+      bk_config: { type: { primary: 1, value: &#39;core&#39; },       // config group, &#39;core&#39; is default basic type
+                   name: { primary: 1 },                      // name of the parameter
+                   value: {},                                 // the value
+                   mtime: { type: &quot;bigint&quot;, now: 1 }
+      },
+
+      // General purpose properties, can be used to store arbitrary values
+      bk_property: { name: { primary: 1 },
                      value: {},
                      mtime: { type: &quot;bigint&quot;, now: 1 }
       },
 
+      // Store for cookies
       bk_cookies: { id: { primary: 1 },
                     name: {},
                     domain: {},
@@ -3075,6 +3087,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
                     expires: { type:&quot; bigint&quot; }
       },
 
+      // Pending requests to be sent to the backend by core.sendRequst
       bk_queue: { id: { primary: 1 },
                   url: {},
                   postdata: { type: &quot;text&quot; },
@@ -3082,6 +3095,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
                   mtime: { type: &quot;bigint&quot;, now: 1 }
       },
 
+      // Jobs to be executed by the server
       bk_jobs: { id: { primary: 1 },
                  tag: { primary: 1 },
                  type: { value: &quot;local&quot; },
