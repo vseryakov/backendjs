@@ -1218,6 +1218,8 @@ db.prepare = function(op, table, obj, options)
     switch (op) {
     case "add":
     case "put":
+        if (options && options.strictTypes) this.prepareDataTypes(obj, cols);
+
         // Set all default values if any
         for (var p in cols) {
             if (typeof cols[p].value != "undefined" && !obj[p]) obj[p] = cols[p].value;
@@ -1230,12 +1232,16 @@ db.prepare = function(op, table, obj, options)
         }
 
     case "update":
+        if (options && options.strictTypes) this.prepareDataTypes(obj, cols);
+
         for (var p in cols) {
             if (cols[p].now) obj[p] = Date.now();
         }
         break;
 
     case "select":
+        if (options && options.strictTypes) this.prepareDataTypes(obj, cols);
+
         if (options && options.ops) {
             for (var p in options.ops) {
                 switch (options.ops[p]) {
@@ -1249,6 +1255,18 @@ db.prepare = function(op, table, obj, options)
         break;
     }
     return pool.prepare(op, table, obj, options);
+}
+
+// Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
+// this is for those databases which are very sensitive on the types like DynamoDB. This function updates the object in-place.
+db.prepareDataTypes = function(obj, columns)
+{
+    if (!columns) return obj;
+    for (var p in obj) {
+        var col = columns[p];
+        if (col && col.type) obj[p] = core.toValue(obj[p], col.type);
+    }
+    return obj;
 }
 
 // Return database pool by name or default pool
@@ -1344,7 +1362,10 @@ db.getSearchKeys = function(table, options)
 // will be returned in the query object
 db.getSearchQuery = function(table, obj, options)
 {
-    return this.getSearchKeys(table, options).filter(function(x) { return typeof obj[x] != "undefined" }).map(function(x) { return [ x, obj[x] ] }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+    return this.getSearchKeys(table, options).
+                filter(function(x) { return typeof obj[x] != "undefined" }).
+                map(function(x) { return [ x, obj[x] ] }).
+                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 }
 
 // Return possibly converted value to be used for inserting/updating values in the database,
@@ -2498,7 +2519,7 @@ db.dynamodbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "dynamodb";
 
-    options.dboptions = { noJson: 1 };
+    options.dboptions = { noJson: 1, strictTypes: 1 };
     var pool = this.createPool(options);
 
     pool.cacheColumns = function(opts, callback) {
@@ -2565,14 +2586,14 @@ db.dynamodbInitPool = function(options)
         switch(req.op) {
         case "create":
             var local = {}, global = {}, projection = {};
-            var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
+            var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary && i < 2 }).
                               sort(function(a,b) { return obj[a] - obj[b] }).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var hash = Object.keys(keys)[0];
 
             ["","1","2","3","4","5"].forEach(function(n) {
-                var idx = Object.keys(obj).filter(function(x) { return obj[x]["index" + n]; }).sort(function(a,b) { return obj[a] - obj[b] });
+                var idx = Object.keys(obj).filter(function(x, i) { return obj[x]["index" + n] && i < 2; }).sort(function(a,b) { return obj[a] - obj[b] });
                 if (!idx.length) return;
                 if (idx.length == 2 && idx[0] == hash) {
                     local[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
@@ -3170,6 +3191,7 @@ db.leveldbInitPool = function(options)
         var pool = this;
         var table = req.text;
         var obj = req.obj;
+        if (typeof obj == "string") obj = { name: obj };
 
         switch(req.op) {
         case "create":
@@ -3262,6 +3284,7 @@ db.lmdbInitPool = function(options)
         var pool = this;
         var table = req.text;
         var obj = req.obj;
+        if (typeof obj == "string") obj = { name: obj };
 
         switch(req.op) {
         case "create":

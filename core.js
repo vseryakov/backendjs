@@ -1178,6 +1178,9 @@ core.toValue = function(val, type)
     case "int":
     case "integer":
     case "number":
+    case "bigint":
+    case "numeric":
+    case "counter":
         return core.toNumber(val);
 
     case "bool":
@@ -1846,6 +1849,14 @@ core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, option
         distance = parseFloat(Number(Math.floor(distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
     }
     return distance;
+}
+
+// Same as geoDistance but operates on 2 geohashes instead of coordinates.
+core.geoHashDistance = function(geohash1, geohash2, options)
+{
+    var coords1 = backend.geoHashDecode(geohash1);
+    var coords2 = backend.geoHashDecode(geohash2);
+    return this.geoDistance(coords1[0], coords1[1], coords2[0], coords2[1], options);
 }
 
 // Encrypt data with the given key code

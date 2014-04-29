@@ -654,8 +654,6 @@ api.initAccountAPI = function()
     var self = this;
     var db = core.context.db;
 
-    db.setProcessRow("bk_account", self.processAccountRow);
-
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
 
         if (req.method == "POST") req.query = req.body;
@@ -2187,13 +2185,6 @@ api.deleteAccount = function(obj, options, callback)
                callback(err, obj);
         });
     });
-}
-
-api.processAccountRow = function(row, options, cols)
-{
-    logger.log(row, cols)
-    if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-    return row;
 }
 
 // Returns an object with collected db and api statstics and metrics

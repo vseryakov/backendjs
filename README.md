@@ -162,7 +162,7 @@ The typical structure of a backendjs application is the following (created by th
             api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
             ...
 
-            // Optionally register access permisons callbacks
+            // Optionally register access permissions callbacks
             api.registerAccessCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
             api.registerAuthCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
             ...
@@ -228,6 +228,18 @@ is registered as post process callback for the bk_account table.
                            home_phone: {},
                            work_phone: {},
             });
+
+            api.initApplication = function(callback)
+            {
+                db.setProcessRow("bk_account", self.processAccountRow);
+                ...
+            }
+            api.processAccountRow = function(row, options, cols)
+            {
+                if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+                return row;
+            }
+
 
 # API endpoints provided by the backend
 
@@ -823,6 +835,7 @@ default is is open for access to all users but same security considerations appl
     - process - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
     - response - stats about only response times from the db without any local processing times of the result records
     - queue - stats about db requests at any given moment queued for the execution
+    - cache - db cache response time and metrics
     - rate - req/sec rates
   - api - Web requests metrics, same structure as for the db pool metrics
 
@@ -1055,7 +1068,7 @@ The backend directory structure is the following:
 
     * some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
       All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
-      concatenated with the domain and queried for the TXT record, for example: `lru-host` parameter will be queried for lru-host.domain.name for TXT record type.
+      concatenated with the domain and queried for the TXT record, for example: `cache-host` parameter will be queried for cache-host.domain.name for TXT record type.
 
     * `etc/crontab` - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
 
@@ -1065,7 +1078,7 @@ The backend directory structure is the following:
 
                 [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "api.cleanSessions": { "interval": 3600000 } } } ]
 
-        2. Define the funtion that the cron will call with the options specified, callback must be called at the end, create this app.js file
+        2. Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file
 
                 var backend = require("backendjs");
                 backend.api.cleanSessions = function(options, callback) {
