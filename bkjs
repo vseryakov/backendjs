@@ -662,7 +662,7 @@ case "$ARG" in
     ;;
 
   show-help)
-    $BACKEND_PREFIX/bin/node -e "require('$BKJS').core.help()"
+    $BACKEND_PREFIX/bin/node -e "require('$BKJS').core.showHelp()"
     ;;
 
   clean-backend)

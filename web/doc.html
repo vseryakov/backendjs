@@ -111,9 +111,6 @@ applications but still part of the core of the system to be available once neede
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
 <pre><code>  bkjs run-backend
 </code></pre></li>
-<li><p>To start node.js shell with backendjs loaded and initialized</p>
-<pre><code>  bksh
-</code></pre></li>
 <li><p>Documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
@@ -145,8 +142,12 @@ of adding new tables and API commands.</p>
 </ul>
 <ul>
 <li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</li>
-<li>Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
-is only enabled by default in development mode, check app.sh for parameters before running it in te production.</li>
+<li><p>Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
+is only enabled by default in development mode, check app.sh for parameters before running it in te production.</p>
+</li>
+<li><p>To start node.js shell with backendjs loaded and initialized</p>
+<pre><code>  bksh
+</code></pre></li>
 </ul>
 <h1 id="database-schema-definition">Database schema definition</h1>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
@@ -1245,6 +1246,17 @@ defined via command line arguments as <code>-home</code> or via environment vari
 <p>Example:</p>
 <pre><code>  node app.js -home $HOME -port 80
 </code></pre></li>
+<li><p>config database</p>
+<p>If <code>-db-config</code> is specified in the command line or <code>db-config=</code> in the local config file, this will trigger loading additional
+config parameters from the specified databae pool, it will load all records from tbe bk_config table on that db pool. <code>db-config</code> defines the
+configuration group or type to load, by default the config group is &#39;core&#39;, so even if ther is only one config group it must be specified in the <code>db-config</code>
+parameter. Using the database to store configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
+a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.</p>
+</li>
+<li><p>DNS records
+Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of
+all config parameters support DNS store. To see which parmeteres can be stored in the DNS run <code>bkjs show-help</code> and look for &#39;DNS TXT configurable&#39;.</p>
+</li>
 </ul>
 <h1 id="security">Security</h1>
 <p>All requests to the API server must be signed with account login/secret pair.</p>

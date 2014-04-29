@@ -67,10 +67,6 @@ applications but still part of the core of the system to be available once neede
 
         bkjs run-backend
 
-* To start node.js shell with backendjs loaded and initialized
-
-        bksh
-
 * Documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
 
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
@@ -105,6 +101,10 @@ applications but still part of the core of the system to be available once neede
 * Go to http://localhost:8000/api.html and issue `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
 * Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
   is only enabled by default in development mode, check app.sh for parameters before running it in te production.
+
+* To start node.js shell with backendjs loaded and initialized
+
+        bksh
 
 # Database schema definition
 
@@ -1297,6 +1297,17 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
         node app.js -home $HOME -port 80
 
+- config database
+
+  If `-db-config` is specified in the command line or `db-config=` in the local config file, this will trigger loading additional
+  config parameters from the specified databae pool, it will load all records from tbe bk_config table on that db pool. `db-config` defines the
+  configuration group or type to load, by default the config group is 'core', so even if ther is only one config group it must be specified in the `db-config`
+  parameter. Using the database to store configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
+  a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.
+
+- DNS records
+  Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of
+  all config parameters support DNS store. To see which parmeteres can be stored in the DNS run `bkjs show-help` and look for 'DNS TXT configurable'.
 
 # Security
 All requests to the API server must be signed with account login/secret pair.
