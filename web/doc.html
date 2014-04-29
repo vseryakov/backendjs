@@ -6,6 +6,7 @@
 <li><a href="#requirements-and-dependencies"> Requirements and dependencies</a></li>
 <li><a href="#installation"> Installation</a></li>
 <li><a href="#quick-start"> Quick start</a></li>
+<li><a href="#application-structure"> Application structure</a></li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#accounts"> Accounts</a></li>
@@ -111,16 +112,24 @@ applications but still part of the core of the system to be available once neede
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
 <pre><code>  bkjs run-backend
 </code></pre></li>
-<li><p>Documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
+<li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)</p>
+<pre><code>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+</code></pre></li>
+<li><p>or to the PostgreSQL server, database backend</p>
+<pre><code>  bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+</code></pre></li>
+<li><p>All commands above will behave exactly the same, all required tables will be automatically created</p>
+</li>
+<li><p>While the local backendjs is runnning the documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
-For this example let&#39;s create couple of accounts, type and execute the following URLs in the Web console</p>
+For this example let&#39;s create a couple of accounts, type and execute the following URLs in the Web console</p>
 <pre><code>  /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
-  /account/add?name=test2&amp;secret=test2&amp;login=test2@test.com
+  /account/add?name=test2&amp;secret=test2&amp;login=test2@test.com&amp;gender=m&amp;alias=Test%20User&amp;birthday=1980-01-01
 </code></pre></li>
 </ul>
 <ul>
-<li>Now login with any of the accounts above, click on Login at the top-right corner and enter login and secret in the login popup dialog.</li>
+<li>Now login with any of the accounts above, click on <em>Login</em> at the top-right corner and enter &#39;test1&#39; as login and &#39;test1&#39; as secret in the login popup dialog.</li>
 <li><p>If no error message appeared after the login, try to get your current account details:</p>
 <pre><code>  /account/get
 </code></pre></li>
@@ -135,24 +144,75 @@ For this example let&#39;s create couple of accounts, type and execute the follo
 <li><p>The app.js file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
 of adding new tables and API commands.</p>
 </li>
-<li>The app.sh script is created for convenience, it specifies common arguments and can be customized as needed</li>
+<li>The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
 <li><p>Run new application now, it will start the Web server on port 8000:</p>
 <pre><code>  ./app.sh
 </code></pre></li>
 </ul>
 <ul>
-<li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</li>
+<li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue command <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</li>
 <li><p>Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
-is only enabled by default in development mode, check app.sh for parameters before running it in te production.</p>
+is only enabled by default in development mode, check app.sh for parameters before running it in the production.</p>
 </li>
-<li><p>To start node.js shell with backendjs loaded and initialized</p>
+<li><p>To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
 <pre><code>  bksh
 </code></pre></li>
+<li><p>To access the database while in the shell</p>
+<pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(rows) });
+  &gt; db.select(&quot;bk_account&quot;, {}, db.showResult);
+  &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
+  &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, { keys: [&#39;gender&#39;] }, db.showResult);
+</code></pre></li>
 </ul>
+<h1 id="application-structure">Application structure</h1>
+<p>The main puspose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
+but the access to that data will be over HTTP and returned back as JSON. This is default functionality but any custom application
+may return data in whatever format is required.</p>
+<p>Basically the backendjs is a Web server with ability to perform data processing using local or remote jobs which can be scheduled similar to Unix cron.</p>
+<p>The principle behind the system is that nowadays the API services just return data which Web apps or mobiles apps can render to
+the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
+processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.</p>
+<p>The typical structure of a backendjs application is the following (created by the bkjs init-app command:</p>
+<pre><code>        var backend = require(&#39;backendjs&#39;);
+        var api = backend.api;
+        var db = backend.db;
+
+        // Describe the tables or data model
+        api.describeTables({
+            ...
+        });
+
+        // Optionally customize the Express environment
+        api.initMiddleware = function()
+        {
+            ...
+        }
+
+        // Register API endpoints, i.e. url callbacks
+        api.initApplication = function(callback)
+        {
+            this.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
+            ...
+        }
+
+        // Optionally register post processing of the returned data from the default calls
+        api.registerPostProcess(&#39;&#39;, /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
+        ...
+
+        // Optionally register access permisons callbacks
+        api.registerAccessCheck(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
+        api.registerAuthCheck(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
+        ...
+
+        backend.server.start();
+</code></pre><p>Except the <code>api.initApplication</code> and <code>server.start()</code> all other functions are optional, they are here for the sake of completness of the example. Also
+because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
+configuration of the cron jobs so the amount of code to be written to have fully functionaning production API server is not that much, basically only
+request endpoint callbacks must be provided in the application.</p>
 <h1 id="database-schema-definition">Database schema definition</h1>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
-The database operations supported in the unified way provide simple actions like get, put, update, delete, select, the query method provides generic
+The database operations supported in the unified way provide simple actions like <code>db.get, db.put, db.update, db.del, db.select</code>. The <code>db.query</code> method provides generic
 access to the databe driver and executes given query directly.</p>
 <p>Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it:</p>
 <ul>
@@ -181,7 +241,24 @@ to maintain database tables.</p>
 <p>Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics, it just provides the same
 API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range key, so when creating table to be used with DynamoDB, only
 one or two columns can be marked with primary property while for SQL databases the composite primary key can conisit of more than 2 columns.</p>
-<h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
+<p>The backendjs always creates several tables in the configured database pools by default, these tables are required to support default API functionality and some
+are required for backend opertions. Refer below for the Javascript modules documenttion that described which tables are created by default. In the custom applications
+same <code>api.describeTables</code> method can modify columns in the default table and add more columns if needed.</p>
+<p>For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
+done in the <code>api.initApplication</code> method. It will extend the bk_account table and the application can use new columns the same way as the already existing columns.
+Making the birthday semipub will make &#39;age&#39; property automatically calculated and visible in the result, this is done by the internal method <code>api.processAccountRow</code> which
+is registered as post process callback for the bk_account table.</p>
+<pre><code>        api.describeTables({
+                bk_account: {
+                       gender: { pub: 1 },
+                       birthday: { semipub: 1 },
+                       ssn: {},
+                       salary: { type: &quot;int&quot; },
+                       occupation: {},
+                       home_phone: {},
+                       work_phone: {},
+        });
+</code></pre><h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
 <h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
 <ul>
@@ -1459,7 +1536,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-mysql-max</code> - Max number of open connection for the pool</li>
 <li><code>db-mysql-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-mysql-tables</code> - PostgreSQL tables, list of tables that belong to this pool only</li>
-<li><code>db-dynamodb-pool</code> - DynamoDB endpoint url</li>
+<li><code>db-dynamodb-pool</code> - DynamoDB endpoint url or &#39;default&#39; to use AWS account default region</li>
 <li><code>db-dynamodb-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
 <li><code>db-mongodb-pool</code> - MongoDB endpoint url</li>
 <li><code>db-mongodb-tables</code> - MongoDB tables, list of tables that belong to this pool only</li>
@@ -1470,11 +1547,9 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region. Default: us-east-1</li>
-<li><code>aws-keypair</code> - AWS instance keypair name</li>
-<li><code>aws-image-id</code> - AWS image id to be used for remote jobs</li>
-<li><code>aws-instance-type</code> - AWS instance type. Default: t1.micro</li>
-<li><code>aws-dynamodb-host</code> - Custom DynamoDB host for local installations</li>
-<li><code>aws-nometadata</code> - Skip retrieval from instance metadata</li>
+<li><code>aws-keypair</code> - AWS instance keypair name for remote job instances</li>
+<li><code>aws-image-id</code> - AWS image id to be used for remote job instances</li>
+<li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand. Default: t1.micro</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s)</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store images</li>
 <li><code>api-files-s3</code> - S3 bucket name where to store files</li>
@@ -3194,6 +3269,14 @@ it is required to call pool.free at the end to return the connection back to the
 </ul>
 
 <ul>
+<li><p><code>db.showResult(err, rows)</code></p>
+<p> Convenient helper to show results from the database requests, can be used as the callback in all db method.</p>
+<p>Example:</p>
+<pre><code>    db.select(&quot;bk_account&quot;, {}, db.showResult);
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>db.query(req, options, callback)</code></p>
 <p> Execute query using native database driver, the query is passed directly to the driver.</p>
 <ul>
@@ -3774,7 +3857,6 @@ specified table thus providing an opportunity to customize the result.</p>
 <p>Example</p>
 <pre><code>db.setProcessRow(&quot;bk_account&quot;, function(row, opts, cols) {
     if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-    delete row.birthday;
 });
 </code></pre></li>
 </ul>

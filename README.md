@@ -67,16 +67,26 @@ applications but still part of the core of the system to be available once neede
 
         bkjs run-backend
 
-* Documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
+* To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)
+
+        bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+
+* or to the PostgreSQL server, database backend
+
+        bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+
+* All commands above will behave exactly the same, all required tables will be automatically created
+
+* While the local backendjs is runnning the documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
 
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
-  For this example let's create couple of accounts, type and execute the following URLs in the Web console
+  For this example let's create a couple of accounts, type and execute the following URLs in the Web console
 
         /account/add?name=test1&secret=test1&login=test1@test.com
-        /account/add?name=test2&secret=test2&login=test2@test.com
+        /account/add?name=test2&secret=test2&login=test2@test.com&gender=m&alias=Test%20User&birthday=1980-01-01
 
 
-* Now login with any of the accounts above, click on Login at the top-right corner and enter login and secret in the login popup dialog.
+* Now login with any of the accounts above, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
 
         /account/get
@@ -92,25 +102,83 @@ applications but still part of the core of the system to be available once neede
 
 * The app.js file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
   of adding new tables and API commands.
-* The app.sh script is created for convenience, it specifies common arguments and can be customized as needed
+* The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.
 * Run new application now, it will start the Web server on port 8000:
 
         ./app.sh
 
 
-* Go to http://localhost:8000/api.html and issue `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
+* Go to http://localhost:8000/api.html and issue command `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
 * Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
-  is only enabled by default in development mode, check app.sh for parameters before running it in te production.
+  is only enabled by default in development mode, check app.sh for parameters before running it in the production.
 
-* To start node.js shell with backendjs loaded and initialized
+* To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
         bksh
+
+* To access the database while in the shell
+
+        > db.select("bk_account", {}, function(err, rows) { console.log(rows) });
+        > db.select("bk_account", {}, db.showResult);
+        > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
+        > db.select("bk_account", { gender: 'm' }, { keys: ['gender'] }, db.showResult);
+
+# Application structure
+The main puspose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
+but the access to that data will be over HTTP and returned back as JSON. This is default functionality but any custom application
+may return data in whatever format is required.
+
+Basically the backendjs is a Web server with ability to perform data processing using local or remote jobs which can be scheduled similar to Unix cron.
+
+The principle behind the system is that nowadays the API services just return data which Web apps or mobiles apps can render to
+the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
+processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.
+
+The typical structure of a backendjs application is the following (created by the bkjs init-app command:
+
+            var backend = require('backendjs');
+            var api = backend.api;
+            var db = backend.db;
+
+            // Describe the tables or data model
+            api.describeTables({
+                ...
+            });
+
+            // Optionally customize the Express environment
+            api.initMiddleware = function()
+            {
+                ...
+            }
+
+            // Register API endpoints, i.e. url callbacks
+            api.initApplication = function(callback)
+            {
+                this.app.get('/some/api/endpoint', function(req, res) { ... });
+                ...
+            }
+
+            // Optionally register post processing of the returned data from the default calls
+            api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
+            ...
+
+            // Optionally register access permisons callbacks
+            api.registerAccessCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
+            api.registerAuthCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
+            ...
+
+            backend.server.start();
+
+Except the `api.initApplication` and `server.start()` all other functions are optional, they are here for the sake of completness of the example. Also
+because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
+configuration of the cron jobs so the amount of code to be written to have fully functionaning production API server is not that much, basically only
+request endpoint callbacks must be provided in the application.
 
 # Database schema definition
 
 The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
-The database operations supported in the unified way provide simple actions like get, put, update, delete, select, the query method provides generic
+The database operations supported in the unified way provide simple actions like `db.get, db.put, db.update, db.del, db.select`. The `db.query` method provides generic
 access to the databe driver and executes given query directly.
 
 Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it:
@@ -140,6 +208,26 @@ Before the tables can be queried the schema must be defined and created, the bac
 Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics, it just provides the same
 API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range key, so when creating table to be used with DynamoDB, only
 one or two columns can be marked with primary property while for SQL databases the composite primary key can conisit of more than 2 columns.
+
+The backendjs always creates several tables in the configured database pools by default, these tables are required to support default API functionality and some
+are required for backend opertions. Refer below for the Javascript modules documenttion that described which tables are created by default. In the custom applications
+same `api.describeTables` method can modify columns in the default table and add more columns if needed.
+
+For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
+done in the `api.initApplication` method. It will extend the bk_account table and the application can use new columns the same way as the already existing columns.
+Making the birthday semipub will make 'age' property automatically calculated and visible in the result, this is done by the internal method `api.processAccountRow` which
+is registered as post process callback for the bk_account table.
+
+            api.describeTables({
+                    bk_account: {
+                           gender: { pub: 1 },
+                           birthday: { semipub: 1 },
+                           ssn: {},
+                           salary: { type: "int" },
+                           occupation: {},
+                           home_phone: {},
+                           work_phone: {},
+            });
 
 # API endpoints provided by the backend
 

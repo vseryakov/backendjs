@@ -21,11 +21,9 @@ var aws = {
     args: [ { name: "key", descr: "AWS access key" },
             { name: "secret", descr: "AWS access secret" },
             { name: "region", descr: "AWS region" },
-            { name: "keypair", descr: "AWS instance keypair name" },
-            { name: "image-id", descr: "AWS image id to be used for remote jobs" },
-            { name: "instance-type", descr: "AWS instance type" },
-            { name: "dynamodb-host", descr: "Custom DynamoDB host for local installations" },
-            { name: "nometadata", type: "bool", descr: "Skip retrieval from instance metadata" }],
+            { name: "keypair", descr: "AWS instance keypair name for remote job instances" },
+            { name: "image-id", descr: "AWS image id to be used for remote job instances" },
+            { name: "instance-type", descr: "AWS instance type for remote jobs launched on demand" } ],
 
     region: 'us-east-1',
     s3: "s3.amazonaws.com",
@@ -120,7 +118,7 @@ aws.queryDDB = function (action, obj, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
     var start = Date.now();
-    var uri = options.db || ('https://dynamodb.' + this.region + '.amazonaws.com/');
+    var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ('https://dynamodb.' + this.region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
     var req = url.parse(uri);
