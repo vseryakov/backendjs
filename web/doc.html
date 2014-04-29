@@ -550,6 +550,8 @@ specify that only messages received since that time to return, it must be in mil
 Date.now() return in Javascript. The images are not returned, only link to the image in <code>icon</code> property of reach record,
 the actual image data must be retrieved separately.</p>
 <p>When <code>sender</code> is specified then all messages for given sender will be returned.</p>
+<p>When <code>id</code> is specified and i tis not the current account id, then all messages that the current account has sent to the <code>id</code> will be returned, i.e.
+this is how i can get all messages i have sent to the <code>id</code>.</p>
 <p>NOTE: The <code>mtime</code> is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
 also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
 result in mtimes that do not correspond to actual times when the message has been sent.</p>
@@ -565,6 +567,9 @@ result in mtimes that do not correspond to actual times when the message has bee
 
   # Get all messages for specific sender
   /message/get?sender=12345
+
+  # Get all messages i have sent to the user 12345
+  /message/get?id=12345
 </code></pre><p>Response:</p>
 <pre><code>  { &quot;data&quot;: [ { &quot;sender&quot;: &quot;12345&quot;,
                 &quot;msg&quot;: &quot;Hi, how r u?&quot;,
@@ -1470,7 +1475,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-caching</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with whatever cache configured. Default: </li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: </li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: </li>
-<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints</li>
+<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints. Default: </li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: ^/$,.html$,.(ico|gif|png|jpg|svg)$,.(ttf|eof|woff)$,.(js|css)$,^/public,^/account/add$</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
