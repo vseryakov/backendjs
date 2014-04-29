@@ -91,7 +91,7 @@ tests.start = function(type)
 
 tests.account = function(callback)
 {
-    var myid;
+    var myid, otherid;
     var id = core.random();
     var login = id;
 	var secret = id;
@@ -114,6 +114,13 @@ tests.account = function(callback)
             var options = { login: login, secret: secret }
             core.sendRequest("/account/del", options, function(err, params) {
                 next(err || !params.obj || params.obj.name != name ? ("err1:" + err + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
+            var query = { login: login + 'other', secret: secret, name: name + ' Other', gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
+            core.sendRequest("/account/add", { sign: false, query: query }, function(err, params) {
+                otherid = params.obj.id;
+                next(err);
             });
         },
         function(next) {
@@ -230,7 +237,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { id: myid, msg: "text message" }  }
+            var options = { login: login, secret: secret, query: { id: otherid, msg: "text message" }  }
             core.sendRequest("/message/add", options, function(err, params) {
                 next(err || !params.obj ? ("err7:" + err + util.inspect(params.obj)) : 0);
             });
@@ -245,20 +252,20 @@ tests.account = function(callback)
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/message/get", options, function(err, params) {
                 msgs = params.obj;
-                next(err || !params.obj || !params.obj.data || params.obj.data.length!=2 ? ("err9:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=1 ? ("err9:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { sender: myid } }
             core.sendRequest("/message/get", options, function(err, params) {
                 msgs = params.obj;
-                next(err || !params.obj || !params.obj.data || params.obj.data.length!=2 ? ("err9-1:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=1 ? ("err9-1:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/message/get/unread", options, function(err, params) {
-                next(err || !params.obj || !params.obj.data || params.obj.data.length!=2 ? ("err10:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=1 ? ("err10:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -268,7 +275,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { sender: msgs.data[1].sender, mtime: msgs.data[1].mtime } }
+            var options = { login: login, secret: secret, query: { sender: msgs.data[0].sender, mtime: msgs.data[0].mtime } }
             core.sendRequest("/message/image", options, function(err, params) {
                 next(err ? ("err12:" + err) : 0);
             });
@@ -277,7 +284,7 @@ tests.account = function(callback)
             var options = { login: login, secret: secret, query: { _read: 1 } }
             core.sendRequest("/message/get/unread", options, function(err, params) {
                 msgs = params.obj;
-                next(err || !params.obj || !params.obj.data || params.obj.data.length!=1 ? ("err13:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=0 ? ("err13:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -287,21 +294,28 @@ tests.account = function(callback)
             });
         },
         function(next) {
+            var options = { login: login, secret: secret, query: { id: otherid } }
+            core.sendRequest("/message/get", options, function(err, params) {
+                msgs = params.obj;
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=1 || params.obj.data[0].sender!=myid? ("err14-1:" + err + util.inspect(params.obj)) : 0);
+            });
+        },
+        function(next) {
             var options = { login: login, secret: secret, query: { sender: myid } }
             core.sendRequest("/message/del", options, function(err, params) {
-                next(err ? ("err14-1:" + err + util.inspect(params.obj)) : 0);
+                next(err ? ("err14-2:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { sender: myid } }
             core.sendRequest("/message/get", options, function(err, params) {
-                next(err || !params.obj || !params.obj.data || params.obj.data.length!=0 ? ("err14-2:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || !params.obj.data || params.obj.data.length!=0 ? ("err14-3:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                next(err || !params.obj || params.obj.msg_count!=2 || params.obj.msg_read!=2 ? ("err15:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.msg_count!=1 || params.obj.msg_read!=1 ? ("err15:" + err + util.inspect(params.obj)) : 0);
             });
         },
     ],

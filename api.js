@@ -43,6 +43,8 @@ var api = {
             "^/public",
             "^/account/add$" ],
 
+    // Only for admins
+    allowAdmin: [],
     // Allow only HTTPS requests
     alowSsl: null,
 
@@ -368,16 +370,16 @@ api.init = function(callback)
 
     // Disable access to endpoints if session exists, meaning Web app
     self.disableSession.forEach(function(x) {
-        self.registerAuthCheck('', new RegExp(x), function(req, callback) {
-            if (req.session && req.session['bk-signature']) return callback({ status: 401, message: "Not authorized" });
-            callback();
+        self.registerAuthCheck('', new RegExp(x), function(req, status, cb) {
+            if (req.session && req.session['bk-signature']) return cb({ status: 401, message: "Not authorized" });
+            cb();
         });
     });
 
     // Admin only access
-    if (self.allowAdmin) {
-        this.allowAdmin = new RegExp(this.allowAdmin.map(function(x) { return "(" + x + ")"}).join("|"));
-        api.registerAuthCheck('POST', this.allowAdmin, function(req, cb) {
+    if (self.allowAdmin.length) {
+        self.allowAdmin = new RegExp(self.allowAdmin.map(function(x) { return "(" + x + ")"}).join("|"));
+        self.registerAuthCheck('', self.allowAdmin, function(req, status, cb) {
             if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
             cb();
         });
@@ -556,7 +558,10 @@ api.checkAccess = function(req, callback)
     if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
     // Call custom access handler for the endpoint
     var hook = this.findHook('access', req.method, req.path);
-    if (hook) return hook.callbacks.call(this, req, callback)
+    if (hook) {
+        logger.debug('checkAccess:', req.method, req.path, hook);
+        return hook.callbacks.call(this, req, callback)
+    }
     callback();
 }
 
@@ -567,7 +572,10 @@ api.checkAccess = function(req, callback)
 api.checkAuthorization = function(req, status, callback)
 {
     var hook = this.findHook('auth', req.method, req.path);
-    if (hook) return hook.callbacks.call(this, req, status, callback);
+    if (hook) {
+        logger.debug('checkAuthorization:', req.method, req.path, hook);
+        return hook.callbacks.call(this, req, status, callback);
+    }
     // Pass the status back to the checkRequest
     callback(status);
 }
@@ -848,10 +856,12 @@ api.initMessageAPI = function()
 
     function processRows(rows) {
         rows.forEach(function(row) {
-            var mtime = row.mtime.split(":");
-            row.mtime = core.toNumber(mtime[0]);
-            row.sender = mtime[1];
-            row.status = row.status[0];
+            if (row.mtime) {
+                var mtime = row.mtime.split(":");
+                row.mtime = core.toNumber(mtime[0]);
+                row.sender = mtime[1];
+            }
+            if (row.status) row.status = row.status[0];
             if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
         });
         return rows;
@@ -870,12 +880,18 @@ api.initMessageAPI = function()
             break;
 
         case "get":
-            req.query.id = req.account.id;
+            if (!req.query.id) req.query.id = req.account.id;
             // Must be a string for DynamoDB at least
             if (req.query.mtime) {
                 options.ops.mtime = "gt";
                 req.query.mtime = String(req.query.mtime);
             }
+            // All msgs i sent to this id
+            if (req.query.id != req.account.id) {
+                req.query.sender = req.account.id + ":";
+                options.ops.sender = "begins_with";
+                delete options.check_public;
+            } else
             // Using sender index, all msgs from the sender
             if (req.query.sender) {
                 options.sort = "sender";
@@ -884,6 +900,7 @@ api.initMessageAPI = function()
                 req.query.sender += ":";
             }
             db.select("bk_message", req.query, options, function(err, rows, info) {
+                logger.log(rows)
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });

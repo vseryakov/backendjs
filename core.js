@@ -296,10 +296,14 @@ core.init = function(callback)
         },
 
         function(next) {
-            fs.watch(configFile, function (event, filename) {
-                self.setTimeout(filename, function() { self.loadConfig(configFile); }, 5000);
+            // Can only watch existing files, new config files will be ignored after the start up
+            fs.exists(configFile, function(exists) {
+                if (!exists) return next();
+                fs.watch(configFile, function (event, filename) {
+                    self.setTimeout(filename, function() { self.loadConfig(configFile); }, 5000);
+                });
+                next();
             });
-            next();
         },
 
         function(next) {
@@ -837,7 +841,7 @@ core.ipcSend = function(cmd, key, value, callback)
         msg.reply = true;
         msg.id = self.ipcId++;
         self.ipcs[msg.id] = { timeout: setTimeout(function() { delete self.ipcs[msg.id]; callback(); }, self.ipcTimeout),
-                              callback: function(m) { clearTimeout(self.ipcs[msg.id].timeout); try { callback(m.value); } catch(e) { logger.error('ipc:', e, m.cmd, m.key) } } };
+                              callback: function(m) { clearTimeout(self.ipcs[msg.id].timeout); try { callback(m.value); } catch(e) { logger.error('ipcCallback:', e, e.stack, m.cmd, m.key) } } };
     }
     try { process.send(msg); } catch(e) { logger.error('ipcSend:', e, cmd, key); }
 }
@@ -901,7 +905,7 @@ core.ipcKeysCache = function(callback)
             this.ipcSend("keys", "", callback);
         }
     } catch(e) {
-        logger.error('ipcSKeys:', e);
+        logger.error('ipcKeys:', e);
         callback({});
     }
 }
@@ -923,7 +927,7 @@ core.ipcClearCache = function()
             this.ipcSend("clear", key);
         }
     } catch(e) {
-        logger.error('icpClear:', e);
+        logger.error('ipcClear:', e);
     }
 }
 

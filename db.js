@@ -1045,11 +1045,11 @@ db.getLocations = function(table, options, callback)
 db.get = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
-    options = this.getOptions(table, options);
-    if (options.cached) {
+    if (options && options.cached) {
     	options.cached = 0;
     	return this.getCached(table, obj, options, callback);
     }
+    options = this.getOptions(table, options);
     var req = this.prepare("get", table, obj, options);
     this.query(req, options, function(err, rows) {
         if (callback) callback(err, rows.length ? rows[0] : null);
@@ -1088,7 +1088,7 @@ db.getCached = function(table, obj, options, callback)
         self.get(table, obj, options, function(err, row) {
             // Store in cache if no error
             if (row && !err) core.ipcPutCache(key, core.stringify(row));
-            callback(err, row);
+            if (callback) callback(err, row);
         });
     });
 

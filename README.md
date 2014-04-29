@@ -569,6 +569,9 @@ from the last messages received so the next time we will use this time to get on
 
   When `sender` is specified then all messages for given sender will be returned.
 
+  When `id` is specified and i tis not the current account id, then all messages that the current account has sent to the `id` will be returned, i.e.
+  this is how i can get all messages i have sent to the `id`.
+
   NOTE: The `mtime` is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
   also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
   result in mtimes that do not correspond to actual times when the message has been sent.
@@ -586,6 +589,9 @@ from the last messages received so the next time we will use this time to get on
 
         # Get all messages for specific sender
         /message/get?sender=12345
+
+        # Get all messages i have sent to the user 12345
+        /message/get?id=12345
 
   Response:
 

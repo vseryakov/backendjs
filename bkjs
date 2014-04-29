@@ -773,13 +773,15 @@ case "$ARG" in
 // Created by $(whoami) on $(date)
 //
 var backend = require('$BKJS');
-var express = require('express');
 var db = backend.db;
 var api = backend.api;
+var core = backend.core;
+var logger = backend.logger;
 
 api.describeTables({
     test: { id: { primary: 1 },
-            name: {}
+            name: {},
+            mtime: { type: "bigint", now: 1 },
     }
 });
 
@@ -792,10 +794,10 @@ api.processTestRow = function(row, options, cols)
 
 api.initMiddleware = function()
 {
-    // Use web pages from current directory
-    this.app.use(express.static(__dirname + '/web'));
     // Allow special URL without signature
-    self.allow.push('/free/access');
+    this.allow.push('/free/access');
+    // Allow only admins for this URL
+    this.allowAdmin.push('/admin/area');
 }
 
 api.initApplication = function(callback)
@@ -804,11 +806,24 @@ api.initApplication = function(callback)
 
     // Add new record
     this.app.all(/^\/test\/add/, function(req, res) {
-        db.add('test', { id: req.query.id, name: req.query.name }, function(err, rows) { api.sendReply(res, err); });
+        db.add('test', { id: req.query.id, name: req.query.name }, function(err, rows) {
+            api.sendReply(res, err);
+        });
+    });
+    // Update record
+    this.app.all(/^\/test\/update/, function(req, res) {
+        if (!req.query.id || !req.query.name) return api.sendRepy(res, { status: 400, message: "id and name required" });
+
+        db.update('test', req.query, function(err, rows) {
+            api.sendReply(res, err);
+        });
     });
     // Retrieve record by id
     this.app.all(/^\/test\/([0-9]+)/, function(req, res) {
-        db.get('test', { id: req.params[0] }, function(err, rows) { res.json(rows); });
+        var options = api.getOptions(req);
+        db.get('test', { id: req.params[0] }, options, function(err, rows) {
+            res.json(rows);
+        });
     });
     callback()
 };
