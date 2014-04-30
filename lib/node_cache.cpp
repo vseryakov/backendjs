@@ -5,16 +5,6 @@
 
 #include "node_backend.h"
 
-#ifdef USE_NANOMSG
-#include <nanomsg/nn.h>
-#endif
-
-struct lruSocket {
-	int sock1;
-	int sock2;
-	int type;
-};
-
 struct LRUStringCache {
     typedef map<string, pair<string, list<string>::iterator> > LRUStringItems;
     size_t size;
@@ -485,6 +475,13 @@ static Handle<Value> lruStats(const Arguments& args)
 }
 
 #ifdef USE_NANOMSG
+
+struct lruSocket {
+    int sock1;
+    int sock2;
+    int type;
+};
+
 static void lruHandleRead(uv_poll_t *w, int status, int revents)
 {
 	if (status == -1 || !(revents & UV_READABLE)) return;

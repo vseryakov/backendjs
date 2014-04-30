@@ -148,6 +148,9 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "incr", Incr);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
+        NODE_SET_PROTOTYPE_METHOD(constructor_template, "serverStart", ServerStart);
+        NODE_SET_PROTOTYPE_METHOD(constructor_template, "serverStop", ServerStop);
+
         target->Set(String::NewSymbol("LMDB"), constructor_template->GetFunction());
     }
 
@@ -377,10 +380,101 @@ public:
         d->data.clear();
     }
 
-    LMDB_DB(MDB_env *e, string n, int f) : ObjectWrap(), name(n), flags(f), env(e), db(0), txn(0), cursor(0), open(0) {}
+    static void HandleRead(uv_poll_t *w, int stat, int revents) {
+#ifdef USE_NANOMSG
+        if (stat == -1 || !(revents & UV_READABLE)) return;
+        LMDB_DB* db = (LMDB_DB*)w->data;
+
+        char *buf;
+        int rc = nn_recv(db->socket, (void*)&buf, NN_MSG, NN_DONTWAIT);
+        if (rc == -1) {
+            LogError("%d: %d: recv: %s", db->socket, db->protocol, nn_strerror(nn_errno()));
+            return;
+        }
+        LogDebug("sock=%d, proto=%d, %s", db->socket, db->protocol, buf);
+
+        jsonValue *json = jsonParse(buf, rc, NULL);
+        string cmd = jsonGet(json, "cmd");
+        string key = jsonGet(json, "key");
+        string value = jsonGet(json, "value");
+        int status = 0, flags = 0;
+        jsonFree(json);
+
+        if (cmd == "put") {
+            status = db->Put(key.c_str(), key.size(), value.c_str(), value.size(), flags);
+        } else
+        if (cmd == "get") {
+            status = db->Get(key.c_str(), key.size(), &value);
+        } else
+        if (cmd == "del") {
+            status = db->Del(key.c_str(), key.size(), value.c_str(), value.size());
+        } else
+        if (cmd == "incr") {
+            int64_t num = atoll(value.c_str());
+            status = db->Incr(key.c_str(), key.size(), &num, flags);
+        }
+
+        switch (db->protocol) {
+        case NN_PROTO_PIPELINE:
+            break;
+
+        case NN_PROTO_REQREP:
+            rc = nn_send(db->socket, value.c_str(), value.size() + 1, NN_DONTWAIT);
+            if (rc == -1) LogError("%d: %d: send: %s", db->protocol, db->socket, nn_strerror(nn_errno()));
+            break;
+
+        default:
+            LogError("unknown protocol: %d", db->protocol);
+        }
+        nn_freemsg(buf);
+#endif
+    }
+
+    static Handle<Value> ServerStart(const Arguments& args) {
+        HandleScope scope;
+        LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
+    #ifdef USE_NANOMSG
+        REQUIRE_ARGUMENT_INT(0, sock);
+
+        int rfd;
+        size_t sz = sizeof(rfd);
+        int rc = nn_getsockopt(sock, NN_SOL_SOCKET, NN_RCVFD, (char*) &rfd, &sz);
+        if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(nn_errno()))));
+
+        int proto;
+        sz = sizeof(proto);
+        rc = nn_getsockopt(sock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &proto, &sz);
+        if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(nn_errno()))));
+
+        db->socket = sock;
+        db->protocol = proto;
+        uv_poll_init(uv_default_loop(), &db->poll, rfd);
+        uv_poll_start(&db->poll, UV_READABLE, HandleRead);
+        db->poll.data = db;
+
+        LogDebug("proto=%d, sock=%d, rfd=%d", proto, sock, rfd);
+    #else
+        return ThrowException(Exception::Error(String::New("nanomsg is not compiled in")));
+    #endif
+        return scope.Close(Undefined());
+    }
+
+    static Handle<Value> ServerStop(const Arguments& args) {
+        HandleScope scope;
+        LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
+
+        if (db->poll.data) uv_poll_stop(&db->poll);
+        db->poll.data = NULL;
+        return scope.Close(Undefined());
+    }
+
+    LMDB_DB(MDB_env *e, string n, int f) : ObjectWrap(), name(n), flags(f), env(e), db(0), txn(0), cursor(0), open(0) {
+        poll.data = NULL;
+    }
     ~LMDB_DB() { Close(); }
 
     void Close() {
+        if (poll.data) uv_poll_stop(&poll), poll.data = NULL;
         mdb_txn_abort(txn);
         mdb_cursor_close(cursor);
         if (open) mdb_dbi_close(env, db);
@@ -502,6 +596,9 @@ public:
     MDB_txn *txn;
     MDB_cursor *cursor;
     bool open;
+    uv_poll_t poll;
+    int socket;
+    int protocol;
 };
 
 Persistent<FunctionTemplate> LMDB_DB::constructor_template;
