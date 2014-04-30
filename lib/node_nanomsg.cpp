@@ -102,7 +102,7 @@ public:
     int ClosePoll() {
         if (!callback.IsEmpty()) callback.Dispose();
         if (poll.data) uv_poll_stop(&poll), poll.data = NULL;
-        peer = NULL;
+        peer = 0;
         return 0;
     }
 
@@ -320,6 +320,56 @@ void NanoMsgInit(Handle<Object> target)
 
 #ifdef USE_NANOMSG
     NNSocket::Init(target);
+#endif
+}
+
+#ifdef USE_NANOMSG
+
+void NNServer::HandleRequest(uv_poll_t *w, int status, int revents)
+{
+    if (status == -1 || !(revents & UV_READABLE)) return;
+    NNServer *srv = (NNServer*)w->data;
+
+    char *buf;
+    int rc = nn_recv(srv->sock, (void*)&buf, NN_MSG, NN_DONTWAIT);
+    if (rc == -1) {
+        LogError("%d: %d: recv: %s", srv->proto, srv->sock, nn_strerror(nn_errno()));
+        return;
+    }
+    LogDebug("sock=%d, proto=%d, %s", srv->sock, srv->proto, buf);
+
+    string value = srv->callback(buf, rc, srv->data);
+
+    if (srv->proto == NN_REP) {
+        rc = nn_send(srv->sock, value.c_str(), value.size() + 1, NN_DONTWAIT);
+        if (rc == -1) LogError("%d: %d: send: %s", srv->proto, srv->sock, nn_strerror(nn_errno()));
+    }
+    nn_freemsg(buf);
+}
+#endif
+
+int NNServer::Start(int nsock, NNCallback *cb, void *udata)
+{
+#ifdef USE_NANOMSG
+    if (!cb) return EINVAL;
+
+    size_t sz = sizeof(int);
+    int rc = nn_getsockopt(nsock, NN_SOL_SOCKET, NN_RCVFD, (char*) &fd, &sz);
+    if (rc == -1) return rc;
+
+    sz = sizeof(int);
+    rc = nn_getsockopt(nsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &proto, &sz);
+    if (rc == -1) return rc;
+
+    uv_poll_init(uv_default_loop(), &poll, fd);
+    uv_poll_start(&poll, UV_READABLE, HandleRequest);
+    poll.data = this;
+    callback = cb;
+    data = udata;
+    sock = nsock;
+    return 0;
+#else
+    return EINVAL;
 #endif
 }
 

@@ -79,9 +79,7 @@ Handle<Value> jsonParse(string str)
     {
     	TryCatch try_catch;
     	val = JSON_parse->Call(JSON, 1, argv);
-    	if (try_catch.HasCaught()) {
-    		val = Local<Value>::New(Null());
-    	}
+    	if (try_catch.HasCaught()) val = Local<Value>::New(Null());
     }
     return scope.Close(val);
 }

@@ -3282,9 +3282,8 @@ db.lmdbInitPool = function(options)
     }
     pool.query = function(client, req, opts, callback) {
         var pool = this;
-        var table = req.text;
         var obj = req.obj;
-        if (typeof obj == "string") obj = { name: obj };
+        if (typeof obj == "string") obj = { name: obj, value: "" };
 
         switch(req.op) {
         case "create":
@@ -3340,6 +3339,80 @@ db.lmdbInitPool = function(options)
             callback(new Error("invalid op"), []);
         }
     };
+    return pool;
+}
+
+// Start internal server for LevelDB or LMDB databases, it creates nanomsg socket and listens for requests,
+// support only basic commands: get,put,del,incr and updates the database direvtly without involving Javascript.
+// This is supposed to be run in the master process, all updates are performed sequentially for now but will use
+// uv workers in the future to perform updates in multiple threads at the same time.
+db.nndbStartServer = function(ldb, options)
+{
+    if (!ldb) return;
+    ldb.sock = new backend.NNSocket(backend.AF_SP, options.nnsocket || backend.NN_PULL);
+    ldb.sock.bind(options.db || ('ipc://var/' + ldb.db.split("/").pop() + ".sock"));
+    ldb.startServer(ldb.sock);
+}
+
+// Create a database pool that works with nanomsg server, all requests will be forwarded to the nanomsg socket,
+// the server can be on the same machine or on the remote, 2 nanomsg socket types are supported: NN_PUSH or NN_REQ.
+// In push mode no replies are expected, only sending db updates, in Req mode the server will reply on 'get' command only,
+// all other commands work as in push mode. Only 'get,put,del,incr' comamnd are supported, add,update will be sent as put, LevelDB or LMDB
+// on the other side only support simple key-value operations.
+db.nndbInitPool = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "nndb";
+
+    var pool = this.createPool(options);
+
+    pool.get = function(callback) {
+        if (this.sock) return callback(null, this);
+
+        this.socknum = 1;
+        this.callbacks = {};
+        this.sock = new backend.NNSocket(backend.AF_SP, options.nnsocket || backend.NN_PUSH);
+        this.sock.connect(options.db);
+        this.sock.setCallback(function(err, rc) {
+            if (!rc) return;
+            try { rc = JSON.parse(rc); } catch(e) { logger.error('nndb:', e, rc); return }
+            if (pool.callbacks[rc.id]) setImmediate(function() {
+                try { pool.callbacks[rc.id](err, rc.value); } catch(e) { logger.error('nndb:', e, e.stack); }
+                delete pool.callbacks[rc.id];
+            });
+        });
+        return callback(null, this);
+    }
+
+    pool.query = function(client, req, opts, callback) {
+        var obj = { op: req.op, name: req.obj, value: obj.value || "" };
+
+        switch (req.op) {
+        case "create":
+        case "upgrade":
+        case "drop":
+        case "select":
+        case "search":
+        case "list":
+            return callback(null, []);
+
+        case "get":
+            obj.id = this.socknum++;
+            this.callbacks[id] = function(e, d) { callback(e, d) };
+            this.sock.send(JSON.stringify(obj));
+            return;
+
+        case "add":
+        case "update":
+            obj.op = "put";
+
+        default:
+            this.sock.send(JSON.stringify(obj));
+            return callback(null, []);
+        }
+    }
+
     return pool;
 }
 

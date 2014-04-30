@@ -104,5 +104,33 @@ Handle<Value> toArray(vector<pair<string,string> > &list);
 Handle<Value> jsonParse(string str);
 string jsonStringify(Local<Value> obj);
 
+typedef string (NNCallback)(char *buf,int len,void *data);
+class NNServer {
+public:
+    NNServer() {
+        poll.data = NULL;
+        Stop();
+    }
+    virtual ~NNServer() {
+        Stop();
+    }
+    int Start(int sock, NNCallback *cb, void *data);
+    void Stop() {
+        if (poll.data) uv_poll_stop(&poll);
+        poll.data = NULL;
+        fd = sock = proto = 0;
+        callback = NULL;
+        data = NULL;
+    }
+    static void HandleRequest(uv_poll_t*, int, int);
+
+    int fd;
+    int sock;
+    int proto;
+    uv_poll_t poll;
+    NNCallback *callback;
+    void *data;
+};
+
 #endif
 

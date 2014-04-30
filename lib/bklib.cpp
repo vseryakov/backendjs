@@ -674,7 +674,7 @@ void vSetLogging(const char *level)
     VLog::set(level);
 }
 
-static void json_append(jsonValue *lhs, jsonValue *rhs)
+static void jsonAppend(jsonValue *lhs, jsonValue *rhs)
 {
     rhs->parent = lhs;
     if (lhs->last) {
@@ -729,7 +729,7 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
 
             // set top and root
             if (top) {
-                json_append(top, object);
+                jsonAppend(top, object);
             } else
             if (!root) {
                 root = object;
@@ -868,7 +868,7 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
                 // new string value
                 object = new jsonValue(JSON_STRING, name, val);
                 name.clear();
-                json_append(top, object);
+                jsonAppend(top, object);
             }
             break;
 
@@ -905,7 +905,7 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
             }
 
             name.clear();
-            json_append(top, object);
+            jsonAppend(top, object);
             break;
 
         case '-':
@@ -934,7 +934,7 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
                 ++i;
             }
             name.clear();
-            json_append(top, object);
+            jsonAppend(top, object);
             break;
 
         default:
@@ -964,27 +964,142 @@ void jsonFree(jsonValue *root)
     switch(root->type) {
     case JSON_OBJECT:
     case JSON_ARRAY:
-        for (jsonValue *it = root->first; it; it = it->next) {
-            jsonFree(it);
-        }
+        for (jsonValue *it = root->first; it; it = it->next) jsonFree(it);
 
     default:
         delete root;
     }
 }
 
-string jsonGet(jsonValue *root, string name)
+static string jsonEscape(string value)
+{
+    string rc;
+
+    for (char *c = (char *)value.c_str(); *c; c++) {
+        switch (*c) {
+        case '\b':
+            rc += "\\b";
+            break;
+        case '\f':
+            rc += "\\f";
+            break;
+        case '\n':
+            rc += "\\n";
+            break;
+        case '\r':
+            rc += "\\r";
+            break;
+        case '\t':
+            rc += "\\t";
+            break;
+        case '"':
+            rc += "\\\"";
+            break;
+        case '\\':
+            rc += "\\\\";
+            break;
+        default:
+            if ((unsigned char) *c < ' ')
+                rc += vFmtStr("\\u%04x", (int) *c);
+            else
+                rc.append(c, 1);
+            break;
+        }
+    }
+    return rc;
+}
+
+string jsonStringify(jsonValue *value, string rc)
+{
+    if (!value) return rc;
+
+    if (value->name.size()) {
+        rc += "\"" + value->name + "\":";
+    }
+    switch(value->type) {
+    case JSON_NULL:
+            rc += "null";
+            break;
+    case JSON_OBJECT:
+    case JSON_ARRAY:
+            rc += value->type == JSON_OBJECT ? "{" : "[";
+            for (jsonValue *it = value->first; it; it = it->next) {
+                rc += jsonStringify(it);
+                if (it->next) rc += ",";
+            }
+            rc += value->type == JSON_OBJECT ? "}" : "]";
+            break;
+    case JSON_STRING:
+            rc += "\"" + jsonEscape(value->value) + "\"";
+            break;
+    case JSON_INT:
+    case JSON_FLOAT:
+    case JSON_BOOL:
+            rc += value->value;
+            break;
+    }
+    return rc;
+}
+
+bool jsonDel(jsonValue *root, string name)
+{
+    if (!root) return false;
+    if (root->type != JSON_OBJECT && root->type != JSON_ARRAY) return false;
+    for (jsonValue *it = root->first, *prev = 0; it; prev = it, it = it->next) {
+        if (it->name == name) {
+            if (it == root->first) {
+                root->first = it->next;
+            } else {
+                if (it == root->last) root->last = prev;
+                if (prev) prev->next = it->next;
+            }
+            jsonFree(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool jsonSet(jsonValue *root, jsonType type, string name, string val)
+{
+    if (!root) return false;
+    if (root->type != JSON_OBJECT && root->type != JSON_ARRAY) return false;
+
+    jsonValue *v = new jsonValue(type, name, val);
+    jsonAppend(root, v);
+    return true;
+}
+
+jsonValue *jsonGet(jsonValue *root, string name)
 {
     switch(root ? root->type : 0) {
     case JSON_OBJECT:
     case JSON_ARRAY:
         for (jsonValue *it = root->first; it; it = it->next) {
-            if (it->name == name) return it->value;
+            if (it->name == name) return it;
         }
     default:
         break;
     }
-    return string();
+    return NULL;
+}
+
+string jsonGetStr(jsonValue *root, string name)
+{
+    jsonValue *v = jsonGet(root, name);
+    return v ? v->value : string();
+}
+
+int64_t jsonGetInt(jsonValue *root, string name)
+{
+    jsonValue *v = jsonGet(root, name);
+    return v ? atoll(v->value.c_str()) : 0;
+}
+
+double jsonGetNum(jsonValue *root, string name)
+{
+    jsonValue *v = jsonGet(root, name);
+    return v ? atof(v->value.c_str()) : 0;
 }
 
 #define IDENT(n) for (int i = 0; i < n; ++i) printf("    ")
@@ -1000,9 +1115,7 @@ void jsonPrint(jsonValue *value, int ident)
     case JSON_OBJECT:
     case JSON_ARRAY:
             printf(value->type == JSON_OBJECT ? "{\n" : "[\n");
-            for (jsonValue *it = value->first; it; it = it->next) {
-                    jsonPrint(it, ident + 1);
-            }
+            for (jsonValue *it = value->first; it; it = it->next) jsonPrint(it, ident + 1);
             IDENT(ident);
             printf(value->type == JSON_OBJECT ? "}\n" : "]\n");
             break;

@@ -128,8 +128,14 @@ vector<string> vGeoHashRow(string center, int steps);
 
 // Parse JSON text into object
 jsonValue *jsonParse(const char *source, int size = -1, string *errmsg = NULL);
-string jsonGet(jsonValue *obj, string name);
+bool jsonDel(jsonValue *root, string name);
+bool jsonSet(jsonValue *root, jsonType type, string name, string val = string());
+jsonValue *jsonGet(jsonValue *obj, string name);
+string jsonGetStr(jsonValue *root, string name);
+int64_t jsonGetInt(jsonValue *root, string name);
+double jsonGetNum(jsonValue *root, string name);
 void jsonPrint(jsonValue *obj, int ident = 0);
+string jsonStringify(jsonValue *value, string rc = string());
 void jsonFree(jsonValue *obj);
 
 #endif

@@ -578,7 +578,7 @@ core.ipcInitClient = function()
             try {
                 self.ipcs[msg.id].callback(msg);
             } catch(e) {
-                logger.error('message:', e, msg);
+                logger.error('message:', e, msg, e.stack);
             }
             delete self.ipcs[msg.id];
         });

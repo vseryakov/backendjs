@@ -699,12 +699,12 @@ tests.ldbpool = function(callback)
     async.series([
         function(next) {
             if (type != "leveldb") return next();
-            pool = db.leveldbInitPool({ name: "stats" });
+            pool = db.leveldbInitPool({ db: "stats" });
             next(err);
         },
         function(next) {
             if (type != "lmdb") return next();
-            pool = db.lmdbInitPool({ name: "stats", flags: backend.MDB_CREATE | backend.MDB_NOSYNC | backend.MDB_MAPASYNC, mapsize: 1024*1024*500 });
+            pool = db.lmdbInitPool({ db: "stats", flags: backend.MDB_CREATE | backend.MDB_NOSYNC | backend.MDB_MAPASYNC, mapsize: 1024*1024*500 });
             next();
         },
         function(next) {
