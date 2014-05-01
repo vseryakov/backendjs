@@ -556,11 +556,12 @@ static string NNHandleRequest(char *buf, int len, void *data)
 
     jsonValue *json = jsonParse(buf, len, NULL);
     string op = jsonGetStr(json, "op");
-    string key = jsonGetStr(json, "key");
+    string key = jsonGetStr(json, "name");
     string value = jsonGetStr(json, "value");
 
     if (op == "put") {
         status = db->handle->Put(writeOptions, key, value);
+        value.clear();
     } else
     if (op == "get") {
         status = db->handle->Get(readOptions, key, &value);
@@ -571,6 +572,7 @@ static string NNHandleRequest(char *buf, int len, void *data)
     } else
     if (op == "del") {
         status = db->handle->Delete(writeOptions, key);
+        value.clear();
     } else
     if (op == "incr") {
         string val;
@@ -580,6 +582,7 @@ static string NNHandleRequest(char *buf, int len, void *data)
             value = vFmtStr("%lld", atoll(val.c_str()) + atoll(value.c_str()));
             status = db->handle->Put(writeOptions, key, value);
         }
+        value.clear();
     }
     jsonFree(json);
     return value;
@@ -619,7 +622,7 @@ void LevelDB::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "batch", Batch);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "starServer", ServerStart);
+    NODE_SET_PROTOTYPE_METHOD(constructor_template, "startServer", ServerStart);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "stopServer", ServerStop);
 
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "getProperty", GetProperty);

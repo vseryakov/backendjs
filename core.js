@@ -198,8 +198,8 @@ var core = {
     maxDistance: 50,
 
     // Inter-process messages
-    ipcs: {},
-    ipcId: 1,
+    msgs: {},
+    msgId: 1,
     ipcTimeout: 500,
     lruMax: 10000,
 
@@ -574,16 +574,9 @@ core.ipcInitClient = function()
 
     // Event handler for the worker to process response and fire callback
     process.on("message", function(msg) {
-        if (msg.id && self.ipcs[msg.id]) setImmediate(function() {
-            try {
-                self.ipcs[msg.id].callback(msg);
-            } catch(e) {
-                logger.error('message:', e, msg, e.stack);
-            }
-            delete self.ipcs[msg.id];
-        });
+        self.runCallback(self.msgs, msg);
 
-        switch (msg.cmd || "") {
+        switch (msg.op || "") {
         case "init:cache":
             self.initClientCaching();
             break;
@@ -612,7 +605,7 @@ core.ipcInitServer = function()
             if (!msg) return false;
             logger.debug('msg:', msg);
             try {
-                switch (msg.cmd) {
+                switch (msg.op) {
                 case "init:cache":
                     self.initServerCaching();
                     for (var p in cluster.workers) cluster.workers[p].send(msg);
@@ -634,26 +627,26 @@ core.ipcInitServer = function()
                     break;
 
                 case 'get':
-                    if (msg.key) msg.value = backend.lruGet(msg.key);
+                    if (msg.name) msg.value = backend.lruGet(msg.name);
                     worker.send(msg);
                     break;
 
                 case 'put':
-                    if (msg.key && msg.value) backend.lruSet(msg.key, msg.value);
+                    if (msg.name && msg.name) backend.lruSet(msg.name, msg.value);
                     if (msg.reply) worker.send({});
-                    if (self.lruSocket && self.cacheSync) self.lruSocket.send(msg.key + "\1" + msg.value);
+                    if (self.lruSocket && self.cacheSync) self.lruSocket.send(msg.name + "\1" + msg.value);
                     break;
 
                 case 'incr':
-                    if (msg.key && msg.value) backend.lruIncr(msg.key, msg.value);
+                    if (msg.name && msg.value) backend.lruIncr(msg.name, msg.value);
                     if (msg.reply) worker.send({});
-                    if (self.lruSocket && self.cacheSync) self.lruSocket.send(msg.key + "\2" + msg.value);
+                    if (self.lruSocket && self.cacheSync) self.lruSocket.send(msg.name + "\2" + msg.value);
                     break;
 
                 case 'del':
-                    if (msg.key) backend.lruDel(msg.key);
+                    if (msg.name) backend.lruDel(msg.name);
                     if (msg.reply) worker.send({});
-                    if (self.lruSocket) self.lruSocket.send(msg.key);
+                    if (self.lruSocket) self.lruSocket.send(msg.name);
                     break;
 
                 case 'clear':
@@ -831,19 +824,18 @@ core.initClientCaching = function()
 }
 
 // Send cache command to the master process via IPC messages, callback is used for commands that return value back
-core.ipcSend = function(cmd, key, value, callback)
+core.ipcSend = function(op, name, value, callback)
 {
     var self = this;
     if (typeof value == "function") callback = value, value = '';
     if (typeof value == "object") value = JSON.stringify(value);
-    var msg = { cmd: cmd, key: key, value: value };
+    var msg = { op: op, name: name, value: value };
     if (typeof callback == "function") {
         msg.reply = true;
-        msg.id = self.ipcId++;
-        self.ipcs[msg.id] = { timeout: setTimeout(function() { delete self.ipcs[msg.id]; callback(); }, self.ipcTimeout),
-                              callback: function(m) { clearTimeout(self.ipcs[msg.id].timeout); try { callback(m.value); } catch(e) { logger.error('ipcCallback:', e, e.stack, m.cmd, m.key) } } };
+        msg.id = self.msgId++;
+        this.setCallback(self.msgs, msg, function(m) { callback(m.value); });
     }
-    try { process.send(msg); } catch(e) { logger.error('ipcSend:', e, cmd, key); }
+    try { process.send(msg); } catch(e) { logger.error('ipcSend:', e, op, name); }
 }
 
 // Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
@@ -1702,6 +1694,46 @@ core.processQueue = function(callback)
             if (rows.length) logger.log('processQueue:', 'sent', rows.length);
             if (callback) callback();
         });
+    });
+}
+
+// Register the callback for the message, the message must have id property which will be used for keeping track of the replies.
+// A timeout is created for this message, if runCallback for this message will not be called in time the timeout handler will call the callback
+// anyways with the original message.
+// The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
+// any errors must be passed, use the message object for it, no other arguments are expected.
+core.setCallback = function(obj, msg, callback)
+{
+    if (!msg || !msg.id || !callback) return;
+
+    obj[msg.id] = { timeout: setTimeout(function() {
+                        delete obj[msg.id];
+                        try { callback(msg); } catch(e) { logger.error('callback:', e, msg, e.stack); }
+                    }, this.ipcTimeout),
+                    callback: function(m) {
+                        clearTimeout(obj[msg.id].timeout);
+                        try { callback(m); } catch(e) { logger.error('callback:', e, m, e.stack); }
+                    }
+    };
+}
+
+// Run delayed callback for the message previously registsred with the `setCallback` method.
+// The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
+core.runCallback = function(obj, msg)
+{
+    if (!msg) return;
+    if (typeof msg == "string") {
+        try { msg = JSON.parse(msg); } catch(e) { logger.error('callback:', e, msg); }
+    }
+    if (!msg.id || !obj[msg.id]) return;
+
+    setImmediate(function() {
+        try {
+            obj[msg.id].callback(msg);
+        } catch(e) {
+            logger.error('callback:', e, msg, e.stack);
+        }
+        delete obj[msg.id];
     });
 }
 

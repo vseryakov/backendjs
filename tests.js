@@ -49,10 +49,10 @@ tests.start = function(type)
 	}
 
 	if (cluster.isMaster) {
-	    var workers = core.getArgInt("-workers", 0);
-	    for (var i = 0; i < workers; i++) {
-	        cluster.fork();
-	    }
+	    setTimeout(function() {
+	        var workers = core.getArgInt("-workers", 0);
+	        for (var i = 0; i < workers; i++) cluster.fork();
+	    }, core.getArgInt("-delay", 500));
 	}
 
 	switch (core.getArg("-bbox")) {
@@ -819,6 +819,54 @@ tests.nncache = function(callback)
 tests.pubsub = function(callback)
 {
 
+}
+
+tests.nndb = function(callback)
+{
+    var bind = core.getArg("-bind", "ipc://var/nndb.sock");
+    var socket = core.getArg("-socket", "NN_PULL");
+    var type = core.getArg("-type", "lmdb"), pool;
+
+    if (cluster.isMaster) {
+        switch (type) {
+        case "leveldb":
+            pool = db.leveldbInitPool({ db: "stats" });
+            break;
+
+        case "lmdb":
+            pool = db.lmdbInitPool({ db: "stats" });
+            break;
+
+        default:
+            logger.log("invalid type", type);
+            process.exit(1);
+        }
+        db.query({ op: "server" }, { pool: type, bind: bind, socket: socket }, function(err) {
+            if (err) logger.error(err);
+        });
+
+    } else {
+        pool = db.nndbInitPool({ db: bind, socket: socket == "NN_REP" ? "NN_REQ" : "NN_PUSH" });
+        async.series([
+           function(next) {
+               db.put("", { name: "1", value: 1 }, { pool: pool.name }, next);
+           },
+           function(next) {
+               db.get("", "1", { pool: pool.name }, function(err, row) {
+                   logger.log("get ", row);
+                   next(err);
+               });
+           },
+           function(next) {
+               db.incr("", { name: "1", value: 2 }, { pool: pool.name }, next);
+           },
+           function(next) {
+               db.get("", { name: "1" }, { pool: pool.name }, function(err, row) {
+                   logger.log("get ", row);
+                   next(err);
+               });
+           }],callback);
+    }
 }
 
 backend.run(function() {

@@ -34,6 +34,7 @@ public:
     static void Init(Handle<Object> target);
     static inline bool HasInstance(Handle<Value> val) { return constructor_template->HasInstance(val); }
     static Handle<Value> SocketGetter(Local<String> str, const AccessorInfo& accessor);
+    static Handle<Value> TypeGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> ErrnoGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> ReadFdGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> WriteFdGetter(Local<String> str, const AccessorInfo& accessor);
@@ -289,6 +290,7 @@ void NNSocket::Init(Handle<Object> target)
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("readfd"), ReadFdGetter);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("errno"), ErrnoGetter);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("socket"), SocketGetter);
+    constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("type"), TypeGetter);
     constructor_template->SetClassName(String::NewSymbol("NNSocket"));
 
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "subscribe", Subscribe);
@@ -394,6 +396,13 @@ Handle<Value> NNSocket::SocketGetter(Local<String> str, const AccessorInfo& acce
     HandleScope scope;
     NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
     return Integer::New(sock->sock);
+}
+
+Handle<Value> NNSocket::TypeGetter(Local<String> str, const AccessorInfo& accessor)
+{
+    HandleScope scope;
+    NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
+    return Integer::New(sock->type);
 }
 
 Handle<Value> NNSocket::ErrnoGetter(Local<String> str, const AccessorInfo& accessor)
@@ -548,7 +557,7 @@ Handle<Value> NNSocket::Send(const Arguments& args)
     void *buf = nn_allocmsg(str.length() + 1, 0);
     memcpy(buf, *str, str.length() + 1);
     int rc = nn_send(sock->sock, &buf, NN_MSG, NN_DONTWAIT);
-    if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(sock->err))));
+    if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(nn_errno()))));
     return scope.Close(Integer::New(rc));
 }
 
@@ -559,7 +568,7 @@ Handle<Value> NNSocket::Recv(const Arguments& args)
     NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
     char *data = NULL;
     int rc = nn_recv(sock->sock, &data, NN_MSG, NN_DONTWAIT);
-    if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(sock->err))));
+    if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(nn_errno()))));
     Buffer *buffer = Buffer::New(data, rc, (Buffer::free_callback)nn_freemsg, NULL);
     return scope.Close(Local<Value>::New(buffer->handle_));
 }

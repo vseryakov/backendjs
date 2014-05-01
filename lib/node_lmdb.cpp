@@ -384,12 +384,13 @@ public:
         LMDB_DB *db = (LMDB_DB*)data;
         jsonValue *json = jsonParse(buf, len, NULL);
         string op = jsonGetStr(json, "op");
-        string key = jsonGetStr(json, "key");
+        string key = jsonGetStr(json, "name");
         string value = jsonGetStr(json, "value");
         int status = -1, flags = 0;
 
         if (op == "put") {
             status = db->Put(key.c_str(), key.size(), value.c_str(), value.size(), flags);
+            value.clear();
         } else
         if (op == "get") {
             status = db->Get(key.c_str(), key.size(), &value);
@@ -400,10 +401,12 @@ public:
         } else
         if (op == "del") {
             status = db->Del(key.c_str(), key.size(), value.c_str(), value.size());
+            value.clear();
         } else
         if (op == "incr") {
             int64_t num = atoll(value.c_str());
             status = db->Incr(key.c_str(), key.size(), &num, flags);
+            value.clear();
         }
         jsonFree(json);
         return value;
@@ -450,7 +453,7 @@ public:
         return rc;
     }
     int Get(const char *key, size_t klen, string *data) {
-        if (!open) return EINVAL;
+        if (!open || !klen) return EINVAL;
         MDB_val k, v;
         k.mv_size = klen;
         k.mv_data = (void*)key;
@@ -463,7 +466,7 @@ public:
         return rc;
     }
     int Put(const char *key, size_t klen, const char *data, size_t dlen, int flags) {
-        if (!open) return EINVAL;
+        if (!open || !klen) return EINVAL;
         MDB_val k, v;
         k.mv_size = klen;
         k.mv_data = (void*)key;
@@ -476,7 +479,7 @@ public:
         return rc;
     }
     int Incr(const char *key, size_t klen, int64_t *num, int flags) {
-        if (!open) return EINVAL;
+        if (!open || !klen) return EINVAL;
         MDB_val k, v;
         char n[32] = "";
         k.mv_size = klen;
@@ -500,7 +503,7 @@ public:
         return rc;
     }
     int Del(const char *key, size_t klen, const char *data, size_t dlen) {
-        if (!open) return EINVAL;
+        if (!open || !klen) return EINVAL;
         MDB_val k, v;
         k.mv_size = klen;
         k.mv_data = (void*)key;

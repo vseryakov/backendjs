@@ -406,8 +406,6 @@ db.query = function(req, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
-    if (core.typeName(req) != "object") req = { text: req };
-    if (!req.text) return callback ? callback(new Error("empty statement"), []) : null;
 
     var pool = this.getPool(req.table, options);
 
@@ -2586,14 +2584,15 @@ db.dynamodbInitPool = function(options)
         switch(req.op) {
         case "create":
             var local = {}, global = {}, projection = {};
-            var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary && i < 2 }).
+            var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
                               sort(function(a,b) { return obj[a] - obj[b] }).
+                              filter(function(x, i) { return i < 2 }).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
             var hash = Object.keys(keys)[0];
 
             ["","1","2","3","4","5"].forEach(function(n) {
-                var idx = Object.keys(obj).filter(function(x, i) { return obj[x]["index" + n] && i < 2; }).sort(function(a,b) { return obj[a] - obj[b] });
+                var idx = Object.keys(obj).filter(function(x, i) { return obj[x]["index" + n]; }).sort(function(a,b) { return obj[a] - obj[b] });
                 if (!idx.length) return;
                 if (idx.length == 2 && idx[0] == hash) {
                     local[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
@@ -2821,21 +2820,21 @@ db.mongodbInitPool = function(options)
         case "upgrade":
             var keys = [];
             var cols = core.searchObj(obj, { name: 'primary', sort: 1, flag: 1 });
-            var opts = core.mergeObj(opts, { unique: true, background: true });
+            var kopts = core.mergeObj(opts, { unique: true, background: true });
             // Merge with mongo properties from the column, primary key properties also applied for the collection as well
-            Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) opts[p] = opts[p] = obj[x].mongodb[p]; });
-            keys.push({ cols: cols, opts: opts });
+            Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) opts[p] = obj[x].mongodb[p]; });
+            keys.push({ cols: cols, opts: kopts });
 
             ["", "1", "2", "3", "4", "5"].forEach(function(n) {
                 var cols = core.searchObj(obj, { name: "unique" + n, sort: 1, flag: 1 });
-                var opts = core.mergeObj(opts, { name: Object.keys(cols).join('.'), unique: true, background: true });
-                Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) opts[p] = obj[x].mongodb[p]; });
+                var uopts = core.mergeObj(opts, { name: Object.keys(cols).join('.'), unique: true, background: true });
+                Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) uopts[p] = obj[x].mongodb[p]; });
 
-                if (Object.keys(cols).length) keys.push({ cols: cols, opts: opts });
+                if (Object.keys(cols).length) keys.push({ cols: cols, opts: uopts });
                 cols = core.searchObj(obj, { name: "index" + n, sort: 1, flag: 1 });
-                opts = core.mergeObj(opts, { name: Object.keys(cols).join('.'), background: true });
-                Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) opts[p] = obj[x].mongodb[p]; });
-                if (Object.keys(cols).length) keys.push({ cols: cols, opts: opts });
+                var iopts = core.mergeObj(opts, { name: Object.keys(cols).join('.'), background: true });
+                Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) iopts[p] = obj[x].mongodb[p]; });
+                if (Object.keys(cols).length) keys.push({ cols: cols, opts: iopts });
             });
 
             client.createCollection(table, opts, function(err, item) {
@@ -3175,12 +3174,12 @@ db.leveldbInitPool = function(options)
     var pool = this.createPool(options);
 
     pool.get = function(callback) {
-        if (this.ldb) return callback(null, this);
+        if (this.dbhandle) return callback(null, this);
         try {
             if (!core.exists(this.create_if_missing)) options.create_if_missing = true;
             var path = core.path.spool + "/" + (options.db || ('ldb_' + core.processId()));
             new backend.LevelDB(path, options, function(err) {
-                pool.ldb = this;
+                pool.dbhandle = this;
                 callback(null, pool);
             });
         } catch(e) {
@@ -3201,20 +3200,20 @@ db.leveldbInitPool = function(options)
             break;
 
         case "get":
-            client.ldb.get(obj.name || "", opts, function(err, item) {
+            client.dbhandle.get(obj.name || "", opts, function(err, item) {
                 callback(err, item ? [item] : []);
             });
             break;
 
         case "select":
         case "search":
-            client.ldb.all(obj.name || "", opts.end || "", opts, callback);
+            client.dbhandle.all(obj.name || "", opts.end || "", opts, callback);
             break;
 
         case "list":
             var rc = [];
             async.forEachSeries(obj, function(id, next) {
-                client.ldb.get(id, opts, function(err, val) {
+                client.dbhandle.get(id, opts, function(err, val) {
                     if (val) rc.push(val);
                     next(err);
                 });
@@ -3226,21 +3225,34 @@ db.leveldbInitPool = function(options)
         case "add":
         case "put":
         case "update":
-            client.ldb.put(obj.name || "", obj.value || "", opts, function(err) {
+            client.dbhandle.put(obj.name || "", obj.value || "", opts, function(err) {
                 callback(err, []);
             });
             break;
 
         case "incr":
-            client.ldb.incr(obj.name || "", obj.value || "", opts, function(err) {
+            client.dbhandle.incr(obj.name || "", obj.value || "", opts, function(err) {
                 callback(err, []);
             });
             break;
 
         case "del":
-            client.ldb.del(obj.name || "", opts, function(err) {
+            client.dbhandle.del(obj.name || "", opts, function(err) {
                 callback(err, []);
             });
+            break;
+
+        case "server":
+            var err = null;
+            try {
+                if (typeof opts.socket == "string") opts.socket = backend[opts.socket];
+                client.nnsock = new backend.NNSocket(backend.AF_SP, opts.socket || backend.NN_PULL);
+                client.nnsock.bind(opts.bind || ('ipc://var/' + client.db.split("/").pop() + ".sock"));
+                client.dbhandle.startServer(client.nnsock);
+            } catch(e) {
+                err = e;
+            }
+            callback(err, []);
             break;
 
         default:
@@ -3253,8 +3265,15 @@ db.leveldbInitPool = function(options)
 // Setup LMDB database driver, this is simplified driver which supports only basic key-value operations,
 // table parameter is ignored, the object only supports the properties name and value in the record objects.
 // Options are passed to the LMDB backend low level driver as MDB_ flags, see http://symas.com/mdb/doc/
-// - select and search actions support options.end property which defines the end condition for a range retrieval starting
+// - `select and search` actions support options.end property which defines the end condition for a range retrieval starting
 //   with obj.name property. If not end is given, all records till the end will be returned.
+// - `server` action starts internal server for LevelDB or LMDB databases, it creates nanomsg socket and listens for requests,
+//   support only basic commands: get,put,del,incr and updates the database direvtly without involving Javascript.
+//   This is supposed to be run in the master process, all updates are performed sequentially for now but will use
+//   uv workers in the future to perform updates in multiple threads at the same time.
+//   options to the server command can contain:
+//   - bind - socket bind address, if no ipc:// socket will be used
+//   - socket - NN_PULL or NN_REP, default is NN_PULL
 db.lmdbInitPool = function(options)
 {
     var self = this;
@@ -3264,7 +3283,7 @@ db.lmdbInitPool = function(options)
     var pool = this.createPool(options);
 
     pool.get = function(callback) {
-        if (this.lmdb) return callback(null, this);
+        if (this.dbhandle) return callback(null, this);
         try {
             if (!options.path) options.path = core.path.spool;
             if (!options.flags)  options.flags = backend.MDB_CREATE;
@@ -3273,7 +3292,7 @@ db.lmdbInitPool = function(options)
             if (options.env && options.env instanceof backend.LMDBEnv) this.env = options.env;
             if (!this.env) this.env = new backend.LMDBEnv(options);
             new backend.LMDB(this.env, { name: options.db, flags: options.flags }, function(err) {
-                pool.lmdb = this;
+                pool.dbhandle = this;
                 callback(err, pool);
             });
         } catch(e) {
@@ -3293,20 +3312,20 @@ db.lmdbInitPool = function(options)
             break;
 
         case "get":
-            client.lmdb.get(obj.name || "", function(err, item) {
+            client.dbhandle.get(obj.name || "", function(err, item) {
                 callback(err, item ? [item] : []);
             });
             break;
 
         case "select":
         case "search":
-            client.lmdb.all(obj.name || "", opts.end || "", opts, callback);
+            client.dbhandle.all(obj.name || "", opts.end || "", opts, callback);
             break;
 
         case "list":
             var rc = [];
             async.forEachSeries(obj, function(id, next) {
-                client.lmdb.get(id, opts, function(err, val) {
+                client.dbhandle.get(id, opts, function(err, val) {
                     if (val) rc.push(val);
                     next(err);
                 });
@@ -3318,21 +3337,34 @@ db.lmdbInitPool = function(options)
         case "add":
         case "put":
         case "update":
-            client.lmdb.put(obj.name || "", obj.value || "", opts, function(err) {
+            client.dbhandle.put(obj.name || "", obj.value || "", opts, function(err) {
                 callback(err, []);
             });
             break;
 
         case "incr":
-            client.lmdb.incr(obj.name || "", obj.value || "", opts, function(err) {
+            client.dbhandle.incr(obj.name || "", obj.value || "", opts, function(err) {
                 callback(err, []);
             });
             break;
 
         case "del":
-            client.lmdb.del(obj.name || "", opts, function(err) {
+            client.dbhandle.del(obj.name || "", opts, function(err) {
                 callback(err, []);
             });
+            break;
+
+        case "server":
+            var err = null;
+            try {
+                if (typeof opts.socket == "string") opts.socket = backend[opts.socket];
+                client.nnsock = new backend.NNSocket(backend.AF_SP, opts.socket || backend.NN_PULL);
+                client.nnsock.bind(opts.bind || ('ipc://var/' + client.db.split("/").pop() + ".sock"));
+                client.dbhandle.startServer(client.nnsock);
+            } catch(e) {
+                err = e;
+            }
+            callback(err, []);
             break;
 
         default:
@@ -3342,23 +3374,13 @@ db.lmdbInitPool = function(options)
     return pool;
 }
 
-// Start internal server for LevelDB or LMDB databases, it creates nanomsg socket and listens for requests,
-// support only basic commands: get,put,del,incr and updates the database direvtly without involving Javascript.
-// This is supposed to be run in the master process, all updates are performed sequentially for now but will use
-// uv workers in the future to perform updates in multiple threads at the same time.
-db.nndbStartServer = function(ldb, options)
-{
-    if (!ldb) return;
-    ldb.sock = new backend.NNSocket(backend.AF_SP, options.nnsocket || backend.NN_PULL);
-    ldb.sock.bind(options.db || ('ipc://var/' + ldb.db.split("/").pop() + ".sock"));
-    ldb.startServer(ldb.sock);
-}
-
 // Create a database pool that works with nanomsg server, all requests will be forwarded to the nanomsg socket,
 // the server can be on the same machine or on the remote, 2 nanomsg socket types are supported: NN_PUSH or NN_REQ.
 // In push mode no replies are expected, only sending db updates, in Req mode the server will reply on 'get' command only,
 // all other commands work as in push mode. Only 'get,put,del,incr' comamnd are supported, add,update will be sent as put, LevelDB or LMDB
 // on the other side only support simple key-value operations.
+// Options can define the following:
+// - socket - nanomsg socket type, default is backend.NN_PUSH, can be backend.NN_REQ
 db.nndbInitPool = function(options)
 {
     var self = this;
@@ -3370,36 +3392,32 @@ db.nndbInitPool = function(options)
     pool.get = function(callback) {
         if (this.sock) return callback(null, this);
 
-        this.socknum = 1;
-        this.callbacks = {};
-        this.sock = new backend.NNSocket(backend.AF_SP, options.nnsocket || backend.NN_PUSH);
-        this.sock.connect(options.db);
-        this.sock.setCallback(function(err, rc) {
-            if (!rc) return;
-            try { rc = JSON.parse(rc); } catch(e) { logger.error('nndb:', e, rc); return }
-            if (pool.callbacks[rc.id]) setImmediate(function() {
-                try { pool.callbacks[rc.id](err, rc.value); } catch(e) { logger.error('nndb:', e, e.stack); }
-                delete pool.callbacks[rc.id];
-            });
-        });
+        try {
+            if (typeof options.socket == "string") options.socket = backend[options.socket];
+            this.sock = new backend.NNSocket(backend.AF_SP, options.socket || backend.NN_PUSH);
+            this.sock.connect(options.db);
+        } catch(e) {
+            return callback(e, this);
+        }
+        // Request socket needs a callback handler, reply comes as JSON with id property
+        if (this.sock.type == backend.NN_REQ) {
+            this.socknum = 1;
+            this.callbacks = {};
+            this.sock.setCallback(function(err, msg) { core.runCallback(pool.callbacks, msg); });
+        }
         return callback(null, this);
     }
 
     pool.query = function(client, req, opts, callback) {
-        var obj = { op: req.op, name: req.obj, value: obj.value || "" };
+        if (typeof req.obj == "string") req.obj = { name: req.obj, value: "" };
+        var obj = { op: req.op, name: req.obj.name, value: req.obj.value || "" };
 
         switch (req.op) {
-        case "create":
-        case "upgrade":
-        case "drop":
-        case "select":
-        case "search":
-        case "list":
-            return callback(null, []);
-
         case "get":
+            if (this.sock.type != backend.NN_REQ) return callback(null, []);
+
             obj.id = this.socknum++;
-            this.callbacks[id] = function(e, d) { callback(e, d) };
+            core.setCallback(this.callbacks, obj, function(msg) { callback(null, msg.value) });
             this.sock.send(JSON.stringify(obj));
             return;
 
@@ -3407,8 +3425,12 @@ db.nndbInitPool = function(options)
         case "update":
             obj.op = "put";
 
-        default:
+        case "put":
+        case "del":
+        case "incr":
             this.sock.send(JSON.stringify(obj));
+
+        default:
             return callback(null, []);
         }
     }
