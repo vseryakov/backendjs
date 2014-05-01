@@ -1154,7 +1154,7 @@ core.toDate = function(val)
 // Convert value to the proper type
 core.toValue = function(val, type)
 {
-    switch ((type || this.typeName(val))) {
+    switch ((type || this.typeName(val)).trim()) {
     case 'array':
         return Array.isArray(val) ? val : String(val).split(/[,\|]/);
 
@@ -1189,6 +1189,12 @@ core.toValue = function(val, type)
     default:
         return val;
     }
+}
+
+// Returns true if the given type belongs to the numeric family
+core.isNumeric = function(type)
+{
+    return ["int","bigint","counter","real","float","double","numeric"].indexOf(String(type).trim()) > -1;
 }
 
 // Evaluate expr, compare 2 values with optional type and operation
@@ -1991,17 +1997,18 @@ core.strftime = function(date, fmt, utc)
 }
 
 // Split string into array, ignore empty items
-core.strSplit = function(str, sep)
+core.strSplit = function(str, sep, num)
 {
+    var self = this;
     if (!str) return [];
-    return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).map(function(x) { return x.trim() }).filter(function(x) { return x != '' });
+    return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).map(function(x) { return num ? self.toNumber(x) : x.trim() }).filter(function(x) { return x != '' });
 }
 
 // Split as above but keep only unique items
-core.strSplitUnique = function(str, sep)
+core.strSplitUnique = function(str, sep, num)
 {
     var rc = [];
-    this.strSplit(str, sep).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
+    this.strSplit(str, sep, num).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
     return rc;
 }
 

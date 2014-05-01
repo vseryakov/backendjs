@@ -359,6 +359,7 @@ aws.fromDynamoDB = function(value)
 // Build query or scan filter objects for the given object, all properties in the obj are used
 aws.queryFilter = function(obj, options)
 {
+    var self = this;
     var filter = {};
     for (var name in obj) {
         var val = obj[name];
@@ -367,7 +368,7 @@ aws.queryFilter = function(obj, options)
         var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase().replace(' ', '_') }
         switch (cond.ComparisonOperator) {
         case 'BETWEEN':
-            if (args.length < 2) continue;
+            if (val.length < 2) continue;
             cond.AttributeValueList.push(this.toDynamoDB(val[0]));
             cond.AttributeValueList.push(this.toDynamoDB(val[1]));
             break;
@@ -377,6 +378,13 @@ aws.queryFilter = function(obj, options)
             break;
 
         case 'IN':
+            if (Array.isArray(val)) {
+                val.forEach(function(x) { cond.AttributeValueList.push(self.toDynamoDB(x));});
+            } else {
+                cond.AttributeValueList.push(this.toDynamoDB(val));
+            }
+            break;
+
         case 'CONTAINS':
         case 'NOT_CONTAINS':
         case 'NE':

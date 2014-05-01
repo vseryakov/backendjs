@@ -437,35 +437,20 @@ db.query = function(req, options, callback)
                     logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options);
                     return callback ? callback(err, rows, info) : null;
                 }
-                var cols = pool.dbcolumns[req.table || ""], semipub = 0;
-                // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-                if (options && options.check_public && cols) {
-                    var key = pool.dbkeys[req.table][0];
-                    rows.forEach(function(row) {
-                        if (row[key] == options.check_public) return;
-                        for (var p in row) {
-                            if (!cols[p]) continue;
-                            if (!cols[p].pub && !cols[p].semipub) delete row[p];
-                            if (cols[p].semipub) semipub = 1;
-                        }
-                    });
-                }
+                var table = req.table || "";
+
                 // Convert values if we have custom column callback
-                self.processRows(pool, req.table, rows, options);
+                self.processRows(pool, table, rows, options);
 
                 // Custom filter to return the final result set
                 if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
 
-                // At the last delete all semipub columns
-                if (options && options.check_public && cols && semipub) {
-                    rows.forEach(function(row) {
-                        for (var p in cols) if (cols[p].semipub) delete row[p];
-                    });
-                }
+                // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
+                self.checkPublicColumns(table, rows, options);
 
                 // Cache notification in case of updates, we must have the request prepared by the db.prepare
-                if (options && options.cached && req.table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
-                    self.clearCached(req.table, req.obj, options);
+                if (options.cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
+                    self.clearCached(table, req.obj, options);
                 }
                 m2.end();
                 logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
@@ -742,6 +727,8 @@ db.replace = function(table, obj, options, callback)
 //      - count - how many records to return
 //      - sort - sort by this column
 //      - check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column
+//      - semipub - if true, semipub columns will be returned regardless of the check_public condition, it is responsibility of the caller now to cleanup the records before
+//        returning to the client
 //      - desc - if sorting, do in descending order
 //      - page - starting page number for pagination, uses count to find actual record to start
 //
@@ -983,6 +970,7 @@ db.getLocations = function(table, options, callback)
     }
     options.start = null;
     options.nrows = count;
+    options.semipub = 1;
     if (!options.ops) options.ops = {};
 
     // Sort by the second part of the primary key, first is always geohash, this is mostly for SQL databases because DynamoDB sorts by range key automatically
@@ -1238,16 +1226,23 @@ db.prepare = function(op, table, obj, options)
         break;
 
     case "select":
-        if (options && options.strictTypes) this.prepareDataTypes(obj, cols);
-
         if (options && options.ops) {
             for (var p in options.ops) {
                 switch (options.ops[p]) {
                 case "in":
                 case "between":
-                    if (obj[p] && !Array.isArray(obj[p])) obj[p] = core.strSplit(obj[p]);
+                    if (obj[p] && !Array.isArray(obj[p])) {
+                        var type = cols[p] ? cols[p].type : "";
+                        obj[p] = core.strSplit(obj[p], null, core.isNumeric(type));
+                    }
                     break;
                 }
+            }
+        }
+        // Convert simple types into the native according to the table definition
+        if (options && options.strictTypes) {
+            for (var p in cols) {
+                if (core.isNumeric(cols[p].type) && typeof obj[p] == "string") obj[p] = core.toNumber(obj[p]);
             }
         }
         break;
@@ -1449,6 +1444,29 @@ db.getPublicColumns = function(table, options)
     }
     var cols = this.getColumns(table, options);
     return Object.keys(cols).filter(function(x) { return cols[x].pub || cols[x].semipub });
+}
+
+// Process records and keep only public properties as defined in the table columns, all semipub columns will be removed as well. This
+// method is supposed to be used in the post process callbacks after all records have been procersses and are ready to be returned to the client,
+// the last step woul dbe to cleanup all non public columns if necessary.
+// - options must have `check_public` property set to the current account id or other primary key value to be skipped and checked other records,
+//   setting it to non existent primary key value will clean all records.
+// - options may have `semupub` set to 1 to keep simipub columns.
+db.checkPublicColumns = function(table, rows, options)
+{
+    if (!options || !options.check_public) return;
+    var keys = this.getKeys(table, options);
+    var cols = this.getColumns(table, options);
+    var key = keys ? keys[0] : "";
+    if (!Array.isArray(rows)) rows = [ rows ];
+    rows.forEach(function(row) {
+        if (row[key] == options.check_public) return;
+        for (var p in row) {
+            if (!cols[p]) continue;
+            if (cols[p].semipub && options.semipub) continue;
+            if (!cols[p].pub) delete row[p];
+        }
+    });
 }
 
 // Custom row handler that is called for every row in the result, this assumes that pool.processRow callback has been assigned previously by db.setProcessRow.
