@@ -131,7 +131,7 @@ var api = {
        // All accumulated counters for accounts
        bk_counter: { id: { primary: 1, pub: 1 },                               // account id
                      ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy
-                     like0: { type: "counter", value: 0, autoincr: 1 },            // who i liked
+                     like0: { type: "counter", value: 0, autoincr: 1 },        // who i liked
                      like1: { type: "counter", value: 0 },                     // reversed, who liked me
                      dislike0: { type: "counter", value: 0, autoincr: 1 },
                      dislike1: { type: "counter", value: 0 },
@@ -895,19 +895,19 @@ api.initMessageAPI = function()
             }
             // All msgs i sent to this id
             if (req.query.id != req.account.id) {
-                req.query.sender = req.account.id + ":";
                 options.ops.sender = "begins_with";
                 delete options.check_public;
+                req.query.sender = req.account.id + ":";
             } else
             // Using sender index, all msgs from the sender
             if (req.query.sender) {
                 options.sort = "sender";
                 options.ops.sender = "begins_with";
                 options.select = Object.keys(db.getColumns("bk_message", options));
+                req.query.id = req.account.id;
                 req.query.sender += ":";
             }
             db.select("bk_message", req.query, options, function(err, rows, info) {
-                logger.log(rows)
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });

@@ -668,9 +668,9 @@ from the last messages received so the next time we will use this time to get on
   Date.now() return in Javascript. The images are not returned, only link to the image in `icon` property of reach record,
   the actual image data must be retrieved separately.
 
-  When `sender` is specified then all messages for given sender will be returned.
+  When `sender` is specified then all messages from given sender will be returned.
 
-  When `id` is specified and i tis not the current account id, then all messages that the current account has sent to the `id` will be returned, i.e.
+  When `id` is specified and it is not the current account id, then all messages that the current account has sent to the `id` will be returned, i.e.
   this is how i can get all messages i have sent to the `id`.
 
   NOTE: The `mtime` is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
@@ -688,7 +688,7 @@ from the last messages received so the next time we will use this time to get on
         # Get all messages with custom filter: if msg text contains Hi
         /message/get?_keys=id,mtime,msg&_ops=msg,iregexp&msg=Hi
 
-        # Get all messages for specific sender
+        # Get all messages from the specific sender
         /message/get?sender=12345
 
         # Get all messages i have sent to the user 12345

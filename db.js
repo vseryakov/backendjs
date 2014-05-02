@@ -1546,7 +1546,7 @@ db.sqlInitPool = function(options)
     options.sql = true;
     options.pooling = true;
     // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
-    var dboptions = { schema: [], typesMap: { counter: "int", bigint: "int" }, opsMap: { begins_with: 'like%', eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
+    var dboptions = { schema: [], typesMap: { counter: "int", bigint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
     options.dboptions = core.mergeObj(dboptions, options.dboptions);
     var pool = this.createPool(options);
 
@@ -2956,6 +2956,12 @@ db.mongodbInitPool = function(options)
                 case "<=":
                 case "le":
                     o[p] = { '$lte': obj[p] };
+                    break;
+
+                case "ne":
+                case "!=":
+                case "<>":
+                    o[p] = { '$ne': obj[p] };
                     break;
 
                 default:
