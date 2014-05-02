@@ -1764,7 +1764,7 @@ core.createPool = function(options, createcb, closecb)
     var pool = { min: options.min || 1,
                  max: options.max || 10,
                  timeout: options.timeout || 5000,
-                 interval: 0,
+                 interval: options.interval || 0,
                  num: 1,
                  create: createcb,
                  close: closecb,
@@ -1849,9 +1849,9 @@ core.createPool = function(options, createcb, closecb)
     }
 
     // Periodic housekeeping if interval is set
-    if (this.interval) {
-        setInterval(function() { pool.call.timer(pool) }, this.interval);
-        this.timer();
+    if (pool.interval) {
+        setInterval(function() { pool.call.timer(pool) }, pool.interval);
+        pool.timer();
     }
 
     return pool;

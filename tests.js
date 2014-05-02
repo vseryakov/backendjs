@@ -898,20 +898,21 @@ tests.pool = function(callback)
                     interval: core.getArgInt("-interval", 0) }
     var list = [];
     var pool = core.createPool(options, function(cb) { console.log('create'); cb(null,{ id:Date.now()}) }, function() {})
+    console.log('pool:', pool.avail.length, pool.busy.length);
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    console.log('pool:', pool);
+    console.log('pool:', pool.avail.length, pool.busy.length);
     pool.release(list.shift())
     pool.release(list.shift())
     pool.release(list.shift())
     pool.release(list.shift())
-    console.log('pool:', pool);
+    console.log('pool:', pool.avail.length, pool.busy.length);
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    console.log('pool:', pool);
+    console.log('pool:', pool.avail.length, pool.busy.length);
     console.log('list:', list);
     callback();
 }
