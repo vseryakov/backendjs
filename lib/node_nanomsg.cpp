@@ -327,55 +327,41 @@ void NanoMsgInit(Handle<Object> target)
 
 #ifdef USE_NANOMSG
 
-void NNServer::HandleRequest(uv_poll_t *w, int status, int revents)
+int NNServer::Recv(char **buf)
 {
-    if (status == -1 || !(revents & UV_READABLE)) return;
-    NNServer *srv = (NNServer*)w->data;
-
-    char *buf;
-    int rc = nn_recv(srv->sock, (void*)&buf, NN_MSG, NN_DONTWAIT);
-    if (rc == -1) {
-        LogError("%d: %d: recv: %s", srv->proto, srv->sock, nn_strerror(nn_errno()));
-        return;
-    }
-    LogDebug("sock=%d, proto=%d, %s", srv->sock, srv->proto, buf);
-
-    string value = srv->callback(buf, rc, srv->data);
-
-    if (srv->proto == NN_REP) {
-        rc = nn_send(srv->sock, value.c_str(), value.size() + 1, NN_DONTWAIT);
-        if (rc == -1) LogError("%d: %d: send: %s", srv->proto, srv->sock, nn_strerror(nn_errno()));
-    }
-    nn_freemsg(buf);
+    int rc = nn_recv(sock, (void*)buf, NN_MSG, NN_DONTWAIT);
+    if (rc == -1) LogError("%d: %d: recv: %s", proto, sock, nn_strerror(nn_errno()));
+    return rc;
 }
-#endif
 
-int NNServer::Start(int nsock, NNCallback *cb, void *udata)
+int NNServer::Send(string val)
 {
-#ifdef USE_NANOMSG
-    if (!cb) return EINVAL;
+    if (proto != NN_REP) return 0;
+    int rc = nn_send(sock, val.c_str(), val.size() + 1, NN_DONTWAIT);
+    if (rc == -1) LogError("%d: %d: send: %s", proto, sock, nn_strerror(nn_errno()));
+    return rc;
+}
+
+void NNServer::Free(char *buf)
+{
+    if (buf) nn_freemsg(buf);
+}
+
+int NNServer::Start(int nsock, bool queued, BKServerCallback *cb, void *udata)
+{
+    sock = nsock;
 
     size_t sz = sizeof(int);
-    int rc = nn_getsockopt(nsock, NN_SOL_SOCKET, NN_RCVFD, (char*) &fd, &sz);
+    int rc = nn_getsockopt(sock, NN_SOL_SOCKET, NN_RCVFD, (char*) &fd, &sz);
     if (rc == -1) return rc;
 
     sz = sizeof(int);
-    rc = nn_getsockopt(nsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &proto, &sz);
+    rc = nn_getsockopt(sock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &proto, &sz);
     if (rc == -1) return rc;
 
-    uv_poll_init(uv_default_loop(), &poll, fd);
-    uv_poll_start(&poll, UV_READABLE, HandleRequest);
-    poll.data = this;
-    callback = cb;
-    data = udata;
-    sock = nsock;
-    return 0;
-#else
-    return EINVAL;
-#endif
+    return BKServer::Start(fd, queued, cb, udata);
 }
 
-#ifdef USE_NANOMSG
 Handle<Value> NNSocket::New(const Arguments& args)
 {
     HandleScope scope;

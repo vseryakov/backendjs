@@ -380,7 +380,7 @@ public:
         d->data.clear();
     }
 
-    static string NNHandleRequest(char *buf, int len, void *data) {
+     static string ServerProcess(char *buf, int len, void *data) {
         LMDB_DB *db = (LMDB_DB*)data;
         jsonValue *json = jsonParse(buf, len, NULL);
         string op = jsonGetStr(json, "op");
@@ -412,20 +412,21 @@ public:
         return value;
     }
 
-    static Handle<Value> ServerStart(const Arguments& args) {
-        HandleScope scope;
-        LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
-        REQUIRE_ARGUMENT_INT(0, sock);
-        db->server.Start(sock, NNHandleRequest, db);
-        return scope.Close(Undefined());
-    }
+     static Handle<Value> ServerStart(const Arguments& args) {
+         HandleScope scope;
+         LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
+         REQUIRE_ARGUMENT_INT(0, sock);
+         OPTIONAL_ARGUMENT_INT(1, queue);
+         db->server.Start(sock, queue, ServerProcess, db);
+         return scope.Close(Undefined());
+     }
 
-    static Handle<Value> ServerStop(const Arguments& args) {
-        HandleScope scope;
-        LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
-        db->server.Stop();
-        return scope.Close(Undefined());
-    }
+     static Handle<Value> ServerStop(const Arguments& args) {
+         HandleScope scope;
+         LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
+         db->server.Stop();
+         return scope.Close(Undefined());
+     }
 
     LMDB_DB(MDB_env *e, string n, int f) : ObjectWrap(), name(n), flags(f), env(e), db(0), txn(0), cursor(0), open(0) {}
     ~LMDB_DB() { Close(); }

@@ -287,9 +287,9 @@ server.startWebProcess = function()
     var child = this.spawnProcess([], [ "-master", "-proxy" ], { stdio: 'inherit' });
     this.pids.push(child.pid);
     child.on('exit', function (code, signal) {
-        logger.log('process terminated:', 'pid:', this.pid, name, 'code:', code, 'signal:', signal);
-        // Make sure all web servers are down before restating to avoid EADDRINUSE error condition
-        core.killBackend("web", function() {
+        logger.log('process terminated:', 'pid:', this.pid, 'code:', code, 'signal:', signal);
+        // Make sure all web servers are down before restarting to avoid EADDRINUSE error condition
+        core.killBackend("web", 'SIGKILL', function() {
             self.respawn(function() { self.startWebProcess(); });
         });
     });
@@ -302,9 +302,9 @@ server.startWebProxy = function()
     var child = this.spawnProcess([ "-db-no-pools" ], ["-master", "-web" ], { stdio: 'inherit' });
     this.pids.push(child.pid);
     child.on('exit', function (code, signal) {
-        logger.log('process terminated:', 'pid:', this.pid, name, 'code:', code, 'signal:', signal);
+        logger.log('process terminated:', 'pid:', this.pid, 'code:', code, 'signal:', signal);
         // Make sure all web servers are down before restating to avoid EADDRINUSE error condition
-        core.killBackend("proxy", function() {
+        core.killBackend("proxy", "SIGKILL", function() {
             self.respawn(function() { self.startWebProxy(); });
         });
     });

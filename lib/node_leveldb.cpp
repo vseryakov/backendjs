@@ -593,7 +593,8 @@ Handle<Value> LevelDB::ServerStart(const Arguments& args)
     HandleScope scope;
     LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
     REQUIRE_ARGUMENT_INT(0, sock);
-    db->server.Start(sock, NNHandleRequest, db);
+    OPTIONAL_ARGUMENT_INT(1, queue);
+    db->server.Start(sock, queue, NNHandleRequest, db);
     return scope.Close(Undefined());
 }
 

@@ -279,18 +279,27 @@ db.createPool = function(options)
 
             create: function(callback) {
                 var me = self.dbpool[this.name];
-                me.connect.call(self, me, function(err, client) {
-                    if (err) return callback(err, client);
-                    me.watch(client);
-                    me.setup(client, callback);
-                });
+                try {
+                    me.connect.call(self, me, function(err, client) {
+                        if (err) return callback(err, client);
+                        me.watch(client);
+                        me.setup(client, callback);
+                    });
+                } catch(e) {
+                    logger.error('pool.create:', this.name, e);
+                    callback(e);
+                }
             },
             validate: function(client) {
                 return self.dbpool[this.name].serialNum == client.pool_serial;
             },
             destroy: function(client) {
-                logger.log('db.destroy', client.pool_name, "#", client.pool_serial);
-                client.close(function(err) { logger.log("db.close:", client.pool_name, err || "") });
+                logger.log('pool.destroy', client.pool_name, "#", client.pool_serial);
+                try {
+                    client.close(function(err) { logger.log("db.close:", client.pool_name, err || "") });
+                } catch(e) {
+                    logger.log("pool.close:", client.pool_name, e);
+                }
             },
             log: function(str, level) {
                 if (level == 'info') logger.debug('pool:', str);
@@ -301,7 +310,7 @@ db.createPool = function(options)
         // Acquire a connection with error reporting
         pool.get = function(callback) {
             this.acquire(function(err, client) {
-                if (err) logger.error('db.get:', err);
+                if (err) logger.error('pool.get:', pool.name, err);
                 callback(err, client);
             });
         }
@@ -407,59 +416,73 @@ db.query = function(req, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    var pool = this.getPool(req.table, options);
+    var table = req.table || "";
+    var pool = this.getPool(table, options);
 
     // Metrics collection
-    var m2 = pool.metrics.Timer('process').start();
+    var t1 = Date.now();
+    var m1 = pool.metrics.Timer('response');
+    var m2 = pool.metrics.Timer('query').start();
     pool.metrics.Histogram('queue').update(pool.metrics.Counter('count').inc());
     pool.metrics.Meter('rate').mark();
 
-    pool.get(function(err, client) {
+    function onEnd(err, client, rows, info) {
+        if (client) pool.free(client);
+
+        m2.end();
+        pool.metrics.Counter('count').dec();
         if (err) {
-            m2.end();
-            pool.metrics.Counter('count').dec();
-            pool.metrics.Counter("errors").inc();
-            return callback ? callback(err, []) : null;
-        }
-        try {
-            var t1 = Date.now();
-            var m1 = pool.metrics.Timer('response').start();
-            pool.next_token = client.next_token = null;
-            pool.query(client, req, options, function(err, rows) {
-                pool.nextToken(req, rows, options);
-                var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
-                pool.free(client);
-                m1.end();
-                pool.metrics.Counter('count').dec();
-                if (err) {
-                    m2.end();
-                    pool.metrics.Counter("errors").inc();
-                    logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options);
-                    return callback ? callback(err, rows, info) : null;
-                }
-                var table = req.table || "";
-
-                // Convert values if we have custom column callback
-                self.processRows(pool, table, rows, options);
-
-                // Custom filter to return the final result set
-                if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
-
-                // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-                self.checkPublicColumns(table, rows, options);
-
-                // Cache notification in case of updates, we must have the request prepared by the db.prepare
-                if (options.cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
-                    self.clearCached(table, req.obj, options);
-                }
-                m2.end();
-                logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
-                if (callback) callback(err, rows, info);
-             });
-        } catch(err) {
             pool.metrics.Counter("errors").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
-            if (callback) callback(err, [], {});
+        } else {
+            logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
+        }
+        if (typeof callback != "function")  return;
+        try {
+            callback(err, rows, info);
+        } catch(e) {
+            logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, err.stack);
+        }
+    }
+
+    pool.get(function(err, client) {
+        if (err) return onEnd(err, null, [], {});
+
+        try {
+            pool.next_token = client.next_token = null;
+            m1.start();
+            pool.query(client, req, options, function(err, rows) {
+                m1.end();
+                if (err) return onEnd(err, client, [], {});
+
+                try {
+                    pool.nextToken(req, rows, options);
+                    var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
+                    pool.free(client);
+                    client = null;
+
+                    // Convert values if we have custom column callback
+                    self.processRows(pool, table, rows, options);
+
+                    // Custom filter to return the final result set
+                    if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
+
+                    // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
+                    self.checkPublicColumns(table, rows, options);
+
+                    // Cache notification in case of updates, we must have the request prepared by the db.prepare
+                    if (options.cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
+                        self.clearCached(table, req.obj, options);
+                    }
+                } catch(e) {
+                    err = e;
+                    rows = [];
+                }
+                onEnd(err, client, rows, info);
+            });
+        } catch(e) {
+            m1.end();
+            onEnd(e, client, [], {});
         }
     });
 }

@@ -2110,15 +2110,18 @@ core.runProcess = function(cmd, callback)
 }
 
 // Kill all backend processes that match name and not the current process
-core.killBackend = function(name, callback)
+core.killBackend = function(name, signal, callback)
 {
     var self = this;
-    self.runProcess("ps agx", function(stdout) {
+    if (typeof signal == "function") callback = signal, signal = '';
+    if (!signal) signal = 'SIGTERM';
+
+    self.runProcess("/bin/ps agx", function(stdout) {
         stdout.split("\n").
                filter(function(x) { return x.match("backend:") && (!name || x.match(name)); }).
                map(function(x) { return self.toNumber(x) }).
                filter(function(x) { return x != process.pid }).
-               forEach(function(x) { process.kill(x) });
+               forEach(function(x) { try { process.kill(x, signal); } catch(e) { logger.error('killBackend:', name, x, e); } });
         if (callback) callback();
     });
 }
