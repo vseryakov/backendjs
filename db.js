@@ -14,7 +14,6 @@ var core = require(__dirname + '/core');
 var aws = require(__dirname + '/aws');
 var cluster = require('cluster');
 var printf = require('printf');
-var gpool = require('generic-pool');
 var async = require('async');
 var os = require('os');
 var helenus = require('helenus');
@@ -272,10 +271,9 @@ db.createPool = function(options)
     if (!options || !options.pool) throw "Options with pool: must be provided";
 
     if (options.pooling) {
-        var pool = gpool.Pool({
-            name: options.pool,
-            max: options.max || 5,
-            idleTimeoutMillis: options.idle || (86400 * 1000),
+        var pool = core.createPool({
+            max: options.max,
+            idle: options.idle,
 
             create: function(callback) {
                 var me = self.dbpool[this.name];
@@ -307,6 +305,7 @@ db.createPool = function(options)
                 if (level == 'error') logger.error('pool:', str);
             }
         });
+
         // Acquire a connection with error reporting
         pool.get = function(callback) {
             this.acquire(function(err, client) {
@@ -328,6 +327,7 @@ db.createPool = function(options)
         pool.free = function(client) {};
         pool.destroyAllNow = function() {};
     }
+
     // Save all options
     for (var p in options) {
         if (!pool[p]) pool[p] = options[p];
@@ -441,7 +441,7 @@ db.query = function(req, options, callback)
         try {
             callback(err, rows, info);
         } catch(e) {
-            logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, err.stack);
+            logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, e.stack);
         }
     }
 
@@ -3444,7 +3444,7 @@ db.nndbInitPool = function(options)
         if (this.sock.type == backend.NN_REQ) {
             this.socknum = 1;
             this.callbacks = {};
-            this.sock.deferCallback(function(err, msg) { core.runCallback(pool.callbacks, msg); });
+            this.sock.setCallback(function(err, msg) { core.runCallback(pool.callbacks, msg); });
         }
         return callback(null, this);
     }
@@ -3458,7 +3458,7 @@ db.nndbInitPool = function(options)
             if (this.sock.type != backend.NN_REQ) return callback(null, []);
 
             obj.id = this.socknum++;
-            core.setCallback(this.callbacks, obj, function(msg) { callback(null, msg.value) });
+            core.deferCallback(this.callbacks, obj, function(msg) { callback(null, msg.value) });
             this.sock.send(JSON.stringify(obj));
             return;
 

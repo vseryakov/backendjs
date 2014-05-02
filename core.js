@@ -171,7 +171,6 @@ var core = {
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
             { name: "cache-sync", type: "bool", descr: "Maintain all caches in sync when using nanomsg, put/incr commands will be broadcasted, otherwise only del commands" },
-            { name: "no-remote-config", type: "bool", descr: "Disable any attempts to read config from supported remote destinations like DNS..." },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
@@ -184,7 +183,7 @@ var core = {
             { name: "backend-login", descr: "Credentials login for the master backend access" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access" },
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
-            { name: "config-domain", descr: "Domain to query for configuration TXT records, default is current domain of the host machine" },
+            { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
             { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
@@ -537,7 +536,7 @@ core.retrieveConfig = function(callback)
         },
         // Load config params from the DNS TXT records, only the ones marked as dns
         function(next) {
-            if (self.noRemoteConfig) return next();
+            if (!self.configDomain) return next();
             var args = [ { name: "", args: self.args } ];
             for (var p in this.context) {
                 var ctx = self.context[p];
@@ -550,7 +549,7 @@ core.retrieveConfig = function(callback)
                         function(next3) {
                             // Get DNS TXT record
                             if (!arg.dns) return next3();
-                            dns.resolveTxt(cname + "." + (self.configDomain || self.domain), function(err, list) {
+                            dns.resolveTxt(cname + "." + self.configDomain, function(err, list) {
                                 if (!err && list && list.length) {
                                     self.argv.push("-" + cname, list[0]);
                                     logger.debug('retrieveConfig:', cname, list[0]);
@@ -1751,28 +1750,28 @@ core.runCallback = function(obj, msg)
 }
 
 // Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
-// Options can be the following:
+// Options defines the following properties:
+// - create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)
+// - destroy - method to be called to destroy a resource item
+// - validate - method to verify actibe resource item, return false if it needs to be destroyed
 // - min - min number of active resource items
 // - max - max number of active resource items
-// - timeout - number of milliseconds to wait for the next available resource item
-// - idle - number of milliseconds before starting to destroy all active resources above the minimum.
-// - interval - ms, how often to perform pool integrity checks like keeping min number of items, remove extra. If this is set then on creation min
-//     number of items will be allocated, otherwise only on demand
-core.createPool = function(options, createcb, closecb)
+// - max_queue - how big waiting queue can be, above this all requests will be rejected immediately
+// - timeout - number of milliseconds to wait for the next available resource item, cannot be 0
+// - idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.
+core.createPool = function(options)
 {
     var self = this;
-    if (typeof options == "function") createcb = options, closecb = createcb;
 
     var pool = { _pmin: options.min || 1,
                  _pmax: options.max || 10,
-                 _pmax_queue: options.interval || 0,
+                 _pmax_queue: options.interval || 100,
                  _ptimeout: options.timeout || 5000,
-                 _pinterval: options.interval || 0,
-                 _pidle: options.idle || 0,
+                 _pidle: options.idle || 300000,
                  _pnum: 1,
-                 _pcreate: createcb,
-                 _pclose: closecb,
-                 _pvalidate: function() { return true },
+                 _pcreate: options.create || function(cb) { cb(null, this) },
+                 _pclose: options.destroy || function() {},
+                 _pvalidate: options.validate || function() { return true },
                  _pqueue_count: 0,
                  _pqueue: {},
                  _pavail: [],
@@ -1781,7 +1780,7 @@ core.createPool = function(options, createcb, closecb)
 
     // Return next available resource item, if not available immediately wait for defined amount of time before calling the
     // callback with an error. The callback second argument is active resource item.
-    pool.aquire = function(callback) {
+    pool.acquire = function(callback) {
         if (typeof callback != "function") return;
 
         // We have idle clients
@@ -1793,39 +1792,32 @@ core.createPool = function(options, createcb, closecb)
         }
         // Put into waiting queue
         if (this._pbusy.length >= this._pmax) {
-            if (this._pqueue_count++ > this._pmax_queue) return callback(new Error("no more resources"));
+            if (this._pqueue_count >= this._pmax_queue) return callback(new Error("no more resources"));
 
+            this._pqueue_count++;
             return self.deferCallback(this._pqueue, { id: this._pnum++ }, function(m) {
                 callback(m.client ? null : new Error("timeout waiting for the resource"), m.client);
             }, this._ptimeout);
         }
         // New item
-        this._palloc(callback);
-    }
-
-    // Allocate a new client
-    pool._palloc = function(callback) {
         var me = this;
-        try {
-            this._pcreate.call(this, function(err, client) {
-                if (err) return callback(err);
-                me._pbusy.push(client);
-                callback(null, client);
-            });
-        } catch(e) {
-            logger.error('pool.aquire:', e);
-            callback(e);
-        }
+        this._palloc(function(err, client) {
+            if (!err) me._pbusy.push(client);
+            callback(err, client);
+        });
     }
 
     // Destroy the resource item calling the provided close callback
     pool.destroy = function(client) {
         if (!client) return;
-        try {
-            this._pclose.call(this, client);
-        } catch(e) {
-            logger.error('pool.destroy:', e);
+
+        var idx = this._pbusy.indexOf(client);
+        if (idx == -1) {
+            logger.error('pool.destroy:', 'not known', client);
+            return;
         }
+        this._pbusy.splice(idx, 1);
+        this._destroy(client);
     }
 
     // Return the resource item back to the list of available resources.
@@ -1850,7 +1842,7 @@ core.createPool = function(options, createcb, closecb)
 
         // Add to the available list if within the bounds
         if (this._pavail.length > this._pmax || !this._pvalidate(client)) {
-            return this.destroy(client);
+            return this._destroy(client);
         }
         this._pavail.unshift(client);
         this._pmtime.unshift(Date.now());
@@ -1860,20 +1852,56 @@ core.createPool = function(options, createcb, closecb)
         return { avail: this._pavail.length, busy: this._pbusy.length, queue: this._pqueue_count };
     }
 
+    // Allocate a new client
+    pool._palloc = function(callback) {
+        try {
+            this._pcreate.call(this, callback);
+            logger.dev('pool.alloc:', 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+        } catch(e) {
+            logger.error('pool.alloc:', e);
+            callback(e);
+        }
+    }
+
+    // Destroy the resource item calling the provided close callback
+    pool._pdestroy = function(client) {
+        try {
+            this._pclose.call(this, client);
+            logger.dev('pool.destroy:', 'destroy:', this._pavail.length, 'busy:', this._pbusy.length);
+        } catch(e) {
+            logger.error('pool.destroy:', e);
+        }
+    }
     // Timer to ensure pool integrity
-    pool._timer = function() {
+    pool._ptimer = function() {
         var me = this;
-        for (var i = 0; i < this._pmin - this._pavail.length - this._pbusy.length; i++) {
-            this._palloc(function(err, client) { me.release(client); });
+        var now = Date.now();
+
+        // Expire idle items
+        if (this._pidle > 0) {
+            for (var i = 0; i < this._pavail.length; i++) {
+                if (now - this._pmtime[i] > this._pidle && this._pavail.length + this._pbusy.length > this._pmin) {
+                    logger.debug('pool.timer:', 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+                    this.destroy(this._pavail[i]);
+                    this._pavail.splice(i, 1);
+                    this._pmtime.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+
+        // Ensure min number of items
+        var min = this._pmin - this._pavail.length - this._pbusy.length;
+        for (var i = 0; i < min; i++) {
+            this._palloc(function(err, client) { if (!err) me._pavail.push(client); });
         }
     }
 
     // Periodic housekeeping if interval is set
-    if (pool.interval) {
-        setInterval(function() { pool.call._timer(pool) }, pool.interval);
-        pool._timer();
+    if (pool._pidle > 0) {
+        setInterval(function() { pool._ptimer() }, Math.max(1000, pool._pidle/3));
+        setImmediate(function() { pool._ptimer(); });
     }
-
     return pool;
 }
 
