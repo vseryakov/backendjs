@@ -833,7 +833,7 @@ default is is open for access to all users but same security considerations appl
 - `/system/stats`
   Database pool statistics and other diagnostics
   - pool - database metrics
-    - process - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
+    - query - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
     - response - stats about only response times from the db without any local processing times of the result records
     - queue - stats about db requests at any given moment queued for the execution
     - cache - db cache response time and metrics
@@ -867,7 +867,7 @@ default is is open for access to all users but same security considerations appl
          {
             "toobusy": 0,
             "pool": {
-                "process": {
+                "query": {
                     "meter": {
                         "mean": 0.001194894762493158,
                         "count": 65,
@@ -1365,7 +1365,7 @@ Most common used commands are:
 
 # Deployment use cases
 
-## AWS instance setup
+## Custom AWS instance setup
 
 Here is the typical example how to setup new AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
 new image configuration.
@@ -1379,6 +1379,11 @@ new image configuration.
 - login as `backend` user using the AWS keypair private key
 - run `ps agx`, it should show several backend processes running
 - try to access the instance via HTTP port for the API console or documentation
+
+## AWS Beanstalk deployment
+
+As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
+Inside the app package etc/config file can be setup for any external connections.
 
 ## Configure HTTP port
 

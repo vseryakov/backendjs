@@ -299,11 +299,6 @@ db.createPool = function(options)
                     logger.log("pool.close:", client.pool_name, e);
                 }
             },
-            log: function(str, level) {
-                if (level == 'info') logger.debug('pool:', str);
-                if (level == 'warn') logger.log('pool:', str);
-                if (level == 'error') logger.error('pool:', str);
-            }
         });
 
         // Acquire a connection with error reporting
