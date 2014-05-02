@@ -897,23 +897,23 @@ tests.pool = function(callback)
                     max: core.getArgInt("-max", 5),
                     interval: core.getArgInt("-interval", 0) }
     var list = [];
-    var pool = core.createPool(options, function(cb) { console.log('create'); cb(null,{ id:Date.now()}) }, function() {})
-    console.log('pool:', pool.avail.length, pool.busy.length);
+    var pool = core.createPool(options, function(cb) { cb(null,{ id:Date.now()}) }, function() {})
+    pool.aquire(function(err, obj) { list.push(obj) });
+    console.log('pool0:', pool.avail.length, pool.busy.length);
+    pool.aquire(function(err, obj) { list.push(obj) });
+    pool.aquire(function(err, obj) { list.push(obj) });
+    pool.aquire(function(err, obj) { list.push(obj) });
+    pool.aquire(function(err, obj) { list.push(obj) });
+    pool.aquire(function(err, obj) { list.push(obj) });
+    console.log('pool1:', pool.avail.length, pool.busy.length, Object.keys(pool.queue));
+    console.log('list1:', list.length);
+    while (list.length) {
+        pool.release(list.shift())
+    }
+    console.log('pool2:', pool.avail.length, pool.busy.length, Object.keys(pool.queue));
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    console.log('pool:', pool.avail.length, pool.busy.length);
-    pool.release(list.shift())
-    pool.release(list.shift())
-    pool.release(list.shift())
-    pool.release(list.shift())
-    console.log('pool:', pool.avail.length, pool.busy.length);
-    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    console.log('pool:', pool.avail.length, pool.busy.length);
-    console.log('list:', list);
+    console.log('pool3:', pool.avail.length, pool.busy.length, Object.keys(pool.queue));
+    console.log('list2:', list.length);
     callback();
 }
 

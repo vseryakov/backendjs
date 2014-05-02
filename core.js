@@ -1737,6 +1737,7 @@ core.runCallback = function(obj, msg)
     // Only keep reference for the callback
     var item = obj[msg.id];
     delete obj[msg.id];
+
     // Make sure the timeout will not fire before the immediate call
     clearTimeout(item.timeout);
     // Call in the next loop cycle
@@ -1754,8 +1755,9 @@ core.runCallback = function(obj, msg)
 // - min - min number of active resource items
 // - max - max number of active resource items
 // - timeout - number of milliseconds to wait for the next available resource item
-// - interval - how ofteen to perform pool integrity check, keep min number of items, remove extra, if this is set then on start min
-//     number of items will be created, otherwise only on demand
+// - idle - number of milliseconds before starting to destroy all active resources above the minimum.
+// - interval - ms, how often to perform pool integrity checks like keeping min number of items, remove extra. If this is set then on creation min
+//     number of items will be allocated, otherwise only on demand
 core.createPool = function(options, createcb, closecb)
 {
     var self = this;
@@ -1765,12 +1767,14 @@ core.createPool = function(options, createcb, closecb)
                  max: options.max || 10,
                  timeout: options.timeout || 5000,
                  interval: options.interval || 0,
+                 idle: options.idle || 0,
                  num: 1,
                  create: createcb,
                  close: closecb,
-                 validate: function() { return  true },
+                 validate: function() { return true },
                  queue: {},
                  avail: [],
+                 mtime: [],
                  busy: [] };
 
     // Return next available resource item, if not available immediately wait for defined amount of time before calling the
@@ -1780,6 +1784,7 @@ core.createPool = function(options, createcb, closecb)
 
         // We have idle clients
         if (this.avail.length) {
+            var mtime = this.mtime.shift();
             var client = this.avail.shift();
             this.busy.push(client);
             return callback.call(this, null, client);
@@ -1801,7 +1806,7 @@ core.createPool = function(options, createcb, closecb)
             this.create.call(this, function(err, client) {
                 if (err) return callback(err);
                 me.busy.push(client);
-                setImmediate(function() { callback(null, client); });
+                callback(null, client);
             });
         } catch(e) {
             logger.error('pool.aquire:', e);
@@ -1824,27 +1829,33 @@ core.createPool = function(options, createcb, closecb)
         if (!client) return;
 
         var idx = this.busy.indexOf(client);
-        if (idx == -1) return;
-        this.busy.splice(idx, 1);
+        if (idx == -1) {
+            logger.error('pool.release:', 'not known', client);
+            return;
+        }
 
         // Pass it to the next waiting client
-        for (var p in this.queue) {
-            this.busy.push(client);
-            this.queue[p].client = client;
-            return self.runCallback(this.queue, this.queue[p]);
+        for (var id in this.queue) {
+            this.queue[id].id = id;
+            this.queue[id].client = client;
+            return self.runCallback(this.queue, this.queue[id]);
         }
 
+        this.busy.splice(idx, 1);
+
         // Add to the available list if within the bounds
-        if (this.avail.length >= this.max || !this.validate(client)) {
+        if (this.avail.length > this.max || !this.validate(client)) {
             return this.destroy(client);
         }
-        this.avail.push(client);
+        this.avail.unshift(client);
+        this.mtime.unshift(Date.now());
     }
 
     // Timer to ensure pool integrity
     pool.timer = function() {
+        var me = this;
         for (var i = 0; i < this.min - this.avail.length - this.busy.length; i++) {
-            this.alloc();
+            this.alloc(function(err, client) { me.release(client); });
         }
     }
 
