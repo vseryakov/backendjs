@@ -899,20 +899,20 @@ tests.pool = function(callback)
     var list = [];
     var pool = core.createPool(options, function(cb) { cb(null,{ id:Date.now()}) }, function() {})
     pool.aquire(function(err, obj) { list.push(obj) });
-    console.log('pool0:', pool.avail.length, pool.busy.length);
+    console.log('pool0:', pool.stats());
     pool.aquire(function(err, obj) { list.push(obj) });
     pool.aquire(function(err, obj) { list.push(obj) });
     pool.aquire(function(err, obj) { list.push(obj) });
     pool.aquire(function(err, obj) { list.push(obj) });
     pool.aquire(function(err, obj) { list.push(obj) });
-    console.log('pool1:', pool.avail.length, pool.busy.length, Object.keys(pool.queue));
+    console.log('pool1:', pool.stats());
     console.log('list1:', list.length);
     while (list.length) {
         pool.release(list.shift())
     }
-    console.log('pool2:', pool.avail.length, pool.busy.length, Object.keys(pool.queue));
+    console.log('pool2:', pool.stats());
     pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    console.log('pool3:', pool.avail.length, pool.busy.length, Object.keys(pool.queue));
+    console.log('pool3:', pool.stats());
     console.log('list2:', list.length);
     callback();
 }

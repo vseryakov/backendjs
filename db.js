@@ -3444,7 +3444,7 @@ db.nndbInitPool = function(options)
         if (this.sock.type == backend.NN_REQ) {
             this.socknum = 1;
             this.callbacks = {};
-            this.sock.setCallback(function(err, msg) { core.runCallback(pool.callbacks, msg); });
+            this.sock.deferCallback(function(err, msg) { core.runCallback(pool.callbacks, msg); });
         }
         return callback(null, this);
     }

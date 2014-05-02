@@ -200,7 +200,7 @@ var core = {
     // Inter-process messages
     msgs: {},
     msgId: 1,
-    ipcTimeout: 500,
+    deferTimeout: 500,
     lruMax: 10000,
 
     // REPL port for server
@@ -833,7 +833,7 @@ core.ipcSend = function(op, name, value, callback)
     if (typeof callback == "function") {
         msg.reply = true;
         msg.id = self.msgId++;
-        this.setCallback(self.msgs, msg, function(m) { callback(m.value); });
+        this.deferCallback(self.msgs, msg, function(m) { callback(m.value); });
     }
     try { process.send(msg); } catch(e) { logger.error('ipcSend:', e, op, name); }
 }
@@ -1703,12 +1703,12 @@ core.processQueue = function(callback)
     });
 }
 
-// Register the callback for the message, the message must have id property which will be used for keeping track of the replies.
+// Register the callback to be run later for the given message, the message must have id property which will be used for keeping track of the replies.
 // A timeout is created for this message, if runCallback for this message will not be called in time the timeout handler will call the callback
 // anyways with the original message.
 // The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
 // any errors must be passed, use the message object for it, no other arguments are expected.
-core.setCallback = function(obj, msg, callback, timeout)
+core.deferCallback = function(obj, msg, callback, timeout)
 {
     if (!msg || !msg.id || !callback) return;
 
@@ -1716,7 +1716,7 @@ core.setCallback = function(obj, msg, callback, timeout)
          timeout: setTimeout(function() {
              delete obj[msg.id];
              try { callback(msg); } catch(e) { logger.error('callback:', e, msg, e.stack); }
-         }, timeout || this.ipcTimeout),
+         }, timeout || this.deferTimeout),
 
          callback: function(data) {
              clearTimeout(this.timeout);
@@ -1725,7 +1725,7 @@ core.setCallback = function(obj, msg, callback, timeout)
     };
 }
 
-// Run delayed callback for the message previously registsred with the `setCallback` method.
+// Run delayed callback for the message previously registsred with the `deferCallback` method.
 // The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
 core.runCallback = function(obj, msg)
 {
@@ -1763,19 +1763,21 @@ core.createPool = function(options, createcb, closecb)
     var self = this;
     if (typeof options == "function") createcb = options, closecb = createcb;
 
-    var pool = { min: options.min || 1,
-                 max: options.max || 10,
-                 timeout: options.timeout || 5000,
-                 interval: options.interval || 0,
-                 idle: options.idle || 0,
-                 num: 1,
-                 create: createcb,
-                 close: closecb,
-                 validate: function() { return true },
-                 queue: {},
-                 avail: [],
-                 mtime: [],
-                 busy: [] };
+    var pool = { _pmin: options.min || 1,
+                 _pmax: options.max || 10,
+                 _pmax_queue: options.interval || 0,
+                 _ptimeout: options.timeout || 5000,
+                 _pinterval: options.interval || 0,
+                 _pidle: options.idle || 0,
+                 _pnum: 1,
+                 _pcreate: createcb,
+                 _pclose: closecb,
+                 _pvalidate: function() { return true },
+                 _pqueue_count: 0,
+                 _pqueue: {},
+                 _pavail: [],
+                 _pmtime: [],
+                 _pbusy: [] };
 
     // Return next available resource item, if not available immediately wait for defined amount of time before calling the
     // callback with an error. The callback second argument is active resource item.
@@ -1783,29 +1785,31 @@ core.createPool = function(options, createcb, closecb)
         if (typeof callback != "function") return;
 
         // We have idle clients
-        if (this.avail.length) {
-            var mtime = this.mtime.shift();
-            var client = this.avail.shift();
-            this.busy.push(client);
+        if (this._pavail.length) {
+            var mtime = this._pmtime.shift();
+            var client = this._pavail.shift();
+            this._pbusy.push(client);
             return callback.call(this, null, client);
         }
         // Put into waiting queue
-        if (this.busy.length >= this.max) {
-            return self.setCallback(this.queue, { id: this.num++ }, function(m) {
+        if (this._pbusy.length >= this._pmax) {
+            if (this._pqueue_count++ > this._pmax_queue) return callback(new Error("no more resources"));
+
+            return self.deferCallback(this._pqueue, { id: this._pnum++ }, function(m) {
                 callback(m.client ? null : new Error("timeout waiting for the resource"), m.client);
-            }, this.timeout);
+            }, this._ptimeout);
         }
         // New item
-        this.alloc(callback);
+        this._palloc(callback);
     }
 
     // Allocate a new client
-    pool.alloc = function(callback) {
+    pool._palloc = function(callback) {
         var me = this;
         try {
-            this.create.call(this, function(err, client) {
+            this._pcreate.call(this, function(err, client) {
                 if (err) return callback(err);
-                me.busy.push(client);
+                me._pbusy.push(client);
                 callback(null, client);
             });
         } catch(e) {
@@ -1818,7 +1822,7 @@ core.createPool = function(options, createcb, closecb)
     pool.destroy = function(client) {
         if (!client) return;
         try {
-            this.close.call(this, client);
+            this._pclose.call(this, client);
         } catch(e) {
             logger.error('pool.destroy:', e);
         }
@@ -1828,41 +1832,46 @@ core.createPool = function(options, createcb, closecb)
     pool.release = function(client) {
         if (!client) return;
 
-        var idx = this.busy.indexOf(client);
+        var idx = this._pbusy.indexOf(client);
         if (idx == -1) {
             logger.error('pool.release:', 'not known', client);
             return;
         }
 
         // Pass it to the next waiting client
-        for (var id in this.queue) {
-            this.queue[id].id = id;
-            this.queue[id].client = client;
-            return self.runCallback(this.queue, this.queue[id]);
+        for (var id in this._pqueue) {
+            this._pqueue_count--;
+            this._pqueue[id].id = id;
+            this._pqueue[id].client = client;
+            return self.runCallback(this._pqueue, this._pqueue[id]);
         }
 
-        this.busy.splice(idx, 1);
+        this._pbusy.splice(idx, 1);
 
         // Add to the available list if within the bounds
-        if (this.avail.length > this.max || !this.validate(client)) {
+        if (this._pavail.length > this._pmax || !this._pvalidate(client)) {
             return this.destroy(client);
         }
-        this.avail.unshift(client);
-        this.mtime.unshift(Date.now());
+        this._pavail.unshift(client);
+        this._pmtime.unshift(Date.now());
+    }
+
+    pool.stats = function() {
+        return { avail: this._pavail.length, busy: this._pbusy.length, queue: this._pqueue_count };
     }
 
     // Timer to ensure pool integrity
-    pool.timer = function() {
+    pool._timer = function() {
         var me = this;
-        for (var i = 0; i < this.min - this.avail.length - this.busy.length; i++) {
-            this.alloc(function(err, client) { me.release(client); });
+        for (var i = 0; i < this._pmin - this._pavail.length - this._pbusy.length; i++) {
+            this._palloc(function(err, client) { me.release(client); });
         }
     }
 
     // Periodic housekeeping if interval is set
     if (pool.interval) {
-        setInterval(function() { pool.call.timer(pool) }, pool.interval);
-        pool.timer();
+        setInterval(function() { pool.call._timer(pool) }, pool.interval);
+        pool._timer();
     }
 
     return pool;
