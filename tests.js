@@ -895,26 +895,42 @@ tests.pool = function(callback)
 {
     var options = { min: core.getArgInt("-min", 1),
                     max: core.getArgInt("-max", 5),
-                    interval: core.getArgInt("-interval", 0) }
-    var list = [];
-    var pool = core.createPool(options, function(cb) { cb(null,{ id:Date.now()}) }, function() {})
-    pool.aquire(function(err, obj) { list.push(obj) });
-    console.log('pool0:', pool.stats());
-    pool.aquire(function(err, obj) { list.push(obj) });
-    pool.aquire(function(err, obj) { list.push(obj) });
-    pool.aquire(function(err, obj) { list.push(obj) });
-    pool.aquire(function(err, obj) { list.push(obj) });
-    pool.aquire(function(err, obj) { list.push(obj) });
-    console.log('pool1:', pool.stats());
-    console.log('list1:', list.length);
-    while (list.length) {
-        pool.release(list.shift())
+                    idle: core.getArgInt("-idle", 0),
+                    create: function(cb) { cb(null,{ id:Date.now()}) }
     }
-    console.log('pool2:', pool.stats());
-    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
-    console.log('pool3:', pool.stats());
-    console.log('list2:', list.length);
-    callback();
+    var list = [];
+    var pool = core.createPool(options)
+    async.series([
+       function(next) {
+           console.log('pool0:', pool.stats(), 'list:', list.length);
+           for (var i = 0; i < 5; i++) {
+               pool.acquire(function(err, obj) { list.push(obj); console.log('added:', list.length); });
+           }
+           console.log('pool1:', pool.stats(), 'list:', list.length);
+           next();
+       },
+       function(next) {
+           while (list.length) {
+               pool.release(list.shift());
+           }
+           next();
+       },
+       function(next) {
+           console.log('pool2:', pool.stats(), 'list:', list.length);
+           pool.acquire(function(err, obj) { list.push(obj); console.log('added:', list.length); });
+           next();
+       },
+       function(next) {
+           console.log('pool3:', pool.stats(), 'list:', list.length);
+           pool.release(list.shift());
+           next();
+       },
+       function(next) {
+           setTimeout(function() {
+               console.log('pool4:', pool.stats(), 'list:', list.length);
+               next();
+           }, options.idle*2);
+       }], callback);
 }
 
 backend.run(function() {

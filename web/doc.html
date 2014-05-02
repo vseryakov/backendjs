@@ -78,12 +78,13 @@
 <li>nanomsg interface for messaging between processes and servers.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
+<li>Hosted on <a href="https://github.com/vseryakov/backendjs">https://github.com/vseryakov/backendjs</a>, BSD licensed.</li>
 </ul>
 <p>Check out the <a href="http://vseryakov.github.io/backendjs/">Documentation</a> for more documentation.</p>
 <h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
 <p>The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.</p>
-<p>The optional packages that the backendjs may use if available, resolving packages is done with pkg-config:</p>
+<p>The optional packages that the backendjs may use if available(resolving packages is done with pkg-config):</p>
 <ul>
 <li>nanomsg - messaging, caching and pub/sub services</li>
 <li>ImageMagick - image manipulation</li>
@@ -98,7 +99,7 @@ on the system before installing the backendjs. Not everything is required, if no
 <p>To install the module with all optional dependencies if they are available in the system</p>
 <p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(PostgreSQL, MySQL) and nanomsg.</p>
 <pre><code>    npm install backendjs
-</code></pre><p>To force internal nanomsg and ImageMagick to be compiled the following command must be used:</p>
+</code></pre><p>To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:</p>
 <pre><code>    npm install backendjs --backend_deps_force
 </code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
@@ -1513,7 +1514,6 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests. Default: 20194</li>
 <li><code>no-cache</code> - Disable caching, all gets will result in miss and puts will have no effect</li>
 <li><code>cache-sync</code> - Maintain all caches in sync when using nanomsg, put/incr commands will be broadcasted, otherwise only del commands</li>
-<li><code>no-remote-config</code> - Disable any attempts to read config from supported remote destinations like DNS...</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
@@ -1526,7 +1526,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>backend-login</code> - Credentials login for the master backend access</li>
 <li><code>backend-secret</code> - Credentials secret for the master backend access</li>
 <li><code>domain</code> - Domain to use for communications, default is current domain of the host machine</li>
-<li><code>config-domain</code> - Domain to query for configuration TXT records, default is current domain of the host machine</li>
+<li><code>config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
 <li><code>max-distance</code> - Max searchable distance(radius) in km, for location searches to limit the upper bound. Default: 50</li>
 <li><code>min-distance</code> - Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. Default: 5</li>
 <li><code>instance</code> - Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
@@ -2692,8 +2692,8 @@ Special parameters for options:</p>
 </ul>
 
 <ul>
-<li><p><code>core.setCallback(obj, msg, callback, timeout)</code></p>
-<p> Register the callback for the message, the message must have id property which will be used for keeping track of the replies.
+<li><p><code>core.deferCallback(obj, msg, callback, timeout)</code></p>
+<p> Register the callback to be run later for the given message, the message must have id property which will be used for keeping track of the replies.
 A timeout is created for this message, if runCallback for this message will not be called in time the timeout handler will call the callback
 anyways with the original message.
 The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
@@ -2703,22 +2703,24 @@ any errors must be passed, use the message object for it, no other arguments are
 
 <ul>
 <li><p><code>core.runCallback(obj, msg)</code></p>
-<p> Run delayed callback for the message previously registsred with the <code>setCallback</code> method.
+<p> Run delayed callback for the message previously registsred with the <code>deferCallback</code> method.
 The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.createPool(options, createcb, closecb)</code></p>
+<li><p><code>core.createPool(options)</code></p>
 <p> Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
-Options can be the following:</p>
+Options defines the following properties:</p>
 <ul>
+<li>create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)</li>
+<li>destroy - method to be called to destroy a resource item</li>
+<li>validate - method to verify actibe resource item, return false if it needs to be destroyed</li>
 <li>min - min number of active resource items</li>
 <li>max - max number of active resource items</li>
-<li>timeout - number of milliseconds to wait for the next available resource item</li>
-<li>idle - number of milliseconds before starting to destroy all active resources above the minimum.</li>
-<li>interval - ms, how often to perform pool integrity checks like keeping min number of items, remove extra. If this is set then on creation min
- number of items will be allocated, otherwise only on demand</li>
+<li>max_queue - how big waiting queue can be, above this all requests will be rejected immediately</li>
+<li>timeout - number of milliseconds to wait for the next available resource item, cannot be 0</li>
+<li>idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.</li>
 </ul>
 </li>
 </ul>

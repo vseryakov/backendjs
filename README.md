@@ -18,6 +18,7 @@ Features:
 * nanomsg interface for messaging between processes and servers.
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
+* Hosted on https://github.com/vseryakov/backendjs, BSD licensed.
 
 Check out the [Documentation](http://vseryakov.github.io/backendjs/) for more documentation.
 
@@ -26,7 +27,7 @@ Check out the [Documentation](http://vseryakov.github.io/backendjs/) for more do
 The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
 
-The optional packages that the backendjs may use if available, resolving packages is done with pkg-config:
+The optional packages that the backendjs may use if available(resolving packages is done with pkg-config):
 - nanomsg - messaging, caching and pub/sub services
 - ImageMagick - image manipulation
 - libpq - PostgreSQL database driver
@@ -48,7 +49,7 @@ Note: if for example ImageMagick is not istalled it will be skipped, same goes t
 
         npm install backendjs
 
-To force internal nanomsg and ImageMagick to be compiled the following command must be used:
+To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:
 
         npm install backendjs --backend_deps_force
 
