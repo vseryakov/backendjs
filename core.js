@@ -1708,18 +1708,20 @@ core.processQueue = function(callback)
 // anyways with the original message.
 // The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
 // any errors must be passed, use the message object for it, no other arguments are expected.
-core.setCallback = function(obj, msg, callback)
+core.setCallback = function(obj, msg, callback, timeout)
 {
     if (!msg || !msg.id || !callback) return;
 
-    obj[msg.id] = { timeout: setTimeout(function() {
-                        delete obj[msg.id];
-                        try { callback(msg); } catch(e) { logger.error('callback:', e, msg, e.stack); }
-                    }, this.ipcTimeout),
-                    callback: function(m) {
-                        clearTimeout(obj[msg.id].timeout);
-                        try { callback(m); } catch(e) { logger.error('callback:', e, m, e.stack); }
-                    }
+    obj[msg.id] = {
+         timeout: setTimeout(function() {
+             delete obj[msg.id];
+             try { callback(msg); } catch(e) { logger.error('callback:', e, msg, e.stack); }
+         }, timeout || this.ipcTimeout),
+
+         callback: function(data) {
+             clearTimeout(this.timeout);
+             try { callback(data); } catch(e) { logger.error('callback:', e, data, e.stack); }
+         }
     };
 }
 
@@ -1729,18 +1731,130 @@ core.runCallback = function(obj, msg)
 {
     if (!msg) return;
     if (typeof msg == "string") {
-        try { msg = JSON.parse(msg); } catch(e) { logger.error('callback:', e, msg); }
+        try { msg = JSON.parse(msg); } catch(e) { logger.error('runCallback:', e, msg); }
     }
     if (!msg.id || !obj[msg.id]) return;
-
+    // Only keep reference for the callback
+    var item = obj[msg.id];
+    delete obj[msg.id];
+    // Make sure the timeout will not fire before the immediate call
+    clearTimeout(item.timeout);
+    // Call in the next loop cycle
     setImmediate(function() {
         try {
-            obj[msg.id].callback(msg);
+            item.callback(msg);
         } catch(e) {
-            logger.error('callback:', e, msg, e.stack);
+            logger.error('runCallback:', e, msg, e.stack);
         }
-        delete obj[msg.id];
     });
+}
+
+// Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
+// Options can be the following:
+// - min - min number of active resource items
+// - max - max number of active resource items
+// - timeout - number of milliseconds to wait for the next available resource item
+// - interval - how ofteen to perform pool integrity check, keep min number of items, remove extra, if this is set then on start min
+//     number of items will be created, otherwise only on demand
+core.createPool = function(options, createcb, closecb)
+{
+    var self = this;
+    if (typeof options == "function") createcb = options, closecb = createcb;
+
+    var pool = { min: options.min || 1,
+                 max: options.max || 10,
+                 timeout: options.timeout || 5000,
+                 interval: 0,
+                 num: 1,
+                 create: createcb,
+                 close: closecb,
+                 validate: function() { return  true },
+                 queue: {},
+                 avail: [],
+                 busy: [] };
+
+    // Return next available resource item, if not available immediately wait for defined amount of time before calling the
+    // callback with an error. The callback second argument is active resource item.
+    pool.aquire = function(callback) {
+        if (typeof callback != "function") return;
+
+        // We have idle clients
+        if (this.avail.length) {
+            var client = this.avail.shift();
+            this.busy.push(client);
+            return callback.call(this, null, client);
+        }
+        // Put into waiting queue
+        if (this.busy.length >= this.max) {
+            return self.setCallback(this.queue, { id: this.num++ }, function(m) {
+                callback(m.client ? null : new Error("timeout waiting for the resource"), m.client);
+            }, this.timeout);
+        }
+        // New item
+        this.alloc(callback);
+    }
+
+    // Allocate a new client
+    pool.alloc = function(callback) {
+        var me = this;
+        try {
+            this.create.call(this, function(err, client) {
+                if (err) return callback(err);
+                me.busy.push(client);
+                setImmediate(function() { callback(null, client); });
+            });
+        } catch(e) {
+            logger.error('pool.aquire:', e);
+            callback(e);
+        }
+    }
+
+    // Destroy the resource item calling the provided close callback
+    pool.destroy = function(client) {
+        if (!client) return;
+        try {
+            this.close.call(this, client);
+        } catch(e) {
+            logger.error('pool.destroy:', e);
+        }
+    }
+
+    // Return the resource item back to the list of available resources.
+    pool.release = function(client) {
+        if (!client) return;
+
+        var idx = this.busy.indexOf(client);
+        if (idx == -1) return;
+        this.busy.splice(idx, 1);
+
+        // Pass it to the next waiting client
+        for (var p in this.queue) {
+            this.busy.push(client);
+            this.queue[p].client = client;
+            return self.runCallback(this.queue, this.queue[p]);
+        }
+
+        // Add to the available list if within the bounds
+        if (this.avail.length >= this.max || !this.validate(client)) {
+            return this.destroy(client);
+        }
+        this.avail.push(client);
+    }
+
+    // Timer to ensure pool integrity
+    pool.timer = function() {
+        for (var i = 0; i < this.min - this.avail.length - this.busy.length; i++) {
+            this.alloc();
+        }
+    }
+
+    // Periodic housekeeping if interval is set
+    if (this.interval) {
+        setInterval(function() { pool.call.timer(pool) }, this.interval);
+        this.timer();
+    }
+
+    return pool;
 }
 
 // Return commandline argument value by name

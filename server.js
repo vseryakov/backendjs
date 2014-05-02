@@ -201,6 +201,9 @@ server.startMaster = function()
         // Primary jobs
         if (self.jobsInterval >= 60000) setInterval(function() { self.processJobs() }, self.jobsInterval);
 
+        // API related initialization
+        core.context.api.initMasterServer();
+
         logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
     } else {
         core.role = 'worker';
@@ -248,6 +251,9 @@ server.startWeb = function(callback)
                 cluster.fork();
             }
         });
+
+        // API related initialization
+        core.context.api.initWebServer();
 
         // Frontend server tasks
         setInterval(function() {
@@ -738,7 +744,9 @@ server.doJob = function(type, job, options)
         break;
 
     case "server":
-        setImmediate(function() { self.runJob(job); });
+        setImmediate(function() {
+            try { self.runJob(job); } catch(e) { logger.error('doJob:', e, e.stack); }
+        });
         break;
 
     default:

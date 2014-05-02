@@ -6,6 +6,7 @@
 // To run a test execute for example: node tests.js -cmd account ....
 //
 
+var fs = require("fs");
 var cluster = require('cluster');
 var util = require('util');
 var path = require('path');
@@ -101,7 +102,7 @@ tests.account = function(callback)
     var longitude = core.randomNum(bbox[1], bbox[3]);
     var name = core.toTitle(gender == 'm' ? males[core.randomInt(0, males.length - 1)] : females[core.randomInt(0, females.length - 1)]);
     var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
-    var msgs = null;
+    var msgs = null, icons = [];
 
     async.series([
         function(next) {
@@ -125,10 +126,31 @@ tests.account = function(callback)
         },
         function(next) {
             var query = { login: login, secret: secret, name: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
+            for (var i = 1; i < process.argv.length - 1; i++) {
+                var d = process.argv[i].match(/^\-account\-(.+)$/);
+                if (!d) continue;
+                if (d[1] == "icon") {
+                    icons.push(process.argv[++i]);
+                } else {
+                    query[d[1]] = process.argv[++i];
+                }
+            }
             core.sendRequest("/account/add", { sign: false, query: query }, function(err, params) {
                 myid = params.obj.id;
                 next(err);
             });
+        },
+        function(next) {
+            if (!icons.length) return next();
+            // Add all icons from the files
+            var type = 0;
+            async.forEachSeries(icons, function(icon, next2) {
+                icon = fs.readFileSync(icon).toString("base64");
+                var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: type++, acl_allow: "allow" }  }
+                core.sendRequest("/account/put/icon", options, function(err, params) {
+                    next2(err);
+                });
+            }, next);
         },
         function(next) {
             var options = { login: login, secret: secret, query: { latitude: latitude, longitude: longitude, location: location } };
@@ -156,13 +178,13 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { icon: icon, type: 1, acl_allow: "all" }  }
+            var options = { login: login, secret: secret, query: { icon: icon, type: 98, acl_allow: "all" }  }
             core.sendRequest("/account/put/icon", options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: 2, _width: 128, _height: 128, acl_allow: "auth" }  }
+            var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: 99, _width: 128, _height: 128, acl_allow: "auth" }  }
             core.sendRequest("/account/put/icon", options, function(err, params) {
                 next(err);
             });
@@ -170,7 +192,7 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret, query: { _consistent: 1 } }
             core.sendRequest("/account/select/icon", options, function(err, params) {
-                next(err || !params.obj || params.obj.length!=2 || !params.obj[0].acl_allow ? ("err2:" + err + util.inspect(params.obj)) : 0);
+                next(err || !params.obj || params.obj.length!=2+icons.length || !params.obj[0].acl_allow ? ("err2:" + err + util.inspect(params.obj)) : 0);
             });
         },
         function(next) {
@@ -867,6 +889,31 @@ tests.nndb = function(callback)
                });
            }],callback);
     }
+}
+
+tests.pool = function(callback)
+{
+    var options = { min: core.getArgInt("-min", 1),
+                    max: core.getArgInt("-max", 5),
+                    interval: core.getArgInt("-interval", 0) }
+    var list = [];
+    var pool = core.createPool(options, function(cb) { console.log('create'); cb(null,{ id:Date.now()}) }, function() {})
+    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
+    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
+    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
+    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
+    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
+    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
+    console.log('pool:', pool);
+    pool.release(list.shift())
+    pool.release(list.shift())
+    pool.release(list.shift())
+    pool.release(list.shift())
+    console.log('pool:', pool);
+    pool.aquire(function(err, obj) { console.log(err, obj);list.push(obj) });
+    console.log('pool:', pool);
+    console.log('list:', list);
+    callback();
 }
 
 backend.run(function() {

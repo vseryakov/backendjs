@@ -416,6 +416,13 @@ api.initApplication = function(callback) { callback() };
 // this.app refers to the Express instance.
 api.initMiddleware = function() {};
 
+// This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling
+api.initMasterServer = function() {}
+
+// This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
+// interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.
+api.initWebServer = function() {}
+
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)
 {
