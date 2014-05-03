@@ -89,6 +89,10 @@ struct StringCache {
             V8::AdjustAmountOfExternalAllocatedMemory(key.size() + val.size());
         }
     }
+    void incr(const string& k, const string& v) {
+        string o = get(k);
+        set(k, vFmtStr("%lld", atoll(o.c_str()) + atoll(v.c_str())));
+    }
     void del(string key) {
         string_map::iterator it = items.find(key);
         if (it != items.end()) {
@@ -208,6 +212,23 @@ static Handle<Value> cacheSet(const Arguments& args)
         itc = _cache.find(*name);
     }
     itc->second.set(*key, *val);
+    return scope.Close(Undefined());
+}
+
+static Handle<Value> cacheIncr(const Arguments& args)
+{
+    HandleScope scope;
+
+    REQUIRE_ARGUMENT_AS_STRING(0, name);
+    REQUIRE_ARGUMENT_AS_STRING(1, key);
+    REQUIRE_ARGUMENT_AS_STRING(2, val);
+
+    Cache::iterator itc = _cache.find(*name);
+    if (itc == _cache.end()) {
+        _cache[*name] = StringCache();
+        itc = _cache.find(*name);
+    }
+    itc->second.incr(*key, *val);
     return scope.Close(Undefined());
 }
 
@@ -586,6 +607,7 @@ void CacheInit(Handle<Object> target)
 
     NODE_SET_METHOD(target, "cacheSave", cacheSave);
     NODE_SET_METHOD(target, "cacheSet", cacheSet);
+    NODE_SET_METHOD(target, "cacheIncr", cacheIncr);
     NODE_SET_METHOD(target, "cacheGet", cacheGet);
     NODE_SET_METHOD(target, "cacheDel", cacheDel);
     NODE_SET_METHOD(target, "cacheKeys", cacheKeys);

@@ -163,7 +163,7 @@ var api = {
 
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
-    subscribeTimeout: 600000,
+    subscribeTimeout: 900000,
     subscribeInterval: 5000,
 
     // Collect body MIME types as binary blobs
@@ -721,39 +721,20 @@ api.initAccountAPI = function()
             // Ignore not matching events, the whole string is checked
             if (req.query.match) req.query.match = new RegExp(req.query.match);
 
-            req.pubData = {};
-            // Returns opaque handle depending on the pub/sub system
-            req.pubSock = core.ipcSubscribe(req.account.id, function(data) {
-                // If for any reasons the response has been sent we just bail out
-                if (res.headersSent) return (req.pubSock = core.ipcUnsubscribe(req.pubSock));
-                if (typeof data != "string") data = JSON.stringify(data);
-                logger.debug('subscribe:', req.account.id, this.socket, data, res.headersSent);
-                // Filter by matching the whole message
-                if (req.query.match && !data.match(req.query.match)) return;
-                // Check for duplicates within the interval, duplicates from multiple nanomsg pub servers will arrive within the second so we
-                // have a chance to eliminate them here without exposing to the client
-                var hash = core.hash(data);
-                if (req.pubData[hash]) return;
-                req.pubData[hash] = data;
-                if (req.pubTimeout) clearTimeout(req.pubTimeout);
-                req.pubTimeout = setTimeout(function() {
-                    if (!res.headersSent) res.type('application/json').send("[" + Object.keys(req.pubData).map(function(x) { return req.pubData[x] }).join(",") + "]");
-                    // Returns null and clears the reference
-                    req.pubSock = core.ipcUnsubscribe(req.pubSock, req.account.id);
-                }, self.subscribeInterval);
-            });
-            if (!req.pubSock) return self.sendReply(res, 500, "Service is not activated");
+            req.msgData = {};
+            req.subscribeInterval = self.subscribeInterval;
+            core.ipcSubscribe(req.account.id, self.sendMessage, req);
 
             // Listen for timeout and ignore it, this way the socket will be alive forever until we close it
             res.on("timeout", function() {
-                logger.debug('subscribe:', 'timeout', req.account.id, req.pubSock);
+                logger.debug('subscribe:', 'timeout', req.account.id);
                 setTimeout(function() { req.socket.destroy(); }, self.subscribeTimeout);
             });
             req.on("close", function() {
-                logger.debug('subscribe:', 'close', req.account.id, req.pubSock);
-                req.pubSock = core.ipcUnsubscribe(req.pubSock, req.account.id);
+                logger.debug('subscribe:', 'close', req.account.id);
+                req.pubSock = core.ipcUnsubscribe(req.account.id);
             });
-            logger.debug('subscribe:', 'start', req.account.id, req.pubSock);
+            logger.debug('subscribe:', 'start', req.account.id);
             break;
 
         case "select":
@@ -1423,6 +1404,27 @@ api.sendFile = function(req, res, file, redirect)
         if (redirect) return res.redirect(redirect);
         res.send(404);
     });
+}
+
+// Process a message received from subscription server or other even notifier
+api.sendMessage = function(req, key, data)
+{
+    // If for any reasons the response has been sent we just bail out
+    if (res.headersSent) return core.ipcUnsubscribe(req.account.id);
+    if (typeof data != "string") data = JSON.stringify(data);
+    logger.debug('subscribe:', req.account.id, req.socket, data, res.headersSent);
+    // Filter by matching the whole message
+    if (req.query.match && !data.match(req.query.match)) return;
+    // Check for duplicates within the interval, duplicates from multiple nanomsg pub servers will arrive within the second so we
+    // have a chance to eliminate them here without exposing to the client
+    var hash = core.hash(data);
+    if (req.pubData[hash]) return;
+    req.pubData[hash] = data;
+    if (req.pubTimeout) clearTimeout(req.pubTimeout);
+    req.pubTimeout = setTimeout(function() {
+        if (!res.headersSent) res.type('application/json').send("[" + Object.keys(req.pubData).map(function(x) { return req.pubData[x] }).join(",") + "]");
+        core.ipcUnsubscribe(req.account.id);
+    }, req.subscribeInterval || 5000);
 }
 
 // Increase a counter, used in /counter/incr API call, options.op can be set to 'put'

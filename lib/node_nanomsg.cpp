@@ -35,6 +35,7 @@ public:
     static inline bool HasInstance(Handle<Value> val) { return constructor_template->HasInstance(val); }
     static Handle<Value> SocketGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> TypeGetter(Local<String> str, const AccessorInfo& accessor);
+    static Handle<Value> AddressGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> ErrnoGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> ReadFdGetter(Local<String> str, const AccessorInfo& accessor);
     static Handle<Value> WriteFdGetter(Local<String> str, const AccessorInfo& accessor);
@@ -291,6 +292,7 @@ void NNSocket::Init(Handle<Object> target)
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("errno"), ErrnoGetter);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("socket"), SocketGetter);
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("type"), TypeGetter);
+    constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("address"), AddressGetter);
     constructor_template->SetClassName(String::NewSymbol("NNSocket"));
 
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "subscribe", Subscribe);
@@ -381,35 +383,42 @@ Handle<Value> NNSocket::SocketGetter(Local<String> str, const AccessorInfo& acce
 {
     HandleScope scope;
     NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-    return Integer::New(sock->sock);
+    return scope.Close(Integer::New(sock->sock));
+}
+
+Handle<Value> NNSocket::AddressGetter(Local<String> str, const AccessorInfo& accessor)
+{
+    HandleScope scope;
+    NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
+    return scope.Close(String::New(sock->url.c_str()));
 }
 
 Handle<Value> NNSocket::TypeGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-    return Integer::New(sock->type);
+    return scope.Close(Integer::New(sock->type));
 }
 
 Handle<Value> NNSocket::ErrnoGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-    return Integer::New(sock->err);
+    return scope.Close(Integer::New(sock->err));
 }
 
 Handle<Value> NNSocket::ReadFdGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-    return Integer::New(sock->rfd);
+    return scope.Close(Integer::New(sock->rfd));
 }
 
 Handle<Value> NNSocket::WriteFdGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-    return Integer::New(sock->wfd);
+    return scope.Close(Integer::New(sock->wfd));
 }
 
 Handle<Value> NNSocket::Close(const Arguments& args)

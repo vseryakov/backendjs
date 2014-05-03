@@ -208,11 +208,12 @@ var core = {
     replFile: '.history',
     context: {},
 
-    // Nanomsg ports
+    // Cache and messaging properties
     cacheType: '',
     cachePort: 20194,
     msgType: '',
     msgPort: 20195,
+    subCallbacks: {},
 }
 
 module.exports = core;
@@ -682,10 +683,7 @@ core.initServerCaching = function()
         // Send cache requests to the LRU hosts to be broadcasted to all other servers
         if (this.cacheHost) {
             try {
-                var hosts = this.strSplit(this.cacheHost).map(function(x) {
-                    var x = x.split(":");
-                    return "tcp://" + x[0] + ":" + (x[1] || port);
-                });
+                var hosts = this.strSplit(this.cacheHost).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); });
                 this.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
                 this.lruSocket.connect(hosts);
             } catch(e) {
@@ -707,91 +705,6 @@ core.initServerCaching = function()
         }
     }
     logger.debug('initServerCaching:', this.cacheType, this.cachePort, this.cacheHosts, this.lruSocket, this.lruServerSocket);
-}
-
-// Initialize  messaging system for the server process, can be called multiple times in case environment has changed
-core.initServerMessaging = function()
-{
-    switch (this.msgType || "") {
-    case "redis":
-        break;
-
-    case "amqp":
-        break;
-
-    default:
-        if (!backend.NNSocket || this.noMsg) break;
-
-        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket
-        if (!this.subServerSocket) {
-            try {
-                this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
-                this.subServerSocket.bind("tcp://*:" + (this.msgPort + 1));
-            } catch(e) {
-                logger.error('initServerMessaging:', e);
-                this.subServerSocket = null;
-            }
-        }
-
-        // Publish server, it is where the clients send events to, it will forward them to the sub socket which will distribute to the subscribed clients
-        if (!this.pubServerSocket) {
-            try {
-                this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
-                this.pubServerSocket.bind("tcp://*:" + this.msgPort);
-                // Forward all messages to the sub server socket
-                if (this.subServerSocket) this.pubServerSocket.setForward(this.subServerSocket);
-            } catch(e) {
-                logger.error('initServerMessaging:', e);
-                this.pubServerSocket = null;
-            }
-        }
-    }
-    logger.debug('initServerMessaging:', this.msgType, this.msgPort, this.subServerSocket, this.pubServerSocket);
-}
-
-// Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
-// publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.
-core.initClientMessaging = function()
-{
-    var self = this;
-
-    switch (this.msgType || "") {
-    case "redis":
-        if (!redisHost) break;
-        try {
-            this.redisCallbacks = {};
-            this.redisSubClient = redis.createClient(null, this.redisHost, this.redisOptions || {});
-            this.redisSubClient.on("ready", function() {
-                self.redisSubClient.on("pmessage", function(channel, message) {
-                    if (self.redisCallbacks[channel]) self.redisCallback[channel](message);
-                });
-            });
-        } catch(e) {
-            logger.error('initClientMessaging:', e);
-            this.redisSubClient = null;
-        }
-        break;
-
-    case "amqp":
-        break;
-
-    default:
-        if (!backend.NNSocket || this.noMsg) break;
-        if (this.pubSocket instanceof backend.NNSocket) delete this.pubSocket;
-        if (!this.msgHost) break;
-        try {
-            var hosts = self.strSplit(this.msgHost).map(function(x) {
-                var x = x.split(":");
-                return "tcp://" + x[0] + ":" + (x[1] ? x[1] : self.msgPort);
-            });
-            this.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
-            this.pubSocket.connect(hosts);
-        } catch(e) {
-            logger.error('initClientMessaging:', e);
-            this.pubSocket = null;
-        }
-    }
-    logger.debug('initClientMessaging:', this.msgType, this.msgPort, this.pubSocket, this.redisClient);
 }
 
 // Initialize web worker caching system, can be called anytime the environment has changed
@@ -1007,16 +920,114 @@ core.ipcIncrCache = function(key, val)
     }
 }
 
-// Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
-// Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.
-core.ipcSubscribe = function(key, callback)
+// Initialize  messaging system for the server process, can be called multiple times in case environment has changed
+core.initServerMessaging = function()
+{
+    switch (this.msgType || "") {
+    case "redis":
+        break;
+
+    case "amqp":
+        break;
+
+    default:
+        if (!backend.NNSocket || this.noMsg) break;
+
+        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket
+        if (!this.subServerSocket) {
+            try {
+                this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
+                this.subServerSocket.bind("tcp://*:" + (this.msgPort + 1));
+            } catch(e) {
+                logger.error('initServerMessaging:', e);
+                this.subServerSocket = null;
+            }
+        }
+
+        // Publish server, it is where the clients send events to, it will forward them to the sub socket which will distribute to the subscribed clients
+        if (!this.pubServerSocket) {
+            try {
+                this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
+                this.pubServerSocket.bind("tcp://*:" + this.msgPort);
+                // Forward all messages to the sub server socket
+                if (this.subServerSocket) this.pubServerSocket.setForward(this.subServerSocket);
+            } catch(e) {
+                logger.error('initServerMessaging:', e);
+                this.pubServerSocket = null;
+            }
+        }
+    }
+    logger.debug('initServerMessaging:', this.msgType, this.msgPort, this.subServerSocket, this.pubServerSocket);
+}
+
+// Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
+// publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.
+core.initClientMessaging = function()
 {
     var self = this;
-    var sock = null;
+
+    switch (this.msgType || "") {
+    case "redis":
+        if (!redisHost) break;
+        try {
+            this.redisSubClient = redis.createClient(null, this.redisHost, this.redisOptions || {});
+            this.redisSubClient.on("ready", function() {
+                self.redisSubClient.on("pmessage", function(channel, message) {
+                    var cb = self.subCallbacks[channel];
+                    if (!cb) cb[0](cb[1], channel, message);
+                });
+            });
+        } catch(e) {
+            logger.error('initClientMessaging:', e);
+            this.redisSubClient = null;
+        }
+        break;
+
+    case "amqp":
+        break;
+
+    default:
+        if (!backend.NNSocket || this.noMsg || !this.msgHost) break;
+        try {
+            var hosts = self.strSplit(this.msgHost).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] ? x[1] : self.msgPort); }).join(",");
+            if (this.pubSocket instanceof backend.NNSocket && this.pubSocket.address != hosts) {
+                this.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
+                this.pubSocket.connect(hosts);
+            }
+        } catch(e) {
+            logger.error('initClientMessaging:', e, hosts);
+            this.pubSocket = null;
+        }
+        try {
+            hosts = self.strSplit(this.msgHost).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] ? x[1] : (self.msgPort + 1)); }).join(",");
+            if (this.subSocket instanceof backend.NNSocket && this.subSocket.address != hosts) {
+                this.subSocket = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
+                this.subSocket.connect(hosts);
+                this.subSocket.setCallback(function(err, data) {
+                    if (err) return;
+                    data = data.split("\1");
+                    var cb = self.subCallbacks[data[0]];
+                    if (!cb) cb[0](cb[1], data[0], data[1]);
+                });
+            }
+        } catch(e) {
+            logger.error('initClientMessaging:', e, hosts);
+            this.subSocket = null;
+        }
+    }
+    logger.debug('initClientMessaging:', this.msgType, this.msgPort, this.pubSocket, this.redisClient);
+}
+
+// Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
+// Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.
+core.ipcSubscribe = function(key, callback, data)
+{
+    var self = this;
     try {
         switch (this.msgType || "") {
         case "redis":
             if (!this.redisSubClient) break;
+            this.subCallbacks[key] = [ callback, data ];
             sock = this.redisSubClient.psubscribe(key);
             break;
 
@@ -1024,28 +1035,20 @@ core.ipcSubscribe = function(key, callback)
             break;
 
         default:
-            // Internal nanomsg based messaging system, non-persistent
-            if (!this.msgHost || !backend.NNSocket || this.noMsg) break;
-            var hosts = this.strSplit(this.msgHost).map(function(x) {
-                var x = x.split(":");
-                return "tcp://" + x[0] + ":" + (x[1] ? x[1] : self.msgPort + 1);
-            });
-            sock = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
-            sock.connect(hosts);
-            sock.subscribe(key);
-            sock.setCallback(function(err, data) { if (!err) callback.call(this, data.split("\1").pop()); });
+            if (!this.subSocket) break;
+            this.subCallbacks[key] = [ callback, data ];
+            this.subSocket.subscribe(key);
         }
     } catch(e) {
         logger.error('ipcSubscribe:', this.subHost, key, e);
-        sock = null;
     }
-    return sock;
 }
 
 // Close subscription
-core.ipcUnsubscribe = function(sock, key)
+core.ipcUnsubscribe = function(key)
 {
     try {
+        delete this.subCallbacks[key];
         switch (this.msgType || "") {
         case "redis":
             if (!this.redisSubClient) break;
@@ -1056,13 +1059,12 @@ core.ipcUnsubscribe = function(sock, key)
             break;
 
         default:
-            if (!backend.NNSocket || this.noMsg) break;
-            if (sock && sock instanceof backend.NNSocket) delete sock;
+            if (!this.subSocket) break;
+            this.subSocket.unsubscribe(key);
         }
     } catch(e) {
-        logger.error('ipcUnsubscribe:', e, sock);
+        logger.error('ipcUnsubscribe:', e);
     }
-    return null;
 }
 
 // Publish an event to be sent to the subscribed clients
@@ -1080,7 +1082,8 @@ core.ipcPublish = function(key, data)
 
         default:
             // Nanomsg socket
-            if (this.pubSocket) this.pubSocket.send(key + "\1" + JSON.stringify(data));
+            if (!this.pubSocket) break;
+            this.pubSocket.send(key + "\1" + JSON.stringify(data));
         }
     } catch(e) {
         logger.error('ipcPublish:', e, key);
