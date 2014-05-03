@@ -1367,7 +1367,7 @@ Most common used commands are:
 
 ## Custom AWS instance setup
 
-Here is the typical example how to setup new AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
+Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
 new image configuration.
 
 - start new AWS instance via AWS console, use Amazon Linux or CentOS 6
@@ -1377,8 +1377,24 @@ new image configuration.
 - global system-wide options will be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables
 - reboot
 - login as `backend` user using the AWS keypair private key
+- install the backendjs and node:
+
+        ./bkjs build-node
+        npm install backendjs --backend_deps_force
+
+- reboot and login into the server
 - run `ps agx`, it should show several backend processes running
 - try to access the instance via HTTP port for the API console or documentation
+
+## Existing AWS instance
+
+In case of existing properly setup AWS instance running Linux with Amazon AMI or CentOS, and only needed to start the backendjs as a service, assuming
+node.js is already installed, if not just run `./bkjs build-node` before the command below:
+
+        npm install backendjs
+        sudo bkjs init-service
+
+After that the backend will be started by the systen on the next reboot or force the start by `sudo service bkjs start`
 
 ## AWS Beanstalk deployment
 
@@ -1495,20 +1511,20 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
 * to install all dependencies and make backendjs module and bkjs globally available:
 
-            npm link
+            npm link backendjs
 
 * to run local server on port 8000 run command:
 
-        ./bkjs run-backend
+            ./bkjs run-backend
 
 * to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
    similar to node.js REPL functionality. All modules are accessible from the command line.
 
-        $ ./bkjs run-shell
-        > core.version
-         '2013.10.20.0'
-        > logger.setDebug(2)
+            $ ./bkjs run-shell
+            > core.version
+            '2013.10.20.0'
+            > logger.setDebug(2)
 
 # Author
   Vlad Seryakov

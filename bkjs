@@ -3,6 +3,9 @@
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
 #
+# chkconfig: 2345 70 70
+# description: Backendjs server
+#
 
 # Host specific settings and environment variables
 [ -f /etc/backendrc ] && . /etc/backendrc
@@ -74,19 +77,7 @@ ARG=${1:-$NAME}
 
 case "$ARG" in
   start)
-    case "$NAME" in
-      *backend-init)
-          $0 init-server
-          ;;
-
-      *backend-run)
-          $0 run-server
-          ;;
-
-      bkjs)
-          $0 run-server
-          ;;
-    esac
+    $0 run-server
     ;;
 
   restart)
@@ -107,7 +98,7 @@ case "$ARG" in
     exit 0
     ;;
 
-  init)
+  init-server)
     echo "Initializing backend..."
     # Update to the latest code if necessary
     ($0 sync)
@@ -263,7 +254,7 @@ case "$ARG" in
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
        echo "local0.* $BACKEND_ROOT/log/backend.log" >> /etc/rsyslog.conf
        echo "local5.* $BACKEND_ROOT/log/access.log" >> /etc/rsyslog.conf
-       killall -HUP rsyslogd
+       service rsyslogd restart
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
     fi
 
@@ -271,7 +262,7 @@ case "$ARG" in
     if [[ $BACKEND_ARGS = *-instance* ]]; then
        echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
        truncate -c -s 0 /var/log/messages $BACKEND_ROOT/log/backend.log $BACKEND_ROOT/log/error.log
-       killall -HUP rsyslogd
+       service rsyslogd restart
     fi
 
     # Coredumps for debugging
@@ -335,9 +326,7 @@ case "$ARG" in
     mount -o remount,noatime /
 
     # Setup startup scripts
-    ln -sf $BACKEND_PREFIX/bin/bkjs /etc/init.d/backend
-    (cd /etc/rc3.d && ln -sf ../init.d/backend S25backend-init)
-    (cd /etc/rc3.d && ln -sf ../init.d/backend S70backend-run)
+    ($0 init-service)
 
     # Sync time
     ln -sf $BACKEND_PREFIX/bin/bkjs /etc/cron.hourly/ntp
@@ -387,6 +376,11 @@ case "$ARG" in
     yum -y install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
     yum -y install libpng-devel libjpeg-turbo-devel librsvg2-devel
     yum -y install mysql-devel mysql-server
+    ;;
+
+  init-service)
+    ln -sf $BACKEND_PREFIX/bin/bkjs /etc/init.d/bkjs
+    chkconfig bkjs on
     ;;
 
   check-idle)
@@ -635,6 +629,7 @@ case "$ARG" in
     while [ $# -gt 1 ]; do
       case "$2" in
       -path) path=$3;shift;shift;;
+      -user) BACKEND_USER=$3;shift;shift;;
       -host) BACKEND_MASTER=$3;shift;shift;;
       -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $3";shift;shift;;
       esac
@@ -643,7 +638,7 @@ case "$ARG" in
     for f in build pages etc deps log tmp var images files web; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
-    echo "Deploying the module to $BACKEND_MASTER:$path ...exclude: $BACKEND_EXCLUDE"
+    echo "Deploying the module to -l $BACKEND_USER $BACKEND_MASTER:$path ...exclude: $BACKEND_EXCLUDE"
     rsync -av -e "ssh -l $BACKEND_USER" --delete $BACKEND_EXCLUDE `ls` $BACKEND_MASTER:$path
     rsync -av -e "ssh -l $BACKEND_USER" web $BACKEND_MASTER:$path
     ;;
@@ -659,6 +654,11 @@ case "$ARG" in
      run-server)
         # Additional arguments via EC2 instance user data
         BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
+        # Perform setup and possibly get newest source code is sync master is configured
+        if [[ $BACKEND_ARGS = *-init-server* ]]; then
+           ($0 init-server)
+        fi
+        # Run the backendjs now
         $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -daemon -monitor -syslog $BACKEND_ARGS $@
         ;;
 
@@ -889,15 +889,14 @@ backend.server.start();
     echo "usage: $NAME command ..."
     echo "  where command is:"
     echo ""
-    echo "  start - start the backend server process, to be used in Linux system startup scripts /etc/init.d by symlinking bkjs to one of:"
-    echo "    SXXbackend-init - startup script to be run very early to setup all required dependencies and directories, similar to bkjs init-server"
-    echo "    SXXbackend-run - to start the backend server, similar to bkjs run-server"
-    echo "  restart - restart the backend server"
-    echo "  stop - stop the backend server"
+    echo "  start - start the backend service"
+    echo "  restart - restart the backend service"
+    echo "  stop - stop the backend service"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
-    echo "  init - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
+    echo "  init-server - sync the latest software if master is configured and run the setup phase iwth setup-server command"
     echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-root ROOTDIR] [-doman DOMAIN] [-name HOSTNAME]"
-    echo "  run-server - run the backend server process"
+    echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/bkjs after which regular 'service' command can be used to manage the backendjs service"
+    echo "  run-server - run the backend server process, if -init-server argument passed it will run init-server command before starting the backendjs daemon"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  sync - synchronize the backend code from the master server, uses '$BACKEND_MASTER' hostname to rsync over ssh"
     echo "  sync-* - synchronize other directories from the master host, * must be a single word representing a folder inside the backend root"
