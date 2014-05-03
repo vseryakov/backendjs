@@ -43,6 +43,7 @@
 <li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a><ul>
 <li><a href="#custom-aws-instance-setup"> Custom AWS instance setup</a></li>
+<li><a href="#existing-aws-instance"> Existing AWS instance</a></li>
 <li><a href="#aws-beanstalk-deployment"> AWS Beanstalk deployment</a></li>
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 </ul>
@@ -640,8 +641,8 @@ Receive messages, the parameter <code>mtime</code> defines which messages to get
 specify that only messages received since that time to return, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
 Date.now() return in Javascript. The images are not returned, only link to the image in <code>icon</code> property of reach record,
 the actual image data must be retrieved separately.</p>
-<p>When <code>sender</code> is specified then all messages for given sender will be returned.</p>
-<p>When <code>id</code> is specified and i tis not the current account id, then all messages that the current account has sent to the <code>id</code> will be returned, i.e.
+<p>When <code>sender</code> is specified then all messages from given sender will be returned.</p>
+<p>When <code>id</code> is specified and it is not the current account id, then all messages that the current account has sent to the <code>id</code> will be returned, i.e.
 this is how i can get all messages i have sent to the <code>id</code>.</p>
 <p>NOTE: The <code>mtime</code> is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
 also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
@@ -656,7 +657,7 @@ result in mtimes that do not correspond to actual times when the message has bee
   # Get all messages with custom filter: if msg text contains Hi
   /message/get?_keys=id,mtime,msg&amp;_ops=msg,iregexp&amp;msg=Hi
 
-  # Get all messages for specific sender
+  # Get all messages from the specific sender
   /message/get?sender=12345
 
   # Get all messages i have sent to the user 12345
@@ -1310,7 +1311,7 @@ customize the running environment, these should be regular shell scripts using b
 </ul>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <h2 id="custom-aws-instance-setup">Custom AWS instance setup</h2>
-<p>Here is the typical example how to setup new AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
+<p>Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
 new image configuration.</p>
 <ul>
 <li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
@@ -1320,9 +1321,21 @@ new image configuration.</p>
 <li>global system-wide options will be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</li>
 <li>reboot</li>
 <li>login as <code>backend</code> user using the AWS keypair private key</li>
+<li><p>install the backendjs and node:</p>
+<pre><code>  ./bkjs build-node
+  npm install backendjs --backend_deps_force
+</code></pre></li>
+<li><p>reboot and login into the server</p>
+</li>
 <li>run <code>ps agx</code>, it should show several backend processes running</li>
 <li>try to access the instance via HTTP port for the API console or documentation</li>
 </ul>
+<h2 id="existing-aws-instance">Existing AWS instance</h2>
+<p>In case of existing properly setup AWS instance running Linux with Amazon AMI or CentOS, and only needed to start the backendjs as a service, assuming
+node.js is already installed, if not just run <code>./bkjs build-node</code> before the command below:</p>
+<pre><code>    npm install backendjs
+    sudo bkjs init-service
+</code></pre><p>After that the backend will be started by the systen on the next reboot or force the start by <code>sudo service bkjs start</code></p>
 <h2 id="aws-beanstalk-deployment">AWS Beanstalk deployment</h2>
 <p>As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
 Inside the app package etc/config file can be setup for any external connections.</p>
@@ -1438,18 +1451,18 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 </ul>
 </li>
 <li><p>to install all dependencies and make backendjs module and bkjs globally available:</p>
-<pre><code>      npm link
+<pre><code>      npm link backendjs
 </code></pre></li>
 <li><p>to run local server on port 8000 run command:</p>
-<pre><code>  ./bkjs run-backend
+<pre><code>      ./bkjs run-backend
 </code></pre></li>
 <li><p>to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
  This command line access allows you to test and run all functions from all modules of the backend without running full server
  similar to node.js REPL functionality. All modules are accessible from the command line.</p>
-<pre><code>  $ ./bkjs run-shell
-  &gt; core.version
-   &#39;2013.10.20.0&#39;
-  &gt; logger.setDebug(2)
+<pre><code>      $ ./bkjs run-shell
+      &gt; core.version
+      &#39;2013.10.20.0&#39;
+      &gt; logger.setDebug(2)
 </code></pre></li>
 </ul>
 <h1 id="author">Author</h1>
@@ -1684,7 +1697,7 @@ the worker processes if they die and restart them automatically. How many proces
      // All accumulated counters for accounts
      bk_counter: { id: { primary: 1, pub: 1 },                               // account id
                    ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy
-                   like0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },            // who i liked
+                   like0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },        // who i liked
                    like1: { type: &quot;counter&quot;, value: 0 },                     // reversed, who liked me
                    dislike0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },
                    dislike1: { type: &quot;counter&quot;, value: 0 },
