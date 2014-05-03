@@ -141,7 +141,7 @@ public:
     int proto;
 };
 #else
-typedef NNServer BKServer;
+typedef BKServer NNServer;
 #endif
 
 #endif

@@ -67,19 +67,6 @@
 #include <openssl/rand.h>
 #endif
 
-#ifdef __linux__
-#include <linux/rtc.h>
-#include <linux/dvb/frontend.h>
-#include <linux/dvb/dmx.h>
-#include <linux/input.h>
-#include <linux/hidraw.h>
-#include <linux/videodev2.h>
-#include <net/if.h>
-#include <alsa/asoundlib.h>
-#include <mntent.h>
-#include <sys/vfs.h>
-#endif
-
 #include <algorithm>
 #include <vector>
 #include <string>

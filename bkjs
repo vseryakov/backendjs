@@ -127,6 +127,18 @@ case "$ARG" in
          shift;shift
          ;;
 
+      -domain)
+         BACKEND_DOMAIN=$3
+         $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/backendrc
+         shift;shift
+         ;;
+
+      -name)
+         BACKEND_NAME=$3
+         $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/backendrc
+         shift;shift
+         ;;
+
       -user)
          BACKEND_USER=$3
          $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/backendrc
@@ -167,7 +179,7 @@ case "$ARG" in
        cd /home/$BACKEND_USER
        ln -s $BACKEND_PREFIX
        mkdir -p $NODE_PATH
-       ln -s $NODE_PATH
+       cp $0 /home/$BACKEND_USER
        echo "StrictHostKeyChecking no" >> .ssh/config
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys .ssh
        echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
@@ -181,7 +193,7 @@ case "$ARG" in
        echo 'export PGUSER=postgres' >> .bash_profile
        echo 'export PGDATABASE=backend' >> .bash_profile
        chmod -R g-rwx,o-rwx .ssh
-       chown -R $BACKEND_USER /home/$BACKEND_USER
+       chown -R $BACKEND_USER /home/$BACKEND_USER $BACKEND_PREFIX $NODE_PATH
     fi
 
     # Allow only pubkey auth
@@ -357,19 +369,24 @@ case "$ARG" in
 
          if [ ! -f /etc/yum.repos.d/rpmforge.repo ]; then
             echo "Setting up RPM Forge..."
-            rpm -i http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.x86_64.rpm
+            rpm -i http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.3-1.el6.rf.x86_64.rpm
          fi
+         yum -y install postgresql93-devel postgresql93-server
          ;;
 
       amazon)
+         yum -y install postgresql9-devel postgresql9-server
+         ;;
+
+      *)
          ;;
     esac
 
     # Install required packages and utilities
-    yum -y install gcc-c++ make cmake28 autoconf automake libtool
+    yum -y install gcc-c++ make cmake autoconf automake libtool
     yum -y install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
     yum -y install libpng-devel libjpeg-turbo-devel librsvg2-devel
-    yum -y install postgresql93-devel postgresql93-server mysql-devel mysql-server
+    yum -y install mysql-devel mysql-server
     ;;
 
   check-idle)
@@ -685,10 +702,10 @@ case "$ARG" in
     if [ ! -d deps/node ]; then
        mkdir -p deps
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
-       npm config set nodedir "$(pwd)/deps/node"
     fi
     (cd deps/node && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX)
     (cd deps/node && git pull && make install clean)
+    npm config set nodedir "$(pwd)/deps/node"
     ;;
 
   build-deps)
@@ -879,7 +896,7 @@ backend.server.start();
     echo "  stop - stop the backend server"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
     echo "  init - sync the latest software and run the setup phase, this is what is called by the /etc/init.d script symlinked in one of the /etc/rc.d directories"
-    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
+    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-root ROOTDIR] [-doman DOMAIN] [-name HOSTNAME]"
     echo "  run-server - run the backend server process"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  sync - synchronize the backend code from the master server, uses '$BACKEND_MASTER' hostname to rsync over ssh"
