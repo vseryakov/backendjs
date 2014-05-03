@@ -80,9 +80,9 @@
 <li>nanomsg interface for messaging between processes and servers.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
-<li>Hosted on <a href="https://github.com/vseryakov/backendjs">https://github.com/vseryakov/backendjs</a>, BSD licensed.</li>
+<li>Hosted on <a href="http://backendjs.io">http://backendjs.io</a>, BSD licensed.</li>
 </ul>
-<p>Check out the <a href="http://vseryakov.github.io/backendjs/">Documentation</a> for more documentation.</p>
+<p>Check out the <a href="http://backendjs.io">Documentation</a> for more documentation.</p>
 <h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
 <p>The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.</p>
@@ -1467,7 +1467,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 </ul>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
-<p>Check out the <a href="http://vseryakov.github.io/backendjs/">Documentation</a> for more documentation.</p>
+<p>Check out the <a href="http://backendjs.io">Documentation</a> for more documentation.</p>
 <h2 id="configuration-parameters">Configuration parameters</h2>
 <ul>
 <li><code>help</code> - Print help and exit</li>
@@ -1599,7 +1599,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing. Default: </li>
 <li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list</li>
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
-<li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds. Default: 600000</li>
+<li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds. Default: 900000</li>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds. Default: 5000</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes. Default: 10485760</li>
 <li><code>server-max-processes</code> - Max processes to launch for servers. Default: 1</li>
@@ -1986,6 +1986,12 @@ the callback MUST return data back to the client or any other status code</li>
 <ul>
 <li><p><code>api.sendFile(req, res, file, redirect)</code></p>
 <p> Send file back to the client, res is Express response object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendMessage(req, key, data)</code></p>
+<p> Process a message received from subscription server or other even notifier</p>
 </li>
 </ul>
 
@@ -2496,19 +2502,6 @@ type can be bool, number, list, json</p>
 </ul>
 
 <ul>
-<li><p><code>core.initServerMessaging()</code></p>
-<p> Initialize  messaging system for the server process, can be called multiple times in case environment has changed</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.initClientMessaging()</code></p>
-<p> Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
-publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.initClientCaching()</code></p>
 <p> Initialize web worker caching system, can be called anytime the environment has changed</p>
 </li>
@@ -2528,14 +2521,27 @@ reconfiguring itself, this command can be sent by any worker. type can be one of
 </ul>
 
 <ul>
-<li><p><code>core.ipcSubscribe(key, callback)</code></p>
+<li><p><code>core.initServerMessaging()</code></p>
+<p> Initialize  messaging system for the server process, can be called multiple times in case environment has changed</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.initClientMessaging()</code></p>
+<p> Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
+publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.ipcSubscribe(key, callback, data)</code></p>
 <p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
 Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.ipcUnsubscribe(sock, key)</code></p>
+<li><p><code>core.ipcUnsubscribe(key)</code></p>
 <p> Close subscription</p>
 </li>
 </ul>
