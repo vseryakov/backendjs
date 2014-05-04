@@ -15,6 +15,7 @@ var core = require(__dirname + '/core');
 var logger = require(__dirname + '/logger');
 var db = require(__dirname + '/db');
 var aws = require(__dirname + '/aws');
+var ipc = require(__dirname + '/ipc');
 var os = require('os');
 var stream = require('stream');
 var async = require('async');
@@ -240,7 +241,7 @@ server.startWeb = function(callback)
         process.title = core.name + ': server';
 
         // Setup IPC communication
-        core.ipcInitServer();
+        ipc.initServer();
 
         // REPL command prompt over TCP
         if (core.replPortWeb) self.startRepl(core.replPortWeb, core.replBindWeb);
@@ -276,7 +277,7 @@ server.startWeb = function(callback)
         process.title = core.name + ": web"
 
         // Setup IPC communication
-        core.ipcInitClient();
+        ipc.initClient();
 
         // Init API environment
         core.context.api.init(function(err) {

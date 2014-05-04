@@ -25,6 +25,7 @@ var consolidate = require('consolidate');
 var domain = require('domain');
 var metrics = require(__dirname + '/metrics');
 var core = require(__dirname + '/core');
+var ipc = require(__dirname + '/ipc');
 var printf = require('printf');
 var logger = require(__dirname + '/logger');
 var backend = require(__dirname + '/build/Release/backend');
@@ -718,22 +719,7 @@ api.initAccountAPI = function()
             break;
 
         case "subscribe":
-            // Ignore not matching events, the whole string is checked
-            if (req.query.match) req.query.match = new RegExp(req.query.match);
-            req.msgData = {};
-            req.subscribeInterval = self.subscribeInterval;
-            core.ipcSubscribe(req.account.id, self.sendMessage, req);
-
-            // Listen for timeout and ignore it, this way the socket will be alive forever until we close it
-            res.on("timeout", function() {
-                logger.debug('subscribe:', 'timeout', req.account.id);
-                setTimeout(function() { req.socket.destroy(); }, self.subscribeTimeout);
-            });
-            req.on("close", function() {
-                logger.debug('subscribe:', 'close', req.account.id);
-                core.ipcUnsubscribe(req.account.id);
-            });
-            logger.debug('subscribe:', 'start', req.account.id);
+            self.subscribe(req);
             break;
 
         case "select":
@@ -1107,7 +1093,7 @@ api.initSystemAPI = function()
     this.app.all(/^\/system\/msg\/(.+)$/, function(req, res) {
         switch (req.params[0]) {
         case 'init':
-            core.ipcConfigure('msg');
+            ipc.configure('msg');
             break;
         }
     });
@@ -1115,31 +1101,31 @@ api.initSystemAPI = function()
     this.app.all(/^\/system\/cache\/(.+)$/, function(req, res) {
         switch (req.params[0]) {
         case 'init':
-            core.ipcConfigure('cache');
+            ipc.configure('cache');
             break;
         case 'stats':
-            core.ipcStatsCache(function(data) { res.send(data) });
+            ipc.statsCache(function(data) { res.send(data) });
             break;
         case "keys":
-            core.ipcKeysCache(function(data) { res.send(data) });
+            ipc.keysCache(function(data) { res.send(data) });
             break;
         case "get":
-            core.ipcGetCache(req.query.name, function(data) { res.send(data) });
+            ipc.getCache(req.query.name, function(data) { res.send(data) });
             break;
         case "clear":
-            core.ipcClearCache();
+            ipc.clearCache();
             res.json();
             break;
         case "del":
-            core.ipcDelCache(req.query.name);
+            ipc.delCache(req.query.name);
             res.json();
             break;
         case "incr":
-            core.ipcIncrCache(req.query.name, core.toNumber(req.query.value));
+            ipc.incrCache(req.query.name, core.toNumber(req.query.value));
             res.json();
             break;
         case "put":
-            core.ipcPutCache(req.params[0].split("/").pop(), req.query);
+            ipc.putCache(req.params[0].split("/").pop(), req.query);
             res.json();
             break;
         default:
@@ -1405,25 +1391,54 @@ api.sendFile = function(req, res, file, redirect)
     });
 }
 
-// Process a message received from subscription server or other even notifier
+// Subscribe for events, this is used by `/acount/subscribe` API call but can be used in generic way, if no options
+// provided by default it will listen on req.account.id, the default API implementation for Connection, Counter, Messages publish
+// events using account id as a key.
+// - req is always an Express request object
+// - optons may contain the following propertis:
+//    - key - alternative key to subscribe for
+//    - timeout - how long to wait before dropping the connection, default 15 mins
+//    - interval - how often send notifications to the client, this allows buffering several events and notify about them at once instead triggering
+//       event condition every time, useful in case of very frequent events
+//    - match - a regexp that matched the message text, if not matched these events will be dropped
+api.subscribe = function(req, options)
+{
+    if (!options) options = {};
+    req.msgKey = options.key || req.account.id;
+    // Ignore not matching events, the whole string is checked
+    req.msgMatch = options.match ? new RegExp(options.match) : null;
+    req.msgInterval = options.subscribeInterval || this.subscribeInterval;
+    req.msgTimeout = options.timeoput || this.subscribeTimeout;
+    ipc.subscribe(req.msgKey, this.sendMessage, req);
+
+    // Listen for timeout and ignore it, this way the socket will be alive forever until we close it
+    req.res.on("timeout", function() {
+        logger.debug('subscribe:', 'timeout', req.msgKey);
+        setTimeout(function() { req.socket.destroy(); }, req.msgTimeout);
+    });
+    req.on("close", function() {
+        logger.debug('subscribe:', 'close', req.msgKey);
+        ipc.unsubscribe(req.msgKey);
+    });
+    logger.debug('subscribe:', 'start', req.msgKey);
+}
+
+// Process a message received from subscription server or other even notifier, it is used by `api.subscribe` method for delivery events to the clients
 api.sendMessage = function(req, key, data)
 {
+    logger.debug('subscribe:', key, req.socket, data, res.headersSent);
     // If for any reasons the response has been sent we just bail out
-    if (res.headersSent) return core.ipcUnsubscribe(req.account.id);
+    if (req.res.headersSent) return ipc.unsubscribe(key);
     if (typeof data != "string") data = JSON.stringify(data);
-    logger.debug('subscribe:', req.account.id, req.socket, data, res.headersSent);
-    // Filter by matching the whole message
-    if (req.query.match && !data.match(req.query.match)) return;
-    // Check for duplicates within the interval, duplicates from multiple nanomsg pub servers will arrive within the second so we
-    // have a chance to eliminate them here without exposing to the client
-    var hash = core.hash(data);
-    if (req.pubData[hash]) return;
-    req.pubData[hash] = data;
-    if (req.pubTimeout) clearTimeout(req.pubTimeout);
-    req.pubTimeout = setTimeout(function() {
-        if (!res.headersSent) res.type('application/json').send("[" + Object.keys(req.pubData).map(function(x) { return req.pubData[x] }).join(",") + "]");
-        core.ipcUnsubscribe(req.account.id);
-    }, req.subscribeInterval || 5000);
+    // Filter by matching the whole message text
+    if (req.msgMatch && !data.match(req.mgMatch)) return;
+    if (!req.msgData) req.msgData = [];
+    req.msgData.push(data);
+    if (req.msgTimeout) clearTimeout(req.msgTimeout);
+    req.msgTimeout = setTimeout(function() {
+        if (!req.res.headersSent) req.res.type('application/json').send("[" + req.msgData.join(",") + "]");
+        ipc.unsubscribe(key);
+    }, req.msgInterval || 5000);
 }
 
 // Increase a counter, used in /counter/incr API call, options.op can be set to 'put'
@@ -1446,7 +1461,7 @@ api.incrCounters = function(req, options, callback)
 
         // Notify only the other account
         if (obj.id != req.account.id) {
-            core.ipcPublish(obj.id, { path: req.path, mtime: now, type: Object.keys(obj).join(",") });
+            ipc.publish(obj.id, { path: req.path, mtime: now, type: Object.keys(obj).join(",") });
         }
 
         callback(null, rows);
@@ -1513,7 +1528,7 @@ api.putConnections = function(req, options, callback)
                 db.del("bk_connection", { id: req.account.id, type: type + ":" + id });
                 return callback(err);
             }
-            core.ipcPublish(id, { path: req.path, mtime: now, type: type });
+            ipc.publish(id, { path: req.path, mtime: now, type: type });
 
             // We need to know if the other side is connected too, this will save one extra API call later
             if (req.query._connected) {
@@ -1560,7 +1575,7 @@ api.delConnections = function(req, options, callback)
             db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, function(err) {
                 if (err) return callback(err);
 
-                core.ipcPublish(id, { path: req.path, mtime: now, type: type });
+                ipc.publish(id, { path: req.path, mtime: now, type: type });
 
                 callback(null, {});
 
@@ -2023,7 +2038,7 @@ api.addMessage = function(req, options, callback)
             if (err) return callback(db.convertError("bk_message", "add", err));
 
             if (req.query.id != req.account.id) {
-                core.ipcPublish(req.query.id, { path: req.path, mtime: now, type: req.query.icon });
+                ipc.publish(req.query.id, { path: req.path, mtime: now, type: req.query.icon });
             }
 
             callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon });

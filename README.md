@@ -12,7 +12,7 @@ Features:
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
 * Supports several cache modes(Redis, memcached, local cache) for the database operations.
-* Supports several PUB/SUB modes of operatios using nanomsg, Redis.
+* Supports several PUB/SUB modes of operatios using nanomsg, Redis, RabbitMQ.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
 * nanomsg interface for messaging between processes and servers.
@@ -1256,7 +1256,10 @@ The config parameter `msg-host` defines where to publish messages and from where
 better reliability of delivering messages, publishing will be load-balanced between all configured hosts.
 
 ## Redis
-To configure the backend to use Redis for local cache set `msg-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the single Redis server.
+To configure the backend to use Redis for messaging set `msg-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the single Redis server.
+
+## RabbitMQ
+To configure the backend to use RabbitMQ for messaging set `msg-type=amqp` and `amqp-host=HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 
 # Security configurations
 

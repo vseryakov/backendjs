@@ -11,6 +11,7 @@ var path = require('path');
 var backend = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
+var ipc = require(__dirname + '/ipc');
 var aws = require(__dirname + '/aws');
 var cluster = require('cluster');
 var printf = require('printf');
@@ -1092,7 +1093,7 @@ db.getCached = function(table, obj, options, callback)
     var pool = this.getPool(table, options);
     var key = this.getCachedKey(table, obj, options);
     var m = pool.metrics.Timer('cache').start();
-    core.ipcGetCache(key, function(rc) {
+    ipc.getCache(key, function(rc) {
         m.end();
         // Cached value retrieved
         if (rc) {
@@ -1103,7 +1104,7 @@ db.getCached = function(table, obj, options, callback)
         // Retrieve account from the database, use the parameters like in Select function
         self.get(table, obj, options, function(err, row) {
             // Store in cache if no error
-            if (row && !err) core.ipcPutCache(key, core.stringify(row));
+            if (row && !err) ipc.putCache(key, core.stringify(row));
             if (callback) callback(err, row);
         });
     });
@@ -1113,7 +1114,7 @@ db.getCached = function(table, obj, options, callback)
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
 db.clearCached = function(table, obj, options)
 {
-    core.ipcDelCache(this.getCachedKey(table, obj, options));
+    ipc.delCache(this.getCachedKey(table, obj, options));
 }
 
 // Returns concatenated values for the primary keys, this is used for caching records by primary key

@@ -6,6 +6,7 @@
 exports.backend = require(__dirname + '/build/Release/backend');
 exports.core = require(__dirname + '/core');
 exports.logger = require(__dirname + '/logger');
+exports.ipc = require(__dirname + '/ipc');
 exports.aws = require(__dirname + '/aws');
 exports.db = require(__dirname + '/db');
 exports.server = require(__dirname + '/server');

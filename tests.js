@@ -15,6 +15,7 @@ var spawn = require('child_process').spawn;
 var execFile = require('child_process').execFile;
 var backend = require('backendjs')
 core = backend.core;
+ipc = backend.ipc;
 api = backend.api;
 db = backend.db;
 aws = backend.aws;
@@ -792,14 +793,14 @@ tests.nncache = function(callback)
                 if (!Object.keys(cluster.workers).length) process.exit(0);
             });
         }
-        core.ipcInitServer();
+        ipc.initServer();
         cluster.on('exit', function(worker, code, signal) {
             if (Object.keys(cluster.workers).length) return;
             if (slave) process.exit(0);
             if (!pid) process.exit(0);
         });
     } else {
-        core.ipcInitClient();
+        ipc.initClient();
         async.series([
            function(next) {
                logger.log("step 1");
