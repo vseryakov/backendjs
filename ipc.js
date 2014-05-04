@@ -15,17 +15,17 @@ var async = require('async');
 var memcached = require('memcached');
 var redis = require("redis");
 var amqp = require('amqp');
-var amqp = require('amqp');
 
-// The primary object containing all config options and common functions
+// IPC communications between processes and support for caching and messaging
 var ipc = {
     subCallbacks: {},
     msgs: {},
     msgId: 1,
-}
+};
 
 module.exports = ipc;
 
+// This function is called by Web worker process to setup IPC channels and support for cache and messaging
 ipc.initClient = function()
 {
     var self = this;
@@ -53,6 +53,7 @@ ipc.initClient = function()
     });
 }
 
+// This function is called by the Web master server process to setup IPC channels and support for cache and messaging
 ipc.initServer = function()
 {
     var self = this;

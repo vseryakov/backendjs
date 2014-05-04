@@ -1203,6 +1203,7 @@ The basic flow is the following using a hypothetical example:
    _This config parameter can be specified in the local config file on all nodes
    or can be defined in the DNS server as TXT record `cache-host`. If running in the AWS the config parameters also can be specified in
    the user-data the same was as command line arguments._
+
 - any node which is requested for a cached record asks its local cache first for such key and if it is not found, retrieves it from the database and puts into local cache,
    if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db
 - an update request comes to the node3 which deletes a key from the local cache:
@@ -1240,10 +1241,10 @@ The Account API call `/account/subscribe` can use any pub/sub mode.
 
 The flow of the pub/sub operations is the following:
 - a HTTP client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeout`.
-- the API backend receives this request, and runs the `core.ipcSubscribe` method with the key being the account id, this will subscribe to the events for the current
+- the API backend receives this request, and runs the `api.subscribe` method with the key being the account id, this will subscribe to the events for the current
   account and registers a callback to be called if any events occured. The HTTP connection is kept open.
 - some other client makes an API call that triggers an event like makes a connectiopn or sends a message, on such event the backend API handler
-  always runs `core.ipcPublish` after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
+  always runs `ipc.publish` after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
   message being a JSON object with the request API path and mtime, other properties depend on the call made.
 - the connection that initiated `/account/subscribe` receives an event
 

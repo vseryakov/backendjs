@@ -24,14 +24,15 @@
 <li><a href="#backend-directory-structure"> Backend directory structure</a></li>
 <li><a href="#internal-backend-functions"> Internal backend functions</a></li>
 <li><a href="#cache-configurations"> Cache configurations</a><ul>
-<li><a href="#internal-with-nanomsg"> Internal with nanomsg</a></li>
-</ul>
-</li>
+<li><a href="#nanomsg"> nanomsg</a></li>
 <li><a href="#memcached"> memcached</a></li>
 <li><a href="#redis"> Redis</a></li>
+</ul>
+</li>
 <li><a href="#pub-sub-configurations"> PUB/SUB configurations</a><ul>
-<li><a href="#internal-with-nanomsg"> Internal with nanomsg</a></li>
+<li><a href="#nanomsg"> nanomsg</a></li>
 <li><a href="#redis"> Redis</a></li>
+<li><a href="#rabbitmq"> RabbitMQ</a></li>
 </ul>
 </li>
 <li><a href="#security-configurations"> Security configurations</a><ul>
@@ -57,6 +58,7 @@
 <li><a href="#module-aws">aws</a></li>
 <li><a href="#module-core">core</a></li>
 <li><a href="#module-db">db</a></li>
+<li><a href="#module-ipc">ipc</a></li>
 <li><a href="#module-logger">logger</a></li>
 <li><a href="#module-server">server</a></li>
 </ul>
@@ -74,7 +76,7 @@
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Local jobs are executed by spawned processes</li>
 <li>Supports several cache modes(Redis, memcached, local cache) for the database operations.</li>
-<li>Supports several PUB/SUB modes of operatios using nanomsg, Redis.</li>
+<li>Supports several PUB/SUB modes of operatios using nanomsg, Redis, RabbitMQ.</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
 <li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
 <li>nanomsg interface for messaging between processes and servers.</li>
@@ -1158,32 +1160,32 @@ will pull it from the database and on success will store it in the cache before 
 that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
 and refresh the cache, that is <code>{ cached: true }</code> can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
 it is required to clear cache manually there is <code>db.clearCached</code> method for that.</p>
-<h2 id="internal-with-nanomsg">Internal with nanomsg</h2>
+<h2 id="nanomsg">nanomsg</h2>
 <p>For cache management signaling, all servers maintain local cache per machine, it is called <code>LRU</code> cache. This cache is maintained in the master Web process and
-serves all Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (<code>cache-port=20194</code>)
+serves all local Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (<code>cache-port=20194</code>)
 from other backend nodes. Every time any Web worker updates the local cache, its master process re-broadcasts the same request to other connected Web master
 processes on other nodes thus keeping in sync caches on all nodes.</p>
 <p>The basic flow is the following using a hypothetical example:</p>
 <ul>
 <li>there are 4 nodes running in the network: node1, node2, node3 and node4, instead of the names nodeX we can use IP addresses as well.</li>
 <li>all nodes configured with the parameter <code>cache-host=node1,node2</code></li>
-<li>nanomsg sockets may be connected to multiple endpoints, so we can have 2 cache servers for redundency. This config parameter can be specified in the local config file on all nodes
- or can be defined in the DNS server as TXT record <code>cache-host</code>. If running in AWS the config parameters also can be specified in the user-data the same was as command line arguments.</li>
-<li>any node which is requested for a cached record asks its local cache for such key and if it not found, retrieves it from the database and puts into local cache,
- if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db</li>
-<li>An update request comes to the node3 which deletes a key from the local cache:<ul>
+<li><p>nanomsg sockets may be connected to multiple endpoints, so we can have 2 cache servers for redundency.</p>
+<p> <em>This config parameter can be specified in the local config file on all nodes
+ or can be defined in the DNS server as TXT record <code>cache-host</code>. If running in the AWS the config parameters also can be specified in
+ the user-data the same was as command line arguments.</em></p>
+</li>
+<li><p>any node which is requested for a cached record asks its local cache first for such key and if it is not found, retrieves it from the database and puts into local cache,
+ if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db</p>
+</li>
+<li>an update request comes to the node3 which deletes a key from the local cache:<ul>
 <li>node3 also sends &#39;del&#39; request for the requested key to both node1 and node2 servers via connected sockets because of <code>cache-host</code> config parameter</li>
 <li>node1 and node2 servers receive &#39;del&#39; request and delete the key from their local caches</li>
 <li>node1 and node2 re-send same request to all connected clients which are actually all nodes in the network, so all nodes receive &#39;del&#39; cache request</li>
 <li>because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
-costs nothing, both requests will be received within milliseonds from each other.</li>
-<li>next request to any of the nodes for that key we just deleted will result in retrieving the record from the database and putting back to the local cache
-of the node until the next &#39;del&#39; request.</li>
+costs nothing, both requests will be received within milliseconds from each other.</li>
+<li>next request to any of the nodes for that key we just deleted will result in retrieving the record from the database and putting back to the local cache again</li>
 <li>Important: each node maintains its own version of the cache, i.e. all nodes do not have exactly the same
-items in the cache, over time they all retieve same records but only on demand and when one node puts an item in the cache it is not sent to all other nodes.
-To make the cache synhronized set <code>cache-sync=1</code>, in this case all cache commands will be sent to all nodes, with multiple broadcast nodes
-the same item will be sent multiple times from each broadcast node, this is why it is disabled by default, sending &#39;del&#39; multiple times does not add
-much overhead as opposed to re-sending actual items.</li>
+items in the cache, over time they all retieve same records but only on demand and when one node puts an item in the cache it is not sent to all other nodes.</li>
 </ul>
 </li>
 </ul>
@@ -1193,46 +1195,36 @@ what <code>memcached</code> or <code>Redis</code> server would do as well.</p>
 internal backend cache system is self contained and does not need additional external resources, any node can be LRU server whose only role is to make sure all other
 nodes flush their caches if needed. Using redundant broadcast servers makes sure such flush requests reach all nodes in the cluster and there is no single point of failure.</p>
 <p>Essentually, setting <code>cache-host</code> to the list of any nodes in the network is what needs to be done to support distributed cache with nanomsg sockets.</p>
-<h1 id="memcached">memcached</h1>
+<h2 id="memcached">memcached</h2>
 <p>Setting <code>cache-type=memcache</code> and pointing <code>memcache-host</code> to one or more hosts running memcached servers is what needs to be done only, the rest of the
 system works similar to the internal nanomsg caching but using memcache client instead. The great benefit using memcache is to configure more than one
 server in <code>memcache-host</code> separated by comma which makes it more reliable and eliminates single point of failure if one of the memcache servers goes down.</p>
-<h1 id="redis">Redis</h1>
-<p>Set <code>cache-type=redis</code> and point <code>redis-host</code> to the server running Redis server. Only single redis server can be specified.</p>
+<h2 id="redis">Redis</h2>
+<p>Set <code>cache-type=redis</code> and point <code>redis-host</code> to the server running Redis server. Only single Redis server can be specified.</p>
 <h1 id="pub-sub-configurations">PUB/SUB configurations</h1>
 <p>Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
 the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
 The Account API call <code>/account/subscribe</code> can use any pub/sub mode.</p>
 <p>The flow of the pub/sub operations is the following:</p>
 <ul>
-<li>a client makes <code>/account/subscribe</code> API request, the connection is made and is kept open indefenitely or as long as configured using <code>api-subscribe-timeput</code>.</li>
-<li>the backend receives this request, and runs the <code>core.ipcSubscribe</code> method with the key being the account id<ul>
-<li>if nanomsg pub/sub hosts are configured, the method connect to the sub hosts with the subscription key and wait for the events to be published</li>
+<li>a HTTP client makes <code>/account/subscribe</code> API request, the connection is made and is kept open indefenitely or as long as configured using <code>api-subscribe-timeout</code>.</li>
+<li>the API backend receives this request, and runs the <code>api.subscribe</code> method with the key being the account id, this will subscribe to the events for the current
+account and registers a callback to be called if any events occured. The HTTP connection is kept open.</li>
+<li>some other client makes an API call that triggers an event like makes a connectiopn or sends a message, on such event the backend API handler
+always runs <code>ipc.publish</code> after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
+message being a JSON object with the request API path and mtime, other properties depend on the call made.</li>
+<li>the connection that initiated <code>/account/subscribe</code> receives an event</li>
 </ul>
-</li>
-<li>some other client makes an API call that triggers an event, like update a counter, sends a message, on such event the backend
-always runs <code>core.ipcPublish</code> method and if there is no publish host configured nothing happens.
-If there is a host to publish, it sends the message to it, the message being a JSON object with the request API path and mtime, other properties depend on the call made.</li>
-<li>this step depends on the pub/sub system being used:<ul>
-<li>nanomsg, the publish server receives nanomsg request and re-broadcasts it to all subscription servers connected, there can be more than one pub/sub host configured for
-redundancy purposes and to eliminate single point of failure. All subscription servers will receive the published message and send it to the connected HTTP clients
-with matched subscribed key.</li>
-<li>redis, uses native Redis pub/sub system, every client directly connected to the redis server and subscribed to the events</li>
-</ul>
-</li>
-<li>the client who issued <code>/account/subscribe</code> command may receive the same event more than once, this is expected behaiviour,
-it is responsibility of the client to handle duplicates at this moment, this may change in the future.</li>
-</ul>
-<h2 id="internal-with-nanomsg">Internal with nanomsg</h2>
+<h2 id="nanomsg">nanomsg</h2>
 <p>To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with <code>--backend_deps_force</code>
 options to the npm install, see above how to install the package.</p>
 <p>All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
 The config parameter <code>msg-host</code> defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
-better reliability of delivering messages but may result in message duplication in some cases when some servers are much slower than others for any reason.</p>
+better reliability of delivering messages, publishing will be load-balanced between all configured hosts.</p>
 <h2 id="redis">Redis</h2>
-<p>To configure the backend to use Redis for local cache set <code>msg-type=redis</code> and <code>redis-host=HOST</code> where HOST is IP address or hostname of the redis server.
-After that all cache requests will be directed to that redis server. The work flow itself is similar to nanomsg internal system, just instead of nanomsg sockets redis
-client is used.</p>
+<p>To configure the backend to use Redis for messaging set <code>msg-type=redis</code> and <code>redis-host=HOST</code> where HOST is IP address or hostname of the single Redis server.</p>
+<h2 id="rabbitmq">RabbitMQ</h2>
+<p>To configure the backend to use RabbitMQ for messaging set <code>msg-type=amqp</code> and <code>amqp-host=HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.</p>
 <h1 id="security-configurations">Security configurations</h1>
 <h2 id="api-only">API only</h2>
 <p>This is default setup of the backend when all API requests except <code>/account/add</code> must provide valid signature and all HTML, Javascript, CSS and image files
@@ -1335,7 +1327,7 @@ new image configuration.</p>
 node.js is already installed, if not just run <code>./bkjs build-node</code> before the command below:</p>
 <pre><code>    npm install backendjs
     sudo bkjs init-service
-</code></pre><p>After that the backend will be started by the systen on the next reboot or force the start by <code>sudo service bkjs start</code></p>
+</code></pre><p>After that the backend will be started by the systen on the next reboot or force the start by <code>sudo service backendjs start</code></p>
 <h2 id="aws-beanstalk-deployment">AWS Beanstalk deployment</h2>
 <p>As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
 Inside the app package etc/config file can be setup for any external connections.</p>
@@ -1519,18 +1511,18 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes. Default: 10000</li>
 <li><code>no-msg</code> - Disable nanomsg messaging sockets</li>
 <li><code>msg-port</code> - Ports to use for nanomsg sockets for message publish and subscribe, 2 ports will be used, this one and the next. Default: 20195</li>
-<li><code>msg-type</code> - One of the redis or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets</li>
+<li><code>msg-type</code> - One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets</li>
 <li><code>msg-host</code> - Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used. DNS TXT configurable.</li>
 <li><code>memcache-host</code> - List of memcached servers for cache messages: IP[:port],host[:port]... DNS TXT configurable.</li>
 <li><code>memcache-options</code> - JSON object with options to the Memcached client, see npm doc memcached</li>
 <li><code>redis-host</code> - Address to Redis server for cache messages. DNS TXT configurable.</li>
 <li><code>redis-options</code> - JSON object with options to the Redis client, see npm doc redis</li>
+<li><code>amqp-host</code> - Host running RabbitMQ</li>
 <li><code>amqp-options</code> - JSON object with options to the AMQP client, see npm doc amqp</li>
 <li><code>cache-type</code> - One of the redis or memcache to use for caching in API requests</li>
 <li><code>cache-host</code> - Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used. DNS TXT configurable.</li>
 <li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests. Default: 20194</li>
 <li><code>no-cache</code> - Disable caching, all gets will result in miss and puts will have no effect</li>
-<li><code>cache-sync</code> - Maintain all caches in sync when using nanomsg, put/incr commands will be broadcasted, otherwise only del commands</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
@@ -1990,8 +1982,27 @@ the callback MUST return data back to the client or any other status code</li>
 </ul>
 
 <ul>
+<li><p><code>api.subscribe(req, options)</code></p>
+<p> Subscribe for events, this is used by <code>/acount/subscribe</code> API call but can be used in generic way, if no options
+provided by default it will listen on req.account.id, the default API implementation for Connection, Counter, Messages publish
+events using account id as a key.</p>
+<ul>
+<li>req is always an Express request object</li>
+<li>optons may contain the following propertis:<ul>
+<li>key - alternative key to subscribe for</li>
+<li>timeout - how long to wait before dropping the connection, default 15 mins</li>
+<li>interval - how often send notifications to the client, this allows buffering several events and notify about them at once instead triggering
+ event condition every time, useful in case of very frequent events</li>
+<li>match - a regexp that matched the message text, if not matched these events will be dropped</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.sendMessage(req, key, data)</code></p>
-<p> Process a message received from subscription server or other even notifier</p>
+<p> Process a message received from subscription server or other even notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
 </li>
 </ul>
 
@@ -2492,63 +2503,6 @@ type can be bool, number, list, json</p>
 <ul>
 <li><p><code>core.retrieveConfig(callback)</code></p>
 <p> Retrieve config parameters from the db, network, dns...</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.initServerCaching()</code></p>
-<p> Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.initClientCaching()</code></p>
-<p> Initialize web worker caching system, can be called anytime the environment has changed</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.ipcSend(op, name, value, callback)</code></p>
-<p> Send cache command to the master process via IPC messages, callback is used for commands that return value back</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.ipcConfigure(type)</code></p>
-<p> Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
-reconfiguring itself, this command can be sent by any worker. type can be one of cche or msg</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.initServerMessaging()</code></p>
-<p> Initialize  messaging system for the server process, can be called multiple times in case environment has changed</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.initClientMessaging()</code></p>
-<p> Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
-publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.ipcSubscribe(key, callback, data)</code></p>
-<p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
-Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.ipcUnsubscribe(key)</code></p>
-<p> Close subscription</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.ipcPublish(key, data)</code></p>
-<p> Publish an event to be sent to the subscribed clients</p>
 </li>
 </ul>
 
@@ -4265,6 +4219,88 @@ Options can define the following:</p>
 <ul>
 <li>socket - nanomsg socket type, default is backend.NN_PUSH, can be backend.NN_REQ</li>
 </ul>
+</li>
+</ul>
+
+<h2 id="module-ipc">Module: IPC</h2>
+<ul>
+<li><p><code>ipc</code></p>
+<p> IPC communications between processes and support for caching and messaging</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initClient()</code></p>
+<p> This function is called by Web worker process to setup IPC channels and support for cache and messaging</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initServer()</code></p>
+<p> This function is called by the Web master server process to setup IPC channels and support for cache and messaging</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initServerCaching()</code></p>
+<p> Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initClientCaching()</code></p>
+<p> Initialize web worker caching system, can be called anytime the environment has changed</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.send(op, name, value, callback)</code></p>
+<p> Send cache command to the master process via IPC messages, callback is used for commands that return value back</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.connect(sock, hosts, port)</code></p>
+<p> Return list of hosts the socket need to connect to, it checks already connected hosts and returns only new ones</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.configure(type)</code></p>
+<p> Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
+reconfiguring itself, this command can be sent by any worker. type can be one of cche or msg</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initServerMessaging()</code></p>
+<p> Initialize messaging system for the server process, can be called multiple times in case environment has changed</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initClientMessaging()</code></p>
+<p> Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
+publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.subscribe(key, callback, data)</code></p>
+<p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
+Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.unsubscribe(key)</code></p>
+<p> Close subscription</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.publish(key, data)</code></p>
+<p> Publish an event to be sent to the subscribed clients</p>
 </li>
 </ul>
 
