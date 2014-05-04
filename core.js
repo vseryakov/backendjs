@@ -24,6 +24,7 @@ var redis = require("redis");
 var amqp = require('amqp');
 var uuid = require('uuid');
 var dns = require('dns');
+var amqp = require('amqp');
 
 // The primary object containing all config options and common functions
 var core = {
@@ -170,7 +171,6 @@ var core = {
             { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used" },
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
-            { name: "cache-sync", type: "bool", descr: "Maintain all caches in sync when using nanomsg, put/incr commands will be broadcasted, otherwise only del commands" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
@@ -634,13 +634,11 @@ core.ipcInitServer = function()
                 case 'put':
                     if (msg.name && msg.name) backend.lruSet(msg.name, msg.value);
                     if (msg.reply) worker.send({});
-                    if (self.lruSocket && self.cacheSync) self.lruSocket.send(msg.name + "\1" + msg.value);
                     break;
 
                 case 'incr':
                     if (msg.name && msg.value) backend.lruIncr(msg.name, msg.value);
                     if (msg.reply) worker.send({});
-                    if (self.lruSocket && self.cacheSync) self.lruSocket.send(msg.name + "\2" + msg.value);
                     break;
 
                 case 'del':
@@ -677,15 +675,14 @@ core.initServerCaching = function()
         if (!backend.NNSocket || this.noCache) break;
         var port = this.cachePort;
 
-        if (this.lruSocket instanceof backend.NNSocket) delete this.lruSocket;
-        this.lruSocket = null;
-
         // Send cache requests to the LRU hosts to be broadcasted to all other servers
         if (this.cacheHost) {
             try {
-                var hosts = this.strSplit(this.cacheHost).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); });
-                this.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
-                this.lruSocket.connect(hosts);
+                var hosts = this.strSplit(this.cacheHost).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
+                if (this.lruSocket instanceof backend.NNSocket && this.lruSocket.address != hosts) {
+                    this.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
+                    this.lruSocket.connect(hosts);
+                }
             } catch(e) {
                 logger.error('initServerCaching:', self.cacheHost, e);
                 this.lruSocket = null;
@@ -920,20 +917,17 @@ core.ipcIncrCache = function(key, val)
     }
 }
 
-// Initialize  messaging system for the server process, can be called multiple times in case environment has changed
+// Initialize messaging system for the server process, can be called multiple times in case environment has changed
 core.initServerMessaging = function()
 {
     switch (this.msgType || "") {
     case "redis":
         break;
 
-    case "amqp":
-        break;
-
     default:
         if (!backend.NNSocket || this.noMsg) break;
 
-        // Subscription server, clients connect to it and listen for events, how events get published is no concern for this socket
+        // Subscription server, clients connect to it, subscribe and listen for events published to it
         if (!this.subServerSocket) {
             try {
                 this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
@@ -944,7 +938,8 @@ core.initServerMessaging = function()
             }
         }
 
-        // Publish server, it is where the clients send events to, it will forward them to the sub socket which will distribute to the subscribed clients
+        // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
+        // which will distribute to all subscribed clients
         if (!this.pubServerSocket) {
             try {
                 this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
@@ -967,6 +962,21 @@ core.initClientMessaging = function()
     var self = this;
 
     switch (this.msgType || "") {
+    case "amqp":
+        if (!this.amqpOptions) break;
+        this.amqpClient = amqp.createConnection(this.amqpOptions || {});
+        this.amqpClient.on('ready', function() {
+            this.amqpClient.queue('', function(q) {
+                self.amqpQueue = q;
+                q.subscribe(function(message, headers, info) {
+                    var cb = self.subCallbacks[info.routingKey];
+                    if (!cb) cb[0](cb[1], info.routingKey, message);
+                });
+            });
+        });
+        this.amqpClient.on("error", function(err) { logger.error('amqp:', err); })
+        break;
+
     case "redis":
         if (!redisHost) break;
         try {
@@ -981,9 +991,6 @@ core.initClientMessaging = function()
             logger.error('initClientMessaging:', e);
             this.redisSubClient = null;
         }
-        break;
-
-    case "amqp":
         break;
 
     default:
@@ -1032,6 +1039,9 @@ core.ipcSubscribe = function(key, callback, data)
             break;
 
         case "amqp":
+            if (!this.amqpQueue) break;
+            this.subCallbacks[key] = [ callback, data ];
+            this.amqpQueue.bind(key);
             break;
 
         default:
@@ -1056,6 +1066,8 @@ core.ipcUnsubscribe = function(key)
             break;
 
         case "amqp":
+            if (!this.amqpQueue) break;
+            this.amqpQueue.unsubscribe(key);
             break;
 
         default:
@@ -1078,6 +1090,8 @@ core.ipcPublish = function(key, data)
             break;
 
         case "amqp":
+            if (!this.amqpClient) break;
+            this.amqpClient.publish(key, data);
             break;
 
         default:

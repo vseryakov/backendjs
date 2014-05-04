@@ -4,12 +4,15 @@
 #  Sep 2013
 #
 # chkconfig: 2345 70 70
-# description: Backendjs server
+# description: $BKJS server
 #
 
+BKRC=backendrc
+BKJS=backendjs
+
 # Host specific settings and environment variables
-[ -f /etc/backendrc ] && . /etc/backendrc
-[ -f /usr/local/etc/backendrc ] && . /usr/local/etc/backendrc
+[ -f /etc/$BKRC ] && . /etc/$BKRC
+[ -f /usr/local/etc/$BKRC ] && . /usr/local/etc/$BKRC
 
 [ "$BACKEND_ROOT" = "" ] && BACKEND_ROOT=~/.backend
 [ -f $BACKEND_ROOT/etc/profile ] && . $BACKEND_ROOT/etc/profile
@@ -21,7 +24,6 @@
 [ "$BACKEND_UPTIME" = "" ] && BACKEND_UPTIME=43200
 [ "$BACKEND_SSH_ARGS" = "" ] && BACKEND_SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
 
-BKJS=backendjs
 HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
 case "$PLATFORM" in
@@ -109,31 +111,31 @@ case "$ARG" in
 
   setup-server)
     # Optional config parametrrs for the environment
-    rm -rf /etc/backendrc
+    rm -rf /etc/$BKRC
     while [ $# -gt 1 ]; do
       case "$2" in
       -root)
          BACKEND_ROOT=$3
-         $ECHO "BACKEND_ROOT=$BACKEND_ROOT" >> /etc/backendrc
+         $ECHO "BACKEND_ROOT=$BACKEND_ROOT" >> /etc/$BKRC
          shift;shift
          ;;
 
       -domain)
          BACKEND_DOMAIN=$3
-         $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/backendrc
+         $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
          shift;shift
          ;;
 
       -name)
          BACKEND_NAME=$3
-         $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/backendrc
+         $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/$BKRC
          shift;shift
          ;;
 
       -user)
          BACKEND_USER=$3
-         $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/backendrc
-         $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -uid $(id -u $BACKEND_USER)\"" >> /etc/backendrc
+         $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
+         $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
          shift;shift
          ;;
       esac
@@ -163,28 +165,24 @@ case "$ARG" in
     if [ "$(grep $BACKEND_USER /etc/passwd)" = "" ]; then
        echo "Adding user $BACKEND_USER..."
        useradd -g 0 -u $BACKEND_UID -m $BACKEND_USER
-       echo "$BACKEND_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/backend
-       echo "Defaults env_keep += \"NODE_PATH\"" >> /etc/sudoers.d/backend
-       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin" >> /etc/sudoers.d/backend
+       echo "$BACKEND_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
+       echo "Defaults env_keep += \"NODE_PATH\"" >> /etc/sudoers.d/$BKJS
+       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin" >> /etc/sudoers.d/$BKJS
        mkdir -p /home/$BACKEND_USER/.ssh
        cd /home/$BACKEND_USER
-       ln -s $BACKEND_PREFIX
-       mkdir -p $NODE_PATH
-       cp $0 /home/$BACKEND_USER
-       echo "StrictHostKeyChecking no" >> .ssh/config
+       mv $0 /home/$BACKEND_USER
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys .ssh
        echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
-       echo 'alias blog="tail -100 $BACKEND_ROOT/log/backend.log"' >> .bashrc
+       echo "alias blog=\"tail -100 $BACKEND_ROOT/log/backend.log\"" >> .bashrc
        echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> .bashrc
        echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
        echo 'alias ps="ps augx"' >> .bashrc
        echo 'alias mc="mc -b"' >> .bashrc
        echo 'ulimit -c unlimited' >> .bash_profile
-       echo 'export JAVA_HOME=/usr' >> .bash_profile
        echo 'export PGUSER=postgres' >> .bash_profile
        echo 'export PGDATABASE=backend' >> .bash_profile
        chmod -R g-rwx,o-rwx .ssh
-       chown -R $BACKEND_USER /home/$BACKEND_USER $BACKEND_PREFIX $NODE_PATH
+       chown -R $BACKEND_USER /home/$BACKEND_USER $BACKEND_PREFIX
     fi
 
     # Allow only pubkey auth
@@ -296,9 +294,9 @@ case "$ARG" in
     fi
 
     # Setup environment files
-    echo "export PATH=$PATH" > /etc/profile.d/backend.sh
-    echo "export PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> /etc/profile.d/backend.sh
-    echo "export NODE_PATH=$NODE_PATH" >> /etc/profile.d/backend.sh
+    echo "export PATH=$PATH" > /etc/profile.d/$BKJS.sh
+    echo "export PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> /etc/profile.d/$BKJS.sh
+    echo "export NODE_PATH=$NODE_PATH" >> /etc/profile.d/$BKJS.sh
     echo "$BACKEND_PREFIX/lib" > /etc/ld.so.conf.d/local.conf
     postfix reload
     ldconfig
@@ -379,8 +377,8 @@ case "$ARG" in
     ;;
 
   init-service)
-    ln -sf $BACKEND_PREFIX/bin/bkjs /etc/init.d/bkjs
-    chkconfig bkjs on
+    ln -sf $BACKEND_PREFIX/bin/$BKJS /etc/init.d/$BKJS
+    chkconfig $BKJS on
     ;;
 
   check-idle)
@@ -398,31 +396,6 @@ case "$ARG" in
        logger "Too long running, $uptime/$BACKEND_UPTIME, shutting down..."
        /sbin/halt
     fi
-    ;;
-
-  sync)
-    # Sync code from the master
-    [ "$BACKEND_MASTER" = "" ] && exit
-    su - $BACKEND_USER -c "rsync -aq --delete-after -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_PREFIX/bin/ $BACKEND_PREFIX/bin"
-    su - $BACKEND_USER -c "rsync -aq --delete-after -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_PREFIX/include/ $BACKEND_PREFIX/include"
-    su - $BACKEND_USER -c "rsync -aqFF --delete-after -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_PREFIX/lib/ $BACKEND_PREFIX/lib"
-    ldconfig
-    ;;
-
-  sync-*)
-    [ "$BACKEND_MASTER" = "" ] && exit
-    dir=${ARG:5}
-    case "$dir" in
-      del-*)
-        dir=${dir:4}
-        args="--delete-after"
-        ;;
-      *)
-        args=""
-        ;;
-    esac
-    mkdir -p $BACKEND_ROOT/$dir
-    su - $BACKEND_USER -c "rsync -aqFF $args -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_ROOT/$dir/ $BACKEND_ROOT/$dir"
     ;;
 
   ntp)
@@ -530,7 +503,7 @@ case "$ARG" in
     ;;
 
   get-dynamodb)
-    if [ ! -d $DYNAMODB_PEFIX ]; then
+    if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
        curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2014-04-24.tar.gz
        tar -C $DYNAMODB_PREFIX --strip-components=1 -xzf ddb.tar.gz
@@ -625,6 +598,7 @@ case "$ARG" in
     ;;
 
   put-backend)
+    # Put backend code to the remote site
     path=node_modules/$BKJS
     while [ $# -gt 1 ]; do
       case "$2" in
@@ -643,7 +617,21 @@ case "$ARG" in
     rsync -av -e "ssh -l $BACKEND_USER" web $BACKEND_MASTER:$path
     ;;
 
-  run-backend|run-server|run-shell|backendjs|bksh)
+  sync-backend)
+    # Sync code from the master, only inside backend home
+    while [ $# -gt 1 ]; do
+      case "$2" in
+      -delete-after) args="$args --delete-after";shift;;
+      -root) BACKEND_SYNC_DIR=$3;shift;shift;;
+      -host) BACKEND_MASTER=$3;shift;shift;;
+      -exclude) args="$args --exclude $3";shift;shift;;
+      esac
+    done
+    [ "$BACKEND_MASTER" = "" -o "$BACKEND_SYNC_DIR" = "" ] && exit
+    su - $BACKEND_USER -c "rsync -aqFF $args -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_SYNC_DIR/ $BACKEND_ROOT"
+    ;;
+
+  run-backend|run-server|run-shell|$BKJS|bksh)
     [ -f $NODE_BACKEND/server.js ] && SCRIPT=$NODE_BACKEND/server.js
     [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
     [ -f server.js ] && SCRIPT=server.js
@@ -658,7 +646,7 @@ case "$ARG" in
         if [[ $BACKEND_ARGS = *-init-server* ]]; then
            ($0 init-server)
         fi
-        # Run the backendjs now
+        # Run the $BKJS now
         $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -daemon -monitor -syslog $BACKEND_ARGS $@
         ;;
 
@@ -667,7 +655,7 @@ case "$ARG" in
         $BACKEND_PREFIX/bin/node $SCRIPT -debug -watch `pwd` -home $BACKEND_ROOT -master -web $@
         ;;
 
-     backendjs)
+     $BKJS)
         killall node
         $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -master -web $@
         ;;
@@ -895,11 +883,9 @@ backend.server.start();
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
     echo "  init-server - sync the latest software if master is configured and run the setup phase iwth setup-server command"
     echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-root ROOTDIR] [-doman DOMAIN] [-name HOSTNAME]"
-    echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/bkjs after which regular 'service' command can be used to manage the backendjs service"
-    echo "  run-server - run the backend server process, if -init-server argument passed it will run init-server command before starting the backendjs daemon"
+    echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
+    echo "  run-server - run the backend server process, if -init-server argument passed it will run init-server command before starting the $BKJS daemon"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
-    echo "  sync - synchronize the backend code from the master server, uses '$BACKEND_MASTER' hostname to rsync over ssh"
-    echo "  sync-* - synchronize other directories from the master host, * must be a single word representing a folder inside the backend root"
     echo "  ntp - run ntpdate to keep local clock"
     echo "  backup - run the backup script, store in $BACKEND_ROOT/backup"
     echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"
@@ -929,6 +915,7 @@ backend.server.start();
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  init-backend - init core backend environment, for the core development only, links NPM global backend module $NODE_BACKEND back to this sources"
     echo "  put-backend path [-host host] - push the backend code to the master server, uses env BACKEND_MASTER or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, there files are only added, never removed"
+    echo "  sync-backend [-host host] [-path path] [-delete-after] [-root remote-root] - synchronize other directories from the master host, runs on the instance"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"

@@ -720,7 +720,6 @@ api.initAccountAPI = function()
         case "subscribe":
             // Ignore not matching events, the whole string is checked
             if (req.query.match) req.query.match = new RegExp(req.query.match);
-
             req.msgData = {};
             req.subscribeInterval = self.subscribeInterval;
             core.ipcSubscribe(req.account.id, self.sendMessage, req);
@@ -732,7 +731,7 @@ api.initAccountAPI = function()
             });
             req.on("close", function() {
                 logger.debug('subscribe:', 'close', req.account.id);
-                req.pubSock = core.ipcUnsubscribe(req.account.id);
+                core.ipcUnsubscribe(req.account.id);
             });
             logger.debug('subscribe:', 'start', req.account.id);
             break;

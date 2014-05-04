@@ -1187,10 +1187,10 @@ that must be passed to all put/update/del database methods in order to clear loc
 and refresh the cache, that is `{ cached: true }` can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
 it is required to clear cache manually there is `db.clearCached` method for that.
 
-## Internal with nanomsg
+## nanomsg
 
 For cache management signaling, all servers maintain local cache per machine, it is called `LRU` cache. This cache is maintained in the master Web process and
-serves all Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (`cache-port=20194`)
+serves all local Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (`cache-port=20194`)
 from other backend nodes. Every time any Web worker updates the local cache, its master process re-broadcasts the same request to other connected Web master
 processes on other nodes thus keeping in sync caches on all nodes.
 
@@ -1198,23 +1198,22 @@ The basic flow is the following using a hypothetical example:
 
 - there are 4 nodes running in the network: node1, node2, node3 and node4, instead of the names nodeX we can use IP addresses as well.
 - all nodes configured with the parameter `cache-host=node1,node2`
-- nanomsg sockets may be connected to multiple endpoints, so we can have 2 cache servers for redundency. This config parameter can be specified in the local config file on all nodes
-   or can be defined in the DNS server as TXT record `cache-host`. If running in AWS the config parameters also can be specified in the user-data the same was as command line arguments.
-- any node which is requested for a cached record asks its local cache for such key and if it not found, retrieves it from the database and puts into local cache,
+- nanomsg sockets may be connected to multiple endpoints, so we can have 2 cache servers for redundency.
+
+   _This config parameter can be specified in the local config file on all nodes
+   or can be defined in the DNS server as TXT record `cache-host`. If running in the AWS the config parameters also can be specified in
+   the user-data the same was as command line arguments._
+- any node which is requested for a cached record asks its local cache first for such key and if it is not found, retrieves it from the database and puts into local cache,
    if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db
-- An update request comes to the node3 which deletes a key from the local cache:
+- an update request comes to the node3 which deletes a key from the local cache:
    - node3 also sends 'del' request for the requested key to both node1 and node2 servers via connected sockets because of `cache-host` config parameter
    - node1 and node2 servers receive 'del' request and delete the key from their local caches
    - node1 and node2 re-send same request to all connected clients which are actually all nodes in the network, so all nodes receive 'del' cache request
    - because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
-     costs nothing, both requests will be received within milliseonds from each other.
-   - next request to any of the nodes for that key we just deleted will result in retrieving the record from the database and putting back to the local cache
-     of the node until the next 'del' request.
+     costs nothing, both requests will be received within milliseconds from each other.
+   - next request to any of the nodes for that key we just deleted will result in retrieving the record from the database and putting back to the local cache again
    - Important: each node maintains its own version of the cache, i.e. all nodes do not have exactly the same
      items in the cache, over time they all retieve same records but only on demand and when one node puts an item in the cache it is not sent to all other nodes.
-     To make the cache synhronized set `cache-sync=1`, in this case all cache commands will be sent to all nodes, with multiple broadcast nodes
-     the same item will be sent multiple times from each broadcast node, this is why it is disabled by default, sending 'del' multiple times does not add
-     much overhead as opposed to re-sending actual items.
 
 For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliably and similar to
 what `memcached` or `Redis` server would do as well.
@@ -1225,13 +1224,13 @@ nodes flush their caches if needed. Using redundant broadcast servers makes sure
 
 Essentually, setting `cache-host` to the list of any nodes in the network is what needs to be done to support distributed cache with nanomsg sockets.
 
-# memcached
+## memcached
 Setting `cache-type=memcache` and pointing `memcache-host` to one or more hosts running memcached servers is what needs to be done only, the rest of the
 system works similar to the internal nanomsg caching but using memcache client instead. The great benefit using memcache is to configure more than one
 server in `memcache-host` separated by comma which makes it more reliable and eliminates single point of failure if one of the memcache servers goes down.
 
-# Redis
-Set `cache-type=redis` and point `redis-host` to the server running Redis server. Only single redis server can be specified.
+## Redis
+Set `cache-type=redis` and point `redis-host` to the server running Redis server. Only single Redis server can be specified.
 
 # PUB/SUB configurations
 
@@ -1240,32 +1239,24 @@ the backend provides some partially implemented subscription notifications for W
 The Account API call `/account/subscribe` can use any pub/sub mode.
 
 The flow of the pub/sub operations is the following:
-- a client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeput`.
-- the backend receives this request, and runs the `core.ipcSubscribe` method with the key being the account id
-  - if nanomsg pub/sub hosts are configured, the method connect to the sub hosts with the subscription key and wait for the events to be published
-- some other client makes an API call that triggers an event, like update a counter, sends a message, on such event the backend
-  always runs `core.ipcPublish` method and if there is no publish host configured nothing happens.
-  If there is a host to publish, it sends the message to it, the message being a JSON object with the request API path and mtime, other properties depend on the call made.
-- this step depends on the pub/sub system being used:
-  - nanomsg, the publish server receives nanomsg request and re-broadcasts it to all subscription servers connected, there can be more than one pub/sub host configured for
-    redundancy purposes and to eliminate single point of failure. All subscription servers will receive the published message and send it to the connected HTTP clients
-    with matched subscribed key.
-  - redis, uses native Redis pub/sub system, every client directly connected to the redis server and subscribed to the events
-- the client who issued `/account/subscribe` command may receive the same event more than once, this is expected behaiviour,
-  it is responsibility of the client to handle duplicates at this moment, this may change in the future.
+- a HTTP client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeout`.
+- the API backend receives this request, and runs the `core.ipcSubscribe` method with the key being the account id, this will subscribe to the events for the current
+  account and registers a callback to be called if any events occured. The HTTP connection is kept open.
+- some other client makes an API call that triggers an event like makes a connectiopn or sends a message, on such event the backend API handler
+  always runs `core.ipcPublish` after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
+  message being a JSON object with the request API path and mtime, other properties depend on the call made.
+- the connection that initiated `/account/subscribe` receives an event
 
-## Internal with nanomsg
+## nanomsg
 To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backend_deps_force`
 options to the npm install, see above how to install the package.
 
 All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
 The config parameter `msg-host` defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
-better reliability of delivering messages but may result in message duplication in some cases when some servers are much slower than others for any reason.
+better reliability of delivering messages, publishing will be load-balanced between all configured hosts.
 
 ## Redis
-To configure the backend to use Redis for local cache set `msg-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the redis server.
-After that all cache requests will be directed to that redis server. The work flow itself is similar to nanomsg internal system, just instead of nanomsg sockets redis
-client is used.
+To configure the backend to use Redis for local cache set `msg-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the single Redis server.
 
 # Security configurations
 
@@ -1394,7 +1385,7 @@ node.js is already installed, if not just run `./bkjs build-node` before the com
         npm install backendjs
         sudo bkjs init-service
 
-After that the backend will be started by the systen on the next reboot or force the start by `sudo service bkjs start`
+After that the backend will be started by the systen on the next reboot or force the start by `sudo service backendjs start`
 
 ## AWS Beanstalk deployment
 

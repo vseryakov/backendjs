@@ -12,9 +12,6 @@ force:
 run:
 	./bkjs run-backend
 
-put:
-	./bkjs put-backend
-
 shell:
 	./bkjs run-shell
 
