@@ -556,10 +556,16 @@ Delete existing connection(s), <code>id</code> and/or <code>type</code> may be b
 </code></pre></li>
 <li><p><code>/connection/get</code>
 Receive all my connections of the given type, i.e. connection(s) i made, if <code>id</code> is given only one record for the specified connection will be returned. Supports special
-query parameters <code>_select,_keys,_ops</code>, see docs about <code>db.select</code> for more info.</p>
+query parameters <code>_select,_keys,_ops,_desc</code>, see docs about <code>db.select</code> for more info. All <code>db.select</code> options can be passed in the query with prepended underscore.</p>
 <p>Example:</p>
-<pre><code>  /connection/get?type=invite             - return all accounts who i invited
+<pre><code>  # Return all accounts who i invited
+  /connection/get?type=invite
+  # Return connection for specific type and account id
   /connection/get?type=invite&amp;id=12345
+  # Return accounts who i invited me after specified mtime
+  /connection/get?type=invite&amp;_keys=id,type,mtime&amp;_ops=mtime,gt&amp;mtime=12334312543
+  # Return accounts who i invited before specified mtime
+  /connection/get?type=invite&amp;_keys=id,type,mtime&amp;_ops=mtime,le&amp;_desc=1&amp;mtime=12334312543
 </code></pre><p>Response:</p>
 <pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;12345&quot;,
                 &quot;type&quot;: &quot;invite&quot;,

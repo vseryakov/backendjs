@@ -568,12 +568,18 @@ a connection with it. No direct operations on bk_reference is allowed.
 
 - `/connection/get`
   Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned. Supports special
-  query parameters `_select,_keys,_ops`, see docs about `db.select` for more info.
+  query parameters `_select,_keys,_ops,_desc`, see docs about `db.select` for more info. All `db.select` options can be passed in the query with prepended underscore.
 
   Example:
 
-        /connection/get?type=invite             - return all accounts who i invited
+        # Return all accounts who i invited
+        /connection/get?type=invite
+        # Return connection for specific type and account id
         /connection/get?type=invite&id=12345
+        # Return accounts who i invited me after specified mtime
+        /connection/get?type=invite&_keys=id,type,mtime&_ops=mtime,gt&mtime=12334312543
+        # Return accounts who i invited before specified mtime
+        /connection/get?type=invite&_keys=id,type,mtime&_ops=mtime,le&_desc=1&mtime=12334312543
 
   Response:
 
