@@ -1287,12 +1287,18 @@ core.createPool = function(options)
         if (!client) return;
 
         var idx = this._pbusy.indexOf(client);
-        if (idx == -1) {
-            logger.error('pool.destroy:', 'not known', client);
+        if (idx > -1) {
+            this._pbusy.splice(idx, 1);
+            this._destroy(client);
             return;
         }
-        this._pbusy.splice(idx, 1);
-        this._destroy(client);
+        var idx = this._pavail.indexOf(client);
+        if (idx > -1) {
+            this._pavail.splice(i, 1);
+            this._pmtime.splice(i, 1);
+            this._destroy(client);
+            return;
+        }
     }
 
     // Return the resource item back to the list of available resources.
@@ -1358,8 +1364,6 @@ core.createPool = function(options)
                 if (now - this._pmtime[i] > this._pidle && this._pavail.length + this._pbusy.length > this._pmin) {
                     logger.debug('pool.timer:', 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
                     this.destroy(this._pavail[i]);
-                    this._pavail.splice(i, 1);
-                    this._pmtime.splice(i, 1);
                     i--;
                 }
             }
