@@ -32,6 +32,7 @@ case "$PLATFORM" in
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
     # In multi-OS environment have to sync by OS type due to different dependencies in each distro
     [ "$BACKEND_OS_TYPE" != "" -a "$BACKEND_MASTER" != "" ] && BACKEND_MASTER=$OS_TYPE-$BACKEND_MASTER
+    [ "$PG_PREFIX" = "" -a -d /usr/pgsql-9.3 ] && PG_PREFIX=/usr/pgsql-9.3
     KILLALL="killall -qr"
     ECHO="echo -e"
     SED="sed -i"
@@ -60,7 +61,7 @@ esac
 [ "$BACKUP" = "" ] && BACKUP=$BACKEND_ROOT/backup
 [ "$CASSANDRA_PREFIX" = "" ] && CASSANDRA_PREFIX=$BACKEND_PREFIX/cassandra
 [ "$CASSANDRA_DIR" = "" ] && CASSANDRA_DIR=$BACKEND_ROOT/cassandra
-[ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr/pgsql-9.3
+[ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr
 [ "$PG_LIBDIR" = "" ] && PG_LIBDIR=$PG_PREFIX/lib
 [ "$PG_DIR" = "" ] && PG_DIR=$BACKEND_ROOT/postgres
 [ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BACKEND_ROOT/mysql
@@ -142,8 +143,8 @@ case "$ARG" in
     done
 
     # System utilities
-    yum -y install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git svn man telnet jna
-    yum -y remove sendmail
+    yum -yq install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git svn man telnet jna
+    yum -yq remove sendmail
 
     # Set hostname with unique EC2 instance if not set explicitly
     [ "$BACKEND_NAME" = "" ] && BACKEND_NAME=$(echo "api-$(wget -q -t1 -T1 -O - http://169.254.169.254/latest/meta-data/instance-id)"|sed 's/-$//g')
@@ -169,18 +170,18 @@ case "$ARG" in
        echo "Defaults env_keep += \"NODE_PATH\"" >> /etc/sudoers.d/$BKJS
        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin" >> /etc/sudoers.d/$BKJS
        mkdir -p /home/$BACKEND_USER/.ssh
-       cd /home/$BACKEND_USER
-       mv $0 /home/$BACKEND_USER
-       [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys .ssh
-       echo 'alias slog="tail -100 /var/log/messages"' >> .bashrc
-       echo "alias blog=\"tail -100 $BACKEND_ROOT/log/backend.log\"" >> .bashrc
-       echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> .bashrc
-       echo 'alias mcp="socat readline,history=.socat tcp4:localhost:2080"' >> .bashrc
-       echo 'alias ps="ps augx"' >> .bashrc
-       echo 'alias mc="mc -b"' >> .bashrc
-       echo 'ulimit -c unlimited' >> .bash_profile
-       echo 'export PGUSER=postgres' >> .bash_profile
-       echo 'export PGDATABASE=backend' >> .bash_profile
+       [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys /home/$BACKEND_USER/.ssh
+       echo 'alias slog="tail -100 /var/log/messages"' >> /home/$BACKEND_USER/.bashrc
+       echo "alias blog=\"tail -100 $BACKEND_ROOT/log/backend.log\"" >> /home/$BACKEND_USER/.bashrc
+       echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> /home/$BACKEND_USER/.bashrc
+       echo 'alias bcp="socat readline,history=.socat tcp4:localhost:2080"' >> /home/$BACKEND_USER/.bashrc
+       echo 'alias bcp1="socat readline,history=.socat tcp4:localhost:2081"' >> /home/$BACKEND_USER/.bashrc
+       echo 'alias ps="ps augx"' >> /home/$BACKEND_USER/.bashrc
+       echo 'alias mc="mc -b"' >> /home/$BACKEND_USER/.bashrc
+       echo 'export PATH=$HOME/node_modules/.bin' >> /home/$BACKEND_USER/.bash_profile
+       echo 'ulimit -c unlimited' >> /home/$BACKEND_USER/.bash_profile
+       echo 'export PGUSER=postgres' >> /home/$BACKEND_USER/.bash_profile
+       echo 'export PGDATABASE=backend' >> /home/$BACKEND_USER/.bash_profile
        chmod -R g-rwx,o-rwx .ssh
        chown -R $BACKEND_USER /home/$BACKEND_USER $BACKEND_PREFIX
     fi
@@ -294,8 +295,8 @@ case "$ARG" in
     fi
 
     # Setup environment files
-    echo "export PATH=$PATH" > /etc/profile.d/$BKJS.sh
-    echo "export PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> /etc/profile.d/$BKJS.sh
+    echo "export PATH=\$PATH:$PATH" > /etc/profile.d/$BKJS.sh
+    echo "export PKG_CONFIG_PATH=\$PKG_CONFIG_PATH:$PKG_CONFIG_PATH" >> /etc/profile.d/$BKJS.sh
     echo "export NODE_PATH=$NODE_PATH" >> /etc/profile.d/$BKJS.sh
     echo "$BACKEND_PREFIX/lib" > /etc/ld.so.conf.d/local.conf
     postfix reload
@@ -358,11 +359,11 @@ case "$ARG" in
             echo "Setting up RPM Forge..."
             rpm -i http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.3-1.el6.rf.x86_64.rpm
          fi
-         yum -y install postgresql93-devel postgresql93-server
+         yum -yq install postgresql93-devel postgresql93-server
          ;;
 
       amazon)
-         yum -y install postgresql9-devel postgresql9-server
+         yum -yq install postgresql9-devel postgresql9-server
          ;;
 
       *)
@@ -370,10 +371,10 @@ case "$ARG" in
     esac
 
     # Install required packages and utilities
-    yum -y install gcc-c++ make cmake autoconf automake libtool
-    yum -y install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
-    yum -y install libpng-devel libjpeg-turbo-devel librsvg2-devel
-    yum -y install mysql-devel mysql-server
+    yum -yq install gcc-c++ make cmake autoconf automake libtool
+    yum -yq install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
+    yum -yq install libpng-devel libjpeg-turbo-devel
+    yum -yq install mysql-devel mysql-server
     ;;
 
   init-service)
@@ -506,7 +507,7 @@ case "$ARG" in
     if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
        curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2014-04-24.tar.gz
-       tar -C $DYNAMODB_PREFIX --strip-components=1 -xzf ddb.tar.gz
+       tar -C $DYNAMODB_PREFIX -xzf ddb.tar.gz
        rm -rf ddb.tar.gz
     fi
     ;;
@@ -577,8 +578,6 @@ case "$ARG" in
     ;;
 
   init-backend)
-    echo "Settings permissions for $BACKEND_PREFIX to $(whoami)..."
-    sudo chown -R $(whoami) $BACKEND_PREFIX
     case "$PLATFORM" in
      Darwin)
          mkdir -p $BACKEND_ROOT/etc
@@ -631,7 +630,7 @@ case "$ARG" in
     su - $BACKEND_USER -c "rsync -aqFF $args -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_SYNC_DIR/ $BACKEND_ROOT"
     ;;
 
-  run-backend|run-server|run-shell|$BKJS|bksh)
+  run-backend|run-server|run-shell|backendjs|bksh)
     [ -f $NODE_BACKEND/server.js ] && SCRIPT=$NODE_BACKEND/server.js
     [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
     [ -f server.js ] && SCRIPT=server.js
@@ -647,7 +646,7 @@ case "$ARG" in
            ($0 init-server)
         fi
         # Run the $BKJS now
-        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -daemon -monitor -syslog $BACKEND_ARGS $@
+        $BACKEND_PREFIX/bin/node $NODE_ARGS $SCRIPT -home $BACKEND_ROOT -daemon -monitor -syslog $BACKEND_ARGS $@
         ;;
 
      run-backend)
@@ -655,13 +654,13 @@ case "$ARG" in
         $BACKEND_PREFIX/bin/node $SCRIPT -debug -watch `pwd` -home $BACKEND_ROOT -master -web $@
         ;;
 
-     $BKJS)
-        killall node
-        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -master -web $@
+     bksh)
+        $BACKEND_PREFIX/bin/node $SCRIPT -shell -home $BACKEND_ROOT $@
         ;;
 
      *)
-        $BACKEND_PREFIX/bin/node $SCRIPT -shell -home $BACKEND_ROOT $@
+        killall node
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -master -web $@
         ;;
     esac
     ;;
@@ -745,7 +744,8 @@ case "$ARG" in
 
   npm-deps)
     shift;
-    $BACKEND_PREFIX/bin/npm install $(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))') $@
+    modules=$(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))' | sed "s/$BKJS//g")
+    $BACKEND_PREFIX/bin/npm install $modules $@
     ;;
 
   init-app)

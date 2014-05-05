@@ -55,6 +55,7 @@ var core = {
     port: 8000,
     bind: '0.0.0.0',
     timeout: 30000,
+    backlog: 511,
 
     // HTTPS server options, can be updated by the apps before starting the SSL server
     ssl: { port: 443, bind: '0.0.0.0' },
@@ -128,6 +129,7 @@ var core = {
             { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used" },
             { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
+            { name: "backlog", descr: "The maximum length of the queue of pending connections, used by HTTP server in listen." },
             { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
             { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },

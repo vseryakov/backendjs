@@ -391,13 +391,13 @@ api.init = function(callback)
         // Setup all tables
         self.initTables(function(err) {
 
-            var server = self.app.listen(core.port, core.bind, function(err) {
+            var server = self.app.listen(core.port, core.bind, core.backlog, function(err) {
                 if (err) return logger.error('api: init:', core.port, core.bind, err);
                 this.timeout = core.timeout;
 
                 // Start the SSL server as well
                 if (core.ssl.key || core.ssl.pfx) {
-                    server = https.createServer(core.ssl, self.app).listen(core.ssl.port, core.ssl.bind, function(err) {
+                    server = https.createServer(core.ssl, self.app).listen(core.ssl.port, core.ssl.bind, core.backlog, function(err) {
                         if (err) logger.error('api: ssl failed:', err, core.ssl); else logger.log('api: ssl started', 'port:', core.ssl.port, 'bind:', core.ssl.bind, 'timeout:', core.timeout);
                         this.timeout = core.timeout;
                         if (callback) callback(err);
