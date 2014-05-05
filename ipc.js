@@ -38,6 +38,10 @@ ipc.initClient = function()
         core.runCallback(self.msgs, msg);
 
         switch (msg.op || "") {
+        case "api:close":
+            core.context.api.shutdown(function() { process.exit(0); });
+            break;
+
         case "init:cache":
             self.initClientCaching();
             break;
@@ -68,6 +72,10 @@ ipc.initServer = function()
             logger.debug('msg:', msg);
             try {
                 switch (msg.op) {
+                case "api:close":
+                    for (var p in cluster.workers) cluster.workers[p].send(msg);
+                    break;
+
                 case "init:cache":
                     self.initServerCaching();
                     for (var p in cluster.workers) cluster.workers[p].send(msg);
@@ -120,6 +128,18 @@ ipc.initServer = function()
             }
         });
     });
+}
+
+// Close all cacheing and messaging clients, can be called by a server or a worker
+ipc.shutdown = function()
+{
+    try { if (this.lruSocket) this.lruSocket.close(); this.lruSocket = null; } catch(e) { logger.error('ipc.shutdown:', e); }
+    try { if (this.pubSocket) this.pubSocket.close(); this.pubSocket = null; } catch(e) { logger.error('ipc.shutdown:', e); }
+    try { if (this.subSocket) this.subSocket.close(); this.subSocket = null; } catch(e) { logger.error('ipc.shutdown:', e); }
+    try { if (this.amqpClient) this.amqpClient.disconnect(); this.amqpClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
+    try { if (this.memcacheClient) this.memcacheClient.end(); this.memcacheClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
+    try { if (this.redisCacheClient) this.redisCacheClient.quit(); this.redisCacheClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
+    try { if (this.redisSubClient) this.redisSubClient.quit(); this.redisSubClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
 }
 
 // Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed

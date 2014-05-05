@@ -391,22 +391,46 @@ api.init = function(callback)
         // Setup all tables
         self.initTables(function(err) {
 
-            var server = self.app.listen(core.port, core.bind, core.backlog, function(err) {
+            self.server = self.app.listen(core.port, core.bind, core.backlog, function(err) {
                 if (err) return logger.error('api: init:', core.port, core.bind, err);
                 this.timeout = core.timeout;
 
                 // Start the SSL server as well
                 if (core.ssl.key || core.ssl.pfx) {
-                    server = https.createServer(core.ssl, self.app).listen(core.ssl.port, core.ssl.bind, core.backlog, function(err) {
+                    self.sslserver = https.createServer(core.ssl, self.app).listen(core.ssl.port, core.ssl.bind, core.backlog, function(err) {
                         if (err) logger.error('api: ssl failed:', err, core.ssl); else logger.log('api: ssl started', 'port:', core.ssl.port, 'bind:', core.ssl.bind, 'timeout:', core.timeout);
                         this.timeout = core.timeout;
                         if (callback) callback(err);
                     });
                 } else
-                if (callback) callback(err);
+                if (callback) callback.call(self, err);
             });
         });
     });
+}
+
+// Gracefully close all connections, call the callback after that
+api.shutdown = function(callback)
+{
+    logger.log('api.shutdown: started');
+
+    var count = 0;
+    if (this.server) {
+        count++;
+        this.server.close();
+        this.server.on('close', function() {
+            logger.log('api.shutdown: closed');
+            if (--count == 0 && callback) callback();
+        });
+    }
+    if (this.sslserver) {
+        count++;
+        this.sslserver.close();
+        this.sslserver.on("close", function() {
+            logger.log('api.shutdown: SSL closed');
+            if (--count == 0 && callback) callback();
+        });
+    }
 }
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server

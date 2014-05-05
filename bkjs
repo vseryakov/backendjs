@@ -104,7 +104,7 @@ case "$ARG" in
   init-server)
     echo "Initializing backend..."
     # Update to the latest code if necessary
-    ($0 sync)
+    ($0 sync-server)
 
     # Restart itself with new code to continue the init sequence
     ($0 setup-server)
@@ -137,6 +137,11 @@ case "$ARG" in
          BACKEND_USER=$3
          $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
          $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
+         shift;shift
+         ;;
+
+      -web)
+         $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -web" >> /etc/$BKRC
          shift;shift
          ;;
       esac
@@ -645,8 +650,8 @@ case "$ARG" in
         if [[ $BACKEND_ARGS = *-init-server* ]]; then
            ($0 init-server)
         fi
-        # Run the $BKJS now
-        $BACKEND_PREFIX/bin/node $NODE_ARGS $SCRIPT -home $BACKEND_ROOT -daemon -monitor -syslog $BACKEND_ARGS $@
+        echo "Starting node $NODE_ARGS $SCRIPT -home $BACKEND_ROOT $BACKEND_ARGS $@"
+        $BACKEND_PREFIX/bin/node $NODE_ARGS $SCRIPT -home $BACKEND_ROOT -daemon -monitor -master -syslog $BACKEND_ARGS $@
         ;;
 
      run-backend)
@@ -882,7 +887,7 @@ backend.server.start();
     echo "  stop - stop the backend service"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
     echo "  init-server - sync the latest software if master is configured and run the setup phase iwth setup-server command"
-    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-root ROOTDIR] [-doman DOMAIN] [-name HOSTNAME]"
+    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-web] [-root ROOTDIR] [-doman DOMAIN] [-name HOSTNAME]"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
     echo "  run-server - run the backend server process, if -init-server argument passed it will run init-server command before starting the $BKJS daemon"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"

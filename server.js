@@ -106,8 +106,7 @@ server.start = function()
         });
 
         process.once('SIGTERM', function () {
-            self.exiting = true;
-            process.exit(0);
+            self.terminate();
         });
 
         // Watch monitor for modified source files
@@ -135,6 +134,13 @@ server.start = function()
             self.startProxy();
         }
     });
+}
+
+// Terminates the server process
+server.terminate = function()
+{
+    self.exiting = true;
+    process.exit(0);
 }
 
 // Start process monitor, running as root
@@ -235,6 +241,7 @@ server.startMaster = function()
 server.startWeb = function(callback)
 {
     var self = this;
+    var api = core.context.api;
 
     if (cluster.isMaster) {
         core.role = 'server';
@@ -247,14 +254,14 @@ server.startWeb = function(callback)
         if (core.replPortWeb) self.startRepl(core.replPortWeb, core.replBindWeb);
 
         // Create tables and spawn Web workers
-        core.context.api.initTables(function(err) {
+        api.initTables(function(err) {
             for (var i = 0; i < self.maxProcesses; i++) {
                 cluster.fork();
             }
         });
 
         // API related initialization
-        core.context.api.initWebServer();
+        api.initWebServer();
 
         // Frontend server tasks
         setInterval(function() {
@@ -280,8 +287,9 @@ server.startWeb = function(callback)
         ipc.initClient();
 
         // Init API environment
-        core.context.api.init(function(err) {
+        api.init(function(err) {
             core.dropPrivileges();
+            self.terminate = function() { api.shutdown(function() { process.exit(0); }); }
         });
 
         logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, core.bind, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
