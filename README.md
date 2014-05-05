@@ -12,7 +12,7 @@ Features:
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
 * Supports several cache modes(Redis, memcached, local cache) for the database operations.
-* Supports several PUB/SUB modes of operatios using nanomsg, Redis, RabbitMQ.
+* Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
 * nanomsg interface for messaging between processes and servers.
@@ -27,7 +27,7 @@ Check out the [Documentation](http://backendjs.io) for more documentation.
 The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
 
-The optional packages that the backendjs may use if available(resolving packages is done with pkg-config):
+The optional packages that the backendjs uses if available(resolving packages is done with pkg-config):
 - nanomsg - messaging, caching and pub/sub services
 - ImageMagick - image manipulation
 - libpq - PostgreSQL database driver
@@ -370,7 +370,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
   since the connect will be delivered. To specify what kind of events needs to be delivered, `match` query parameter can be specified which is a
   RegExp of the whole event body string.
 
-  *Note: On the server side there is a config parameter `subscribeInterval` which defines how often to deliver notifications, by default it is 5 seconds which means
+  *Note: On the server side there is a config parameter `api-subscribe-interval` which defines how often to deliver notifications, by default it is 5 seconds which means
   only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.*
 
   Example:
@@ -1149,42 +1149,56 @@ List of available functions:
 - resizeImageSync(name,width,height,format,filter,quality,outfile) - resize an image synchronically
 - snappyCompress(str) - compress a string
 - snappyUncompress(str) - decompress a string
-- geoDistance(lat1, lon1, lat2, lon2) - return distance between 2 coordinates in km
-- geoBoundingBox(lat, lon, distance) - return bounding box geohash for given point around distance
-- geoHashEncode(lat, lon, len) - return geohash for given coordinate, len defines number of bytesin geohash
-- geoHashDecode(hash) - return coordinates for given geohash
-- geoHashAdjacent()
-- geoHashGrid()
-- geoHashRow()
-- cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap
-- cacheSet()
-- cacheGet()
-- cacheDel()
-- cacheKeys()
-- cacheClear()
-- cacheNames()
-- cacheSize()
-- cacheEach()
-- cacheForEach()
-- cacheForEachNext()
-- cacheBegin()
-- cacheNext()
-- lruInit(max) - init LRU cache with max number of keys, this is in-memory cache which evicts older keys
-- lruStats() - return statistics about the LRU cache
-- lruSize() - return size of the current LRU cache
-- lruCount() - number of keys in the LRU cache
-- lruSet(name, val) - set/replace value by name
-- lruGet(name) - return value by name
-- lruIncr(name, val) - increase value by given number, non existent items assumed to be 0
-- lruDel(name) - delete by name
-- lruKeys() - return all cache key names
-- lruClear() - clear LRU cache
-- lruServer()
-- syslogInit(name, priority, facility) - initialize syslog client, used by the logger module
-- syslogSend(level, text)
-- syslogClose()
-- listStatements() - list all active Sqlite statements
-- NNSocket() - create a new nanomsg socket object
+- Geohash support
+   - geoDistance(lat1, lon1, lat2, lon2) - return distance between 2 coordinates in km
+   - geoBoundingBox(lat, lon, distance) - return bounding box geohash for given point around distance
+   - geoHashEncode(lat, lon, len) - return geohash for given coordinate, len defines number of bytesin geohash
+   - geoHashDecode(hash) - return coordinates for given geohash
+   - geoHashAdjacent()
+   - geoHashGrid()
+   - geoHashRow()
+- Generic cache outside of V8 memory pool
+   - cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap
+   - cacheSet()
+   - cacheGet()
+   - cacheDel()
+   - cacheKeys()
+   - cacheClear()
+   - cacheNames()
+   - cacheSize()
+   - cacheEach()
+   - cacheForEach()
+   - cacheForEachNext()
+   - cacheBegin()
+   - cacheNext()
+- LRU internal cache
+   - lruInit(max) - init LRU cache with max number of keys, this is in-memory cache which evicts older keys
+   - lruStats() - return statistics about the LRU cache
+   - lruSize() - return size of the current LRU cache
+   - lruCount() - number of keys in the LRU cache
+   - lruSet(name, val) - set/replace value by name
+   - lruGet(name) - return value by name
+   - lruIncr(name, val) - increase value by given number, non existent items assumed to be 0
+   - lruDel(name) - delete by name
+   - lruKeys() - return all cache key names
+   - lruClear() - clear LRU cache
+   - lruServer()
+- Syslog support
+   - syslogInit(name, priority, facility) - initialize syslog client, used by the logger module
+   - syslogSend(level, text)
+   - syslogClose()
+- NNSocket() - nanomsg socket object with the methods:
+    - subscribe
+    - bind
+    - close
+    - setOption
+    - connect
+    - unsubscribe
+    - send
+    - recv
+    - setCallback
+    - setProxy
+    - setForward
 
 # Cache configurations
 Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it

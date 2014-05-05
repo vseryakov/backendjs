@@ -1447,6 +1447,7 @@ api.incrCounters = function(req, options, callback)
     var self = this;
     var db = core.context.db;
     var now = Date.now();
+    var op = options.op || "incr";
 
     // Remove non public columns when updating other account
     if (req.query.id && req.query.id != req.account.id) {
@@ -1456,7 +1457,7 @@ api.incrCounters = function(req, options, callback)
         var obj = req.query;
         obj.id = req.account.id;
     }
-    db[options.op || "incr"]("bk_counter", obj, { cached: 1 }, function(err, rows) {
+    db[op]("bk_counter", obj, { cached: 1 }, function(err, rows) {
         if (err) return callback(db.convertError("bk_counter", "incr", err));
 
         // Notify only the other account
@@ -1491,6 +1492,7 @@ api.getConnections = function(req, options, callback)
             row.type = d[0];
             row.id = d[1];
         });
+        // Just return connections
         if (!core.toNumber(options.details)) return callback(null, { count: rows.length, data: rows, next_token: next_token });
 
         // Get all account records for the id list
@@ -1525,7 +1527,7 @@ api.putConnections = function(req, options, callback)
         req.query.type = type + ":"+ req.account.id;
         db[op]("bk_reference", req.query, function(err) {
             if (err) {
-                db.del("bk_connection", { id: req.account.id, type: type + ":" + id });
+                db.del("bk_connection", { id: req.account.id, op: op, type: type + ":" + id });
                 return callback(err);
             }
             ipc.publish(id, { path: req.path, mtime: now, type: type });

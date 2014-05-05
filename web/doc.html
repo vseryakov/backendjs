@@ -76,7 +76,7 @@
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Local jobs are executed by spawned processes</li>
 <li>Supports several cache modes(Redis, memcached, local cache) for the database operations.</li>
-<li>Supports several PUB/SUB modes of operatios using nanomsg, Redis, RabbitMQ.</li>
+<li>Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
 <li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
 <li>nanomsg interface for messaging between processes and servers.</li>
@@ -88,7 +88,7 @@
 <h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
 <p>The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.</p>
-<p>The optional packages that the backendjs may use if available(resolving packages is done with pkg-config):</p>
+<p>The optional packages that the backendjs uses if available(resolving packages is done with pkg-config):</p>
 <ul>
 <li>nanomsg - messaging, caching and pub/sub services</li>
 <li>ImageMagick - image manipulation</li>
@@ -380,7 +380,7 @@ somebody updates the account&#39;s counter or send a message or creates a connec
 connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
 since the connect will be delivered. To specify what kind of events needs to be delivered, <code>match</code> query parameter can be specified which is a
 RegExp of the whole event body string.</p>
-<p><em>Note: On the server side there is a config parameter <code>subscribeInterval</code> which defines how often to deliver notifications, by default it is 5 seconds which means
+<p><em>Note: On the server side there is a config parameter <code>api-subscribe-interval</code> which defines how often to deliver notifications, by default it is 5 seconds which means
 only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.</em></p>
 <p>Example:</p>
 <pre><code>  /account/subscribe
@@ -1123,6 +1123,7 @@ console.log(backend.backend)
 </li>
 <li>snappyCompress(str) - compress a string</li>
 <li>snappyUncompress(str) - decompress a string</li>
+<li>Geohash support<ul>
 <li>geoDistance(lat1, lon1, lat2, lon2) - return distance between 2 coordinates in km</li>
 <li>geoBoundingBox(lat, lon, distance) - return bounding box geohash for given point around distance</li>
 <li>geoHashEncode(lat, lon, len) - return geohash for given coordinate, len defines number of bytesin geohash</li>
@@ -1130,6 +1131,9 @@ console.log(backend.backend)
 <li>geoHashAdjacent()</li>
 <li>geoHashGrid()</li>
 <li>geoHashRow()</li>
+</ul>
+</li>
+<li>Generic cache outside of V8 memory pool<ul>
 <li>cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap</li>
 <li>cacheSet()</li>
 <li>cacheGet()</li>
@@ -1143,6 +1147,9 @@ console.log(backend.backend)
 <li>cacheForEachNext()</li>
 <li>cacheBegin()</li>
 <li>cacheNext()</li>
+</ul>
+</li>
+<li>LRU internal cache<ul>
 <li>lruInit(max) - init LRU cache with max number of keys, this is in-memory cache which evicts older keys</li>
 <li>lruStats() - return statistics about the LRU cache</li>
 <li>lruSize() - return size of the current LRU cache</li>
@@ -1154,11 +1161,28 @@ console.log(backend.backend)
 <li>lruKeys() - return all cache key names</li>
 <li>lruClear() - clear LRU cache</li>
 <li>lruServer()</li>
+</ul>
+</li>
+<li>Syslog support<ul>
 <li>syslogInit(name, priority, facility) - initialize syslog client, used by the logger module</li>
 <li>syslogSend(level, text)</li>
 <li>syslogClose()</li>
-<li>listStatements() - list all active Sqlite statements</li>
-<li>NNSocket() - create a new nanomsg socket object</li>
+</ul>
+</li>
+<li>NNSocket() - nanomsg socket object with the methods:<ul>
+<li>subscribe</li>
+<li>bind</li>
+<li>close</li>
+<li>setOption</li>
+<li>connect</li>
+<li>unsubscribe</li>
+<li>send</li>
+<li>recv</li>
+<li>setCallback</li>
+<li>setProxy</li>
+<li>setForward</li>
+</ul>
+</li>
 </ul>
 <h1 id="cache-configurations">Cache configurations</h1>
 <p>Database layer support caching of the responses using <code>db.getCached</code> call, it retrieves exactly one record from the configured cache, if no record exists it
