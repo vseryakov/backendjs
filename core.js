@@ -1290,14 +1290,14 @@ core.createPool = function(options)
         var idx = this._pbusy.indexOf(client);
         if (idx > -1) {
             this._pbusy.splice(idx, 1);
-            this._destroy(client);
+            this._pdestroy(client);
             return;
         }
         var idx = this._pavail.indexOf(client);
         if (idx > -1) {
             this._pavail.splice(idx, 1);
             this._pmtime.splice(idx, 1);
-            this._destroy(client);
+            this._pdestroy(client);
             return;
         }
     }
