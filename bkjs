@@ -101,6 +101,11 @@ case "$ARG" in
     exit 0
     ;;
 
+  stop-server)
+    $KILLALL 'backend: server'
+    exit 0
+    ;;
+
   init-server)
     echo "Initializing backend..."
     # Update to the latest code if necessary

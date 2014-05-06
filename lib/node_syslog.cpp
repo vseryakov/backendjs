@@ -193,6 +193,7 @@ static void _syslogSendV(int severity, string fmt, va_list ap)
     if (!LOG_MASK(LOG_PRI(severity)) || (severity &~ (LOG_PRIMASK|LOG_FACMASK))) return;
 
     if (log->sock < 0 || !log->connected) {
+        _syslogClose();
         _syslogOpen("", "", log->options | LOG_NDELAY, -1);
         if (!log->connected) return;
     }

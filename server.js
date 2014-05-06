@@ -83,18 +83,25 @@ server.start = function()
 
     logger.debug("server: start", process.argv);
 
+    var options = {};
+    // Because core.init always initialize the whole environment we must disable some features
+    // in some cases like monitor does not need all db pools, etc..
+    if (!core.isArg("-shell") && core.isArg(["-daemon", "-proxy", "-watch", "-monitor"])) {
+        options.noPools = options.noDns = 1;
+    }
+
     // Parse all params and load config file
-    core.init(function() {
+    core.init(options, function() {
         process.title = core.name + ": process";
 
         // REPL shell
-        if (process.argv.indexOf("-shell") > 0) {
+        if (core.isArg("-shell")) {
             core.context.api.initTables(function(err) { core.createRepl(); });
             return;
         }
 
         // Go to background
-        if (process.argv.indexOf("-daemon") > 0) {
+        if (core.isArg("-daemon")) {
             return self.startDaemon();
         }
 
@@ -109,28 +116,28 @@ server.start = function()
             self.terminate();
         });
 
-        // Watch monitor for modified source files
-        if (process.argv.indexOf("-watch") > 0) {
+        // Watch monitor for modified source files, for development mode only, in production -monitor is used
+        if (core.isArg("-watch")) {
             self.startWatcher();
         } else
 
         // Start server monitor, it will watch the process and restart automatically
-        if (process.argv.indexOf("-monitor") > 0) {
+        if (core.isArg("-monitor")) {
             self.startMonitor();
         } else
 
         // Master server
-        if (process.argv.indexOf("-master") > 0) {
+        if (core.isArg("-master")) {
             self.startMaster();
         } else
 
         // Backend Web server
-        if (process.argv.indexOf("-web") > 0) {
+        if (core.isArg("-web")) {
             self.startWeb();
         } else
 
         // HTTP proxy
-        if (process.argv.indexOf("-proxy") > 0) {
+        if (core.isArg("-proxy")) {
             self.startProxy();
         }
     });
@@ -174,8 +181,8 @@ server.startMaster = function()
         process.title = core.name + ': master';
 
         // Start other master processes
-        if (process.argv.indexOf("-web") > -1) this.startWebProcess();
-        if (process.argv.indexOf("-proxy") > -1) this.startWebProxy();
+        if (core.isArg("-web")) this.startWebProcess();
+        if (core.isArg("-proxy")) this.startWebProxy();
 
         // REPL command prompt over TCP
         if (core.replPort) self.startRepl(core.replPort, core.replBind);
@@ -404,7 +411,7 @@ server.startRepl = function(port, bind)
     repl.on('error', function(err) {
        logger.error('startRepl:', err);
     });
-    repl.listen(port, bind || '0.0.0.0');
+    try { repl.listen(port, bind || '0.0.0.0'); } catch(e) { logger.error('startRepl:', e) }
     logger.log('startRepl:', core.role, 'port:', port, 'bind:', bind || '0.0.0.0');
 }
 
@@ -416,11 +423,8 @@ server.startDaemon = function()
     var argv = process.argv.slice(1).filter(function(x) { return x != "-daemon"; });
     var log = "ignore";
 
-    try {
-        log = fs.openSync(core.errFile, 'a');
-    } catch(e) {
-        logger.error('daemon:', e);
-    }
+    try { log = fs.openSync(core.errFile, 'a'); } catch(e) { logger.error('startDaemon:', e); }
+
     // Allow clients to write to it otherwise there will be no messages written if no permissions
     if (process.getuid() == 0) core.chownSync(core.errFile);
 
@@ -754,7 +758,10 @@ server.doJob = function(type, job, options)
 
     case "server":
         setImmediate(function() {
-            try { self.runJob(job); } catch(e) { logger.error('doJob:', e, e.stack); }
+            var d = domain.create();
+            d.on('error', function(err) { logger.error('doJob:', job, err.stack); });
+            d.add(job);
+            d.run(function() { self.runJob(job); });
         });
         break;
 

@@ -62,30 +62,38 @@ var db = {
 
     // Local db pool, sqlite is default
     local: 'sqlite',
+    sqliteIdle: 86400000,
 
     // Config parameters
     args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type:" bool", descr: "Do not use other db pools except default sqlite" },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
-           { name: "config", descr: "Configuration database pool for config parameters" },
-           { name: "config-type", descr: "Config group to use when requesting confguration from the database, 'core' group is always read first" },
-           { name: "sqlite-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool" },
+           { name: "config", descr: "Configuration database pool for config parameters, if not defined the default pool will be used" },
+           { name: "config-type", descr: "Config group to use when requesting confguration from the database, must be defined to be used" },
+           { name: "sqlite-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool" },
            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "sqlite-tables", type: "list", array: 1, descr: "Sqlite tables, list of tables that belong to this pool only" },
            { name: "pgsql-pool", descr: "PostgreSQL pool access url or options string" },
-           { name: "pgsql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
+           { name: "pgsql-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
+           { name: "pgsql-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
            { name: "pgsql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "pgsql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "mysql-pool", descr: "MySQL pool access url in the format: mysql://user:pass@host/db" },
-           { name: "mysql-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
+           { name: "mysql-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
+           { name: "mysql-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
            { name: "mysql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "mysql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "dynamodb-pool", descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
+           { name: "dynamodb-max", type: "number", min: 1, max: 10000, descr: "Max number of open connection for the pool"  },
            { name: "dynamodb-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "mongodb-pool", descr: "MongoDB endpoint url" },
+           { name: "mongodb-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
+           { name: "mongodb-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
+           { name: "mongodb-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "mongodb-tables", type: "list", array: 1, descr: "MongoDB tables, list of tables that belong to this pool only" },
            { name: "cassandra-pool", descr: "Casandra endpoint url" },
-           { name: "cassandra-max", type: "number", min: 1, max: 100, descr: "Max number of open connection for the pool"  },
+           { name: "cassandra-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
+           { name: "cassandra-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
            { name: "cassandra-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "cassandra-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
     ],
@@ -137,21 +145,24 @@ var db = {
 
 module.exports = db;
 
-// Initialize database pools
+// Initialize database pools.
+// Options can have the following properties:
+// - noPools - disables all other pools except sqlite, similar to `-db-no-pools` config parameter
 db.init = function(options, callback)
 {
 	var self = this;
-	if (typeof options == "function") callback = options, options = null;
+	if (typeof options == "function") callback = options, options = {};
+	if (!options) options = {};
 
 	// Internal SQLite database is always open
 	self.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
 	(self['sqliteTables'] || []).forEach(function(y) { self.tblpool[y] = 'sqlite'; });
 
 	// Optional pools for supported databases
-	if (!self.noPools) {
+	if (!options.noPools && !self.noPools) {
 	    self.args.filter(function(x) { return x.name.match(/\-pool$/) }).map(function(x) { return x.name.replace('-pool', '') }).forEach(function(pool) {
 			if (!self[pool + 'Pool']) return;
-			self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
+			self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], min: self[pool + 'Min'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
                 (self[pool + 'Tables'] || []).forEach(function(y) { self.tblpool[y] = pool; });
 	    });
 	}
@@ -167,6 +178,7 @@ db.initTables = function(tables, options, callback)
     if (typeof options == "function") callback = options, options = null;
 
 	async.forEachSeries(Object.keys(self.dbpool), function(name, next) {
+	    if (name == "none") return next();
     	self.initPoolTables(name, tables, options, next);
 	}, function(err) {
         if (callback) callback(err);
@@ -1295,10 +1307,19 @@ db.prepareDataTypes = function(obj, columns)
     return obj;
 }
 
-// Return database pool by name or default pool
+// Return database pool by table name or default pool, options may contain { pool: name } to return
+// the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
+// special empty pool which provides same interface but returns errors instesd of results.
 db.getPool = function(table, options)
 {
     return this.dbpool[(options || {})["pool"] || this.tblpool[table] || this.pool] || this.nopool;
+}
+
+// Returns given pool if it exists and initialized otherwise returns null
+db.getPoolByName = function(name)
+{
+    var pool = this.getPool("", { pool: name });
+    return pool == this.nopool ? null : pool;
 }
 
 // Return combined options for the pool including global pool options
@@ -2313,7 +2334,7 @@ db.pgsqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
-    options.dboptions = { typesMap: { real: "numeric", bigint: "bigint", smallint: "smalint" }, noIfExists: 1, noReplace: 1, schema: ['public'] };
+    options.dboptions = { typesMap: { real: "numeric", bigint: "bigint", smallint: "smallint" }, noIfExists: 1, noReplace: 1, schema: ['public'] };
     var pool = this.sqlInitPool(options);
     pool.connect = self.pgsqlConnect;
     pool.bindValue = self.pgsqlBindValue;

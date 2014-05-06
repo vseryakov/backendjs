@@ -248,11 +248,16 @@ api.init = function(callback)
 
     // Wrap all calls in domain to catch exceptions
     self.app.use(function(req, res, next) {
-        if (self.busyLatency && toobusy()) return res.send(503, "Server is unavailable");
+        if (self.busyLatency && toobusy()) return self.sendReply(res, 503, "Server is unavailable");
+
         var d = domain.create();
+        d.on('error', function(err) {
+            logger.error('api:', req.path, err.stack);
+            self.sendReply(res, err);
+            self.shutdown(function() { process.exit(0); });
+        });
         d.add(req);
         d.add(res);
-        d.on('error', function(err) { req.next(err); });
         d.run(next);
     });
 
@@ -343,9 +348,9 @@ api.init = function(callback)
 
     self.app.use(self.app.router);
 
-    // Default error handler to show erros in the log
+    // Default error handler to show errors in the log
     self.app.use(function(err, req, res, next) {
-        console.error(err.stack);
+        logger.error(req.path, err.stack);
         self.sendReply(res, err);
     });
 
@@ -1368,8 +1373,12 @@ api.registerPostProcess = function(method, path, callback)
 api.sendJSON = function(req, res, rows)
 {
     var hook = this.findHook('post', req.method, req.path);
-    if (hook) return hook.callbacks.call(this, req, res, rows);
-    res.json(rows);
+    if (!hook) return res.json(rows);
+    try {
+        hook.callbacks.call(this, req, res, rows);
+    } catch(e) {
+        logger.error('sendJSON:', req.path, err.stack);
+    }
 }
 
 // Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
@@ -1389,19 +1398,23 @@ api.sendStatus = function(res, options)
 {
     if (!options) options = { status: 200, message: "" };
     if (!options.status) options.status = 200;
-    switch (options.status) {
-    case 301:
-    case 302:
-        res.redirect(options.status, options.url);
-        break;
+    try {
+        switch (options.status) {
+        case 301:
+        case 302:
+            res.redirect(options.status, options.url);
+            break;
 
-    default:
-        if (options.type) {
-            res.type(type);
-            res.send(options.status, options.message || "");
-        } else {
-            res.json(options.status, options);
+        default:
+            if (options.type) {
+                res.type(type);
+                res.send(options.status, options.message || "");
+            } else {
+                res.json(options.status, options);
+            }
         }
+    } catch(e) {
+        logger.error('sendStatus:', e);
     }
     return false;
 }

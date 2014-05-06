@@ -144,7 +144,7 @@ var core = {
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
             { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules" },
-            { name: "monitor", type: "none", descr: "For production use, monitor the master and Web server processes and restarts if crashed or exited, can be specified only in the command line" },
+            { name: "monitor", type: "none", descr: "For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line" },
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
             { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line" },
             { name: "proxy-port", type: "number", min: 0, descr: "Proxy server port" },
@@ -187,7 +187,7 @@ var core = {
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
             { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
             { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace facility, trap crashes and report the backtrace stack" },
-            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development, the backend module files will be added to the watch list automatically, so only app specific directores should be added" }
+            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
     ],
 
     // Geo min distance for the hash key, km
@@ -215,13 +215,18 @@ var core = {
 
 module.exports = core;
 
-// Main initialization, must be called prior to perform any actions
-core.init = function(callback)
+// Main initialization, must be called prior to perform any actions.
+// If options are given they may contain the following properties:
+// - noPools - if true do not initialize database pools except default sqlite
+// - noDns - do not retrieve config from DNS
+core.init = function(options, callback)
 {
     var self = this;
-    var db = self.context.db;
 
-    // Random proces id
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+
+    // Random proces id to be used as a prefix in clusters
     self.pid = crypto.randomBytes(4).toString('hex');
 
     // Initial args to run before the config file
@@ -243,6 +248,8 @@ core.init = function(callback)
     // Default domain from local host name
     self.domain = self.domainName(os.hostname());
     var configFile = path.resolve(this.configFile || path.join(self.path.etc, "config"));
+    var localConfig = path.resolve("etc/config");
+    var db = self.context.db;
 
     // Serialize initialization procedure, run each function one after another
     async.series([
@@ -253,13 +260,36 @@ core.init = function(callback)
 
         function(next) {
             // Try to load local config file supplied with the app container
-            if (path.resolve("etc/config") == configFile) return next();
-            self.loadConfig("etc/config", next);
+            if (localConfig == configFile) return next();
+            self.loadConfig(localConfig, next);
         },
 
-        // Try to load config from the DB, DNS or other remote config server
+        // Load config params from the DNS TXT records, only the ones marked as dns
         function(next) {
-            self.retrieveConfig(next);
+            if (options.noDns || !self.configDomain) return next();
+            var args = [ { name: "", args: self.args } ];
+            for (var p in this.context) {
+                var ctx = self.context[p];
+                if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
+            }
+            async.forEachSeries(args, function(ctx, next1) {
+                async.forEachLimit(ctx.args, 5, function(arg, next2) {
+                    var cname = ctx.name + arg.name;
+                    async.series([
+                        function(next3) {
+                            // Get DNS TXT record
+                            if (!arg.dns) return next3();
+                            dns.resolveTxt(cname + "." + self.configDomain, function(err, list) {
+                                if (!err && list && list.length) {
+                                    self.argv.push("-" + cname, list[0]);
+                                    logger.debug('dns.config:', cname, list[0]);
+                                }
+                                next3();
+                            });
+                        }],
+                        next2);
+                }, next1);
+            }, next);
         },
 
         // Create all directories, only master should do it once but we resolve absolute paths in any mode
@@ -289,7 +319,21 @@ core.init = function(callback)
                     files.forEach(function(f) { self.chownSync(f) });
                 }
             }
-            db.init(next);
+            db.init(options, next);
+        },
+
+        // Load all available config parameters from the config database for the specified config type
+        function(next) {
+            if (!db.configType || !db.getPoolByName(db.config)) return next();
+            db.select("bk_config", { type: db.configType }, { select: ['name','value'], pool: db.config }, function(err, rows) {
+                var argv = [];
+                rows.forEach(function(x) {
+                    if (x.name) argv.push('-' + x.name);
+                    if (x.value) argv.push(x.value);
+                });
+                self.parseArgs(argv);
+                next();
+            });
         },
 
         function(next) {
@@ -307,6 +351,7 @@ core.init = function(callback)
             if (!self.postInit) return next();
             self.postInit.call(self, next);
         }],
+
         // Final callbacks
         function(err) {
             logger.debug("core: init:", err || "");
@@ -360,7 +405,7 @@ core.setHome = function(home)
 core.parseArgs = function(argv)
 {
     var self = this;
-    if (!argv || !argv.length) return;
+    if (!Array.isArray(argv) || !argv.length) return;
 
     // Convert spaces if passed via command line
     argv = argv.map(function(x) { return x.replace(/%20/g, ' ') });
@@ -372,7 +417,6 @@ core.parseArgs = function(argv)
     // Run registered handlers for each module
     for (var n in this.context) {
         var ctx = this.context[n];
-        if (ctx.parseArgs) ctx.parseArgs.call(ctx, argv);
         self.processArgs(n, ctx, argv);
     }
 }
@@ -397,68 +441,72 @@ core.processArgs = function(name, ctx, argv, pass)
         }
     }
     ctx.args.forEach(function(x) {
-        var obj = ctx;
-    	// Process only equal to the given pass phase
-    	if (pass && x.pass != pass) return;
-        if (typeof x == "string") x = { name: x };
-        if (!x.name) return;
-        // Core sets global parameters, all others by module
-        var cname = (name == "core" ? "" : "-" + name) + '-' + x.name;
-        if (argv.indexOf(cname) == -1) return;
-        var kname = x.key || x.name;
-        // Place inside the object
-        if (x.obj) {
-            if (!ctx[x.obj]) ctx[x.obj] = {};
-            obj = ctx[x.obj];
-            // Strip the prefix if starts with the same name
-            kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
-        }
-        var key = self.toCamel(kname);
-        var idx = argv.indexOf(cname);
-        var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : null;
-        if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") return;
-        // Ignore the value if it is a parameter
-        if (val && val[0] == '-') val = "";
-        logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, "=", val);
-        switch (x.type || "") {
-        case "none":
-            break;
-        case "bool":
-            put(obj, key, !val ? true : self.toBool(val), x);
-            break;
-        case "int":
-        case "real":
-        case "number":
-            put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
-            break;
-        case "list":
-            put(obj, key, self.strSplitUnique(val, x.separator), x);
-            break;
-        case "regexp":
-            put(obj, key, new RegExp(val), x);
-            break;
-        case "json":
-            put(obj, key, JSON.parse(val), x);
-            break;
-        case "path":
-            put(obj, key, path.resolve(val), x);
-            break;
-        case "file":
-            try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', val, e); }
-            break;
-        case "callback":
-            if (typeof x.value == "string") {
-                obj[x.value](val);
-            } else
-            if (typeof x.value == "function") {
-                x.value.call(obj, val);
+        try {
+            var obj = ctx;
+            // Process only equal to the given pass phase
+            if (pass && x.pass != pass) return;
+            if (typeof x == "string") x = { name: x };
+            if (!x.name) return;
+            // Core sets global parameters, all others by module
+            var cname = (name == "core" ? "" : "-" + name) + '-' + x.name;
+            if (argv.indexOf(cname) == -1) return;
+            var kname = x.key || x.name;
+            // Place inside the object
+            if (x.obj) {
+                if (!ctx[x.obj]) ctx[x.obj] = {};
+                obj = ctx[x.obj];
+                // Strip the prefix if starts with the same name
+                kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
             }
-            break;
-        default:
-            put(obj, key, val, x);
+            var key = self.toCamel(kname);
+            var idx = argv.indexOf(cname);
+            var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : null;
+            if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") return;
+            // Ignore the value if it is a parameter
+            if (val && val[0] == '-') val = "";
+            logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, "=", val);
+            switch (x.type || "") {
+            case "none":
+                break;
+            case "bool":
+                put(obj, key, !val ? true : self.toBool(val), x);
+                break;
+            case "int":
+            case "real":
+            case "number":
+                put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
+                break;
+            case "list":
+                put(obj, key, self.strSplitUnique(val, x.separator), x);
+                break;
+            case "regexp":
+                put(obj, key, new RegExp(val), x);
+                break;
+            case "json":
+                put(obj, key, JSON.parse(val), x);
+                break;
+            case "path":
+                put(obj, key, path.resolve(val), x);
+                break;
+            case "file":
+                try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', val, e); }
+                break;
+            case "callback":
+                if (typeof x.value == "string") {
+                    obj[x.value](val);
+                } else
+                if (typeof x.value == "function") {
+                    x.value.call(obj, val);
+                }
+                break;
+            default:
+                put(obj, key, val, x);
+            }
+            // Append all process arguments into internal list when we processing all arguments, not in a pass
+            self.argv[cname.substr(1)] = val || true;
+        } catch(e) {
+            logger.error('proessArgs:', e, x);
         }
-        // Append all process arguments into internal list when we processing all arguments, not in a pass
-        self.argv[cname.substr(1)] = val || true;
     });
 }
 
@@ -510,56 +558,6 @@ core.loadConfig = function(file, callback)
         }
         if (callback) callback();
     });
-}
-
-// Retrieve config parameters from the db, network, dns...
-core.retrieveConfig = function(callback)
-{
-    var self = this;
-    var db = this.context.db;
-
-    async.series([
-        // Load all available config parameters from the config database for the specified config type
-        function(next) {
-            if (!db.configType) return next();
-            db.select("bk_config", { type: db.configType }, { select: ['name','value'], pool: db.config }, function(err, rows) {
-                var argv = [];
-                rows.forEach(function(x) {
-                    if (x.name) argv.push('-' + x.name);
-                    if (x.value) argv.push(x.value);
-                });
-                self.parseArgs(argv);
-                next();
-            });
-        },
-        // Load config params from the DNS TXT records, only the ones marked as dns
-        function(next) {
-            if (!self.configDomain) return next();
-            var args = [ { name: "", args: self.args } ];
-            for (var p in this.context) {
-                var ctx = self.context[p];
-                if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
-            }
-            async.forEachSeries(args, function(ctx, next1) {
-                async.forEachLimit(ctx.args, 5, function(arg, next2) {
-                    var cname = ctx.name + arg.name;
-                    async.series([
-                        function(next3) {
-                            // Get DNS TXT record
-                            if (!arg.dns) return next3();
-                            dns.resolveTxt(cname + "." + self.configDomain, function(err, list) {
-                                if (!err && list && list.length) {
-                                    self.argv.push("-" + cname, list[0]);
-                                    logger.debug('retrieveConfig:', cname, list[0]);
-                                }
-                                next3();
-                            });
-                        }],
-                        next2);
-                }, next1);
-            }, next);
-        }],
-        callback);
 }
 
 // Encode with additional symbols
@@ -1232,14 +1230,14 @@ core.runCallback = function(obj, msg)
 // - validate - method to verify actibe resource item, return false if it needs to be destroyed
 // - min - min number of active resource items
 // - max - max number of active resource items
-// - max_queue - how big waiting queue can be, above this all requests will be rejected immediately
+// - max_queue - how big the waiting queue can be, above this all requests will be rejected immediately
 // - timeout - number of milliseconds to wait for the next available resource item, cannot be 0
 // - idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.
 core.createPool = function(options)
 {
     var self = this;
 
-    var pool = { _pmin: options.min || 1,
+    var pool = { _pmin: options.min || 0,
                  _pmax: options.max || 10,
                  _pmax_queue: options.interval || 100,
                  _ptimeout: options.timeout || 5000,
@@ -1396,6 +1394,13 @@ core.getArg = function(name, dflt)
 core.getArgInt = function(name, dflt)
 {
     return this.toNumber(this.getArg(name, dflt));
+}
+
+// Returns true of given arg(s) are present in the comman dline,name can be a string or an array of strings.
+core.isArg = function(name)
+{
+    if (!Array.isArray(name)) return process.argv.indexOf(name) > 0;
+    return name.some(function(x) { return process.argv.indexOf(x) > 0 });
 }
 
 // Send email
