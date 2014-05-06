@@ -439,6 +439,9 @@ db.query = function(req, options, callback)
         }
         if (typeof callback != "function")  return;
         try {
+            // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
+            self.checkPublicColumns(table, rows, options);
+
             callback(err, rows, info);
         } catch(e) {
             logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, e.stack);
@@ -473,14 +476,14 @@ db.query = function(req, options, callback)
                     if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
 
                     // Async filter, can perform I/O for filtering
-                    if (options.async_filter) return options.async_filter(rows, options, function(err, rows) {
-                        self.checkPublicColumns(table, rows, options);
-                        onEnd(err, client, rows, info);
-                    });
-
-                    // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-                    self.checkPublicColumns(table, rows, options);
-
+                    if (options.async_filter) {
+                        process.nextTick(function() {
+                            options.async_filter(rows, options, function(err, rows) {
+                                onEnd(err, client, rows, info);
+                            });
+                        });
+                        return;
+                    }
                 } catch(e) {
                     err = e;
                     rows = [];
@@ -1558,7 +1561,7 @@ db.sqlInitPool = function(options)
     options.sql = true;
     options.pooling = true;
     // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
-    var dboptions = { schema: [], typesMap: { counter: "int", bigint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
+    var dboptions = { schema: [], typesMap: { counter: "int", bigint: "int", smallint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
     options.dboptions = core.mergeObj(dboptions, options.dboptions);
     var pool = this.createPool(options);
 
@@ -1731,8 +1734,11 @@ db.sqlValue = function(value, type, dflt, min, max)
         return core.toNumber(value, true, dflt, min, max);
 
     case "int":
+    case "bigint":
+    case "smallint":
     case "integer":
     case "number":
+    case "counter":
         return core.toNumber(value, null, dflt, min, max);
 
     case "bool":
@@ -2307,7 +2313,7 @@ db.pgsqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
-    options.dboptions = { typesMap: { real: "numeric", bigint: "bigint" }, noIfExists: 1, noReplace: 1, schema: ['public'] };
+    options.dboptions = { typesMap: { real: "numeric", bigint: "bigint", smallint: "smalint" }, noIfExists: 1, noReplace: 1, schema: ['public'] };
     var pool = this.sqlInitPool(options);
     pool.connect = self.pgsqlConnect;
     pool.bindValue = self.pgsqlBindValue;

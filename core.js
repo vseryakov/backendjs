@@ -642,6 +642,7 @@ core.toValue = function(val, type)
         return core.toNumber(val, true);
 
     case "int":
+    case "smallint":
     case "integer":
     case "number":
     case "bigint":
