@@ -659,7 +659,7 @@ case "$ARG" in
         $BACKEND_PREFIX/bin/node $SCRIPT -debug -watch `pwd` -home $BACKEND_ROOT -master -web $@
         ;;
 
-     bksh)
+     run-shell|bksh)
         $BACKEND_PREFIX/bin/node $SCRIPT -shell -home $BACKEND_ROOT $@
         ;;
 
