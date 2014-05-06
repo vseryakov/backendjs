@@ -3380,7 +3380,11 @@ it is required to call pool.free at the end to return the connection back to the
 explicitely if it is different from the default. Other functions can resolve
 the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</p>
 </li>
-<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)</li>
+<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(row, options)</li>
+<li>async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(rows, options, callback),
+   the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
+   filtering based on the ata in the other table for example.</li>
+<li>ignore_error - do not report about the error and treat error condition as normal reply</li>
 </ul>
 </li>
 <li>callback(err, rows, info) where<ul>
