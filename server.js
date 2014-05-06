@@ -139,7 +139,7 @@ server.start = function()
 // Terminates the server process
 server.terminate = function()
 {
-    self.exiting = true;
+    this.exiting = true;
     process.exit(0);
 }
 
