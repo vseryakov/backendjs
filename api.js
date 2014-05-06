@@ -431,6 +431,8 @@ api.shutdown = function(callback)
             if (--count == 0 && callback) callback();
         });
     }
+    // No servers running, call immediately
+    if (!count && callback) callback();
 }
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server

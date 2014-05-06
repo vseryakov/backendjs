@@ -1362,7 +1362,7 @@ core.createPool = function(options)
         if (this._pidle > 0) {
             for (var i = 0; i < this._pavail.length; i++) {
                 if (now - this._pmtime[i] > this._pidle && this._pavail.length + this._pbusy.length > this._pmin) {
-                    logger.debug('pool.timer:', 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+                    logger.debug('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
                     this.destroy(this._pavail[i]);
                     i--;
                 }

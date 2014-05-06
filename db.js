@@ -396,7 +396,11 @@ db.showResult = function(err, rows)
 //       The difference with the high level functions that take a table name as their firt argument, this function must use pool
 //       explicitely if it is different from the default. Other functions can resolve
 //       the pool by table name if some tables are assigned to any specific pool by configuration parameters `db-pool-tables`.
-//     - filter - function to filter rows not to be included in the result, return false to skip row, args are: (row, options)
+//     - filter - function to filter rows not to be included in the result, return false to skip row, args are: function(row, options)
+//     - async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(rows, options, callback),
+//          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
+//          filtering based on the ata in the other table for example.
+//     - ignore_error - do not report about the error and treat error condition as normal reply
 // - callback(err, rows, info) where
 //    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
 //    - rows is always returned as a list, even in case of error it is an empty list
@@ -427,7 +431,7 @@ db.query = function(req, options, callback)
 
         m2.end();
         pool.metrics.Counter('count').dec();
-        if (err) {
+        if (err && !options.ignore_error) {
             pool.metrics.Counter("errors").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
         } else {
@@ -457,19 +461,26 @@ db.query = function(req, options, callback)
                     pool.free(client);
                     client = null;
 
+                    // Cache notification in case of updates, we must have the request prepared by the db.prepare
+                    if (options.cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
+                        self.clearCached(table, req.obj, options);
+                    }
+
                     // Convert values if we have custom column callback
                     self.processRows(pool, table, rows, options);
 
                     // Custom filter to return the final result set
                     if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
 
+                    // Async filter, can perform I/O for filtering
+                    if (options.async_filter) return options.async_filter(rows, options, function(err, rows) {
+                        self.checkPublicColumns(table, rows, options);
+                        onEnd(err, client, rows, info);
+                    });
+
                     // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
                     self.checkPublicColumns(table, rows, options);
 
-                    // Cache notification in case of updates, we must have the request prepared by the db.prepare
-                    if (options.cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
-                        self.clearCached(table, req.obj, options);
-                    }
                 } catch(e) {
                     err = e;
                     rows = [];

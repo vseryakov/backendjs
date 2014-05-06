@@ -527,6 +527,15 @@ tests.db = function(callback)
             });
         },
         function(next) {
+            logger.log('TEST: custom async filter');
+            db.select("test2", { id: id2 }, { async_filter: function(rows, opts, cb) {
+                    cb(null, rows.filter(function(r) { return r.id2 == '1' }));
+                }
+            }, function(err, rows) {
+                next(err || rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 ? ("err5-1:" + err + util.inspect(rows)) : 0);
+            });
+        },
+        function(next) {
             logger.log('TEST: list2');
             db.list("test1", String([id,id2]), { check_public: id }, function(err, rows) {
                 var row1 = rows.filter(function(x) { return x.id==id}).pop();
