@@ -352,6 +352,12 @@ case "$ARG" in
        ln -sf $BACKEND_PREFIX/bin/bkjs /etc/cron.hourly/check-idle
     fi
 
+    # Install required packages and utilities
+    yum -yq install gcc-c++ make cmake autoconf automake libtool
+    yum -yq install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
+    yum -yq install libpng-devel libjpeg-turbo-devel
+    yum -yq install mysql-devel mysql-server
+
     # Linux distro specific actions
     case "$OS_TYPE" in
       centos)
@@ -375,11 +381,6 @@ case "$ARG" in
          ;;
     esac
 
-    # Install required packages and utilities
-    yum -yq install gcc-c++ make cmake autoconf automake libtool
-    yum -yq install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
-    yum -yq install libpng-devel libjpeg-turbo-devel
-    yum -yq install mysql-devel mysql-server
     ;;
 
   init-service)
@@ -714,7 +715,7 @@ case "$ARG" in
         if [ ! -d deps/openjpeg ]; then
            (cd deps && svn -r r2845 checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
         fi
-        (cd deps/openjpeg && cmake -DCFLAGS_C_FLAGS=$CFLAGS -DCMAKE_INSTALL_PREFIX=$BACKEND_PREFIX -DBUILD_SHARED_LIBS:bool=off -DBUILD_CODEC:bool=off . && make)
+        (cd deps/openjpeg && cmake -DCMAKE_C_FLAGS=$CFLAGS -DCMAKE_INSTALL_PREFIX=$BACKEND_PREFIX -DBUILD_SHARED_LIBS:bool=off -DBUILD_CODEC:bool=off . && make)
         (cd deps/openjpeg && make install)
     fi
 

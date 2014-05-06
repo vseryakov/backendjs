@@ -1514,6 +1514,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>umask</code> - Permissions mask for new files, calls system umask on startup, if not specified the current umask is used. Default: 0002</li>
 <li><code>port</code> - port to listen for the HTTP server, this is global default. Default: 8000</li>
 <li><code>bind</code> - Bind to this address only, if not specified listen on all interfaces. Default: 0.0.0.0</li>
+<li><code>backlog</code> - The maximum length of the queue of pending connections, used by HTTP server in listen.. Default: 511</li>
 <li><code>ssl-port</code> - port to listen for HTTPS server, this is global default</li>
 <li><code>ssl-bind</code> - Bind to this address only for HTTPS server, if not specified listen on all interfaces</li>
 <li><code>ssl-key</code> - Path to SSL prvate key</li>
@@ -1751,6 +1752,12 @@ rearely need to called directly, only for new server implementation or if using 
 <pre><code>if (req.method == &quot;POST&quot;) req.query = req.body;
 </code></pre><p>The reason not to do this by default is that this may not be the alwayse wanted case and distinguishing data coming in the request or in the body may be desirable,
 also, this will needed only for Express handlers <code>.all</code>, when registering handler by method like <code>.get</code> or <code>.post</code> then the handler needs to deal with only either source of the request data.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.shutdown(callback)</code></p>
+<p> Gracefully close all connections, call the callback after that</p>
 </li>
 </ul>
 
@@ -4272,6 +4279,12 @@ Options can define the following:</p>
 </ul>
 
 <ul>
+<li><p><code>ipc.shutdown()</code></p>
+<p> Close all cacheing and messaging clients, can be called by a server or a worker</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>ipc.initServerCaching()</code></p>
 <p> Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed</p>
 </li>
@@ -4405,6 +4418,12 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 <ul>
 <li><p><code>server.start()</code></p>
 <p> Start the server process, call the callback to perform some initialization before launchng any server, just after core.init</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.terminate()</code></p>
+<p> Terminates the server process</p>
 </li>
 </ul>
 
