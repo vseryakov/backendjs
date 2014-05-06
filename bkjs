@@ -712,7 +712,7 @@ case "$ARG" in
     pkg-config --silence-errors --exists libopenjp2
     if [ "$?" = "1" -a "$npm_config_backend_deps_force" != "" ]; then
         if [ ! -d deps/openjpeg ]; then
-           (cd deps && svn checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
+           (cd deps && svn -r r2845 checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
         fi
         (cd deps/openjpeg && cmake -DCMAKE_INSTALL_PREFIX=$BACKEND_PREFIX -DBUILD_SHARED_LIBS:bool=off -DBUILD_CODEC:bool=off . && make)
         (cd deps/openjpeg && make install)
