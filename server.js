@@ -5,6 +5,7 @@
 
 var net = require('net');
 var cluster = require('cluster');
+var domain = require('domain');
 var cron = require('cron');
 var path = require('path');
 var util = require('util');
@@ -296,7 +297,13 @@ server.startWeb = function(callback)
         // Init API environment
         api.init(function(err) {
             core.dropPrivileges();
-            self.terminate = function() { api.shutdown(function() { process.exit(0); }); }
+            self.terminate = function() {
+                api.shutdown(function() { process.exit(0); });
+            }
+            process.on("uncaughtException", function(err) {
+                logger.error('fatal:', err.stack);
+                api.shutdown(function() { process.exit(0); });
+            });
         });
 
         logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, core.bind, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);

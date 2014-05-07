@@ -246,19 +246,10 @@ api.init = function(callback)
 
     self.app = express();
 
-    // Wrap all calls in domain to catch exceptions
+    // Latency watcher
     self.app.use(function(req, res, next) {
         if (self.busyLatency && toobusy()) return self.sendReply(res, 503, "Server is unavailable");
-
-        var d = domain.create();
-        d.on('error', function(err) {
-            logger.error('api:', req.path, err.stack);
-            self.sendReply(res, err);
-            self.shutdown(function() { process.exit(0); });
-        });
-        d.add(req);
-        d.add(res);
-        d.run(next);
+        next();
     });
 
     // Allow cross site requests
@@ -350,7 +341,7 @@ api.init = function(callback)
 
     // Default error handler to show errors in the log
     self.app.use(function(err, req, res, next) {
-        logger.error(req.path, err.stack);
+        logger.error('app:', req.path, err, err.stack);
         self.sendReply(res, err);
     });
 
@@ -396,20 +387,24 @@ api.init = function(callback)
         // Setup all tables
         self.initTables(function(err) {
 
-            self.server = self.app.listen(core.port, core.bind, core.backlog, function(err) {
-                if (err) return logger.error('api: init:', core.port, core.bind, err);
-                this.timeout = core.timeout;
+            // Start http server
+            self.server = http.createServer(function(req, res) { self.handleRequest(req, res) });
+            self.server.timeout = core.timeout;
 
-                // Start the SSL server as well
-                if (core.ssl.key || core.ssl.pfx) {
-                    self.sslserver = https.createServer(core.ssl, self.app).listen(core.ssl.port, core.ssl.bind, core.backlog, function(err) {
-                        if (err) logger.error('api: ssl failed:', err, core.ssl); else logger.log('api: ssl started', 'port:', core.ssl.port, 'bind:', core.ssl.bind, 'timeout:', core.timeout);
-                        this.timeout = core.timeout;
-                        if (callback) callback(err);
-                    });
-                } else
-                if (callback) callback.call(self, err);
-            });
+            // Start SSL server
+            if (core.ssl.key || core.ssl.pfx) {
+                self.sslserver = https.createServer(core.ssl, function(req, res) { self.handleRequest(req, res) });
+                self.sslserver.timeout = core.timeout;
+            }
+
+            try {
+                self.server.listen(core.port, core.bind, core.backlog);
+                if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog);
+            } catch(e) {
+                logger.error('api: init:', core.port, core.bind, e);
+                err = e;
+            }
+            if (callback) callback.call(self, err);
         });
     });
 }
@@ -437,7 +432,21 @@ api.shutdown = function(callback)
         });
     }
     // No servers running, call immediately
-    if (!count && callback) callback();
+    if (!count && callback) return callback();
+}
+
+api.handleRequest = function(req, res)
+{
+    var self = this;
+    var d = domain.create();
+    d.on('error', function(err) {
+        logger.error('api:', req.path, err.stack);
+        self.sendReply(res, err);
+        self.shutdown(function() { process.exit(0); });
+    });
+    d.add(req);
+    d.add(res);
+    d.run(function() { self.app(req, res); });
 }
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server
@@ -1373,8 +1382,8 @@ api.registerPostProcess = function(method, path, callback)
 api.sendJSON = function(req, res, rows)
 {
     var hook = this.findHook('post', req.method, req.path);
-    if (!hook) return res.json(rows);
     try {
+        if (!hook) return res.json(rows);
         hook.callbacks.call(this, req, res, rows);
     } catch(e) {
         logger.error('sendJSON:', req.path, err.stack);

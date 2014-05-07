@@ -489,10 +489,8 @@ db.query = function(req, options, callback)
 
                     // Async filter, can perform I/O for filtering
                     if (options.async_filter) {
-                        process.nextTick(function() {
-                            options.async_filter(rows, options, function(err, rows) {
-                                onEnd(err, client, rows, info);
-                            });
+                        options.async_filter(rows, options, function(err, rows) {
+                            onEnd(err, client, rows, info);
                         });
                         return;
                     }
