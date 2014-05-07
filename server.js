@@ -69,6 +69,7 @@ var server = {
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
+           { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
            { name: "max-jobs", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue only" },
@@ -160,13 +161,7 @@ server.startMonitor = function()
     this.startProcess();
 
     // Monitor server tasks
-    setInterval(function() {
-        try {
-            core.watchLogs();
-        } catch(e) {
-            logger.error('monitor:', e);
-        }
-    }, 300000);
+    setInterval(function() { try { core.watchLogs(); } catch(e) { logger.error('monitor:', e); } }, core.logwatcherInterval*60000 + 1000);
 }
 
 // Setup worker environment
@@ -360,7 +355,7 @@ server.startProxy = function()
     try { self.proxy = proxy.createServer(config).listen(core.proxyPort, core.proxyBind); } catch(e) { logger.error('startProxy:', e); };
 }
 
-// Restart process with the same arguments and setup as a monitor for the spawn child
+// Restart the main process with the same arguments and setup as a monitor for the spawn child
 server.startProcess = function()
 {
     var self = this;
@@ -368,20 +363,20 @@ server.startProcess = function()
     // Pass child output to the console
     self.child.stdout.on('data', function(data) {
         util.print(data);
-    })
-    self.child.stderr.on('data', function(error) {
-        util.print(error);
-    })
+    });
+    self.child.stderr.on('data', function(data) {
+        if (self.logErrors) logger.error(data); else util.print(data);
+    });
     // Restart if dies or exits
     self.child.on('exit', function (code, signal) {
         logger.log('process terminated:', 'code:', code, 'signal:', signal);
-        core.killBackend("", function() {
+        core.killBackend("", "", function() {
             self.respawn(function() {
                 self.startProcess();
             });
         });
     });
-    process.stdin.pipe(this.child.stdin);
+    process.stdin.pipe(self.child.stdin);
     logger.log('startProcess:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
 }
 
@@ -430,6 +425,11 @@ server.startDaemon = function()
     var argv = process.argv.slice(1).filter(function(x) { return x != "-daemon"; });
     var log = "ignore";
 
+    // Rotate if the file is too big, keep 2 files but big enough to be analyzed in case the logwatcher is not used
+    var st = core.statSync(core.errFile);
+    if (st.size > 1024*1024*100) {
+        fs.rename(core.errFile, core.errFile + ".old", function(err) { logger.error('rotate:', err) });
+    }
     try { log = fs.openSync(core.errFile, 'a'); } catch(e) { logger.error('startDaemon:', e); }
 
     // Allow clients to write to it otherwise there will be no messages written if no permissions

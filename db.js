@@ -1291,7 +1291,11 @@ db.prepare = function(op, table, obj, options)
         // Convert simple types into the native according to the table definition
         if (options && options.strictTypes) {
             for (var p in cols) {
-                if (core.isNumeric(cols[p].type) && typeof obj[p] == "string") obj[p] = core.toNumber(obj[p]);
+                if (core.isNumeric(cols[p].type)) {
+                    if (typeof obj[p] == "string") obj[p] = core.toNumber(obj[p]);
+                } else {
+                    if (typeof obj[p] == "number") obj[p] = String(obj[p]);
+                }
             }
         }
         break;
@@ -2431,7 +2435,6 @@ db.sqliteInitPool = function(options)
 {
     var self = this;
     if (!options) options = {};
-    if (typeof options.readonly == "undefined") options.readonly = true;
     if (typeof options.temp_store == "undefined") options.temp_store = 0;
     if (typeof options.cache_size == "undefined") options.cache_size = 50000;
     if (typeof options.busy_timeout == "undefined") options.busy_timeout = -1;

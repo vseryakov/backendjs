@@ -85,7 +85,7 @@ var core = {
 
     // Log watcher config, watch for server restarts as well
     logwatcherMax: 1000000,
-    logwatcherInterval: 3600,
+    logwatcherInterval: 60,
     logwatcherIgnore: ["NOTICE: ", "DEBUG: ", "DEV: "],
     logwatcherMatch: ['\[[0-9]+\]: (ERROR|WARNING): ',
                       'message":"ERROR:',
@@ -177,7 +177,7 @@ var core = {
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns" },
             { name: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
-            { name: "logwatcher-interval", type: "number", min: 300, max: 86400, descr: "How often to check for errors in the log files" },
+            { name: "logwatcher-interval", type: "number", min: 1, descr: "How often to check for errors in the log files in minutes" },
             { name: "logwatcher-file", type: "callback", value: function(v) { if (v) this.logwatcherFiles.push({file:v}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
@@ -2472,8 +2472,8 @@ core.watchLogs = function(callback)
     if (!self.logwatcherFrom) self.logwatcherFrom = "logwatcher@" + (self.domain || os.hostname());
 
     // Check interval
-    var now = new Date();
-    if (self.logwatcherMtime && (now.getTime() - self.logwatcherMtime.getTime())/1000 < self.logwatcherInterval) return;
+    var now = Date.now();
+    if (self.logwatcherMtime && (now - self.logwatcherMtime)/1000 < self.logwatcherInterval*60) return;
     self.logwatcherMtime = now;
 
     var match = null;

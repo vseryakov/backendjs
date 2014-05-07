@@ -889,10 +889,8 @@ api.initMessageAPI = function()
 
         case "get":
             if (!req.query.id) req.query.id = req.account.id;
-            // Must be a string for DynamoDB at least
             if (req.query.mtime) {
                 options.ops.mtime = "gt";
-                req.query.mtime = String(req.query.mtime);
             }
             // All msgs i sent to this id
             if (req.query.id != req.account.id) {
