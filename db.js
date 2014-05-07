@@ -839,16 +839,19 @@ db.list = function(table, obj, options, callback)
 {
 	switch (core.typeName(obj)) {
 	case "string":
-		var keys = this.getSearchKeys(table, options);
-		if (!keys || !keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
-		obj = core.strSplit(obj).map(function(x) { return core.newObj(keys[0], x) });
-
 	case "array":
-	case "object":
+        obj = core.strSplit(obj);
+	    if (typeof obj[0] == "string") {
+	        var keys = this.getSearchKeys(table, options);
+	        if (!keys || !keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
+	        obj = obj.map(function(x) { return core.newObj(keys[0], x) });
+	    }
 		break;
+
 	default:
 		return callback ? callback(new Error("invalid list"), []) : null;
 	}
+    if (!obj.length) return callback ? callback(new Error("empty list")) : null;
     this.select(table, obj, options, callback);
 }
 
