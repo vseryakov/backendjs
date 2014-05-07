@@ -1953,7 +1953,9 @@ core.iconPath = function(id, options)
     if (!options) options = {};
     // Convert into string and remove all chars except numbers, this will support UUIDs as well as regular integers
     var num = String(id).replace(/[^0-9]/g, '');
-    return path.join(this.path.images, options.prefix || "", num.substr(-2), num.substr(-4, 2), String(options.type || "") + id + "." + (options.ext || "jpg"));
+    var ext = options.ext || "jpg";
+    var name = (options.type ? options.type + '-' : "") + id + (ext[0] == '.' ? "" : ".") + ext;
+    return path.join(this.path.images, options.prefix || "", num.substr(-2), num.substr(-4, 2), name);
 }
 
 // Download image and convert into JPG, store under core.path.images

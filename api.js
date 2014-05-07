@@ -1818,18 +1818,18 @@ api.handleIcon = function(req, res, options)
     var self = this;
     var db = core.context.db;
     var op = options.op || "put";
-    if (!req.query.type) req.query.type = "";
+
+    options.force = true;
+    options.prefix = req.query.prefix || "account";
+    options.type = req.query.type || "";
 
     req.query.id = req.account.id;
-    req.query.type = req.query.prefix + ":" + req.query.type;
+    req.query.type = options.prefix + ":" + options.type;
     if (req.query.latitude && req.query.longitude) req.query.geohash = core.geoHash(req.query.latitude, req.query.longitude);
 
     db[op]("bk_icon", req.query, function(err, rows) {
         if (err) return self.sendReply(res, err);
 
-        options.force = true;
-        options.prefix = req.query.prefix;
-        options.type = req.query.type;
         switch (op) {
         case "put":
             self.putIcon(req, req.account.id, options, function(err, icon) {
