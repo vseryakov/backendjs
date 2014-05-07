@@ -12,14 +12,16 @@ exports.Timer = require('./Timer');
 
 module.exports = Metrics;
 
-function Metrics()
+function Metrics(name)
 {
     this.metrics = {};
+    if (name) this.name = name;
 }
 
 Metrics.prototype.toJSON = function()
 {
     var json = {};
+    if (this.name) json.name = this.name;
     for (var metric in this.metrics) {
         json[metric] = this.metrics[metric].toJSON();
     }

@@ -23,9 +23,9 @@ var formidable = require('formidable');
 var mime = require('mime');
 var consolidate = require('consolidate');
 var domain = require('domain');
-var metrics = require(__dirname + '/metrics');
 var core = require(__dirname + '/core');
 var ipc = require(__dirname + '/ipc');
+var metrics = require(__dirname + '/metrics');
 var printf = require('printf');
 var logger = require(__dirname + '/logger');
 var backend = require(__dirname + '/build/Release/backend');
@@ -237,12 +237,7 @@ api.init = function(callback)
     var db = core.context.db;
 
     // Performance statistics
-    self.metrics = new metrics();
-    self.collectStatistics();
-    setInterval(function() { self.collectStatistics() }, 300000);
-
-    // Setup toobusy timer to detect when our requests waiting in the queue for too long
-    if (self.busyLatency) toobusy.maxLag(self.busyLatency); else toobusy.shutdown();
+    self.initStatistics();
 
     self.app = express();
 
@@ -1126,8 +1121,16 @@ api.initSystemAPI = function()
     var db = core.context.db;
 
     // Return current statistics
-    this.app.all("/system/stats", function(req, res) {
-        res.json(self.getStatistics());
+    this.app.all(/^\/system\/stats\/?(.+)?$/, function(req, res) {
+        switch (req.params[0]) {
+        case "worker":
+            return res.json(self.getStatistics());
+        default:
+            ipc.command({ op: "metrics" }, function(data) {
+                if (!data) return res.send(404);
+                res.json(data);
+            });
+        }
     });
 
     this.app.all(/^\/system\/msg\/(.+)$/, function(req, res) {
@@ -2260,6 +2263,19 @@ api.deleteAccount = function(obj, options, callback)
     });
 }
 
+// Setup statistics collections
+api.initStatistics = function()
+{
+    var self = this;
+
+    this.metrics = new metrics();
+    this.collectStatistics();
+    setInterval(function() { self.collectStatistics(); }, 60000);
+
+    // Setup toobusy timer to detect when our requests waiting in the queue for too long
+    if (this.busyLatency) toobusy.maxLag(this.busyLatency); else toobusy.shutdown();
+}
+
 // Returns an object with collected db and api statstics and metrics
 api.getStatistics = function()
 {
@@ -2269,11 +2285,17 @@ api.getStatistics = function()
 // Metrics about the process
 api.collectStatistics = function()
 {
+    var cpus = os.cpus();
+    var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
     var avg = os.loadavg();
     var mem = process.memoryUsage();
     this.metrics.Histogram('rss').update(mem.rss);
     this.metrics.Histogram('heap').update(mem.heapUsed);
     this.metrics.Histogram('loadavg').update(avg[2]);
     this.metrics.Histogram('freemem').update(os.freemem());
+    this.metrics.Histogram('totalmem').update(os.totalmem());
+    this.metrics.Histogram("util").update(util * 100 / cpus.length);
+
+    ipc.command({ op: "metrics", name: process.pid, value: this.getStatistics() });
 }
 

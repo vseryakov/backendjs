@@ -35,6 +35,7 @@ ipc.initClient = function()
 
     // Event handler for the worker to process response and fire callback
     process.on("message", function(msg) {
+        logger.dev('msg:worker:', msg)
         core.runCallback(self.msgs, msg);
 
         switch (msg.op || "") {
@@ -69,9 +70,17 @@ ipc.initServer = function()
         // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
         worker.on('message', function(msg) {
             if (!msg) return false;
-            logger.debug('msg:', msg);
+            logger.dev('msg:master:', msg);
             try {
                 switch (msg.op) {
+                case "metrics":
+                    if (msg.name) core.metrics[msg.name] = msg.value;
+                    if (msg.reply) {
+                        msg.value = core.metrics;
+                        worker.send(msg);
+                    }
+                    break;
+
                 case "api:close":
                     for (var p in cluster.workers) cluster.workers[p].send(msg);
                     break;
@@ -203,18 +212,22 @@ ipc.initClientCaching = function()
 }
 
 // Send cache command to the master process via IPC messages, callback is used for commands that return value back
-ipc.send = function(op, name, value, callback)
+ipc.command = function(msg, callback)
 {
-    var self = this;
-    if (typeof value == "function") callback = value, value = '';
-    if (typeof value == "object") value = JSON.stringify(value);
-    var msg = { op: op, name: name, value: value };
     if (typeof callback == "function") {
         msg.reply = true;
         msg.id = this.msgId++;
-        core.deferCallback(self.msgs, msg, function(m) { callback(m.value); });
+        core.deferCallback(this.msgs, msg, function(m) { callback(m.value); });
     }
-    try { process.send(msg); } catch(e) { logger.error('send:', e, op, name); }
+    try { process.send(msg); } catch(e) { logger.error('send:', e, msg.op, msg.name); }
+}
+
+// Always send text to the master, convert objects into JSON, value and callback are optional
+ipc.send = function(op, name, value, callback)
+{
+    if (typeof value == "function") callback = value, value = '';
+    if (typeof value == "object") value = JSON.stringify(value);
+    this.command({ op: op, name: name, value: value }, callback);
 }
 
 // Return list of hosts the socket need to connect to, it checks already connected hosts and returns only new ones

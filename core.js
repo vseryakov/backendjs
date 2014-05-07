@@ -81,6 +81,7 @@ var core = {
     // Watched source files for changes, restarts the process if any file has changed
     watchdirs: [],
     timers: {},
+    metrics: {},
 
     // Log watcher config, watch for server restarts as well
     logwatcherMax: 1000000,

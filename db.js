@@ -8,6 +8,7 @@ var url = require('url');
 var net = require('net');
 var fs = require('fs');
 var path = require('path');
+var domain = require('domain');
 var backend = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
@@ -375,7 +376,7 @@ db.createPool = function(options)
     pool.affected_rows = 0;
     pool.inserted_oid = 0;
     pool.next_token = null;
-    pool.metrics = new metrics();
+    pool.metrics = new metrics(pool.name);
     // Some require properties can be initialized with options
     if (!pool.dboptions) pool.dboptions = {};
     this.dbpool[pool.name] = pool;
