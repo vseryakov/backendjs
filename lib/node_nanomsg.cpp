@@ -89,7 +89,7 @@ public:
         size_t fdsz = sizeof(rfd);
         nn_getsockopt(sock, NN_SOL_SOCKET, NN_RCVFD, (char*) &rfd, &fdsz);
         nn_getsockopt(sock, NN_SOL_SOCKET, NN_SNDFD, (char*) &wfd, &fdsz);
-        LogDebug("%d, domain=%d, type=%d, rfd=%d, wfd=%d", sock, domain, type, rfd, wfd);
+        LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d", sock, domain, type, rfd, wfd);
         return 0;
     }
 
@@ -116,7 +116,7 @@ public:
             int rc = nn_bind(sock, urls[i].c_str());
             if (nn_slow(rc == -1)) return Close(rc);
         }
-        LogDebug("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
+        LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
         return 0;
     }
 
@@ -127,7 +127,7 @@ public:
             int rc = nn_connect(sock, urls[i].c_str());
             if (nn_slow(rc == -1)) return Close(rc);
         }
-        LogDebug("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
+        LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
         return 0;
     }
 

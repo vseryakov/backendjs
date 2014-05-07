@@ -172,6 +172,7 @@ var core = {
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
+            { name: "logwatcher-host", descr: "The backend host wheer logatcher reports should be sent instead of email, requires backend-login/secret to be defined" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns" },
@@ -466,7 +467,7 @@ core.processArgs = function(name, ctx, argv, pass)
             // Ignore the value if it is a parameter
             if (val && val[0] == '-') val = "";
             logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, "=", val);
-            switch (x.type || "") {
+            switch ((x.type || "").trim()) {
             case "none":
                 break;
             case "bool":
@@ -926,7 +927,7 @@ core.httpGet = function(uri, params, callback)
           params.headers = res.headers;
           params.status = res.statusCode;
           params.type = (res.headers['content-type'] || '').split(';')[0];
-          params.mtime = res.headers.date ? new Date(res.headers.date) : null;
+          params.mtime = res.headers.date ? self.toDate(res.headers.date) : null;
           if (!params.size) params.size = self.toNumber(res.headers['content-length'] || 0);
           if (params.fd) try { fs.closeSync(params.fd); } catch(e) {}
           if (params.stream) try { params.stream.end(params.onfinish); } catch(e) {}
@@ -1150,11 +1151,7 @@ core.sendRequest = function(uri, options, callback)
         }
         // Parse JSON and store in the params, set error if cannot be parsed, the caller will deal with it
         if (params.data && params.type == "application/json") {
-            try {
-                params.obj = JSON.parse(params.data);
-            } catch(e) {
-                err = e;
-            }
+            try { params.obj = JSON.parse(params.data); } catch(e) { err = e; }
         }
         if (params.status != 200) err = new Error("HTTP error: " + params.status);
         if (callback) callback(err, params, res);
@@ -1407,12 +1404,15 @@ core.isArg = function(name)
 // Send email
 core.sendmail = function(from, to, subject, text, callback)
 {
-    var server = emailjs.server.connect();
-    server.send({ text: text || '', from: from, to: to + ",", subject: subject || ''}, function(err, message) {
-         if (err) logger.error('sendmail:', err);
-         if (message) logger.debug('sendmail:', message);
-         if (callback) callback(err);
-     });
+    try {
+        var server = emailjs.server.connect();
+        server.send({ text: text || '', from: from, to: to + ",", subject: subject || ''}, function(err, message) {
+            if (err) logger.error('sendmail:', err);
+            if (callback) callback(err);
+        });
+    } catch(e) {
+        logger.error('sendmail:', e);
+    }
 }
 
 // Call callback for each line in the file
@@ -1549,9 +1549,14 @@ core.geoHashDistance = function(geohash1, geohash2, options)
 core.encrypt = function(key, data, algorithm)
 {
     if (!key || !data) return '';
-    var encrypt = crypto.createCipher(algorithm || 'aes192', key);
-    var b64 = encrypt.update(String(data), 'utf8', 'base64');
-    try { b64 += encrypt.final('base64'); } catch(e) { b64 = ''; logger.error('encrypt:', e); }
+    try {
+        var encrypt = crypto.createCipher(algorithm || 'aes192', key);
+        var b64 = encrypt.update(String(data), 'utf8', 'base64');
+        b64 += encrypt.final('base64');
+    } catch(e) {
+        b64 = '';
+        logger.error('encrypt:', e);
+    }
     return b64;
 }
 
@@ -1559,22 +1564,37 @@ core.encrypt = function(key, data, algorithm)
 core.decrypt = function(key, data, algorithm)
 {
     if (!key || !data) return '';
-    var decrypt = crypto.createDecipher(algorithm || 'aes192', key);
-    var msg = decrypt.update(String(data), 'base64', 'utf8');
-    try { msg += decrypt.final('utf8'); } catch(e) { msg = ''; logger.error('decrypt:', e); };
+    try {
+        var decrypt = crypto.createDecipher(algorithm || 'aes192', key);
+        var msg = decrypt.update(String(data), 'base64', 'utf8');
+        msg += decrypt.final('utf8');
+    } catch(e) {
+        msg = '';
+        logger.error('decrypt:', e);
+    };
     return msg;
 }
 
 // HMAC signing and base64 encoded, default algorithm is sha1
 core.sign = function (key, data, algorithm, encode)
 {
-    return crypto.createHmac(algorithm || "sha1", String(key)).update(String(data), "utf8").digest(encode || "base64");
+    try {
+        return crypto.createHmac(algorithm || "sha1", String(key)).update(String(data), "utf8").digest(encode || "base64");
+    } catch(e) {
+        logger.error('sing:', e);
+        return "";
+    }
 }
 
 // Hash and base64 encoded, default algorithm is sha1
 core.hash = function (data, algorithm, encode)
 {
-    return crypto.createHash(algorithm || "sha1").update(String(data), "utf8").digest(encode || "base64");
+    try {
+        return crypto.createHash(algorithm || "sha1").update(String(data), "utf8").digest(encode || "base64");
+    } catch(e) {
+        logger.error('hash:', e);
+        return "";
+    }
 }
 
 // Return unique Id without any special characters and in lower case
@@ -2446,7 +2466,7 @@ core.watchLogs = function(callback)
     var self = this;
 
     // Need email to send
-    if (!self.logwatcherEmail) return (callback ? callback() : false);
+    if (!self.logwatcherEmail && !self.logwatcherHost) return callback ? callback() : false;
 
     // From address, use current hostname
     if (!self.logwatcherFrom) self.logwatcherFrom = "logwatcher@" + (self.domain || os.hostname());
@@ -2516,12 +2536,13 @@ core.watchLogs = function(callback)
                });
             });
         }, function(err2) {
-            // Ignore possibly empty lines or cut off text
-            if (errors.length > 10) {
-                logger.log('logwatcher:', 'found errors, send report to', self.logwatcherEmail);
-                self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, function() {
-                    if (callback) callback();
-                });
+            if (errors.length > 1) {
+                logger.log('logwatcher:', 'found errors, send report to', self.logwatcherEmail, self.logwatcherHost);
+                if (self.logwatcherHost) {
+                    self.sendRequest(self.logwatcherHost, { method: "POST", postdata: errors }, callback);
+                } else {
+                    self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, callback);
+                }
             } else {
                 if (callback) callback();
             }

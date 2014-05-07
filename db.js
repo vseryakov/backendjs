@@ -55,22 +55,24 @@ var db = {
     // Default database pool for the backend
     pool: 'sqlite',
 
-    // Database connection pools, SQLite default pool is called SQLite, PostgreSQL default pool is pg, DynamoDB is ddb
+    // Database connection pools by pool name
     dbpool: {},
 
     // Pools by table name
     tblpool: {},
 
-    // Local db pool, sqlite is default
+    // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
+    sqlitePool: core.name,
     sqliteIdle: 86400000,
 
     // Config parameters
     args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
-           { name: "no-pools", type:" bool", descr: "Do not use other db pools except default sqlite" },
+           { name: "no-pools", type: "bool", descr: "Do not use other db pools except default local pool" },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool for config parameters, if not defined the default pool will be used" },
            { name: "config-type", descr: "Config group to use when requesting confguration from the database, must be defined to be used" },
+           { name: "sqlite-pool", descr: "SQLite pool db name, absolute path or just a name" },
            { name: "sqlite-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool" },
            { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "sqlite-tables", type: "list", array: 1, descr: "Sqlite tables, list of tables that belong to this pool only" },
@@ -148,25 +150,25 @@ module.exports = db;
 
 // Initialize database pools.
 // Options can have the following properties:
-// - noPools - disables all other pools except sqlite, similar to `-db-no-pools` config parameter
+// - noPools - disables all other pools except sqlite, similar to `-db-no-pools` config parameter, id db-local is configured and
+//     different than sqlite it is initialized always as well
 db.init = function(options, callback)
 {
 	var self = this;
 	if (typeof options == "function") callback = options, options = {};
 	if (!options) options = {};
 
-	// Internal SQLite database is always open
-	self.sqliteInitPool({ pool: 'sqlite', db: core.name, readonly: false, max: self.sqliteMax, idle: self.sqliteIdle });
-	(self['sqliteTables'] || []).forEach(function(y) { self.tblpool[y] = 'sqlite'; });
-
-	// Optional pools for supported databases
-	if (!options.noPools && !self.noPools) {
-	    self.args.filter(function(x) { return x.name.match(/\-pool$/) }).map(function(x) { return x.name.replace('-pool', '') }).forEach(function(pool) {
-			if (!self[pool + 'Pool']) return;
-			self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], min: self[pool + 'Min'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
-                (self[pool + 'Tables'] || []).forEach(function(y) { self.tblpool[y] = pool; });
-	    });
-	}
+	// Configured pools for supported databases
+	self.args.filter(function(x) { return x.name.match(/\-pool$/) }).map(function(x) { return x.name.replace('-pool', '') }).forEach(function(pool) {
+	    var name = self[pool + 'Pool'];
+	    if (!name || self.dbpool[name]) return;
+	    if (options.noPools || self.noPools) {
+	        // local pool must be always initialized
+	        if (pool != self.local && pool != self.pool) return;
+	    }
+	    self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], min: self[pool + 'Min'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
+	    (self[pool + 'Tables'] || []).forEach(function(y) { self.tblpool[y] = pool; });
+	});
 
 	// Initialize all pools with common tables
 	self.initTables(self.tables, options, callback);

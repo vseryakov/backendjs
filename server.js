@@ -110,7 +110,7 @@ server.start = function()
         process.once('exit', function() {
             self.exiting = true;
             if (self.child) self.child.kill('SIGTERM');
-            self.pids.forEach(function(p) { process.kill(p) });
+            self.pids.forEach(function(p) { try { process.kill(p) } catch(e) {} });
         });
 
         process.once('SIGTERM', function () {
@@ -298,12 +298,10 @@ server.startWeb = function(callback)
         api.init(function(err) {
             core.dropPrivileges();
             self.terminate = function() {
-                setTimeout(function() { process.exit(0) }, 30000);
                 api.shutdown(function() { process.exit(0); });
             }
             process.on("uncaughtException", function(err) {
                 logger.error('fatal:', err.stack);
-                setTimeout(function() { process.exit(0) }, 30000);
                 api.shutdown(function() { process.exit(0); });
             });
         });

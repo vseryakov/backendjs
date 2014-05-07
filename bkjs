@@ -76,7 +76,8 @@ export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_C
 
 # If started without parameters use script name as a parameter
 NAME=$(echo $0 | awk -F/ '{print $NF}')
-ARG=${1:-$NAME}
+ARG=$NAME
+[ "$NAME" = "bkjs" ] && ARG=$1 && shift
 
 case "$ARG" in
   start)
@@ -90,19 +91,19 @@ case "$ARG" in
     ;;
 
   stop)
-    $KILLALL 'backend:'
-    $KILLALL 'backend:'
+    $KILLALL $1 'backend:'
+    $KILLALL $1 'backend:'
     exit 0
     ;;
 
   stop-web)
-    $KILLALL 'backend: web'
-    $KILLALL 'backend: web'
+    $KILLALL $1 'backend: web'
+    $KILLALL $1 'backend: web'
     exit 0
     ;;
 
   stop-server)
-    $KILLALL 'backend: server'
+    $KILLALL $1 'backend: server'
     exit 0
     ;;
 
@@ -119,27 +120,27 @@ case "$ARG" in
     # Optional config parametrrs for the environment
     rm -rf /etc/$BKRC
     while [ $# -gt 1 ]; do
-      case "$2" in
+      case "$1" in
       -root)
-         BACKEND_ROOT=$3
+         BACKEND_ROOT=$2
          $ECHO "BACKEND_ROOT=$BACKEND_ROOT" >> /etc/$BKRC
          shift;shift
          ;;
 
       -domain)
-         BACKEND_DOMAIN=$3
+         BACKEND_DOMAIN=$2
          $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
          shift;shift
          ;;
 
       -name)
-         BACKEND_NAME=$3
+         BACKEND_NAME=$2
          $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/$BKRC
          shift;shift
          ;;
 
       -user)
-         BACKEND_USER=$3
+         BACKEND_USER=$2
          $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
          $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
          shift;shift
@@ -611,11 +612,11 @@ case "$ARG" in
     # Put backend code to the remote site
     path=node_modules/$BKJS
     while [ $# -gt 1 ]; do
-      case "$2" in
-      -path) path=$3;shift;shift;;
-      -user) BACKEND_USER=$3;shift;shift;;
-      -host) BACKEND_MASTER=$3;shift;shift;;
-      -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $3";shift;shift;;
+      case "$1" in
+      -path) path=$2;shift;shift;;
+      -user) BACKEND_USER=$2;shift;shift;;
+      -host) BACKEND_MASTER=$2;shift;shift;;
+      -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
       -delete) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
       esac
     done
@@ -631,11 +632,11 @@ case "$ARG" in
   sync-backend)
     # Sync code from the master, only inside backend home
     while [ $# -gt 1 ]; do
-      case "$2" in
+      case "$1" in
       -delete) args="$args --delete-after";shift;;
-      -root) BACKEND_SYNC_DIR=$3;shift;shift;;
-      -host) BACKEND_MASTER=$3;shift;shift;;
-      -exclude) args="$args --exclude $3";shift;shift;;
+      -root) BACKEND_SYNC_DIR=$2;shift;shift;;
+      -host) BACKEND_MASTER=$2;shift;shift;;
+      -exclude) args="$args --exclude $2";shift;shift;;
       esac
     done
     [ "$BACKEND_MASTER" = "" -o "$BACKEND_SYNC_DIR" = "" ] && exit
@@ -763,9 +764,11 @@ case "$ARG" in
   init-app)
     [ -f core.js ] && $ECHO "Cannot create new app inside the backend sources, please use some other directory\n" && exit
     NAME=app
-    [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
+    [ "$1" != "" -a "${1:0:1}" != "-" ] && NAME=$1 && shift
     mkdir -p etc web
     [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $BACKEND_PREFIX/bin/node $NAME.js -watch -web -debug -etc-dir \`pwd\`/etc -web-dir \`pwd\`/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e .gitignore ] && $ECHO "*~\n.*\nbin/\ndata/\ndocs/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nlocal/\nnode_modules/\n" >> .gitignore
+
     if [ ! -e etc/config ]; then
        cat > etc/config <<@@@
 #debug=1
@@ -877,7 +880,7 @@ backend.server.start();
 
   run-app)
     NAME=app
-    [ "$2" != "" -a "${2:0:1}" != "-" ] && NAME=$2 && shift
+    [ "$1" != "" -a "${1:0:1}" != "-" ] && NAME=$1 && shift
     $BACKEND_PREFIX/bin/node $NAME.js -debug -watch `pwd` -web $@
     ;;
 

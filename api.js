@@ -10,6 +10,7 @@ var fs = require('fs');
 var os = require('os');
 var http = require('http');
 var https = require('https');
+var cluster = require('cluster');
 var url = require('url');
 var qs = require('qs');
 var toobusy = require('toobusy');
@@ -385,11 +386,13 @@ api.init = function(callback)
             // Start http server
             self.server = http.createServer(function(req, res) { self.handleRequest(req, res) });
             self.server.timeout = core.timeout;
+            self.server.on('error', function(err) { logger.error('api:', err); });
 
             // Start SSL server
             if (core.ssl.key || core.ssl.pfx) {
                 self.sslserver = https.createServer(core.ssl, function(req, res) { self.handleRequest(req, res) });
                 self.sslserver.timeout = core.timeout;
+                self.sslserver.on('error', function(err) { logger.error('api:ssl:', err); });
             }
 
             try {
@@ -402,32 +405,29 @@ api.init = function(callback)
             if (callback) callback.call(self, err);
         });
     });
+    self.exiting = false;
 }
 
 // Gracefully close all connections, call the callback after that
 api.shutdown = function(callback)
 {
+    var self = this;
+    if (this.exiting) return;
+    this.exiting = true;
     logger.log('api.shutdown: started');
-
-    var count = 0;
-    if (this.server) {
-        count++;
-        this.server.close();
-        this.server.on('close', function() {
-            logger.log('api.shutdown: closed');
-            if (--count == 0 && callback) callback();
+    var timeout = setTimeout(callback, self.shutdownTimeout || 30000);
+    async.parallel([
+        function(next) {
+            if (!self.server) return next();
+            try { self.server.close(function() { next() }); } catch(e) { next() }
+        },
+        function(next) {
+            if (!self.sslserver) return next();
+            try { self.sslserver.close(function() { next() }); } catch(e) { next() }
+        }], function(err) {
+            clearTimeout(timeout);
+            if (callback) callback();
         });
-    }
-    if (this.sslserver) {
-        count++;
-        this.sslserver.close();
-        this.sslserver.on("close", function() {
-            logger.log('api.shutdown: SSL closed');
-            if (--count == 0 && callback) callback();
-        });
-    }
-    // No servers running, call immediately
-    if (!count && callback) return callback();
 }
 
 api.handleRequest = function(req, res)
@@ -1317,9 +1317,13 @@ api.findHook = function(type, method, path)
     return null;
 }
 
+// Register a hook callback for the type and method and request url, if already exists does nothing.
 api.addHook = function(type, method, path, callback)
 {
+    var hook = this.findHook(type, method, path);
+    if (hook) return false;
     this.hooks[type].push(new express.Route(method, path, callback));
+    return true;
 }
 
 // Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
@@ -2296,6 +2300,8 @@ api.collectStatistics = function()
     this.metrics.Histogram('totalmem').update(os.totalmem());
     this.metrics.Histogram("util").update(util * 100 / cpus.length);
 
-    ipc.command({ op: "metrics", name: process.pid, value: this.getStatistics() });
+    if (cluster.isWorker) {
+        ipc.command({ op: "metrics", name: process.pid, value: this.getStatistics() });
+    }
 }
 
