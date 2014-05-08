@@ -7,7 +7,7 @@ all:
 	npm build . 
 
 force:
-	npm build . --backend_deps_force
+	npm build . --backend_nanomsg --backend_imagemagick
 
 run:
 	./bkjs run-backend

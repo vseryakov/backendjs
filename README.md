@@ -27,7 +27,7 @@ Check out the [Documentation](http://backendjs.io) for more documentation.
 The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
 
-The optional packages that the backendjs uses if available(resolving packages is done with pkg-config):
+The optional packages that the backendjs uses if available(resolving packages is done with *pkg-config*):
 - nanomsg - messaging, caching and pub/sub services
 - ImageMagick - image manipulation
 - libpq - PostgreSQL database driver
@@ -51,7 +51,7 @@ Note: if for example ImageMagick is not istalled it will be skipped, same goes t
 
 To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:
 
-        npm install backendjs --backend_deps_force
+        npm install backendjs --backend_nanomsg --backend_imagemagick
 
 This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.
@@ -123,6 +123,36 @@ applications but still part of the core of the system to be available once neede
         > db.select("bk_account", {}, db.showResult);
         > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
         > db.select("bk_account", { gender: 'm' }, { keys: ['gender'] }, db.showResult);
+
+# Backend runtime
+When the backendjs server starts it spawns several processes the perform different tasks.
+
+There are 2 major tasks of the backend that can be run at the same time or in any combination:
+- a Web server (server) with Web workers (web)
+- a job scheduler (master)
+
+These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed one.
+
+This is the typical output from the ps command on Linux server:
+
+            root       891  0.0  0.6 1071632 49504 ?       Ssl  14:33   0:01 backend: monitor
+            backend    899  0.0  0.6 1073844 52892 ?       Sl   14:33   0:01 backend: master
+            root       908  0.0  0.8 1081020 68780 ?       Sl   14:33   0:02 backend: server
+            backend    917  0.0  0.7 1072820 59008 ?       Sl   14:33   0:01 backend: web
+            backend    919  0.0  0.7 1072820 60792 ?       Sl   14:33   0:02 backend: web
+
+
+To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
+commands that simplify running the backend in different modes.
+
+- `bkjs run-backend` - runs the Web server and the jobs scheduler in debug mode with watching source files for changes, this is the common command to be used
+   in development, it passes the command line switches: `-debug -watch -web -master`
+- `bkjs run-server` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
+   the command line parameters are: `-daemon -monitor -master -syslog`
+- `bkjs run` - this command runs the Web server and the job scheduler without any other parameters, all aditional parameters can be added in the command line, this command
+   is a barebone elper to be used with any other custom settings.
+- `bkjs run-shell` or `bksh` - start backendjs shell, no API or Web server is initialized, only the database pools
+
 
 # Application structure
 The main puspose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
@@ -1269,7 +1299,7 @@ The flow of the pub/sub operations is the following:
 - the connection that initiated `/account/subscribe` receives an event
 
 ## nanomsg
-To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backend_deps_force`
+To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backend_nanomsg`
 options to the npm install, see above how to install the package.
 
 All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
@@ -1388,14 +1418,14 @@ new image configuration.
 - start new AWS instance via AWS console, use Amazon Linux or CentOS 6
 - login as `ec2-user`
 - get bkjs: `curl -OL https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs'
-- run `sudo ./bkjs setup-server -root /home/backend`
+- run `sudo ./bkjs setup-server -root /home/backend -web`
 - global system-wide options will be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables
 - reboot
 - login as `backend` user using the AWS keypair private key
 - install the backendjs and node:
 
         ./bkjs build-node
-        npm install backendjs --backend_deps_force
+        npm install backendjs --backend_nanomsg --backend_imagemagick
 
 - reboot and login into the server
 - run `ps agx`, it should show several backend processes running

@@ -643,7 +643,7 @@ case "$ARG" in
     su - $BACKEND_USER -c "rsync -aqFF $args -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_SYNC_DIR/ $BACKEND_ROOT"
     ;;
 
-  run-backend|run-server|run-shell|backendjs|bksh)
+  run-backend|run-server|run-shell|run|backendjs|bksh)
     [ -f $NODE_BACKEND/server.js ] && SCRIPT=$NODE_BACKEND/server.js
     [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
     [ -f server.js ] && SCRIPT=server.js
@@ -718,7 +718,7 @@ case "$ARG" in
     mkdir -p deps
 
     pkg-config --silence-errors --exists libopenjp2
-    if [ "$?" = "1" -a "$npm_config_backend_deps_force" != "" ]; then
+    if [ "$?" = "1" -a "$npm_config_backend_imagemagick" != "" ]; then
         if [ ! -d deps/openjpeg ]; then
            (cd deps && svn -r r2845 checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
         fi
@@ -727,7 +727,7 @@ case "$ARG" in
     fi
 
     pkg-config --silence-errors --exists libnanomsg
-    if [ "$?" = "1" -a "$npm_config_backend_deps_force" != "" ]; then
+    if [ "$?" = "1" -a "$npm_config_backend_nanomsg" != "" ]; then
         if [ ! -d deps/nanomsg ]; then
            (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
         fi
@@ -737,7 +737,7 @@ case "$ARG" in
     fi
 
     pkg-config --silence-errors --exists Wand
-    if [ "$?" = "1" -a "$npm_config_backend_deps_force" != "" ]; then
+    if [ "$?" = "1" -a "$npm_config_backend_imagemagick" != "" ]; then
         if [ ! -d deps/ImageMagick ]; then
            mkdir -p deps/ImageMagick
            curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz

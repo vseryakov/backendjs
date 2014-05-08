@@ -6,6 +6,7 @@
 <li><a href="#requirements-and-dependencies"> Requirements and dependencies</a></li>
 <li><a href="#installation"> Installation</a></li>
 <li><a href="#quick-start"> Quick start</a></li>
+<li><a href="#backend-runtime"> Backend runtime</a></li>
 <li><a href="#application-structure"> Application structure</a></li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
@@ -88,7 +89,7 @@
 <h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
 <p>The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.</p>
-<p>The optional packages that the backendjs uses if available(resolving packages is done with pkg-config):</p>
+<p>The optional packages that the backendjs uses if available(resolving packages is done with <em>pkg-config</em>):</p>
 <ul>
 <li>nanomsg - messaging, caching and pub/sub services</li>
 <li>ImageMagick - image manipulation</li>
@@ -104,7 +105,7 @@ on the system before installing the backendjs. Not everything is required, if no
 <p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(PostgreSQL, MySQL) and nanomsg.</p>
 <pre><code>    npm install backendjs
 </code></pre><p>To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:</p>
-<pre><code>    npm install backendjs --backend_deps_force
+<pre><code>    npm install backendjs --backend_nanomsg --backend_imagemagick
 </code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
 <h1 id="quick-start">Quick start</h1>
@@ -168,6 +169,31 @@ is only enabled by default in development mode, check app.sh for parameters befo
   &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
   &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, { keys: [&#39;gender&#39;] }, db.showResult);
 </code></pre></li>
+</ul>
+<h1 id="backend-runtime">Backend runtime</h1>
+<p>When the backendjs server starts it spawns several processes the perform different tasks.</p>
+<p>There are 2 major tasks of the backend that can be run at the same time or in any combination:</p>
+<ul>
+<li>a Web server (server) with Web workers (web)</li>
+<li>a job scheduler (master)</li>
+</ul>
+<p>These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed one.</p>
+<p>This is the typical output from the ps command on Linux server:</p>
+<pre><code>        root       891  0.0  0.6 1071632 49504 ?       Ssl  14:33   0:01 backend: monitor
+        backend    899  0.0  0.6 1073844 52892 ?       Sl   14:33   0:01 backend: master
+        root       908  0.0  0.8 1081020 68780 ?       Sl   14:33   0:02 backend: server
+        backend    917  0.0  0.7 1072820 59008 ?       Sl   14:33   0:01 backend: web
+        backend    919  0.0  0.7 1072820 60792 ?       Sl   14:33   0:02 backend: web
+</code></pre><p>To enable any task a command line parameter must be provided, it cannot be specified in the config file. The <code>bkjs</code> utility supports several
+commands that simplify running the backend in different modes.</p>
+<ul>
+<li><code>bkjs run-backend</code> - runs the Web server and the jobs scheduler in debug mode with watching source files for changes, this is the common command to be used
+ in development, it passes the command line switches: <code>-debug -watch -web -master</code></li>
+<li><code>bkjs run-server</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
+ the command line parameters are: <code>-daemon -monitor -master -syslog</code></li>
+<li><code>bkjs run</code> - this command runs the Web server and the job scheduler without any other parameters, all aditional parameters can be added in the command line, this command
+ is a barebone elper to be used with any other custom settings.</li>
+<li><code>bkjs run-shell</code> or <code>bksh</code> - start backendjs shell, no API or Web server is initialized, only the database pools</li>
 </ul>
 <h1 id="application-structure">Application structure</h1>
 <p>The main puspose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
@@ -1246,7 +1272,7 @@ message being a JSON object with the request API path and mtime, other propertie
 <li>the connection that initiated <code>/account/subscribe</code> receives an event</li>
 </ul>
 <h2 id="nanomsg">nanomsg</h2>
-<p>To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with <code>--backend_deps_force</code>
+<p>To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with <code>--backend_nanomsg</code>
 options to the npm install, see above how to install the package.</p>
 <p>All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
 The config parameter <code>msg-host</code> defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
@@ -1339,13 +1365,13 @@ new image configuration.</p>
 <li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
 <li>login as <code>ec2-user</code></li>
 <li>get bkjs: `curl -OL <a href="https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs">https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs</a>&#39;</li>
-<li>run <code>sudo ./bkjs setup-server -root /home/backend</code></li>
+<li>run <code>sudo ./bkjs setup-server -root /home/backend -web</code></li>
 <li>global system-wide options will be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</li>
 <li>reboot</li>
 <li>login as <code>backend</code> user using the AWS keypair private key</li>
 <li><p>install the backendjs and node:</p>
 <pre><code>  ./bkjs build-node
-  npm install backendjs --backend_deps_force
+  npm install backendjs --backend_nanomsg --backend_imagemagick
 </code></pre></li>
 <li><p>reboot and login into the server</p>
 </li>
@@ -1515,6 +1541,8 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>port</code> - port to listen for the HTTP server, this is global default. Default: 8000</li>
 <li><code>bind</code> - Bind to this address only, if not specified listen on all interfaces. Default: 0.0.0.0</li>
 <li><code>backlog</code> - The maximum length of the queue of pending connections, used by HTTP server in listen.. Default: 511</li>
+<li><code>io-port</code> - port to listen for sockets.io server, this is global default</li>
+<li><code>io-bind</code> - Bind to this address only for sockets.io server, if not specified listen on all interfaces</li>
 <li><code>ssl-port</code> - port to listen for HTTPS server, this is global default</li>
 <li><code>ssl-bind</code> - Bind to this address only for HTTPS server, if not specified listen on all interfaces</li>
 <li><code>ssl-key</code> - Path to SSL prvate key</li>
@@ -1528,7 +1556,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
 <li><code>shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules</li>
-<li><code>monitor</code> - For production use, monitor the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
+<li><code>monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
 <li><code>master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
 <li><code>proxy</code> - Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line</li>
 <li><code>proxy-port</code> - Proxy server port. Default: 8000</li>
@@ -1555,11 +1583,12 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests. Default: 20194</li>
 <li><code>no-cache</code> - Disable caching, all gets will result in miss and puts will have no effect</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
+<li><code>logwatcher-url</code> - The backend URL where logwatcher reports should be sent instead of email</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
 <li><code>logwatcher-ignore</code> - Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns. Default: NOTICE: ,DEBUG: ,DEV: </li>
 <li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns. Default: [[0-9]+]: (ERROR|WARNING): ,message&quot;:&quot;ERROR:,queryAWS:.+Errors:</li>
-<li><code>logwatcher-interval</code> - How often to check for errors in the log files. Default: 3600</li>
+<li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes. Default: 60</li>
 <li><code>logwatcher-file</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers. Default: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:20.0) Gecko/20100101 Firefox/20.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.29.13 (KHTML, like Gecko) Version/6.0.4 Safari/536.29.13,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.65 Safari/537.31,Mozilla/5.0 (X11; Linux i686) AppleWebKit/534.34 (KHTML, like Gecko) Safari/534.34,Opera/9.80 (Macintosh; Intel Mac OS X 10.7.5) Presto/2.12.388 Version/12.15,Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.2; BRI/2</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
@@ -1571,28 +1600,36 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>min-distance</code> - Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. Default: 5</li>
 <li><code>instance</code> - Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
 <li><code>backtrace</code> - Enable backtrace facility, trap crashes and report the backtrace stack</li>
-<li><code>watch</code> - Watch sources directory for file changes to restart the server, for development, the backend module files will be added to the watch list automatically, so only app specific directores should be added</li>
+<li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: sqlite</li>
-<li><code>db-no-pools</code> - Do not use other db pools except default sqlite</li>
+<li><code>db-no-pools</code> - Do not use other db pools except default local pool</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: sqlite</li>
-<li><code>db-config</code> - Configuration database pool for config parameters</li>
-<li><code>db-config-type</code> - Config group to use when requesting confguration from the database, &#39;core&#39; group is always read first</li>
+<li><code>db-config</code> - Configuration database pool for config parameters, if not defined the default pool will be used</li>
+<li><code>db-config-type</code> - Config group to use when requesting confguration from the database, must be defined to be used</li>
+<li><code>db-sqlite-pool</code> - SQLite pool db name, absolute path or just a name. Default: backend</li>
 <li><code>db-sqlite-max</code> - Max number of open connection for the pool</li>
-<li><code>db-sqlite-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
+<li><code>db-sqlite-idle</code> - Number of ms for a connection to be idle before being destroyed. Default: 86400000</li>
 <li><code>db-sqlite-tables</code> - Sqlite tables, list of tables that belong to this pool only</li>
 <li><code>db-pgsql-pool</code> - PostgreSQL pool access url or options string</li>
+<li><code>db-pgsql-min</code> - Min number of open connection for the pool</li>
 <li><code>db-pgsql-max</code> - Max number of open connection for the pool</li>
 <li><code>db-pgsql-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-pgsql-tables</code> - PostgreSQL tables, list of tables that belong to this pool only</li>
 <li><code>db-mysql-pool</code> - MySQL pool access url in the format: mysql://user:pass@host/db</li>
+<li><code>db-mysql-min</code> - Min number of open connection for the pool</li>
 <li><code>db-mysql-max</code> - Max number of open connection for the pool</li>
 <li><code>db-mysql-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-mysql-tables</code> - PostgreSQL tables, list of tables that belong to this pool only</li>
 <li><code>db-dynamodb-pool</code> - DynamoDB endpoint url or &#39;default&#39; to use AWS account default region</li>
+<li><code>db-dynamodb-max</code> - Max number of open connection for the pool</li>
 <li><code>db-dynamodb-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
 <li><code>db-mongodb-pool</code> - MongoDB endpoint url</li>
+<li><code>db-mongodb-min</code> - Min number of open connection for the pool</li>
+<li><code>db-mongodb-max</code> - Max number of open connection for the pool</li>
+<li><code>db-mongodb-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-mongodb-tables</code> - MongoDB tables, list of tables that belong to this pool only</li>
 <li><code>db-cassandra-pool</code> - Casandra endpoint url</li>
+<li><code>db-cassandra-min</code> - Min number of open connection for the pool</li>
 <li><code>db-cassandra-max</code> - Max number of open connection for the pool</li>
 <li><code>db-cassandra-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-cassandra-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
@@ -1630,6 +1667,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>server-idle-time</code> - If set and no jobs are submitted the backend will be shutdown, for instance mode only. Default: 120</li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process. Default: 30000</li>
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes. Default: 1000</li>
+<li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
 <li><code>server-job</code> - Job specification, JSON encoded as base64 of the job object</li>
 <li><code>server-jobs-tag</code> - This server executes jobs that match this tag, cannot be empty, default is current hostname. Default: Vlad-Macbook</li>
 <li><code>server-max-jobs</code> - How many jobs to execute at any iteration, this relates to the bk_jobs queue only. Default: 1</li>
@@ -1758,6 +1796,18 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 <ul>
 <li><p><code>api.shutdown(callback)</code></p>
 <p> Gracefully close all connections, call the callback after that</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleServerRequest(req, res)</code></p>
+<p> Start Express middleware processing wrapped in the node domain</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleSocketConnect(sock)</code></p>
+<p> Wrap socket.io connection into the Express routing</p>
 </li>
 </ul>
 
@@ -1928,6 +1978,12 @@ table to disable updating location related columns because speial location API m
 <ul>
 <li><p><code>api.findHook(type, method, path)</code></p>
 <p> Find registered hook for given type and path</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.addHook(type, method, path, callback)</code></p>
+<p> Register a hook callback for the type and method and request url, if already exists does nothing.</p>
 </li>
 </ul>
 
@@ -2200,6 +2256,12 @@ Output file name is built according to the following options properties:</li>
 <p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
 The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
 delete an account but keep all messages and location: keep: { message: 1, location: 1 }</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initStatistics()</code></p>
+<p> Setup statistics collections</p>
 </li>
 </ul>
 
@@ -2477,8 +2539,13 @@ Example:
 </ul>
 
 <ul>
-<li><p><code>core.init(callback)</code></p>
-<p> Main initialization, must be called prior to perform any actions</p>
+<li><p><code>core.init(options, callback)</code></p>
+<p> Main initialization, must be called prior to perform any actions.
+If options are given they may contain the following properties:</p>
+<ul>
+<li>noPools - if true do not initialize database pools except default sqlite</li>
+<li>noDns - do not retrieve config from DNS</li>
+</ul>
 </li>
 </ul>
 
@@ -2534,12 +2601,6 @@ type can be bool, number, list, json</p>
 <ul>
 <li><p><code>core.loadConfig(file, callback)</code></p>
 <p> Parse the config file, configFile can point to a file or can be skipped and the default file will be loaded</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.retrieveConfig(callback)</code></p>
-<p> Retrieve config parameters from the db, network, dns...</p>
 </li>
 </ul>
 
@@ -2732,7 +2793,7 @@ Options defines the following properties:</p>
 <li>validate - method to verify actibe resource item, return false if it needs to be destroyed</li>
 <li>min - min number of active resource items</li>
 <li>max - max number of active resource items</li>
-<li>max_queue - how big waiting queue can be, above this all requests will be rejected immediately</li>
+<li>max_queue - how big the waiting queue can be, above this all requests will be rejected immediately</li>
 <li>timeout - number of milliseconds to wait for the next available resource item, cannot be 0</li>
 <li>idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.</li>
 </ul>
@@ -2748,6 +2809,12 @@ Options defines the following properties:</p>
 <ul>
 <li><p><code>core.getArgInt(name, dflt)</code></p>
 <p> Return commandline argument value as a number</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.isArg(name)</code></p>
+<p> Returns true of given arg(s) are present in the comman dline,name can be a string or an array of strings.</p>
 </li>
 </ul>
 
@@ -3286,7 +3353,12 @@ database like DynamoDB for real-time requests and slower SQL database running on
 
 <ul>
 <li><p><code>db.init(options, callback)</code></p>
-<p> Initialize database pools</p>
+<p> Initialize database pools.
+Options can have the following properties:</p>
+<ul>
+<li>noPools - disables all other pools except sqlite, similar to <code>-db-no-pools</code> config parameter, id db-local is configured and
+ different than sqlite it is initialized always as well</li>
+</ul>
 </li>
 </ul>
 
@@ -3815,7 +3887,15 @@ this is for those databases which are very sensitive on the types like DynamoDB.
 
 <ul>
 <li><p><code>db.getPool(table, options)</code></p>
-<p> Return database pool by name or default pool</p>
+<p> Return database pool by table name or default pool, options may contain { pool: name } to return
+the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
+special empty pool which provides same interface but returns errors instesd of results.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getPoolByName(name)</code></p>
+<p> Returns given pool if it exists and initialized otherwise returns null</p>
 </li>
 </ul>
 
@@ -4301,8 +4381,14 @@ Options can define the following:</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.send(op, name, value, callback)</code></p>
+<li><p><code>ipc.command(msg, callback)</code></p>
 <p> Send cache command to the master process via IPC messages, callback is used for commands that return value back</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.send(op, name, value, callback)</code></p>
+<p> Always send text to the master, convert objects into JSON, value and callback are optional</p>
 </li>
 </ul>
 
@@ -4444,6 +4530,12 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 </ul>
 
 <ul>
+<li><p><code>server.startWorker()</code></p>
+<p> Job worker process</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>server.startWeb(callback)</code></p>
 <p> Create Express server, setup worker environment, call supplied callback to set initial environment</p>
 </li>
@@ -4462,6 +4554,12 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 </ul>
 
 <ul>
+<li><p><code>server.handleChildProcess(child, type, method)</code></p>
+<p> Setup exit listener on the child process and restart it</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>server.startProxy()</code></p>
 <p> Start http proxy as standalone server process</p>
 </li>
@@ -4469,7 +4567,7 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 
 <ul>
 <li><p><code>server.startProcess()</code></p>
-<p> Restart process with the same arguments and setup as a monitor for the spawn child</p>
+<p> Restart the main process with the same arguments and setup as a monitor for the spawn child</p>
 </li>
 </ul>
 

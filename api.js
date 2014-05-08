@@ -385,7 +385,7 @@ api.init = function(callback)
         self.initTables(function(err) {
 
             // Start http server
-            self.server = http.createServer(function(req, res) { self.handleRequest(req, res) });
+            self.server = http.createServer(function(req, res) { self.handleServerRequest(req, res) });
             self.server.timeout = core.timeout;
             self.server.on('error', function(err) {
                 logger.error('api:', err);
@@ -394,7 +394,7 @@ api.init = function(callback)
 
             // Start SSL server
             if (core.ssl.key || core.ssl.pfx) {
-                self.sslserver = https.createServer(core.ssl, function(req, res) { self.handleRequest(req, res) });
+                self.sslserver = https.createServer(core.ssl, function(req, res) { self.handleServerRequest(req, res) });
                 self.sslserver.timeout = core.timeout;
                 self.sslserver.on('error', function(err) {
                     logger.error('api:ssl:', err);
@@ -405,12 +405,7 @@ api.init = function(callback)
             // Start sockets.io server
             if (core.io.port) {
                 self.ioserver = io;
-                io.sockets.on('connection', function(socket) {
-                    socket.emit('news', { hello: 'world' });
-                    socket.on('my other event', function (data) {
-                        console.log(data);
-                    });
-                });
+                io.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
             }
 
             try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
@@ -445,7 +440,8 @@ api.shutdown = function(callback)
         });
 }
 
-api.handleRequest = function(req, res)
+// Start Express middleware processing wrapped in the node domain
+api.handleServerRequest = function(req, res)
 {
     var self = this;
     var d = domain.create();
@@ -457,6 +453,12 @@ api.handleRequest = function(req, res)
     d.add(req);
     d.add(res);
     d.run(function() { self.app(req, res); });
+}
+
+// Wrap socket.io connection into the Express routing
+api.handleSocketConnect = function(sock)
+{
+
 }
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server

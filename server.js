@@ -27,7 +27,7 @@ var server = {
     // Watcher process status
     child: null,
     // Aditional processes to kill on exit
-    pids: [],
+    pids: {},
     exiting: false,
     // Delay (ms) before restarting the server
     restartDelay: 1000,
@@ -114,7 +114,7 @@ server.start = function()
         process.once('exit', function() {
             self.exiting = true;
             if (self.child) self.child.kill('SIGTERM');
-            self.pids.forEach(function(p) { try { process.kill(p) } catch(e) {} });
+            for (var pid in self.pids) { try { process.kill(pid) } catch(e) {} };
         });
 
         process.once('SIGTERM', function () {
@@ -322,27 +322,27 @@ server.startWeb = function(callback)
 server.startWebProcess = function()
 {
     var child = this.spawnProcess([], [ "-master", "-proxy" ], { stdio: 'inherit' });
-    this.pids.push(child.pid);
-    child.on('exit', function (code, signal) {
-        logger.log('process terminated:', 'pid:', this.pid, 'code:', code, 'signal:', signal);
-        // Make sure all web servers are down before restarting to avoid EADDRINUSE error condition
-        core.killBackend("web", 'SIGKILL', function() {
-            self.respawn(function() { self.startWebProcess(); });
-        });
-    });
-    child.unref();
+    this.handleChildProcess(child, "web", "startWebProcess");
 }
 
 // Spawn web proxy from the master as a separate master with web workers
 server.startWebProxy = function()
 {
     var child = this.spawnProcess([ "-db-no-pools" ], ["-master", "-web" ], { stdio: 'inherit' });
-    this.pids.push(child.pid);
+    this.handleChildProcess(child, "proxy", "startWebProxy");
+}
+
+// Setup exit listener on the child process and restart it
+server.handleChildProcess = function(child, type, method)
+{
+    var self = this;
+    self.pids[child.pid] = 1;
     child.on('exit', function (code, signal) {
-        logger.log('process terminated:', 'pid:', this.pid, 'code:', code, 'signal:', signal);
+        delete self.pids[this.pid];
+        logger.log('process terminated:', type, 'pid:', this.pid, 'code:', code, 'signal:', signal);
         // Make sure all web servers are down before restating to avoid EADDRINUSE error condition
-        core.killBackend("proxy", "SIGKILL", function() {
-            self.respawn(function() { self.startWebProxy(); });
+        core.killBackend(type, "SIGKILL", function() {
+            self.respawn(function() { self[method](); });
         });
     });
     child.unref();
@@ -480,10 +480,10 @@ server.respawn = function(callback)
 {
 	var self = this;
     if (self.exiting) return;
-    var now = new Date();
-    if (self.crashTime && now.getTime() - self.crashTime.getTime() < self.crashInterval*(self.crashCount+1)) {
+    var now = Date.now;
+    if (self.crashTime && now - self.crashTime < self.crashInterval*(self.crashCount+1)) {
         if (self.crashCount && this.crashEvents >= this.crashCount) {
-            logger.log('respawn:', 'throttling for', self.crashDelay, 'after', self.crashEvents, 'crashes in ', now.getTime() - this.crashTime.getTime(), 'ms');
+            logger.log('respawn:', 'throttling for', self.crashDelay, 'after', self.crashEvents, 'crashes in ', now - this.crashTime, 'ms');
             self.crashEvents = 0;
             self.crashTime = now;
             return setTimeout(callback, self.crashDelay);
@@ -575,50 +575,55 @@ server.execJob = function(job)
 
     if (cluster.isWorker) return logger.error('exec: can be called from the master only', job);
 
-    // Build job object with canonical name
-    if (typeof job == "string") job = core.newObj(job, null);
-    if (typeof job != "object") return logger.error('exec:', 'invalid job', job);
+    try {
+        // Build job object with canonical name
+        if (typeof job == "string") job = core.newObj(job, null);
+        if (typeof job != "object") return logger.error('exec:', 'invalid job', job);
 
-    // Do not exceed max number of running workers
-    var workers = Object.keys(cluster.workers);
-    if (workers.length >= self.maxWorkers) {
-        self.queue.push(job);
-        return logger.debug('execJob:', 'max number of workers running:', self.maxWorkers, 'job:', job);
-    }
-
-    // Perform conditions check, any failed condition will reject the whole job
-    for (var p in job) {
-        var opts = job[p] || {};
-        // Do not execute if we already have this job running
-        if (self.jobs.indexOf(p) > -1 && !opts.runalways) {
-            if (!opts.skipqueue) self.queue.push(job);
-            return logger.debug('execJob: already running', job);
+        // Do not exceed max number of running workers
+        var workers = Object.keys(cluster.workers);
+        if (workers.length >= self.maxWorkers) {
+            self.queue.push(job);
+            return logger.debug('execJob:', 'max number of workers running:', self.maxWorkers, 'job:', job);
         }
 
-        // Condition for job, should not be any pending or running jobs
-        if (opts.runlast) {
-            if (self.jobs.length || self.queue.length) {
+        // Perform conditions check, any failed condition will reject the whole job
+        for (var p in job) {
+            var opts = job[p] || {};
+            // Do not execute if we already have this job running
+            if (self.jobs.indexOf(p) > -1 && !opts.runalways) {
                 if (!opts.skipqueue) self.queue.push(job);
-                return logger.debug('execJob:', 'other jobs still exist', job);
+                return logger.debug('execJob: already running', job);
+            }
+
+            // Condition for job, should not be any pending or running jobs
+            if (opts.runlast) {
+                if (self.jobs.length || self.queue.length) {
+                    if (!opts.skipqueue) self.queue.push(job);
+                    return logger.debug('execJob:', 'other jobs still exist', job);
+                }
+            }
+
+            // Check dependencies, only run when there is no dependent job in the running list
+            if (opts.runone) {
+                if (self.jobs.filter(function(x) { return x.match(opts.runone) }).length) {
+                    if (!opts.skipqueue) self.queue.push(job);
+                    return logger.debug('execJob:', 'depending job still exists:', job);
+                }
+            }
+
+            // Check dependencies, only run when there is no dependent job in the running or pending lists
+            if (opts.runafter) {
+                if (self.jobs.some(function(x) { return x.match(opts.runafter) }) ||
+                    self.queue.some(function(x) { return Object.keys(x).some(function(y) { return y.match(opts.runafter); }); })) {
+                    if (!opts.skipqueue) self.queue.push(job);
+                    return logger.debug('execJob:', 'depending job still exists:', job);
+                }
             }
         }
-
-        // Check dependencies, only run when there is no dependent job in the running list
-        if (opts.runone) {
-            if (self.jobs.filter(function(x) { return x.match(opts.runone) }).length) {
-                if (!opts.skipqueue) self.queue.push(job);
-                return logger.debug('execJob:', 'depending job still exists:', job);
-            }
-        }
-
-        // Check dependencies, only run when there is no dependent job in the running or pending lists
-        if (opts.runafter) {
-            if (self.jobs.some(function(x) { return x.match(opts.runafter) }) ||
-                self.queue.some(function(x) { return Object.keys(x).some(function(y) { return y.match(opts.runafter); }); })) {
-                if (!opts.skipqueue) self.queue.push(job);
-                return logger.debug('execJob:', 'depending job still exists:', job);
-            }
-        }
+    } catch(e) {
+        logger.error('execJob:', e, job);
+        return false;
     }
 
     self.jobTime = core.now();

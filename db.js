@@ -841,7 +841,6 @@ db.list = function(table, obj, options, callback)
 	switch (core.typeName(obj)) {
 	case "string":
 	case "array":
-	    logger.log(obj)
         obj = core.strSplit(obj);
 	    if (typeof obj[0] == "string") {
 	        var keys = this.getSearchKeys(table, options);
