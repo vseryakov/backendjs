@@ -172,7 +172,7 @@ var core = {
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
-            { name: "logwatcher-host", descr: "The backend host wheer logatcher reports should be sent instead of email, requires backend-login/secret to be defined" },
+            { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns" },
