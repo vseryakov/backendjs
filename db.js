@@ -2665,16 +2665,16 @@ db.dynamodbInitPool = function(options)
 
         switch(req.op) {
         case "create":
-            var local = {}, global = {}, projection = {};
+            var local = {}, global = {}, projection = {}, attrs = {};
             var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
-                              sort(function(a,b) { return obj[a] - obj[b] }).
+                              sort(function(a,b) { return obj[a].primary - obj[b].primary }).
                               filter(function(x, i) { return i < 2 }).
                               map(function(x, i) { return [ x, i ? 'RANGE' : 'HASH' ] }).
-                              reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                              reduce(function(x,y) { attrs[y[0]] = 1; x[y[0]] = y[1]; return x }, {});
             var hash = Object.keys(keys)[0];
 
             ["","1","2","3","4","5"].forEach(function(n) {
-                var idx = Object.keys(obj).filter(function(x, i) { return obj[x]["index" + n]; }).sort(function(a,b) { return obj[a] - obj[b] });
+                var idx = Object.keys(obj).filter(function(x, i) { return obj[x]["index" + n]; }).sort(function(a,b) { return obj[a]["index" + n] - obj[b]["index" + n] });
                 if (!idx.length) return;
                 if (idx.length == 2 && idx[0] == hash) {
                     local[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
@@ -2684,20 +2684,17 @@ db.dynamodbInitPool = function(options)
                 } else {
                     global[idx[0]] = core.newObj(idx[0], 'HASH');
                 }
+                idx.forEach(function(y) { attrs[y] = 1 });
             });
 
-            var attrs = Object.keys(keys).
-                               concat(Object.keys(local)).
-                               concat(Object.keys(global)).
-                               map(function(x) {
-                                   // All native properties for options from the key columns
-                                   for (var p in obj[x].dynamodb) {
-                                       if (p[0] >= 'A' && p[0] <= 'Z') opts[p] = obj[x].dynamodb[p];
-                                       if (p == "projection") projection[x] = obj[x].dynamodb.projection;
-                                   }
-                                   return [ x, ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S" ]
-                               }).
-                               reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            // All native properties for options from the key columns
+            Object.keys(attrs).forEach(function(x) {
+                attrs[x] = ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S";
+                for (var p in obj[x].dynamodb) {
+                    if (p[0] >= 'A' && p[0] <= 'Z') opts[p] = obj[x].dynamodb[p];
+                    if (p == "projection") projection[x] = obj[x].dynamodb.projection;
+                }
+            });
 
             opts.local = local;
             opts.global = global;
@@ -2728,8 +2725,8 @@ db.dynamodbInitPool = function(options)
         case "select":
         case "search":
             // Do not use index name if it is a primary key
-            if (opts.sort && dbkeys.indexOf(opts.sort) > -1) opts.sort = null;
-            // Use primary keys from the local secondary index
+            if (opts.sort && dbkeys.indexOf(opts.sort) == 0) opts.sort = null;
+            // Use primary keys from the secondary index
             if (opts.sort && pool.dbindexes[opts.sort]) dbkeys = pool.dbindexes[opts.sort];
             if (opts.index && pool.dbindexes[opts.index]) dbkeys = pool.dbindexes[opts.index];
             // If we have other key columns we have to use custom filter
@@ -2738,8 +2735,8 @@ db.dynamodbInitPool = function(options)
             // Query based on the keys
             keys = self.getSearchQuery(table, obj, { keys: keys || dbkeys });
             // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering
-            var op = keys[dbkeys[0]] ? 'ddbQueryTable' : 'ddbScanTable';
-            logger.debug('select:', 'dynamodb', op, keys, dbkeys);
+            var op = typeof keys[dbkeys[0]] != "undefined" ? 'ddbQueryTable' : 'ddbScanTable';
+            logger.debug('select:', 'dynamodb', op, keys, dbkeys, opts.sort);
 
             opts.keys = dbkeys;
             opts.select = self.getSelectedColumns(table, opts);

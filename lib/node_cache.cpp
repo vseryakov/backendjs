@@ -515,7 +515,7 @@ static void lruHandleRead(uv_poll_t *w, int status, int revents)
 		LogError("%d: %d: recv: %s", d->type, d->sock1, nn_strerror(nn_errno()));
 		return;
 	}
-	LogDebug("type=%d, sock=%d, %s", d->type, d->sock1, buf);
+	LogDev("type=%d, sock=%d, %s", d->type, d->sock1, buf);
 
 	switch (d->type) {
 	case 0:
@@ -583,7 +583,7 @@ static Handle<Value> lruServerStart(const Arguments& args)
     p->data = d;
     _socks[sock1] = p;
 
-    LogDebug("type=%d, sock1=%d, sock2=%d, rfd=%d", type, sock1, sock2, rfd);
+    LogDev("type=%d, sock1=%d, sock2=%d, rfd=%d", type, sock1, sock2, rfd);
 #else
     return ThrowException(Exception::Error(String::New("nanomsg is not compiled in")));
 #endif

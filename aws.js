@@ -463,7 +463,8 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
     ["local","global"].forEach(function(t) {
         for (var n in options[t]) {
             var idx = options[t][n];
-            var index = { IndexName: n, KeySchema: [] };
+            var iname = (n.length > 2 ? '' : '_') + n;
+            var index = { IndexName: iname, KeySchema: [] };
             for (var p in idx) {
                 if (p[0] >= 'A' && p[0] <= 'Z') {
                     index[p] = idx[p];
@@ -745,7 +746,7 @@ aws.ddbQueryTable = function(name, condition, options, callback)
         params.ExclusiveStartKey = self.toDynamoDB(options.start);
     }
     if (options.sort) {
-        params.IndexName = options.sort;
+        params.IndexName = (options.sort.length > 2 ? '' : '_') + options.sort;
     }
     if (options.desc) {
         params.ScanIndexForward = false;

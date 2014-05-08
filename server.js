@@ -83,6 +83,9 @@ server.start = function()
 {
     var self = this;
 
+    // Mark the time we started for calculating idle times properly
+    self.jobTime = core.now();
+
     logger.debug("server: start", process.argv);
 
     var options = {};
@@ -155,22 +158,25 @@ server.terminate = function()
 // Start process monitor, running as root
 server.startMonitor = function()
 {
+    var self = this;
     process.title = core.name + ': monitor';
     core.role = 'monitor';
 
-    this.startProcess();
+    if (cluster.isMaster) {
+        this.startProcess();
 
-    // Monitor server tasks
-    setInterval(function() { try { core.watchLogs(); } catch(e) { logger.error('monitor:', e); } }, core.logwatcherInterval*60000 + 1000);
+        // Log watcher job
+        setInterval(function() { self.execJob("core.watchLogs"); }, core.logwatcherInterval*60000 + 1000);
+
+    } else {
+        this.startWorker();
+    }
 }
 
 // Setup worker environment
 server.startMaster = function()
 {
     var self = this;
-
-    // Mark the time we started for calculating idle times properly
-    self.jobTime = core.now();
 
     if (cluster.isMaster) {
         core.role = 'master';
@@ -216,28 +222,35 @@ server.startMaster = function()
 
         logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
     } else {
-        core.role = 'worker';
-        process.title = core.name + ': worker';
-
-        process.on("message", function(job) {
-            logger.log('startWorker:', 'pid:', process.pid, 'job:', util.inspect(job, null, null));
-            self.runJob(job);
-        });
-
-        // Maintenance tasks
-        setInterval(function() {
-            // Check idle time, exit worker if no jobs submitted
-            if (self.idleTime > 0 && !self.jobs.length && core.now() - self.jobTime > self.idleTime) {
-                logger.log('startWorker:', 'idle:', self.idleTime);
-                process.exit(0);
-            }
-        }, 30000);
-
-        process.send('ready');
-
-        logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+        this.startWorker();
     }
     core.dropPrivileges();
+}
+
+// Job worker process
+server.startWorker = function()
+{
+    var self = this;
+    core.role = 'worker';
+    process.title = core.name + ': worker';
+
+    process.on("message", function(job) {
+        logger.log('startWorker:', 'pid:', process.pid, 'job:', util.inspect(job, null, null));
+        self.runJob(job);
+    });
+
+    // Maintenance tasks
+    setInterval(function() {
+        // Check idle time, exit worker if no jobs submitted
+        if (self.idleTime > 0 && !self.jobs.length && core.now() - self.jobTime > self.idleTime) {
+            logger.log('startWorker:', 'idle:', self.idleTime);
+            process.exit(0);
+        }
+    }, 30000);
+
+    process.send('ready');
+
+    logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
 }
 
 // Create Express server, setup worker environment, call supplied callback to set initial environment
@@ -362,7 +375,7 @@ server.startProcess = function()
     self.child = this.spawnProcess();
     // Pass child output to the console
     self.child.stdout.on('data', function(data) {
-        util.print(data);
+        if (self.logErrors) logger.log(data); else util.print(data);
     });
     self.child.stderr.on('data', function(data) {
         if (self.logErrors) logger.error(data); else util.print(data);
@@ -523,10 +536,9 @@ server.runJob = function(job)
                 if (!self.jobs.length && cluster.isWorker) process.exit(0);
             });
         })(name);
-        // Make report about unknown job, leading $ are used for same method miltiple times in the same job because
-        // method names are unique in the object
+        // Make report about unknown job, leading $ are used for same method miltiple times in the same job because property names are unique in the objects
         var spec = name.replace(/^[\$]+/g, "").split('.');
-        var obj = core.context[spec[0]];
+        var obj = spec[0] == "core" ? core : core.context[spec[0]];
         if (!obj || !obj[spec[1]]) {
             logger.error('runJob:', name, "unknown method in", job);
             if (core.role == "worker") process.exit(1);
