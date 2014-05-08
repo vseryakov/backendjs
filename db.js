@@ -42,8 +42,18 @@ var metrics = require(__dirname + "/metrics");
 //              ...
 //          });
 //
-// All database methods can use default db pool or any other available db pool by using pool: name in the options. If not specified,
-// then default db pool is used, sqlite is default if not -db-pool config parameter specified in the command line or the config file.
+// All database methods can use default db pool or any other available db pool by using `pool: name` in the options. If not specified,
+// then default db pool is used, sqlite is default if no -db-pool config parameter specified in the command line or the config file.
+//
+//  Example, use PostgreSQL db pool to get a record and update the current pool
+//
+//          db.get("bk_account", { id: "123" }, { pool: "pgsql" }, function(err, row) {
+//              if (row) db.update("bk_account", row);
+//          });
+//
+// Most database pools can be configured with options `min` and `max` for number of connections to be maintained, so no overload will happen and keep warm connection for
+// faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an errors but
+// put extra requests into the wating queue and execute after some requests finished.
 //
 // Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using `db-pool-tables` parameters
 // thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
@@ -261,9 +271,13 @@ db.getPoolTables = function(name)
 //    - pool - pool name
 //    - pooling - create generic pool for connection caching
 //    - watchfile - file path to be watched for changes, all clients will be destroyed gracefully
+//    - min - min number of open database connections
+//    - max - max number of open database connections, all attempts to run more will result in clinets waiting for the next available db connection
+//    - max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue
 // The following pool callback can be assigned to the pool object:
 // - connect - a callback to be called when actual database client needs to be created, the callback signature is
 //    function(pool, callback) and will be called with first arg an error object and second arg is the database instance, required for pooling
+// - close - a callback to be called when a db connection needs to be closed, optional callback with error can be provided to this method
 // - bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
 //   may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds
 // - convertError - a callback function(table, op, err, options) that converts native DB driver error into other human readable format
@@ -271,7 +285,7 @@ db.getPoolTables = function(name)
 //   and if exist it must return the same or new table name for the given query parameters.
 //
 // The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
-// it is required to call pool.free at the end to return the connection back to the connection pool.
+// it is required to call `pool.free` at the end to return the connection back to the connection pool.
 //
 //          var pool = db.getPool("", { pool: "mongodb" });
 //          pool.get(function(err, client) {
@@ -288,6 +302,7 @@ db.createPool = function(options)
 
     if (options.pooling) {
         var pool = core.createPool({
+            min: options.min,
             max: options.max,
             idle: options.idle,
 
@@ -308,11 +323,11 @@ db.createPool = function(options)
                 return self.dbpool[this.name].serialNum == client.pool_serial;
             },
             destroy: function(client) {
-                logger.log('pool.destroy', client.pool_name, "#", client.pool_serial);
+                logger.debug('pool.destroy', client.pool_name, "#", client.pool_serial);
                 try {
-                    client.close(function(err) { logger.log("db.close:", client.pool_name, err || "") });
+                    client.close(function(err) { if (err) logger.error("db.close:", client.pool_name, err || "") });
                 } catch(e) {
-                    logger.log("pool.close:", client.pool_name, e);
+                    logger.debug("pool.close:", client.pool_name, e);
                 }
             },
         });
@@ -336,12 +351,13 @@ db.createPool = function(options)
         var pool = {};
         pool.get = function(callback) { callback(null, this); };
         pool.free = function(client) {};
-        pool.destroyAllNow = function() {};
+        pool.closeAll = function() {};
+        pool.stats = function() { return null };
     }
 
-    // Save all options
+    // Save all options and methods
     for (var p in options) {
-        if (!pool[p]) pool[p] = options[p];
+        if (!pool[p] && typeof options[p] != "undefined") pool[p] = options[p];
     }
 
     // Watch for changes or syncs and reopen the database file
@@ -352,7 +368,7 @@ db.createPool = function(options)
             fs.watch(this.watchfile, function(event, filename) {
                 logger.log('db.watch:', me.name, event, filename, me.watchfile, "#", me.serialNum);
                 me.serialNum++;
-                me.destroyAllNow();
+                me.closeAll();
             });
         }
         // Mark the client with the current db pool serial number, if on release this number differs we
@@ -361,13 +377,15 @@ db.createPool = function(options)
         client.pool_name = this.name;
         logger.debug('pool:', 'open', this.name, "#", this.serialNum);
     }
-    pool.connect = function(opts, callback) { callback(null, opts); };
-    pool.setup = function(client, callback) { callback(null, client); };
-    pool.cacheColumns = function(opts, callback) { callback(); };
-    pool.cacheIndexes = function(opts, callback) { callback(); };
-    pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj }; };
-    pool.query = function(client, req, opts, callback) { callback(null, []); };
-    pool.nextToken = function(req, rows, opts) {};
+    // Default methods if not setup from the options
+    if (typeof pool.connect != "function") pool.connect = function(opts, callback) { callback(null, opts); };
+    if (typeof pool.close != "function") pool.close = function(callback) {}
+    if (typeof pool.setup != "function") pool.setup = function(client, callback) { callback(null, client); };
+    if (typeof pool.prepare != "function") pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj }; };
+    if (typeof pool.query != "function") pool.query = function(client, req, opts, callback) { callback(null, []); };
+    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { callback(); };
+    if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, callback) { callback(); };
+    if (typeof pool.nextToken != "function") pool.nextToken = function(req, rows, opts) {};
     pool.processRow = [];
     pool.name = pool.pool;
     pool.serialNum = 0;
@@ -2600,6 +2618,8 @@ db.dynamodbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "dynamodb";
 
+    options.pooling = 1;
+    options.max = options.max || 500;
     options.dboptions = { noJson: 1, strictTypes: 1 };
     var pool = this.createPool(options);
 

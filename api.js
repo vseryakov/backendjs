@@ -402,15 +402,14 @@ api.init = function(callback)
                 });
             }
 
-            // Start sockets.io server
-            if (core.io.port) {
-                self.ioserver = io;
-                io.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
-            }
-
             try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
             try { if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init:', core.ssl.port, core.ssl.bind, e); err = e; }
-            try { if (self.ioserver) self.ioserver.listen(core.io.port); } catch(e) { logger.error('api: init:', core.io.port, core.io.bind, e); err = e; }
+            try { if (core.io.port) self.ioserver = io.listen(core.io.port); } catch(e) { logger.error('api: init:', core.io.port, core.io.bind, e); err = e; }
+
+            // Setup sockets.io server, pass messages into the Express routing by wrapping into req/res objects
+            if (self.ioserver) {
+                self.ioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
+            }
 
             if (callback) callback.call(self, err);
         });
@@ -2290,7 +2289,7 @@ api.initStatistics = function()
 
     this.metrics = new metrics();
     this.collectStatistics();
-    setInterval(function() { self.collectStatistics(); }, 60000);
+    setInterval(function() { self.collectStatistics(); }, 30000);
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
     if (this.busyLatency) toobusy.maxLag(this.busyLatency); else toobusy.shutdown();
@@ -2299,7 +2298,9 @@ api.initStatistics = function()
 // Returns an object with collected db and api statstics and metrics
 api.getStatistics = function()
 {
-    return { toobusy: toobusy.lag(), pool: core.context.db.getPool().metrics, api: this.metrics };
+    var pool = core.context.db.getPool();
+    pool.metrics.stats = pool.stats();
+    return { toobusy: toobusy.lag(), pool: pool.metrics, api: this.metrics };
 }
 
 // Metrics about the process

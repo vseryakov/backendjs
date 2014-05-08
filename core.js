@@ -1330,7 +1330,12 @@ core.createPool = function(options)
     }
 
     pool.stats = function() {
-        return { avail: this._pavail.length, busy: this._pbusy.length, queue: this._pqueue_count };
+        return { avail: this._pavail.length, busy: this._pbusy.length, queue: this._pqueue_count, min: this._pmin, max: this._pmax, max_queue: this._pmax_queue };
+    }
+
+    // Close all active clients
+    pool.closeAll = function() {
+        while (this._pavail.length > 0) this.destroy(this._pavail[0]);
     }
 
     // Allocate a new client
@@ -1362,7 +1367,7 @@ core.createPool = function(options)
         if (this._pidle > 0) {
             for (var i = 0; i < this._pavail.length; i++) {
                 if (now - this._pmtime[i] > this._pidle && this._pavail.length + this._pbusy.length > this._pmin) {
-                    logger.debug('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+                    logger.dev('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
                     this.destroy(this._pavail[i]);
                     i--;
                 }
@@ -1631,7 +1636,7 @@ core.randomNum = function(min, max, decs)
 // Return number of seconds for current time
 core.now = function()
 {
-    return Math.round((new Date()).getTime()/1000);
+    return Math.round(Date.now()/1000);
 }
 
 // Format date object

@@ -21,7 +21,9 @@ function Metrics(name)
 Metrics.prototype.toJSON = function()
 {
     var json = {};
-    if (this.name) json.name = this.name;
+    for (var p in this) {
+        if (p != "metrics" && this[p]) json[p] = this[p];
+    }
     for (var metric in this.metrics) {
         json[metric] = this.metrics[metric].toJSON();
     }
