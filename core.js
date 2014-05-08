@@ -1092,7 +1092,7 @@ core.signRequest = function(login, secret, method, host, uri, options)
     default:
         rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
     }
-    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.sigdata || "") + '|' + login + '|' + this.sign(String(secret), rc.str, shatype) + '|' + expires + '|' + (options.checksum || "") + '|';
+    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.sigdata || "") + '|' + (login || "") + '|' + this.sign(String(secret), rc.str, shatype) + '|' + expires + '|' + (options.checksum || "") + '|';
     if (logger.level > 1) logger.log('signRequest:', rc);
     return rc;
 }
@@ -1117,11 +1117,9 @@ core.sendRequest = function(uri, options, callback)
     if (typeof options.sign == "undefined") options.sign = true;
 
     // Nothing to do without credentials
-    if (!options.login) options.login = self.backendLogin;
-    if (!options.secret) options.secret = self.backendSecret;
-    if (options.sign && (!options.login || !options.secret)) {
-        logger.debug('sendRequest:', 'no backend credentials', uri, options);
-        return callback ? callback(null, { status: 200, message: "", json: { status: 200 } }) : null;
+    if (options.sign) {
+        if (!options.login) options.login = self.backendLogin;
+        if (!options.secret) options.secret = self.backendSecret;
     }
     // Relative urls resolve against global backend host
     if (uri.indexOf("://") == -1) uri = self.backendHost + uri;
@@ -2466,7 +2464,7 @@ core.watchLogs = function(callback)
     var self = this;
 
     // Need email to send
-    if (!self.logwatcherEmail && !self.logwatcherHost) return callback ? callback() : false;
+    if (!self.logwatcherEmail && !self.logwatcherUrl) return callback ? callback() : false;
 
     // From address, use current hostname
     if (!self.logwatcherFrom) self.logwatcherFrom = "logwatcher@" + (self.domain || os.hostname());
@@ -2537,9 +2535,9 @@ core.watchLogs = function(callback)
             });
         }, function(err2) {
             if (errors.length > 1) {
-                logger.log('logwatcher:', 'found errors, send report to', self.logwatcherEmail, self.logwatcherHost);
-                if (self.logwatcherHost) {
-                    self.sendRequest(self.logwatcherHost, { method: "POST", postdata: errors }, callback);
+                logger.log('logwatcher:', 'found errors, send report to', self.logwatcherEmail, self.logwatcherUrl);
+                if (self.logwatcherUrl) {
+                    self.sendRequest(self.logwatcherUrl, { sign: true, queue: true, headers: { "content-type": "text/plain" }, postdata: errors }, callback);
                 } else {
                     self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, callback);
                 }
