@@ -21,6 +21,7 @@ var cookieParser = require('cookie-parser');
 var session = require('cookie-session');
 var serveStatic = require('serve-static');
 var formidable = require('formidable');
+var io = require("socket.io");
 var mime = require('mime');
 var consolidate = require('consolidate');
 var domain = require('domain');
@@ -386,22 +387,36 @@ api.init = function(callback)
             // Start http server
             self.server = http.createServer(function(req, res) { self.handleRequest(req, res) });
             self.server.timeout = core.timeout;
-            self.server.on('error', function(err) { logger.error('api:', err); });
+            self.server.on('error', function(err) {
+                logger.error('api:', err);
+                if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
+            });
 
             // Start SSL server
             if (core.ssl.key || core.ssl.pfx) {
                 self.sslserver = https.createServer(core.ssl, function(req, res) { self.handleRequest(req, res) });
                 self.sslserver.timeout = core.timeout;
-                self.sslserver.on('error', function(err) { logger.error('api:ssl:', err); });
+                self.sslserver.on('error', function(err) {
+                    logger.error('api:ssl:', err);
+                    if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
+                });
             }
 
-            try {
-                self.server.listen(core.port, core.bind, core.backlog);
-                if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog);
-            } catch(e) {
-                logger.error('api: init:', core.port, core.bind, e);
-                err = e;
+            // Start sockets.io server
+            if (core.io.port) {
+                self.ioserver = io;
+                io.sockets.on('connection', function(socket) {
+                    socket.emit('news', { hello: 'world' });
+                    socket.on('my other event', function (data) {
+                        console.log(data);
+                    });
+                });
             }
+
+            try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
+            try { if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init:', core.ssl.port, core.ssl.bind, e); err = e; }
+            try { if (self.ioserver) self.ioserver.listen(core.io.port); } catch(e) { logger.error('api: init:', core.io.port, core.io.bind, e); err = e; }
+
             if (callback) callback.call(self, err);
         });
     });
@@ -1802,6 +1817,7 @@ api.putLocations = function(req, options, callback)
                 async.series([
                    function(next) {
                        // Delete the old location, no need to wait even if fails we still have a new one recorded
+                       if (!old.geohash) return next();
                        db.del("bk_location", old, next);
                    },
                    function(next) {

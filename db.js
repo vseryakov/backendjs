@@ -841,6 +841,7 @@ db.list = function(table, obj, options, callback)
 	switch (core.typeName(obj)) {
 	case "string":
 	case "array":
+	    logger.log(obj)
         obj = core.strSplit(obj);
 	    if (typeof obj[0] == "string") {
 	        var keys = this.getSearchKeys(table, options);
@@ -1026,6 +1027,7 @@ db.getLocations = function(table, options, callback)
     if (!options.sort) options.sort = keys.length ? keys[keys.length - 1] : "id";
     options.range = options.sort;
     options.ops[options.range] = "gt";
+    logger.debug('getLocations:', table, 'll:', latitude, longitude, 'g:', options.geohash, 'd:', distance, 'c:', count, 'k:', keys, options.range, 'n:', options.neighbors.slice(0, 5));
 
     db.select(table, options, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;

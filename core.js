@@ -60,6 +60,9 @@ var core = {
     // HTTPS server options, can be updated by the apps before starting the SSL server
     ssl: { port: 443, bind: '0.0.0.0' },
 
+    // Sockets.io config
+    io: { port: 0, bind: "0.0.0.0" },
+
     // Proxy config
     proxyPort: 8000,
     proxyBind: '0.0.0.0',
@@ -131,6 +134,8 @@ var core = {
             { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
             { name: "backlog", descr: "The maximum length of the queue of pending connections, used by HTTP server in listen." },
+            { name: "io-port", type: "number", obj: 'io', min: 0, descr: "port to listen for sockets.io server, this is global default" },
+            { name: "io-bind", obj: 'io', descr: "Bind to this address only for sockets.io server, if not specified listen on all interfaces" },
             { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
             { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },
@@ -1667,7 +1672,10 @@ core.strSplit = function(str, sep, num)
 {
     var self = this;
     if (!str) return [];
-    return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).map(function(x) { return num ? self.toNumber(x) : x.trim() }).filter(function(x) { return x != '' });
+    return (Array.isArray(str) ? str : String(str).
+            split(sep || /[,\|]/)).
+            map(function(x) { return num ? self.toNumber(x) : typeof x == "string" ? x.trim() : x }).
+            filter(function(x) { return x });
 }
 
 // Split as above but keep only unique items
