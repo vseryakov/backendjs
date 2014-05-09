@@ -623,7 +623,17 @@ Receive all references that connected with my account, i.e. connections made by 
 <code>min-distance</code> defines the radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
 this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. By default min-distance is 5 km
 which means all geohashes in bk_location table will have geohash of size 4. Once min-distance is set it cannot be changed without rebuilding the bk_location table with new geohash size.</p>
+<p>The location search is implemented by using geohash as a primary key in the bk_location table with the account id as the second part of the primary key, for DynamoDB this is the range key.
+When request comes for all matches for the location for example 37.7, -122.4, the search that is executed looks like this:</p>
 <ul>
+<li>geohash for latitude 37.7 and longitude -122.4 and radius 10 km will be <code>9q8y</code></li>
+<li>all neoghboring ares around this point within 10 km radius will be &#39;9q8z&#39;, &#39;9q8v&#39;, &#39;9q8w&#39;, &#39;9q8x&#39;, &#39;9q8t&#39;, &#39;9q9n&#39;, &#39;9q9p&#39;, &#39;9q9j&#39;</li>
+<li>we start the search on the bk_location table by the primary key geohash with the value 9q8y</li>
+<li>filter out all records beyond our radius by calculating the difference between our point and the candidate record</li>
+<li>if total number of results expcted is still less than required, continue to the next neighbor area</li>
+<li>continue untill we visit all neighbors or received required number of macthed records</li>
+<li><p>on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location</p>
+</li>
 <li><p><code>/location/put</code>
 Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
 these coordinates</p>

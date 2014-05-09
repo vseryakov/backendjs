@@ -647,6 +647,16 @@ The location API maintains a table `bk_location` with geolocation coordinates fo
 this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. By default min-distance is 5 km
 which means all geohashes in bk_location table will have geohash of size 4. Once min-distance is set it cannot be changed without rebuilding the bk_location table with new geohash size.
 
+The location search is implemented by using geohash as a primary key in the bk_location table with the account id as the second part of the primary key, for DynamoDB this is the range key.
+When request comes for all matches for the location for example 37.7, -122.4, the search that is executed looks like this:
+- geohash for latitude 37.7 and longitude -122.4 and radius 10 km will be `9q8y`
+- all neoghboring ares around this point within 10 km radius will be '9q8z', '9q8v', '9q8w', '9q8x', '9q8t', '9q9n', '9q9p', '9q9j'
+- we start the search on the bk_location table by the primary key geohash with the value 9q8y
+- filter out all records beyond our radius by calculating the difference between our point and the candidate record
+- if total number of results expcted is still less than required, continue to the next neighbor area
+- continue untill we visit all neighbors or received required number of macthed records
+- on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location
+
 - `/location/put`
   Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
   these coordinates
