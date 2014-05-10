@@ -1538,7 +1538,7 @@ core.forEachLine = function(file, options, lineCallback, endCallback)
 //   - distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted
 //   - minDistance - radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
 //      this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table
-//      if not specified default `min-distance` value willbe used.
+//      if not specified default `min-distance` value will be used.
 core.geoHash = function(latitude, longitude, options)
 {
 	if (!options) options = {};
@@ -1554,7 +1554,7 @@ core.geoHash = function(latitude, longitude, options)
 
 	var geohash = backend.geoHashEncode(latitude, longitude);
 	return { geohash: geohash.substr(0, range[0]),
-			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, range[0]), Math.floor(options.distance / range[1])).slice(1) : [],
+			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, range[0]), Math.round(options.distance / range[1])).slice(1) : [],
 			 latitude: latitude,
 			 longitude: longitude,
 			 range: range,
@@ -1573,7 +1573,7 @@ core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, option
 {
     var distance = backend.geoDistance(latitude1, longitude1, latitude2, longitude2);
     // Round the distance to the closes edge and fixed number of decimals
-    if (options && options.round && typeof options.round == "number") {
+    if (options && typeof options.round == "number" && options.round > 0) {
         var decs = String(options.round).split(".")[1];
         distance = parseFloat(Number(Math.floor(distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
     }
