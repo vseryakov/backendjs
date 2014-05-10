@@ -394,6 +394,7 @@ aws.queryFilter = function(obj, options)
         case 'GE':
         case 'GT':
         case 'BEGINS_WITH':
+            if (!val && ["string","object","undefined"].indexOf(typeof val) > -1) continue;
             cond.AttributeValueList.push(this.toDynamoDB(val));
             break;
         }

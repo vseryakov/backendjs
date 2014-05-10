@@ -424,7 +424,8 @@ api.shutdown = function(callback)
     if (this.exiting) return;
     this.exiting = true;
     logger.log('api.shutdown: started');
-    var timeout = setTimeout(callback, self.shutdownTimeout || 30000);
+    var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
+    var db = core.context.db;
     async.parallel([
         function(next) {
             if (!self.server) return next();
@@ -433,6 +434,12 @@ api.shutdown = function(callback)
         function(next) {
             if (!self.sslserver) return next();
             try { self.sslserver.close(function() { next() }); } catch(e) { next() }
+        },
+        function(next) {
+            var pools = db.getPools();
+            async.forEachLimit(pools, pools.length, function(pool, next) {
+                db.dbpool[pool.name].shutdown(next);
+            }, next);
         }], function(err) {
             clearTimeout(timeout);
             if (callback) callback();
@@ -1498,6 +1505,7 @@ api.sendMessage = function(req, key, data)
     logger.debug('subscribe:', key, req.socket, data, res.headersSent);
     // If for any reasons the response has been sent we just bail out
     if (req.res.headersSent) return ipc.unsubscribe(key);
+
     if (typeof data != "string") data = JSON.stringify(data);
     // Filter by matching the whole message text
     if (req.msgMatch && !data.match(req.mgMatch)) return;

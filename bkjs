@@ -766,12 +766,30 @@ case "$ARG" in
     NAME=app
     [ "$1" != "" -a "${1:0:1}" != "-" ] && NAME=$1 && shift
     mkdir -p etc web
+    if [ ! -e README.md ]; then
+       cat > README.md <<@@@
+# Backend.js application
+
+# Installation
+ - npm install
+
+# Running
+ - ./app.sh
+ - point the browser to http://localhost:8000/api.html
+
+# Authors
+$(whoami)
+
+@@@
+    fi
+
     [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $BACKEND_PREFIX/bin/node $NAME.js -watch -web -debug -etc-dir \`pwd\`/etc -web-dir \`pwd\`/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
-    [ ! -e .gitignore ] && $ECHO "*~\n.*\nbin/\ndata/\ndocs/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nlocal/\nnode_modules/\n" >> .gitignore
+    [ ! -e .gitignore ] && $ECHO "*~\n.*\nbin/\ndocs/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
 
     if [ ! -e etc/config ]; then
        cat > etc/config <<@@@
 #debug=1
+#port=80
 #repl-port=2080
 #repl-port-web=2081
 #db-pool=pgsql
@@ -783,6 +801,17 @@ case "$ARG" in
 #aws-key=XXXXX
 #aws-secret=XXXXX
 #api-images-s3=S3BucketName
+#server-max-processes=2
+#api-data-endpoint-unsecure=1
+#max-distance=160
+#logwatcher-interval=3600
+#logwatcher-email=logwatcher@dot.com
+#server-jobs-interval=0
+#api-caching=bk_auth,bk_counter
+#api-allow-path=^/open/url$
+#cache-host=10.1.1.1
+#msg-host=10.1.1.1
+#redis-host=10.1.1.1
 @@@
     fi
 
@@ -799,10 +828,25 @@ var core = backend.core;
 var logger = backend.logger;
 
 api.describeTables({
-    test: { id: { primary: 1 },
-            name: {},
-            mtime: { type: "bigint", now: 1 },
-    }
+    // New table
+    test: {
+        id: { primary: 1 },
+        name: {},
+        mtime: { type: "bigint", now: 1 },
+    },
+    // Extend accounts table
+    bk_account: {
+        status: { semipub: 1, value: "active" },
+    },
+    // Extend locations table, keep account status for filtering
+    bk_location: {
+        status: { semipub: 1 },
+    },
+    // Add out custom counters updated on connections of type 'test'
+    bk_counter: {
+        test0: { type: "counter", value: 0, pub: 1, incr: 1 },
+        test1: { type: "counter", value: 0 },
+    },
 });
 
 // Modify every row returned to the client, we can add/del properties

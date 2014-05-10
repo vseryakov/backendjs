@@ -567,7 +567,9 @@ core.loadConfig = function(file, callback)
     });
 }
 
-// Encode with additional symbols
+// Encode with additional symbols, convert these into percent encoded:
+//
+//          ! -> %21, * -> %2A, ' -> %27, ( -> %28, ) -> %29
 core.encodeURIComponent = function(str)
 {
     return encodeURIComponent(str || "").replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
@@ -680,6 +682,8 @@ core.isNumeric = function(type)
 // Evaluate expr, compare 2 values with optional type and operation
 core.isTrue = function(val1, val2, op, type)
 {
+    if (typeof val1 == "undefined" || typeof val2 == "undefined") return false;
+
     op = (op ||"").toLowerCase();
     var no = false, yes = true;
     if (op.substr(0, 4) == "not ") no = true, yes = false;
@@ -1238,15 +1242,16 @@ core.createPool = function(options)
 {
     var self = this;
 
-    var pool = { _pmin: options.min || 0,
-                 _pmax: options.max || 10,
-                 _pmax_queue: options.interval || 100,
-                 _ptimeout: options.timeout || 5000,
-                 _pidle: options.idle || 300000,
-                 _pnum: 1,
+    var pool = { _pmin: core.toNumber(options.min, 0, 0, 0),
+                 _pmax: core.toNumber(options.max, 0, 10, 0),
+                 _pmax_queue: core.toNumber(options.interval, 0, 100, 0),
+                 _ptimeout: core.toNumber(options.timeout, 0, 5000, 1),
+                 _pidle: core.toNumber(options.idle, 0, 300000, 0),
                  _pcreate: options.create || function(cb) { cb(null, this) },
-                 _pclose: options.destroy || function() {},
+                 _pdestroy: options.destroy || function() {},
                  _pvalidate: options.validate || function() { return true },
+                 _pqueue_count: 0,
+                 _pnum: 1,
                  _pqueue_count: 0,
                  _pqueue: {},
                  _pavail: [],
@@ -1289,14 +1294,14 @@ core.createPool = function(options)
         var idx = this._pbusy.indexOf(client);
         if (idx > -1) {
             this._pbusy.splice(idx, 1);
-            this._pdestroy(client);
+            this._pclose(client);
             return;
         }
         var idx = this._pavail.indexOf(client);
         if (idx > -1) {
             this._pavail.splice(idx, 1);
             this._pmtime.splice(idx, 1);
-            this._pdestroy(client);
+            this._pclose(client);
             return;
         }
     }
@@ -1321,10 +1326,11 @@ core.createPool = function(options)
 
         this._pbusy.splice(idx, 1);
 
-        // Add to the available list if within the bounds
-        if (this._pavail.length > this._pmax || !this._pvalidate(client)) {
-            return this._destroy(client);
+        // Destroy if above the limit or invalid
+        if (this._pavail.length > this._pmax || !this._pcheck(client)) {
+            return this._pclose(client);
         }
+        // Add to the available list
         this._pavail.unshift(client);
         this._pmtime.unshift(Date.now());
     }
@@ -1336,6 +1342,24 @@ core.createPool = function(options)
     // Close all active clients
     pool.closeAll = function() {
         while (this._pavail.length > 0) this.destroy(this._pavail[0]);
+    }
+
+    // Close all connections and shutdown the pool, no more clients will be open and the pool cannot be used without re-initialization,
+    // if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
+    // all items to be released, when expired the callback will be called
+    pool.shutdown = function(callback, maxtime) {
+        var self = this;
+        this._pmax = -1;
+        this.closeAll();
+        this._pqueue = {};
+        clearInterval(this._pinterval);
+        if (!callback) return;
+        this._ptime = Date.now();
+        this._pinterval = setInterval(function() {
+            if (self._pbusy.length && (!maxtime || Date.now() - self._ptime < maxtime)) return;
+            clearInterval(this);
+            callback();
+        }, 500);
     }
 
     // Allocate a new client
@@ -1350,12 +1374,22 @@ core.createPool = function(options)
     }
 
     // Destroy the resource item calling the provided close callback
-    pool._pdestroy = function(client) {
+    pool._pclose = function(client) {
         try {
-            this._pclose.call(this, client);
-            logger.dev('pool.destroy:', 'destroy:', this._pavail.length, 'busy:', this._pbusy.length);
+            this._pdestroy.call(this, client);
+            logger.dev('pool.close:', 'destroy:', this._pavail.length, 'busy:', this._pbusy.length);
         } catch(e) {
-            logger.error('pool.destroy:', e);
+            logger.error('pool.close:', e);
+        }
+    }
+
+    // Verify if the resource item is valid
+    pool._pcheck = function(client) {
+        try {
+            return this._pvalidate.call(this, client);
+        } catch(e) {
+            logger.error('pool.check:', e);
+            return false;
         }
     }
     // Timer to ensure pool integrity
@@ -1383,9 +1417,10 @@ core.createPool = function(options)
 
     // Periodic housekeeping if interval is set
     if (pool._pidle > 0) {
-        setInterval(function() { pool._ptimer() }, Math.max(1000, pool._pidle/3));
+        this._pinterval = setInterval(function() { pool._ptimer() }, Math.max(1000, pool._pidle/3));
         setImmediate(function() { pool._ptimer(); });
     }
+
     return pool;
 }
 

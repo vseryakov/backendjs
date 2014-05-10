@@ -20,6 +20,7 @@ var async = require('async');
 var os = require('os');
 var helenus = require('helenus');
 var mongodb = require('mongodb');
+var redis = require('redis');
 var metrics = require(__dirname + "/metrics");
 
 // The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
@@ -100,6 +101,7 @@ var db = {
            { name: "dynamodb-max", type: "number", min: 1, max: 10000, descr: "Max number of open connection for the pool"  },
            { name: "dynamodb-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "mongodb-pool", descr: "MongoDB endpoint url" },
+           { name: "mongodb-options", type: "json", descr: "MongoDB driver native options" },
            { name: "mongodb-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
            { name: "mongodb-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
            { name: "mongodb-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
@@ -109,6 +111,9 @@ var db = {
            { name: "cassandra-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
            { name: "cassandra-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "cassandra-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
+           { name: "redis-pool", descr: "Redis host" },
+           { name: "redis-options", type: "json", descr: "Redis driver native options" },
+           { name: "redis-tables", type: "list", array: 1, descr: "Redis tables, list of tables that belong to this pool only" },
     ],
 
     // Default tables
@@ -176,7 +181,8 @@ db.init = function(options, callback)
 	        // local pool must be always initialized
 	        if (pool != self.local && pool != self.pool) return;
 	    }
-	    self[pool + 'InitPool']({ pool: pool, db: self[pool + 'Pool'], min: self[pool + 'Min'], max: self[pool + 'Max'], idle: self[pool + 'Idle'] });
+        var opts = { pool: pool, db: self[pool + 'Pool'], min: self[pool + 'Min'], max: self[pool + 'Max'], idle: self[pool + 'Idle'], dbparams: self[pool + 'Options'] };
+	    self[pool + 'InitPool'](opts);
 	    (self[pool + 'Tables'] || []).forEach(function(y) { self.tblpool[y] = pool; });
 	});
 
@@ -266,9 +272,18 @@ db.getPoolTables = function(name)
     return pool.dbcolumns || {};
 }
 
+// Return a list of all active database pools, returns list of objects with name: and type: properties
+db.getPools = function()
+{
+    var rc = [];
+    for (var p in this.dbpool) rc.push({ name: this.dbpool[p].name, type: this.dbpool[p].type });
+    return rc;
+}
+
 // Create a new database pool with default methods and properties
 // - options - an object with default pool properties
-//    - pool - pool name
+//    - type - pool type, this is the db driver name
+//    - pool or name - pool name
 //    - pooling - create generic pool for connection caching
 //    - watchfile - file path to be watched for changes, all clients will be destroyed gracefully
 //    - min - min number of open database connections
@@ -353,6 +368,7 @@ db.createPool = function(options)
         pool.free = function(client) {};
         pool.closeAll = function() {};
         pool.stats = function() { return null };
+        pool.shutdown = function(cb) { if (cb) cb() }
     }
 
     // Save all options and methods
@@ -377,6 +393,7 @@ db.createPool = function(options)
         client.pool_name = this.name;
         logger.debug('pool:', 'open', this.name, "#", this.serialNum);
     }
+
     // Default methods if not setup from the options
     if (typeof pool.connect != "function") pool.connect = function(opts, callback) { callback(null, opts); };
     if (typeof pool.close != "function") pool.close = function(callback) {}
@@ -386,8 +403,9 @@ db.createPool = function(options)
     if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { callback(); };
     if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, callback) { callback(); };
     if (typeof pool.nextToken != "function") pool.nextToken = function(req, rows, opts) {};
+    pool.name = pool.pool || pool.name;
+    delete pool.pool;
     pool.processRow = [];
-    pool.name = pool.pool;
     pool.serialNum = 0;
     pool.dbtables = {};
     pool.dbcolumns = {};
@@ -399,8 +417,10 @@ db.createPool = function(options)
     pool.metrics = new metrics(pool.name);
     // Some require properties can be initialized with options
     if (!pool.dboptions) pool.dboptions = {};
+    if (!pool.dbparams) pool.dbparams = {};
+    if (!pool.type) pool.type = "unknown";
     this.dbpool[pool.name] = pool;
-    logger.debug('db.createPool:', pool.name);
+    logger.debug('db.createPool:', pool.type, pool.name);
     return pool;
 }
 
@@ -786,6 +806,8 @@ db.replace = function(table, obj, options, callback)
 //         `>, gt, <, lt, =, !=, <>, >=, ge, <=, le, in, between, regexp, iregexp, begins_with, like%, ilike%`
 //      - opsMap - operator mapping between supplied operators and actual operators supported by the db
 //      - typesMap - type mapping between supplied and actual column types, an object
+//      - namesMap - column name mapping, for a column name this map specifies where to get the value using different property name, this is for cases when the value cannot be
+//         stored by the actual name because it may be changed, this is the case for `db.getLocations`
 //      - select - a list of columns or expressions to return or all columns if not specified
 //      - start - start records with this primary key, this is the next_token passed by the previous query
 //      - count - how many records to return
@@ -870,7 +892,7 @@ db.list = function(table, obj, options, callback)
 	default:
 		return callback ? callback(new Error("invalid list"), []) : null;
 	}
-    if (!obj.length) return callback ? callback(new Error("empty list")) : null;
+    if (!obj.length) return callback ? callback(new Error("empty list"), []) : null;
     this.select(table, obj, options, callback);
 }
 
@@ -1031,24 +1053,59 @@ db.getLocations = function(table, options, callback)
     var count = core.toNumber(options.count, 0, 50, 0, 250);
     var cols = db.getColumns(table, options);
     var keys = db.getKeys(table, options);
+
     if (!options.geohash) {
     	var geo = core.geoHash(latitude, longitude, { distance: distance });
     	for (var p in geo) options[p] = geo[p];
+
+        // Sort by the second part of the primary key, first is always geohash, this is mostly for SQL databases because DynamoDB sorts by range key automatically
+        if (!options.sort && keys.length) options.sort = keys[keys.length - 1];
+        options.range = options.sort;
+
+        if (!options.ops) options.ops = {};
+        if (!options.namesMap) options.namesMap = {};
+
+        // In case we use range column in the condition we have to use an alias
+        if (options[options.range]) {
+            options.namesMap[options.range] = '123';
+            options['123'] = options[options.range];
+            if (options.ops[options.range]) options.ops['123'] = options.ops[options.range];
+        }
+
+        // For pagination support by the range key value
+        options.ops[options.range] = options.desc ? "lt" : "gt";
     }
     options.start = null;
     options.nrows = count;
     options.semipub = 1;
-    if (!options.ops) options.ops = {};
 
-    // Sort by the second part of the primary key, first is always geohash, this is mostly for SQL databases because DynamoDB sorts by range key automatically
-    if (!options.sort) options.sort = keys.length ? keys[keys.length - 1] : "id";
-    options.range = options.sort;
-    options.ops[options.range] = "gt";
-    logger.debug('getLocations:', table, 'll:', latitude, longitude, 'g:', options.geohash, 'd:', distance, 'c:', count, 'k:', keys, options.range, 'n:', options.neighbors.slice(0, 5));
+    logger.debug('getLocations:', table, 'll:', latitude, longitude, 'g:', options.geohash, 'd:', distance, 'c:', count, 'k:', keys, 's:', options.range, 'n:', options.neighbors.slice(0, 5));
+
+    // Filter records beyond the specified distance
+    function filter(rows) {
+        if (options.unique) rows = core.arrayUnique(rows, options.unique);
+        rows.forEach(function(row) {
+            // If no coordinates but only geohash decode it, it must be at least semipub as well
+            if (!row.latitude && !row.longitude && row.geohash) {
+                var coords = backend.geoHashDecode(row.geohash);
+                row.latitude = coords[0];
+                row.longitude = coords[1];
+            }
+            row.distance = core.geoDistance(latitude, longitude, row.latitude, row.longitude, options);
+            // Have to deal with public columns here if we have lat/long semipub for distance
+            if (options.check_public && row.id != options.check_public) {
+                if (cols.latitude && !cols.latitude.pub) delete row.latitude;
+                if (cols.longitude && !cols.longitude.pub) delete row.longitude;
+                if (cols.geohash && !cols.geohash.pub) delete row.geohash;
+            }
+        });
+        // Limit the distance within the round or minimal range
+        return rows.filter(function(row) { return row.distance - options.distance <= (options.round || core.minDistance) });
+    }
 
     db.select(table, options, options, function(err, rows, info) {
     	if (err) return callback ? callback(err, rows, info) : null;
-    	if (options.unique) rows = core.arrayUnique(rows, options.unique);
+    	rows = filter(rows);
     	count -= rows.length;
         async.until(
             function() {
@@ -1060,32 +1117,15 @@ db.getLocations = function(table, options, callback)
                 options.start = null;
                 options.geohash = options.neighbors.shift();
                 db.select(table, options, options, function(err, items, info) {
-                    if (options.unique) items = core.arrayUnique(items, options.unique);
+                    items = filter(items);
                     rows.push.apply(rows, items);
                     count -= items.length;
                     next(err);
                 });
             }, function(err) {
-                rows.forEach(function(row) {
-                    // If no coordinates but only geohash decode it, it must be at least semipub as well
-                    if (!row.latitude && !row.longitude && row.geohash) {
-                        var coords = backend.geoHashDecode(row.geohash);
-                        row.latitude = coords[0];
-                        row.longitude = coords[1];
-                    }
-                    row.distance = core.geoDistance(latitude, longitude, row.latitude, row.longitude, options);
-                    // Have to deal with public columns here if we have lat/long semipub for distance
-                    if (options.check_public && row.id != options.check_public) {
-                        if (cols.latitude && !cols.latitude.pub) delete row.latitude;
-                        if (cols.longitude && !cols.longitude.pub) delete row.longitude;
-                        if (cols.geohash && !cols.geohash.pub) delete row.geohash;
-                    }
-                });
-                // Limit the distance within the round or minimal range
-                rows = rows.filter(function(row) { return row.distance - options.distance <= (options.round || core.minDistance) });
                 // Indicates that there could be more rows still even if we reached our count
                 options.more = rows.length && options.neighbors.length ? true : false;
-                // Restore original count because we pass this whole options object on the next run
+                // Restore original data because we pass this whole options object on the next run
                 options.count = options.nrows;
                 // Make the last row our next starting point
                 options[options.range] = rows.length ? rows[rows.length -1][options.range] : null;
@@ -1264,6 +1304,8 @@ db.prepare = function(op, table, obj, options)
 {
     var pool = this.getPool(table, options);
 
+    options = this.getOptions(table, options);
+
     // Check for table name, it can be determined in the real time
     if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
 
@@ -1272,8 +1314,6 @@ db.prepare = function(op, table, obj, options)
     switch (op) {
     case "add":
     case "put":
-        if (options && options.strictTypes) this.prepareDataTypes(obj, cols);
-
         // Set all default values if any
         for (var p in cols) {
             if (typeof cols[p].value != "undefined" && !obj[p]) obj[p] = cols[p].value;
@@ -1286,15 +1326,16 @@ db.prepare = function(op, table, obj, options)
         }
 
     case "update":
-        if (options && options.strictTypes) this.prepareDataTypes(obj, cols);
+        if (options.strictTypes) this.prepareDataTypes(obj, cols);
 
         for (var p in cols) {
             if (cols[p].now) obj[p] = Date.now();
+            if (options.noJson && cols[p].type == "json" && typeof obj[p] != "undefined") obj[p] = JSON.stringify(obj[p]);
         }
         break;
 
     case "select":
-        if (options && options.ops) {
+        if (options.ops) {
             for (var p in options.ops) {
                 switch (options.ops[p]) {
                 case "in":
@@ -1308,7 +1349,7 @@ db.prepare = function(op, table, obj, options)
             }
         }
         // Convert simple types into the native according to the table definition
-        if (options && options.strictTypes) {
+        if (options.strictTypes) {
             for (var p in cols) {
                 if (core.isNumeric(cols[p].type)) {
                     if (typeof obj[p] == "string") obj[p] = core.toNumber(obj[p]);
@@ -1352,14 +1393,17 @@ db.getPoolByName = function(name)
 // Return combined options for the pool including global pool options
 db.getOptions = function(table, options)
 {
+    if (options && options._merged) return options;
     var pool = this.getPool(table, options);
-    return core.mergeObj(pool.dboptions, options);
+    options = core.mergeObj(pool.dboptions, options);
+    options._merged = 1;
+    return options;
 }
 
 // Return cached columns for a table or null, columns is an object with column names and objects for definition
 db.getColumns = function(table, options)
 {
-    return this.getPool(table, options).dbcolumns[table.toLowerCase()] || {};
+    return this.getPool(table, options).dbcolumns[(table || "").toLowerCase()] || {};
 }
 
 // Return the column definition for a table
@@ -1401,16 +1445,18 @@ db.skipColumn = function(name, val, options, columns)
 //
 // Options support the following propertis:
 // - keys - list of columns to check, these may or may not be the primary keys, any columns to be compared
+// - cols - an object with columns definition
 // - ops - operations for columns
 // - typesMap - types for the columns if different from the actual Javascript type
 db.filterColumns = function(obj, rows, options)
 {
     if (!options.ops) options.ops = {};
     if (!options.typesMap) options.typesMap = {};
+    if (!options.cols) options.cols = {};
     // Keep rows which satisfy all conditions
     return rows.filter(function(row) {
         return (options.keys || []).every(function(name) {
-            return core.isTrue(row[name], obj[name], options.ops[name], options.typesMap[name]);
+            return core.isTrue(row[name], obj[name], options.ops[name], options.typesMap[name] || options.cols[name].type);
         });
     });
 }
@@ -1418,7 +1464,7 @@ db.filterColumns = function(obj, rows, options)
 // Return cached primary keys for a table or null
 db.getKeys = function(table, options)
 {
-    return this.getPool(table, options).dbkeys[table.toLowerCase()];
+    return this.getPool(table, options).dbkeys[(table || "").toLowerCase()];
 }
 
 // Return keys for the table search, if options.keys provided and not empty it will be used otherwise
@@ -1436,10 +1482,16 @@ db.getSearchKeys = function(table, options)
 // will be returned in the query object
 db.getSearchQuery = function(table, obj, options)
 {
-    return this.getSearchKeys(table, options).
-                filter(function(x) { return typeof obj[x] != "undefined" }).
-                map(function(x) { return [ x, obj[x] ] }).
-                reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+    return this.getQueryForKeys(this.getSearchKeys(table, options), obj);
+}
+
+// Returns an object based on the list of keys, basically returns a subset of properties
+db.getQueryForKeys = function(keys, obj)
+{
+    return (keys || []).
+            filter(function(x) { return typeof obj[x] != "undefined" }).
+            map(function(x) { return [ x, obj[x] ] }).
+            reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 }
 
 // Return possibly converted value to be used for inserting/updating values in the database,
@@ -1451,9 +1503,6 @@ db.getSearchQuery = function(table, obj, options)
 //  - info - column definition for the value from the cached columns
 db.getBindValue = function(table, options, val, info)
 {
-    if (options.noJson) {
-        if (info && info.type == "json") return JSON.stringify(val);
-    }
 	var cb = this.getPool(table, options).bindValue;
 	return cb ? cb(val, info) : val;
 }
@@ -1563,7 +1612,7 @@ db.processRows = function(pool, table, rows, options)
 	function processRow(row) {
 	    if (options.noJson) {
 	        for (var p in cols) {
-	            if (cols[p].type == "json" || typeof row[p] == "string") try { row[p] = JSON.parse(row[p]); } catch(e) {}
+	            if (cols[p].type == "json" && typeof row[p] == "string" && row[p]) try { row[p] = JSON.parse(row[p]); } catch(e) { logger.error('processRow:', e, table, row[p].substr(0, 16)) }
 	        }
 	    }
 	    if (Array.isArray(pool.processRow)) {
@@ -2115,6 +2164,7 @@ db.sqlLimit = function(options)
 //     - ops - object for comparison operators for primary key, default is equal operator
 //     - opsMap - operator mapping into supported by the database
 //     - typesMap - type mapping for properties to be used in the condition
+//     - namesMap - column name mapping, for a column name this map specifies where to get the value using different property
 db.sqlWhere = function(table, obj, keys, options)
 {
     var self = this;
@@ -2133,9 +2183,11 @@ db.sqlWhere = function(table, obj, keys, options)
     // Regular object with conditions
     var where = [];
     (keys || []).forEach(function(k) {
-        var v = obj[k], op = "", type = cols[k].type || "";
+        var op = "", type = cols[k].type || "";
+        var n = options.namesMap && options.namesMap[k] ? options.namesMap[k] : k;
+        var v = obj[n];
         if (!v && v != null) return;
-        if (options.ops && options.ops[k]) op = options.ops[k];
+        if (options.ops && options.ops[n]) op = options.ops[n];
         if (!op && v == null) op = "null";
         if (!op && Array.isArray(v)) op = "in";
         if (options.opsMap && options.opsMap[op]) op = options.opsMap[op];
@@ -2362,6 +2414,7 @@ db.pgsqlInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "pgsql";
     options.dboptions = { typesMap: { real: "numeric", bigint: "bigint", smallint: "smallint" }, noIfExists: 1, noReplace: 1, schema: ['public'] };
+    options.type = "pgsql";
     var pool = this.sqlInitPool(options);
     pool.connect = self.pgsqlConnect;
     pool.bindValue = self.pgsqlBindValue;
@@ -2397,7 +2450,7 @@ db.pgsqlCacheIndexes = function(options, callback)
     self.get(function(err, client) {
         if (err) return callback ? callback(err, []) : null;
 
-        client.query("SELECT t.relname as table, i.relname as index, indisprimary as pk, array_agg(a.attname) as cols "+
+        client.query("SELECT t.relname as table, i.relname as index, indisprimary as pk, array_agg(a.attname ORDER BY a.attnum) as cols "+
                      "FROM pg_class t, pg_class i, pg_index ix, pg_attribute a, pg_catalog.pg_namespace n "+
                      "WHERE t.oid = ix.indrelid and i.oid = ix.indexrelid and a.attrelid = t.oid and n.oid = t.relnamespace and " +
                      "      a.attnum = ANY(ix.indkey) and t.relkind = 'r' and n.nspname not in ('pg_catalog', 'pg_toast') "+
@@ -2460,6 +2513,7 @@ db.sqliteInitPool = function(options)
     if (typeof options.read_uncommitted == "undefined") options.read_uncommitted = true;
 
     if (!options.pool) options.pool = "sqlite";
+    options.type = "sqlite";
     options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
     options.dboptions = { noLengths: 1, noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
@@ -2559,6 +2613,7 @@ db.mysqlInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "mysql";
+    options.type = "mysql";
     options.dboptions = { typesMap: { json: "text", bigint: "bigint" }, sqlPlaceholder: "?", defaultType: "VARCHAR(128)", noIfExists: 1, noJson: 1, noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
     pool.connect = self.mysqlConnect;
@@ -2618,6 +2673,7 @@ db.dynamodbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "dynamodb";
 
+    options.type = "dynamodb";
     options.pooling = 1;
     options.max = options.max || 500;
     options.dboptions = { noJson: 1, strictTypes: 1 };
@@ -2746,10 +2802,12 @@ db.dynamodbInitPool = function(options)
         case "select":
         case "search":
             // Do not use index name if it is a primary key
-            if (opts.sort && dbkeys.indexOf(opts.sort) == 0) opts.sort = null;
+            if (opts.sort && dbkeys.indexOf(opts.sort) > -1) opts.sort = null;
             // Use primary keys from the secondary index
-            if (opts.sort && pool.dbindexes[opts.sort]) dbkeys = pool.dbindexes[opts.sort];
-            if (opts.index && pool.dbindexes[opts.index]) dbkeys = pool.dbindexes[opts.index];
+            if (opts.sort) {
+                var sort = (opts.sort.length > 2 ? '' : '_') + opts.sort;
+                if (pool.dbindexes[sort]) dbkeys = pool.dbindexes[sort]; else opts.sort = null;
+            }
             // If we have other key columns we have to use custom filter
             var keys = opts.keys && opts.keys.length ? opts.keys : null;
             var other = (keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && typeof obj[x] != "undefined" });
@@ -2864,12 +2922,13 @@ db.mongodbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "mongodb";
 
+    options.type = "mongodb";
     options.pooling = true;
     options.dboptions = { jsonColumns: true };
     var pool = this.createPool(options);
 
     pool.connect = function(opts, callback) {
-        mongodb.MongoClient.connect(opts.db, opts, function(err, db) {
+        mongodb.MongoClient.connect(opts.db, opts.dbparams, function(err, db) {
             if (err) logger.error('mongodbOpen:', err);
             if (callback) callback(err, db);
         });
@@ -3109,6 +3168,7 @@ db.cassandraInitPool = function(options)
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "cassandra";
+    options.type = "cassandra";
     options.dboptions = { typesMap: { json: "text", real: "double", counter: "counter" },
                           opsMap: { begins_with: "begins_with" },
                           sqlPlaceholder: "?",
@@ -3141,11 +3201,12 @@ db.cassandraInitPool = function(options)
         case "select":
             // Cannot search by non primary keys
             var keys = this.dbkeys[table.toLowerCase()] || [];
+            var cols = this.dbcolumns[table.toLowerCase()] || {};
             // Install custom filter if we have other columns in the keys
             if (opts.keys) {
                 var other = opts.keys.filter(function(x) { return keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
                 // Custom filter function for in-memory filtering of the results using non-indexed properties
-                if (other.length) opts.rowfilter = function(rows) { return self.filterColumns(obj, rows, { keys: other, ops: options.ops, typesMap: options.typesMap }); }
+                if (other.length) opts.rowfilter = function(rows) { return self.filterColumns(obj, rows, { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap }); }
                 opts.keys = null;
             }
             // Sorting is limited to a range key so we will do it in memory
@@ -3277,6 +3338,7 @@ db.leveldbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "leveldb";
 
+    options.type = "leveldb";
     var pool = this.createPool(options);
 
     pool.get = function(callback) {
@@ -3386,6 +3448,7 @@ db.lmdbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "lmdb";
 
+    options.type = "lmdb";
     var pool = this.createPool(options);
 
     pool.get = function(callback) {
@@ -3493,6 +3556,7 @@ db.nndbInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "nndb";
 
+    options.type = "nndb";
     var pool = this.createPool(options);
 
     pool.get = function(callback) {
@@ -3544,8 +3608,201 @@ db.nndbInitPool = function(options)
     return pool;
 }
 
+// Redis database pool, uses Hash to store the records
+db.redisInitPool = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "redis";
+    if (!options.concurrency) options.concurrency = 2;
+
+    options.type = "redis";
+    options.dboptions = { noJson: 1 };
+    var pool = this.createPool(options);
+
+    // Assume all primary keys
+    pool.cacheColumns = function(opts, callback) {
+        for (var p in this.dbcolumns) {
+            this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
+        }
+        callback();
+    }
+
+    pool.get = function(callback) {
+        var err = null;
+        if (!this.redis) {
+            try {
+                this.redis = redis.createClient(this.dbparams.port, this.db, this.dbparams);
+                this.redis.on("error", function(err) { logger.error('redis:', err) });
+            } catch(e) {
+                err = e;
+            }
+        }
+        callback(err, this.redis);
+    }
+
+    pool.getKey = function(table, obj, opts, search) {
+        var key = table;
+        var keys = self.getQueryForKeys(this.dbkeys[table] || [], obj);
+        for (var p in keys) key += "|" + keys[p];
+        if (search) key += key == table ? "|*" : "*";
+        return key;
+    }
+
+    pool.getItem = function(client, table, obj, opts, callback) {
+        var key = this.getKey(table, obj, opts);
+        var cols = self.getSelectedColumns(table, opts);
+        if (cols) {
+            client.hmget(key, cols, function(err, vals) {
+                if (!vals) vals = [];
+                vals = [ cols.map(function(x,i) { return [x, vals[i]] }).reduce(function(x, y) { x[y[0]] = y[1]; return x }, {}) ];
+                callback(err, vals);
+            })
+        } else {
+            client.hgetall(key, function(err, val) {
+                if (val) val = [ val ]; else val = [];
+                callback(err, val);
+            });
+        }
+    }
+    pool.getList = function(client, table, obj, opts, callback) {
+        if (!obj.length) return callback(null, []);
+        var keys = this.dbkeys[table || ""] || [];
+
+        // If we have a list of strings, split into objects by primary key
+        if (typeof obj[0] == "string") {
+            obj = obj.map(function(x) {
+                return x.split("|").slice(1).map(function(x,i) { return [x, keys[i]] }).reduce(function(x,y) { x[y[1]] = y[0]; return x }, {});
+            });
+        }
+        // If only want primary keys then return as is
+        if (opts.select && core.strSplit(opts.select).every(function(x) { return keys.indexOf(x) })) {
+            return callback(null, obj);
+        }
+        var rows = [];
+        async.forEachLimit(obj, opts.concurrency || this.concurrency, function(item, next) {
+            pool.getItem(client, table, item, opts, function(err, val) {
+                if (!err && val.length) rows.push(val[0]);
+                next(err);
+            });
+        }, function(err) {
+            callback(err, rows);
+        });
+    }
+
+    pool.query = function(client, req, opts, callback) {
+        var obj = req.obj;
+        var table = req.table || "";
+        var keys = this.dbkeys[table] || [];
+        var cols = this.dbcolumns[table] || {};
+
+        switch (req.op) {
+        case "drop":
+            client.keys(table + "|*", function(err, list) {
+                if (err || !list.length) return callback(err, []);
+                async.forEachLimit(list, opts.concurrency || pool.concurrency, function(key, next) {
+                    client.del(key, next);
+                }, function(err) {
+                    callback(err, []);
+                });
+            });
+            return;
+
+        case "get":
+            this.getItem(client, table, obj, opts, callback);
+            return;
+
+        case "select":
+            var args = [ options.start || 0, "MATCH", this.getKey(table, obj, opts, 1)];
+            if (opts.count) args.push("COUNT", opts.count);
+            // Custom filter on other columns
+            var other = Object.keys(obj).filter(function(x) { return keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
+            var filter = function(items) {
+                if (other.length > 0) items = self.filterColumns(obj, items, { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap });
+                return items;
+            }
+            console.log(args, other)
+            var rows = [];
+            var count = opts.count || 0;
+            async.until(
+                function() {
+                    return client.next_token == 0 || (opts.count && count <= 0);
+                },
+                function(next) {
+                    client.send_command("SCAN", args, function(err, reply) {
+                        if (err) return next(err);
+                        pool.getList(client, table, reply[1], opts, function(err, items) {
+                            items = filter(items);
+                            rows.push.apply(rows, items);
+                            client.next_token = args[0] = reply[0];
+                            count -= items.length;
+                            next(err);
+                        });
+                    });
+                }, function(err) {
+                    if (rows.length && opts.sort) rows.sort(function(a,b) { return (a[opts.sort] - b[opts.sort]) * (opts.desc ? -1 : 1) });
+                    callback(err, rows);
+            });
+            return;
+
+        case "list":
+            this.getList(client, table, obj, opts, callback);
+            return;
+
+        case "add":
+            var key = this.getKey(table, obj, opts);
+            client.exists(key, function(err, yes) {
+                if (yes) return callback(new Error("already exists"), []);
+                client.hmset(key, obj, function(err) {
+                    callback(err, []);
+                });
+            });
+            return;
+
+        case "put":
+            var key = this.getKey(table, obj, opts);
+            client.hmset(key, obj, function(err) {
+                callback(err, []);
+            });
+            return;
+
+        case "update":
+            var key = this.getKey(table, obj, opts);
+            client.exists(key, function(err, yes) {
+                if (!yes) return callback(null, []);
+                client.hmset(key, obj, function(err) {
+                    callback(err, []);
+                });
+            });
+            return;
+
+        case "del":
+            var key = this.getKey(table, obj, opts);
+            client.del(key, function(err) {
+               callback(err, []);
+            });
+            return;
+
+        case "incr":
+            var key = this.getKey(table, obj, opts);
+            var nums = (opts.counter || []).filter(function(x) { return keys.indexOf(x) == -1 }).map(function(x) { return { name: x, value: obj[x] } });
+            async.forEachLimit(nums, opts.concurrency || this.concurrency, function(num, next) {
+                client.hincrby(key, num.name, num.value, next);
+            }, function(err) {
+                callback(err, []);
+            });
+            return;
+
+        default:
+            return callback(null, []);
+        }
+    }
+
+    return pool;
+}
+
 // Make sure the empty pool is created to properly report init issues
-db.nopool = db.createPool({ pool: "none" });
+db.nopool = db.createPool({ pool: "none", type: "none" });
 db.nopool.prepare = function(op, table, obj, options)
 {
     switch (op) {
@@ -3553,7 +3810,7 @@ db.nopool.prepare = function(op, table, obj, options)
     case "upgrade":
         break;
     default:
-        logger.error("none: core.init must be called before using the backend DB functions:", op, table, obj);
+        logger.error("db.none: core.init must be called before using the backend DB functions:", op, table, obj);
     }
     return {};
 }
