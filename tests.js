@@ -492,6 +492,7 @@ tests.location = function(callback)
                 });
         },
         function(next) {
+            logger.setDebug(1);
             // Scan all locations, do it in small chunks to verify we can continue withint the same geohash area
             var query = { latitude: latitude, longitude: longitude, distance: distance };
             var options = { count: gcount, round: round };
@@ -513,7 +514,7 @@ tests.location = function(callback)
         function(next) {
             // Scan all good locations with the top 3 rank values
             var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good", rank: good-3 };
-            var options = { round: round, keys: ["geohash", "status", "rank"], ops: { rank: 'gt' } };
+            var options = { round: round, ops: { rank: 'gt' } };
             db.getLocations("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'good' && x.rank > good-3 })
                 self.check(next, err, rows.length!=3 || !isok, "err2:", rows.length, isok, good, rows);
@@ -522,7 +523,7 @@ tests.location = function(callback)
         function(next) {
             // Scan all locations beyond our good distance, get all bad with top 2 rank values
             var query = { latitude: latitude, longitude: longitude, distance: distance*2, status: "bad", rank: bad-2 };
-            var options = { round: round, keys: ["geohash", "status", "rank"], ops: { rank: 'gt' }, sort: "rank", desc: true };
+            var options = { round: round, ops: { rank: 'gt' }, sort: "rank", desc: true };
             db.getLocations("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'bad' && x.rank > bad-2 })
                 self.check(next, err, rows.length!=2 || !isok, "err3:", rows.length, isok, bad, rows);
@@ -531,7 +532,7 @@ tests.location = function(callback)
         function(next) {
             // Scan all neighbors within the distance and take top 2 ranks only, in desc order
             var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good" };
-            var options = { round: round, keys: ["geohash", "status"], sort: "rank", desc: true, count: 50, top: 2, select: "geohash,id,status,rank" };
+            var options = { round: round, sort: "rank", desc: true, count: 50, top: 2, select: "geohash,id,status,rank" };
             db.getLocations("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'good' })
                 var iscount = Object.keys(top).reduce(function(x,y) { return x + Math.min(2, top[y].length) }, 0);
@@ -598,7 +599,8 @@ tests.db = function(callback)
         },
         function(next) {
             db.list("test1", String([id,id2]),  function(err, rows) {
-                self.check(next, err, rows.length!=2, "err4:", rows);
+                var isok = rows.every(function(x) { return x.id==id || x.id==id2});
+                self.check(next, err, rows.length!=2 || !isok, "err4:", rows.length, isok, rows);
             });
         },
 	    function(next) {
@@ -731,20 +733,28 @@ tests.db = function(callback)
         },
 	    function(next) {
             // Select by primary key and other filter
-            db.select("test2", { id: id, num: 9, num2: 9 }, { keys: ['id','num', 'num2'], ops: { num: 'ge' } }, function(err, rows, info) {
+            db.select("test2", { id: id, num: 9, num2: 9 }, {  ops: { num: 'ge', num2: 'ge' } }, function(err, rows, info) {
                 self.check(next, err, rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
             });
         },
         function(next) {
+            // Wrong query property
+            db.select("test2", { id: id, num: 9, num2: 9, email: 'fake' }, {  ops: { num: 'ge' } }, function(err, rows, info) {
+                self.check(next, err, rows.length!=0, "err14:", rows, info);
+            });
+        },
+        function(next) {
             // Scan the whole table with custom filter
-            db.select("test2", { num: 9 }, { keys: ['num'], ops: { num: 'ge' } }, function(err, rows, info) {
-                self.check(next, err, rows.length==0 || rows[0].num!=9, "err14:", rows, info);
+            db.select("test2", { num: 9 }, { ops: { num: 'ge' } }, function(err, rows, info) {
+                var isok = rows.every(function(x) { return x.num >= 9 });
+                self.check(next, err, rows.length==0 || !isok, "err15:", isok, rows, info);
             });
         },
         function(next) {
             // Scan the whole table with custom filter and sorting
-            db.select("test2", { id: id, num: 0 }, { ops: { num: 'ge' }, sort: "num" }, function(err, rows, info) {
-                self.check(next, err, rows.length==0 || rows[0].num!=2 , "err15:", rows, info);
+            db.select("test2", { id: id2, num: 1 }, { ops: { num: 'gt' }, sort: "num" }, function(err, rows, info) {
+                var isok = rows.every(function(x) { return x.num > 1 });
+                self.check(next, err, rows.length==0 || !isok , "err16:", isok, rows, info);
             });
         },
 	],
@@ -753,7 +763,7 @@ tests.db = function(callback)
 	});
 }
 
-tests.ldb = function(callback)
+tests.lmdb = function(callback)
 {
     var db = null, env;
     var type = core.getArg("-type", "lmdb");
@@ -816,20 +826,14 @@ tests.ldb = function(callback)
     });
 }
 
-tests.ldbpool = function(callback)
+tests.lmdbpool = function(callback)
 {
     var type = core.getArg("-type", "lmdb");
     var pool;
 
     async.series([
         function(next) {
-            if (type != "leveldb") return next();
-            pool = db.leveldbInitPool({ db: "stats" });
-            next(err);
-        },
-        function(next) {
-            if (type != "lmdb") return next();
-            pool = db.lmdbInitPool({ db: "stats", flags: backend.MDB_CREATE | backend.MDB_NOSYNC | backend.MDB_MAPASYNC, mapsize: 1024*1024*500 });
+            pool = db.lmdbInitPool({ db: "stats", type: type, create_if_missing: true, flags: backend.MDB_CREATE | backend.MDB_NOSYNC | backend.MDB_MAPASYNC, mapsize: 1024*1024*500 });
             next();
         },
         function(next) {
@@ -953,19 +957,7 @@ tests.nndb = function(callback)
     var type = core.getArg("-type", "lmdb"), pool;
 
     if (cluster.isMaster) {
-        switch (type) {
-        case "leveldb":
-            pool = db.leveldbInitPool({ db: "stats" });
-            break;
-
-        case "lmdb":
-            pool = db.lmdbInitPool({ db: "stats" });
-            break;
-
-        default:
-            logger.log("invalid type", type);
-            process.exit(1);
-        }
+        pool = db.lmdbInitPool({ db: "stats", type: type });
         db.query({ op: "server" }, { pool: type, bind: bind, socket: socket }, function(err) {
             if (err) logger.error(err);
         });

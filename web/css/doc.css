@@ -236,6 +236,8 @@ span.float-right > span {
    text-align: right; }
 
 code, tt {
+   font-weight: bold;
+   color: #414141;
    margin: 0 2px;
    padding: 0 5px;
    white-space: nowrap;
@@ -246,6 +248,7 @@ code, tt {
 pre code {
    margin: 0;
    padding: 0;
+   font-weight: normal;
    white-space: pre;
    border: none;
    background: transparent; }

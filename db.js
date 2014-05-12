@@ -64,6 +64,12 @@ var metrics = require(__dirname + "/metrics");
 // thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 // database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.
 //
+// The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis.
+//
+// All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
+// due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
+// opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
+// other database will not require any application code changes.
 var db = {
     name: 'db',
 
@@ -398,6 +404,23 @@ db.createPool = function(options)
         logger.debug('pool:', 'open', this.name, "#", this.serialNum);
     }
 
+    // Save existing options and return as new object, first arg is options, then list of properties to save
+    pool.saveOptions = function(opts) {
+        var old = {};
+        for (var i = 1; i < arguments.length; i++) {
+            var p = arguments[i];
+            old[p] = opts[p];
+        }
+        return old;
+    }
+
+    // Restore the properties we replaced
+    pool.restoreOptions = function(opts, old) {
+        for (var p in old) {
+            if (old[p]) opts[p] = old[p]; else delete opts[p];
+        }
+    }
+
     // Default methods if not setup from the options
     if (typeof pool.connect != "function") pool.connect = function(opts, callback) { callback(null, opts); };
     if (typeof pool.close != "function") pool.close = function(callback) {}
@@ -604,13 +627,9 @@ db.put = function(table, obj, options, callback)
 // Update existing object in the database.
 // - obj - is an actual record to be updated, primary key properties must be specified
 // - options - same properties as for `db.add` method with the following additional properties:
-//      - keys - list of properties to use as keys for the update condition, if not specified then primary keys will be used
 //      - ops - object for comparison operators for primary key, default is equal operator
 //      - opsMap - operator mapping into supported by the database
 //      - typesMap - type mapping for properties to be used in the condition
-//
-// Note: SQL databases can update more than one record with the corresponding condition but non-SQL databases like
-//  DynamoDB or Cassandra only update one existing record at a time
 //
 // Example
 //
@@ -618,7 +637,7 @@ db.put = function(table, obj, options, callback)
 //              console.log('updated:', info.affected_rows);
 //          });
 //
-//          db.update("bk_account", { gender: 'm', prefix: 'Mr' }, { pool: pgsql', keys: ['gender'] }, function(err, rows, info) {
+//          db.update("bk_account", { id: '123', gender: 'm', prefix: 'Mr' }, { pool: pgsql' }, function(err, rows, info) {
 //              console.log('updated:', info.affected_rows);
 //          });
 //
@@ -630,8 +649,11 @@ db.update = function(table, obj, options, callback)
     this.query(req, options, callback);
 }
 
-// Update all records that match given condition, one by one, the input is the same as for `db.select` and every record
+// Update all records that match given condition in the `query`, one by one, the input is the same as for `db.select` and every record
 // returned will be updated using `db.update` call by the primary key, so make sure options.select include the primary key for every row found by the select.
+//
+// All properties from the `obj` will be set in every matched record.
+//
 // The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
 // to finish due to sequential update every record one by one.
 // Special properties that can be in the options for this call:
@@ -642,20 +664,25 @@ db.update = function(table, obj, options, callback)
 //
 // Example, update birthday format if not null
 //
-//          db.updateAll("bk_account", { birthday: 1 }, { keys: ["birthday"], ops: { birthday: "not null" }, concurrency: 2, process: function(r, o) { r.birthday = core.strftime(new Date(r.birthday, "%Y-%m-D")) } }, function(err, rows) {
+//          db.updateAll("bk_account", { birthday: 1 }, { mtime: Date.now() },
+//                                     { ops: { birthday: "not null" },
+//                                       concurrency: 2,
+//                                       process: function(r, o) { r.birthday = core.strftime(new Date(r.birthday, "%Y-%m-D")) } },
+//                                     function(err, rows) {
 //          });
 //
-db.updateAll = function(table, obj, options, callback)
+db.updateAll = function(table, query, obj, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
-    var opts = core.cloneObj(options, { keys: 1, ops: 1 });
+    var opts = core.cloneObj(options, { ops: 1 });
 
     self.select(table, obj, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
         async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
+            for (var p in obj) row[p] = obj[p];
             if (options && options.process) options.process(row, options);
             self.update(table, row, opts, next);
         }, function(err) {
@@ -685,7 +712,7 @@ db.incr = function(table, obj, options, callback)
     this.query(req, options, callback);
 }
 
-// Delete object in the database, no error if the object does not exist
+// Delete an object in the database, no error if the object does not exist
 // - obj - an object with primary key properties only, other properties will be ignored
 // - options - same properties as for `db.update` method
 //
@@ -710,14 +737,14 @@ db.del = function(table, obj, options, callback)
 // - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 //   in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 //   as `options.process(row, options)`
-db.delAll = function(table, obj, options, callback)
+db.delAll = function(table, query, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
-    var opts = core.cloneObj(options, { keys: 1, ops: 1 });
+    var opts = core.cloneObj(options, { ops: 1 });
 
-    self.select(table, obj, options, function(err, rows) {
+    self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
         async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
@@ -729,12 +756,10 @@ db.delAll = function(table, obj, options, callback)
     });
 }
 
-// Add/update the object, check existence by the primary key or by other keys specified. This is not equivalent of REPLACE INTO, it does `db.get`
+// Add/update the object, check existence by the primary key. This is not equivalent of REPLACE INTO, it does `db.get`
 // to check if the object exists in the database and performs `db.add` or `db.update` depending on the existence.
 // - obj is a JavaScript object with properties that correspond to the table columns
 // - options define additional flags that may
-//      - keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-//        then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE clause
 //      - check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value
 //      - check_data - verify every value in the given object with actual value in the database and skip update if the record is the same,
 //        if it is an array then check only specified columns
@@ -752,9 +777,9 @@ db.replace = function(table, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
-    if (!options.keys || !options.keys.length) options.keys = self.getKeys(table, options) || [];
 
-    var select = options.keys[0];
+    var keys = this.getKeys(table, options);
+    var select = keys[0];
     // Use mtime to check if we need to update this record
     if (options.check_mtime && obj[options.check_mtime]) {
         select = options.check_mtime;
@@ -763,8 +788,8 @@ db.replace = function(table, obj, options, callback)
     if (options.check_data) {
         var cols = self.getColumns(table, options);
         var list = Array.isArray(options.check_data) ? options.check_data : Object.keys(obj);
-        select = list.filter(function(x) { return x[0] != "_"  && x != 'mtime' && options.keys.indexOf(x) == -1 && (x in cols); }).join(',');
-        if (!select) select = options.keys[0];
+        select = list.filter(function(x) { return x[0] != "_"  && x != 'mtime' && keys.indexOf(x) == -1 && (x in cols); }).join(',');
+        if (!select) select = keys[0];
     }
 
     var req = this.prepare("get", table, obj, { select: select, pool: options.pool });
@@ -800,16 +825,9 @@ db.replace = function(table, obj, options, callback)
 }
 
 // Select objects from the database that match supplied conditions.
-// - obj - can be an object with primary key properties set for the condition, all matching records will be returned
-// - obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
+// - query - can be an object with properties for the condition, all matching records will be returned
+// - query - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
 // - options can use the following special properties:
-//      - keys - a list of columns for condition or all primary keys will be used for query condition, only keys will be used in WHERE part of the SQL statement.
-//
-//        By default primary keys are used only but if any other columns specified they will be treated as primary keys, some databases like DynamoDB may restrict which
-//        columns can be used, for example for DynamoDB keys must contain hash, range keys first and then any other columns can be added which will be filtered by the backend
-//        after all records are received from the database using has,range combination.
-//
-//        NOTE: keys can refer only to the columns in the table, any artificial or computed properties can be filtered by using .filter callback
 //      - ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
 //         `>, gt, <, lt, =, !=, <>, >=, ge, <=, le, in, between, regexp, iregexp, begins_with, like%, ilike%`
 //      - opsMap - operator mapping between supplied operators and actual operators supported by the db
@@ -860,21 +878,21 @@ db.replace = function(table, obj, options, callback)
 //
 //  Example: scan accounts with custom filter, not by primary key: all females
 //
-//          db.select("bk_account", { gender: 'f' }, { keys: ['gender'] }, function(err, rows) {
+//          db.select("bk_account", { gender: 'f' }, function(err, rows) {
 //
 //          });
 //
 //  Example: select connections using primary key and other filter columns: all likes for the last day
 //
-//          db.select("bk_connection", { id: '123', type: 'like', mtime: Date.now()-86400000 }, { keys: ['id', 'type', 'mtime'], ops: { type: "begins_with", mtime: "gt" } }, function(err, rows) {
+//          db.select("bk_connection", { id: '123', type: 'like', mtime: Date.now()-86400000 }, { ops: { type: "begins_with", mtime: "gt" } }, function(err, rows) {
 //
 //          });
 //
-db.select = function(table, obj, options, callback)
+db.select = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
-    var req = this.prepare(Array.isArray(obj) ? "list" : "select", table, obj, options);
+    var req = this.prepare(Array.isArray(query) ? "list" : "select", table, query, options);
     this.query(req, options, callback);
 }
 
@@ -884,24 +902,24 @@ db.select = function(table, obj, options, callback)
 //      db.list("bk_account", ["id1", "id2"], function(err, rows) { console.log(err, rows) });
 //      db.list("bk_account", "id1,id2", function(err, rows) { console.log(err, rows) });
 //
-db.list = function(table, obj, options, callback)
+db.list = function(table, query, options, callback)
 {
-	switch (core.typeName(obj)) {
+	switch (core.typeName(query)) {
 	case "string":
 	case "array":
-        obj = core.strSplit(obj);
-	    if (typeof obj[0] == "string") {
-	        var keys = this.getSearchKeys(table, options);
-	        if (!keys || !keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
-	        obj = obj.map(function(x) { return core.newObj(keys[0], x) });
+        query = core.strSplit(query);
+	    if (typeof query[0] == "string") {
+	        var keys = this.getKeys(table, options);
+	        if (!keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
+	        query = query.map(function(x) { return core.newObj(keys[0], x) });
 	    }
 		break;
 
 	default:
 		return callback ? callback(new Error("invalid list"), []) : null;
 	}
-    if (!obj.length) return callback ? callback(new Error("empty list"), []) : null;
-    this.select(table, obj, options, callback);
+    if (!query.length) return callback ? callback(new Error("empty list"), []) : null;
+    this.select(table, query, options, callback);
 }
 
 // Convenient helper for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
@@ -912,7 +930,7 @@ db.list = function(table, obj, options, callback)
 //
 // Parameters:
 //  - table - table to scan
-//  - obj - an object with query conditions, same as in `db.select`
+//  - query - an object with query conditions, same as in `db.select`
 //  - options - same as in `db.select`, the only required property is `count` to specify sixe of every batch, default is 100
 //  - rowCallback - process records when called like this `callback(rows, next)
 //  - endCallback - end of scan when called like this: `callback(err)
@@ -926,7 +944,7 @@ db.list = function(table, obj, options, callback)
 //              }, next);
 //          }, function(err) { });
 //
-db.scan = function(table, obj, options, rowCallback, callback)
+db.scan = function(table, query, options, rowCallback, callback)
 {
     if (typeof options == "function") rowCallback = options,options = null;
     options = this.getOptions(table, options);
@@ -938,7 +956,7 @@ db.scan = function(table, obj, options, rowCallback, callback)
           return options.start != null;
       },
       function(next) {
-          db.select(table, obj, options, function(err, rows, info) {
+          db.select(table, query, options, function(err, rows, info) {
               if (err) return next(err);
               rowCallback(rows, function(err) {
                   options.start = info.next_token;
@@ -1016,12 +1034,12 @@ db.migrate = function(table, options, callback)
 
 // Perform full text search on the given table, the database implementation may ignore table name completely
 // in case of global text index. Options takes same properties as in the select method. Without full text support
-// this works the same way as the `select` method.
-db.search = function(table, obj, options, callback)
+// this works the same way as the `select` method. NOT IMPLEMENTED YET.
+db.search = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
-    var req = this.prepare("search", table, obj, options);
+    var req = this.prepare("search", table, query, options);
     this.query(req, options, callback);
 }
 
@@ -1078,7 +1096,7 @@ db.search = function(table, obj, options, callback)
 //              });
 //          });
 //
-db.getLocations = function(table, obj, options, callback)
+db.getLocations = function(table, query, options, callback)
 {
     var rows = [];
     var cols = db.getColumns(table, options);
@@ -1090,25 +1108,25 @@ db.getLocations = function(table, obj, options, callback)
 
         options.count = options.gcount = core.toNumber(options.count, 0, 10, 0, 50);
         options.geokey = lcols[0] = options.geokey && cols[options.geokey] ? options.geokey : 'geohash';
-        obj.distance = core.toNumber(obj.distance, 0, core.minDistance, 0, 999);
+        query.distance = core.toNumber(query.distance, 0, core.minDistance, 0, 999);
 
         options.start = null;
-        var geo = core.geoHash(obj.latitude, obj.longitude, { distance: obj.distance });
+        var geo = core.geoHash(query.latitude, query.longitude, { distance: query.distance });
         for (var p in geo) options[p] = geo[p];
-    	obj[options.geokey] = geo.geohash;
+    	query[options.geokey] = geo.geohash;
 
     } else {
         // Original query
-        obj = options.gquery;
+        query = options.gquery;
     }
     if (options.top) options.count = options.top;
 
-    logger.debug('getLocations:', table, 'OBJ:', obj, 'GEO:', options.geokey, options.geohash, obj.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'KEYS:', options.keys, 'NEIGHBORS:', options.neighbors);
+    logger.debug('getLocations:', table, 'OBJ:', query, 'GEO:', options.geokey, options.geohash, obj.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'NEIGHBORS:', options.neighbors);
 
     // Collect all matching records until specified count
     async.doUntil(
       function(next) {
-          db.select(table, obj, options, function(err, items, info) {
+          db.select(table, query, options, function(err, items, info) {
               if (err) return next(err);
 
               // Next page if any or go to the next neighbor
@@ -1116,7 +1134,7 @@ db.getLocations = function(table, obj, options, callback)
 
               // If no coordinates but only geohash decode it, it must be at least semipub as well
               items.forEach(function(row) {
-                  row.distance = core.geoDistance(obj.latitude, obj.longitude, row.latitude, row.longitude, options);
+                  row.distance = core.geoDistance(query.latitude, query.longitude, row.latitude, row.longitude, options);
                   // Limit the distance within the allowed range
                   if (options.round > 0 && abs(row.distance - options.distance) > options.round) return;
                   // Limit by exact distance
@@ -1139,7 +1157,7 @@ db.getLocations = function(table, obj, options, callback)
           // No more in the current geo box, try the next neighbor
           if (!options.start || (options.top && options.count <= 0)) {
               if (!options.neighbors.length) return true;
-              obj[options.geokey] = options.neighbors.shift();
+              query[options.geokey] = options.neighbors.shift();
               if (options.top) options.count = options.top;
               options.start = null;
           }
@@ -1149,7 +1167,7 @@ db.getLocations = function(table, obj, options, callback)
           // Indicates that there could be more rows still even if we reached our count
           options.more = options.start || options.neighbors.length > 0;
           // Keep original query and count for pagination
-          options.gquery = obj;
+          options.gquery = query;
           options.count = options.gcount;
           if (callback) callback(err, rows, options);
     });
@@ -1157,8 +1175,6 @@ db.getLocations = function(table, obj, options, callback)
 
 // Retrieve one record from the database by primary key, returns found record or null if not found
 // Options can use the following special properties:
-//  - keys - a list of columns to be used instead of primary keys, this can be useful in case of another
-//      unique index which is different than the primary key
 //  - select - a list of columns or expressions to return, default is to return all columns
 //  - op - operators to use for comparison for properties, see `db.select`
 //  - cached - if specified it runs getCached version
@@ -1169,15 +1185,15 @@ db.getLocations = function(table, obj, options, callback)
 //             if (row) console.log(row.name);
 //          });
 //
-db.get = function(table, obj, options, callback)
+db.get = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     if (options && options.cached) {
     	options.cached = 0;
-    	return this.getCached(table, obj, options, callback);
+    	return this.getCached(table, query, options, callback);
     }
     options = this.getOptions(table, options);
-    var req = this.prepare("get", table, obj, options);
+    var req = this.prepare("get", table, query, options);
     this.query(req, options, function(err, rows) {
         if (callback) callback(err, rows.length ? rows[0] : null);
     });
@@ -1195,13 +1211,13 @@ db.get = function(table, obj, options, callback)
 //          var distance = backend.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
 //      });
 //
-db.getCached = function(table, obj, options, callback)
+db.getCached = function(table, query, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
     var pool = this.getPool(table, options);
-    var key = this.getCachedKey(table, obj, options);
+    var key = this.getCachedKey(table, query, options);
     var m = pool.metrics.Timer('cache').start();
     ipc.getCache(key, function(rc) {
         m.end();
@@ -1212,7 +1228,7 @@ db.getCached = function(table, obj, options, callback)
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
-        self.get(table, obj, options, function(err, row) {
+        self.get(table, query, options, function(err, row) {
             // Store in cache if no error
             if (row && !err) ipc.putCache(key, core.stringify(row));
             if (callback) callback(err, row);
@@ -1222,16 +1238,16 @@ db.getCached = function(table, obj, options, callback)
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
-db.clearCached = function(table, obj, options)
+db.clearCached = function(table, query, options)
 {
-    ipc.delCache(this.getCachedKey(table, obj, options));
+    ipc.delCache(this.getCachedKey(table, query, options));
 }
 
 // Returns concatenated values for the primary keys, this is used for caching records by primary key
-db.getCachedKey = function(table, obj, options)
+db.getCachedKey = function(table, query, options)
 {
     var prefix = options.prefix || table;
-    return prefix + (this.getKeys(table, options) || []).map(function(x) { return ":" + obj[x] });
+    return prefix + this.getKeys(table, options).map(function(x) { return ":" + query[x] });
 }
 
 // Create a table using column definitions represented as a list of objects. Each column definition can
@@ -1482,10 +1498,10 @@ db.filterColumns = function(obj, rows, options)
     });
 }
 
-// Return cached primary keys for a table or null
+// Return cached primary keys for a table or empty array
 db.getKeys = function(table, options)
 {
-    return this.getPool(table, options).dbkeys[(table || "").toLowerCase()];
+    return this.getPool(table, options).dbkeys[(table || "").toLowerCase()] || [];
 }
 
 // Return keys for the table search, if options.keys provided and not empty it will be used otherwise
@@ -1495,8 +1511,8 @@ db.getKeys = function(table, options)
 db.getSearchKeys = function(table, options)
 {
     var keys = options && options.keys ? options.keys : null;
-    if (!keys || !keys.length) keys = this.getKeys(table, options);
-    return keys || [];
+    if (!Array.isArray(keys) || !keys.length) keys = this.getKeys(table, options);
+    return keys;
 }
 
 // Return query object based on the keys specified in the options or primary keys for the table, only search properties
@@ -1804,7 +1820,7 @@ db.sqlPrepare = function(op, table, obj, options)
         req = this.sqlDrop(table, obj, options);
         break;
     case "get":
-        req = this.sqlSelect(table, obj, core.extendObj(options, "count", 1));
+        req = this.sqlSelect(table, obj, core.extendObj(options, "count", 1, "keys", this.getKeys(table, options)));
         break;
     case "add":
         req = this.sqlInsert(table, obj, options);
@@ -2177,32 +2193,33 @@ db.sqlLimit = function(options)
 }
 
 // Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE
-// - obj - an object record properties
-// - keys - a list of primary key columns
+// - query - properties for the condition, in case of an array the primary keys for IN condition will be used only
+// - keys - a list of columns to use for the condition, other properties will be ignored
 // - options may contains the following properties:
 //     - pool - pool to be used for driver specific functions
 //     - ops - object for comparison operators for primary key, default is equal operator
 //     - opsMap - operator mapping into supported by the database
 //     - typesMap - type mapping for properties to be used in the condition
-db.sqlWhere = function(table, obj, keys, options)
+db.sqlWhere = function(table, query, keys, options)
 {
     var self = this;
     if (!options) options = {};
     var cols = this.getColumns(table, options) || {};
 
     // List of records to return by primary key, when only one primary key property is provided use IN operator otherwise combine all conditions with OR
-    if (Array.isArray(obj)) {
-        if (!obj.length) return "";
-        var props = Object.keys(obj[0]);
+    if (Array.isArray(query)) {
+        if (!query.length) return "";
+        keys = this.getKeys(table, options);
+        var props = Object.keys(query[0]);
         if (props.length == 1 && keys.indexOf(props[0]) > -1) {
-            return props[0] + " IN (" + this.sqlValueIn(obj.map(function(x) { return x[props[0]] })) + ")";
+            return props[0] + " IN (" + this.sqlValueIn(query.map(function(x) { return x[props[0]] })) + ")";
         }
-        return obj.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.getBindValue(table, options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
+        return query.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.getBindValue(table, options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
     }
     // Regular object with conditions
     var where = [], c = {};
     (keys || []).forEach(function(k) {
-        var op = "", col = cols[k] || c, type = col.type || "", v = obj[k];
+        var op = "", col = cols[k] || c, type = col.type || "", v = query[k];
         if (!v && v != null) return;
         if (options.ops && options.ops[k]) op = options.ops[k];
         if (!op && v == null) op = "null";
@@ -2296,13 +2313,12 @@ db.sqlDrop = function(table, obj, options)
 
 // Select object from the database,
 // options may define the following properties:
-//  - keys is a list of columns for condition
+//  - keys is a list of columns for the condition
 //  - select is list of columns or expressions to return
-db.sqlSelect = function(table, obj, options)
+db.sqlSelect = function(table, query, options)
 {
 	var self = this;
     if (!options) options = {};
-    var keys = this.getSearchKeys(table, options);
 
     // Requested columns, support only existing
     var select = "*";
@@ -2313,7 +2329,8 @@ db.sqlSelect = function(table, obj, options)
     	if (!select) select = "*";
     }
 
-    var where = this.sqlWhere(table, obj, keys, options);
+    var keys = Array.isArray(options.keys) && options.keys.length ? options.keys : Object.keys(query);
+    var where = this.sqlWhere(table, query, keys, options);
     if (where) where = " WHERE " + where;
 
     var req = { text: "SELECT " + select + " FROM " + table + where + this.sqlLimit(options) };
@@ -2821,7 +2838,7 @@ db.dynamodbInitPool = function(options)
         case "select":
         case "search":
             // Save the original values of the options
-            var old = { sort: opts.sort, keys: opts.keys, select: opts.select, start: opts.start, count: opts.count };
+            var old = pool.saveOptions(opts, 'sort', 'keys', 'select', 'start', 'count');
             // Do not use index name if it is a primary key
             if (opts.sort && dbkeys.indexOf(opts.sort) > -1) opts.sort = null;
             // Use primary keys from the secondary index
@@ -2829,11 +2846,11 @@ db.dynamodbInitPool = function(options)
                 var sort = (opts.sort.length > 2 ? '' : '_') + opts.sort;
                 if (pool.dbindexes[sort]) dbkeys = pool.dbindexes[sort]; else opts.sort = null;
             }
+            var keys = Object.keys(obj);
             // If we have other key columns we have to use custom filter
-            var keys = opts.keys && opts.keys.length ? opts.keys : null;
-            var other = (keys || []).filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && typeof obj[x] != "undefined" });
+            var other = keys.filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && typeof obj[x] != "undefined" });
             // Query based on the keys
-            keys = self.getSearchQuery(table, obj, { keys: keys || dbkeys });
+            keys = self.getSearchQuery(table, obj, { keys: keys });
             // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering
             var op = typeof keys[dbkeys[0]] != "undefined" ? 'ddbQueryTable' : 'ddbScanTable';
             logger.debug('select:', 'dynamodb', op, keys, dbkeys, opts.sort, opts.count);
@@ -2857,8 +2874,7 @@ db.dynamodbInitPool = function(options)
                    return false;
                },
                function(err) {
-                   // Restore the properties we replaced
-                   for (var p in old) opts[p] = old[p];
+                   pool.restoreOptions(opts, old);
                    callback(err, rows);
                });
             break;
@@ -3045,6 +3061,7 @@ db.mongodbInitPool = function(options)
 
         case "select":
         case "search":
+            var old = pool.saveOptions(opts, 'sort', 'skip', 'limit');
             var collection = client.collection(table);
             var fields = self.getSelectedColumns(table, opts);
             opts.fields = (fields || Object.keys(dbcols)).reduce(function(x,y) { x[y] = 1; return x }, {});
@@ -3108,7 +3125,9 @@ db.mongodbInitPool = function(options)
                     o[p] = obj[p];
                 }
             }
+            logger.debug('select:', pool.name, o, keys);
             collection.find(o, opts).toArray(function(err, rows) {
+                pool.restoreOptions(opts, old);
                 callback(err, rows);
             });
             break;
@@ -3186,6 +3205,7 @@ db.cassandraInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "cassandra";
     options.type = "cassandra";
+    options.pooling = true;
     options.dboptions = { typesMap: { json: "text", real: "double", counter: "counter", bigint: "bigint" },
                           opsMap: { begins_with: "begins_with" },
                           sqlPlaceholder: "?",
@@ -3221,15 +3241,14 @@ db.cassandraInitPool = function(options)
             var keys = this.dbkeys[table.toLowerCase()] || [];
             var cols = this.dbcolumns[table.toLowerCase()] || {};
             // Save original properties, restore on exit to keep options unmodified for the caller
-            var old = { keys: opts.keys, sort: opts.sort }, ops = null;
+            var old = pool.saveOptions(opts, 'keys', 'sort');
+            var lastKey = keys[keys.length - 1], lastOps = opts.ops[lastKey];
 
             // Install custom filter if we have other columns in the keys
-            if (opts.keys) {
-                var other = opts.keys.filter(function(x) { return keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
-                // Custom filter function for in-memory filtering of the results using non-indexed properties
-                if (other.length) opts.rowfilter = function(rows) { return self.filterColumns(obj, rows, { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap }); }
-                opts.keys = null;
-            }
+            var other = Object.keys(obj).filter(function(x) { return keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
+            // Custom filter function for in-memory filtering of the results using non-indexed properties
+            if (other.length) opts.rowfilter = function(rows) { return self.filterColumns(obj, rows, { keys: other, cols: cols, ops: opts.ops, typesMap: options.typesMap }); }
+            opts.keys = keys;
 
             // Sorting is limited to a range key so we will do it in memory
             if (opts.sort && keys.indexOf(opts.sort) == -1) {
@@ -3241,20 +3260,14 @@ db.cassandraInitPool = function(options)
             // Pagination, start must be a token returned by the previous query
             if (Array.isArray(opts.start) && typeof opts.start[0] == "object") {
                 obj = core.cloneObj(obj);
-                opts.start.forEach(function(x) {
-                    for (var p in x) {
-                        obj[p] = x[p];
-                        // Only second part of the primary key is supported similar to DynamoDB range key
-                        if (p == keys[1]) {
-                            ops = opts.ops[p];
-                            opts.ops[p] = opts.desc ? "lt" : "gt";
-                        }
-                    }
-                });
+                opts.ops[lastKey] = opts.desc ? "lt" : "gt";
+                opts.start.forEach(function(x) { for (var p in x) obj[p] = x[p]; });
             }
+            logger.debug('select:', pool.name, opts.keys, other);
+
             var req = self.sqlPrepare(op, table, obj, opts);
-            for (var p in old) opts[p] = old[p];
-            if (ops) opts.ops[keys[1]] = ops;
+            pool.restoreOptions(opts, old);
+            if (lastOps) opts.ops[lastKey] = lastOps;
             return req;
         }
 
@@ -3265,8 +3278,11 @@ db.cassandraInitPool = function(options)
 
 db.cassandraConnect = function(options, callback)
 {
-    var opts = url.parse(options.db);
-    var db = new helenus.ConnectionPool({ hosts: [opts.host],  keyspace: opts.path.substr(1), user: opts.auth ? opts.auth.split(':')[0] : null, password: opts.auth ? opts.auth.split(':')[1] : null });
+    var hosts = core.strSplit(options.db).map(function(x) { return url.parse(x); });
+    var db = new helenus.ConnectionPool({ hosts: hosts.map(function(x) { return x.host }),
+                                          keyspace: hosts[0].path.substr(1),
+                                          user: hosts[0].auth ? hosts[0].auth.split(':')[0] : null,
+                                          password: hosts[0].auth ? hosts[0].auth.split(':')[1] : null });
     db.query = this.cassandraQuery;
     db.on('error', function(err) { logger.error('cassandra:', err); });
     db.connect(function(err, keyspace) {
@@ -3292,8 +3308,14 @@ db.cassandraQuery = function(text, values, options, callback)
                 });
                 rows.push(obj);
             });
-            if (options && options.rowfilter) rows = options.rowfilter(rows);
-            if (options && options.rowsort) rows = options.rowsort(rows);
+            if (options && options.rowfilter) {
+                rows = options.rowfilter(rows);
+                delete options.rowfilter;
+            }
+            if (options && options.rowsort) {
+                rows = options.rowsort(rows);
+                delete options.rowsort;
+            }
             if (callback) callback(err, rows);
         });
     } catch(e) {
@@ -3367,112 +3389,15 @@ db.cassandraCacheColumns = function(options, callback)
     });
 }
 
-// Setup LevelDB database driver, this is simplified driver which supports only basic key-value operations,
-// table parameter is ignored, the object only supports the following properties name and value.
-// Options are passed to the LevelDB backend low level driver which is native LevelDB options using the same names:
-// http://leveldb.googlecode.com/svn/trunk/doc/index.html
-// The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()
-db.leveldbInitPool = function(options)
-{
-    var self = this;
-    if (!options) options = {};
-    if (!options.pool) options.pool = "leveldb";
-
-    options.type = "leveldb";
-    var pool = this.createPool(options);
-
-    pool.get = function(callback) {
-        if (this.dbhandle) return callback(null, this);
-        try {
-            if (!core.exists(this.create_if_missing)) options.create_if_missing = true;
-            var path = core.path.spool + "/" + (options.db || ('ldb_' + core.processId()));
-            new backend.LevelDB(path, options, function(err) {
-                pool.dbhandle = this;
-                callback(null, pool);
-            });
-        } catch(e) {
-            callback(e);
-        }
-    }
-    pool.query = function(client, req, opts, callback) {
-        var pool = this;
-        var table = req.text;
-        var obj = req.obj;
-        if (typeof obj == "string") obj = { name: obj };
-
-        switch(req.op) {
-        case "create":
-        case "upgrade":
-        case "drop":
-            callback(null, []);
-            break;
-
-        case "get":
-            client.dbhandle.get(obj.name || "", opts, function(err, item) {
-                callback(err, item ? [item] : []);
-            });
-            break;
-
-        case "select":
-        case "search":
-            client.dbhandle.all(obj.name || "", opts.end || "", opts, callback);
-            break;
-
-        case "list":
-            var rc = [];
-            async.forEachSeries(obj, function(id, next) {
-                client.dbhandle.get(id, opts, function(err, val) {
-                    if (val) rc.push(val);
-                    next(err);
-                });
-            }, function(err) {
-                callback(err, rc);
-            });
-            break;
-
-        case "add":
-        case "put":
-        case "update":
-            client.dbhandle.put(obj.name || "", obj.value || "", opts, function(err) {
-                callback(err, []);
-            });
-            break;
-
-        case "incr":
-            client.dbhandle.incr(obj.name || "", obj.value || "", opts, function(err) {
-                callback(err, []);
-            });
-            break;
-
-        case "del":
-            client.dbhandle.del(obj.name || "", opts, function(err) {
-                callback(err, []);
-            });
-            break;
-
-        case "server":
-            var err = null;
-            try {
-                if (typeof opts.socket == "string") opts.socket = backend[opts.socket];
-                client.nnsock = new backend.NNSocket(backend.AF_SP, opts.socket || backend.NN_PULL);
-                client.nnsock.bind(opts.bind || ('ipc://var/' + client.db.split("/").pop() + ".sock"));
-                client.dbhandle.startServer(client.nnsock);
-            } catch(e) {
-                err = e;
-            }
-            callback(err, []);
-            break;
-
-        default:
-            callback(new Error("invalid op"), []);
-        }
-    };
-    return pool;
-}
-
-// Setup LMDB database driver, this is simplified driver which supports only basic key-value operations,
+// Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
 // table parameter is ignored, the object only supports the properties name and value in the record objects.
-// Options are passed to the LMDB backend low level driver as MDB_ flags, see http://symas.com/mdb/doc/
+//
+// Because this driver supports 2 databases it requires type to be specified, possible values are: `lmdb, leveldb`
+//
+// Options are passed to the LMDB low level driver as MDB_ flags according to http://symas.com/mdb/doc/ and
+// as properties for LevelDB as described in http://leveldb.googlecode.com/svn/trunk/doc/index.html
+//
+//The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()
 // - `select and search` actions support options.end property which defines the end condition for a range retrieval starting
 //   with obj.name property. If not end is given, all records till the end will be returned.
 // - `server` action starts internal server for LevelDB or LMDB databases, it creates nanomsg socket and listens for requests,
@@ -3486,16 +3411,28 @@ db.lmdbInitPool = function(options)
 {
     var self = this;
     if (!options) options = {};
-    if (!options.pool) options.pool = "lmdb";
+    if (!options.pool) options.pool = options.type = "lmdb";
 
-    options.type = "lmdb";
     var pool = this.createPool(options);
 
-    pool.get = function(callback) {
+    pool.getLevelDB = function(callback) {
+        if (this.dbhandle) return callback(null, this);
+        try {
+            if (!core.exists(this.create_if_missing)) options.create_if_missing = true;
+            var path = core.path.spool + "/" + (options.db || ('ldb_' + core.processId()));
+            new backend.LevelDB(path, options, function(err) {
+                pool.dbhandle = this;
+                callback(null, pool);
+            });
+        } catch(e) {
+            callback(e);
+        }
+    }
+    pool.getLMDB = function(callback) {
         if (this.dbhandle) return callback(null, this);
         try {
             if (!options.path) options.path = core.path.spool;
-            if (!options.flags)  options.flags = backend.MDB_CREATE;
+            if (!options.flags) options.flags = backend.MDB_CREATE;
             if (!options.dbs) options.dbs = 1;
             // Share same environment between multiple pools, each pool works with one db only to keep the API simple
             if (options.env && options.env instanceof backend.LMDBEnv) this.env = options.env;
@@ -3506,6 +3443,13 @@ db.lmdbInitPool = function(options)
             });
         } catch(e) {
             callback(e);
+        }
+    }
+    pool.get = function(callback) {
+        switch (this.type) {
+        case "lmdb": return this.getLMDB(callback);
+        case "leveldb": return this.getLevelDB(callback);
+        default: return callback();
         }
     }
     pool.query = function(client, req, opts, callback) {
