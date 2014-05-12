@@ -14,8 +14,8 @@ marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, san
 
 var renderer = new marked.Renderer();
 
-var header = '<head><title>Backend Documentation</title><link rel="stylesheet" href="css/doc.css"></head>\n';
-var toc = "# ![Backend](img/logo.png) Backend Documentation\n##Table of contents\n";
+var header = '<head><title>Backendjs Documentation</title><link rel="stylesheet" href="css/doc.css"></head>\n';
+var toc = "# ![Backend](img/logo.png) Backendjs Documentation\n##Table of contents\n";
 
 var readme = fs.readFileSync("README.md").toString();
 

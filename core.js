@@ -2157,8 +2157,8 @@ core.typeName = function(v)
     if (t !== "object") return t;
     if (Array.isArray(v)) return "array";
     if (Buffer.isBuffer(v)) return "buffer";
-    if (v.constructor == (new Date).constructor) return "date";
-    if (v.constructor == (new RegExp).constructor) return "regex";
+    if (v instanceof Date) return "date";
+    if (v instanceof RegExp) return "regex";
     return "object";
 }
 
@@ -2191,16 +2191,14 @@ core.exists = function(obj, name)
     return true;
 }
 
-// Deep copy of an object,
+// A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object
 // - first argument is the object to clone
 // - second argument can be an object that acts as a filter to skip properties:
 //     - _skip_null - to skip all null properties
 //     - _empty_to_null - convert empty strings into null objects
 //     - _skip_cb - a callback that returns true to skip a property, arguments are property name and value
-//     - name - a property name to skip, the value is treated depending on the type of the property:
-//          - boolean - skip if true
-//          - integer - skip only if the object's property is a string and greater in length that this value
-// - if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object
+//     - name - a property name to skip
+//   if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 // Example:
 //          core.cloneObj({ 1: 2 }, { 1: 1 }, "3", 3, "4", 4)
@@ -2228,23 +2226,14 @@ core.cloneObj = function()
         return new Regexp(this);
     case "string":
         if (filter._empty_to_null && obj === "") return null;
-        return obj;
     default:
         return obj;
     }
     for (var p in obj) {
-        switch (this.typeName(filter[p])) {
-        case "undefined":
-            break;
-        case "number":
-            if (typeof obj[p] == "string" && obj[p].length < filter[p]) break;
-            continue;
-        default:
-           continue;
-        }
-        if ((obj[p] == null || typeof obj[p] == "undefined") && filter._skip_null) continue;
+        if (filter[p]) continue;
+        if (filter._skip_null && (obj[p] == null || typeof obj[p] == "undefined")) continue;
         if (filter._skip_cb && filter._skip_cb(p, obj[p])) continue;
-        rc[p] = obj[p];
+        rc[p] = this.cloneObj(obj[p]);
     }
     for (var i = idx; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;

@@ -561,7 +561,6 @@ tests.db = function(callback)
 	var id2 = core.random(128);
     var num2 = core.randomNum(bbox[0], bbox[2]);
 	var next_token = null;
-	logger.log('db: test', db.pool);
 
 	async.series([
 	    function(next) {
@@ -708,7 +707,7 @@ tests.db = function(callback)
         },
 	    function(next) {
             db.select("test2", { id: id, num: 9, num2: 9 }, { keys: ['id','num', 'num2'], ops: { num: 'ge' } }, function(err, rows, info) {
-                self.check(next, err, rows.length==0 || rows[0].num!=9 , "err13:", rows, info);
+                self.check(next, err, rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
             });
         },
         function(next) {

@@ -19,7 +19,7 @@ clean:
 	./bkjs clean-backend
 
 test-db:
-	for d in sqlite pgsql mysql dynamodb mongodb cassandra; do node tests.js -cmd db -db-pool $$d -log log; done
+	for d in sqlite pgsql mysql dynamodb mongodb cassandra redis; do (node tests.js -cmd db -db-pool $$d -log log); done
 
 pages:
 	git-new-workdir `pwd` ./pages gh-pages

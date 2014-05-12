@@ -35,6 +35,10 @@ var metrics = require(__dirname + "/metrics");
 // by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
 // API call, all high level operations like add/put/del perform SQL generation for single table on the fly.
 //
+// The common convention is to pass options object with flags that are common for all drivers along with specific,
+// this options object can be modified with new properties but all driver should try not to
+// modify or delete existing properties, so the same options object can be reused in subsequent operations.
+//
 // Before the DB functions can be used the `core.init` MUST be called first, the typical usage:
 //
 //          var backend = require("backendjs"), core = backend.core, db = backend.db;
@@ -1077,7 +1081,6 @@ db.search = function(table, obj, options, callback)
 db.getLocations = function(table, obj, options, callback)
 {
     var rows = [];
-    var keys = db.getKeys(table, options);
     var cols = db.getColumns(table, options);
     var lcols =  ["geohash", "latitude", "longitude"];
 
@@ -1100,7 +1103,7 @@ db.getLocations = function(table, obj, options, callback)
     }
     if (options.top) options.count = options.top;
 
-    logger.debug('getLocations:', table, 'OBJ:', obj, 'GEO:', options.geokey, options.geohash, obj.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'KEYS:', keys, 'NEIGHBORS:', options.neighbors);
+    logger.debug('getLocations:', table, 'OBJ:', obj, 'GEO:', options.geokey, options.geohash, obj.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'KEYS:', options.keys, 'NEIGHBORS:', options.neighbors);
 
     // Collect all matching records until specified count
     async.doUntil(
@@ -1148,7 +1151,6 @@ db.getLocations = function(table, obj, options, callback)
           // Keep original query and count for pagination
           options.gquery = obj;
           options.count = options.gcount;
-
           if (callback) callback(err, rows, options);
     });
 }
@@ -2818,6 +2820,8 @@ db.dynamodbInitPool = function(options)
 
         case "select":
         case "search":
+            // Save the original values of the options
+            var old = { sort: opts.sort, keys: opts.keys, select: opts.select, start: opts.start, count: opts.count };
             // Do not use index name if it is a primary key
             if (opts.sort && dbkeys.indexOf(opts.sort) > -1) opts.sort = null;
             // Use primary keys from the secondary index
@@ -2832,35 +2836,31 @@ db.dynamodbInitPool = function(options)
             keys = self.getSearchQuery(table, obj, { keys: keys || dbkeys });
             // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering
             var op = typeof keys[dbkeys[0]] != "undefined" ? 'ddbQueryTable' : 'ddbScanTable';
-            logger.debug('select:', 'dynamodb', op, keys, dbkeys, opts.sort);
+            logger.debug('select:', 'dynamodb', op, keys, dbkeys, opts.sort, opts.count);
 
             opts.keys = dbkeys;
             opts.select = self.getSelectedColumns(table, opts);
-            aws[op](table, keys, opts, function(err, item) {
-                if (err) return callback(err, []);
-                var count = opts.count || 0;
-                var rows = item.Items;
-                pool.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
-                count -= rows.length;
-
-                // Keep retrieving items until we reach the end or our limit
-                async.until(
-                    function() {
-                        return pool.next_token == null || count <= 0;
-                    },
-                    function(next) {
-                        opts.start = pool.next_token;
-                        aws.ddbQueryTable(table, keys, opts, function(err, item) {
-                            var items = item.Items;
-                            rows.push.apply(rows, items);
-                            pool.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
-                            count -= items.length;
-                            next(err);
-                        });
-                }, function(err) {
-                	callback(err, rows);
-                });
-            });
+            var rows = [];
+            // Keep retrieving items until we reach the end or our limit
+            async.doUntil(
+               function(next) {
+                   aws[op](table, keys, opts, function(err, item) {
+                       rows.push.apply(rows, item.Items);
+                       pool.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
+                       opts.count -= item.Items.length;
+                       next(err);
+                   });
+               },
+               function() {
+                   if (pool.next_token == null || opts.count <= 0) return true;
+                   opts.start = pool.next_token;
+                   return false;
+               },
+               function(err) {
+                   // Restore the properties we replaced
+                   for (var p in old) opts[p] = old[p];
+                   callback(err, rows);
+               });
             break;
 
         case "list":
