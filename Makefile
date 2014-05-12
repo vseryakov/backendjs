@@ -3,6 +3,8 @@
 #  Sep 2013
 #
 
+TEST=db
+
 all:
 	npm build . 
 
@@ -18,8 +20,8 @@ shell:
 clean:
 	./bkjs clean-backend
 
-test-db:
-	for d in sqlite pgsql mysql dynamodb mongodb cassandra redis; do (node tests.js -cmd db -db-pool $$d -log log); done
+tests:
+	for d in sqlite pgsql mysql dynamodb mongodb cassandra redis; do (node tests.js -cmd $(TEST) -db-pool $$d -log log); done
 
 pages:
 	git-new-workdir `pwd` ./pages gh-pages

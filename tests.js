@@ -411,7 +411,7 @@ tests.location = function(callback)
     if (!latitude) latitude = core.randomNum(bbox[0], bbox[2])
     if (!longitude) longitude = core.randomNum(bbox[1], bbox[3])
 
-    var rc = [], top = {}, bad = 0, good = 0, count = rows/2;
+    var rc = [], top = {}, bad = 0, good = 0, error = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
     bbox = backend.backend.geoBoundingBox(latitude, longitude, distance);
     // To get all neighbors, we can only guarantee searches in the neighboring areas, even if the distance is within it
@@ -452,8 +452,11 @@ tests.location = function(callback)
       	                    // Keep track of all records by area for top search by rank
         		            if (!top[obj.geohash]) top[obj.geohash] = [];
                             top[obj.geohash].push(obj.rank);
-        		        } else good--;
-        		        next2();
+        		        } else {
+        		            good--;
+        		            if (error++ < 10) err = null;
+        		        }
+        		        next2(err);
         		    });
         		},
         		function(err) {
@@ -477,8 +480,11 @@ tests.location = function(callback)
                     obj.rank = bad;
                     obj.status = "bad";
                     db.add("geo", obj, { ignore_error: 1 }, function(err) {
-                        if (err) bad--;
-                        next2();
+                        if (err) {
+                            bad--;
+                            if (error++ < 10) err = null;
+                        }
+                        next2(err);
                     });
                 },
                 function(err) {
@@ -665,7 +671,7 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, row) {
-	    		self.check(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || core.typeName(row.json)!="object" || row.json.a!=1, "err10:", row);
+	    		self.check(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || core.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
 	    	});
 	    },
 	    function(next) {
@@ -683,7 +689,25 @@ tests.db = function(callback)
 	    		next(err);
 	    	});
 	    },
+        function(next) {
+            // Check pagination
+	        next_token = null;
+	        var rc = [];
+            async.forEachSeries([2, 3], function(n, next2) {
+                db.select("test2", { id: id2 }, { start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
+                    next_token = info.next_token;
+                    rc.push.apply(rc, rows);
+                    next2(err);
+                });
+            }, function(err) {
+                // Redis cannot sort due to hash implementation, known bug
+                var isok = db.pool == "redis" ? true : (rc[0].id2 == 1 && rc[rc.length-1].id2 == 5);
+                self.check(next, err, rc.length!=5 || !isok, "err10:", rc.length, isok, rc);
+            })
+	    },
 	    function(next) {
+	        // Check pagination with small page size with condition on the range key
+	        next_token = null;
 	        async.forEachSeries([2, 3], function(n, next2) {
 	            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
 	                next_token = info.next_token;
@@ -706,16 +730,19 @@ tests.db = function(callback)
             db.add("test2", { id: id, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
         },
 	    function(next) {
+            // Select by primary key and other filter
             db.select("test2", { id: id, num: 9, num2: 9 }, { keys: ['id','num', 'num2'], ops: { num: 'ge' } }, function(err, rows, info) {
                 self.check(next, err, rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
             });
         },
         function(next) {
+            // Scan the whole table with custom filter
             db.select("test2", { num: 9 }, { keys: ['num'], ops: { num: 'ge' } }, function(err, rows, info) {
                 self.check(next, err, rows.length==0 || rows[0].num!=9, "err14:", rows, info);
             });
         },
         function(next) {
+            // Scan the whole table with custom filter and sorting
             db.select("test2", { id: id, num: 0 }, { ops: { num: 'ge' }, sort: "num" }, function(err, rows, info) {
                 self.check(next, err, rows.length==0 || rows[0].num!=2 , "err15:", rows, info);
             });

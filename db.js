@@ -3186,7 +3186,7 @@ db.cassandraInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "cassandra";
     options.type = "cassandra";
-    options.dboptions = { typesMap: { json: "text", real: "double", counter: "counter" },
+    options.dboptions = { typesMap: { json: "text", real: "double", counter: "counter", bigint: "bigint" },
                           opsMap: { begins_with: "begins_with" },
                           sqlPlaceholder: "?",
                           noCoalesce: 1,
@@ -3208,9 +3208,10 @@ db.cassandraInitPool = function(options)
         self.update(table, obj, opts, callback);
     };
     pool.nextToken = function(req, rows, opts) {
-        if (!rows.length || rows.length < opts.count) return;
-        var keys = this.dbkeys[req.table] || [];
-        this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
+        if (opts.count > 0 && rows.length == opts.count) {
+            var keys = this.dbkeys[req.table] || [];
+            this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
+        }
     }
     pool.prepare = function(op, table, obj, opts) {
         switch (op) {
@@ -3219,6 +3220,9 @@ db.cassandraInitPool = function(options)
             // Cannot search by non primary keys
             var keys = this.dbkeys[table.toLowerCase()] || [];
             var cols = this.dbcolumns[table.toLowerCase()] || {};
+            // Save original properties, restore on exit to keep options unmodified for the caller
+            var old = { keys: opts.keys, sort: opts.sort }, ops = null;
+
             // Install custom filter if we have other columns in the keys
             if (opts.keys) {
                 var other = opts.keys.filter(function(x) { return keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
@@ -3226,19 +3230,34 @@ db.cassandraInitPool = function(options)
                 if (other.length) opts.rowfilter = function(rows) { return self.filterColumns(obj, rows, { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap }); }
                 opts.keys = null;
             }
+
             // Sorting is limited to a range key so we will do it in memory
             if (opts.sort && keys.indexOf(opts.sort) == -1) {
                 var sort = opts.sort;
                 opts.rowsort = function(rows) { return rows.sort(function(a,b) { return a[sort] - b[sort] }) }
                 opts.sort = null;
             }
-            // Pagination, start must be a token returned by the previous query, this assumes that options.ops stays the same as well
+
+            // Pagination, start must be a token returned by the previous query
             if (Array.isArray(opts.start) && typeof opts.start[0] == "object") {
                 obj = core.cloneObj(obj);
-                opts.start.forEach(function(x) { for (var p in x) obj[p] = x[p]; });
+                opts.start.forEach(function(x) {
+                    for (var p in x) {
+                        obj[p] = x[p];
+                        // Only second part of the primary key is supported similar to DynamoDB range key
+                        if (p == keys[1]) {
+                            ops = opts.ops[p];
+                            opts.ops[p] = opts.desc ? "lt" : "gt";
+                        }
+                    }
+                });
             }
-            break;
+            var req = self.sqlPrepare(op, table, obj, opts);
+            for (var p in old) opts[p] = old[p];
+            if (ops) opts.ops[keys[1]] = ops;
+            return req;
         }
+
         return self.sqlPrepare(op, table, obj, opts);
     }
     return pool;
@@ -3330,6 +3349,10 @@ db.cassandraCacheColumns = function(options, callback)
                     self.dbindexes[rows[i].index_name].push(rows[i].column_name);
                     break;
                 case "partition_key":
+                    if (!self.dbkeys[rows[i].columnfamily_name]) self.dbkeys[rows[i].columnfamily_name] = [];
+                    self.dbkeys[rows[i].columnfamily_name].unshift(rows[i].column_name);
+                    if (col) col.primary = true;
+                    break;
                 case "clustering_key":
                     if (!self.dbkeys[rows[i].columnfamily_name]) self.dbkeys[rows[i].columnfamily_name] = [];
                     self.dbkeys[rows[i].columnfamily_name].push(rows[i].column_name);

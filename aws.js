@@ -404,7 +404,9 @@ aws.queryFilter = function(obj, options)
 }
 
 // Return list of tables in .TableNames property of the result
+//
 // Example:
+//
 //          { TableNames: [ name, ...] }
 aws.ddbListTables = function(options, callback)
 {
@@ -414,7 +416,9 @@ aws.ddbListTables = function(options, callback)
 }
 
 // Return table definition and parameters in the result structure with property of the given table name
+//
 // Example:
+//
 //          { name: { AttributeDefinitions: [], KeySchema: [] ...} }
 aws.ddbDescribeTable = function(name, options, callback)
 {
@@ -432,7 +436,9 @@ aws.ddbDescribeTable = function(name, options, callback)
 //   - local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object
 //   - global - an object for global secondary indexes, same format as for local indexes
 //   - projection - an object with index name and list of projected properties to be included in the index or "ALL" for all properties, if omitted then default KEYS_ONLY is assumed
+//
 // Example:
+//
 //          ddbCreateTable('users', { id:'S',mtime:'N',name:'S'},
 //                                  { id:'HASH',name:'RANGE'},
 //                                  { local: { mtime: { mtime: "HASH" } },
@@ -519,7 +525,9 @@ aws.ddbUpdateTable = function(name, rlimit, wlimit, options, callback)
 // - select - list of columns to return, otherwise all columns will be returned
 // - options may contain any native property allowed in the request or special properties:
 //      - consistent - set consistency level for the request
+//
 // Example:
+//
 //          ddbGetItem("users", { id: 1, name: "john" }, { select: 'id,name' })
 aws.ddbGetItem = function(name, keys, options, callback)
 {
@@ -550,7 +558,9 @@ aws.ddbGetItem = function(name, keys, options, callback)
 // - options may contain any valid native property if it starts with capital letter or special properties:
 //      - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 //     any other exact value to be checked against which corresponds to { Exists: true, Value: value }
+//
 // Example:
+//
 //          ddbPutItem("users", { id: 1, name: "john", mtime: 11233434 }, { expected: { name: null } })
 aws.ddbPutItem = function(name, item, options, callback)
 {
@@ -585,7 +595,9 @@ aws.ddbPutItem = function(name, item, options, callback)
 //      - ops - an object with operators to be used for properties if other than PUT
 //      - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 //     any other exact value to be checked against which corresponds to { Exists: true, Value: value }
+//
 // Example:
+//
 //          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: 1 } })
 aws.ddbUpdateItem = function(name, keys, item, options, callback)
 {
@@ -637,7 +649,9 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
 // Delete an item from a table
 // - keys is an object with name: value for hash/range attributes
 // - options may contain any valid native property if it starts with capital letter.
+//
 // Example:
+//
 //          ddbDeleteItem("users", { id: 1, name: "john" }, {})
 aws.ddbDeleteItem = function(name, keys, options, callback)
 {
@@ -660,7 +674,9 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
 // Update items from the list at the same time
 // - items is a list of objects with table name as property and list of operations, an operation can be PutRequest or DeleteRequest
 // - options may contain any valid native property if it starts with capital letter.
+//
 // Example:
+//
 //          { table: [ { PutRequest: { id: 1, name: "tt" } }, ] }
 aws.ddbBatchWriteItem = function(items, options, callback)
 {
@@ -690,7 +706,9 @@ aws.ddbBatchWriteItem = function(items, options, callback)
 // Retrieve all items for given list of keys
 // - items is an object with table name as property name and list of options for GetItem request
 // - options may contain any valid native property if it starts with capital letter.
+//
 // Example:
+//
 //          { users: { keys: [{ id: 1, name: "john" },{ id: .., name: .. }], select: ['name','id'], consistent: true }, ... }
 aws.ddbBatchGetItem = function(items, options, callback)
 {
@@ -729,8 +747,12 @@ aws.ddbBatchGetItem = function(items, options, callback)
 //      - ops - an object with operators to be used for properties if other than EQ.
 //      - keys - list of primary key columns, if there are other properties in the condition then they will be
 //         put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.
+//
 // Example:
+//
 //          ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', ops: { name: 'gt' } })
+//
+//          ddbQueryTable("users", { id: 1, name: "john", status: "ok" }, { keys: ["id"], select: 'id,name', ops: { name: 'gt' } })
 aws.ddbQueryTable = function(name, condition, options, callback)
 {
     var self = this;
@@ -781,7 +803,9 @@ aws.ddbQueryTable = function(name, condition, options, callback)
 // - options may contain any valid native property if it starts with capital letter or special property:
 //       - start - defines starting primary key
 //       - ops - an object with operators to be used for properties if other than EQ.
+//
 // Example:
+//
 //          ddbScanTable("users", { id: 1, name: 'a' }, { ops: { name: 'gt' }})
 aws.ddbScanTable = function(name, condition, options, callback)
 {
