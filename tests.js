@@ -87,7 +87,7 @@ tests.start = function(type)
 
     this.start_time = Date.now();
     var count = core.getArgInt("-iterations", 1);
-	logger.log(self.name, "started:", type);
+	logger.log(self.name, "started:", type, db.pool);
 	async.whilst(
 	    function () { return count > 0; },
 	    function (next) {
@@ -391,10 +391,10 @@ tests.location = function(callback)
 {
 	var self = this;
 	var tables = {
-			geo: { geohash: { primary: 1, index: 1 },
-			       id: { primary: 1, pub: 1 },
-                   latitude: { type: "real" },
-                   longitude: { type: "real" },
+			geo: { geohash: { primary: 1, index: 1, semipub: 1 },
+			       id: { type: "int", primary: 1, pub: 1 },
+                   latitude: { type: "real", semipub: 1 },
+                   longitude: { type: "real", semipub: 1 },
                    distance: { type: "real" },
                    rank: { type: 'int', index: 1, dynamodb: { projection: ["status"] } },
                    status: { value: 'good' },
@@ -404,23 +404,33 @@ tests.location = function(callback)
     var rows = core.getArgInt("-rows", 10);
     var distance = core.getArgInt("-distance", 25)
     var round = core.getArgInt("-round", 0)
+    var reuse = core.getArgInt("-reuse", 0)
+    var latitude = core.getArgInt("-lat", 0)
+    var longitude = core.getArgInt("-lon", 0)
 
-    var latitude = core.randomNum(bbox[0], bbox[2])
-    var longitude = core.randomNum(bbox[1], bbox[3])
-    var token = { more: 1 }, rc = [], bad = 0, good = 0, count = rows/2;
+    if (!latitude) latitude = core.randomNum(bbox[0], bbox[2])
+    if (!longitude) longitude = core.randomNum(bbox[1], bbox[3])
+
+    var rc = [], top = {}, bad = 0, good = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
     bbox = backend.backend.geoBoundingBox(latitude, longitude, distance);
+    // To get all neighbors, we can only guarantee searches in the neighboring areas, even if the distance is within it
+    // still can be in the box outside of the immediate neighbors, minDistance is an approximation
+    var geo = core.geoHash(latitude, longitude, { distance: distance });
 
     async.series([
         function(next) {
+            if (reuse) return next();
             async.forEachSeries(Object.keys(tables), function(t, next2) {
                 db.drop(t, function() { next2() });
             }, next);
         },
         function(next) {
+            if (reuse) return next();
         	db.initTables(tables, next);
         },
         function(next) {
+            if (reuse) return next();
         	async.whilst(
         		function () { return good < rows + count; },
         		function (next2) {
@@ -429,13 +439,20 @@ tests.location = function(callback)
         		    var obj = core.geoHash(lat, lon);
                     obj.distance = core.geoDistance(latitude, longitude, lat, lon, { round: round });
                     if (obj.distance > distance) return next2();
+                    // Make sure its in the neighbors
+                    if (geo.neighbors.indexOf(obj.geohash) == -1) return next2();
+                    // Create several records in the same geohash box
                     if (good > rows && ghash != obj.geohash) return next2();
                     good++;
         		    obj.id = String(good);
         		    obj.rank = good;
                     ghash = obj.geohash;
-        		    db.add("geo", obj, function(err) {
-        		        if (err) good--;
+        		    db.add("geo", obj, { ignore_error: 1 }, function(err) {
+        		        if (!err) {
+      	                    // Keep track of all records by area for top search by rank
+        		            if (!top[obj.geohash]) top[obj.geohash] = [];
+                            top[obj.geohash].push(obj.rank);
+        		        } else good--;
         		        next2();
         		    });
         		},
@@ -444,8 +461,11 @@ tests.location = function(callback)
         		});
         },
         function(next) {
+            if (reuse) return next();
+            // Records beyond our distance
+            bad = good;
             async.whilst(
-                function () { return bad < count; },
+                function () { return bad < good + count; },
                 function (next2) {
                     var lat = core.randomNum(bbox[0], bbox[2]);
                     var lon = core.randomNum(bbox[1], bbox[3]);
@@ -456,7 +476,7 @@ tests.location = function(callback)
                     obj.id = String(bad);
                     obj.rank = bad;
                     obj.status = "bad";
-                    db.add("geo", obj, function(err) {
+                    db.add("geo", obj, { ignore_error: 1 }, function(err) {
                         if (err) bad--;
                         next2();
                     });
@@ -466,36 +486,52 @@ tests.location = function(callback)
                 });
         },
         function(next) {
+            // Scan all locations, do it in small chunks to verify we can continue withint the same geohash area
             var query = { latitude: latitude, longitude: longitude, distance: distance };
             var options = { count: gcount, round: round };
-            async.whilst(
-                function() { return token.more },
+            async.doUntil(
                 function(next2) {
-                    db.getLocations("geo", query, token, function(err, rows, info) {
-                        token = info;
-                        rows.forEach(function(x) { rc.push(x.geohash + ':'+ x.id + ':' + x.status) })
+                    db.getLocations("geo", query, options, function(err, rows, info) {
+                        options = info;
+                        rows.forEach(function(x) { rc.push({ id: x.geohash + ":" + x.id, status: x.status }) })
                         next2();
                     });
-                }, function(err) {
-                    self.check(next, err, rc.length!=good, "err1: ", rc.length, good, 'RC:', rc, 'TOKEN:', token);
+                },
+                function() { return !options.more },
+                function(err) {
+                    var ids = {};
+                    var isok = rc.every(function(x) { ids[x.id] = 1; return x.status == 'good' })
+                    self.check(next, err, rc.length!=good || Object.keys(ids).length!=good, "err1: ", rc.length, good, 'RC:', rc, ids);
                 });
         },
         function(next) {
-            var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good", rank: 9 };
+            // Scan all good locations with the top 3 rank values
+            var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good", rank: good-3 };
             var options = { round: round, keys: ["geohash", "status", "rank"], ops: { rank: 'gt' } };
             db.getLocations("geo", query, options, function(err, rows, info) {
-                var isok = rows.every(function(x) { return x.status == 'good' && x.rank > 9 })
-                self.check(next, err, rows.length!=good-9 || !isok, "err2:", rows.length, isok, good, rows);
+                var isok = rows.every(function(x) { return x.status == 'good' && x.rank > good-3 })
+                self.check(next, err, rows.length!=3 || !isok, "err2:", rows.length, isok, good, rows);
             });
         },
         function(next) {
-            var query = { latitude: latitude, longitude: longitude, distance: distance*2, status: "bad", rank: bad - 2 };
+            // Scan all locations beyond our good distance, get all bad with top 2 rank values
+            var query = { latitude: latitude, longitude: longitude, distance: distance*2, status: "bad", rank: bad-2 };
             var options = { round: round, keys: ["geohash", "status", "rank"], ops: { rank: 'gt' }, sort: "rank", desc: true };
             db.getLocations("geo", query, options, function(err, rows, info) {
-                var isok = rows.every(function(x) { return x.status == 'bad' && x.rank > bad - 2 })
+                var isok = rows.every(function(x) { return x.status == 'bad' && x.rank > bad-2 })
                 self.check(next, err, rows.length!=2 || !isok, "err3:", rows.length, isok, bad, rows);
             });
-        }
+        },
+        function(next) {
+            // Scan all neighbors within the distance and take top 2 ranks only, in desc order
+            var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good" };
+            var options = { round: round, keys: ["geohash", "status"], sort: "rank", desc: true, count: 50, top: 2, select: "geohash,id,status,rank" };
+            db.getLocations("geo", query, options, function(err, rows, info) {
+                var isok = rows.every(function(x) { return x.status == 'good' })
+                var iscount = Object.keys(top).reduce(function(x,y) { return x + Math.min(2, top[y].length) }, 0);
+                self.check(next, err, rows.length!=iscount || !isok, "err4:", rows.length, iscount, isok, rows, 'TOP:', top);
+            });
+        },
     ],
     function(err) {
         callback(err);
@@ -529,17 +565,14 @@ tests.db = function(callback)
 
 	async.series([
 	    function(next) {
-	         logger.log('TEST: drop');
 	         async.forEachSeries(Object.keys(tables), function(t, next2) {
 	             db.drop(t, function() { next2() });
 	         }, next);
 	    },
 	    function(next) {
-	        logger.log('TEST: create');
 	    	db.initTables(tables, next);
 	    },
 	    function(next) {
-            logger.log('TEST: add1');
             db.add("test1", { id: id, email: id }, function(err) {
                 if (err) return next(err);
                 db.put("test1", { id: id2, email: id2 }, function(err) {
@@ -549,43 +582,35 @@ tests.db = function(callback)
             });
         },
         function(next) {
-            logger.log('TEST: get add3');
             db.get("test3", { id: id }, function(err, row) {
                 self.check(next, err, !row || row.id != id, "err1:", row);
             });
         },
         function(next) {
-            logger.log('TEST: get add:', id);
             db.get("test1", { id: id }, function(err, row) {
                 self.check(next, err, !row || row.id != id, "err2:", row);
             });
         },
         function(next) {
-            logger.log('TEST: list');
             db.list("test1", String([id,id2]),  function(err, rows) {
                 self.check(next, err, rows.length!=2, "err4:", rows);
             });
         },
 	    function(next) {
-	        logger.log('TEST: add2');
 	    	db.add("test2", { id: id, id2: '1', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
-	        logger.log('TEST: add3');
 	    	db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
-	        logger.log('TEST: add4');
 	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 0, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
-            logger.log('TEST: custom filter');
             db.select("test2", { id: id2 }, { filter: function(row, o) { return row.id2 == '1' } }, function(err, rows) {
                 self.check(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", rows);
             });
         },
         function(next) {
-            logger.log('TEST: custom async filter');
             db.select("test2", { id: id2 }, { async_filter: function(rows, opts, cb) {
                     cb(null, rows.filter(function(r) { return r.id2 == '1' }));
                 }
@@ -594,7 +619,6 @@ tests.db = function(callback)
             });
         },
         function(next) {
-            logger.log('TEST: list2');
             db.list("test1", String([id,id2]), { check_public: id }, function(err, rows) {
                 var row1 = rows.filter(function(x) { return x.id==id}).pop();
                 var row2 = rows.filter(function(x) { return x.id==id2}).pop();
@@ -602,7 +626,6 @@ tests.db = function(callback)
             });
         },
 	    function(next) {
-	        logger.log('TEST: incr');
 	    	db.incr("test3", { id: id, num: 1 }, { mtime: 1 }, function(err) {
 	    	    if (err) return next(err);
 	    		db.incr("test3", { id: id, num: 1 }, function(err) {
@@ -612,103 +635,88 @@ tests.db = function(callback)
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: get after incr');
 	    	db.get("test3", { id: id }, function(err, row) {
 	    		self.check(next, err, !row || row.id != id && row.num != 1, "err7:", row);
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: select columns');
 	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
 	    		self.check(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
 	    	});
 	    },
 	    function(next) {
-            logger.log('TEST: select columns2');
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
                 self.check(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2, "err8-1:", rows);
             });
         },
 	    function(next) {
-	        logger.log('TEST: update');
 	    	db.update("test2", { id: id, id2: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
 	    	    if (err) return next(err);
-	    	    logger.log('TEST: replace after update');
 	    		db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: get after update');
 	    	db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
 	    		self.check(next, err, !row || row.id != id  || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json), "err9:", row);
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: replace');
 	    	now = core.now();
-	    	db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, json: { a: 1, b: 2 }, mtime: now }, { check_data: 1 }, next);
+	    	db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, num2: 9, json: { a: 1, b: 2 }, mtime: now }, { check_data: 1 }, next);
 	    },
 	    function(next) {
-	        logger.log('TEST: get after replace');
 	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, row) {
 	    		self.check(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || core.typeName(row.json)!="object" || row.json.a!=1, "err10:", row);
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: del');
 	    	db.del("test2", { id: id2, id2: '1' }, next);
 	    },
 	    function(next) {
-	        logger.log('TEST: get after del');
 	    	db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, row) {
 	    		self.check(next, err, row, "del:", row);
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: put series');
 	    	async.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
-	    		db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, mtime: now }, next2);
+	    		db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, num: i, num2: i, mtime: now }, next2);
 	    	}, function(err) {
 	    		next(err);
 	    	});
 	    },
 	    function(next) {
-	        logger.log('TEST: select id2');
-	    	db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, count: 5, select: 'id,id2' }, function(err, rows, info) {
-	    		next_token = info.next_token;
-	    		self.check(next, err, rows.length!=5 || !info.next_token, "err11:", rows, info);
-	    	});
-	    },
-        function(next) {
-            logger.log('TEST: next page: next_token=', next_token);
-            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: 5, select: 'id,id2' }, function(err, rows, info) {
-                next_token = info.next_token;
-                var isok = rows.every(function(x) { return x.id2 > '0' });
-                self.check(next, err, rows.length!=4 || !isok, "err12:", isok, rows, info);
-            });
+	        async.forEachSeries([2, 3], function(n, next2) {
+	            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
+	                next_token = info.next_token;
+	                self.check(next2, err, rows.length!=n || !info.next_token, "err11:", rows.length, n, rows, info);
+	            });
+	        },
+	        function(err) {
+	            if (err) return next(err);
+	            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: 5, select: 'id,id2' }, function(err, rows, info) {
+	                next_token = info.next_token;
+	                var isok = rows.every(function(x) { return x.id2 > '0' });
+	                self.check(next, err, rows.length!=4 || !isok, "err12:", isok, rows, info);
+	            });
+	        });
         },
 	    function(next) {
-	        logger.log('TEST: end page: next_token=', next_token);
-	        next(next_token ? ("err13:" + util.inspect(next_token)) : 0);
+	        self.check(next, null, next_token, "err13: next_token must be null", next_token);
 	    },
         function(next) {
-            logger.log('TEST: add more');
             db.add("test2", { id: id, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
         },
 	    function(next) {
-            logger.log('TEST: query with custom filter');
-            db.select("test2", { id: id, num: 9 }, { keys: ['id','num'], ops: { num: 'ge' } }, function(err, rows, info) {
+            db.select("test2", { id: id, num: 9, num2: 9 }, { keys: ['id','num', 'num2'], ops: { num: 'ge' } }, function(err, rows, info) {
                 self.check(next, err, rows.length==0 || rows[0].num!=9 , "err13:", rows, info);
             });
         },
         function(next) {
-            logger.log('TEST: scan');
             db.select("test2", { num: 9 }, { keys: ['num'], ops: { num: 'ge' } }, function(err, rows, info) {
                 self.check(next, err, rows.length==0 || rows[0].num!=9, "err14:", rows, info);
             });
         },
         function(next) {
-            logger.log('TEST: sort');
             db.select("test2", { id: id, num: 0 }, { ops: { num: 'ge' }, sort: "num" }, function(err, rows, info) {
                 self.check(next, err, rows.length==0 || rows[0].num!=2 , "err15:", rows, info);
             });

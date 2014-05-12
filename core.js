@@ -1554,10 +1554,11 @@ core.geoHash = function(latitude, longitude, options)
 
 	var geohash = backend.geoHashEncode(latitude, longitude);
 	return { geohash: geohash.substr(0, range[0]),
-			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, range[0]), Math.round(options.distance / range[1])).slice(1) : [],
+			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
+             maxGeohash: geohash,
 			 latitude: latitude,
 			 longitude: longitude,
-			 range: range,
+			 minRange: range[1],
 			 minDistance: minDistance,
 			 distance: options.distance || 0 };
 }

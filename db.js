@@ -523,6 +523,9 @@ db.query = function(req, options, callback)
                         self.clearCached(table, req.obj, options);
                     }
 
+                    // Make sure no duplicates
+                    if (options.unique) items = core.arrayUnique(items, options.unique);
+
                     // Convert values if we have custom column callback
                     self.processRows(pool, table, rows, options);
 
@@ -816,6 +819,8 @@ db.replace = function(table, obj, options, callback)
 //        returning to the client
 //      - desc - if sorting, do in descending order
 //      - page - starting page number for pagination, uses count to find actual record to start
+//      - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+//          table for the same id only one instance will be returned
 //
 // On return, the callback can check third argument which is an object with the following properties:
 // - affected_rows - how many records this operation affected, for add/put/update
@@ -1033,22 +1038,25 @@ db.search = function(table, obj, options, callback)
 //          });
 //  the rest of the columns can be defined as needed, no special requirements.
 //
-// `obj` contains the query condition and must contain the following:
+// `obj` must contain the following:
 //  - latitude
 //  - longitude
 //
-// other optional properties:
-//  - distance - in km, the radius from the point
+// other properties:
+//  - distance - in km, the radius around the point, in not given the `min-distance` will be used
 //
 // all other properties from the searched table for conditions
 //
 // `options` optional properties:
+//  - top - number of first 'top'th records from each neighboring area, to be used with sorting by the range key to take
+//     only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations
+//  - geokey - name of the geohash primary key column, by default it is `geohash`, it is possible to keep several different
+//     geohash indexes within the same table with different geohash length which will allow to perform
+//     searches more precisely dependgin on the distance given
 //  - round - a number that defines the "precision" of  the distance, it rounds the distance to the nearest
 //    round number and uses decimal point of the round number to limit decimals in the distance
-//  - sort - sorting order, by default the RANGE key is used for DynamoDB , it is possinle to specify Local Index as well,
-//    for SQL the second part of the primary key if exists or id
-//  - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
-//    table for the same id only one instance will be returned
+//  - sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
+//    in case of SQL this is the second part of the primary key
 //
 // On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 // the next_token returned by the previous call
@@ -1068,107 +1076,80 @@ db.search = function(table, obj, options, callback)
 //
 db.getLocations = function(table, obj, options, callback)
 {
-    var count = core.toNumber(options.count, 0, 50, 0, 250);
-    var cols = db.getColumns(table, options);
+    var rows = [];
     var keys = db.getKeys(table, options);
+    var cols = db.getColumns(table, options);
+    var lcols =  ["geohash", "latitude", "longitude"];
 
-    obj.distance = core.toNumber(obj.distance, 0, core.minDistance, 0, 999);
-
+    // New location search
     if (!options.geohash) {
         options = this.getOptions(table, options);
-    	var geo = core.geoHash(obj.latitude, obj.longitude, { distance: obj.distance });
-    	for (var p in geo) options[p] = geo[p];
 
-        // Sort by the second part of the primary key, first is always geohash, this is mostly for SQL databases because DynamoDB sorts by range key automatically
-        if (!options.sort && keys.length) options.sort = keys[keys.length - 1];
-        options.range = options.sort;
+        options.count = options.gcount = core.toNumber(options.count, 0, 10, 0, 50);
+        options.geokey = lcols[0] = options.geokey && cols[options.geokey] ? options.geokey : 'geohash';
+        obj.distance = core.toNumber(obj.distance, 0, core.minDistance, 0, 999);
 
-        // In case we use range column in the condition we have to use custom filter
-        if (obj[options.range]) {
-            options.gtype = cols[options.range] ? cols[options.range].type : "";
-            options.grange = obj[options.range];
-            options.gops = options.ops[options.range];
-            if (options.typesMap[options.gtype]) options.gtype = options.typesMap[options.gtype];
-            delete obj[options.range];
-        }
+        options.start = null;
+        var geo = core.geoHash(obj.latitude, obj.longitude, { distance: obj.distance });
+        for (var p in geo) options[p] = geo[p];
+    	obj[options.geokey] = geo.geohash;
 
-        // For pagination support by the range key value
-        options.ops[options.range] = options.desc ? "lt" : "gt";
-        obj.geohash = options.geohash;
     } else {
         // Original query
         obj = options.gquery;
     }
+    if (options.top) options.count = options.top;
 
-    options.start = null;
-    options.gcount = count;
-    options.semipub = 1;
+    logger.debug('getLocations:', table, 'OBJ:', obj, 'GEO:', options.geokey, options.geohash, obj.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'KEYS:', keys, 'NEIGHBORS:', options.neighbors);
 
-    logger.log('getLocations:', table, 'obj:', obj, 'geo:', options.geohash, 'km:', obj.distance, 'count:', count, 'keys:', keys, 'sort:', options.range, obj[options.range] || "", 'neigh:', options.neighbors);
+    // Collect all matching records until specified count
+    async.doUntil(
+      function(next) {
+          db.select(table, obj, options, function(err, items, info) {
+              if (err) return next(err);
 
-    // Filter records beyond the specified distance
-    function filter(rows) {
-        // Make sure no duplicates
-        if (options.unique) rows = core.arrayUnique(rows, options.unique);
+              // Next page if any or go to the next neighbor
+              options.start = info.next_token;
 
-        // If no coordinates but only geohash decode it, it must be at least semipub as well
-        rows.forEach(function(row) {
-            if (!row.latitude && !row.longitude && row.geohash) {
-                var coords = backend.geoHashDecode(row.geohash);
-                row.latitude = coords[0];
-                row.longitude = coords[1];
-            }
-            row.distance = core.geoDistance(obj.latitude, obj.longitude, row.latitude, row.longitude, options);
-            // Have to deal with public columns here if we have lat/long semipub for distance
-            if (options.check_public && row.id != options.check_public) {
-                if (cols.latitude && !cols.latitude.pub) delete row.latitude;
-                if (cols.longitude && !cols.longitude.pub) delete row.longitude;
-                if (cols.geohash && !cols.geohash.pub) delete row.geohash;
-            }
-        });
-        return rows.filter(function(row) {
-            logger.log('filter:', options.grange, options.gops, options.distance, options.round, row);
-            // Verify range key condition after we got sorted records
-            if (options.grange && !core.isTrue(row[options.range], options.grange, options.gops, options.gtype)) return false;
-            // Limit the distance within the round or minimal range
-            if (options.round > 0) return row.distance - options.distance <= options.round;
-            return row.distance <= options.distance;
-        });
-    }
+              // If no coordinates but only geohash decode it, it must be at least semipub as well
+              items.forEach(function(row) {
+                  row.distance = core.geoDistance(obj.latitude, obj.longitude, row.latitude, row.longitude, options);
+                  // Limit the distance within the allowed range
+                  if (options.round > 0 && abs(row.distance - options.distance) > options.round) return;
+                  // Limit by exact distance
+                  if (row.distance > options.distance) return;
+                  // Have to deal with public columns here if we have lat/long semipub for distance
+                  if (options.check_public && row.id != options.check_public) {
+                      lcols.forEach(function(x) { if (!cols[x] || !cols[x].pub) delete row[x]; });
+                  }
+                  // If we have selected columns list then clear the columns we dont want
+                  if (options.select) Object.keys(row).forEach(function(p) { if (options.select.indexOf(p) == -1) delete row[p]; });
+                  rows.push(row);
+                  options.count--;
+              });
+              next(err);
+          });
+      },
+      function() {
+          // We have all rows requested
+          if (rows.length >= options.gcount) return true;
+          // No more in the current geo box, try the next neighbor
+          if (!options.start || (options.top && options.count <= 0)) {
+              if (!options.neighbors.length) return true;
+              obj[options.geokey] = options.neighbors.shift();
+              if (options.top) options.count = options.top;
+              options.start = null;
+          }
+          return false;
+      },
+      function(err) {
+          // Indicates that there could be more rows still even if we reached our count
+          options.more = options.start || options.neighbors.length > 0;
+          // Keep original query and count for pagination
+          options.gquery = obj;
+          options.count = options.gcount;
 
-    db.select(table, obj, options, function(err, rows, info) {
-    	if (err) return callback ? callback(err, rows, info) : null;
-    	rows = filter(rows);
-    	count -= rows.length;
-        async.until(
-            function() {
-                return count <= 0 || options.neighbors.length == 0;
-            },
-            function(next) {
-                delete obj[options.range];
-                options.count = count;
-                options.start = null;
-                obj.geohash = options.neighbors.shift();
-                db.select(table, obj, options, function(err, items, info) {
-                    items = filter(items);
-                    rows.push.apply(rows, items);
-                    count -= items.length;
-                    next(err);
-                });
-            }, function(err) {
-                // Indicates that there could be more rows still even if we reached our count
-                options.more = rows.length && options.neighbors.length ? true : false;
-                // Restore original data because we pass this whole options object on the next run
-                options.count = options.gcount;
-                // Make the last row our next starting point
-                if (options.sql || options.keepGeoRange) {
-                    obj[options.range] = rows.length ? rows[rows.length -1][options.range] : null;
-                }
-                // Keep original query and pass it for pagination
-                options.gquery = obj;
-
-                if (callback) callback(err, rows, options);
-            });
+          if (callback) callback(err, rows, options);
     });
 }
 
@@ -1693,10 +1674,9 @@ db.sqlInitPool = function(options)
     if (!options) options = {};
     if (!options.pool) options.pool = "sqlite";
 
-    options.sql = true;
     options.pooling = true;
     // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
-    var dboptions = { schema: [], typesMap: { counter: "int", bigint: "int", smallint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
+    var dboptions = { sql: true, schema: [], typesMap: { counter: "int", bigint: "int", smallint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
     options.dboptions = core.mergeObj(dboptions, options.dboptions);
     var pool = this.createPool(options);
 
@@ -2610,7 +2590,9 @@ db.sqliteCacheColumns = function(options, callback)
                         if (!self.dbcolumns[table.name]) self.dbcolumns[table.name] = {};
                         if (!self.dbkeys[table.name]) self.dbkeys[table.name] = [];
                         // Split type cast and ignore some functions in default value expressions
-                        self.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, name: rows[i].name, value: rows[i].dflt_value, db_type: rows[i].type.toLowerCase(), data_type: rows[i].type, isnull: !rows[i].notnull, primary: rows[i].pk };
+                        var dflt = rows[i].dflt_value;
+                        if (dflt && dflt[0] == "'" && dflt[dflt.length-1] == "'") dflt = dflt.substr(1, dflt.length-2);
+                        self.dbcolumns[table.name][rows[i].name] = { id: rows[i].cid, name: rows[i].name, value: dflt, db_type: rows[i].type.toLowerCase(), data_type: rows[i].type, isnull: !rows[i].notnull, primary: rows[i].pk };
                         if (rows[i].pk) self.dbkeys[table.name].push(rows[i].name);
                     }
                     client.query("PRAGMA index_list(" + table.name + ")", function(err4, indexes) {
