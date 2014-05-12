@@ -3326,6 +3326,11 @@ put extra requests into the wating queue and execute after some requests finishe
 <p>Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-pool-tables</code> parameters
 thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.</p>
+<p>The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis.</p>
+<p>All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
+due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
+opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
+other database will not require any application code changes.</p>
 </li>
 </ul>
 
@@ -3545,31 +3550,29 @@ string then it is used as a name of the column instead of default mtime name</li
 <ul>
 <li>obj - is an actual record to be updated, primary key properties must be specified</li>
 <li>options - same properties as for <code>db.add</code> method with the following additional properties:<ul>
-<li>keys - list of properties to use as keys for the update condition, if not specified then primary keys will be used</li>
 <li>ops - object for comparison operators for primary key, default is equal operator</li>
 <li>opsMap - operator mapping into supported by the database</li>
 <li>typesMap - type mapping for properties to be used in the condition</li>
 </ul>
 </li>
 </ul>
-<p>Note: SQL databases can update more than one record with the corresponding condition but non-SQL databases like
-DynamoDB or Cassandra only update one existing record at a time</p>
 <p>Example</p>
 <pre><code>    db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
         console.log(&#39;updated:&#39;, info.affected_rows);
     });
 
-    db.update(&quot;bk_account&quot;, { gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { pool: pgsql&#39;, keys: [&#39;gender&#39;] }, function(err, rows, info) {
+    db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { pool: pgsql&#39; }, function(err, rows, info) {
         console.log(&#39;updated:&#39;, info.affected_rows);
     });
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>db.updateAll(table, obj, options, callback)</code></p>
-<p> Update all records that match given condition, one by one, the input is the same as for <code>db.select</code> and every record
-returned will be updated using <code>db.update</code> call by the primary key, so make sure options.select include the primary key for every row found by the select.
-The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
+<li><p><code>db.updateAll(table, query, obj, options, callback)</code></p>
+<p> Update all records that match given condition in the <code>query</code>, one by one, the input is the same as for <code>db.select</code> and every record
+returned will be updated using <code>db.update</code> call by the primary key, so make sure options.select include the primary key for every row found by the select.</p>
+<p>All properties from the <code>obj</code> will be set in every matched record.</p>
+<p>The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
 to finish due to sequential update every record one by one.
 Special properties that can be in the options for this call:</p>
 <ul>
@@ -3579,7 +3582,11 @@ in case of complex columns that may contain concatenated values as in the case o
 as <code>options.process(row, options)</code></li>
 </ul>
 <p>Example, update birthday format if not null</p>
-<pre><code>    db.updateAll(&quot;bk_account&quot;, { birthday: 1 }, { keys: [&quot;birthday&quot;], ops: { birthday: &quot;not null&quot; }, concurrency: 2, process: function(r, o) { r.birthday = core.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;)) } }, function(err, rows) {
+<pre><code>    db.updateAll(&quot;bk_account&quot;, { birthday: 1 }, { mtime: Date.now() },
+                               { ops: { birthday: &quot;not null&quot; },
+                                 concurrency: 2,
+                                 process: function(r, o) { r.birthday = core.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;)) } },
+                               function(err, rows) {
     });
 </code></pre></li>
 </ul>
@@ -3598,7 +3605,7 @@ if does not exist yet.</em></p>
 
 <ul>
 <li><p><code>db.del(table, obj, options, callback)</code></p>
-<p> Delete object in the database, no error if the object does not exist</p>
+<p> Delete an object in the database, no error if the object does not exist</p>
 <ul>
 <li>obj - an object with primary key properties only, other properties will be ignored</li>
 <li>options - same properties as for <code>db.update</code> method</li>
@@ -3611,7 +3618,7 @@ if does not exist yet.</em></p>
 </ul>
 
 <ul>
-<li><p><code>db.delAll(table, obj, options, callback)</code></p>
+<li><p><code>db.delAll(table, query, options, callback)</code></p>
 <p> Delete all records that match given condition, one by one, the input is the same as for <code>db.select</code> and every record
 returned will be deleted using <code>db.del</code> call. The callback will receive on completion the err and all rows found and deleted.
 Special properties that can be in the options for this call:</p>
@@ -3626,13 +3633,11 @@ as <code>options.process(row, options)</code></li>
 
 <ul>
 <li><p><code>db.replace(table, obj, options, callback)</code></p>
-<p> Add/update the object, check existence by the primary key or by other keys specified. This is not equivalent of REPLACE INTO, it does <code>db.get</code>
+<p> Add/update the object, check existence by the primary key. This is not equivalent of REPLACE INTO, it does <code>db.get</code>
 to check if the object exists in the database and performs <code>db.add</code> or <code>db.update</code> depending on the existence.</p>
 <ul>
 <li>obj is a JavaScript object with properties that correspond to the table columns</li>
 <li>options define additional flags that may<ul>
-<li>keys - is list of column names to be used as primary key when looking for updating the record, if not specified
-then default primary keys for the table will be used, only keys columns will be used for condition, i.e. WHERE clause</li>
 <li>check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value</li>
 <li>check_data - verify every value in the given object with actual value in the database and skip update if the record is the same,
 if it is an array then check only specified columns</li>
@@ -3647,19 +3652,12 @@ if it is an array then check only specified columns</li>
 </ul>
 
 <ul>
-<li><p><code>db.select(table, obj, options, callback)</code></p>
+<li><p><code>db.select(table, query, options, callback)</code></p>
 <p> Select objects from the database that match supplied conditions.</p>
 <ul>
-<li>obj - can be an object with primary key properties set for the condition, all matching records will be returned</li>
-<li>obj - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
-<li><p>options can use the following special properties:</p>
-<ul>
-<li><p>keys - a list of columns for condition or all primary keys will be used for query condition, only keys will be used in WHERE part of the SQL statement.</p>
-<p>By default primary keys are used only but if any other columns specified they will be treated as primary keys, some databases like DynamoDB may restrict which
-columns can be used, for example for DynamoDB keys must contain hash, range keys first and then any other columns can be added which will be filtered by the backend
-after all records are received from the database using has,range combination.</p>
-<p>NOTE: keys can refer only to the columns in the table, any artificial or computed properties can be filtered by using .filter callback</p>
-</li>
+<li>query - can be an object with properties for the condition, all matching records will be returned</li>
+<li>query - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
+<li>options can use the following special properties:<ul>
 <li>ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
  <code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, in, between, regexp, iregexp, begins_with, like%, ilike%</code></li>
 <li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
@@ -3704,18 +3702,18 @@ returning to the client</li>
         });
     });
 </code></pre><p>Example: scan accounts with custom filter, not by primary key: all females</p>
-<pre><code>    db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, { keys: [&#39;gender&#39;] }, function(err, rows) {
+<pre><code>    db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, function(err, rows) {
 
     });
 </code></pre><p>Example: select connections using primary key and other filter columns: all likes for the last day</p>
-<pre><code>    db.select(&quot;bk_connection&quot;, { id: &#39;123&#39;, type: &#39;like&#39;, mtime: Date.now()-86400000 }, { keys: [&#39;id&#39;, &#39;type&#39;, &#39;mtime&#39;], ops: { type: &quot;begins_with&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
+<pre><code>    db.select(&quot;bk_connection&quot;, { id: &#39;123&#39;, type: &#39;like&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;begins_with&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
 
     });
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>db.list(table, obj, options, callback)</code></p>
+<li><p><code>db.list(table, query, options, callback)</code></p>
 <p> Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column
 Example</p>
 <pre><code>db.list(&quot;bk_account&quot;, [&quot;id1&quot;, &quot;id2&quot;], function(err, rows) { console.log(err, rows) });
@@ -3724,7 +3722,7 @@ db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { conso
 </ul>
 
 <ul>
-<li><p><code>db.scan(table, obj, options, rowCallback, callback)</code></p>
+<li><p><code>db.scan(table, query, options, rowCallback, callback)</code></p>
 <p> Convenient helper for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
 records matching given criteria. The obj is the same as passed to the <code>db.select</code> method which defined a condition which records to get.
 The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
@@ -3733,7 +3731,7 @@ Basically, db.scan is the same as db.select but can be used to retrieve large nu
 <p>Parameters:</p>
 <ul>
 <li>table - table to scan</li>
-<li>obj - an object with query conditions, same as in <code>db.select</code></li>
+<li>query - an object with query conditions, same as in <code>db.select</code></li>
 <li>options - same as in <code>db.select</code>, the only required property is <code>count</code> to specify sixe of every batch, default is 100</li>
 <li>rowCallback - process records when called like this `callback(rows, next)</li>
 <li>endCallback - end of scan when called like this: `callback(err)</li>
@@ -3762,15 +3760,15 @@ The following options can be used:</p>
 </ul>
 
 <ul>
-<li><p><code>db.search(table, obj, options, callback)</code></p>
+<li><p><code>db.search(table, query, options, callback)</code></p>
 <p> Perform full text search on the given table, the database implementation may ignore table name completely
 in case of global text index. Options takes same properties as in the select method. Without full text support
-this works the same way as the <code>select</code> method.</p>
+this works the same way as the <code>select</code> method. NOT IMPLEMENTED YET.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.getLocations(table, obj, options, callback)</code></p>
+<li><p><code>db.getLocations(table, query, options, callback)</code></p>
 <p> Geo locations search, paginate all results until the end.
 table must be defined with the following required columns:</p>
 <ul>
@@ -3825,12 +3823,10 @@ the next_token returned by the previous call</p>
 </ul>
 
 <ul>
-<li><p><code>db.get(table, obj, options, callback)</code></p>
+<li><p><code>db.get(table, query, options, callback)</code></p>
 <p> Retrieve one record from the database by primary key, returns found record or null if not found
 Options can use the following special properties:</p>
 <ul>
-<li>keys - a list of columns to be used instead of primary keys, this can be useful in case of another
-  unique index which is different than the primary key</li>
 <li>select - a list of columns or expressions to return, default is to return all columns</li>
 <li>op - operators to use for comparison for properties, see <code>db.select</code></li>
 <li>cached - if specified it runs getCached version</li>
@@ -3843,7 +3839,7 @@ Options can use the following special properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.getCached(table, obj, options, callback)</code></p>
+<li><p><code>db.getCached(table, query, options, callback)</code></p>
 <p> Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
 Options accept the same parameters as for the usual get action but it is very important that all the options
 be the same for every call, especially <code>select</code> parameters which tells which columns to retrieve and cache.
@@ -3859,13 +3855,13 @@ Additional options:</p>
 </ul>
 
 <ul>
-<li><p><code>db.clearCached(table, obj, options)</code></p>
+<li><p><code>db.clearCached(table, query, options)</code></p>
 <p> Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.getCachedKey(table, obj, options)</code></p>
+<li><p><code>db.getCachedKey(table, query, options)</code></p>
 <p> Returns concatenated values for the primary keys, this is used for caching records by primary key</p>
 </li>
 </ul>
@@ -4005,7 +4001,7 @@ The rows that satisfy primary key conditions are retunred and then called this f
 
 <ul>
 <li><p><code>db.getKeys(table, options)</code></p>
-<p> Return cached primary keys for a table or null</p>
+<p> Return cached primary keys for a table or empty array</p>
 </li>
 </ul>
 
@@ -4212,11 +4208,11 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlWhere(table, obj, keys, options)</code></p>
+<li><p><code>db.sqlWhere(table, query, keys, options)</code></p>
 <p> Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
 <ul>
-<li>obj - an object record properties</li>
-<li>keys - a list of primary key columns</li>
+<li>query - properties for the condition, in case of an array the primary keys for IN condition will be used only</li>
+<li>keys - a list of columns to use for the condition, other properties will be ignored</li>
 <li>options may contains the following properties:<ul>
 <li>pool - pool to be used for driver specific functions</li>
 <li>ops - object for comparison operators for primary key, default is equal operator</li>
@@ -4274,11 +4270,11 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlSelect(table, obj, options)</code></p>
+<li><p><code>db.sqlSelect(table, query, options)</code></p>
 <p> Select object from the database,
 options may define the following properties:</p>
 <ul>
-<li>keys is a list of columns for condition</li>
+<li>keys is a list of columns for the condition</li>
 <li>select is list of columns or expressions to return</li>
 </ul>
 </li>
@@ -4365,20 +4361,15 @@ with error as first argument and database object as second</p>
 </ul>
 
 <ul>
-<li><p><code>db.leveldbInitPool(options)</code></p>
-<p> Setup LevelDB database driver, this is simplified driver which supports only basic key-value operations,
-table parameter is ignored, the object only supports the following properties name and value.
-Options are passed to the LevelDB backend low level driver which is native LevelDB options using the same names:
-<a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a>
-The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()</p>
+<li><p><code>db.lmdbInitPool(options)</code></p>
+<p> Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
+table parameter is ignored, the object only supports the properties name and value in the record objects.</p>
+<p>Because this driver supports 2 databases it requires type to be specified, possible values are: <code>lmdb, leveldb</code></p>
+<p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
+as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
 </li>
 </ul>
-
-<ul>
-<li><p><code>db.lmdbInitPool(options)</code></p>
-<p> Setup LMDB database driver, this is simplified driver which supports only basic key-value operations,
-table parameter is ignored, the object only supports the properties name and value in the record objects.
-Options are passed to the LMDB backend low level driver as MDB_ flags, see <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a></p>
+<p>The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()</p>
 <ul>
 <li><code>select and search</code> actions support options.end property which defines the end condition for a range retrieval starting
 with obj.name property. If not end is given, all records till the end will be returned.</li>
@@ -4389,8 +4380,6 @@ uv workers in the future to perform updates in multiple threads at the same time
 options to the server command can contain:<ul>
 <li>bind - socket bind address, if no ipc:// socket will be used</li>
 <li>socket - NN_PULL or NN_REP, default is NN_PULL</li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
