@@ -1,5 +1,5 @@
-<head><title>Backend Documentation</title><link rel="stylesheet" href="css/doc.css"></head>
-<h1 id="-backend-img-logo-png-backend-documentation"><img src="img/logo.png" alt="Backend"> Backend Documentation</h1>
+<head><title>Backendjs Documentation</title><link rel="stylesheet" href="css/doc.css"></head>
+<h1 id="-backend-img-logo-png-backendjs-documentation"><img src="img/logo.png" alt="Backend"> Backendjs Documentation</h1>
 <h2 id="table-of-contents">Table of contents</h2>
 <ul>
 <li><a href="#backend-js-framework-for-node-js"> Backend.js framework for node.js</a></li>
@@ -1634,6 +1634,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-dynamodb-max</code> - Max number of open connection for the pool</li>
 <li><code>db-dynamodb-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
 <li><code>db-mongodb-pool</code> - MongoDB endpoint url</li>
+<li><code>db-mongodb-options</code> - MongoDB driver native options</li>
 <li><code>db-mongodb-min</code> - Min number of open connection for the pool</li>
 <li><code>db-mongodb-max</code> - Max number of open connection for the pool</li>
 <li><code>db-mongodb-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
@@ -1643,6 +1644,9 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-cassandra-max</code> - Max number of open connection for the pool</li>
 <li><code>db-cassandra-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-cassandra-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
+<li><code>db-redis-pool</code> - Redis host</li>
+<li><code>db-redis-options</code> - Redis driver native options</li>
+<li><code>db-redis-tables</code> - Redis tables, list of tables that belong to this pool only</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region. Default: us-east-1</li>
@@ -2372,16 +2376,16 @@ Options may contain the following properties:</p>
 
 <ul>
 <li><p><code>aws.ddbListTables(options, callback)</code></p>
-<p> Return list of tables in .TableNames property of the result
-Example:</p>
+<p> Return list of tables in .TableNames property of the result</p>
+<p>Example:</p>
 <pre><code>    { TableNames: [ name, ...] }
 </code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>aws.ddbDescribeTable(name, options, callback)</code></p>
-<p> Return table definition and parameters in the result structure with property of the given table name
-Example:</p>
+<p> Return table definition and parameters in the result structure with property of the given table name</p>
+<p>Example:</p>
 <pre><code>    { name: { AttributeDefinitions: [], KeySchema: [] ...} }
 </code></pre></li>
 </ul>
@@ -2395,20 +2399,20 @@ Example:</p>
 <li>options may contain any valid native property if it starts with capital letter and the following:<ul>
 <li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
 <li>global - an object for global secondary indexes, same format as for local indexes</li>
-<li>projection - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed
-Example:<pre><code>ddbCreateTable(&#39;users&#39;, { id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;},
-                        { id:&#39;HASH&#39;,name:&#39;RANGE&#39;},
-                        { local: { mtime: { mtime: &quot;HASH&quot; } },
-                          global: { name: { name: &#39;HASH&#39;, ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
-                          projection: { mtime: [&#39;gender&#39;,&#39;age&#39;],
-                                        name: [&#39;name&#39;,&#39;gender&#39;] },
-                          ReadCapacityUnits: 10,
-                          WriteCapacityUnits: 10 });
+<li>projection - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
+</ul>
+</li>
+</ul>
+<p>Example:</p>
+<pre><code>    ddbCreateTable(&#39;users&#39;, { id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;},
+                            { id:&#39;HASH&#39;,name:&#39;RANGE&#39;},
+                            { local: { mtime: { mtime: &quot;HASH&quot; } },
+                              global: { name: { name: &#39;HASH&#39;, ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
+                              projection: { mtime: [&#39;gender&#39;,&#39;age&#39;],
+                                            name: [&#39;name&#39;,&#39;gender&#39;] },
+                              ReadCapacityUnits: 10,
+                              WriteCapacityUnits: 10 });
 </code></pre></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 
 <ul>
@@ -2418,13 +2422,13 @@ Example:<pre><code>ddbCreateTable(&#39;users&#39;, { id:&#39;S&#39;,mtime:&#39;N
 <li>keys - an object with primary key attributes name and value.</li>
 <li>select - list of columns to return, otherwise all columns will be returned</li>
 <li>options may contain any native property allowed in the request or special properties:<ul>
-<li>consistent - set consistency level for the request
-Example:
-  ddbGetItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39; })</li>
+<li>consistent - set consistency level for the request</li>
 </ul>
 </li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    ddbGetItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39; })
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2434,13 +2438,13 @@ Example:
 <li>item is an object, type will be inferred from the native js type.</li>
 <li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
 <li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
-any other exact value to be checked against which corresponds to { Exists: true, Value: value }
-Example:
-  ddbPutItem(&quot;users&quot;, { id: 1, name: &quot;john&quot;, mtime: 11233434 }, { expected: { name: null } })</li>
+any other exact value to be checked against which corresponds to { Exists: true, Value: value }</li>
 </ul>
 </li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    ddbPutItem(&quot;users&quot;, { id: 1, name: &quot;john&quot;, mtime: 11233434 }, { expected: { name: null } })
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2456,13 +2460,13 @@ Example:
 <li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
 <li>ops - an object with operators to be used for properties if other than PUT</li>
 <li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
-any other exact value to be checked against which corresponds to { Exists: true, Value: value }
-Example:
-  ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: 1 } })</li>
+any other exact value to be checked against which corresponds to { Exists: true, Value: value }</li>
 </ul>
 </li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: 1 } })
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2470,11 +2474,11 @@ Example:
 <p> Delete an item from a table</p>
 <ul>
 <li>keys is an object with name: value for hash/range attributes</li>
-<li>options may contain any valid native property if it starts with capital letter.
-Example:<pre><code>  ddbDeleteItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, {})
-</code></pre></li>
+<li>options may contain any valid native property if it starts with capital letter.</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    ddbDeleteItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, {})
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2482,11 +2486,11 @@ Example:<pre><code>  ddbDeleteItem(&quot;users&quot;, { id: 1, name: &quot;john&
 <p> Update items from the list at the same time</p>
 <ul>
 <li>items is a list of objects with table name as property and list of operations, an operation can be PutRequest or DeleteRequest</li>
-<li>options may contain any valid native property if it starts with capital letter.
-Example:<pre><code>  { table: [ { PutRequest: { id: 1, name: &quot;tt&quot; } }, ] }
-</code></pre></li>
+<li>options may contain any valid native property if it starts with capital letter.</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    { table: [ { PutRequest: { id: 1, name: &quot;tt&quot; } }, ] }
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2494,11 +2498,11 @@ Example:<pre><code>  { table: [ { PutRequest: { id: 1, name: &quot;tt&quot; } },
 <p> Retrieve all items for given list of keys</p>
 <ul>
 <li>items is an object with table name as property name and list of options for GetItem request</li>
-<li>options may contain any valid native property if it starts with capital letter.
-Example:<pre><code>  { users: { keys: [{ id: 1, name: &quot;john&quot; },{ id: .., name: .. }], select: [&#39;name&#39;,&#39;id&#39;], consistent: true }, ... }
-</code></pre></li>
+<li>options may contain any valid native property if it starts with capital letter.</li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    { users: { keys: [{ id: 1, name: &quot;john&quot; },{ id: .., name: .. }], select: [&#39;name&#39;,&#39;id&#39;], consistent: true }, ... }
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2516,13 +2520,15 @@ Example:<pre><code>  { users: { keys: [{ id: 1, name: &quot;john&quot; },{ id: .
 <li>sort - index name to use, indexes are named the same as the corresponding column, with index primary keys for Keycondition will be used</li>
 <li>ops - an object with operators to be used for properties if other than EQ.</li>
 <li>keys - list of primary key columns, if there are other properties in the condition then they will be
- put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.
-Example:
-  ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39;, ops: { name: &#39;gt&#39; } })</li>
+ put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.</li>
 </ul>
 </li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39;, ops: { name: &#39;gt&#39; } })
+
+    ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot;, status: &quot;ok&quot; }, { keys: [&quot;id&quot;], select: &#39;id,name&#39;, ops: { name: &#39;gt&#39; } })
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2532,13 +2538,13 @@ Example:
 <li>condition is an object with name: value pairs</li>
 <li>options may contain any valid native property if it starts with capital letter or special property:<ul>
 <li>start - defines starting primary key</li>
-<li>ops - an object with operators to be used for properties if other than EQ.
-Example:
- ddbScanTable(&quot;users&quot;, { id: 1, name: &#39;a&#39; }, { ops: { name: &#39;gt&#39; }})</li>
+<li>ops - an object with operators to be used for properties if other than EQ.</li>
 </ul>
 </li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    ddbScanTable(&quot;users&quot;, { id: 1, name: &#39;a&#39; }, { ops: { name: &#39;gt&#39; }})
+</code></pre></li>
 </ul>
 
 <h2 id="module-core">Module: CORE</h2>
@@ -2616,8 +2622,9 @@ type can be bool, number, list, json</p>
 
 <ul>
 <li><p><code>core.encodeURIComponent(str)</code></p>
-<p> Encode with additional symbols</p>
-</li>
+<p> Encode with additional symbols, convert these into percent encoded:</p>
+<pre><code>    ! -&gt; %21, * -&gt; %2A, &#39; -&gt; %27, ( -&gt; %28, ) -&gt; %29
+</code></pre></li>
 </ul>
 
 <ul>
@@ -2856,7 +2863,7 @@ options may contain the following properties:</p>
 <li>distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted</li>
 <li>minDistance - radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
  this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table
- if not specified default <code>min-distance</code> value willbe used.</li>
+ if not specified default <code>min-distance</code> value will be used.</li>
 </ul>
 </li>
 </ul>
@@ -3172,21 +3179,17 @@ Valid properties in the options:</p>
 
 <ul>
 <li><p><code>core.cloneObj()</code></p>
-<p> Deep copy of an object,</p>
+<p> A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object</p>
 <ul>
 <li>first argument is the object to clone</li>
 <li>second argument can be an object that acts as a filter to skip properties:<ul>
 <li>_skip_null - to skip all null properties</li>
 <li>_empty_to_null - convert empty strings into null objects</li>
 <li>_skip_cb - a callback that returns true to skip a property, arguments are property name and value</li>
-<li>name - a property name to skip, the value is treated depending on the type of the property:<ul>
-<li>boolean - skip if true</li>
-<li>integer - skip only if the object&#39;s property is a string and greater in length that this value</li>
+<li>name - a property name to skip
+if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object</li>
 </ul>
 </li>
-</ul>
-</li>
-<li>if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object</li>
 <li>all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 Example:<pre><code>  core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
   core.cloneObj({ 1 : 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
@@ -3302,6 +3305,9 @@ data type supported by any particular database and vice versa.</p>
 <p>Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
 by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
 API call, all high level operations like add/put/del perform SQL generation for single table on the fly.</p>
+<p>The common convention is to pass options object with flags that are common for all drivers along with specific,
+this options object can be modified with new properties but all driver should try not to
+modify or delete existing properties, so the same options object can be reused in subsequent operations.</p>
 <p>Before the DB functions can be used the <code>core.init</code> MUST be called first, the typical usage:</p>
 <pre><code>    var backend = require(&quot;backendjs&quot;), core = backend.core, db = backend.db;
     core.init(function(err) {
@@ -3412,11 +3418,18 @@ due to some error.</p>
 </ul>
 
 <ul>
+<li><p><code>db.getPools()</code></p>
+<p> Return a list of all active database pools, returns list of objects with name: and type: properties</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.createPool(options)</code></p>
 <p> Create a new database pool with default methods and properties</p>
 <ul>
 <li>options - an object with default pool properties<ul>
-<li>pool - pool name</li>
+<li>type - pool type, this is the db driver name</li>
+<li>pool or name - pool name</li>
 <li>pooling - create generic pool for connection caching</li>
 <li>watchfile - file path to be watched for changes, all clients will be destroyed gracefully</li>
 <li>min - min number of open database connections</li>
@@ -3660,6 +3673,8 @@ after all records are received from the database using has,range combination.</p
 returning to the client</li>
 <li>desc - if sorting, do in descending order</li>
 <li>page - starting page number for pagination, uses count to find actual record to start</li>
+<li>unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+  table for the same id only one instance will be returned</li>
 </ul>
 </li>
 </ul>
@@ -3755,31 +3770,54 @@ this works the same way as the <code>select</code> method.</p>
 </ul>
 
 <ul>
-<li><p><code>db.getLocations(table, options, callback)</code></p>
+<li><p><code>db.getLocations(table, obj, options, callback)</code></p>
 <p> Geo locations search, paginate all results until the end.
 table must be defined with the following required columns:</p>
 <ul>
-<li>geohash - location as primary key hash,</li>
+<li>geohash - location as primary key hash column</li>
 <li>id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases</li>
-<li>latitude and longitude as floating numbers</li>
+<li>latitude and longitude as floating numbers to store the actual location</li>
 </ul>
-<p>other optional properties:</p>
+<p>When defining the table for location searches the begining of the table must be defined as the following:</p>
+<pre><code>    api.describeTables({
+            geo: { geohash: { primary: 1 },
+                   id: { primary: 1 },
+                   latitude: { type: &quot;real&quot; },
+                   longitude: { type: &quot;real&quot; },
+            }
+    });
+</code></pre><p>the rest of the columns can be defined as needed, no special requirements.</p>
+<p><code>obj</code> must contain the following:</p>
 <ul>
+<li>latitude</li>
+<li>longitude</li>
+</ul>
+<p>other properties:</p>
+<ul>
+<li>distance - in km, the radius around the point, in not given the <code>min-distance</code> will be used</li>
+</ul>
+<p>all other properties from the searched table for conditions</p>
+<p><code>options</code> optional properties:</p>
+<ul>
+<li>top - number of first &#39;top&#39;th records from each neighboring area, to be used with sorting by the range key to take
+ only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations</li>
+<li>geokey - name of the geohash primary key column, by default it is <code>geohash</code>, it is possible to keep several different
+ geohash indexes within the same table with different geohash length which will allow to perform
+ searches more precisely dependgin on the distance given</li>
 <li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
 round number and uses decimal point of the round number to limit decimals in the distance</li>
-<li>sort - sorting order, by default the RANGE key is used for DynamoDB , it is possinle to specify Local Index as well,
-for SQL the second part of the primary key if exists or id</li>
-<li>unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
-table for the same id only one instance will be returned</li>
+<li>sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
+in case of SQL this is the second part of the primary key</li>
 </ul>
 <p>On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 the next_token returned by the previous call</p>
 <p>On return, the callback&#39;s third argument contains the object that must be provided for subsequent searches until rows array is empty.</p>
 <p>Example</p>
-<pre><code>    db.getLocations(&quot;bk_location&quot;, { latitude: -118, longitude: 30, distance: 10 }, function(err, rows, info) {
+<pre><code>    var query = { latitude: -118, longitude: 30, distance: 10 };
+    db.getLocations(&quot;bk_location&quot;, query, { round: 5 }, function(err, rows, info) {
         ...
         // Get next page using previous info object
-        db.getLocations(&quot;bk_location&quot;, info, function(err, rows, info) {
+        db.getLocations(&quot;bk_location&quot;, query, info, function(err, rows, info) {
             ...
         });
     });
@@ -3958,6 +3996,7 @@ The rows that satisfy primary key conditions are retunred and then called this f
 <p>Options support the following propertis:</p>
 <ul>
 <li>keys - list of columns to check, these may or may not be the primary keys, any columns to be compared</li>
+<li>cols - an object with columns definition</li>
 <li>ops - operations for columns</li>
 <li>typesMap - types for the columns if different from the actual Javascript type</li>
 </ul>
@@ -3983,6 +4022,12 @@ This function always returns an Array even if it is empty.</p>
 <li><p><code>db.getSearchQuery(table, obj, options)</code></p>
 <p> Return query object based on the keys specified in the options or primary keys for the table, only search properties
 will be returned in the query object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getQueryForKeys(keys, obj)</code></p>
+<p> Returns an object based on the list of keys, basically returns a subset of properties</p>
 </li>
 </ul>
 
@@ -4361,6 +4406,12 @@ Options can define the following:</p>
 <ul>
 <li>socket - nanomsg socket type, default is backend.NN_PUSH, can be backend.NN_REQ</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.redisInitPool(options)</code></p>
+<p> Redis database pool, uses Hash to store the records</p>
 </li>
 </ul>
 
