@@ -7,6 +7,7 @@
 # description: $BKJS server
 #
 
+BK=bkjs
 BKRC=backendrc
 BKJS=backendjs
 
@@ -77,7 +78,7 @@ export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_C
 # If started without parameters use script name as a parameter
 NAME=$(echo $0 | awk -F/ '{print $NF}')
 ARG=$NAME
-[ "$NAME" = "bkjs" ] && ARG=$1 && shift
+[ "$NAME" = "$BK" ] && ARG=$1 && shift
 
 case "$ARG" in
   start)
@@ -147,8 +148,8 @@ case "$ARG" in
          ;;
 
       -web)
-         $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -web" >> /etc/$BKRC
-         shift;shift
+         $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -web\"" >> /etc/$BKRC
+         shift
          ;;
       esac
     done
@@ -184,12 +185,13 @@ case "$ARG" in
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys /home/$BACKEND_USER/.ssh
        echo 'alias slog="tail -100 /var/log/messages"' >> /home/$BACKEND_USER/.bashrc
        echo "alias blog=\"tail -100 $BACKEND_ROOT/log/backend.log\"" >> /home/$BACKEND_USER/.bashrc
+       echo "alias elog=\"tail -100 $BACKEND_ROOT/log/error.log\"" >> /home/$BACKEND_USER/.bashrc
        echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> /home/$BACKEND_USER/.bashrc
        echo 'alias bcp="socat readline,history=.socat tcp4:localhost:2080"' >> /home/$BACKEND_USER/.bashrc
        echo 'alias bcp1="socat readline,history=.socat tcp4:localhost:2081"' >> /home/$BACKEND_USER/.bashrc
        echo 'alias ps="ps augx"' >> /home/$BACKEND_USER/.bashrc
        echo 'alias mc="mc -b"' >> /home/$BACKEND_USER/.bashrc
-       echo 'export PATH=$HOME/node_modules/.bin' >> /home/$BACKEND_USER/.bash_profile
+       echo 'export PATH=$PATH:$HOME/node_modules/.bin' >> /home/$BACKEND_USER/.bash_profile
        echo 'ulimit -c unlimited' >> /home/$BACKEND_USER/.bash_profile
        echo 'export PGUSER=postgres' >> /home/$BACKEND_USER/.bash_profile
        echo 'export PGDATABASE=backend' >> /home/$BACKEND_USER/.bash_profile
@@ -390,7 +392,7 @@ case "$ARG" in
     ;;
 
   init-service)
-    ln -sf $BACKEND_PREFIX/bin/$BKJS /etc/init.d/$BKJS
+    ln -sf $BACKEND_PREFIX/bin/$BK /etc/init.d/$BKJS
     chkconfig $BKJS on
     ;;
 
@@ -933,7 +935,7 @@ backend.server.start();
     ;;
 
   *)
-    echo "usage: $NAME command ..."
+    echo "usage: $BK command ..."
     echo "  where command is:"
     echo ""
     echo "  start - start the backend service"
