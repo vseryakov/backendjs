@@ -40,63 +40,8 @@ var locations = { LA: { name: "Los Angeles",  bbox: [ 33.60503975233155, -117.72
 
 // Test object with functions for different areas to be tested
 var tests = {
-    name: 'tests',
-    start_time: 0,
     city: "",
     bbox: [0, 0, 0, 0],
-};
-
-// check(next, err, rc.length!=1, 'err1:', rc)
-tests._check = function()
-{
-    var next = arguments[0];
-    if (arguments[1] || arguments[2]) {
-        var args = [ 'ERROR:', arguments[1] ? arguments[1] : new Error("failed condition") ];
-        for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
-        console.log.apply(console, args);
-        return next(args[1]);
-    }
-    next();
-}
-
-tests._start = function()
-{
-	var self = this;
-	var type = core.getArg("-cmd");
-	if (type[0] == "_" || !self[type]) {
-	    console.log("usage: ", process.argv[0], process.argv[1], "-cmd", "command");
-	    console.log("        where command is one of: ", Object.keys(self).filter(function(x) { return x[0] != "_" && typeof self[x] == "function" }).join(", "));
-	    process.exit(0);
-	}
-
-	if (cluster.isMaster) {
-	    setTimeout(function() {
-	        var workers = core.getArgInt("-workers", 0);
-	        for (var i = 0; i < workers; i++) cluster.fork();
-	    }, core.getArgInt("-delay", 500));
-	}
-
-	var l = locations[core.getArg("-location", "LA")] || locations.LA;
-	this.city = l.name;
-	this.bbox = l.bbox;
-    this.start_time = Date.now();
-    var count = core.getArgInt("-iterations", 1);
-	logger.log(self.name, "started:", type, db.pool);
-
-	async.whilst(
-	    function () { return count > 0; },
-	    function (next) {
-	    	count--;
-	    	self[type](next);
-	    },
-	    function(err) {
-	    	if (err) {
-	    	    logger.error(self.name, "failed:", type, err);
-	    	    process.exit(1);
-	    	}
-	    	logger.log(self.name, "stopped:", type, Date.now() - self.start_time, "ms");
-	    	process.exit(0);
-	    });
 };
 
 tests.account = function(callback)
@@ -123,7 +68,7 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/account/del", options, function(err, params) {
-                self._check(next, err, !params.obj || params.obj.name != name, "err1:", params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.name != name, "err1:", params.obj);
             });
         },
         function(next) {
@@ -183,7 +128,7 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/account/get", options, function(err, params) {
-                self._check(next,err, !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude, "err1:",params.obj);
+                core.checkTest(next,err, !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude, "err1:",params.obj);
             });
         },
         function(next) {
@@ -201,7 +146,7 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret, query: { _consistent: 1 } }
             core.sendRequest("/account/select/icon", options, function(err, params) {
-                self._check(next, err, !params.obj || params.obj.length!=2+icons.length || !params.obj[0].acl_allow, "err2:", params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.length!=2+icons.length || !params.obj[0].acl_allow, "err2:", params.obj);
             });
         },
         function(next) {
@@ -216,13 +161,13 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret, query: { type: "like" } }
             core.sendRequest("/connection/get", options, function(err, params) {
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=2, "err3:",params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=2, "err3:",params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                self._check(next, err, !params.obj || params.obj.like0!=2, "err4:", params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.like0!=2, "err4:", params.obj);
             });
         },
         function(next) {
@@ -234,13 +179,13 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret, query: { type: "like" } }
             core.sendRequest("/connection/get", options, function(err, params) {
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err5:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err5:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                self._check(next, err, !params.obj || params.obj.like0!=1 || params.obj.ping!=0, "err6:" , params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.like0!=1 || params.obj.ping!=0, "err6:" , params.obj);
             });
         },
         function(next) {
@@ -252,7 +197,7 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/connection/get", options, function(err, params) {
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err5-1:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err5-1:" , params.obj);
             });
         },
         function(next) {
@@ -264,45 +209,45 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                self._check(next, err, !params.obj || params.obj.like0!=0 || params.obj.ping!=1, "err66:" , params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.like0!=0 || params.obj.ping!=1, "err66:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { id: otherid, msg: "text message" }  }
             core.sendRequest("/message/add", options, function(err, params) {
-                self._check(next, err, !params.obj, "err7:" , params.obj);
+                core.checkTest(next, err, !params.obj, "err7:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { id: myid, icon: icon }  }
             core.sendRequest("/message/add", options, function(err, params) {
-                self._check(next, err, !params.obj, "err8:" , params.obj);
+                core.checkTest(next, err, !params.obj, "err8:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/message/get", options, function(err, params) {
                 msgs = params.obj;
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err9:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err9:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { sender: myid } }
             core.sendRequest("/message/get", options, function(err, params) {
                 msgs = params.obj;
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err9-1:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err9-1:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/message/get/unread", options, function(err, params) {
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err10:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err10:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { sender: msgs.data[0].sender, mtime: msgs.data[0].mtime } }
             core.sendRequest("/message/read", options, function(err, params) {
-                self._check(next, err, !params.obj, "err11:" , params.obj);
+                core.checkTest(next, err, !params.obj, "err11:" , params.obj);
             });
         },
         function(next) {
@@ -315,20 +260,20 @@ tests.account = function(callback)
             var options = { login: login, secret: secret, query: { _read: 1 } }
             core.sendRequest("/message/get/unread", options, function(err, params) {
                 msgs = params.obj;
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err13:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err13:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/message/get/unread", options, function(err, params) {
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err14:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err14:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { id: otherid } }
             core.sendRequest("/message/get", options, function(err, params) {
                 msgs = params.obj;
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1 || params.obj.data[0].sender!=myid, "err14-1:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1 || params.obj.data[0].sender!=myid, "err14-1:" , params.obj);
             });
         },
         function(next) {
@@ -340,13 +285,13 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret, query: { sender: myid } }
             core.sendRequest("/message/get", options, function(err, params) {
-                self._check(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err14-3:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err14-3:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                self._check(next, err, !params.obj || params.obj.msg_count!=1 || params.obj.msg_read!=1, "err15:" , params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.msg_count!=1 || params.obj.msg_read!=1, "err15:" , params.obj);
             });
         },
     ],
@@ -477,7 +422,7 @@ tests.location = function(callback)
                 function(err) {
                     var ids = {};
                     var isok = rc.every(function(x) { ids[x.id] = 1; return x.status == 'good' })
-                    self._check(next, err, rc.length!=good || Object.keys(ids).length!=good, "err1: ", rc.length, good, 'RC:', rc, ids);
+                    core.checkTest(next, err, rc.length!=good || Object.keys(ids).length!=good, "err1: ", rc.length, good, 'RC:', rc, ids);
                 });
         },
         function(next) {
@@ -486,7 +431,7 @@ tests.location = function(callback)
             var options = { round: round, ops: { rank: 'gt' } };
             db.getLocations("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'good' && x.rank > good-3 });
-                self._check(next, err, rows.length!=3 || !isok, "err2:", rows.length, isok, good, rows);
+                core.checkTest(next, err, rows.length!=3 || !isok, "err2:", rows.length, isok, good, rows);
             });
         },
         function(next) {
@@ -495,7 +440,7 @@ tests.location = function(callback)
             var options = { round: round, ops: { rank: 'gt' }, sort: "rank", desc: true };
             db.getLocations("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'bad' && x.rank > bad-2 });
-                self._check(next, err, rows.length!=2 || !isok, "err3:", rows.length, isok, bad, rows);
+                core.checkTest(next, err, rows.length!=2 || !isok, "err3:", rows.length, isok, bad, rows);
             });
         },
         function(next) {
@@ -505,7 +450,7 @@ tests.location = function(callback)
             db.getLocations("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'good' })
                 var iscount = Object.keys(top).reduce(function(x,y) { return x + Math.min(2, top[y].length) }, 0);
-                self._check(next, err, rows.length!=iscount || !isok, "err4:", rows.length, iscount, isok, rows, 'TOP:', top);
+                core.checkTest(next, err, rows.length!=iscount || !isok, "err4:", rows.length, iscount, isok, rows, 'TOP:', top);
             });
         },
     ],
@@ -558,18 +503,18 @@ tests.db = function(callback)
         },
         function(next) {
             db.get("test3", { id: id }, function(err, row) {
-                self._check(next, err, !row || row.id != id, "err1:", row);
+                core.checkTest(next, err, !row || row.id != id, "err1:", row);
             });
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                self._check(next, err, !row || row.id != id, "err2:", row);
+                core.checkTest(next, err, !row || row.id != id, "err2:", row);
             });
         },
         function(next) {
             db.list("test1", String([id,id2]),  function(err, rows) {
                 var isok = rows.every(function(x) { return x.id==id || x.id==id2});
-                self._check(next, err, rows.length!=2 || !isok, "err4:", rows.length, isok, rows);
+                core.checkTest(next, err, rows.length!=2 || !isok, "err4:", rows.length, isok, rows);
             });
         },
 	    function(next) {
@@ -583,7 +528,7 @@ tests.db = function(callback)
 	    },
 	    function(next) {
             db.select("test2", { id: id2 }, { filter: function(row, o) { return row.id2 == '1' } }, function(err, rows) {
-                self._check(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", rows);
+                core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", rows);
             });
         },
         function(next) {
@@ -591,14 +536,14 @@ tests.db = function(callback)
                     cb(null, rows.filter(function(r) { return r.id2 == '1' }));
                 }
             }, function(err, rows) {
-                self._check(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2, "err5-1:", rows);
+                core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2, "err5-1:", rows);
             });
         },
         function(next) {
             db.list("test1", String([id,id2]), { check_public: id }, function(err, rows) {
                 var row1 = rows.filter(function(x) { return x.id==id}).pop();
                 var row2 = rows.filter(function(x) { return x.id==id2}).pop();
-                self._check(next, err, rows.length!=2 || !row1.email || row2.email, "err6:", rows);
+                core.checkTest(next, err, rows.length!=2 || !row1.email || row2.email, "err6:", rows);
             });
         },
 	    function(next) {
@@ -612,17 +557,17 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	    	db.get("test3", { id: id }, function(err, row) {
-	    		self._check(next, err, !row || row.id != id && row.num != 1, "err7:", row);
+	    		core.checkTest(next, err, !row || row.id != id && row.num != 1, "err7:", row);
 	    	});
 	    },
 	    function(next) {
 	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-	    		self._check(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
+	    		core.checkTest(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
 	    	});
 	    },
 	    function(next) {
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-                self._check(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2, "err8-1:", rows);
+                core.checkTest(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2, "err8-1:", rows);
             });
         },
 	    function(next) {
@@ -633,7 +578,7 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	    	db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
-	    		self._check(next, err, !row || row.id != id  || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json), "err9:", row);
+	    		core.checkTest(next, err, !row || row.id != id  || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json), "err9:", row);
 	    	});
 	    },
 	    function(next) {
@@ -642,7 +587,7 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, row) {
-	    		self._check(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || core.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
+	    		core.checkTest(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || core.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
 	    	});
 	    },
 	    function(next) {
@@ -650,7 +595,7 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	    	db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, row) {
-	    		self._check(next, err, row, "del:", row);
+	    		core.checkTest(next, err, row, "del:", row);
 	    	});
 	    },
 	    function(next) {
@@ -673,7 +618,7 @@ tests.db = function(callback)
             }, function(err) {
                 // Redis cannot sort due to hash implementation, known bug
                 var isok = db.pool == "redis" ? rc.length>=5 : rc.length==5 && (rc[0].id2 == 1 && rc[rc.length-1].id2 == 5);
-                self._check(next, err, !isok, "err10:", rc.length, isok, rc);
+                core.checkTest(next, err, !isok, "err10:", rc.length, isok, rc);
             })
 	    },
 	    function(next) {
@@ -683,7 +628,7 @@ tests.db = function(callback)
 	            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
 	                next_token = info.next_token;
 	                var isok = db.pool == "redis" ? rows.length>=n : rows.length==n;
-	                self._check(next2, err, !isok || !info.next_token, "err11:", rows.length, n, info, rows);
+	                core.checkTest(next2, err, !isok || !info.next_token, "err11:", rows.length, n, info, rows);
 	            });
 	        },
 	        function(err) {
@@ -692,12 +637,12 @@ tests.db = function(callback)
 	                next_token = info.next_token;
 	                var isnum = db.pool == "redis" ? rows.length>=3 : rows.length==4;
 	                var isok = rows.every(function(x) { return x.id2 > '0' });
-	                self._check(next, err, !isnum || !isok, "err12:", isok, rows.length, rows, info);
+	                core.checkTest(next, err, !isnum || !isok, "err12:", isok, rows.length, rows, info);
 	            });
 	        });
         },
 	    function(next) {
-	        self._check(next, null, next_token, "err13: next_token must be null", next_token);
+	        core.checkTest(next, null, next_token, "err13: next_token must be null", next_token);
 	    },
         function(next) {
             db.add("test2", { id: id, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
@@ -705,27 +650,27 @@ tests.db = function(callback)
 	    function(next) {
             // Select by primary key and other filter
             db.select("test2", { id: id, num: 9, num2: 9 }, {  ops: { num: 'ge', num2: 'ge' } }, function(err, rows, info) {
-                self._check(next, err, rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
+                core.checkTest(next, err, rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
             });
         },
         function(next) {
             // Wrong query property
             db.select("test2", { id: id, num: 9, num2: 9, email: 'fake' }, {  ops: { num: 'ge' } }, function(err, rows, info) {
-                self._check(next, err, rows.length!=0, "err14:", rows, info);
+                core.checkTest(next, err, rows.length!=0, "err14:", rows, info);
             });
         },
         function(next) {
             // Scan the whole table with custom filter
             db.select("test2", { num: 9 }, { ops: { num: 'ge' } }, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.num >= 9 });
-                self._check(next, err, rows.length==0 || !isok, "err15:", isok, rows, info);
+                core.checkTest(next, err, rows.length==0 || !isok, "err15:", isok, rows, info);
             });
         },
         function(next) {
             // Scan the whole table with custom filter and sorting
             db.select("test2", { id: id2, num: 1 }, { ops: { num: 'gt' }, sort: "num" }, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.num > 1 });
-                self._check(next, err, rows.length==0 || !isok , "err16:", isok, rows, info);
+                core.checkTest(next, err, rows.length==0 || !isok , "err16:", isok, rows, info);
             });
         },
 	],
@@ -800,12 +745,12 @@ tests.lmdb = function(callback)
         },
         function(next) {
             db.get("1", function(err, val) {
-                self._check(next, err, val != "1", "err1:",val);
+                core.checkTest(next, err, val != "1", "err1:",val);
             });
         },
         function(next) {
             db.all("100", "104", function(err, list) {
-                self._check(next, err, list.length != 4, "err2:", list);
+                core.checkTest(next, err, list.length != 4, "err2:", list);
             });
         },
         function(next) {
@@ -815,7 +760,7 @@ tests.lmdb = function(callback)
         },
         function(next) {
             db.get("1", function(err, val) {
-                self._check(next, err, val != "2", "err3:", val);
+                core.checkTest(next, err, val != "2", "err3:", val);
             });
         },
     ],
@@ -1007,7 +952,10 @@ tests.pool = function(callback)
 }
 
 backend.run(function() {
-    tests._start();
+    var l = locations[core.getArg("-city", "LA")] || locations.LA;
+    tests.city = l.name;
+    tests.bbox = l.bbox;
+    core.runTest(tests);
 });
 
 

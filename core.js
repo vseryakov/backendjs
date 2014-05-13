@@ -2586,3 +2586,92 @@ core.watchLogs = function(callback)
     });
 }
 
+// To be used in the tests, this function takes the following arguments
+// checkTest(next, err, result, ....)
+//  - next is a callback to be called after printing error condition if any, it takes err as its argument
+//  - err - is the error object passed by the most recent operation
+// - result - must be true, the condition is evaluated by the caller and this is the result of it
+// - all other arguments are printed in case of error or result being false
+//
+// Example
+//
+//          function(next) {
+//              db.get("bk_account", { id: "123" }, function(err, row) {
+//                  core.checkTest(next, err, row && row.id == "123", "Record not found", row)
+//              });
+//          }
+core.checkTest = function()
+{
+    var next = arguments[0];
+    if (arguments[1] || arguments[2]) {
+        var args = [ 'ERROR:', arguments[1] ? arguments[1] : new Error("failed condition") ];
+        for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
+        console.log.apply(console, args);
+        return next(args[1]);
+    }
+    next();
+}
+
+// Run the test function which is defined in the object, all arguments will be taken from the command line.
+// The common command line arguments that supported:
+// - -test-cmd - name of the function to run
+// - -test-workers - number of workers to run the test at the same time
+// - -test-delay - number of milliseconds before starting worker processes, default is 500ms
+// - -test-iterations - how many times to run this test function, default is 1
+//
+// All common command line arguments can be used, like -db-pool to specify which db to use.
+//
+// After finish or in case of error the process exits, so this is not supposded tobe run inside the
+// production backend, only as standalone utility for running unit tests
+//
+// Example:
+//
+//          var bk = require("backendjs"), core = bk.core, db = bk.db;
+//          var tests = {
+//              test1: function(next) {
+//                  db.get("bk_account", { id: "123" }, function(err, row) {
+//                      core.checkTest(next, err, row && row.id == "123", "Record not found", row)
+//                  });
+//              },
+//              ...
+//          }
+//          bk.run(function() { core.runTest(tests); });
+//
+//          # node tests.js -test-cmd test1
+//
+core.runTest = function(obj, name)
+{
+    var self = this;
+    var name = name || this.getArg("-test-cmd");
+    if (name[0] == "_" || !obj[name]) {
+        console.log("usage: ", process.argv[0], process.argv[1], "-test-cmd", "command");
+        console.log("        where command is one of: ", Object.keys(obj).filter(function(x) { return x[0] != "_" && typeof obj[x] == "function" }).join(", "));
+        process.exit(0);
+    }
+
+    if (cluster.isMaster) {
+        setTimeout(function() {
+            var workers = self.getArgInt("-test-workers", 0);
+            for (var i = 0; i < workers; i++) cluster.fork();
+        }, core.getArgInt("-test-delay", 500));
+    }
+
+    var start = Date.now();
+    var count = this.getArgInt("-test-iterations", 1);
+    logger.log("test started:", 'name:', name, 'db-pool:', db.pool);
+
+    async.whilst(
+        function () { return count > 0; },
+        function (next) {
+            count--;
+            obj[name](next);
+        },
+        function(err) {
+            if (err) {
+                logger.error("test failed:", name, err);
+                process.exit(1);
+            }
+            logger.log("test stopped:", 'name:', name, 'db-pool:', db.pool, 'time:', Date.now() - start, "ms");
+            process.exit(0);
+        });
+};

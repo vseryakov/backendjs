@@ -5,7 +5,8 @@ General purpose backend framework.
 Features:
 
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
-* Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB databases, easily extendable to support any kind of database.
+* Simple database API that supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB,
+  easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
 * Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
@@ -18,7 +19,7 @@ Features:
 * nanomsg interface for messaging between processes and servers.
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
-* Hosted on http://backendjs.io, BSD licensed.
+* Hosted on http://backendjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
 
 Check out the [Documentation](http://backendjs.io) for more documentation.
 
@@ -210,7 +211,7 @@ request endpoint callbacks must be provided in the application.
 The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
 The database operations supported in the unified way provide simple actions like `db.get, db.put, db.update, db.del, db.select`. The `db.query` method provides generic
-access to the databe driver and executes given query directly.
+access to the database driver and executes given query directly by the db driver, it can be SQL or other driver specific query request.
 
 Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it:
 
