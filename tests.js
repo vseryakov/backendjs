@@ -1029,7 +1029,8 @@ tests.pool = function(callback)
 
 var cmd = core.getArg("-cmd");
 if (!tests[cmd]) {
-    console.log("available commands: ", Object.keys(tests).filter(function(x) { return x != "start" && x != "check" && typeof tests[x] == "function" }));
+    console.log("usage: ", process.argv[0], process.argv[1], "-cmd", "command");
+    console.log("available commands: ", Object.keys(tests).filter(function(x) { return x != "start" && x != "check" && typeof tests[x] == "function" }).join(", "));
     process.exit(0);
 }
 backend.run(function() {
