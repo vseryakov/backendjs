@@ -70,7 +70,8 @@
 <p>Features:</p>
 <ul>
 <li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
-<li>Supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB databases, easily extendable to support any kind of database.</li>
+<li>Simple database API that supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB,
+easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.</li>
 <li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.</li>
 <li>Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
@@ -83,7 +84,7 @@
 <li>nanomsg interface for messaging between processes and servers.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
-<li>Hosted on <a href="http://backendjs.io">http://backendjs.io</a>, BSD licensed.</li>
+<li>Hosted on <a href="http://backendjs.io">http://backendjs.io</a> or <a href="http://vseryakov.github.io/backendjs">http://vseryakov.github.io/backendjs</a>, BSD licensed.</li>
 </ul>
 <p>Check out the <a href="http://backendjs.io">Documentation</a> for more documentation.</p>
 <h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
@@ -244,7 +245,7 @@ request endpoint callbacks must be provided in the application.</p>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
 The database operations supported in the unified way provide simple actions like <code>db.get, db.put, db.update, db.del, db.select</code>. The <code>db.query</code> method provides generic
-access to the databe driver and executes given query directly.</p>
+access to the database driver and executes given query directly by the db driver, it can be SQL or other driver specific query request.</p>
 <p>Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it:</p>
 <ul>
 <li><p>first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
@@ -3290,6 +3291,54 @@ This function is not async-safe, it uses sync calls</p>
 <li><p><code>core.watchLogs(callback)</code></p>
 <p> Watch log files for errors and report via email</p>
 </li>
+</ul>
+
+<ul>
+<li><p><code>core.checkTest()</code></p>
+<p> To be used in the tests, this function takes the following arguments
+checkTest(next, err, result, ....)</p>
+<ul>
+<li>next is a callback to be called after printing error condition if any, it takes err as its argument</li>
+<li>err - is the error object passed by the most recent operation</li>
+<li>result - must be true, the condition is evaluated by the caller and this is the result of it</li>
+<li>all other arguments are printed in case of error or result being false</li>
+</ul>
+<p>Example</p>
+<pre><code>    function(next) {
+        db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
+            core.checkTest(next, err, row &amp;&amp; row.id == &quot;123&quot;, &quot;Record not found&quot;, row)
+        });
+    }
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>core.runTest(obj, name)</code></p>
+<p> Run the test function which is defined in the object, all arguments will be taken from the command line.
+The common command line arguments that supported:</p>
+<ul>
+<li>-test-cmd - name of the function to run</li>
+<li>-test-workers - number of workers to run the test at the same time</li>
+<li>-test-delay - number of milliseconds before starting worker processes, default is 500ms</li>
+<li>-test-iterations - how many times to run this test function, default is 1</li>
+</ul>
+<p>All common command line arguments can be used, like -db-pool to specify which db to use.</p>
+<p>After finish or in case of error the process exits, so this is not supposded tobe run inside the
+production backend, only as standalone utility for running unit tests</p>
+<p>Example:</p>
+<pre><code>    var bk = require(&quot;backendjs&quot;), core = bk.core, db = bk.db;
+    var tests = {
+        test1: function(next) {
+            db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
+                core.checkTest(next, err, row &amp;&amp; row.id == &quot;123&quot;, &quot;Record not found&quot;, row)
+            });
+        },
+        ...
+    }
+    bk.run(function() { core.runTest(tests); });
+
+    # node tests.js -test-cmd test1
+</code></pre></li>
 </ul>
 
 <h2 id="module-db">Module: DB</h2>
