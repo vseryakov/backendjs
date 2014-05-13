@@ -26,6 +26,11 @@ tests:
 pages:
 	git-new-workdir `pwd` ./pages gh-pages
 
+publish:
+	npm pack
+	npm publish `ls backendjs-*tgz`
+	rm -rf backendjs*tgz
+
 doc:
 	node doc.js > web/doc.html
 	-git commit -a -m "Updated docs, minor bugfixes" && git push
