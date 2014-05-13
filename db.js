@@ -1067,7 +1067,7 @@ db.search = function(table, query, options, callback)
 // other properties:
 //  - distance - in km, the radius around the point, in not given the `min-distance` will be used
 //
-// all other properties from the searched table for conditions
+// all other properties will be used as additional conditions
 //
 // `options` optional properties:
 //  - top - number of first 'top'th records from each neighboring area, to be used with sorting by the range key to take
@@ -1105,23 +1105,21 @@ db.getLocations = function(table, query, options, callback)
     // New location search
     if (!options.geohash) {
         options = this.getOptions(table, options);
-
         options.count = options.gcount = core.toNumber(options.count, 0, 10, 0, 50);
         options.geokey = lcols[0] = options.geokey && cols[options.geokey] ? options.geokey : 'geohash';
-        query.distance = core.toNumber(query.distance, 0, core.minDistance, 0, 999);
-
+        options.distance = core.toNumber(query.distance, 0, core.minDistance, 0, 999);
         options.start = null;
-        var geo = core.geoHash(query.latitude, query.longitude, { distance: query.distance });
+        var geo = core.geoHash(query.latitude, query.longitude, { distance: options.distance });
         for (var p in geo) options[p] = geo[p];
     	query[options.geokey] = geo.geohash;
-
+    	['latitude', 'longitude', 'distance' ]. forEach(function(x) { delete query[x]; });
     } else {
         // Original query
         query = options.gquery;
     }
     if (options.top) options.count = options.top;
 
-    logger.debug('getLocations:', table, 'OBJ:', query, 'GEO:', options.geokey, options.geohash, obj.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'NEIGHBORS:', options.neighbors);
+    logger.debug('getLocations:', table, 'OBJ:', query, 'GEO:', options.geokey, options.geohash, options.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'NEIGHBORS:', options.neighbors);
 
     // Collect all matching records until specified count
     async.doUntil(
@@ -1134,7 +1132,7 @@ db.getLocations = function(table, query, options, callback)
 
               // If no coordinates but only geohash decode it, it must be at least semipub as well
               items.forEach(function(row) {
-                  row.distance = core.geoDistance(query.latitude, query.longitude, row.latitude, row.longitude, options);
+                  row.distance = core.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
                   // Limit the distance within the allowed range
                   if (options.round > 0 && abs(row.distance - options.distance) > options.round) return;
                   // Limit by exact distance

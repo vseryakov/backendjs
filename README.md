@@ -122,7 +122,7 @@ applications but still part of the core of the system to be available once neede
         > db.select("bk_account", {}, function(err, rows) { console.log(rows) });
         > db.select("bk_account", {}, db.showResult);
         > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
-        > db.select("bk_account", { gender: 'm' }, { keys: ['gender'] }, db.showResult);
+        > db.select("bk_account", { gender: 'm' }, db.showResult);
 
 # Backend runtime
 When the backendjs server starts it spawns several processes the perform different tasks.
@@ -341,12 +341,12 @@ The accounts API manages accounts and authentication, it provides basic user acc
   Return list of accounts by the given condition, calls `db.select` for bk_account table. Parameters are the column values to be matched and
   all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed. This will work for SQL
   databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
-  large tables. Supports special query parameters `_select,_keys,_ops`, see docs about `db.select` for more info.
+  large tables. Supports special query parameters `_select,_ops`, see docs about `db.select` for more info.
 
   Example:
 
             /account/search?email=test&_ops=email,begins_with
-            /account/search?name=test&_keys=name
+            /account/search?name=test
 
 
   Response:
@@ -598,7 +598,7 @@ a connection with it. No direct operations on bk_reference is allowed.
 
 - `/connection/get`
   Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned. Supports special
-  query parameters `_select,_keys,_ops,_desc`, see docs about `db.select` for more info. All `db.select` options can be passed in the query with prepended underscore.
+  query parameters `_select,_ops,_desc`, see docs about `db.select` for more info. All `db.select` options can be passed in the query with prepended underscore.
 
   Example:
 
@@ -607,9 +607,9 @@ a connection with it. No direct operations on bk_reference is allowed.
         # Return connection for specific type and account id
         /connection/get?type=invite&id=12345
         # Return accounts who i invited me after specified mtime
-        /connection/get?type=invite&_keys=id,type,mtime&_ops=mtime,gt&mtime=12334312543
+        /connection/get?type=invite&_ops=mtime,gt&mtime=12334312543
         # Return accounts who i invited before specified mtime
-        /connection/get?type=invite&_keys=id,type,mtime&_ops=mtime,le&_desc=1&mtime=12334312543
+        /connection/get?type=invite&_ops=mtime,le&_desc=1&mtime=12334312543
 
   Response:
 
@@ -629,7 +629,7 @@ a connection with it. No direct operations on bk_reference is allowed.
         # Return all accounts who invited me
         /reference/get?type=invite
         # Return accounts who invited me after specified mtime
-        /reference/get?type=invite&_keys=id,type,mtime&_ops=mtime,gt&mtime=12334312543
+        /reference/get?type=invite&_ops=mtime,gt&mtime=12334312543
 
   Response:
 
@@ -732,7 +732,7 @@ from the last messages received so the next time we will use this time to get on
         /message/get?mtime=123475658690
 
         # Get all messages with custom filter: if msg text contains Hi
-        /message/get?_keys=id,mtime,msg&_ops=msg,iregexp&msg=Hi
+        /message/get?_ops=msg,iregexp&msg=Hi
 
         # Get all messages from the specific sender
         /message/get?sender=12345
@@ -1129,7 +1129,7 @@ The backend directory structure is the following:
 
                 var backend = require("backendjs");
                 backend.api.cleanSessions = function(options, callback) {
-                     backend.db.del("session", { mtime: options.interval + Date.now() }, { ops: "le", keys: [ "mtime" ] }, callback);
+                     backend.db.delAll("session", { mtime: options.interval + Date.now() }, { ops: "le" }, callback);
                 }
                 backend.server.start()
 

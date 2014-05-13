@@ -1271,10 +1271,6 @@ api.getOptions = function(req)
     if (req.query._start) options.start = core.toJson(req.query._start);
     if (req.query._sort) options.sort = req.query._sort;
     if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
-    if (req.query._keys) {
-        options.keys = core.strSplit(req.query._keys);
-        if (!options.keys.length) delete options.keys;
-    }
     if (req.query._width) options.width = core.toNumber(req.query._width);
     if (req.query._height) options.height = core.toNumber(req.query._height);
     if (req.query._ext) options.ext = req.query._ext;

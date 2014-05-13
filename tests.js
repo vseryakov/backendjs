@@ -492,7 +492,6 @@ tests.location = function(callback)
                 });
         },
         function(next) {
-            logger.setDebug(1);
             // Scan all locations, do it in small chunks to verify we can continue withint the same geohash area
             var query = { latitude: latitude, longitude: longitude, distance: distance };
             var options = { count: gcount, round: round };
@@ -516,7 +515,7 @@ tests.location = function(callback)
             var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good", rank: good-3 };
             var options = { round: round, ops: { rank: 'gt' } };
             db.getLocations("geo", query, options, function(err, rows, info) {
-                var isok = rows.every(function(x) { return x.status == 'good' && x.rank > good-3 })
+                var isok = rows.every(function(x) { return x.status == 'good' && x.rank > good-3 });
                 self.check(next, err, rows.length!=3 || !isok, "err2:", rows.length, isok, good, rows);
             });
         },
@@ -525,7 +524,7 @@ tests.location = function(callback)
             var query = { latitude: latitude, longitude: longitude, distance: distance*2, status: "bad", rank: bad-2 };
             var options = { round: round, ops: { rank: 'gt' }, sort: "rank", desc: true };
             db.getLocations("geo", query, options, function(err, rows, info) {
-                var isok = rows.every(function(x) { return x.status == 'bad' && x.rank > bad-2 })
+                var isok = rows.every(function(x) { return x.status == 'bad' && x.rank > bad-2 });
                 self.check(next, err, rows.length!=2 || !isok, "err3:", rows.length, isok, bad, rows);
             });
         },
@@ -693,8 +692,8 @@ tests.db = function(callback)
 	    },
         function(next) {
             // Check pagination
-	        next_token = null;
 	        var rc = [];
+            next_token = null;
             async.forEachSeries([2, 3], function(n, next2) {
                 db.select("test2", { id: id2 }, { start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
@@ -703,13 +702,13 @@ tests.db = function(callback)
                 });
             }, function(err) {
                 // Redis cannot sort due to hash implementation, known bug
-                var isok = db.pool == "redis" ? true : (rc[0].id2 == 1 && rc[rc.length-1].id2 == 5);
-                self.check(next, err, rc.length!=5 || !isok, "err10:", rc.length, isok, rc);
+                var isok = db.pool == "redis" ? rc.length>=5 : rc.length==5 && (rc[0].id2 == 1 && rc[rc.length-1].id2 == 5);
+                self.check(next, err, !isok, "err10:", rc.length, isok, rc);
             })
 	    },
 	    function(next) {
 	        // Check pagination with small page size with condition on the range key
-	        next_token = null;
+            next_token = null;
 	        async.forEachSeries([2, 3], function(n, next2) {
 	            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
 	                next_token = info.next_token;
