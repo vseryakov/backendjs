@@ -105,7 +105,7 @@ var api = {
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
-       bk_location: { geohash: { primary: 1, semipub: 1 },        // geohash, minDistance defines the size
+       bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
                       id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
                       latitude: { type: "real", semipub: 1 },     // for distance must be semipub or no distance and no coordinates
                       longitude: { type: "real", semipub: 1 },
@@ -1274,7 +1274,8 @@ api.getOptions = function(req)
     if (req.query._width) options.width = core.toNumber(req.query._width);
     if (req.query._height) options.height = core.toNumber(req.query._height);
     if (req.query._ext) options.ext = req.query._ext;
-    if (req.query._quality) options.quality = req.query._quality;
+    if (req.query._quality) options.quality = core.toNumber(req.query._quality);
+    if (req.query._round) options.round = core.toNumber(req.query._round);
     if (req.query._ops) {
         if (!options.ops) options.ops = {};
         var ops = core.strSplit(req.query._ops);
@@ -1733,25 +1734,21 @@ api.getLocations = function(req, options, callback)
     // Perform location search based on hash key that covers the whole region for our configured max distance
     if (!req.query.latitude || !req.query.longitude) return callback({ status: 400, message: "latitude/longitude are required" });
 
-    // Pass all query parameters for custom filters if any, do not override existing options
-    for (var p in req.query) {
-        if (p[0] != "_" && !options[p]) options[p] = req.query[p];
-    }
     // Limit the distance within our configured range
-    options.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
+    req.query.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
 
     // Continue pagination using the search token
     var token = core.toJson(req.query._token);
     if (token && token.geohash) {
-        if (token.latitude != options.latitude ||
-            token.longitude != options.longitude ||
-            token.distance != options.distance) return callback({ status: 400, message: "invalid token, latitude, longitude and distance must be the same" });
+        if (token.latitude != req.query.latitude ||
+            token.longitude != req.query.longitude ||
+            token.distance != req.query.distance) return callback({ status: 400, message: "invalid token, latitude, longitude and distance must be the same" });
         options = token;
     }
     // Rounded distance, not precise to keep from pin-pointing locations
-    if (!options.round) options.round = core.minDistance;
+    if (typeof options.round == "undefined") options.round = core.minDistance;
 
-    db.getLocations(table, options, function(err, rows, info) {
+    db.getLocations(table, req.query, options, function(err, rows, info) {
         var next_token = info.more ? core.toBase64(info) : null;
         // Ignore current account, db still retrieves it but in the API we skip it
         rows = rows.filter(function(row) { return row.id != req.account.id });

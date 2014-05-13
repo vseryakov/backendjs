@@ -39,6 +39,8 @@ var metrics = require(__dirname + "/metrics");
 // this options object can be modified with new properties but all driver should try not to
 // modify or delete existing properties, so the same options object can be reused in subsequent operations.
 //
+// All queries and update operations ignore properties that starts with underscore.
+//
 // Before the DB functions can be used the `core.init` MUST be called first, the typical usage:
 //
 //          var backend = require("backendjs"), core = backend.core, db = backend.db;
@@ -1109,6 +1111,7 @@ db.getLocations = function(table, query, options, callback)
         options.geokey = lcols[0] = options.geokey && cols[options.geokey] ? options.geokey : 'geohash';
         options.distance = core.toNumber(query.distance, 0, core.minDistance, 0, 999);
         options.start = null;
+        options.semipub = 1;
         var geo = core.geoHash(query.latitude, query.longitude, { distance: options.distance });
         for (var p in geo) options[p] = geo[p];
     	query[options.geokey] = geo.geohash;
@@ -1134,7 +1137,7 @@ db.getLocations = function(table, query, options, callback)
               items.forEach(function(row) {
                   row.distance = core.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
                   // Limit the distance within the allowed range
-                  if (options.round > 0 && abs(row.distance - options.distance) > options.round) return;
+                  if (options.round > 0 && row.distance - options.distance > options.round) return;
                   // Limit by exact distance
                   if (row.distance > options.distance) return;
                   // Have to deal with public columns here if we have lat/long semipub for distance
@@ -1524,7 +1527,7 @@ db.getSearchQuery = function(table, obj, options)
 db.getQueryForKeys = function(keys, obj)
 {
     return (keys || []).
-            filter(function(x) { return typeof obj[x] != "undefined" }).
+            filter(function(x) { return x[0] != "_" && typeof obj[x] != "undefined" }).
             map(function(x) { return [ x, obj[x] ] }).
             reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 }
@@ -1616,7 +1619,7 @@ db.getPublicColumns = function(table, options)
 // the last step woul dbe to cleanup all non public columns if necessary.
 // - options must have `check_public` property set to the current account id or other primary key value to be skipped and checked other records,
 //   setting it to non existent primary key value will clean all records.
-// - options may have `semupub` set to 1 to keep simipub columns.
+// - options may have `semupub` set to 1 to keep semipub columns.
 db.checkPublicColumns = function(table, rows, options)
 {
     if (!options || !options.check_public) return;
@@ -2217,6 +2220,7 @@ db.sqlWhere = function(table, query, keys, options)
     // Regular object with conditions
     var where = [], c = {};
     (keys || []).forEach(function(k) {
+        if (k[0] == "_") return;
         var op = "", col = cols[k] || c, type = col.type || "", v = query[k];
         if (!v && v != null) return;
         if (options.ops && options.ops[k]) op = options.ops[k];
@@ -2846,7 +2850,7 @@ db.dynamodbInitPool = function(options)
             }
             var keys = Object.keys(obj);
             // If we have other key columns we have to use custom filter
-            var other = keys.filter(function(x) { return pool.dbkeys[table].indexOf(x) == -1 && typeof obj[x] != "undefined" });
+            var other = keys.filter(function(x) { return x[0] != "_" && pool.dbkeys[table].indexOf(x) == -1 && typeof obj[x] != "undefined" });
             // Query based on the keys
             keys = self.getSearchQuery(table, obj, { keys: keys });
             // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering
@@ -3717,7 +3721,7 @@ db.redisInitPool = function(options)
             var args = [ opts.start || 0, "MATCH", this.getKey(table, obj, opts, 1)];
             if (opts.count) args.push("COUNT", opts.count);
             // Custom filter on other columns
-            var other = Object.keys(obj).filter(function(x) { return (keys.indexOf(x) == -1 || !dbkeys[x]) && typeof obj[x] != "undefined" });
+            var other = Object.keys(obj).filter(function(x) { return x[0] != "_" && (keys.indexOf(x) == -1 || !dbkeys[x]) && typeof obj[x] != "undefined" });
             var filter = function(items) {
                 if (other.length > 0) items = self.filterColumns(obj, items, { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap });
                 return items;
