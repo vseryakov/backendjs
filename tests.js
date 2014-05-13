@@ -1027,8 +1027,13 @@ tests.pool = function(callback)
        }], callback);
 }
 
+var cmd = core.getArg("-cmd");
+if (!tests[cmd]) {
+    console.log("available commands: ", Object.keys(tests).filter(function(x) { return x != "start" && x != "check" && typeof tests[x] == "function" }));
+    process.exit(0);
+}
 backend.run(function() {
-    tests.start(core.getArg("-cmd"));
+    tests.start(cmd);
 });
 
 
