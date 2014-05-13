@@ -167,7 +167,7 @@ is only enabled by default in development mode, check app.sh for parameters befo
 <pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(rows) });
   &gt; db.select(&quot;bk_account&quot;, {}, db.showResult);
   &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
-  &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, { keys: [&#39;gender&#39;] }, db.showResult);
+  &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);
 </code></pre></li>
 </ul>
 <h1 id="backend-runtime">Backend runtime</h1>
@@ -357,10 +357,10 @@ the login popup will still asking for real name, see backend.js in the web/js fo
 <p>Return list of accounts by the given condition, calls <code>db.select</code> for bk_account table. Parameters are the column values to be matched and
 all parameters starting with underscore are control parameters that goes into options of the <code>db.select</code> call with underscore removed. This will work for SQL
 databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
-large tables. Supports special query parameters <code>_select,_keys,_ops</code>, see docs about <code>db.select</code> for more info.</p>
+large tables. Supports special query parameters <code>_select,_ops</code>, see docs about <code>db.select</code> for more info.</p>
 <p>Example:</p>
 <pre><code>      /account/search?email=test&amp;_ops=email,begins_with
-      /account/search?name=test&amp;_keys=name
+      /account/search?name=test
 </code></pre></li>
 </ul>
 <p>  Response:</p>
@@ -582,16 +582,16 @@ Delete existing connection(s), <code>id</code> and/or <code>type</code> may be b
 </code></pre></li>
 <li><p><code>/connection/get</code>
 Receive all my connections of the given type, i.e. connection(s) i made, if <code>id</code> is given only one record for the specified connection will be returned. Supports special
-query parameters <code>_select,_keys,_ops,_desc</code>, see docs about <code>db.select</code> for more info. All <code>db.select</code> options can be passed in the query with prepended underscore.</p>
+query parameters <code>_select,_ops,_desc</code>, see docs about <code>db.select</code> for more info. All <code>db.select</code> options can be passed in the query with prepended underscore.</p>
 <p>Example:</p>
 <pre><code>  # Return all accounts who i invited
   /connection/get?type=invite
   # Return connection for specific type and account id
   /connection/get?type=invite&amp;id=12345
   # Return accounts who i invited me after specified mtime
-  /connection/get?type=invite&amp;_keys=id,type,mtime&amp;_ops=mtime,gt&amp;mtime=12334312543
+  /connection/get?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
   # Return accounts who i invited before specified mtime
-  /connection/get?type=invite&amp;_keys=id,type,mtime&amp;_ops=mtime,le&amp;_desc=1&amp;mtime=12334312543
+  /connection/get?type=invite&amp;_ops=mtime,le&amp;_desc=1&amp;mtime=12334312543
 </code></pre><p>Response:</p>
 <pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;12345&quot;,
                 &quot;type&quot;: &quot;invite&quot;,
@@ -607,7 +607,7 @@ Receive all references that connected with my account, i.e. connections made by 
 <pre><code>  # Return all accounts who invited me
   /reference/get?type=invite
   # Return accounts who invited me after specified mtime
-  /reference/get?type=invite&amp;_keys=id,type,mtime&amp;_ops=mtime,gt&amp;mtime=12334312543
+  /reference/get?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
 </code></pre><p>Response:</p>
 <pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
                 &quot;type&quot;: &quot;invite&quot;,
@@ -699,7 +699,7 @@ result in mtimes that do not correspond to actual times when the message has bee
   /message/get?mtime=123475658690
 
   # Get all messages with custom filter: if msg text contains Hi
-  /message/get?_keys=id,mtime,msg&amp;_ops=msg,iregexp&amp;msg=Hi
+  /message/get?_ops=msg,iregexp&amp;msg=Hi
 
   # Get all messages from the specific sender
   /message/get?sender=12345
@@ -1093,7 +1093,7 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 <li><p>Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file</p>
 <pre><code> var backend = require(&quot;backendjs&quot;);
  backend.api.cleanSessions = function(options, callback) {
-      backend.db.del(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot;, keys: [ &quot;mtime&quot; ] }, callback);
+      backend.db.delAll(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot; }, callback);
  }
  backend.server.start()
 </code></pre></li>
@@ -1743,7 +1743,7 @@ the worker processes if they die and restart them automatically. How many proces
                 mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
 
      // Locations for all accounts to support distance searches
-     bk_location: { geohash: { primary: 1, semipub: 1 },        // geohash, minDistance defines the size
+     bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
                     id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
                     latitude: { type: &quot;real&quot;, semipub: 1 },     // for distance must be semipub or no distance and no coordinates
                     longitude: { type: &quot;real&quot;, semipub: 1 },
@@ -3308,6 +3308,7 @@ API call, all high level operations like add/put/del perform SQL generation for 
 <p>The common convention is to pass options object with flags that are common for all drivers along with specific,
 this options object can be modified with new properties but all driver should try not to
 modify or delete existing properties, so the same options object can be reused in subsequent operations.</p>
+<p>All queries and update operations ignore properties that starts with underscore.</p>
 <p>Before the DB functions can be used the <code>core.init</code> MUST be called first, the typical usage:</p>
 <pre><code>    var backend = require(&quot;backendjs&quot;), core = backend.core, db = backend.db;
     core.init(function(err) {
@@ -3794,7 +3795,7 @@ table must be defined with the following required columns:</p>
 <ul>
 <li>distance - in km, the radius around the point, in not given the <code>min-distance</code> will be used</li>
 </ul>
-<p>all other properties from the searched table for conditions</p>
+<p>all other properties will be used as additional conditions</p>
 <p><code>options</code> optional properties:</p>
 <ul>
 <li>top - number of first &#39;top&#39;th records from each neighboring area, to be used with sorting by the range key to take
@@ -4086,7 +4087,7 @@ the last step woul dbe to cleanup all non public columns if necessary.</p>
 <ul>
 <li>options must have <code>check_public</code> property set to the current account id or other primary key value to be skipped and checked other records,
 setting it to non existent primary key value will clean all records.</li>
-<li>options may have <code>semupub</code> set to 1 to keep simipub columns.</li>
+<li>options may have <code>semupub</code> set to 1 to keep semipub columns.</li>
 </ul>
 </li>
 </ul>
