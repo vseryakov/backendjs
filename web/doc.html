@@ -834,6 +834,10 @@ regular parameters are the table columns.</p>
 <p>The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.</p>
 <ul>
+<li><p><code>/system/restart</code>
+  Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
+  serving requests. The intention is to allow code updates on live systems without service interruption.</p>
+</li>
 <li><p><code>/system/cache/(init|stats|keys|get|set|put|incr|del|clear)</code>
   Access to the caching functions</p>
 </li>
@@ -2618,6 +2622,18 @@ type can be bool, number, list, json</p>
 <ul>
 <li><p><code>core.loadConfig(file, callback)</code></p>
 <p> Parse the config file, configFile can point to a file or can be skipped and the default file will be loaded</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.loadDbConfig(options, callback)</code></p>
+<p> Load configuration from the config database</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.loadDnsConfig(options, callback)</code></p>
+<p> Load configuration from the DNS TXT records</p>
 </li>
 </ul>
 
@@ -4493,7 +4509,7 @@ Options can define the following:</p>
 
 <ul>
 <li><p><code>ipc.command(msg, callback)</code></p>
-<p> Send cache command to the master process via IPC messages, callback is used for commands that return value back</p>
+<p> Send a command to the master process via IPC messages, callback is used for commands that return value back</p>
 </li>
 </ul>
 
