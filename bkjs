@@ -4,7 +4,7 @@
 #  Sep 2013
 #
 # chkconfig: 2345 70 70
-# description: $BKJS server
+# description: backendjs server
 #
 
 BK=bkjs

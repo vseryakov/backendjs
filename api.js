@@ -411,6 +411,9 @@ api.init = function(callback)
                 self.ioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
             }
 
+            // Notify the master about new worker server
+            ipc.send("api:ready", "");
+
             if (callback) callback.call(self, err);
         });
     });
@@ -1142,56 +1145,71 @@ api.initSystemAPI = function()
     var db = core.context.db;
 
     // Return current statistics
-    this.app.all(/^\/system\/stats\/?(.+)?$/, function(req, res) {
+    this.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
         switch (req.params[0]) {
-        case "worker":
-            return res.json(self.getStatistics());
-        default:
-            ipc.command({ op: "metrics" }, function(data) {
-                if (!data) return res.send(404);
-                res.json(data);
-            });
-        }
-    });
+        case "restart":
+            ipc.send("api:close", "");
+            res.json("");
+            break;
 
-    this.app.all(/^\/system\/msg\/(.+)$/, function(req, res) {
-        switch (req.params[0]) {
-        case 'init':
-            ipc.configure('msg');
+        case "config":
+            ipc.configure(req.params[1]);
             break;
-        }
-    });
 
-    this.app.all(/^\/system\/cache\/(.+)$/, function(req, res) {
-        switch (req.params[0]) {
-        case 'init':
-            ipc.configure('cache');
+        case "stats":
+            switch (req.params[1]) {
+            case "worker":
+                return res.json(self.getStatistics());
+            default:
+                ipc.command({ op: "metrics" }, function(data) {
+                    if (!data) return res.send(404);
+                    res.json(data);
+                });
+            }
             break;
-        case 'stats':
-            ipc.statsCache(function(data) { res.send(data) });
+
+        case "msg":
+            switch (req.params[1]) {
+            case 'init':
+                ipc.configure('msg');
+                break;
+            }
             break;
-        case "keys":
-            ipc.keysCache(function(data) { res.send(data) });
-            break;
-        case "get":
-            ipc.getCache(req.query.name, function(data) { res.send(data) });
-            break;
-        case "clear":
-            ipc.clearCache();
-            res.json();
-            break;
-        case "del":
-            ipc.delCache(req.query.name);
-            res.json();
-            break;
-        case "incr":
-            ipc.incrCache(req.query.name, core.toNumber(req.query.value));
-            res.json();
-            break;
-        case "put":
-            ipc.putCache(req.params[0].split("/").pop(), req.query);
-            res.json();
-            break;
+
+        case "cache":
+            switch (req.params[1]) {
+            case 'init':
+                ipc.configure('cache');
+                break;
+            case 'stats':
+                ipc.statsCache(function(data) { res.send(data) });
+                break;
+            case "keys":
+                ipc.keysCache(function(data) { res.send(data) });
+                break;
+            case "get":
+                ipc.getCache(req.query.name, function(data) { res.send(data) });
+                break;
+            case "clear":
+                ipc.clearCache();
+                res.json("");
+                break;
+            case "del":
+                ipc.delCache(req.query.name);
+                res.json("");
+                break;
+            case "incr":
+                ipc.incrCache(req.query.name, core.toNumber(req.query.value));
+                res.json();
+                break;
+            case "put":
+                ipc.putCache(req.params[1].split("/").pop(), req.query);
+                res.json();
+                break;
+            default:
+                self.sendReply(res, 404, "Invalid command");
+            }
+
         default:
             self.sendReply(res, 404, "Invalid command");
         }

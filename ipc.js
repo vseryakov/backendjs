@@ -21,6 +21,7 @@ var ipc = {
     subCallbacks: {},
     msgs: {},
     msgId: 1,
+    workers: [],
 };
 
 module.exports = ipc;
@@ -38,22 +39,34 @@ ipc.initClient = function()
         logger.dev('msg:worker:', msg)
         core.runCallback(self.msgs, msg);
 
-        switch (msg.op || "") {
-        case "api:close":
-            core.context.api.shutdown(function() { process.exit(0); });
-            break;
+        try {
+            switch (msg.op || "") {
+            case "api:close":
+                core.context.api.shutdown(function() { process.exit(0); });
+                break;
 
-        case "init:cache":
-            self.initClientCaching();
-            break;
+            case "init:cache":
+                self.initClientCaching();
+                break;
 
-        case "init:msg":
-            self.initClientMessaging();
-            break;
+            case "init:msg":
+                self.initClientMessaging();
+                break;
 
-        case "heapsnapshot":
-            backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
-            break;
+            case "init:dns":
+                core.loadDnsConfig();
+                break;
+
+            case "init:db":
+                core.loadDbConfig();
+                break;
+
+            case "heapsnapshot":
+                backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
+                break;
+            }
+        } catch(e) {
+            logger.error('msg:worker:', e, msg);
         }
     });
 }
@@ -82,7 +95,21 @@ ipc.initServer = function()
                     break;
 
                 case "api:close":
-                    for (var p in cluster.workers) cluster.workers[p].send(msg);
+                    // Start gracefull restart of all api workers, wait till a new worker starts and then send a signal to another in the list.
+                    // This way we keep active processes responding to the requests while restarting
+                    if (self.workers.length) break;
+                    for (var p in cluster.workers) self.workers.push(cluster.workers[p].pid);
+
+                case "api:ready":
+                    // Restart the next worker from the list
+                    if (!self.workers.length) break;
+                    for (var p in cluster.workers) {
+                        var idx = self.workers.indexOf(cluster.workers[p].pid);
+                        if (idx == -1) continue;
+                        self.workers.splice(idx, 1);
+                        cluster.workers[p].send({ op: "api:close" });
+                        return;
+                    }
                     break;
 
                 case "init:cache":
@@ -92,6 +119,16 @@ ipc.initServer = function()
 
                 case "init:msg":
                     self.initServerMessaging();
+                    for (var p in cluster.workers) cluster.workers[p].send(msg);
+                    break;
+
+                case "init:db":
+                    core.loadDbConfig();
+                    for (var p in cluster.workers) cluster.workers[p].send(msg);
+                    break;
+
+                case "init:dns":
+                    core.loadDnsConfig();
                     for (var p in cluster.workers) cluster.workers[p].send(msg);
                     break;
 
@@ -211,9 +248,11 @@ ipc.initClientCaching = function()
     logger.debug('initClientCaching:', core.cacheType, this.memcacheClient, this.redisClient);
 }
 
-// Send cache command to the master process via IPC messages, callback is used for commands that return value back
+// Send a command to the master process via IPC messages, callback is used for commands that return value back
 ipc.command = function(msg, callback)
 {
+    if (!cluster.isWorker) return callback ? callback() : null;
+
     if (typeof callback == "function") {
         msg.reply = true;
         msg.id = this.msgId++;

@@ -871,6 +871,10 @@ who can access it.*
 The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.
 
+- `/system/restart`
+    Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
+    serving requests. The intention is to allow code updates on live systems without service interruption.
+
 - `/system/cache/(init|stats|keys|get|set|put|incr|del|clear)`
     Access to the caching functions
 

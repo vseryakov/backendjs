@@ -273,30 +273,7 @@ core.init = function(options, callback)
 
         // Load config params from the DNS TXT records, only the ones marked as dns
         function(next) {
-            if (options.noDns || !self.configDomain) return next();
-            var args = [ { name: "", args: self.args } ];
-            for (var p in this.context) {
-                var ctx = self.context[p];
-                if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
-            }
-            async.forEachSeries(args, function(ctx, next1) {
-                async.forEachLimit(ctx.args, 5, function(arg, next2) {
-                    var cname = ctx.name + arg.name;
-                    async.series([
-                        function(next3) {
-                            // Get DNS TXT record
-                            if (!arg.dns) return next3();
-                            dns.resolveTxt(cname + "." + self.configDomain, function(err, list) {
-                                if (!err && list && list.length) {
-                                    self.argv.push("-" + cname, list[0]);
-                                    logger.debug('dns.config:', cname, list[0]);
-                                }
-                                next3();
-                            });
-                        }],
-                        next2);
-                }, next1);
-            }, next);
+            self.loadDnsConfig(options, next);
         },
 
         // Create all directories, only master should do it once but we resolve absolute paths in any mode
@@ -331,16 +308,7 @@ core.init = function(options, callback)
 
         // Load all available config parameters from the config database for the specified config type
         function(next) {
-            if (!db.configType || !db.getPoolByName(db.config)) return next();
-            db.select("bk_config", { type: db.configType }, { select: ['name','value'], pool: db.config }, function(err, rows) {
-                var argv = [];
-                rows.forEach(function(x) {
-                    if (x.name) argv.push('-' + x.name);
-                    if (x.value) argv.push(x.value);
-                });
-                self.parseArgs(argv);
-                next();
-            });
+            self.loadDbConfig(options, next);
         },
 
         function(next) {
@@ -565,6 +533,61 @@ core.loadConfig = function(file, callback)
         }
         if (callback) callback();
     });
+}
+
+// Load configuration from the config database
+core.loadDbConfig = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null
+    if (!options) options = {};
+    var db = self.context.db;
+
+    if (!db.configType || !db.getPoolByName(db.config)) return callback ? callback() : null;
+
+    db.select("bk_config", { type: db.configType }, { select: ['name','value'], pool: db.config }, function(err, rows) {
+        var argv = [];
+        rows.forEach(function(x) {
+            if (x.name) argv.push('-' + x.name);
+            if (x.value) argv.push(x.value);
+        });
+        self.parseArgs(argv);
+        callback();
+    });
+}
+
+// Load configuration from the DNS TXT records
+core.loadDnsConfig = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null
+    if (!options) options = {};
+
+    if (options.noDns || !self.configDomain) return callback ? callback() : null;
+
+    var args = [ { name: "", args: self.args } ];
+    for (var p in this.context) {
+        var ctx = self.context[p];
+        if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
+    }
+    async.forEachSeries(args, function(ctx, next1) {
+        async.forEachLimit(ctx.args, 5, function(arg, next2) {
+            var cname = ctx.name + arg.name;
+            async.series([
+                function(next3) {
+                    // Get DNS TXT record
+                    if (!arg.dns) return next3();
+                    dns.resolveTxt(cname + "." + self.configDomain, function(err, list) {
+                        if (!err && list && list.length) {
+                            self.argv.push("-" + cname, list[0]);
+                            logger.debug('dns.config:', cname, list[0]);
+                        }
+                        next3();
+                    });
+                }],
+                next2);
+        }, next1);
+    }, callback);
 }
 
 // Encode with additional symbols, convert these into percent encoded:
@@ -2653,12 +2676,12 @@ core.runTest = function(obj, name)
         setTimeout(function() {
             var workers = self.getArgInt("-test-workers", 0);
             for (var i = 0; i < workers; i++) cluster.fork();
-        }, core.getArgInt("-test-delay", 500));
+        }, this.getArgInt("-test-delay", 500));
     }
 
     var start = Date.now();
     var count = this.getArgInt("-test-iterations", 1);
-    logger.log("test started:", 'name:', name, 'db-pool:', db.pool);
+    logger.log("test started:", 'name:', name, 'db-pool:', this.context.db.pool);
 
     async.whilst(
         function () { return count > 0; },
@@ -2671,7 +2694,7 @@ core.runTest = function(obj, name)
                 logger.error("test failed:", name, err);
                 process.exit(1);
             }
-            logger.log("test stopped:", 'name:', name, 'db-pool:', db.pool, 'time:', Date.now() - start, "ms");
+            logger.log("test stopped:", 'name:', name, 'db-pool:', self.context.db.pool, 'time:', Date.now() - start, "ms");
             process.exit(0);
         });
 };
