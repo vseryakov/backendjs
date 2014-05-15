@@ -948,7 +948,7 @@ db.list = function(table, query, options, callback)
 //
 db.scan = function(table, query, options, rowCallback, callback)
 {
-    if (typeof options == "function") rowCallback = options,options = null;
+    if (typeof options == "function") callback = rowCallback, rowCallback = options, options = null;
     options = this.getOptions(table, options);
     if (!options.count) options.count = 100;
     options.start = "";
