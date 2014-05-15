@@ -364,7 +364,7 @@ public:
         d->data = *end;
         if (callback.IsEmpty()) {
             Work_All(&d->req);
-            Handle<Value> rc = toArray(d->list);
+            Handle<Value> rc = Local<Value>::New(toArray(d->list));
             delete d;
             return scope.Close(rc);
         } else {
@@ -391,6 +391,21 @@ public:
         if (op == "put") {
             status = db->Put(key.c_str(), key.size(), value.c_str(), value.size(), flags);
             value.clear();
+        } else
+        if (op == "select") {
+            vector<pair<string,string> > list;
+            status = db->GetAll(key.c_str(), key.size(), value.c_str(), value.size(), &list);
+            if (!status) {
+                jsonValue *val = new jsonValue(JSON_ARRAY, "value");
+                for (uint i = 0; i < list.size(); i++) {
+                    jsonValue *item = new jsonValue(JSON_OBJECT);
+                    jsonSet(item, JSON_STRING, "name", list[i].first);
+                    jsonSet(item, JSON_STRING, "value", list[i].second);
+                    jsonAppend(val, item);
+                }
+                jsonSet(json, val);
+                value = jsonStringify(json);
+            }
         } else
         if (op == "get") {
             status = db->Get(key.c_str(), key.size(), &value);

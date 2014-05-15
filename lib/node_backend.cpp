@@ -162,8 +162,8 @@ string jsonStringify(Local<Value> obj)
     Local<Value> argv[1] = { obj };
     Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::New("JSON"))->ToObject();
     Handle<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(String::New("stringify")));
-
-    String::Utf8Value json(JSON_stringify->Call(JSON, 1, argv));
+    Local<Value> val = Local<Value>::New(JSON_stringify->Call(JSON, 1, argv));
+    String::Utf8Value json(val);
     return *json;
 }
 
@@ -177,7 +177,7 @@ Handle<Value> jsonParse(string str)
     Local<Value> val;
     {
     	TryCatch try_catch;
-    	val = JSON_parse->Call(JSON, 1, argv);
+    	val = Local<Value>::New(JSON_parse->Call(JSON, 1, argv));
     	if (try_catch.HasCaught()) val = Local<Value>::New(Null());
     }
     return scope.Close(val);
@@ -215,6 +215,18 @@ Handle<Value> toArray(vector<pair<string,string> > &list)
         rc->Set(Integer::New(i), obj);
     }
     return scope.Close(rc);
+}
+
+static Handle<Value> splitArray(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_AS_STRING(0, str);
+   OPTIONAL_ARGUMENT_STRING(1, delim);
+   OPTIONAL_ARGUMENT_STRING(2, quotes);
+
+   vector<string> list = strSplit(*str, *delim, *quotes);
+   return scope.Close(toArray(list));
 }
 
 static Handle<Value> countWords(const Arguments& args)
@@ -313,18 +325,6 @@ static Handle<Value> countAllWords(const Arguments& args)
     obj->Set(String::New("values"), values);
 
     return scope.Close(obj);
-}
-
-static Handle<Value> splitArray(const Arguments& args)
-{
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_AS_STRING(0, str);
-   OPTIONAL_ARGUMENT_STRING(1, delim);
-   OPTIONAL_ARGUMENT_STRING(2, quotes);
-
-   vector<string> list = strSplit(*str, *delim, *quotes);
-   return scope.Close(toArray(list));
 }
 
 static Handle<Value> geoHashEncode(const Arguments& args)

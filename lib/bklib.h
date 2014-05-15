@@ -19,7 +19,7 @@ enum jsonType { JSON_NULL, JSON_OBJECT, JSON_ARRAY, JSON_STRING, JSON_INT, JSON_
 
 class jsonValue {
 public:
-    jsonValue(jsonType otype, string oname, string ovalue = string()): parent(0), next(0), first(0), last(0), type(otype), name(oname), value(ovalue) {}
+    jsonValue(jsonType otype, string oname = string(), string ovalue = string()): parent(0), next(0), first(0), last(0), type(otype), name(oname), value(ovalue) {}
     jsonValue *parent;
     jsonValue *next;
     jsonValue *first;
@@ -128,7 +128,9 @@ vector<string> vGeoHashRow(string center, int steps);
 
 // Parse JSON text into object
 jsonValue *jsonParse(const char *source, int size = -1, string *errmsg = NULL);
+bool jsonAppend(jsonValue *root, jsonValue *val);
 bool jsonDel(jsonValue *root, string name);
+bool jsonSet(jsonValue *root, jsonValue *val);
 bool jsonSet(jsonValue *root, jsonType type, string name, string val = string());
 jsonValue *jsonGet(jsonValue *obj, string name);
 string jsonGetStr(jsonValue *root, string name);

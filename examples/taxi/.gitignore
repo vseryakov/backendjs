@@ -1,0 +1,12 @@
+*~
+.*
+bin/
+docs/
+deps/
+var/
+files/
+images/
+tmp/
+log/
+node_modules/
+

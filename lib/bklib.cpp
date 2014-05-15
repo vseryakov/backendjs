@@ -674,16 +674,6 @@ void vSetLogging(const char *level)
     VLog::set(level);
 }
 
-static void jsonAppend(jsonValue *lhs, jsonValue *rhs)
-{
-    rhs->parent = lhs;
-    if (lhs->last) {
-        lhs->last = lhs->last->next = rhs;
-    } else {
-        lhs->first = lhs->last = rhs;
-    }
-}
-
 static const char *hatoui(const char *first, const char *last, unsigned int *out)
 {
     unsigned int result = 0;
@@ -1041,6 +1031,18 @@ string jsonStringify(jsonValue *value, string rc)
     return rc;
 }
 
+bool jsonAppend(jsonValue *root, jsonValue *val)
+{
+    if (!root || !val) return false;
+    val->parent = root;
+    if (root->last) {
+        root->last = root->last->next = val;
+    } else {
+        root->first = root->last = val;
+    }
+    return true;
+}
+
 bool jsonDel(jsonValue *root, string name)
 {
     if (!root) return false;
@@ -1060,13 +1062,22 @@ bool jsonDel(jsonValue *root, string name)
     return false;
 }
 
-bool jsonSet(jsonValue *root, jsonType type, string name, string val)
+bool jsonSet(jsonValue *root, jsonValue *val)
 {
-    if (!root) return false;
+    if (!root || !val) return false;
     if (root->type != JSON_OBJECT && root->type != JSON_ARRAY) return false;
 
+    jsonAppend(root, val);
+    return true;
+}
+
+bool jsonSet(jsonValue *root, jsonType type, string name, string val)
+{
     jsonValue *v = new jsonValue(type, name, val);
-    jsonAppend(root, v);
+    if (!jsonSet(root, v)) {
+        jsonFree(v);
+        return false;
+    }
     return true;
 }
 

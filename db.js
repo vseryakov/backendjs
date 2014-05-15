@@ -3570,6 +3570,7 @@ db.nndbInitPool = function(options)
 
         switch (req.op) {
         case "get":
+        case "select":
             if (this.sock.type != backend.NN_REQ) return callback(null, []);
 
             obj.id = this.socknum++;
