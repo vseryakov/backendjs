@@ -79,7 +79,7 @@ bool strContains(const vector<string> &list, const string key);
 string toString(const vector<string> &list, const string delim = " ");
 string toString(vector<string> *list, const string delim = " ");
 bool strEqual(const string &a, const string &b);
-
+bool strNumeric(string str);
 bool strRegexp(const char *pattern, const char *str, bool nocase = true);
 
 // sprintf like
@@ -129,6 +129,7 @@ vector<string> vGeoHashRow(string center, int steps);
 // Parse JSON text into object
 jsonValue *jsonParse(const char *source, int size = -1, string *errmsg = NULL);
 bool jsonAppend(jsonValue *root, jsonValue *val);
+int jsonLength(jsonValue *root);
 bool jsonDel(jsonValue *root, string name);
 bool jsonSet(jsonValue *root, jsonValue *val);
 bool jsonSet(jsonValue *root, jsonType type, string name, string val = string());

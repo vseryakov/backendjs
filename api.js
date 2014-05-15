@@ -464,10 +464,28 @@ api.handleServerRequest = function(req, res)
     d.run(function() { self.app(req, res); });
 }
 
-// Wrap socket.io connection into the Express routing
-api.handleSocketConnect = function(sock)
+// Wrap socket.io connection into the Express routing, respond on backend command
+api.handleSocketConnect = function(socket)
 {
+    var self = this;
 
+    socket.on("disconnect", function() {
+
+    });
+    socket.on("message", function(msg, callback) {
+        console.log(msg, socket)
+        var req = { __proto__: express.request, app: self.app };
+        var res = { __proto__: express.response, app: self.app };
+        req.next = function() { callback() }
+        req.res = res;
+        req.socket = socket;
+        req._body = true;
+        req.method = "GET";
+        try { req.query = JSON.parse(msg); } catch(e) { req.query = {} }
+        res.req = req;
+        res.socket = socket;
+        self.handleServerRequest(req, res);
+    });
 }
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server

@@ -107,6 +107,132 @@ public:
 
 class LMDB_DB: public ObjectWrap {
 public:
+    LMDB_DB(MDB_env *e, string n, int f) : ObjectWrap(), name(n), flags(f), env(e), db(0), txn(0), cursor(0), open(0) {}
+    ~LMDB_DB() { Close(); }
+
+    void Close() {
+        mdb_txn_abort(txn);
+        mdb_cursor_close(cursor);
+        if (open) mdb_dbi_close(env, db);
+        open = 0;
+    }
+    int Open() {
+        int rc = mdb_txn_begin(env, NULL, 0, &txn);
+        if (!rc) rc = mdb_dbi_open(txn, name.size() ? name.c_str() : NULL, flags, &db);
+        if (!rc) rc = mdb_txn_commit(txn);
+        if (!rc) open = 1;
+        txn = NULL;
+        return rc;
+    }
+    int Drop() {
+        if (!open) return EINVAL;
+        int rc = mdb_txn_begin(env, NULL, 0, &txn);
+        if (!rc) mdb_drop(txn, db, 0);
+        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
+        txn = NULL;
+        return rc;
+    }
+    int Get(const char *key, size_t klen, string *data) {
+        if (!open || !klen) return EINVAL;
+        MDB_val k, v;
+        k.mv_size = klen;
+        k.mv_data = (void*)key;
+        int rc = mdb_txn_begin(env, NULL, 0, &txn);
+        if (!rc) rc = mdb_get(txn, db, &k, &v);
+        if (!rc) data->assign((const char*)v.mv_data, v.mv_size);
+        if (rc == MDB_NOTFOUND) rc = 0;
+        mdb_txn_abort(txn);
+        txn = NULL;
+        return rc;
+    }
+    int Put(const char *key, size_t klen, const char *data, size_t dlen, int flags) {
+        if (!open || !klen) return EINVAL;
+        MDB_val k, v;
+        k.mv_size = klen;
+        k.mv_data = (void*)key;
+        v.mv_size = dlen;
+        v.mv_data = (void*)data;
+        int rc = mdb_txn_begin(env, NULL, 0, &txn);
+        if (!rc) rc = mdb_put(txn, db, &k, &v, flags);
+        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
+        txn = NULL;
+        return rc;
+    }
+    int Incr(const char *key, size_t klen, int64_t *num, int flags) {
+        if (!open || !klen) return EINVAL;
+        MDB_val k, v;
+        char n[32] = "";
+        k.mv_size = klen;
+        k.mv_data = (void*)key;
+        int rc = mdb_txn_begin(env, NULL, 0, &txn);
+        if (!rc) rc = mdb_get(txn, db, &k, &v);
+        if (rc == MDB_NOTFOUND) {
+            rc = 0;
+        } else {
+            snprintf(n, sizeof(n), "%.*s", (int)v.mv_size, (char*)v.mv_data);
+        }
+        if (!rc) {
+            snprintf(n, sizeof(n), "%lld", atoll(n) + *num);
+            v.mv_size = strlen(n);
+            v.mv_data = (void*)n;
+            rc = mdb_put(txn, db, &k, &v, flags);
+        }
+        if (!rc) *num = atoll(n);
+        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
+        txn = NULL;
+        return rc;
+    }
+    int Del(const char *key, size_t klen, const char *data, size_t dlen) {
+        if (!open || !klen) return EINVAL;
+        MDB_val k, v;
+        k.mv_size = klen;
+        k.mv_data = (void*)key;
+        v.mv_size = dlen;
+        v.mv_data = (void*)data;
+        int rc = mdb_txn_begin(env, NULL, 0, &txn);
+        if (!rc) rc = mdb_del(txn, db, &k, dlen ? &v : NULL);
+        if (rc == MDB_NOTFOUND) rc = 0;
+        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
+        txn = NULL;
+        return rc;
+    }
+    int OpenCursor() {
+        int rc = mdb_txn_begin(env, NULL, 0, &txn);
+        if (!rc) rc = mdb_cursor_open(txn, db, &cursor);
+        if (rc) mdb_txn_abort(txn), txn = NULL;
+        return rc;
+    }
+    void CloseCursor() {
+        mdb_cursor_close(cursor);
+        mdb_txn_commit(txn);
+        txn = NULL;
+        cursor = NULL;
+    }
+    int GetAll(const char *start, size_t slen, const char *end, size_t elen, vector<pair<string,string> >*list) {
+        MDB_val k, v, e;
+        k.mv_size = slen;
+        k.mv_data = (void*)start;
+        e.mv_size = elen;
+        e.mv_data = (void*)end;
+        int rc = OpenCursor();
+        rc = mdb_cursor_get(cursor, &k, &v, MDB_SET_RANGE);
+        while (rc == 0) {
+            if (elen && mdb_cmp(txn, db, &k, &e) > 0) break;
+            list->push_back(pair<string,string>(string((const char*)k.mv_data, k.mv_size), string((const char*)v.mv_data, v.mv_size)));
+            rc = mdb_cursor_get(cursor, &k, &v, MDB_NEXT);
+        }
+        CloseCursor();
+        return rc;
+    }
+
+    string name;
+    int flags;
+    MDB_env *env;
+    MDB_dbi db;
+    MDB_txn *txn;
+    MDB_cursor *cursor;
+    bool open;
+    NNServer server;
 
     class Baton {
     public:
@@ -442,133 +568,6 @@ public:
          db->server.Stop();
          return scope.Close(Undefined());
      }
-
-    LMDB_DB(MDB_env *e, string n, int f) : ObjectWrap(), name(n), flags(f), env(e), db(0), txn(0), cursor(0), open(0) {}
-    ~LMDB_DB() { Close(); }
-
-    void Close() {
-        mdb_txn_abort(txn);
-        mdb_cursor_close(cursor);
-        if (open) mdb_dbi_close(env, db);
-        open = 0;
-    }
-    int Open() {
-        int rc = mdb_txn_begin(env, NULL, 0, &txn);
-        if (!rc) rc = mdb_dbi_open(txn, name.size() ? name.c_str() : NULL, flags, &db);
-        if (!rc) rc = mdb_txn_commit(txn);
-        if (!rc) open = 1;
-        txn = NULL;
-        return rc;
-    }
-    int Drop() {
-        if (!open) return EINVAL;
-        int rc = mdb_txn_begin(env, NULL, 0, &txn);
-        if (!rc) mdb_drop(txn, db, 0);
-        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
-        txn = NULL;
-        return rc;
-    }
-    int Get(const char *key, size_t klen, string *data) {
-        if (!open || !klen) return EINVAL;
-        MDB_val k, v;
-        k.mv_size = klen;
-        k.mv_data = (void*)key;
-        int rc = mdb_txn_begin(env, NULL, 0, &txn);
-        if (!rc) rc = mdb_get(txn, db, &k, &v);
-        if (!rc) data->assign((const char*)v.mv_data, v.mv_size);
-        if (rc == MDB_NOTFOUND) rc = 0;
-        mdb_txn_abort(txn);
-        txn = NULL;
-        return rc;
-    }
-    int Put(const char *key, size_t klen, const char *data, size_t dlen, int flags) {
-        if (!open || !klen) return EINVAL;
-        MDB_val k, v;
-        k.mv_size = klen;
-        k.mv_data = (void*)key;
-        v.mv_size = dlen;
-        v.mv_data = (void*)data;
-        int rc = mdb_txn_begin(env, NULL, 0, &txn);
-        if (!rc) rc = mdb_put(txn, db, &k, &v, flags);
-        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
-        txn = NULL;
-        return rc;
-    }
-    int Incr(const char *key, size_t klen, int64_t *num, int flags) {
-        if (!open || !klen) return EINVAL;
-        MDB_val k, v;
-        char n[32] = "";
-        k.mv_size = klen;
-        k.mv_data = (void*)key;
-        int rc = mdb_txn_begin(env, NULL, 0, &txn);
-        if (!rc) rc = mdb_get(txn, db, &k, &v);
-        if (rc == MDB_NOTFOUND) {
-            rc = 0;
-        } else {
-            snprintf(n, sizeof(n), "%.*s", (int)v.mv_size, (char*)v.mv_data);
-        }
-        if (!rc) {
-            snprintf(n, sizeof(n), "%lld", atoll(n) + *num);
-            v.mv_size = strlen(n);
-            v.mv_data = (void*)n;
-            rc = mdb_put(txn, db, &k, &v, flags);
-        }
-        if (!rc) *num = atoll(n);
-        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
-        txn = NULL;
-        return rc;
-    }
-    int Del(const char *key, size_t klen, const char *data, size_t dlen) {
-        if (!open || !klen) return EINVAL;
-        MDB_val k, v;
-        k.mv_size = klen;
-        k.mv_data = (void*)key;
-        v.mv_size = dlen;
-        v.mv_data = (void*)data;
-        int rc = mdb_txn_begin(env, NULL, 0, &txn);
-        if (!rc) rc = mdb_del(txn, db, &k, dlen ? &v : NULL);
-        if (rc == MDB_NOTFOUND) rc = 0;
-        if (!rc) rc = mdb_txn_commit(txn); else mdb_txn_abort(txn);
-        txn = NULL;
-        return rc;
-    }
-    int OpenCursor() {
-        int rc = mdb_txn_begin(env, NULL, 0, &txn);
-        if (!rc) rc = mdb_cursor_open(txn, db, &cursor);
-        if (rc) mdb_txn_abort(txn), txn = NULL;
-        return rc;
-    }
-    void CloseCursor() {
-        mdb_cursor_close(cursor);
-        mdb_txn_commit(txn);
-        txn = NULL;
-        cursor = NULL;
-    }
-    int GetAll(const char *start, size_t slen, const char *end, size_t elen, vector<pair<string,string> >*list) {
-        MDB_val k, v, e;
-        k.mv_size = slen;
-        k.mv_data = (void*)start;
-        e.mv_size = elen;
-        e.mv_data = (void*)end;
-        int rc = OpenCursor();
-        rc = mdb_cursor_get(cursor, &k, &v, MDB_SET_RANGE);
-        while (rc == 0) {
-            if (elen && mdb_cmp(txn, db, &k, &e) > 0) break;
-            list->push_back(pair<string,string>(string((const char*)k.mv_data, k.mv_size), string((const char*)v.mv_data, v.mv_size)));
-            rc = mdb_cursor_get(cursor, &k, &v, MDB_NEXT);
-        }
-        CloseCursor();
-        return rc;
-    }
-
-    string name;
-    int flags;
-    MDB_env *env;
-    MDB_dbi db;
-    MDB_txn *txn;
-    MDB_cursor *cursor;
-    bool open;
-    NNServer server;
 };
 
 Persistent<FunctionTemplate> LMDB_DB::constructor_template;

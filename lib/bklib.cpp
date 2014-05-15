@@ -563,6 +563,13 @@ vector<string> vShuffleList(const vector<string> list)
     return rc;
 }
 
+bool strNumeric(string str)
+{
+    bool rc = 1;
+    for (uint i = 0; rc && i < str.size(); i++) if (!isdigit(str[i]) && str[i] != '.' && str[i] != '-') rc = 0;
+    return rc;
+}
+
 // Returns new string
 string strReplace(const string value, const string search, const string replace)
 {
@@ -1004,7 +1011,9 @@ string jsonStringify(jsonValue *value, string rc)
     if (!value) return rc;
 
     if (value->name.size()) {
-        rc += "\"" + value->name + "\":";
+        if (!(value->parent && value->parent->type == JSON_ARRAY && strNumeric(value->name))) {
+            rc += "\"" + value->name + "\":";
+        }
     }
     switch(value->type) {
     case JSON_NULL:
@@ -1040,13 +1049,25 @@ bool jsonAppend(jsonValue *root, jsonValue *val)
     } else {
         root->first = root->last = val;
     }
+    // Assign an index
+    if (root->type == JSON_ARRAY && !val->name.size()) {
+        val->name = vFmtStr("%d", jsonLength(root) - 1);
+    }
     return true;
+}
+
+int jsonLength(jsonValue *root)
+{
+    int n = 0;
+    for (jsonValue *it = root ? root->first : NULL; it; it = it->next, n++);
+    return n;
 }
 
 bool jsonDel(jsonValue *root, string name)
 {
     if (!root) return false;
     if (root->type != JSON_OBJECT && root->type != JSON_ARRAY) return false;
+
     for (jsonValue *it = root->first, *prev = 0; it; prev = it, it = it->next) {
         if (it->name == name) {
             if (it == root->first) {
@@ -1067,7 +1088,13 @@ bool jsonSet(jsonValue *root, jsonValue *val)
     if (!root || !val) return false;
     if (root->type != JSON_OBJECT && root->type != JSON_ARRAY) return false;
 
-    jsonAppend(root, val);
+    jsonValue *old = jsonGet(root, val->name);
+    if (!old) {
+        jsonAppend(root, val);
+    } else {
+        old->value = val->value;
+        jsonFree(val);
+    }
     return true;
 }
 

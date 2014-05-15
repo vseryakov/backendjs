@@ -3399,7 +3399,7 @@ db.cassandraCacheColumns = function(options, callback)
 // Options are passed to the LMDB low level driver as MDB_ flags according to http://symas.com/mdb/doc/ and
 // as properties for LevelDB as described in http://leveldb.googlecode.com/svn/trunk/doc/index.html
 //
-//The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()
+// The LevelDB database can only be shared by one process so if no unique options.db is given, it will create a unique database using core.processId()
 // - `select and search` actions support options.end property which defines the end condition for a range retrieval starting
 //   with obj.name property. If not end is given, all records till the end will be returned.
 // - `server` action starts internal server for LevelDB or LMDB databases, it creates nanomsg socket and listens for requests,
