@@ -1,20 +1,20 @@
-1. Tested on Mac only
+# Taxi tracker example
 
-2. To install 
+1. To install 
 
 	run npm install
 
-3. Create a user
+2. Create a user
 
 	bkjs add-user test test -home .
 
-4. Run the app
+3. Run the app
 
 	./app.sh
 
-5. Point browser to http://localhost:8000
+4. Point browser to http://localhost:8000
 
-6. Login as test:test
+5. Login as test:test
 
-7. The screen will be refreshed periodically
+6. The screen will be refreshed periodically
 
