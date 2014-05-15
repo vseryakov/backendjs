@@ -19,9 +19,9 @@ Features:
 * nanomsg interface for messaging between processes and servers.
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
-* Hosted on http://backendjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
+* Hosted on [github](https://github.com/vseryakov/backendjs), http://backendjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
 
-Check out the [Documentation](http://backendjs.io) for more documentation.
+Check out the [Documentation](http://backendjs.io) for more details.
 
 # Requirements and dependencies
 
@@ -1589,5 +1589,5 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 # Author
   Vlad Seryakov
 
-Check out the [Documentation](http://backendjs.io) for more documentation.
+Check out the [Documentation](http://backendjs.io) for more details.
 
