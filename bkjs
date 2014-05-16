@@ -56,6 +56,19 @@ case "$PLATFORM" in
     ;;
 esac
 
+# Command line overrides
+while [ $# -gt 1 ]; do
+    case "$1" in
+     -root) BACKEND_ROOT=$2;shift;shift;;
+     -prefix) BACKEND_PREFIX=$2;shift;shift;;
+     -user) BACKEND_USER=$2;shift;shift;;
+     -hostname) BACKEND_NAME=$2;shift;shift;;
+     -host) BACKEND_MASTER=$2;shift;shift;;
+     -node) NODE_PATH=$2;shift;shift;;
+     *) break;;
+    esac
+done
+
 # Set paths after we know OS type and possible custom settings
 [ "$BACKEND_PREFIX" = "" ] && BACKEND_PREFIX=/usr/local
 [ "$BACKEND_DOMAIN" = "" ] && BACKEND_DOMAIN=localhost
@@ -118,41 +131,12 @@ case "$ARG" in
     ;;
 
   setup-server)
-    # Optional config parametrrs for the environment
-    rm -rf /etc/$BKRC
-    while [ $# -gt 1 ]; do
-      case "$1" in
-      -root)
-         BACKEND_ROOT=$2
-         $ECHO "BACKEND_ROOT=$BACKEND_ROOT" >> /etc/$BKRC
-         shift;shift
-         ;;
-
-      -domain)
-         BACKEND_DOMAIN=$2
-         $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
-         shift;shift
-         ;;
-
-      -name)
-         BACKEND_NAME=$2
-         $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/$BKRC
-         shift;shift
-         ;;
-
-      -user)
-         BACKEND_USER=$2
-         $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
-         $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
-         shift;shift
-         ;;
-
-      -web)
-         $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -web\"" >> /etc/$BKRC
-         shift
-         ;;
-      esac
-    done
+    # Config parameters for the environment
+    $ECHO "BACKEND_ROOT=$BACKEND_ROOT" > /etc/$BKRC
+    $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/$BKRC
+    $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
+    $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
+    $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -web -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
 
     # System utilities
     yum -yq install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git svn man telnet jna
@@ -616,8 +600,6 @@ case "$ARG" in
     while [ $# -gt 1 ]; do
       case "$1" in
       -path) path=$2;shift;shift;;
-      -user) BACKEND_USER=$2;shift;shift;;
-      -host) BACKEND_MASTER=$2;shift;shift;;
       -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
       -delete) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
       esac
@@ -636,8 +618,7 @@ case "$ARG" in
     while [ $# -gt 1 ]; do
       case "$1" in
       -delete) args="$args --delete-after";shift;;
-      -root) BACKEND_SYNC_DIR=$2;shift;shift;;
-      -host) BACKEND_MASTER=$2;shift;shift;;
+      -sync) BACKEND_SYNC_DIR=$2;shift;shift;;
       -exclude) args="$args --exclude $2";shift;shift;;
       esac
     done
@@ -965,7 +946,7 @@ backend.server.start();
     echo "  stop - stop the backend service"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
     echo "  init-server - sync the latest software if master is configured and run the setup phase iwth setup-server command"
-    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-web] [-root ROOTDIR] [-doman DOMAIN] [-name HOSTNAME]"
+    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-user USER] [-root ROOTDIR] [-doman DOMAIN] [-hostname HOSTNAME]"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
     echo "  run-server - run the backend server process, if -init-server argument passed it will run init-server command before starting the $BKJS daemon"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
@@ -990,7 +971,7 @@ backend.server.start();
     echo "  run-mongodb - run local Mongo server installed in $BACKEND_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
     echo "  build-deps - build all required nad optional software for the backend binary module"
-    echo "  build-node - build node and install in $BACKEND_PREFIX"
+    echo "  build-node - build node and install in $BACKEND_PREFIX or in [-prefix PATH]"
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
     echo "  add-user login secret [-name S] [-email S] [-type S] [-status S] - add a new user for API access"
@@ -999,7 +980,7 @@ backend.server.start();
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  init-backend - init core backend environment, for the core development only, links NPM global backend module $NODE_BACKEND back to this sources"
     echo "  put-backend path [-host host] [-path path] [-user user] [-exclude pattern] [-delete] - push the backend code to the master server, uses env BACKEND_MASTER or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
-    echo "  sync-backend [-host host] [-path path] [-delete] [-root remote-root] - synchronize other directories from the master host, runs on the instance"
+    echo "  sync-backend [-host host] [-path path] [-delete] [-sync remote-root] - synchronize other directories from the master host, runs on the instance"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"

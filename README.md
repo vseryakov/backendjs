@@ -1546,18 +1546,17 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 * if node.js is already installed skip to the next section
 
     * node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local
-    * to install node into other location, BACKEND_PREFIX needs to be set
-    * to change $BACKEND_PREFIX, create ~/.backend/etc/profile file, for example:
-
-        mkdir -p ~/.backend/etc
-        echo "BACKEND_PREFIX=$HOME/local" > ~/.backend/etc/profile
-
-    * **Important**: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-      node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile
 
     * to install node.js in $BACKEND_PREFIX/bin run command:
 
             ./bkjs build-node
+
+    * to specify a different install path for the node run
+
+            ./bksj build-node -prefix $HOME
+
+    * **Important**: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+      node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile
 
 * to compile the binary module and all required dependencies just type `make` or `npm build .`
 

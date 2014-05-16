@@ -298,7 +298,7 @@ api.init = function(callback)
                        (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
                        req.method + " " +
                        (req.originalUrl || req.url) + " " +
-                       "HTTP/" + req.httpVersionMajor + '.' + req.httpVersionMinor + " " +
+                       "HTTP/" + req.httpVersion + " " +
                        res.statusCode + " " +
                        (res.get("Content-Length") || '-') + " - " +
                        (now - req._startTime) + " ms - " +
@@ -409,6 +409,13 @@ api.init = function(callback)
             // Setup sockets.io server, pass messages into the Express routing by wrapping into req/res objects
             if (self.ioserver) {
                 self.ioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
+
+                // Expose socket.io.js client
+                module.children.forEach(function(x) {
+                    if (x.id.match(/node_modules\/socket.io\/index.js/)) {
+                        self.app.use(serveStatic(path.dirname(x.id) + "/node_modules/socket.io-client/dist"));
+                    }
+                });
             }
 
             // Notify the master about new worker server
@@ -469,21 +476,37 @@ api.handleSocketConnect = function(socket)
 {
     var self = this;
 
+    logger.log('socket.io:', 'connected', socket.handshake);
+
     socket.on("disconnect", function() {
 
     });
-    socket.on("message", function(msg, callback) {
-        console.log(msg, socket)
-        var req = { __proto__: express.request, app: self.app };
-        var res = { __proto__: express.response, app: self.app };
-        req.next = function() { callback() }
-        req.res = res;
-        req.socket = socket;
-        req._body = true;
-        req.method = "GET";
-        try { req.query = JSON.parse(msg); } catch(e) { req.query = {} }
-        res.req = req;
-        res.socket = socket;
+    socket.on("message", function(url, callback) {
+        logger.debug('socket.io:', 'message', url, socket.handshake)
+        var req = { __proto__: express.request,
+                    app: self.app,
+                    res: res,
+                    socket: socket,
+                    connection: socket,
+                    _body: true,
+                    httpVersion: "1.0",
+                    method: "GET",
+                    headers: socket.handshake.headers || {},
+                    url: url,
+                    next: function() { callback() },
+        };
+        var res = { __proto__: express.response,
+                    app: self.app,
+                    req: req,
+                    socket: socket,
+                    output: [],
+                    end: function(body) {
+                        this._headerSent = true;
+                        this.socket.emit("message", body);
+                        this.socket = null;
+                    }
+        };
+
         self.handleServerRequest(req, res);
     });
 }
@@ -1484,7 +1507,7 @@ api.sendStatus = function(res, options)
             }
         }
     } catch(e) {
-        logger.error('sendStatus:', e);
+        logger.error('sendStatus:', e.stack);
     }
     return false;
 }
