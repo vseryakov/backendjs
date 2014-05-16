@@ -3,6 +3,7 @@
 //  Sep 2013
 //
 
+var net = require('net');
 var path = require('path');
 var stream = require('stream');
 var util = require('util');
@@ -49,10 +50,10 @@ var api = {
     // Only for admins
     allowAdmin: [],
     // Allow only HTTPS requests
-    alowSsl: null,
+    alowSsl: [],
 
     // Refuse access to these urls
-    deny: null,
+    deny: [],
 
     // Where images/file are kept
     imagesUrl: '',
@@ -203,12 +204,12 @@ var api = {
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints" },
-           { name: "allow", array: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
+           { name: "allow", array: 1, set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "disallow-path", type: "callback", value: function(v) {this.allow.splice(this.allow.indexOf(v),1)}, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
            { name: "allow-ssl", array: 1, descr: "Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
-           { name: "deny", type: "regexp", descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
+           { name: "deny", array: 1, set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
            { name: "deny-path", array: 1, key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 500, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
@@ -297,7 +298,7 @@ api.init = function(callback)
             var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
                        (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
                        req.method + " " +
-                       (req.originalUrl || req.url) + " " +
+                       (req.logUrl || req.originalUrl || req.url) + " " +
                        (req.httpProtocol || "HTTP") + "/" + req.httpVersion + " " +
                        res.statusCode + " " +
                        (res.get("Content-Length") || '-') + " - " +
@@ -468,8 +469,6 @@ api.handleServerRequest = function(req, res)
     });
     d.add(req);
     d.add(res);
-    req.on("close", function() { console.log("REQ CLOSE") })
-    res.on("close", function() { console.log("RES CLOSE") })
     d.run(function() { self.app(req, res); });
 }
 
@@ -480,35 +479,36 @@ api.handleSocketConnect = function(socket)
 
     logger.dev('socket.io:', 'connected', socket.handshake);
 
+    this.checkSocketConnection(socket);
+
+    socket.on("error", function(err) {
+        logger.error("socket.io:", err);
+    });
     socket.on("disconnect", function() {
     });
+
     socket.on("message", function(url, callback) {
         logger.debug("socket.io:", "msg", url);
 
-        var res = { __proto__: express.response,
-                    output: [],
-                    socket: { destroy: function() {} },
-                    setTimeout: function() {},
-                    end: function(body) {
-                        socket.emit("message", body);
-                    }
-        };
-        var req = { __proto__: express.request,
-                    res: res,
-                    socket: { readable: false, destroy: function() {}, read: function() {} },
-                    connection: { remoteAddress: socket.remoteAddress },
-                    _body: true,
-                    readable: false,
-                    httpProtocol: "IO",
-                    httpVersion: "1.0",
-                    method: "GET",
-                    headers: socket.handshake.headers || {},
-                    url: url,
-                    setTimeout: function() {},
-        };
+        var req = new http.IncomingMessage();
+        req.socket = new net.Socket();
+        req.socket.ip = socket.remoteAddress;
+        req.socket.__defineGetter__('remoteAddress', function() { return this.ip; });
+        req.connection = req.socket;
+        req._body = true;
+        req.httpVersionMajor = 1;
+        req.httpVersionMinor = 0;
+        req.httpProtocol = "IO";
+        req.httpVersion = "1.0";
+        req.method = "GET";
+        req.headers = socket.handshake.headers || {};
+        req.url = url;
+        req.logUrl = url.split("?")[0];
 
-        req.on("close", function() { console.log("REQ CLOSE") })
-        res.on("close", function() { console.log("RES CLOSE") })
+        var res = new http.ServerResponse(req);
+        res.assignSocket(req.socket);
+        res.end = function(body) { socket.emit("message", body); }
+
         self.handleServerRequest(req, res);
     });
 }
@@ -527,6 +527,9 @@ api.initMasterServer = function() {}
 // This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
 // interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.
 api.initWebServer = function() {}
+
+// Called on new socket.io connection, passed the socket connected as first argument
+api.checkSocketConnection = function(socket) {}
 
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)

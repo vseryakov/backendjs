@@ -405,7 +405,7 @@ core.processArgs = function(name, ctx, argv, pass)
     if (!ctx || !Array.isArray(ctx.args) || !Array.isArray(argv) || !argv.length) return;
     function put(obj, key, val, x) {
         if (x.array) {
-            if (!Array.isArray(obj[key])) obj[key] = [];
+            if (!Array.isArray(obj[key]) || x.set) obj[key] = [];
             if (Array.isArray(val)) {
                 val.forEach(function(x) { obj[key].push(x); });
             } else {
