@@ -1489,18 +1489,17 @@ this is the only way to ensure the body is not modified when not using query par
 </li>
 <li><p>if node.js is already installed skip to the next section</p>
 <ul>
-<li>node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local</li>
-<li>to install node into other location, BACKEND_PREFIX needs to be set</li>
-<li><p>to change $BACKEND_PREFIX, create ~/.backend/etc/profile file, for example:</p>
-<p>  mkdir -p ~/.backend/etc
-  echo &quot;BACKEND_PREFIX=$HOME/local&quot; &gt; ~/.backend/etc/profile</p>
-</li>
-<li><p><strong>Important</strong>: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile</p>
+<li><p>node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local</p>
 </li>
 <li><p>to install node.js in $BACKEND_PREFIX/bin run command:</p>
 <pre><code>  ./bkjs build-node
 </code></pre></li>
+<li><p>to specify a different install path for the node run</p>
+<pre><code>  ./bksj build-node -prefix $HOME
+</code></pre></li>
+<li><p><strong>Important</strong>: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile</p>
+</li>
 </ul>
 </li>
 <li><p>to compile the binary module and all required dependencies just type <code>make</code> or <code>npm build .</code></p>
@@ -1825,8 +1824,8 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 </ul>
 
 <ul>
-<li><p><code>api.handleSocketConnect(sock)</code></p>
-<p> Wrap socket.io connection into the Express routing</p>
+<li><p><code>api.handleSocketConnect(socket)</code></p>
+<p> Wrap socket.io connection into the Express routing, respond on backend command</p>
 </li>
 </ul>
 
@@ -4433,9 +4432,7 @@ table parameter is ignored, the object only supports the properties name and val
 <p>Because this driver supports 2 databases it requires type to be specified, possible values are: <code>lmdb, leveldb</code></p>
 <p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
 as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
-</li>
-</ul>
-<p>The database can only be shared by one process so if no unique options.db is given, it will create a unique database as using core.processId()</p>
+<p>The LevelDB database can only be shared by one process so if no unique options.db is given, it will create a unique database using core.processId()</p>
 <ul>
 <li><code>select and search</code> actions support options.end property which defines the end condition for a range retrieval starting
 with obj.name property. If not end is given, all records till the end will be returned.</li>
@@ -4446,6 +4443,8 @@ uv workers in the future to perform updates in multiple threads at the same time
 options to the server command can contain:<ul>
 <li>bind - socket bind address, if no ipc:// socket will be used</li>
 <li>socket - NN_PULL or NN_REP, default is NN_PULL</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
