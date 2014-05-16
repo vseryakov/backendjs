@@ -1476,6 +1476,8 @@ node.js is already installed:
 
 After that the backend will be started by the system on the next reboot or force the start by `sudo service backendjs start`
 
+Note: To install all system packages required for the backend `sudo bkjs init-packages`
+
 ## AWS Beanstalk deployment
 
 As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.

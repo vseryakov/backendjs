@@ -45,7 +45,8 @@
 <li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a><ul>
 <li><a href="#custom-aws-instance-setup"> Custom AWS instance setup</a></li>
-<li><a href="#existing-aws-instance"> Existing AWS instance</a></li>
+<li><a href="#custom-aws-instance-with-existing-user"> Custom AWS instance with existing user</a></li>
+<li><a href="#existing-aws-instance-minimal-install"> Existing AWS instance, minimal install</a></li>
 <li><a href="#aws-beanstalk-deployment"> AWS Beanstalk deployment</a></li>
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 </ul>
@@ -1379,13 +1380,16 @@ new image configuration.</p>
 <ul>
 <li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
 <li>login as <code>ec2-user</code></li>
-<li>get bkjs: `curl -OL <a href="https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs">https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs</a>&#39;</li>
-<li>run <code>sudo ./bkjs setup-server -root /home/backend -web</code></li>
-<li>global system-wide options will be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</li>
+<li><p>install commands</p>
+<pre><code>  curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs &amp;&amp; chmod 755 /tmp/bkjs
+  sudo /tmp/bkjs setup-server -root /home/backend
+</code></pre></li>
+<li><p>NOTE: global system-wide options will be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</p>
+</li>
 <li>reboot</li>
-<li>login as <code>backend</code> user using the AWS keypair private key</li>
+<li>login as <code>backend</code> user using the same AWS keypair private key</li>
 <li><p>install the backendjs and node:</p>
-<pre><code>  ./bkjs build-node
+<pre><code>  /tmp/bkjs build-node
   npm install backendjs --backend_nanomsg --backend_imagemagick
 </code></pre></li>
 <li><p>reboot and login into the server</p>
@@ -1393,12 +1397,29 @@ new image configuration.</p>
 <li>run <code>ps agx</code>, it should show several backend processes running</li>
 <li>try to access the instance via HTTP port for the API console or documentation</li>
 </ul>
-<h2 id="existing-aws-instance">Existing AWS instance</h2>
+<h2 id="custom-aws-instance-with-existing-user">Custom AWS instance with existing user</h2>
+<p>Run the backendjs on the AWS instance as user ec2-user with the backend in the user home</p>
+<ul>
+<li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
+<li>login as <code>ec2-user</code></li>
+<li><p>install commands</p>
+<pre><code>  curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs &amp;&amp; chmod 755 /tmp/bkjs
+  sudo /tmp/bkjs setup-server -root $HOME -user $(whoami) -prefix $HOME
+  /tmp/bkjs build-node -prefix $HOME
+  npm install backendjs --backend_nanomsg --backend_imagemagick
+  sudo bkjs restart
+</code></pre></li>
+<li><p>run <code>ps agx</code>, it should show several backend processes running</p>
+</li>
+<li>try to access the instance via HTTP port for the API console or documentation</li>
+</ul>
+<h2 id="existing-aws-instance-minimal-install">Existing AWS instance, minimal install</h2>
 <p>In case of existing properly setup AWS instance running Linux with Amazon AMI or CentOS, and only needed to start the backendjs as a service, assuming
-node.js is already installed, if not just run <code>./bkjs build-node</code> before the command below:</p>
-<pre><code>    npm install backendjs
+node.js is already installed:</p>
+<pre><code>    sudo npm install backendjs -g
     sudo bkjs init-service
-</code></pre><p>After that the backend will be started by the systen on the next reboot or force the start by <code>sudo service backendjs start</code></p>
+</code></pre><p>After that the backend will be started by the system on the next reboot or force the start by <code>sudo service backendjs start</code></p>
+<p>Note: To install all system packages required for the backend <code>sudo bkjs init-packages</code></p>
 <h2 id="aws-beanstalk-deployment">AWS Beanstalk deployment</h2>
 <p>As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
 Inside the app package etc/config file can be setup for any external connections.</p>

@@ -56,7 +56,12 @@ case "$PLATFORM" in
     ;;
 esac
 
-# Command line overrides
+# If started without parameters use script name as a parameter
+NAME=$(echo $0 | awk -F/ '{print $NF}')
+ARG=$NAME
+[ "$NAME" = "$BK" ] && ARG=$1 && shift
+
+# Global options
 while [ $# -gt 1 ]; do
     case "$1" in
      -root) BACKEND_ROOT=$2;shift;shift;;
@@ -87,11 +92,6 @@ done
 
 export PATH=$BACKEND_ROOT/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
-
-# If started without parameters use script name as a parameter
-NAME=$(echo $0 | awk -F/ '{print $NF}')
-ARG=$NAME
-[ "$NAME" = "$BK" ] && ARG=$1 && shift
 
 case "$ARG" in
   start)
@@ -713,7 +713,7 @@ case "$ARG" in
        mkdir -p deps
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
     fi
-    (cd deps/node && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX)
+    (cd deps/node && [ ! -f out/Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX)
     (cd deps/node && git pull && make install clean)
     npm config set nodedir "$(pwd)/deps/node"
     ;;
