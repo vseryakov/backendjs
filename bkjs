@@ -134,13 +134,16 @@ case "$ARG" in
     # Config parameters for the environment
     $ECHO "BACKEND_ROOT=$BACKEND_ROOT" > /etc/$BKRC
     $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/$BKRC
+    $ECHO "BACKEND_PREFIX=$BACKEND_PREFIX" >> /etc/$BKRC
     $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
     $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
     $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -web -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
+    mkdir -p $BACKEND_ROOT/etc
+    $ECHO "port=80" > $BACKEND_ROOT/etc/config
+    chown -R $BACKEND_USER $BACKEND_ROOT
 
-    # System utilities
-    yum -yq install ntp rsync dnsmasq poppler-utils wget socat postfix unzip lynx mc gdb nano git svn man telnet jna
-    yum -yq remove sendmail
+    # Install required packages and utilities
+    ($0 init-packages)
 
     # Set hostname with unique EC2 instance if not set explicitly
     [ "$BACKEND_NAME" = "" ] && BACKEND_NAME=$(echo "api-$(wget -q -t1 -T1 -O - http://169.254.169.254/latest/meta-data/instance-id)"|sed 's/-$//g')
@@ -344,10 +347,18 @@ case "$ARG" in
        ln -sf $BACKEND_PREFIX/bin/bkjs /etc/cron.hourly/check-idle
     fi
 
-    # Install required packages and utilities
-    yum -yq install gcc-c++ make cmake autoconf automake libtool
-    yum -yq install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel
-    yum -yq install libpng-devel libjpeg-turbo-devel
+    ;;
+
+  init-service)
+    ln -sf $BACKEND_PREFIX/bin/$BK /etc/init.d/$BKJS
+    chkconfig $BKJS on
+    ;;
+
+  init-packages)
+    yum -yq install ntp rsync dnsmasq wget socat postfix unzip mc nano man telnet
+    yum -yq remove sendmail
+    yum -yq install git svn gdb gcc-c++ make cmake autoconf automake libtool
+    yum -yq install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel
     yum -yq install mysql-devel mysql-server
 
     # Linux distro specific actions
@@ -372,12 +383,6 @@ case "$ARG" in
       *)
          ;;
     esac
-
-    ;;
-
-  init-service)
-    ln -sf $BACKEND_PREFIX/bin/$BK /etc/init.d/$BKJS
-    chkconfig $BKJS on
     ;;
 
   check-idle)
