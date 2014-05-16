@@ -298,7 +298,7 @@ api.init = function(callback)
                        (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
                        req.method + " " +
                        (req.originalUrl || req.url) + " " +
-                       "HTTP/" + req.httpVersion + " " +
+                       (req.httpProtocol || "HTTP") + "/" + req.httpVersion + " " +
                        res.statusCode + " " +
                        (res.get("Content-Length") || '-') + " - " +
                        (now - req._startTime) + " ms - " +
@@ -468,6 +468,8 @@ api.handleServerRequest = function(req, res)
     });
     d.add(req);
     d.add(res);
+    req.on("close", function() { console.log("REQ CLOSE") })
+    res.on("close", function() { console.log("RES CLOSE") })
     d.run(function() { self.app(req, res); });
 }
 
@@ -476,37 +478,37 @@ api.handleSocketConnect = function(socket)
 {
     var self = this;
 
-    logger.log('socket.io:', 'connected', socket.handshake);
+    logger.dev('socket.io:', 'connected', socket.handshake);
 
     socket.on("disconnect", function() {
-
     });
     socket.on("message", function(url, callback) {
-        logger.debug('socket.io:', 'message', url, socket.handshake)
+        logger.debug("socket.io:", "msg", url);
+
+        var res = { __proto__: express.response,
+                    output: [],
+                    socket: { destroy: function() {} },
+                    setTimeout: function() {},
+                    end: function(body) {
+                        socket.emit("message", body);
+                    }
+        };
         var req = { __proto__: express.request,
-                    app: self.app,
                     res: res,
-                    socket: socket,
-                    connection: socket,
+                    socket: { readable: false, destroy: function() {}, read: function() {} },
+                    connection: { remoteAddress: socket.remoteAddress },
                     _body: true,
+                    readable: false,
+                    httpProtocol: "IO",
                     httpVersion: "1.0",
                     method: "GET",
                     headers: socket.handshake.headers || {},
                     url: url,
-                    next: function() { callback() },
-        };
-        var res = { __proto__: express.response,
-                    app: self.app,
-                    req: req,
-                    socket: socket,
-                    output: [],
-                    end: function(body) {
-                        this._headerSent = true;
-                        this.socket.emit("message", body);
-                        this.socket = null;
-                    }
+                    setTimeout: function() {},
         };
 
+        req.on("close", function() { console.log("REQ CLOSE") })
+        res.on("close", function() { console.log("RES CLOSE") })
         self.handleServerRequest(req, res);
     });
 }
@@ -2278,13 +2280,11 @@ api.deleteAccount = function(obj, options, callback)
     if (!obj || !obj.id || !obj.login) return callback({ status: 400, message: "id, login must be specified" });
 
     var db = core.context.db;
-    options = db.getOptions("bk_account", options);
     if (!options.keep) options.keep = {};
 
     db.get("bk_account", { id: obj.id }, options, function(err, account) {
         if (err) return callback(err);
         if (!account) return callback({ status: 404, message: "No account found" });
-
         // Merge the records to be returned to the client
         for (var p in account) if(!obj[p]) obj[p] = account[p];
 

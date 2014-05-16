@@ -150,6 +150,10 @@ var Backend = {
         $.ajax(options);
     },
 
+    // Send request with the socket.io connection, url must be url-encoded, only GET requests are supported
+    ioSend: function(socket, url) {
+        socket.emit("message", Backend.signUrl(url));
+    },
 
     // Percent encode with special symbols in addition
     encode: function(str) {

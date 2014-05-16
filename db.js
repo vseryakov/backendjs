@@ -2430,7 +2430,7 @@ db.sqlDelete = function(table, obj, options)
     var where = this.sqlWhere(table, obj, keys, options);
     if (!where) {
         // No keys or columns to update, just exit, it is not an error, return empty result
-        logger.debug('sqlUpdate:', table, 'nothing to do', obj, keys);
+        logger.debug('sqlDelete:', table, 'nothing to do', obj, keys);
         return null;
     }
     var req = { text: "DELETE FROM " + table + " WHERE " + where };

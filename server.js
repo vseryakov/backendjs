@@ -101,8 +101,7 @@ server.start = function()
 
         // REPL shell
         if (core.isArg("-shell")) {
-            core.context.api.initTables(function(err) { core.createRepl(); });
-            return;
+            self.startShell();
         }
 
         // Go to background
@@ -450,6 +449,48 @@ server.startDaemon = function()
 
     spawn(process.argv[0], argv, { stdio: [ 'ignore', log, log ], detached: true });
     process.exit(0);
+}
+
+// Start REPL shell or execute any subcommand if specified
+server.startShell = function()
+{
+    function exit(msg, code) { if (msg) console.log(msg); process.exit(code || 0); }
+
+    core.context.api.initTables(function(err) {
+        // Add a user
+        if (core.isArg("-add-user")) {
+            var query = {};
+            var cols = core.context.db.getColumns("bk_account");
+            for (var i = 1; i < process.argv.length; i++) {
+                var name = process.argv[i];
+                if ((cols[name] || name == "secret") && i + 1 < process.argv.length) query[name] = process.argv[++i];
+            }
+            if (query.login && !query.name) query.name = query.login;
+            core.context.api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err) {
+                exit(err, err ? 1 : 0);
+            });
+        } else
+
+        // Delete a user and all its history according to the options
+        if (core.isArg("-del-user")) {
+            var login = core.getArg("login");
+            if (!login) exit("login is required", 1);
+
+            var options = {}
+            for (var i = 1; i < process.argv.length; i++) {
+                var d = process.argv[i].match(/^\-keep\-(.+)$/);
+                if (d) options[d[1]] = 1;
+            }
+            core.context.db.get("bk_auth", { login: login }, function(err, row) {
+                if (err || !row) exit(err || "no user found with this login name", 1);
+                core.context.api.deleteAccount(row, options, function(err, data) {
+                    exit(err, err ? 1 : 0);
+                });
+            });
+        } else {
+            core.createRepl();
+        }
+    });
 }
 
 // Sleep and keep a worker busy

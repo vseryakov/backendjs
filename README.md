@@ -12,6 +12,7 @@ Features:
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
+* Supports socket.io connections and process them with the same Express routes as HTTP requests
 * Supports several cache modes(Redis, memcached, local cache) for the database operations.
 * Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
@@ -124,6 +125,11 @@ applications but still part of the core of the system to be available once neede
         > db.select("bk_account", {}, db.showResult);
         > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
         > db.select("bk_account", { gender: 'm' }, db.showResult);
+
+* To add users from the command line
+
+        bksh -add-user login test sectet test name TestUser email test@test.com
+
 
 # Backend runtime
 When the backendjs server starts it spawns several processes the perform different tasks.
@@ -1396,6 +1402,31 @@ will never end up in this callback because it is called after the signature chec
             }
             callback(status);
         });
+
+# socket.io connections
+
+The backend can be configured to accept socket.io connections and process requests with the same HTTP routes registered by Express server.
+
+To start listening for socket.io, the port must be set, the config paramete `io-port`, via comman dline or config file.
+
+After that on the client side socket.io.js file is available from the backend via HTTP port or /socket.io/socket.io.js via socket port.
+
+Example on the server side:
+
+        ./app.js -io-port 8001
+
+Example on the client side in the browser, connect to the http://localhost:8000 to get a html file:
+
+        <script src="/js/crypto.js"></script>
+        <script src="/js/backend.js"></scropt>
+        <script src="socket.io.js"></script>
+        <script>
+           var socket = io.connect("http://localhost:8001");
+           socket.on("message", function(obj) {
+              console.log(obj)
+           })
+           Backend.ioSend(socket, "/account/get");
+        </script>
 
 # The backend provisioning utility: bkjs
 

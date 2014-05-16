@@ -1,12 +1,12 @@
 # Taxi tracker example
 
-1. To install 
+1. To install
 
 	run npm install
 
 2. Create a user
 
-	bkjs add-user test test -home .
+	bksh -home . -add-user login test secret test
 
 3. Run the app
 

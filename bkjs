@@ -652,11 +652,11 @@ case "$ARG" in
 
      run-backend)
         killall node
-        $BACKEND_PREFIX/bin/node $SCRIPT -debug -watch `pwd` -home $BACKEND_ROOT -master -web $@
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -debug -master -web -watch `pwd` $@
         ;;
 
      run-shell|bksh)
-        $BACKEND_PREFIX/bin/node $SCRIPT -shell -home $BACKEND_ROOT $@
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -shell $@
         ;;
 
      *)
@@ -664,28 +664,6 @@ case "$ARG" in
         $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -master -web $@
         ;;
     esac
-    ;;
-
-  add-user)
-    L=$1
-    S=$2
-    shift;shift
-    while [ $# -gt 1 ]; do
-      case "$1" in
-      -name) N=$2;shift;shift;;
-      -email) E=$2;shift;shift;;
-      -type) T=$2;shift;shift;;
-      -status) U=$2;shift;shift;;
-      *) break;;
-      esac
-    done
-    [ -z $L -o -z $S ] && echo "ERROR: login and secret must be provided" && exit
-    [ -z $N ] && N=$L
-    mkdir -p $BACKEND_ROOT/tmp
-    SCRIPT=$BACKEND_ROOT/tmp/bk.js
-    echo "require('$BKJS').run(function(){ this.context.api.addAccount({query:{login:'$L',secret:'$S',name:'$N',email:'$E',type:'$T',status:'$U'},account:{type:'admin'}},{},function(err) {console.log(err || 'done');process.exit(0)})})" >$SCRIPT
-    ($BACKEND_PREFIX/bin/node $SCRIPT $@)
-    rm -rf $SCRIPT
     ;;
 
   show-help)
@@ -979,7 +957,6 @@ backend.server.start();
     echo "  build-node - build node and install in $BACKEND_PREFIX or in [-prefix PATH]"
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
-    echo "  add-user login secret [-name S] [-email S] [-type S] [-status S] - add a new user for API access"
     echo "  clean-deps - clean dependencies binary and object files"
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
@@ -989,6 +966,10 @@ backend.server.start();
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
+    echo ""
+    echo "bksh subcommands:"
+    echo "  -add-user login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form name value "
+    echo "  -del-user login LOGIN  [-keep-message] [-keep-location]... - delete a new user, -keep-TABLE tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
     ;;
 esac
 
