@@ -42,6 +42,7 @@
 <li><a href="#secure-web-site-backend-verification"> Secure Web site, backend verification</a></li>
 </ul>
 </li>
+<li><a href="#socket-io-connections"> socket.io connections</a></li>
 <li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a><ul>
 <li><a href="#custom-aws-instance-setup"> Custom AWS instance setup</a></li>
@@ -78,6 +79,7 @@ easily extendable to support any kind of database, provides a database driver on
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Local jobs are executed by spawned processes</li>
+<li>Supports socket.io connections and process them with the same Express routes as HTTP requests</li>
 <li>Supports several cache modes(Redis, memcached, local cache) for the database operations.</li>
 <li>Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
@@ -170,6 +172,9 @@ is only enabled by default in development mode, check app.sh for parameters befo
   &gt; db.select(&quot;bk_account&quot;, {}, db.showResult);
   &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
   &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);
+</code></pre></li>
+<li><p>To add users from the command line</p>
+<pre><code>  bksh -add-user login test sectet test name TestUser email test@test.com
 </code></pre></li>
 </ul>
 <h1 id="backend-runtime">Backend runtime</h1>
@@ -1352,6 +1357,23 @@ will never end up in this callback because it is called after the signature chec
         }
         callback(status);
     });
+</code></pre><h1 id="socket-io-connections">socket.io connections</h1>
+<p>The backend can be configured to accept socket.io connections and process requests with the same HTTP routes registered by Express server.</p>
+<p>To start listening for socket.io, the port must be set, the config parameter <code>io-port</code>, via command line or config file.</p>
+<p>After that on the client side socket.io.js file is available from the backend via HTTP port or /socket.io/socket.io.js via socket port.</p>
+<p>Example on the server side:</p>
+<pre><code>    ./app.js -io-port 8001
+</code></pre><p>Example on the client side in the browser, connect to the <a href="http://localhost:8000">http://localhost:8000</a> to get a html file:</p>
+<pre><code>    &lt;script src=&quot;/js/crypto.js&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;/js/backend.js&quot;&gt;&lt;/scropt&gt;
+    &lt;script src=&quot;socket.io.js&quot;&gt;&lt;/script&gt;
+    &lt;script&gt;
+       var socket = io.connect(&quot;http://localhost:8001&quot;);
+       socket.on(&quot;message&quot;, function(obj) {
+          console.log(obj)
+       })
+       Backend.ioSend(socket, &quot;/account/get&quot;);
+    &lt;/script&gt;
 </code></pre><h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
 <p>The purpose of the <code>bkjs</code> shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
@@ -1694,9 +1716,9 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: ^/$,.html$,.(ico|gif|png|jpg|svg)$,.(ttf|eof|woff)$,.(js|css)$,^/public,^/account/add$</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
-<li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused</li>
+<li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused. Default: </li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing. Default: </li>
-<li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list</li>
+<li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list. Default: </li>
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds. Default: 900000</li>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds. Default: 5000</li>
@@ -1874,6 +1896,12 @@ this.app refers to the Express instance.</p>
 <li><p><code>api.initWebServer()</code></p>
 <p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
 interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkSocketConnection(socket)</code></p>
+<p> Called on new socket.io connection, passed the socket connected as first argument</p>
 </li>
 </ul>
 
@@ -4733,6 +4761,12 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 <ul>
 <li><p><code>server.startDaemon()</code></p>
 <p> Create daemon from the current process, restart node with -daemon removed in the background</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.startShell()</code></p>
+<p> Start REPL shell or execute any subcommand if specified</p>
 </li>
 </ul>
 
