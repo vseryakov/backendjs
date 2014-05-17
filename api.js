@@ -50,7 +50,7 @@ var api = {
     // Only for admins
     allowAdmin: [],
     // Allow only HTTPS requests
-    alowSsl: [],
+    allowSsl: [],
 
     // Refuse access to these urls
     deny: [],
@@ -349,9 +349,9 @@ api.init = function(callback)
     });
 
     // Convert allow/deny lists into single regexp
-    if (this.allow) this.allow = new RegExp(this.allow.map(function(x) { return "(" + x + ")"}).join("|"));
-    if (this.allowSsl) this.allowSsl = new RegExp(this.allowSsl.map(function(x) { return "(" + x + ")"}).join("|"));
-    if (this.deny) this.deny = new RegExp(this.deny.map(function(x) { return "(" + x + ")"}).join("|"));
+    if (this.allow.length) this.allowRx = new RegExp(this.allow.map(function(x) { return "(" + x + ")"}).join("|"));
+    if (this.allowSsl.length) this.allowSslRx = new RegExp(this.allowSsl.map(function(x) { return "(" + x + ")"}).join("|"));
+    if (this.deny.length) this.denyRx = new RegExp(this.deny.map(function(x) { return "(" + x + ")"}).join("|"));
 
     // Managing accounts, basic functionality
     for (var p in self.endpoints) {
@@ -373,8 +373,8 @@ api.init = function(callback)
 
     // Admin only access
     if (self.allowAdmin.length) {
-        self.allowAdmin = new RegExp(self.allowAdmin.map(function(x) { return "(" + x + ")"}).join("|"));
-        self.registerAuthCheck('', self.allowAdmin, function(req, status, cb) {
+        self.allowAdminRx = new RegExp(self.allowAdmin.map(function(x) { return "(" + x + ")"}).join("|"));
+        self.registerAuthCheck('', self.allowAdminRx, function(req, status, cb) {
             if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
             cb();
         });
@@ -469,6 +469,8 @@ api.handleServerRequest = function(req, res)
     });
     d.add(req);
     d.add(res);
+    req.on("finish", function() { console.log("REQ FINSIHED") });
+    res.on("finish", function() { console.log("RES FINSIHED") });
     d.run(function() { self.app(req, res); });
 }
 
@@ -505,11 +507,14 @@ api.handleSocketConnect = function(socket)
         req.url = url;
         req.logUrl = url.split("?")[0];
 
-        var res = new http.ServerResponse(req);
-        res.assignSocket(req.socket);
-        res.end = function(body) { socket.emit("message", body); }
+        req.res = new http.ServerResponse(req);
+        req.res.assignSocket(req.socket);
+        req.res.end = function(body) {
+            socket.emit("message", body);
+            this.socket.emit("finish");
+        }
 
-        self.handleServerRequest(req, res);
+        self.handleServerRequest(req, req.res);
     });
 }
 
@@ -669,8 +674,8 @@ api.checkBody = function(req, res, next)
 // - an object with status other than 0 or 200 to return the status and stop request processing
 api.checkAccess = function(req, callback)
 {
-    if (this.deny && req.path.match(this.deny)) return callback({ status: 401, message: "Access denied" });
-    if (this.allow && req.path.match(this.allow)) return callback({ status: 200, message: "" });
+    if (this.denyRx && req.path.match(this.denyRx)) return callback({ status: 401, message: "Access denied" });
+    if (this.allowRx && req.path.match(this.allowRx)) return callback({ status: 200, message: "" });
     // Call custom access handler for the endpoint
     var hook = this.findHook('access', req.method, req.path);
     if (hook) {

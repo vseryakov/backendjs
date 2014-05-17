@@ -101,7 +101,7 @@ server.start = function()
 
         // REPL shell
         if (core.isArg("-shell")) {
-            self.startShell();
+            return self.startShell();
         }
 
         // Go to background
