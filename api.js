@@ -380,6 +380,15 @@ api.init = function(callback)
         });
     }
 
+    // SSL only access
+    if (self.allowSsl.length) {
+        self.allowSslRx = new RegExp(self.allowSsl.map(function(x) { return "(" + x + ")"}).join("|"));
+        self.registerAuthCheck('', self.allowSslRx, function(req, status, cb) {
+            if (req.socket.server != self.server) return cb({ status: 404, message: "ssl only" });
+            cb();
+        });
+    }
+
     // Custom application logic
     self.initApplication.call(self, function(err) {
         // Setup all tables

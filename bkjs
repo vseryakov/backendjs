@@ -70,6 +70,9 @@ while [ $# -gt 1 ]; do
      -hostname) BACKEND_NAME=$2;shift;shift;;
      -host) BACKEND_MASTER=$2;shift;shift;;
      -node) NODE_PATH=$2;shift;shift;;
+     -path) BACKEND_PATH=$2;shift;shift;;
+     -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
+     -delete) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
      *) break;;
     esac
 done
@@ -601,34 +604,20 @@ case "$ARG" in
 
   put-backend)
     # Put backend code to the remote site
-    path=node_modules/$BKJS
-    while [ $# -gt 1 ]; do
-      case "$1" in
-      -path) path=$2;shift;shift;;
-      -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
-      -delete) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
-      esac
-    done
+    [ "$BACKEND_PATH" = "" ] && BACKEND_PATH=node_modules/$BKJS
     [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
     for f in build pages etc deps log tmp var images files web; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
-    echo "Deploying the module to -l $BACKEND_USER $BACKEND_MASTER:$path ...exclude: $BACKEND_EXCLUDE"
-    rsync -av -e "ssh -l $BACKEND_USER" $BACKEND_EXCLUDE `ls` $BACKEND_MASTER:$path
-    rsync -av -e "ssh -l $BACKEND_USER" $BACKEND_EXCLUDE web $BACKEND_MASTER:$path
+    echo "Deploying the module to -l $BACKEND_USER $BACKEND_EXCLUDE $BACKEND_MASTER:$BACKEND_PATH"
+    rsync -av -e "ssh -l $BACKEND_USER" $BACKEND_EXCLUDE `ls` $BACKEND_MASTER:$BACKEND_PATH
+    rsync -av -e "ssh -l $BACKEND_USER" $BACKEND_EXCLUDE web $BACKEND_MASTER:$BACKEND_PATH
     ;;
 
   sync-backend)
     # Sync code from the master, only inside backend home
-    while [ $# -gt 1 ]; do
-      case "$1" in
-      -delete) args="$args --delete-after";shift;;
-      -sync) BACKEND_SYNC_DIR=$2;shift;shift;;
-      -exclude) args="$args --exclude $2";shift;shift;;
-      esac
-    done
-    [ "$BACKEND_MASTER" = "" -o "$BACKEND_SYNC_DIR" = "" ] && exit
-    su - $BACKEND_USER -c "rsync -aqFF $args -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_SYNC_DIR/ $BACKEND_ROOT"
+    [ "$BACKEND_MASTER" = "" -o "$BACKEND_PATH" = "" ] && exit
+    su - $BACKEND_USER -c "rsync -aqFF $BACKEND_EXCLUDE -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_PATH/ $BACKEND_ROOT"
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
@@ -962,7 +951,7 @@ backend.server.start();
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  init-backend - init core backend environment, for the core development only, links NPM global backend module $NODE_BACKEND back to this sources"
     echo "  put-backend path [-host host] [-path path] [-user user] [-exclude pattern] [-delete] - push the backend code to the master server, uses env BACKEND_MASTER or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
-    echo "  sync-backend [-host host] [-path path] [-delete] [-sync remote-root] - synchronize other directories from the master host, runs on the instance"
+    echo "  sync-backend [-host host] [-path path] [-delete] [-path remote-root] - synchronize other directories from the master host, runs on the instance"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
