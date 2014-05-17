@@ -559,10 +559,10 @@ ipc.initClientMessaging = function()
             if (!this.subSocket) {
                 this.subSocket = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
                 this.subSocket.setCallback(function(err, data) {
-                    if (err) return;
+                    if (err) return logger.error('subscribe:', err);
                     data = data.split("\1");
                     var cb = self.subCallbacks[data[0]];
-                    if (!cb) cb[0](cb[1], data[0], data[1]);
+                    if (cb) cb[0](cb[1], data[0], data[1]);
                 });
             }
         } catch(e) {

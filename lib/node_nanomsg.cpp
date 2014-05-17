@@ -173,8 +173,9 @@ public:
         HandleScope scope;
         int n = nn_recv(s->sock, (void*)&buf, NN_MSG, NN_DONTWAIT);
         if (!s->callback.IsEmpty() && s->callback->IsFunction()) {
-            if (nn_slow(n == -1)) {
+            if (n == -1) {
                 s->err = nn_errno();
+                if (s->err == EAGAIN || s->err == EINTR) return;
                 Local <Value> argv[1];
                 argv[0] = Exception::Error(String::New(nn_strerror(nn_errno())));
                 TRY_CATCH_CALL(s->handle_, s->callback, 1, argv);
@@ -185,7 +186,7 @@ public:
                 TRY_CATCH_CALL(s->handle_, s->callback, 2, argv);
             }
         }
-        nn_freemsg(buf);
+        if (n != -1) nn_freemsg(buf);
     }
 
     // Implements a device, tranparent proxy between two sockets

@@ -1589,7 +1589,7 @@ api.subscribe = function(req, options)
 // Process a message received from subscription server or other even notifier, it is used by `api.subscribe` method for delivery events to the clients
 api.sendMessage = function(req, key, data)
 {
-    logger.debug('subscribe:', key, req.socket, data, res.headersSent);
+    logger.debug('subscribe:', key, data, 'sent:', req.res.headersSent, 'match:', req.msgMatch, 'timeout:', req.msgTimeout);
     // If for any reasons the response has been sent we just bail out
     if (req.res.headersSent) return ipc.unsubscribe(key);
 

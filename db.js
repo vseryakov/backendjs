@@ -354,7 +354,7 @@ db.createPool = function(options)
                 try {
                     this.close(client, function(err) { if (err) logger.error("db.close:", client.pool_name, err || "") });
                 } catch(e) {
-                    logger.debug("pool.close:", client.pool_name, e);
+                    logger.error("pool.destroy:", client.pool_name, e);
                 }
             },
         });

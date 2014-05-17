@@ -493,7 +493,7 @@ server.startShell = function()
         if (core.isArg("-send-request")) {
             var query = {}, url = "", id = "";
             for (var i = process.argv.indexOf("-send-request") + 1; i < process.argv.length - 1; i += 2) {
-                if (!login) {
+                if (!id) {
                     id = process.argv[i];
                     url = process.argv[i + 1];
                 } else {
