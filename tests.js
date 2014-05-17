@@ -536,7 +536,7 @@ tests.db = function(callback)
                     cb(null, rows.filter(function(r) { return r.id2 == '1' }));
                 }
             }, function(err, rows) {
-                core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2, "err5-1:", rows);
+                core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2, "err5-1:", rows.length, rows);
             });
         },
         function(next) {

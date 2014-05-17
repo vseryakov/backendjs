@@ -487,6 +487,28 @@ server.startShell = function()
                     exit(err, err ? 1 : 0);
                 });
             });
+        } else
+
+        // Send API request
+        if (core.isArg("-send-request")) {
+            var query = {}, url = "", id = "";
+            for (var i = process.argv.indexOf("-send-request") + 1; i < process.argv.length - 1; i += 2) {
+                if (!login) {
+                    id = process.argv[i];
+                    url = process.argv[i + 1];
+                } else {
+                    query[process.argv[i]] = process.argv[i + 1];
+                }
+            }
+            core.context.db.get("bk_account", { id: id }, function(err, row) {
+                core.context.db.get("bk_auth", { login: row ? row.login : id }, function(err, row) {
+                    if (err || !row) exit(err || "no user found with this login name or id", 1);
+                    core.sendRequest(url, { login: row.login, secret: row.secret, query: query }, function(err, params) {
+                        console.log(err || "", params.obj);
+                        process.exit(err ? 1 : 0);
+                    });
+                });
+            });
         } else {
             core.createRepl();
         }
@@ -561,6 +583,9 @@ server.runJob = function(job)
 
     for (var name in job) {
         var args = [];
+        // Skip special objects
+        if (job[name] instanceof domain.Domain) continue;
+
         // Pass as first argument the options object, then callback
         if (core.typeName(job[name]) == "object" && Object.keys(job[name]).length) args.push(job[name]);
 

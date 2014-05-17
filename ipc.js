@@ -202,12 +202,13 @@ ipc.initServerCaching = function()
 
     default:
         if (!backend.NNSocket || core.noCache) break;
+        core.cacheBind = core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*";
 
         // LRU cache server, receives cache requests, updates the local cache and then re-broadcasts it to other connected servers
         if (!this.lruSocket) {
             try {
                 this.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
-                this.lruSocket.bind("tcp://*:" + core.cachePort);
+                this.lruSocket.bind("tcp://" + core.cacheBind + ":" + core.cachePort);
                 backend.lruServerStart(0, this.lruSocket.socket, this.lruSocket.socket);
             } catch(e) {
                 logger.error('initServerCaching:', e);
@@ -464,12 +465,13 @@ ipc.initServerMessaging = function()
 
     default:
         if (!backend.NNSocket || core.noMsg) break;
+        core.msgBind = core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*";
 
         // Subscription server, clients connect to it, subscribe and listen for events published to it
         if (!this.subServerSocket) {
             try {
                 this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
-                this.subServerSocket.bind("tcp://*:" + (core.msgPort + 1));
+                this.subServerSocket.bind("tcp://" + core.msgBind + ":" + (core.msgPort + 1));
             } catch(e) {
                 logger.error('initServerMessaging:', e);
                 this.subServerSocket = null;
@@ -481,7 +483,7 @@ ipc.initServerMessaging = function()
         if (!this.pubServerSocket) {
             try {
                 this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
-                this.pubServerSocket.bind("tcp://*:" + core.msgPort);
+                this.pubServerSocket.bind("tcp://" + core.msgBind + ":" + core.msgPort);
                 // Forward all messages to the sub server socket
                 if (this.subServerSocket) this.pubServerSocket.setForward(this.subServerSocket);
             } catch(e) {

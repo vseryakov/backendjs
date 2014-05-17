@@ -334,7 +334,7 @@ db.createPool = function(options)
             idle: options.idle,
 
             create: function(callback) {
-                var me = self.dbpool[this.name];
+                var me = this;
                 try {
                     me.connect.call(self, me, function(err, client) {
                         if (err) return callback(err, client);
@@ -352,7 +352,7 @@ db.createPool = function(options)
             destroy: function(client) {
                 logger.debug('pool.destroy', client.pool_name, "#", client.pool_serial);
                 try {
-                    client.close(function(err) { if (err) logger.error("db.close:", client.pool_name, err || "") });
+                    this.close(client, function(err) { if (err) logger.error("db.close:", client.pool_name, err || "") });
                 } catch(e) {
                     logger.debug("pool.close:", client.pool_name, e);
                 }
@@ -376,7 +376,7 @@ db.createPool = function(options)
         }
     } else {
         var pool = {};
-        pool.get = function(callback) { callback(null, this); };
+        pool.get = function(callback) { callback(null, {}); };
         pool.free = function(client) {};
         pool.closeAll = function() {};
         pool.stats = function() { return null };
@@ -424,14 +424,14 @@ db.createPool = function(options)
     }
 
     // Default methods if not setup from the options
-    if (typeof pool.connect != "function") pool.connect = function(opts, callback) { callback(null, opts); };
-    if (typeof pool.close != "function") pool.close = function(callback) {}
+    if (typeof pool.connect != "function") pool.connect = function(pool, callback) { callback(null, {}); };
+    if (typeof pool.close != "function") pool.close = function(client, callback) { callback() }
     if (typeof pool.setup != "function") pool.setup = function(client, callback) { callback(null, client); };
     if (typeof pool.prepare != "function") pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj }; };
     if (typeof pool.query != "function") pool.query = function(client, req, opts, callback) { callback(null, []); };
     if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { callback(); };
     if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, callback) { callback(); };
-    if (typeof pool.nextToken != "function") pool.nextToken = function(req, rows, opts) {};
+    if (typeof pool.nextToken != "function") pool.nextToken = function(client, req, rows, opts) { return client.next_token || null };
     pool.name = pool.pool || pool.name;
     delete pool.pool;
     pool.processRow = [];
@@ -440,9 +440,6 @@ db.createPool = function(options)
     pool.dbcolumns = {};
     pool.dbkeys = {};
     pool.dbindexes = {};
-    pool.affected_rows = 0;
-    pool.inserted_oid = 0;
-    pool.next_token = null;
     pool.metrics = new metrics(pool.name);
     // Some require properties can be initialized with options
     if (!pool.dboptions) pool.dboptions = {};
@@ -535,15 +532,17 @@ db.query = function(req, options, callback)
         if (err) return onEnd(err, null, [], {});
 
         try {
-            pool.next_token = client.next_token = null;
             m1.start();
-            pool.query(client, req, options, function(err, rows) {
+            pool.query(client, req, options, function(err, rows, info) {
                 m1.end();
                 if (err) return onEnd(err, client, [], {});
 
                 try {
-                    pool.nextToken(req, rows, options);
-                    var info = { affected_rows: client.affected_rows, inserted_oid: client.inserted_oid, next_token: client.next_token || pool.next_token };
+                    if (!info) info = {};
+                    if (!info.affected_rows) info.affected_rows = client.affected_rows || 0;
+                    if (!info.inserted_id) info.inserted_oid = client.inserted_oid || null;
+                    if (!info.next_token) info.next_token = pool.nextToken(client, req, rows, options);
+
                     pool.free(client);
                     client = null;
 
@@ -846,7 +845,7 @@ db.replace = function(table, obj, options, callback)
 //      - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
 //          table for the same id only one instance will be returned
 //
-// On return, the callback can check third argument which is an object with the following properties:
+// On return, the callback can check third argument which is an object with some predefined properties along with driver specific properties returned by the query:
 // - affected_rows - how many records this operation affected, for add/put/update
 // - inserted_oid - last created auto generated id
 // - next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query
@@ -1734,8 +1733,8 @@ db.sqlInitPool = function(options)
         }
     }
     // Support for pagination, for SQL this is the OFFSET for the next request
-    pool.nextToken = function(req, rows, opts) {
-        if (opts.count && rows.length == opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
+    pool.nextToken = function(client, req, rows, opts) {
+        return  opts.count && rows.length == opts.count ? core.toNumber(opts.start) + core.toNumber(opts.count) : null;
     }
     return pool;
 }
@@ -2833,7 +2832,7 @@ db.dynamodbInitPool = function(options)
             var keys = self.getSearchQuery(table, obj);
             opts.select = self.getSelectedColumns(table, opts);
             aws.ddbGetItem(table, keys, opts, function(err, item) {
-                callback(err, item.Item ? [item.Item] : []);
+                callback(err, item.Item ? [item.Item] : [], item);
             });
             break;
 
@@ -2865,14 +2864,14 @@ db.dynamodbInitPool = function(options)
                function(next) {
                    aws[op](table, keys, opts, function(err, item) {
                        rows.push.apply(rows, item.Items);
-                       pool.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
+                       client.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
                        opts.count -= item.Items.length;
                        next(err);
                    });
                },
                function() {
-                   if (pool.next_token == null || opts.count <= 0) return true;
-                   opts.start = pool.next_token;
+                   if (client.next_token == null || opts.count <= 0) return true;
+                   opts.start = client.next_token;
                    return false;
                },
                function(err) {
@@ -2910,7 +2909,7 @@ db.dynamodbInitPool = function(options)
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, opts, dbcols); } });
             opts.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
             aws.ddbPutItem(table, o, opts, function(err, rc) {
-                callback(err, []);
+                callback(err, [], rc);
             });
             break;
 
@@ -2918,7 +2917,7 @@ db.dynamodbInitPool = function(options)
             // Add/put only listed columns if there is a .columns property specified
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, opts, dbcols); } });
             aws.ddbPutItem(table, o, opts, function(err, rc) {
-                callback(err, []);
+                callback(err, [], rc);
             });
             break;
 
@@ -2932,14 +2931,14 @@ db.dynamodbInitPool = function(options)
             if (opts.counter) opts.counter.forEach(function(x) { opts.ops[x] = 'ADD'; });
             if (req.op == "update") opts.expected = keys;
             aws.ddbUpdateItem(table, keys, o, opts, function(err, rc) {
-                callback(err, []);
+                callback(err, [], rc);
             });
             break;
 
         case "del":
             var keys = self.getSearchQuery(table, obj);
             aws.ddbDeleteItem(table, keys, opts, function(err, rc) {
-                callback(err, []);
+                callback(err, [], rc);
             });
             break;
 
@@ -2967,6 +2966,9 @@ db.mongodbInitPool = function(options)
             if (err) logger.error('mongodbOpen:', err);
             if (callback) callback(err, db);
         });
+    }
+    pool.close = function(client, callback) {
+        client.close(callback);
     }
     pool.cacheColumns = function(opts, callback) {
         var pool = this;
@@ -3194,8 +3196,8 @@ db.mongodbInitPool = function(options)
             callback(new Error("invalid op"), []);
         }
     };
-    pool.nextToken = function(req, rows, opts) {
-        if (opts.count && rows.length == opts.count) this.next_token = core.toNumber(opts.start) + core.toNumber(opts.count);
+    pool.nextToken = function(client, req, rows, opts) {
+        return opts.count && rows.length == opts.count ? core.toNumber(opts.start) + core.toNumber(opts.count) : null;
     }
     return pool;
 }
@@ -3229,11 +3231,15 @@ db.cassandraInitPool = function(options)
     pool.put = function(table, obj, opts, callback) {
         self.update(table, obj, opts, callback);
     };
-    pool.nextToken = function(req, rows, opts) {
+    pool.nextToken = function(client, req, rows, opts) {
         if (opts.count > 0 && rows.length == opts.count) {
             var keys = this.dbkeys[req.table] || [];
-            this.next_token = keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
+            return keys.map(function(x) { return core.newObj(x, rows[rows.length-1][x]) });
         }
+        return null;
+    }
+    pool.close = function(client, callback) {
+        client.close(callback);
     }
     pool.prepare = function(op, table, obj, opts) {
         switch (op) {
@@ -3628,6 +3634,11 @@ db.redisInitPool = function(options)
         callback(err, this.redis);
     }
 
+    pool.close = function(cient, callback) {
+        client.quit();
+        if (callback) callback();
+    }
+
     pool.getKeys = function(table, obj, opts, search) {
         var keys = self.getQueryForKeys(this.dbkeys[table] || [], obj);
         if (!search) return keys;
@@ -3729,10 +3740,7 @@ db.redisInitPool = function(options)
             }
             var rows = [];
             var count = opts.count || 0;
-            async.until(
-                function() {
-                    return client.next_token == 0 || (opts.count && count <= 0);
-                },
+            async.doUntil(
                 function(next) {
                     client.send_command("SCAN", args, function(err, reply) {
                         if (err) return next(err);
@@ -3745,7 +3753,11 @@ db.redisInitPool = function(options)
                             next(err);
                         });
                     });
-                }, function(err) {
+                },
+                function() {
+                    return client.next_token == 0 || (opts.count && count <= 0);
+                },
+                function(err) {
                     if (rows.length && opts.sort) rows.sort(function(a,b) { return (a[opts.sort] - b[opts.sort]) * (opts.desc ? -1 : 1) });
                     callback(err, rows);
             });

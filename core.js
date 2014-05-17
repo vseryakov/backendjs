@@ -186,8 +186,8 @@ var core = {
             { name: "logwatcher-file", type: "callback", value: function(v) { if (v) this.logwatcherFiles.push({file:v}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
-            { name: "backend-login", descr: "Credentials login for the master backend access" },
-            { name: "backend-secret", descr: "Credentials secret for the master backend access" },
+            { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
+            { name: "backend-secret", descr: "Credentials secret for the master backend access when using core.sendRequest" },
             { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
@@ -215,8 +215,10 @@ var core = {
     // Cache and messaging properties
     cacheType: '',
     cachePort: 20194,
+    cacheHost: "127.0.0.1",
     msgType: '',
     msgPort: 20195,
+    msgHost: "127.0.0.1",
     subCallbacks: {},
 }
 
@@ -1270,7 +1272,7 @@ core.createPool = function(options)
                  _pmax_queue: core.toNumber(options.interval, 0, 100, 0),
                  _ptimeout: core.toNumber(options.timeout, 0, 5000, 1),
                  _pidle: core.toNumber(options.idle, 0, 300000, 0),
-                 _pcreate: options.create || function(cb) { cb(null, this) },
+                 _pcreate: options.create || function(cb) { cb(null, {}) },
                  _pdestroy: options.destroy || function() {},
                  _pvalidate: options.validate || function() { return true },
                  _pqueue_count: 0,

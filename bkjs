@@ -959,6 +959,7 @@ backend.server.start();
     echo "bksh subcommands:"
     echo "  -add-user login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form name value "
     echo "  -del-user login LOGIN  [-keep-message] [-keep-location]... - delete a new user, -keep-TABLE tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
+    echo "  -send-request login|id url param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
     ;;
 esac
 
