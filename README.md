@@ -1407,7 +1407,7 @@ will never end up in this callback because it is called after the signature chec
 
 The backend can be configured to accept socket.io connections and process requests with the same HTTP routes registered by Express server.
 
-To start listening for socket.io, the port must be set, the config paramete `io-port`, via comman dline or config file.
+To start listening for socket.io, the port must be set, the config parameter `io-port`, via command line or config file.
 
 After that on the client side socket.io.js file is available from the backend via HTTP port or /socket.io/socket.io.js via socket port.
 

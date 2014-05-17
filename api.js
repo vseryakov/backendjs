@@ -469,8 +469,6 @@ api.handleServerRequest = function(req, res)
     });
     d.add(req);
     d.add(res);
-    req.on("finish", function() { console.log("REQ FINSIHED") });
-    res.on("finish", function() { console.log("RES FINSIHED") });
     d.run(function() { self.app(req, res); });
 }
 
@@ -487,6 +485,12 @@ api.handleSocketConnect = function(socket)
         logger.error("socket.io:", err);
     });
     socket.on("disconnect", function() {
+        if (!this._requests) return;
+        while (this._requests.length > 0) {
+            var x = this._requests.pop();
+            x.emit("close");
+            x.res.end();
+        }
     });
 
     socket.on("message", function(url, callback) {
@@ -494,7 +498,7 @@ api.handleSocketConnect = function(socket)
 
         var req = new http.IncomingMessage();
         req.socket = new net.Socket();
-        req.socket.ip = socket.remoteAddress;
+        req.socket.ip = this.remoteAddress;
         req.socket.__defineGetter__('remoteAddress', function() { return this.ip; });
         req.connection = req.socket;
         req._body = true;
@@ -503,18 +507,26 @@ api.handleSocketConnect = function(socket)
         req.httpProtocol = "IO";
         req.httpVersion = "1.0";
         req.method = "GET";
-        req.headers = socket.handshake.headers || {};
+        req.headers = this.handshake.headers || {};
         req.url = url;
         req.logUrl = url.split("?")[0];
 
         req.res = new http.ServerResponse(req);
         req.res.assignSocket(req.socket);
+        req.res.io = this;
         req.res.end = function(body) {
-            socket.emit("message", body);
-            this.socket.emit("finish");
+            if (body) this.io.emit("message", body);
+            this.io._requests.splice(this.io._requests.indexOf(this.req), 1);
+            this.req.res = null;
+            this.req = null;
+            this.io = null;
+            this.emit("finish");
         }
+        if (!this._requests) this._requests = [];
+        this._requests.unshift(req);
+        req = null;
 
-        self.handleServerRequest(req, req.res);
+        self.handleServerRequest(this._requests[0], this._requests[0].res);
     });
 }
 
