@@ -129,6 +129,7 @@ var api = {
                      mtime: { primary: 1 },                    // mtime:sender, the current timestamp in milliseconds and the sender
                      status: { index: 1 },                     // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
                      sender: { index1: 1 },                    // sender:mtime, reverse index by sender
+                     acl_allow: {},                            // Who has access: all, auth, id:id...
                      msg: { type: "text" },                    // Text of the message
                      icon: {}},                                // Icon base64 or url
 
@@ -986,61 +987,36 @@ api.initMessageAPI = function()
             break;
 
         case "get":
-            if (!req.query.id) req.query.id = req.account.id;
-            if (req.query.mtime) {
-                options.ops.mtime = "gt";
-            }
-            // All msgs i sent to this id
-            if (req.query.id != req.account.id) {
-                options.ops.sender = "begins_with";
-                delete options.check_public;
-                req.query.sender = req.account.id + ":";
-            } else
-            // Using sender index, all msgs from the sender
-            if (req.query.sender) {
-                options.sort = "sender";
-                options.ops.sender = "begins_with";
-                options.select = Object.keys(db.getColumns("bk_message", options));
-                req.query.id = req.account.id;
-                req.query.sender += ":";
-            }
-            db.select("bk_message", req.query, options, function(err, rows, info) {
+            self.getMessages(req, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
                 self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
-        case "get/unread":
-            req.query.id = req.account.id;
-            req.query.status = "N:";
-            options.sort = "status";
-            options.ops.status = "begins_with";
-            db.select("bk_message", req.query, options, function(err, rows, info) {
+        case "get/sent":
+            self.getSentMessages(req, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                // Mark all existing as read
-                if (core.toBool(req.query._read)) {
-                    var nread = 0;
-                    async.forEachSeries(rows, function(row, next) {
-                        db.update("bk_message", { id: req.account.id, mtime: row.mtime, status: 'R:' + row.mtime }, function(err) {
-                            if (!err) nread++;
-                            next();
-                        });
-                    }, function(err) {
-                        if (nread) db.incr("bk_counter", { id: req.account.id, msg_read: nread }, { cached: 1 });
-                        self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
-                    });
-                } else {
-                    self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
-                }
+                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+            });
+            break;
+
+        case "get/recipient":
+            self.getMessageRecipients(req, options, function(err, rows, info) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+            });
+            break;
+
+        case "get/unread":
+            self.getNewMessages(req, options, function(err, rows, info) {
+                if (err) return self.sendReply(res, err);
+                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
         case "read":
-            if (!req.query.sender || !req.query.mtime) return self.sendReply(res, 400, "sender and mtime are required");
-            req.query.mtime += ":" + req.query.sender;
-            db.update("bk_message", { id: req.account.id, mtime: req.query.mtime, status: "R:" + req.query.mtime }, function(err, rows) {
-                if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
-                self.sendReply(res, err);
+            self.updateMessage(req, options, function(err, rows) {
+                return self.sendReply(res, err);
             });
             break;
 
@@ -1572,7 +1548,7 @@ api.subscribe = function(req, options)
     req.msgMatch = options.match ? new RegExp(options.match) : null;
     req.msgInterval = options.subscribeInterval || this.subscribeInterval;
     req.msgTimeout = options.timeoput || this.subscribeTimeout;
-    ipc.subscribe(req.msgKey, this.sendMessage, req);
+    ipc.subscribe(req.msgKey, this.sendEvent, req);
 
     // Listen for timeout and ignore it, this way the socket will be alive forever until we close it
     req.res.on("timeout", function() {
@@ -1587,7 +1563,7 @@ api.subscribe = function(req, options)
 }
 
 // Process a message received from subscription server or other even notifier, it is used by `api.subscribe` method for delivery events to the clients
-api.sendMessage = function(req, key, data)
+api.sendEvent = function(req, key, data)
 {
     logger.debug('subscribe:', key, data, 'sent:', req.res.headersSent, 'match:', req.msgMatch, 'timeout:', req.msgTimeout);
     // If for any reasons the response has been sent we just bail out
@@ -2182,6 +2158,111 @@ api.deleteFile = function(file, options, callback)
     }
 }
 
+// Return messages, used in /message/get API call
+api.getMessages = function(req, options, callback)
+{
+    var db = core.context.db;
+
+    if (!req.query.id) {
+        req.query.id = req.account.id;
+    }
+    // All msgs to this id, can be me or a group/room/chat, need to verify access to this messages
+    if (req.query.id != req.account.id) {
+        options.ops.acl_allow = "in";
+        req.query.acl_allow = req.account.id
+    } else
+    // Using sender index, all msgs from the sender
+    if (req.query.sender) {
+        options.sort = "sender";
+        options.ops.sender = "begins_with";
+        options.select = Object.keys(db.getColumns("bk_message", options));
+        req.query.sender += ":";
+    }
+    // Additional restriction by messge time
+    if (req.query.mtime) {
+        if (!options.ops.mtime) options.ops.mtime = "gt";
+    }
+    db.select("bk_message", req.query, options, callback);
+}
+
+
+// Return sent messages, used in /message/get/sent API call
+api.getSentMessages = function(req, options, callback)
+{
+    var db = core.context.db;
+    if (!req.query.id) return callback({ status: 400, message: "id is required" });
+
+    req.query.sender = req.account.id + ":";
+    if (req.query.mtime && !options.ops.mtime) options.ops.mtime = "gt";
+
+    options.check_public = null;
+    options.ops.sender = "begins_with";
+    db.select("bk_message", req.query, options, callback);
+}
+
+// Return all recipients i sent messages to, used in /message/get/recepient API call
+api.getMessageRecipients = function(req, options, callback)
+{
+    var db = core.context.db;
+
+    req.query.id = req.account.id;
+    if (req.query.mtime && !options.ops.mtime) options.ops.mtime = "gt";
+
+    options.select = ["sender"];
+    options.check_public = null;
+    db.select("bk_message", req.query, options, function(err, rows, info) {
+        if (err) return self.sendReply(res, err);
+        var rc = [];
+        rows.forEach(function(x) {
+            x.sender = (x.sender || "").split(":")[0];
+            if (x.sender && rc.indexOf(x.sender) == -1) rc.push(x.sender);
+        });
+        callback(err, rc, info);
+    });
+}
+
+// Return new/unread messages, used in /message/get/unread API call
+api.getNewMessages = function(req, options, callback)
+{
+    var db = core.context.db;
+    req.query.id = req.account.id;
+    req.query.status = "N:";
+    options.sort = "status";
+    options.ops.status = "begins_with";
+    db.select("bk_message", req.query, options, function(err, rows, info) {
+        if (err) return self.sendReply(res, err);
+        // Mark all existing as read
+        if (core.toBool(req.query._read)) {
+            var nread = 0;
+            async.forEachSeries(rows, function(row, next) {
+                db.update("bk_message", { id: req.account.id, mtime: row.mtime, status: 'R:' + row.mtime }, options, function(err) {
+                    if (!err) nread++;
+                    next();
+                });
+            }, function(err) {
+                if (nread) db.incr("bk_counter", { id: req.account.id, msg_read: nread }, { cached: 1 });
+                callback(err, rows, info);
+            });
+        } else {
+            callback(err, rows, info)
+        }
+    });
+}
+
+// Mark a message as read, used in /message/read API call
+api.updateMessage = function(req, options, callback)
+{
+    var db = core.context.db;
+    if (!req.query.sender || !req.query.mtime) return callback({ status: 400, message: "sender and mtime are required" });
+    req.query.id = req.account.id;
+    req.query.mtime += ":" + req.query.sender;
+    req.query.status = "R:" + req.query.mtime;
+    db.update("bk_message", req.query, options, function(err, rows, info) {
+        if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
+        callback(err, rows, info);
+    });
+}
+
 // Add new message, used in /message/add API call
 api.addMessage = function(req, options, callback)
 {
@@ -2197,14 +2278,14 @@ api.addMessage = function(req, options, callback)
     self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
         if (err) return callback(err);
         req.query.icon = icon ? 1 : "0";
-        db.add("bk_message", req.query, {}, function(err, rows) {
+        db.add("bk_message", req.query, options, function(err, rows, info) {
             if (err) return callback(db.convertError("bk_message", "add", err));
 
             if (req.query.id != req.account.id) {
                 ipc.publish(req.query.id, { path: req.path, mtime: now, type: req.query.icon });
             }
 
-            callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon });
+            callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
 
             async.series([
                function(next) {
@@ -2229,7 +2310,7 @@ api.delMessages = function(req, options, callback)
 
     if (req.query.mtime) {
         req.query.mtime += ":" + req.query.sender;
-        db.del("bk_message", { id: req.account.id, mtime: req.query.mtime }, function(err, rows) {
+        db.del("bk_message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows) {
             if (err) return callback(err);
             db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 }, callback);
         });

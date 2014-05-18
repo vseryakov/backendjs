@@ -107,7 +107,7 @@ tests.account = function(callback)
             }, next);
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { latitude: latitude, longitude: longitude, location: self.city } };
+            var options = { login: login, secret: secret, query: { latitude: latitude, longitude: longitude } };
             core.sendRequest("/location/put", options, function(err, params) {
                 next(err);
             });
@@ -213,7 +213,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { id: otherid, msg: "text message" }  }
+            var options = { login: login, secret: secret, query: { id: otherid, msg: "test123" }  }
             core.sendRequest("/message/add", options, function(err, params) {
                 core.checkTest(next, err, !params.obj, "err7:" , params.obj);
             });
@@ -271,9 +271,14 @@ tests.account = function(callback)
         },
         function(next) {
             var options = { login: login, secret: secret, query: { id: otherid } }
-            core.sendRequest("/message/get", options, function(err, params) {
-                msgs = params.obj;
-                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1 || params.obj.data[0].sender!=myid, "err14-1:" , params.obj);
+            core.sendRequest("/message/get/sent", options, function(err, params) {
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1 || params.obj.data[0].sender!=myid || params.obj.data[0].msg!="test123", "err14-1:" , params.obj);
+            });
+        },
+        function(next) {
+            var options = { login: login, secret: secret, query: {} }
+            core.sendRequest("/message/get/recipient", options, function(err, params) {
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1 || params.obj.data[0]!=myid, "err14-2:" , myid, params.obj);
             });
         },
         function(next) {
