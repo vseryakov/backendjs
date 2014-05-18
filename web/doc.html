@@ -418,13 +418,18 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
 <p>Example:</p>
 <pre><code>  /account/subscribe
   /account/subscribe?match=connection/add.*type:*like
+
+  // To run in the browser:
+  (function poll() { 
+      Backend.send({ url: &quot;/account/subscribe&quot;, complete: poll }, function(data) { 
+          console.log(&quot;received event:&quot;, data); 
+       });
+   })();
+</code></pre><p>Response:</p>
+<pre><code>  [ { &quot;path&quot;: &quot;/message/add&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;1&quot; },
+    { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;like,invite&quot; } },
+    { &quot;path&quot;: &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot; } ]
 </code></pre></li>
-</ul>
-<p>  Response:</p>
-<pre><code>    [ { &quot;path&quot;: &quot;/message/add&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;1&quot; },
-      { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;like,invite&quot; } },
-      { &quot;path&quot;: &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot; } ]
-</code></pre><ul>
 <li><p><code>/account/select/icon</code></p>
 <p>Return a list of available account icons, icons that have been uploaded previously with /account/put/icon calls. The <code>url</code> property is an URL to retrieve this particular icon.</p>
 <p>Parameters:</p>
@@ -1372,10 +1377,9 @@ will never end up in this callback because it is called after the signature chec
     &lt;script src=&quot;/js/backend.js&quot;&gt;&lt;/scropt&gt;
     &lt;script src=&quot;socket.io.js&quot;&gt;&lt;/script&gt;
     &lt;script&gt;
-       var socket = io.connect(&quot;http://localhost:8001&quot;);
-       socket.on(&quot;message&quot;, function(obj) {
+       Backend.ioConnect(&quot;http://localhost:8001&quot;, function(obj) {
           console.log(obj)
-       })
+       });
        Backend.ioSend(socket, &quot;/account/get&quot;);
     &lt;/script&gt;
 </code></pre><h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
