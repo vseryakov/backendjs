@@ -693,8 +693,6 @@ specify that only messages received since that time to return, it must be in mil
 Date.now() return in Javascript. The images are not returned, only link to the image in <code>icon</code> property of reach record,
 the actual image data must be retrieved separately.</p>
 <p>When <code>sender</code> is specified then all messages from given sender will be returned.</p>
-<p>When <code>id</code> is specified and it is not the current account id, then all messages that the current account has sent to the <code>id</code> will be returned, i.e.
-this is how i can get all messages i have sent to the <code>id</code>.</p>
 <p>NOTE: The <code>mtime</code> is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
 also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
 result in mtimes that do not correspond to actual times when the message has been sent.</p>
@@ -710,9 +708,6 @@ result in mtimes that do not correspond to actual times when the message has bee
 
   # Get all messages from the specific sender
   /message/get?sender=12345
-
-  # Get all messages i have sent to the user 12345
-  /message/get?id=12345
 </code></pre><p>Response:</p>
 <pre><code>  { &quot;data&quot;: [ { &quot;sender&quot;: &quot;12345&quot;,
                 &quot;msg&quot;: &quot;Hi, how r u?&quot;,
@@ -733,8 +728,17 @@ Read all unread messages, i.e. the messages that never been issued <code>/messag
 <li><code>_read</code> - if set to 1, all returned messages will be marked as read automatically, so no individual /message/read call needed</li>
 </ul>
 </li>
-</ul>
+<li><p><code>/message/get/sent</code>
+All messages i sent</p>
+<p>Parameters:</p>
 <ul>
+<li><code>id</code> - id where i sent messages</li>
+<li><code>mtime</code> - time before or after messages sent, defined by _ops parametrs</li>
+</ul>
+<p>Example:</p>
+<pre><code>  /message/get/sent?id=123
+  /message/get/sent?id=123&amp;mtime=123475658690&amp;_ops=mtime,le
+</code></pre></li>
 <li><p><code>/message/add</code>
 Send a message to an account, the following parametrrs must be specified:</p>
 <ul>
@@ -1628,7 +1632,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>no-msg</code> - Disable nanomsg messaging sockets</li>
 <li><code>msg-port</code> - Ports to use for nanomsg sockets for message publish and subscribe, 2 ports will be used, this one and the next. Default: 20195</li>
 <li><code>msg-type</code> - One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets</li>
-<li><code>msg-host</code> - Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used. DNS TXT configurable.</li>
+<li><code>msg-host</code> - Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used. Default: 127.0.0.1. DNS TXT configurable.</li>
 <li><code>memcache-host</code> - List of memcached servers for cache messages: IP[:port],host[:port]... DNS TXT configurable.</li>
 <li><code>memcache-options</code> - JSON object with options to the Memcached client, see npm doc memcached</li>
 <li><code>redis-host</code> - Address to Redis server for cache messages. DNS TXT configurable.</li>
@@ -1636,7 +1640,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>amqp-host</code> - Host running RabbitMQ</li>
 <li><code>amqp-options</code> - JSON object with options to the AMQP client, see npm doc amqp</li>
 <li><code>cache-type</code> - One of the redis or memcache to use for caching in API requests</li>
-<li><code>cache-host</code> - Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used. DNS TXT configurable.</li>
+<li><code>cache-host</code> - Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used. Default: 127.0.0.1. DNS TXT configurable.</li>
 <li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests. Default: 20194</li>
 <li><code>no-cache</code> - Disable caching, all gets will result in miss and puts will have no effect</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
@@ -1649,8 +1653,8 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>logwatcher-file</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers. Default: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:20.0) Gecko/20100101 Firefox/20.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.29.13 (KHTML, like Gecko) Version/6.0.4 Safari/536.29.13,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.65 Safari/537.31,Mozilla/5.0 (X11; Linux i686) AppleWebKit/534.34 (KHTML, like Gecko) Safari/534.34,Opera/9.80 (Macintosh; Intel Mac OS X 10.7.5) Presto/2.12.388 Version/12.15,Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.2; BRI/2</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
-<li><code>backend-login</code> - Credentials login for the master backend access</li>
-<li><code>backend-secret</code> - Credentials secret for the master backend access</li>
+<li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
+<li><code>backend-secret</code> - Credentials secret for the master backend access when using core.sendRequest</li>
 <li><code>domain</code> - Domain to use for communications, default is current domain of the host machine</li>
 <li><code>config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
 <li><code>max-distance</code> - Max searchable distance(radius) in km, for location searches to limit the upper bound. Default: 50</li>
@@ -1813,6 +1817,7 @@ the worker processes if they die and restart them automatically. How many proces
                    mtime: { primary: 1 },                    // mtime:sender, the current timestamp in milliseconds and the sender
                    status: { index: 1 },                     // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
                    sender: { index1: 1 },                    // sender:mtime, reverse index by sender
+                   acl_allow: {},                            // Who has access: all, auth, id:id...
                    msg: { type: &quot;text&quot; },                    // Text of the message
                    icon: {}},                                // Icon base64 or url
 
@@ -2161,7 +2166,7 @@ events using account id as a key.</p>
 </ul>
 
 <ul>
-<li><p><code>api.sendMessage(req, key, data)</code></p>
+<li><p><code>api.sendEvent(req, key, data)</code></p>
 <p> Process a message received from subscription server or other even notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
 </li>
 </ul>
@@ -2291,6 +2296,36 @@ Output file name is built according to the following options properties:</li>
 <ul>
 <li><p><code>api.deleteFile(file, options, callback)</code></p>
 <p> Delete file by name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getMessages(req, options, callback)</code></p>
+<p> Return messages, used in /message/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getSentMessages(req, options, callback)</code></p>
+<p> Return sent messages, used in /message/get/sent API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getMessageRecipients(req, options, callback)</code></p>
+<p> Return all recipients i sent messages to, used in /message/get/recepient API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getNewMessages(req, options, callback)</code></p>
+<p> Return new/unread messages, used in /message/get/unread API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.updateMessage(req, options, callback)</code></p>
+<p> Mark a message as read, used in /message/read API call</p>
 </li>
 </ul>
 
@@ -3790,7 +3825,7 @@ returning to the client</li>
 </ul>
 </li>
 </ul>
-<p>On return, the callback can check third argument which is an object with the following properties:</p>
+<p>On return, the callback can check third argument which is an object with some predefined properties along with driver specific properties returned by the query:</p>
 <ul>
 <li>affected_rows - how many records this operation affected, for add/put/update</li>
 <li>inserted_oid - last created auto generated id</li>
