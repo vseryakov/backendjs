@@ -58,6 +58,19 @@ var Backend = {
         });
     },
 
+    // Wait for events and call the callback, this runs until Backend.unsubscribe is set to true
+    subscribeAccount: function(callback) {
+        var self = this;
+        var errors = 0;
+        (function poll() {
+            self.send({ url: "/account/subscribe", complete: self.unsubscribe ? null : poll }, function(data) {
+                callback(data);
+            }, function(err) {
+                if (errors++ > 3) self.unsubscribe = true;
+            });
+        })();
+    },
+
     // Logout and clear all local credentials
     logout: function() {
         this.setCredentials();
@@ -148,6 +161,13 @@ var Backend = {
         }
         $('#loading').show(), state.count++;
         $.ajax(options);
+    },
+
+    // Connect to socket.io host and register callback on message receive
+    ioConnect: function(url, callback) {
+        var sock = io.connect(url);
+        sock.on("message", callback);
+        return sock;
     },
 
     // Send request with the socket.io connection, url must be url-encoded, only GET requests are supported

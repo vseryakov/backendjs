@@ -434,7 +434,7 @@ db.createPool = function(options)
     if (typeof pool.nextToken != "function") pool.nextToken = function(client, req, rows, opts) { return client.next_token || null };
     pool.name = pool.pool || pool.name;
     delete pool.pool;
-    pool.processRow = [];
+    pool.processRow = {};
     pool.serialNum = 0;
     pool.dbtables = {};
     pool.dbcolumns = {};
@@ -1643,7 +1643,7 @@ db.checkPublicColumns = function(table, rows, options)
 db.processRows = function(pool, table, rows, options)
 {
     if (!pool) pool = this.getPool(table, options);
-	if (!pool.processRow.length && !options.noJson) return;
+	if ((!pool.processRow[table] || !pool.processRow[table].length) && !options.noJson) return;
 
 	var cols = pool.dbcolumns[(table || "").toLowerCase()] || {};
 	function processRow(row) {
@@ -1652,8 +1652,8 @@ db.processRows = function(pool, table, rows, options)
 	            if (cols[p].type == "json" && typeof row[p] == "string" && row[p]) try { row[p] = JSON.parse(row[p]); } catch(e) { logger.error('processRow:', e, table, row[p].substr(0, 16)) }
 	        }
 	    }
-	    if (Array.isArray(pool.processRow)) {
-	        pool.processRow.forEach(function(x) { x.call(pool, row, options, cols); });
+	    if (Array.isArray(pool.processRow[table])) {
+	        pool.processRow[table].forEach(function(x) { x.call(pool, row, options, cols); });
 	    }
 	}
 	if (Array.isArray(rows)) rows.forEach(processRow); else processRow(rows);
@@ -1678,7 +1678,8 @@ db.setProcessRow = function(table, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!table || !callback) return;
     var pool = this.getPool(table, options);
-    if (Array.isArray(pool.processRow)) pool.processRow.push(callback);
+    if (!pool.processRow[table]) pool.processRow[table] = [];
+    pool.processRow[table].push(callback);
 }
 
 // Create a database pool for SQL like databases

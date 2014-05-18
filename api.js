@@ -961,18 +961,16 @@ api.initMessageAPI = function()
     var self = this;
     var db = core.context.db;
 
-    function processRows(rows) {
-        rows.forEach(function(row) {
-            if (row.mtime) {
-                var mtime = row.mtime.split(":");
-                row.mtime = core.toNumber(mtime[0]);
-                row.sender = mtime[1];
-            }
-            if (row.status) row.status = row.status[0];
-            if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
-        });
-        return rows;
-    }
+    db.setProcessRow("bk_message", function(row, options, cols) {
+        if (row.mtime) {
+            var mtime = row.mtime.split(":");
+            row.mtime = core.toNumber(mtime[0]);
+            row.sender = mtime[1];
+        }
+        if (row.status) row.status = row.status[0];
+        if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+        return row;
+    });
 
     this.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
 
@@ -989,14 +987,14 @@ api.initMessageAPI = function()
         case "get":
             self.getMessages(req, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
         case "get/sent":
             self.getSentMessages(req, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
@@ -1010,7 +1008,7 @@ api.initMessageAPI = function()
         case "get/unread":
             self.getNewMessages(req, options, function(err, rows, info) {
                 if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, { count: rows.length, data: processRows(rows), next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
@@ -2214,7 +2212,6 @@ api.getMessageRecipients = function(req, options, callback)
         if (err) return self.sendReply(res, err);
         var rc = [];
         rows.forEach(function(x) {
-            x.sender = (x.sender || "").split(":")[0];
             if (x.sender && rc.indexOf(x.sender) == -1) rc.push(x.sender);
         });
         callback(err, rc, info);
@@ -2320,8 +2317,7 @@ api.delMessages = function(req, options, callback)
         db.select("bk_message", { id: req.account.id, sender: req.query.sender + ":" }, options, function(err, rows) {
             if (err) return callback(err);
             async.forEachSeries(rows, function(row, next) {
-                var sender = row.sender.split(":");
-                row.mtime = sender[1] + ":" + sender[0];
+                row.mtime += ":" + row.sender;
                 db.del("bk_message", row, options, next);
             }, function(err) {
                 if (err || !rows.count) return callback(err, {});

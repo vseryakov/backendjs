@@ -415,6 +415,12 @@ The accounts API manages accounts and authentication, it provides basic user acc
         /account/subscribe
         /account/subscribe?match=connection/add.*type:*like
 
+        // To run in the browser:
+        (function poll() { 
+            Backend.send({ url: "/account/subscribe", complete: poll }, function(data) { 
+                console.log("received event:", data); 
+             });
+         })();
 
   Response:
 
@@ -1426,10 +1432,9 @@ Example on the client side in the browser, connect to the http://localhost:8000 
         <script src="/js/backend.js"></scropt>
         <script src="socket.io.js"></script>
         <script>
-           var socket = io.connect("http://localhost:8001");
-           socket.on("message", function(obj) {
+           Backend.ioConnect("http://localhost:8001", function(obj) {
               console.log(obj)
-           })
+           });
            Backend.ioSend(socket, "/account/get");
         </script>
 
