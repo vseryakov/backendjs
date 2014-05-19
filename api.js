@@ -22,7 +22,7 @@ var cookieParser = require('cookie-parser');
 var session = require('cookie-session');
 var serveStatic = require('serve-static');
 var formidable = require('formidable');
-var io = require("socket.io");
+var socketio = require("socket.io");
 var redis = require('redis');
 var mime = require('mime');
 var consolidate = require('consolidate');
@@ -415,20 +415,18 @@ api.init = function(callback)
             }
 
             try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
-            try { if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init: ssl:', core.ssl.port, core.ssl.bind, e); err = e; }
-            try { if (core.io.port) self.ioserver = io.listen(core.io.port, core.io.options); } catch(e) { logger.error('api: init: io:', core.io.port, core.io.bind, e); err = e; }
+            try { if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init: ssl:', core.ssl, e); err = e; }
+            try { if (core.socketio.port) self.socketioserver = socketio.listen(core.socketio.port, core.socketio.options); } catch(e) { logger.error('api: init: socketio:', core.socketio, e); err = e; }
 
             // Setup sockets.io server, pass messages into the Express routing by wrapping into req/res objects
-            if (self.ioserver) {
-                self.ioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
-
+            if (self.socketioserver) {
                 // We must have Redis due to master/worker runtime
-                var rhost = core.io.options.redisHost || core.redisHost;
-                var ropts = core.io.options.redisOptions || core.redisOptions;
-                var opts = { redisPub: redis.createClient(null, rhost, ropts),
-                             redisSub: redis.createClient(null, rhost, ropts),
-                             redisClient: redis.createClient(null, rhost, ropts) };
-                self.ioserver.set('store', new io.RedisStore(opts));
+                var p = core.socketio.options.redisPort || core.redisPort;
+                var h = core.socketio.options.redisHost || core.redisHost;
+                var o = core.socketio.options.redisOptions || core.redisOptions;
+                self.socketioserver.set('store', new socketio.RedisStore({ redisPub: redis.createClient(p, h, o), redisSub: redis.createClient(p, h, o), redisClient: redis.createClient(p, h, o) }));
+                self.socketioserver.set('authorization', function(data, callback) { self.checkSocketIORequest(data, callback); });
+                self.socketioserver.sockets.on('connection', function(socket) { self.handleSocketIOConnect(socket); });
 
                 // Expose socket.io.js client
                 module.children.forEach(function(x) {
@@ -492,17 +490,18 @@ api.handleServerRequest = function(req, res)
 }
 
 // Wrap socket.io connection into the Express routing, respond on backend command
-api.handleSocketConnect = function(socket)
+api.handleSocketIOConnect = function(socket)
 {
     var self = this;
 
-    logger.dev('io:', 'connected', socket.handshake);
+    logger.debug('socket.io:', 'connected', socket.handshake);
 
-    this.checkSocketConnection(socket);
+    this.checkSocketIOConnection(socket);
 
     socket.on("error", function(err) {
-        logger.error("io:", err);
+        logger.error("socket.io:", err);
     });
+
     socket.on("disconnect", function() {
         if (!this._requests) return;
         while (this._requests.length > 0) {
@@ -513,7 +512,7 @@ api.handleSocketConnect = function(socket)
     });
 
     socket.on("message", function(url, callback) {
-        logger.debug("io:", "msg", url, callback);
+        logger.debug("socket.io:", "msg", url, callback);
 
         var req = new http.IncomingMessage();
         req.socket = new net.Socket();
@@ -526,7 +525,7 @@ api.handleSocketConnect = function(socket)
         req.httpProtocol = "IO";
         req.httpVersion = "1.0";
         req.method = "GET";
-        req.headers = this.handshake.headers || {};
+        req.headers = this.headers || (this.handshake || {}).headers || {};
         req.url = url;
         req.logUrl = url.split("?")[0];
 
@@ -554,6 +553,12 @@ api.handleSocketConnect = function(socket)
     });
 }
 
+// Called before allowing the socket.io connection to be authorized
+api.checkSocketIORequest = function(data, callback) { callback(null, true); }
+
+// Called on new socket.io connection, passed the socket connected as first argument
+api.checkSocketIOConnection = function(socket) {}
+
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server
 // is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.
 api.initApplication = function(callback) { callback() };
@@ -568,9 +573,6 @@ api.initMasterServer = function() {}
 // This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
 // interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.
 api.initWebServer = function() {}
-
-// Called on new socket.io connection, passed the socket connected as first argument
-api.checkSocketConnection = function(socket) {}
 
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)

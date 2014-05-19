@@ -175,13 +175,15 @@ var Backend = {
         if (!url) url = "http://" + (this.socketHost || window.location.hostname) + ":" + this.socketPort;
         this.socketErrors = 0;
         this.socket = io.connect(url, options);
-        if (callback) this.socket.on("message", callback);
+        this.socket.on("connect", function() {
+            self.socket.on("message", callback || function(data) { console.log('socket.io:', data) });
+        });
         this.socket.on("error", function(err) {
-            console.log('ioSend:', self.socketErrors, err);
+            console.log('socket.io:', self.socketErrors, err);
             // Well, as 0.9.16 storm of reconnects can kill the server, we have to stop it
             if (++self.socketErrors > 10) return self.ioClose();
-            if (onerror) onerror(err);
-        })
+            onerror && onerror(err);
+        });
         return this.socket;
     },
 

@@ -472,7 +472,8 @@ ipc.initServerMessaging = function()
         if (!backend.NNSocket || core.noMsg) break;
         core.msgBind = core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*";
 
-        // Subscription server, clients connect to it, subscribe and listen for events published to it
+        // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process
+        // connects to this socket.
         if (!this.subServerSocket) {
             try {
                 this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
@@ -484,7 +485,8 @@ ipc.initServerMessaging = function()
         }
 
         // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
-        // which will distribute to all subscribed clients
+        // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
+        // and automatically uses next live server in case of failure.
         if (!this.pubServerSocket) {
             try {
                 this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);

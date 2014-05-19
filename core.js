@@ -61,7 +61,7 @@ var core = {
     ssl: { port: 443, bind: '0.0.0.0' },
 
     // Sockets.io config
-    io: { port: 0, bind: "0.0.0.0", options: {} },
+    socketio: { port: 0, bind: "0.0.0.0", options: {} },
 
     // Proxy config
     proxyPort: 8000,
@@ -134,8 +134,8 @@ var core = {
             { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
             { name: "backlog", descr: "The maximum length of the queue of pending connections, used by HTTP server in listen." },
-            { name: "io-port", type: "number", obj: 'io', min: 0, descr: "port to listen for sockets.io server, this is global default" },
-            { name: "io-bind", obj: 'io', descr: "Bind to this address only for sockets.io server, if not specified listen on all interfaces" },
+            { name: "socketio-port", type: "number", obj: 'socketio', min: 0, descr: "port to listen for sockets.io server, this is global default" },
+            { name: "socketio-bind", obj: 'socketio', descr: "Bind to this address only for sockets.io server, if not specified listen on all interfaces" },
             { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
             { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },
@@ -168,7 +168,8 @@ var core = {
             { name: "msg-host", dns: 1, descr: "Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used" },
             { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP[:port],host[:port].." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
-            { name: "redis-host", dns: 1, descr: "Address to Redis server for cache messages" },
+            { name: "redis-port", dns: 1, descr: "Port to Redis server for cache and messaging" },
+            { name: "redis-host", dns: 1, descr: "Address to Redis server for cache and messaging" },
             { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
             { name: "amqp-host", type: "json", descr: "Host running RabbitMQ" },
             { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
