@@ -38,6 +38,10 @@ struct LRUStringCache {
         	lru.splice(lru.end(), lru, it->second.second);
         }
     }
+    bool exists(const string &k) {
+        const LRUStringItems::iterator it = items.find(k);
+        return it != items.end();
+    }
     void incr(const string& k, const string& v) {
     	string o = get(k);
     	set(k, vFmtStr("%lld", atoll(o.c_str()) + atoll(v.c_str())));
@@ -88,6 +92,10 @@ struct StringCache {
             items[key] = val;
             V8::AdjustAmountOfExternalAllocatedMemory(key.size() + val.size());
         }
+    }
+    bool exists(const string &k) {
+        string_map::iterator it = items.find(k);
+        return it != items.end();
     }
     void incr(const string& k, const string& v) {
         string o = get(k);
@@ -258,6 +266,21 @@ static Handle<Value> cacheGet(const Arguments& args)
     }
 
     return scope.Close(Undefined());
+}
+
+static Handle<Value> cacheExists(const Arguments& args)
+{
+    HandleScope scope;
+
+    REQUIRE_ARGUMENT_AS_STRING(0, name);
+    REQUIRE_ARGUMENT_AS_STRING(1, key);
+
+    Cache::iterator itc = _cache.find(*name);
+    if (itc != _cache.end()) {
+        return scope.Close(Boolean::New(itc->second.exists(*key)));
+    }
+
+    return scope.Close(Boolean::New(false));
 }
 
 static Handle<Value> cacheKeys(const Arguments& args)
@@ -463,6 +486,14 @@ static Handle<Value> lruGet(const Arguments& args)
     return scope.Close(String::New(str.c_str()));
 }
 
+static Handle<Value> lruExists(const Arguments& args)
+{
+    HandleScope scope;
+
+    REQUIRE_ARGUMENT_AS_STRING(0, key);
+    return scope.Close(Boolean::New(_lru.exists(*key)));
+}
+
 static Handle<Value> lruKeys(const Arguments& args)
 {
     HandleScope scope;
@@ -609,6 +640,7 @@ void CacheInit(Handle<Object> target)
     NODE_SET_METHOD(target, "cacheSet", cacheSet);
     NODE_SET_METHOD(target, "cacheIncr", cacheIncr);
     NODE_SET_METHOD(target, "cacheGet", cacheGet);
+    NODE_SET_METHOD(target, "cacheExists", cacheExists);
     NODE_SET_METHOD(target, "cacheDel", cacheDel);
     NODE_SET_METHOD(target, "cacheKeys", cacheKeys);
     NODE_SET_METHOD(target, "cacheClear", cacheClear);
@@ -626,6 +658,7 @@ void CacheInit(Handle<Object> target)
     NODE_SET_METHOD(target, "lruCount", lruCount);
     NODE_SET_METHOD(target, "lruSet", lruSet);
     NODE_SET_METHOD(target, "lruGet", lruGet);
+    NODE_SET_METHOD(target, "lruExists", lruExists);
     NODE_SET_METHOD(target, "lruIncr", lruIncr);
     NODE_SET_METHOD(target, "lruDel", lruDel);
     NODE_SET_METHOD(target, "lruKeys", lruKeys);

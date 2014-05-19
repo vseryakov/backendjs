@@ -12,6 +12,11 @@ var Backend = {
     // Scramble real login and secret
     scramble: false,
 
+    // Socket.io config
+    socketHost: null,
+    socketPort: 8001,
+    socketErrors: 0,
+
     // Return current credentials
     getCredentials: function() {
         return { login: localStorage.backendLogin || "",
@@ -164,15 +169,36 @@ var Backend = {
     },
 
     // Connect to socket.io host and register callback on message receive
-    ioConnect: function(url, callback) {
-        var sock = io.connect(url);
-        sock.on("message", callback);
-        return sock;
+    ioConnect: function(url, options, callback, onerror) {
+        var self = this;
+        if (typeof options == "function") callback = options, options = {}
+        if (!url) url = "http://" + (this.socketHost || window.location.hostname) + ":" + this.socketPort;
+        this.socketErrors = 0;
+        this.socket = io.connect(url, options);
+        if (callback) this.socket.on("message", callback);
+        this.socket.on("error", function(err) {
+            console.log('ioSend:', self.socketErrors, err);
+            // Well, as 0.9.16 storm of reconnects can kill the server, we have to stop it
+            if (++self.socketErrors > 10) return self.ioClose();
+            if (onerror) onerror(err);
+        })
+        return this.socket;
+    },
+
+    // Destroy the socket completely
+    ioClose: function() {
+        if (!this.socket) return;
+        this.socket.removeAllListeners();
+        this.socket.socket.options.reconnect = false;
+        this.socket.disconnect();
+        this.socket.socket.transport.close();
+        for (var p in io.sockets) if (io.sockets[p] == this.socket.socket) delete io.sockets[p];
+        this.socket = null;
     },
 
     // Send request with the socket.io connection, url must be url-encoded, only GET requests are supported
-    ioSend: function(socket, url) {
-        socket.emit("message", Backend.signUrl(url));
+    ioSend: function(url, callback) {
+        this.socket.emit("message", Backend.signUrl(url), callback);
     },
 
     // Percent encode with special symbols in addition

@@ -147,6 +147,11 @@ ipc.initServer = function()
                     worker.send(msg);
                     break;
 
+                case 'exists':
+                    if (msg.name) msg.value = backend.lruExists(msg.name);
+                    worker.send(msg);
+                    break;
+
                 case 'put':
                     if (msg.name && msg.name) backend.lruSet(msg.name, msg.value);
                     if (msg.reply) worker.send({});
@@ -238,7 +243,7 @@ ipc.initClientCaching = function()
     case "redis":
         if (!core.redisHost) break;
         try {
-            this.redisCacheClient = redis.createClient(null, core.redisHost, core.redisOptions || {});
+            this.redisCacheClient = redis.createClient(core.redisPort, core.redisHost, core.redisOptions || {});
             this.redisCacheClient.on("error", function(err) { logger.error('redis:', err) });
         } catch(e) {
             logger.error('initClientCaching:', e);
@@ -527,7 +532,7 @@ ipc.initClientMessaging = function()
     case "redis":
         if (!core.redisHost) break;
         try {
-            this.redisSubClient = redis.createClient(null, core.redisHost, core.redisOptions || {});
+            this.redisSubClient = redis.createClient(core.redisPort, core.redisHost, core.redisOptions || {});
             this.redisSubClient.on("ready", function() {
                 self.redisSubClient.on("pmessage", function(channel, message) {
                     var cb = self.subCallbacks[channel];

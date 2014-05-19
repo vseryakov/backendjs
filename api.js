@@ -23,6 +23,7 @@ var session = require('cookie-session');
 var serveStatic = require('serve-static');
 var formidable = require('formidable');
 var io = require("socket.io");
+var redis = require('redis');
 var mime = require('mime');
 var consolidate = require('consolidate');
 var domain = require('domain');
@@ -414,12 +415,20 @@ api.init = function(callback)
             }
 
             try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
-            try { if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init:', core.ssl.port, core.ssl.bind, e); err = e; }
-            try { if (core.io.port) self.ioserver = io.listen(core.io.port); } catch(e) { logger.error('api: init:', core.io.port, core.io.bind, e); err = e; }
+            try { if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init: ssl:', core.ssl.port, core.ssl.bind, e); err = e; }
+            try { if (core.io.port) self.ioserver = io.listen(core.io.port, core.io.options); } catch(e) { logger.error('api: init: io:', core.io.port, core.io.bind, e); err = e; }
 
             // Setup sockets.io server, pass messages into the Express routing by wrapping into req/res objects
             if (self.ioserver) {
                 self.ioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
+
+                // We must have Redis due to master/worker runtime
+                var rhost = core.io.options.redisHost || core.redisHost;
+                var ropts = core.io.options.redisOptions || core.redisOptions;
+                var opts = { redisPub: redis.createClient(null, rhost, ropts),
+                             redisSub: redis.createClient(null, rhost, ropts),
+                             redisClient: redis.createClient(null, rhost, ropts) };
+                self.ioserver.set('store', new io.RedisStore(opts));
 
                 // Expose socket.io.js client
                 module.children.forEach(function(x) {
@@ -487,12 +496,12 @@ api.handleSocketConnect = function(socket)
 {
     var self = this;
 
-    logger.dev('socket.io:', 'connected', socket.handshake);
+    logger.dev('io:', 'connected', socket.handshake);
 
     this.checkSocketConnection(socket);
 
     socket.on("error", function(err) {
-        logger.error("socket.io:", err);
+        logger.error("io:", err);
     });
     socket.on("disconnect", function() {
         if (!this._requests) return;
@@ -504,7 +513,7 @@ api.handleSocketConnect = function(socket)
     });
 
     socket.on("message", function(url, callback) {
-        logger.debug("socket.io:", "msg", url);
+        logger.debug("io:", "msg", url, callback);
 
         var req = new http.IncomingMessage();
         req.socket = new net.Socket();
@@ -525,7 +534,12 @@ api.handleSocketConnect = function(socket)
         req.res.assignSocket(req.socket);
         req.res.io = this;
         req.res.end = function(body) {
-            if (body) this.io.emit("message", body);
+            if (callback) {
+                callback(body);
+            } else
+            if (body) {
+                this.io.emit("message", body);
+            }
             this.io._requests.splice(this.io._requests.indexOf(this.req), 1);
             this.req.res = null;
             this.req = null;

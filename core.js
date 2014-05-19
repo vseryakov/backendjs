@@ -61,7 +61,7 @@ var core = {
     ssl: { port: 443, bind: '0.0.0.0' },
 
     // Sockets.io config
-    io: { port: 0, bind: "0.0.0.0" },
+    io: { port: 0, bind: "0.0.0.0", options: {} },
 
     // Proxy config
     proxyPort: 8000,
