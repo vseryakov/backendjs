@@ -32,9 +32,13 @@ struct LRUStringCache {
         if (it == items.end()) {
         	list<string>::iterator it = lru.insert(lru.end(), k);
         	items.insert(std::make_pair(k, std::make_pair(v, it)));
+        	V8::AdjustAmountOfExternalAllocatedMemory(k.size() + v.size());
         	size += k.size() + v.size();
         	ins++;
         } else {
+            V8::AdjustAmountOfExternalAllocatedMemory(-it->second.first.size());
+            it->second.first = v;
+            V8::AdjustAmountOfExternalAllocatedMemory(v.size());
         	lru.splice(lru.end(), lru, it->second.second);
         }
     }
@@ -50,6 +54,7 @@ struct LRUStringCache {
         const LRUStringItems::iterator it = items.find(k);
         if (it == items.end()) return;
         size -= k.size() + it->second.first.size();
+        V8::AdjustAmountOfExternalAllocatedMemory(-(k.size() + it->second.first.size()));
         lru.erase(it->second.second);
         items.erase(it);
         dels++;
@@ -65,6 +70,7 @@ struct LRUStringCache {
     void clear() {
         items.clear();
         lru.clear();
+        V8::AdjustAmountOfExternalAllocatedMemory(-size);
         size = ins = dels = cleans = hits = misses = 0;
     }
 };
@@ -87,7 +93,7 @@ struct StringCache {
         if (it != items.end()) {
             V8::AdjustAmountOfExternalAllocatedMemory(-it->second.size());
             it->second = val;
-            V8::AdjustAmountOfExternalAllocatedMemory(it->second.size());
+            V8::AdjustAmountOfExternalAllocatedMemory(val.size());
         } else {
             items[key] = val;
             V8::AdjustAmountOfExternalAllocatedMemory(key.size() + val.size());
@@ -526,111 +532,57 @@ static Handle<Value> lruStats(const Arguments& args)
     return scope.Close(obj);
 }
 
-#ifdef USE_NANOMSG
-
-struct lruSocket {
-    int sock1;
-    int sock2;
-    int type;
-};
-
-static void lruHandleRead(uv_poll_t *w, int status, int revents)
+// Format:
+// key - del key
+// key\1 - del key
+// key\2 - del key
+// key\1val - set key=val
+// key\21 - incr key by 1
+// key\3 - return val for key
+static string lruServerRequest(char *buf, int len, void *data)
 {
-	if (status == -1 || !(revents & UV_READABLE)) return;
-	lruSocket *d = (lruSocket*)w->data;
+    string rc;
 
-	string str;
-	char *buf, *val;
-	int rc = nn_recv(d->sock1, (void*)&buf, NN_MSG, NN_DONTWAIT);
-	if (rc == -1) {
-		LogError("%d: %d: recv: %s", d->type, d->sock1, nn_strerror(nn_errno()));
-		return;
-	}
-	LogDev("type=%d, sock=%d, %s", d->type, d->sock1, buf);
-
-	switch (d->type) {
-	case 0:
-		// Update/delete/increment an item in the cache
-		val = strpbrk(buf, "\1\2");
-		if (!val) {
-			_lru.del(buf);
-		} else
-		if (!val[1]) {
-			_lru.del(string(buf, val - buf));
-		} else {
-			if (*val == '\2') {
-				_lru.incr(buf, val + 1);
-			} else {
-				_lru.set(buf, val + 1);
-			}
-		}
-		// Send to another hop or broadcast to all servers, depends on the socket type
-		if (d->sock2 >= 0) {
-			rc = nn_send(d->sock2, &buf, NN_MSG, NN_DONTWAIT);
-			if (rc == -1) LogError("%d: %d: send: %s", d->type, d->sock2, nn_strerror(nn_errno()));
-			break;
-		}
-		nn_freemsg(buf);
-		break;
-
-	case 1:
-		// Respond to get requests, never use second socket
-		str = _lru.get(buf);
-		rc = nn_send(d->sock1, str.c_str(), str.size() + 1, NN_DONTWAIT);
-		if (rc == -1) LogError("%d: %d: send: %s", d->type, d->sock1, nn_strerror(nn_errno()));
-		nn_freemsg(buf);
-		break;
-
-	default:
-		LogError("unknown request type: %d", d->type);
-		nn_freemsg(buf);
-	}
+    char *val = strpbrk(buf, "\1\2\3");
+    if (!val) {
+        _lru.del(buf);
+    } else
+    if (!val[1]) {
+        if (*val == '\3') {
+            rc = _lru.get(buf);
+        } else {
+            _lru.del(string(buf, val - buf));
+        }
+    } else {
+        if (*val == '\2') {
+            _lru.incr(buf, val + 1);
+        } else {
+            _lru.set(buf, val + 1);
+        }
+    }
+    return rc;
 }
-#endif
 
-static map<int,uv_poll_t*> _socks;
+#ifdef USE_NANOMSG
+static NNServer server;
 
 static Handle<Value> lruServerStart(const Arguments& args)
 {
     HandleScope scope;
-#ifdef USE_NANOMSG
-
-    REQUIRE_ARGUMENT_INT(0, type);
-    REQUIRE_ARGUMENT_INT(1, sock1);
-    OPTIONAL_ARGUMENT_INT2(2, sock2, -1);
-
-    int rfd;
-    size_t fdsz = sizeof(rfd);
-    int rc = nn_getsockopt(sock1, NN_SOL_SOCKET, NN_RCVFD, (char*) &rfd, &fdsz);
-    if (rc == -1) return ThrowException(Exception::Error(String::New(nn_strerror(nn_errno()))));
-
-    lruSocket *d = new lruSocket;
-    d->type = type;
-    d->sock1 = sock1;
-    d->sock2 = sock2;
-    uv_poll_t *p = new uv_poll_t;
-    uv_poll_init(uv_default_loop(), p, rfd);
-    uv_poll_start(p, UV_READABLE, lruHandleRead);
-    p->data = d;
-    _socks[sock1] = p;
-
-    LogDev("type=%d, sock1=%d, sock2=%d, rfd=%d", type, sock1, sock2, rfd);
-#else
-    return ThrowException(Exception::Error(String::New("nanomsg is not compiled in")));
-#endif
+    REQUIRE_ARGUMENT_INT(0, rsock);
+    REQUIRE_ARGUMENT_INT(1, wsock);
+    OPTIONAL_ARGUMENT_INT(2, queue);
+    server.Start(rsock, wsock, queue, lruServerRequest, NULL, NULL);
     return scope.Close(Undefined());
 }
 
 static Handle<Value> lruServerStop(const Arguments& args)
 {
     HandleScope scope;
-#ifdef USE_NANOMSG
-
-    REQUIRE_ARGUMENT_INT(0, sock);
-    _socks.erase(sock);
-#endif
+    server.Stop();
     return scope.Close(Undefined());
 }
+#endif
 
 void CacheInit(Handle<Object> target)
 {
@@ -663,7 +615,10 @@ void CacheInit(Handle<Object> target)
     NODE_SET_METHOD(target, "lruDel", lruDel);
     NODE_SET_METHOD(target, "lruKeys", lruKeys);
     NODE_SET_METHOD(target, "lruClear", lruClear);
+
+#ifdef USE_NANOMSG
     NODE_SET_METHOD(target, "lruServerStart", lruServerStart);
     NODE_SET_METHOD(target, "lruServerStop", lruServerStop);
+#endif
 }
 

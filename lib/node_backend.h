@@ -104,44 +104,44 @@ Handle<Value> toArray(vector<pair<string,string> > &list);
 Handle<Value> jsonParse(string str);
 string jsonStringify(Local<Value> obj);
 
-typedef string (BKServerCallback)(char *buf,int len,void *data);
+#ifdef USE_NANOMSG
+typedef string (NNServerCallback)(char *buf,int len,void *data);
+typedef void (NNServerFree)(void *buf);
 
-class BKServer {
+class NNServer {
 public:
-    BKServer();
-    virtual ~BKServer();
+    NNServer();
+    virtual ~NNServer();
 
-    virtual int Start(int rfd, bool bqueue, BKServerCallback *cb, void *udata);
+    virtual int Start(int rfd, int wfd, bool queue, NNServerCallback *cb, void *data, NNServerFree *cbfree);
     virtual void Stop();
-    virtual void Free(char *buf);
+
+    virtual string Run(char *buf, int len);
+
     virtual int Recv(char **buf);
     virtual int Send(string val);
-    virtual string Run(char *buf, int len);
+    virtual int Forward(char *buf, int size);
+    virtual void Free(char *buf);
+    virtual string error(int err);
 
     static void ReadRequest(uv_poll_t*, int, int);
     static void PostRequest(uv_work_t* req, int status);
     static void WorkRequest(uv_work_t* req);
 
-    int fd;
+    int rsock;
+    int rproto;
+    int rfd;
+    int wsock;
+    int wproto;
+    int wfd;
+    int err;
+    int maxsize;
     bool queue;
     uv_poll_t poll;
-    BKServerCallback *callback;
+    NNServerCallback *bkcallback;
+    NNServerFree *bkfree;
     void *data;
 };
-
-#ifdef USE_NANOMSG
-class NNServer: public BKServer {
-public:
-    virtual int Recv(char **buf);
-    virtual int Send(string val);
-    virtual void Free(char *buf);
-    virtual int Start(int nsock, bool queued, BKServerCallback *cb, void *udata);
-
-    int sock;
-    int proto;
-};
-#else
-typedef BKServer NNServer;
 #endif
 
 #endif

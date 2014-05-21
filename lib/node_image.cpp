@@ -336,15 +336,14 @@ err:
     ThrowException(Exception::Error(String::New(msg.c_str())));
     return scope.Close(Undefined());
 }
-#endif
 
 void WandInit(Handle<Object> target)
 {
     HandleScope scope;
 
-#ifdef USE_WAND
     MagickWandGenesis();
     NODE_SET_METHOD(target, "resizeImage", resizeImage);
     NODE_SET_METHOD(target, "resizeImageSync", resizeImageSync);
-#endif
 }
+
+#endif

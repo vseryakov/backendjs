@@ -47,11 +47,15 @@
     "Sqlite",
     "PostgreSQL",
     "MySQL",
+    "Redis",
+    "pubsub",
     "account",
     "location",
+    "messaging",
     "instance",
     "jobs",
     "cron",
+    "nanomsg",
     "geohash"
   ],
   "engines": {

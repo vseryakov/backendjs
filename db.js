@@ -3517,15 +3517,10 @@ db.lmdbInitPool = function(options)
             break;
 
         case "server":
-            var err = null;
-            try {
-                if (typeof opts.socket == "string") opts.socket = backend[opts.socket];
-                client.nnsock = new backend.NNSocket(backend.AF_SP, opts.socket || backend.NN_PULL);
-                client.nnsock.bind(opts.bind || ('ipc://var/' + client.db.split("/").pop() + ".sock"));
-                client.dbhandle.startServer(client.nnsock);
-            } catch(e) {
-                err = e;
-            }
+            if (typeof opts.socket == "string") opts.socket = backend[opts.socket];
+            client.nnsock = new backend.NNSocket(backend.AF_SP, opts.socket || backend.NN_PULL);
+            var err = client.nnsock.bind(opts.bind || ('ipc://var/' + client.db.split("/").pop() + ".sock"));
+            err = client.dbhandle.startServer(client.nnsock, -1);
             callback(err, []);
             break;
 

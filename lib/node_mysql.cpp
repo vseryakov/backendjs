@@ -399,11 +399,9 @@ err:
 Persistent<FunctionTemplate> MysqlDatabase::constructor_template;
 Persistent<FunctionTemplate> MysqlStatement::constructor_template;
 Persistent<ObjectTemplate> MysqlStatement::object_template;
-#endif
 
 void MysqlInit(Handle<Object> target)
 {
-#ifdef USE_MYSQL
     HandleScope scope;
     mysql_library_init(0, NULL, NULL);
 
@@ -470,10 +468,8 @@ void MysqlInit(Handle<Object> target)
     DEFINE_CONSTANT_INTEGER(target, CLIENT_PS_MULTI_RESULTS, CLIENT_PS_MULTI_RESULTS);
 #endif
 
-#endif
 }
 
-#ifdef USE_MYSQL
 static Handle<Value> listStatements(const Arguments& args)
 {
     HandleScope scope;

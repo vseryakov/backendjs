@@ -2324,6 +2324,27 @@ core.searchObj = function(obj, options)
     return rc;
 }
 
+// Return a property from the object, name specifies the path to the property, if the required property belong to another object inside the top one
+// the name uses . to separate objects. This is a convenient method to extract properties from nested objects easily.
+// Options may contains the following properties:
+// - list - return the value as list even if there is only one value found
+//
+// Example:
+//
+//          core.objProperty({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
+//
+core.objProperty = function(obj, name, options)
+{
+    if (!obj) return null;
+    if (!Array.isArray(name)) name = String(name).split(".");
+    for (var i = 0; i < name.length; i++) {
+        obj = obj[name[i]];
+        if (typeof obj == "undefined") return null;
+    }
+    if (obj && options && options.list && !Array.isArray(obj)) obj = [ obj ];
+    return obj;
+}
+
 // Merge an object with the options, all properties in the options override existing in the object, returns a new object
 //
 // Example

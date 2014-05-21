@@ -910,6 +910,8 @@ backend.server.start();
     ;;
 
   *)
+    [ "$ARG" != "" ] && echo "error: unknown command: $ARG $@"
+    echo ""
     echo "usage: $BK command ..."
     echo "  where command is:"
     echo ""

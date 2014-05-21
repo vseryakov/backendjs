@@ -232,7 +232,6 @@ public:
     MDB_txn *txn;
     MDB_cursor *cursor;
     bool open;
-    NNServer server;
 
     class Baton {
     public:
@@ -274,9 +273,10 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "incr", Incr);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
+#ifdef USE_NANOMSG
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "startServer", ServerStart);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "stopServer", ServerStop);
-
+#endif
         target->Set(String::NewSymbol("LMDB"), constructor_template->GetFunction());
     }
 
@@ -551,14 +551,17 @@ public:
         }
         jsonFree(json);
         return value;
-    }
+     }
 
+#ifdef USE_NANOMSG
+     NNServer server;
      static Handle<Value> ServerStart(const Arguments& args) {
          HandleScope scope;
          LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
-         REQUIRE_ARGUMENT_INT(0, sock);
-         OPTIONAL_ARGUMENT_INT(1, queue);
-         db->server.Start(sock, queue, ServerProcess, db);
+         REQUIRE_ARGUMENT_INT(0, rsock);
+         REQUIRE_ARGUMENT_INT(1, wsock);
+         OPTIONAL_ARGUMENT_INT(2, queue);
+         db->server.Start(rsock, wsock, queue, ServerProcess, db, NULL);
          return scope.Close(Undefined());
      }
 
@@ -568,6 +571,7 @@ public:
          db->server.Stop();
          return scope.Close(Undefined());
      }
+#endif
 };
 
 Persistent<FunctionTemplate> LMDB_DB::constructor_template;

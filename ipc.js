@@ -211,14 +211,10 @@ ipc.initServerCaching = function()
 
         // LRU cache server, receives cache requests, updates the local cache and then re-broadcasts it to other connected servers
         if (!this.lruSocket) {
-            try {
-                this.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
-                this.lruSocket.bind("tcp://" + core.cacheBind + ":" + core.cachePort);
-                backend.lruServerStart(0, this.lruSocket.socket, this.lruSocket.socket);
-            } catch(e) {
-                logger.error('initServerCaching:', e);
-                this.lruSocket = null;
-            }
+            this.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
+            var err = this.lruSocket.bind("tcp://" + core.cacheBind + ":" + core.cachePort);
+            if (!err) err = backend.lruServerStart(this.lruSocket.socket, this.lruSocket.socket);
+            if (err) logger.error('initServerCaching:', 'lru', backend.nn_strerror(err));
         }
         // Connect to the cache broadcasters if provided or changed
         this.connect(this.lruSocket, core.cacheHost, core.cachePort);
@@ -287,7 +283,8 @@ ipc.connect = function(sock, hosts, port)
                      filter(function(x) { return connected.indexOf(x) == -1 }).
                      join(',');
         if (!hosts) return;
-        try { sock.connect(hosts); } catch(e) { logger.error('ipc.connect:', hosts, port, e); }
+        var err = sock.connect(hosts);
+        if (err) logger.error('ipc.connect:', hosts, port, backend.nn_strerror(err));
     }
 }
 
@@ -475,28 +472,21 @@ ipc.initServerMessaging = function()
         // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process
         // connects to this socket.
         if (!this.subServerSocket) {
-            try {
-                this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
-                this.subServerSocket.bind("tcp://" + core.msgBind + ":" + (core.msgPort + 1));
-            } catch(e) {
-                logger.error('initServerMessaging:', e);
-                this.subServerSocket = null;
-            }
+            this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
+            var err = this.subServerSocket.bind("tcp://" + core.msgBind + ":" + (core.msgPort + 1));
+            if (err) logger.error('initServerMessaging:', core.msgBind, (core.msgPort + 1), backend.nn_strerror(err));
         }
 
         // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
         // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
         // and automatically uses next live server in case of failure.
         if (!this.pubServerSocket) {
-            try {
-                this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
-                this.pubServerSocket.bind("tcp://" + core.msgBind + ":" + core.msgPort);
-                // Forward all messages to the sub server socket
-                if (this.subServerSocket) this.pubServerSocket.setForward(this.subServerSocket);
-            } catch(e) {
-                logger.error('initServerMessaging:', e);
-                this.pubServerSocket = null;
-            }
+            this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
+            var err = this.pubServerSocket.bind("tcp://" + core.msgBind + ":" + core.msgPort);
+            if (err) logger.error('initServerMessaging:', core.msgBind, core.msgPort, backend.nn_strerror(err));
+            // Forward all messages to the sub server socket, we dont use proxy because PUB socket
+            // broadcasts to all peers but we want load-balancer
+            if (!err) this.pubServerSocket.setForward(this.subServerSocket);
         }
     }
     logger.debug('initServerMessaging:', core.msgType, core.msgPort, this.subServerSocket, this.pubServerSocket);
@@ -551,30 +541,20 @@ ipc.initClientMessaging = function()
         if (!backend.NNSocket || core.noMsg || !core.msgHost) break;
 
         // Socket where we publish our messages
-        try {
-            if (!this.pubSocket) {
-                this.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
-            }
-        } catch(e) {
-            logger.error('initClientMessaging:', e, hosts);
-            this.pubSocket = null;
+        if (!this.pubSocket) {
+            this.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
         }
         this.connect(this.pubSocket, core.msgHost, core.msgPort);
 
         // Socket where we receive messages for us
-        try {
-            if (!this.subSocket) {
-                this.subSocket = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
-                this.subSocket.setCallback(function(err, data) {
-                    if (err) return logger.error('subscribe:', err);
-                    data = data.split("\1");
-                    var cb = self.subCallbacks[data[0]];
-                    if (cb) cb[0](cb[1], data[0], data[1]);
-                });
-            }
-        } catch(e) {
-            logger.error('initClientMessaging:', e, hosts);
-            this.subSocket = null;
+        if (!this.subSocket) {
+            this.subSocket = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
+            this.subSocket.setCallback(function(err, data) {
+                if (err) return logger.error('subscribe:', err);
+                data = data.split("\1");
+                var cb = self.subCallbacks[data[0]];
+                if (cb) cb[0](cb[1], data[0], data[1]);
+            });
         }
         this.connect(this.subSocket, core.msgHost, core.msgPort + 1);
     }

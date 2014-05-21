@@ -6,114 +6,6 @@
 #include "node_backend.h"
 #include "snappy.h"
 
-struct BKServerBaton {
-    BKServerBaton(BKServer *s, char *b = 0, int l = 0): server(s), buf(b), len(l) {
-        req.data = s;
-    }
-    ~BKServerBaton() {
-        server->Free(buf);
-    }
-    uv_work_t req;
-    BKServer *server;
-    string value;
-    char *buf;
-    int len;
-};
-
-BKServer::BKServer()
-{
-    poll.data = NULL;
-    Stop();
-}
-
-BKServer::~BKServer()
-{
-    Stop();
-}
-
-void BKServer::Stop()
-{
-    if (poll.data) uv_poll_stop(&poll);
-    poll.data = NULL;
-    fd = queue = 0;
-    callback = NULL;
-    data = NULL;
-}
-
-int BKServer::Start(int rfd, bool bqueue, BKServerCallback *cb, void *udata)
-{
-    uv_poll_init(uv_default_loop(), &poll, rfd);
-    uv_poll_start(&poll, UV_READABLE, ReadRequest);
-    poll.data = this;
-    callback = cb;
-    data = udata;
-    fd = rfd;
-    queue = bqueue;
-    return 0;
-}
-
-void BKServer::ReadRequest(uv_poll_t *w, int status, int revents)
-{
-    if (status == -1 || !(revents & UV_READABLE)) return;
-    BKServer *srv = (BKServer*)w->data;
-
-    char *buf;
-    int len = srv->Recv(&buf);
-    if (len == -1) return;
-
-    if (srv->queue) {
-        BKServerBaton *d = new BKServerBaton(srv, buf, len);
-        uv_queue_work(uv_default_loop(), &d->req, WorkRequest, PostRequest);
-    } else {
-        string val = srv->Run(buf, len);
-        srv->Send(val);
-        srv->Free(buf);
-    }
-}
-
-void BKServer::PostRequest(uv_work_t* req, int status)
-{
-    BKServerBaton* d = static_cast<BKServerBaton*>(req->data);
-    d->server->Send(d->value);
-    delete d;
-}
-
-void BKServer::WorkRequest(uv_work_t* req)
-{
-    BKServerBaton* d = static_cast<BKServerBaton*>(req->data);
-    d->value = d->server->Run(d->buf, d->len);
-}
-
-string BKServer::Run(char *buf, int len)
-{
-    if (!buf || !len) return string();
-    return callback(buf, len, data);
-}
-
-int BKServer::Recv(char **buf)
-{
-    char data[1524];
-    int len = read(fd, (void*)data, sizeof(data));
-    if (len == -1) LogError("%d: recv: %s", fd, strerror(errno));
-    if (len > 0) {
-        *buf = (char*)malloc(len);
-        memcpy(buf, data, len);
-    }
-    return len;
-}
-
-int BKServer::Send(string val)
-{
-    int len = write(fd, val.c_str(), val.size() + 1);
-    if (len == -1) LogError("%d: send: %s", fd, strerror(errno));
-    return len;
-}
-
-void BKServer::Free(char *buf)
-{
-    if (buf) free(buf);
-}
-
 string exceptionString(TryCatch* try_catch)
 {
     HandleScope scope;
@@ -480,14 +372,22 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "geoHashRow", geoHashRow);
 
     CacheInit(target);
-    WandInit(target);
     SyslogInit(target);
     SQLiteInit(target);
-    PgSQLInit(target);
-    MysqlInit(target);
     LevelDBInit(target);
-    NanoMsgInit(target);
     LMDBInit(target);
+#ifdef USE_WAND
+    WandInit(target);
+#endif
+#ifdef USE_PGSQL
+    PgSQLInit(target);
+#endif
+#ifdef USE_MYSQL
+    MysqlInit(target);
+#endif
+#ifdef USE_NANOMSG
+    NanoMsgInit(target);
+#endif
 }
 
 NODE_MODULE(backend, backend_init);

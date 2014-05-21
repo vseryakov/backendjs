@@ -119,17 +119,11 @@ Persistent<FunctionTemplate> PgSQLDatabase::constructor_template;
 static const char *errnames[] = { "severity", "code", "detail", "hint", "position", "internalPosition", "internalQuery", "where", "file", "line", "routine", NULL };
 static const char errcodes[] = { PG_DIAG_SEVERITY, PG_DIAG_SQLSTATE, PG_DIAG_MESSAGE_DETAIL, PG_DIAG_MESSAGE_HINT, PG_DIAG_STATEMENT_POSITION, PG_DIAG_INTERNAL_POSITION, PG_DIAG_INTERNAL_QUERY, PG_DIAG_CONTEXT, PG_DIAG_SOURCE_FILE, PG_DIAG_SOURCE_LINE, PG_DIAG_SOURCE_FUNCTION, 0 };
 
-#endif
-
 void PgSQLInit(Handle<Object> target)
 {
     HandleScope scope;
-#ifdef USE_PGSQL
     PgSQLDatabase::Init(target);
-#endif
 }
-
-#ifdef USE_PGSQL
 
 void PgSQLDatabase::Init(Handle<Object> target)
 {

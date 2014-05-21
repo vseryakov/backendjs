@@ -776,6 +776,8 @@ tests.lmdb = function(callback)
 
 tests.nnpubsub = function(callback)
 {
+    if (!self.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");
+
     if (cluster.isMaster) {
         var count = 0;
         var addr = "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235";
@@ -801,10 +803,10 @@ tests.nnpubsub = function(callback)
                setTimeout(next, core.randomInt(1000));
            },
            function(err) {
-               logger.log('sockets1:', bn.nnSockets())
+               logger.log('sockets1:', bn.nn_sockets())
                sock.send("exit");
                sock = null;
-               logger.log('sockets2:', bn.nnSockets())
+               logger.log('sockets2:', bn.nn_sockets())
                callback(err);
            });
     }
@@ -812,6 +814,8 @@ tests.nnpubsub = function(callback)
 
 tests.nncache = function(callback)
 {
+    if (!self.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");
+
     var slave = core.getArgInt("-slave", 0);
     core.cacheHost = "127.0.0.1:20194,127.0.0.1:20197";
 
@@ -866,7 +870,7 @@ tests.nncache = function(callback)
            }],
            function(err) {
                 db.getCached("bk_counter", { id: "1" }, { select: ["id", "ping"] }, function(err, row) {
-                    logger.log("end ", row.ping);
+                    logger.log("end, must be 2, got", row.ping);
                     callback(err);
                 });
         });

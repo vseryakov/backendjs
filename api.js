@@ -1673,13 +1673,13 @@ api.putConnections = function(req, options, callback)
     req.query.id = req.account.id;
     req.query.type = type + ":" + id;
     req.query.mtime = now;
-    db[op]("bk_connection", req.query, function(err) {
+    db[op]("bk_connection", req.query, options, function(err) {
         if (err) return callback(db.convertError("bk_connection", op, err));
 
         // Reverse reference to the same connection
         req.query.id = id;
         req.query.type = type + ":"+ req.account.id;
-        db[op]("bk_reference", req.query, function(err) {
+        db[op]("bk_reference", req.query, options, function(err) {
             if (err) {
                 db.del("bk_connection", { id: req.account.id, op: op, type: type + ":" + id });
                 return callback(err);
@@ -2215,6 +2215,7 @@ api.getSentMessages = function(req, options, callback)
 }
 
 // Return all recipients i sent messages to, used in /message/get/recepient API call
+// TODO: as of now it will only return recipients who sent at least 1 message to me, later will use connections for this
 api.getMessageRecipients = function(req, options, callback)
 {
     var db = core.context.db;

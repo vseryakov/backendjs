@@ -588,13 +588,15 @@ static string NNHandleRequest(char *buf, int len, void *data)
     return value;
 }
 
+#ifdef USE_NANOMSG
 Handle<Value> LevelDB::ServerStart(const Arguments& args)
 {
     HandleScope scope;
     LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
-    REQUIRE_ARGUMENT_INT(0, sock);
+    REQUIRE_ARGUMENT_INT(0, rsock);
+    REQUIRE_ARGUMENT_INT(0, wsock);
     OPTIONAL_ARGUMENT_INT(1, queue);
-    db->server.Start(sock, queue, NNHandleRequest, db);
+    db->server.Start(rsock, wsock, queue, NNHandleRequest, db, NULL);
     return scope.Close(Undefined());
 }
 
@@ -605,6 +607,7 @@ Handle<Value> LevelDB::ServerStop(const Arguments& args)
     db->server.Stop();
     return scope.Close(Undefined());
 }
+#endif
 
 void LevelDB::Init(Handle<Object> target)
 {
@@ -623,8 +626,11 @@ void LevelDB::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "batch", Batch);
+
+#ifdef USE_NANOMSG
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "startServer", ServerStart);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "stopServer", ServerStop);
+#endif
 
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "getProperty", GetProperty);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "getSnapshot", GetSnapshot);
