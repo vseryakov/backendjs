@@ -361,15 +361,20 @@ aws.queryFilter = function(obj, options)
 {
     var self = this;
     var filter = {};
+    var ops = ["between","null","not null","in","contains","not contains","ne","eq","le","lt","ge","gt"];
+
     for (var name in obj) {
         var val = obj[name];
         var op = (options.ops || {})[name] || "eq";
         if (this.opsMap[op]) op = this.opsMap[op];
         if (val == null) op = "null";
         // A value with its own operator
-        if (typeof val == "object" && !Array.isArray(val)) {
-            op = Object.keys(val)[0];
-            val = val[op];
+        if (core.typeName(val) == "object") {
+            var keys = Object.keys(val);
+            if (keys.length == 1 && ops.indexOf(keys[0].toLowerCase()) > -1) {
+                op = keys[0];
+                val = val[op];
+            }
         }
 
         var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase().replace(' ', '_') }

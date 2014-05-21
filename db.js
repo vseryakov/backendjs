@@ -2369,12 +2369,16 @@ db.sqlInsert = function(table, obj, options)
     }
     req.text = (options.replace ? "REPLACE" : "INSERT") + " INTO " + table + "(" + names.join(",") + ") values(" + pnums.join(",") + ")";
     if (options.returning) req.text += " RETURNING " + options.returning;
+    if (options.ifnotexists) req.text += " IF NOT EXISTS ";
+    if (options.using_ttl) req.text += " USING TTL " + options.using_ttl;
+    if (options.using_timestamp) req.text += " USING TIMESTAMP " + options.using_timestamp;
     return req;
 }
 
 // Build SQL statement for update
 db.sqlUpdate = function(table, obj, options)
 {
+    var self = this;
     if (!options) options = {};
     var sets = [], req = { values: [] }, i = 1;
     var cols = this.getColumns(table, options) || {};
@@ -2416,8 +2420,12 @@ db.sqlUpdate = function(table, obj, options)
         logger.debug('sqlUpdate:', table, 'nothing to do', obj, keys);
         return null;
     }
-    req.text = "UPDATE " + table + " SET " + sets.join(",") + " WHERE " + where;
+    req.text = "UPDATE " + table ;
+    if (options.using_ttl) req.text += " USING TTL " + options.using_ttl;
+    if (options.using_timestamp) req.text += " USING TIMESTAMP " + options.using_timestamp;
+    req.text += " SET " + sets.join(",") + " WHERE " + where;
     if (options.returning) req.text += " RETURNING " + options.returning;
+    if (options.expected) req.text += " IF " + Object.keys(options.expected).map(function(x) { return x + "=" + self.sqlQuote(options.expected[x]) }).join(" AND ");
     return req;
 }
 
@@ -2928,9 +2936,8 @@ db.dynamodbInitPool = function(options)
             // Keep nulls and empty strings, it means we have to delete this property.
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return self.skipColumn(n, v, opts, dbcols); }, _empty_to_null: 1 });
             // Increment counters, only specified columns will use ADD operation, they must be numbers
-            if (!opts.ops) opts.ops = {};
             if (opts.counter) opts.counter.forEach(function(x) { opts.ops[x] = 'ADD'; });
-            if (req.op == "update") opts.expected = keys;
+            if (req.op == "update" && !options.expected && !options.Expected) opts.expected = keys;
             aws.ddbUpdateItem(table, keys, o, opts, function(err, rc) {
                 callback(err, [], rc);
             });
