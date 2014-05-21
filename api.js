@@ -65,6 +65,7 @@ var api = {
         // Authentication by login, only keeps id and secret to check the siganture
         bk_auth: { login: { primary: 1 },               // Account login
                    id: {},                              // Auto generated UUID
+                   alias: {},                           // Account alias
                    secret: {},                          // Account password
                    type: {},                            // Account type: admin, ....
                    acl_deny: {},                        // Deny access to matched url
@@ -425,8 +426,8 @@ api.init = function(callback)
                 var h = core.socketio.options.redisHost || core.redisHost;
                 var o = core.socketio.options.redisOptions || core.redisOptions;
                 self.socketioserver.set('store', new socketio.RedisStore({ redisPub: redis.createClient(p, h, o), redisSub: redis.createClient(p, h, o), redisClient: redis.createClient(p, h, o) }));
-                self.socketioserver.set('authorization', function(data, callback) { self.checkSocketIORequest(data, callback); });
-                self.socketioserver.sockets.on('connection', function(socket) { self.handleSocketIOConnect(socket); });
+                self.socketioserver.set('authorization', function(data, callback) { self.checkSocketRequest(data, callback); });
+                self.socketioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
 
                 // Expose socket.io.js client
                 module.children.forEach(function(x) {
@@ -490,13 +491,13 @@ api.handleServerRequest = function(req, res)
 }
 
 // Wrap socket.io connection into the Express routing, respond on backend command
-api.handleSocketIOConnect = function(socket)
+api.handleSocketConnect = function(socket)
 {
     var self = this;
 
     logger.debug('socket.io:', 'connected', socket.handshake);
 
-    this.checkSocketIOConnection(socket);
+    this.checkSocketConnection(socket);
 
     socket.on("error", function(err) {
         logger.error("socket.io:", err);
@@ -554,10 +555,10 @@ api.handleSocketIOConnect = function(socket)
 }
 
 // Called before allowing the socket.io connection to be authorized
-api.checkSocketIORequest = function(data, callback) { callback(null, true); }
+api.checkSocketRequest = function(data, callback) { callback(null, true); }
 
 // Called on new socket.io connection, passed the socket connected as first argument
-api.checkSocketIOConnection = function(socket) {}
+api.checkSocketConnection = function(socket) {}
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server
 // is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.
@@ -1616,7 +1617,7 @@ api.incrCounters = function(req, options, callback)
 
         // Notify only the other account
         if (obj.id != req.account.id) {
-            ipc.publish(obj.id, { path: req.path, mtime: now, type: Object.keys(obj).join(",") });
+            ipc.publish(obj.id, { path: req.path, mtime: now, alias: req.account.alias, type: Object.keys(obj).join(",") });
         }
 
         callback(null, rows);
@@ -1684,7 +1685,7 @@ api.putConnections = function(req, options, callback)
                 db.del("bk_connection", { id: req.account.id, op: op, type: type + ":" + id });
                 return callback(err);
             }
-            ipc.publish(id, { path: req.path, mtime: now, type: type });
+            ipc.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type });
 
             // We need to know if the other side is connected too, this will save one extra API call later
             if (req.query._connected) {
@@ -1731,7 +1732,7 @@ api.delConnections = function(req, options, callback)
             db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, function(err) {
                 if (err) return callback(err);
 
-                ipc.publish(id, { path: req.path, mtime: now, type: type });
+                ipc.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type });
 
                 callback(null, {});
 
@@ -2296,7 +2297,7 @@ api.addMessage = function(req, options, callback)
             if (err) return callback(db.convertError("bk_message", "add", err));
 
             if (req.query.id != req.account.id) {
-                ipc.publish(req.query.id, { path: req.path, mtime: now, type: req.query.icon });
+                ipc.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) });
             }
 
             callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
@@ -2358,7 +2359,7 @@ api.addAccount = function(req, options, callback)
     req.query.id = core.uuid();
     req.query.mtime = req.query.ctime = Date.now();
     // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
-    var auth = { id: req.query.id, login: req.query.login, secret: req.query.secret };
+    var auth = { id: req.query.id, login: req.query.login, alias: req.query.alias, secret: req.query.secret };
     // Only admin can add accounts with the type
     if (req.account && req.account.type == "admin" && req.query.type) auth.type = req.query.type;
     db.add("bk_auth", auth, function(err) {
@@ -2390,7 +2391,10 @@ api.updateAccount = function(req, options, callback)
     req.query.id = req.account.id;
     // Skip location related properties
     self.clearQuery(req, options, "bk_account", "noadd");
-    db.update("bk_account", req.query, callback);
+    db.update("bk_account", req.query, function(err, rows, info) {
+        if (err || !req.query.alias) return callback(err, rows, info);
+        db.update("bk_auth", { login: req.account.login, alias: req.query.alias }, callback);
+    });
 }
 
 // Delete account specified by the obj. Used in `/account/del` API call.
