@@ -415,27 +415,12 @@ api.init = function(callback)
                 });
             }
 
+            // Primary http servers
             try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
             try { if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init: ssl:', core.ssl, e); err = e; }
-            try { if (core.socketio.port) self.socketioserver = socketio.listen(core.socketio.port, core.socketio.options); } catch(e) { logger.error('api: init: socketio:', core.socketio, e); err = e; }
 
-            // Setup sockets.io server, pass messages into the Express routing by wrapping into req/res objects
-            if (self.socketioserver) {
-                // We must have Redis due to master/worker runtime
-                var p = core.socketio.options.redisPort || core.redisPort;
-                var h = core.socketio.options.redisHost || core.redisHost;
-                var o = core.socketio.options.redisOptions || core.redisOptions;
-                self.socketioserver.set('store', new socketio.RedisStore({ redisPub: redis.createClient(p, h, o), redisSub: redis.createClient(p, h, o), redisClient: redis.createClient(p, h, o) }));
-                self.socketioserver.set('authorization', function(data, callback) { self.checkSocketRequest(data, callback); });
-                self.socketioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
-
-                // Expose socket.io.js client
-                module.children.forEach(function(x) {
-                    if (x.id.match(/node_modules\/socket.io\/index.js/)) {
-                        self.app.use(serveStatic(path.dirname(x.id) + "/node_modules/socket.io-client/dist"));
-                    }
-                });
-            }
+            // External socket server(s), pass messages into the Express routing by wrapping into req/res objects
+            self.setupSocketServer();
 
             // Notify the master about new worker server
             ipc.send("api:ready", "");
@@ -490,17 +475,44 @@ api.handleServerRequest = function(req, res)
     d.run(function() { self.app(req, res); });
 }
 
-// Wrap socket.io connection into the Express routing, respond on backend command
+// Setup external socket server(s)
+api.setupSocketServer = function()
+{
+    var self = this;
+
+    try {
+        // socket.io server
+        if (core.socketio.port) {
+            self.socketioserver = socketio.listen(core.socketio.port, core.socketio.options);
+            // We must have Redis due to master/worker runtime
+            var p = core.socketio.options.redisPort || core.redisPort;
+            var h = core.socketio.options.redisHost || core.redisHost;
+            var o = core.socketio.options.redisOptions || core.redisOptions;
+            self.socketioserver.set('store', new socketio.RedisStore({ redisPub: redis.createClient(p, h, o), redisSub: redis.createClient(p, h, o), redisClient: redis.createClient(p, h, o) }));
+            self.socketioserver.set('authorization', function(data, callback) { self.checkSocketRequest(data, callback); });
+            self.socketioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
+
+            // Expose socket.io.js client
+            module.children.forEach(function(x) {
+                if (x.id.match(/node_modules\/socket.io\/index.js/)) {
+                    self.app.use(serveStatic(path.dirname(x.id) + "/node_modules/socket.io-client/dist"));
+                }
+            });
+        }
+    } catch(e) {
+        logger.error('setupSocketServer:', e);
+    }
+}
+
+// Wrap external socket connection into the Express routing, respond on backend command
 api.handleSocketConnect = function(socket)
 {
     var self = this;
 
-    logger.debug('socket.io:', 'connected', socket.handshake);
-
     this.checkSocketConnection(socket);
 
     socket.on("error", function(err) {
-        logger.error("socket.io:", err);
+        logger.error("socket:", err);
     });
 
     socket.on("disconnect", function() {
@@ -513,7 +525,7 @@ api.handleSocketConnect = function(socket)
     });
 
     socket.on("message", function(url, callback) {
-        logger.debug("socket.io:", "msg", url, callback);
+        logger.debug("socket:", "msg", url, callback);
 
         var req = new http.IncomingMessage();
         req.socket = new net.Socket();
@@ -2292,7 +2304,7 @@ api.addMessage = function(req, options, callback)
     req.query.status = 'N:' + req.query.mtime;
     self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
         if (err) return callback(err);
-        req.query.icon = icon ? 1 : "0";
+        req.query.icon = icon ? 1 : 0;
         db.add("bk_message", req.query, options, function(err, rows, info) {
             if (err) return callback(db.convertError("bk_message", "add", err));
 

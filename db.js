@@ -457,10 +457,10 @@ db.createPool = function(options)
 //
 //          db.select("bk_account", {}, db.showResult);
 //
-db.showResult = function(err, rows)
+db.showResult = function(err, rows, info)
 {
     if (err) return console.log(err);
-    console.log(rows);
+    console.log(rows, info);
 }
 
 // Execute query using native database driver, the query is passed directly to the driver.

@@ -132,7 +132,7 @@ aws.queryDDB = function (action, obj, options, callback)
         // Reply is always JSON but we dont take any chances
         try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
         if (params.status != 200) {
-            logger.error('queryDDB:', action, util.inspect(obj, null, null), err || params.data);
+            logger[options.ignore_error ? "debug" : "error"]('queryDDB:', action, util.inspect(obj, null, null), err || params.data);
             // Try several times
             if (options.retries > 0 && (params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException|ThrottlingException)/))) {
                 options.retries--;
@@ -365,6 +365,13 @@ aws.queryFilter = function(obj, options)
         var val = obj[name];
         var op = (options.ops || {})[name] || "eq";
         if (this.opsMap[op]) op = this.opsMap[op];
+        if (val == null) op = "null";
+        // A value with its own operator
+        if (typeof val == "object" && !Array.isArray(val)) {
+            op = Object.keys(val)[0];
+            val = val[op];
+        }
+
         var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase().replace(' ', '_') }
         switch (cond.ComparisonOperator) {
         case 'BETWEEN':
@@ -374,7 +381,11 @@ aws.queryFilter = function(obj, options)
             break;
 
         case 'NULL':
+            cond = { Exists: false };
+            break;
+
         case 'NOT_NULL':
+            cond = { Exists: true };
             break;
 
         case 'IN':
@@ -594,11 +605,15 @@ aws.ddbPutItem = function(name, item, options, callback)
 // - options may contain any valid native property if it starts with capital letter or special properties:
 //      - ops - an object with operators to be used for properties if other than PUT
 //      - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
-//     any other exact value to be checked against which corresponds to { Exists: true, Value: value }
+//         any other exact value to be checked against which corresponds to { Exists: true, Value: value }. If it is an object then it is treated as
+//         { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from options.ops the same way as for queries.
 //
 // Example:
 //
 //          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: 1 } })
+//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: null } })
+//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png', num: 1 }, { op: { num: 'ADD', icons: 'ADD' }, expected: { id: null, num: { gt: 0 } } })
+//
 aws.ddbUpdateItem = function(name, keys, item, options, callback)
 {
     var self = this;
@@ -612,13 +627,8 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
     // Sugar-candy syntax for expected values
-    for (var p in options.expected) {
-        if (!params.Expected) params.Expected = {};
-        if (options.expected[p] == null) {
-            params.Expected[p] = { Exists: false };
-        } else {
-            params.Expected[p] = { Value: self.toDynamoDB(options.expected[p]) };
-        }
+    if (options.expected) {
+        params.Expected = this.queryFilter(options.expected, options);
     }
     for (var p in item) {
         if (params.Key[p]) continue;
