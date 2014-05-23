@@ -84,6 +84,9 @@ var db = {
     // Pools by table name
     tblpool: {},
 
+    // Tables to be cached
+    caching: [],
+
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
     sqlitePool: core.name,
@@ -92,6 +95,7 @@ var db = {
     // Config parameters
     args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type: "bool", descr: "Do not use other db pools except default local pool" },
+           { name: "caching", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool for config parameters, if not defined the default pool will be used" },
            { name: "config-type", descr: "Config group to use when requesting confguration from the database, must be defined to be used" },
@@ -440,6 +444,7 @@ db.createPool = function(options)
     pool.dbcolumns = {};
     pool.dbkeys = {};
     pool.dbindexes = {};
+    pool.dbcache = {};
     pool.metrics = new metrics(pool.name);
     // Some require properties can be initialized with options
     if (!pool.dboptions) pool.dboptions = {};
@@ -522,6 +527,9 @@ db.query = function(req, options, callback)
             // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
             self.checkPublicColumns(table, rows, options);
 
+            // Auto convert the error according to the rules
+            if (err && pool.convertError) err = pool.convertError(table, req.op || "", err, options);
+
             callback(err, rows, info);
         } catch(e) {
             logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, e.stack);
@@ -547,7 +555,8 @@ db.query = function(req, options, callback)
                     client = null;
 
                     // Cache notification in case of updates, we must have the request prepared by the db.prepare
-                    if (options.cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
+                    var cached = options.cached || self.caching.indexOf(table) > -1;
+                    if (cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
                         self.clearCached(table, req.obj, options);
                     }
 
@@ -555,7 +564,7 @@ db.query = function(req, options, callback)
                     if (options.unique) items = core.arrayUnique(items, options.unique);
 
                     // Convert values if we have custom column callback
-                    self.processRows(pool, table, rows, options);
+                    if (!options.noprocessrows) self.processRows(pool, table, rows, options);
 
                     // Custom filter to return the final result set
                     if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
@@ -677,8 +686,13 @@ db.updateAll = function(table, query, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
-    var opts = core.cloneObj(options, { ops: 1 });
 
+    // Custom handler for the operation
+    var pool = this.getPool(table, options);
+    if (pool.updateAll && !options.process) return pool.updateAll(table, query, obj, options, callback);
+
+    // Options without ops for update
+    var opts = core.cloneObj(options, { ops: 1 });
     self.select(table, obj, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
@@ -743,8 +757,13 @@ db.delAll = function(table, query, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
-    var opts = core.cloneObj(options, { ops: 1 });
 
+    // Custom handler for the operation
+    var pool = this.getPool(table, options);
+    if (pool.delAll && !options.process) return pool.delAll(table, query, options, callback);
+
+    // Options without ops for delete
+    var opts = core.cloneObj(options, { ops: 1 });
     self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
@@ -1188,11 +1207,11 @@ db.getLocations = function(table, query, options, callback)
 db.get = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
-    if (options && options.cached) {
-    	options.cached = 0;
+    options = this.getOptions(table, options);
+    if (!options._cached && (options.cached || this.caching.indexOf(table) > -1)) {
+    	options._cached = 1;
     	return this.getCached(table, query, options, callback);
     }
-    options = this.getOptions(table, options);
     var req = this.prepare("get", table, query, options);
     this.query(req, options, function(err, rows) {
         if (callback) callback(err, rows.length ? rows[0] : null);
@@ -1247,7 +1266,7 @@ db.clearCached = function(table, query, options)
 db.getCachedKey = function(table, query, options)
 {
     var prefix = options.prefix || table;
-    return prefix + this.getKeys(table, options).map(function(x) { return ":" + query[x] });
+    return prefix + this.getKeys(table, options).map(function(x) { return ":" + query[x] }) + (options.select ? ":" + String(options.select) : "");
 }
 
 // Create a table using column definitions represented as a list of objects. Each column definition can
@@ -2291,11 +2310,12 @@ db.sqlCreate = function(table, obj, options)
                 filter(function(x) { return x });
     }
 
-    ["","1","2"].forEach(function(y) {
-        var idxname = table + "_idx" + y;
+    ["","1","2","3","4"].forEach(function(y) {
+        var cols = keys('index' + y);
+        if (!cols) return;
+        var idxname = table + "_" + cols.replace(",", "_") + "_idx";
         if (pool.dbindexes[idxname]) return;
-        var sql = (function(x) { return x ? "CREATE INDEX " + (!options.noIfExists ? "IF NOT EXISTS " : " ") + idxname + " ON " + table + "(" + x + ")" : "" })(keys('index' + y));
-        if (sql) rc.push(sql);
+        rc.push("CREATE INDEX " + (!options.noIfExists ? "IF NOT EXISTS " : " ") + idxname + " ON " + table + "(" + cols + ")");
     });
 
     return { text: options.noMultiSQL && rc.length ? rc : rc.join(";") };
@@ -2425,7 +2445,7 @@ db.sqlUpdate = function(table, obj, options)
     if (options.using_timestamp) req.text += " USING TIMESTAMP " + options.using_timestamp;
     req.text += " SET " + sets.join(",") + " WHERE " + where;
     if (options.returning) req.text += " RETURNING " + options.returning;
-    if (options.expected) req.text += " IF " + Object.keys(options.expected).map(function(x) { return x + "=" + self.sqlQuote(options.expected[x]) }).join(" AND ");
+    if (options.expected) req.text += " IF " + Object.keys(options.expected).map(function(x) { return x + "=" + self.sqlValue(options.expected[x]) }).join(" AND ");
     return req;
 }
 
@@ -2749,15 +2769,13 @@ db.dynamodbInitPool = function(options)
                     });
                     (rc.Table.LocalSecondaryIndexes || []).forEach(function(x) {
                         x.KeySchema.forEach(function(y) {
-                            if (!pool.dbindexes[x.IndexName]) pool.dbindexes[x.IndexName] = [];
-                            pool.dbindexes[x.IndexName].push(y.AttributeName);
+                            core.objSet(pool.dbindexes, [table, x.IndexName], y.AttributeName, { push: 1 });
                             pool.dbcolumns[table][y.AttributeName].index = 1;
                         });
                     });
                     (rc.Table.GlobalSecondaryIndexes || []).forEach(function(x) {
                         x.KeySchema.forEach(function(y) {
-                            if (!pool.dbindexes[x.IndexName]) pool.dbindexes[x.IndexName] = [];
-                            pool.dbindexes[x.IndexName].push(y.AttributeName);
+                            core.objSet(pool.dbindexes, [table, x.IndexName], y.AttributeName, { push: 1 });
                             pool.dbcolumns[table][y.AttributeName].index = 1;
                             pool.dbcolumns[table][y.AttributeName].global = 1;
                         });
@@ -2788,7 +2806,7 @@ db.dynamodbInitPool = function(options)
 
         switch(req.op) {
         case "create":
-            var local = {}, global = {}, projection = {}, attrs = {};
+            var local = {}, global = {}, attrs = {};
             var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
                               sort(function(a,b) { return obj[a].primary - obj[b].primary }).
                               filter(function(x, i) { return i < 2 }).
@@ -2799,13 +2817,14 @@ db.dynamodbInitPool = function(options)
             ["","1","2","3","4","5"].forEach(function(n) {
                 var idx = Object.keys(obj).filter(function(x, i) { return obj[x]["index" + n]; }).sort(function(a,b) { return obj[a]["index" + n] - obj[b]["index" + n] });
                 if (!idx.length) return;
+                var name = idx.join("_");
                 if (idx.length == 2 && idx[0] == hash) {
-                    local[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
+                    local[name] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
                 } else
                 if (idx.length == 2) {
-                    global[idx[1]] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
+                    global[name] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
                 } else {
-                    global[idx[0]] = core.newObj(idx[0], 'HASH');
+                    global[name] = core.newObj(idx[0], 'HASH');
                 }
                 idx.forEach(function(y) { attrs[y] = 1 });
             });
@@ -2814,14 +2833,12 @@ db.dynamodbInitPool = function(options)
             Object.keys(attrs).forEach(function(x) {
                 attrs[x] = ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S";
                 for (var p in obj[x].dynamodb) {
-                    if (p[0] >= 'A' && p[0] <= 'Z') opts[p] = obj[x].dynamodb[p];
-                    if (p == "projection") projection[x] = obj[x].dynamodb.projection;
+                    opts[p] = core.mergeObj(opts[p], obj[x].dynamodb[p]);
                 }
             });
 
             opts.local = local;
             opts.global = global;
-            opts.projection = projection;
             aws.ddbCreateTable(table, attrs, keys, opts, function(err, item) {
                 callback(err, item.Item ? [item.Item] : []);
             });
@@ -2849,12 +2866,18 @@ db.dynamodbInitPool = function(options)
         case "search":
             // Save the original values of the options
             var old = pool.saveOptions(opts, 'sort', 'keys', 'select', 'start', 'count');
-            // Do not use index name if it is a primary key
-            if (opts.sort && dbkeys.indexOf(opts.sort) > -1) opts.sort = null;
+            // Sorting by the range key
+            if (opts.sort && opts.sort == dbkeys[1]) opts.sort = null;
             // Use primary keys from the secondary index
             if (opts.sort) {
-                var sort = (opts.sort.length > 2 ? '' : '_') + opts.sort;
-                if (pool.dbindexes[sort]) dbkeys = pool.dbindexes[sort]; else opts.sort = null;
+                for (var p in pool.dbindexes[table]) {
+                    var idx = pool.dbindexes[table][p];
+                    if (idx && idx.length == 2 && idx[1] == opts.sort) {
+                        dbkeys = pool.dbindexes[table][p];
+                        opts.sort = p;
+                        break;
+                    }
+                }
             }
             var keys = Object.keys(obj);
             // If we have other key columns we have to use custom filter
@@ -3031,12 +3054,12 @@ db.mongodbInitPool = function(options)
 
             ["", "1", "2", "3", "4", "5"].forEach(function(n) {
                 var cols = core.searchObj(obj, { name: "unique" + n, sort: 1, flag: 1 });
-                var uopts = core.mergeObj(opts, { name: Object.keys(cols).join('.'), unique: true, background: true });
+                var uopts = core.mergeObj(opts, { name: Object.keys(cols).join('_'), unique: true, background: true });
                 Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) uopts[p] = obj[x].mongodb[p]; });
 
                 if (Object.keys(cols).length) keys.push({ cols: cols, opts: uopts });
                 cols = core.searchObj(obj, { name: "index" + n, sort: 1, flag: 1 });
-                var iopts = core.mergeObj(opts, { name: Object.keys(cols).join('.'), background: true });
+                var iopts = core.mergeObj(opts, { name: Object.keys(cols).join('_'), background: true });
                 Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) iopts[p] = obj[x].mongodb[p]; });
                 if (Object.keys(cols).length) keys.push({ cols: cols, opts: iopts });
             });
@@ -3172,7 +3195,7 @@ db.mongodbInitPool = function(options)
             var collection = client.collection(table);
             var keys = self.getSearchQuery(table, obj, opts);
             var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return self.skipColumn(n, v, opts, dbcols); } });
-            collection.update(keys, o, opts, function(err, rc) {
+            collection.update(keys, { "$set": o }, opts, function(err, rc) {
                 callback(err, []);
             });
             break;
@@ -3261,15 +3284,15 @@ db.cassandraInitPool = function(options)
             var lastKey = keys[keys.length - 1], lastOps = opts.ops[lastKey];
 
             // Install custom filter if we have other columns in the keys
-            var other = Object.keys(obj).filter(function(x) { return keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
+            var other = Object.keys(obj).filter(function(x) { return x[0] != "_" && keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
             // Custom filter function for in-memory filtering of the results using non-indexed properties
             if (other.length) opts.rowfilter = function(rows) { return self.filterColumns(obj, rows, { keys: other, cols: cols, ops: opts.ops, typesMap: options.typesMap }); }
             opts.keys = keys;
 
-            // Sorting is limited to a range key so we will do it in memory
-            if (opts.sort && keys.indexOf(opts.sort) == -1) {
+            // Sorting is limited to the second part of the composite key so we will do it in memory
+            if (opts.sort && (keys.length < 2 || keys[1] != opts.sort)) {
                 var sort = opts.sort;
-                opts.rowsort = function(rows) { return rows.sort(function(a,b) { return a[sort] - b[sort] }) }
+                opts.rowsort = function(rows) { return rows.sort(function(a,b) { return (a[sort] - b[sort])*(opts.desc?-1:1) }) }
                 opts.sort = null;
             }
 
@@ -3279,7 +3302,7 @@ db.cassandraInitPool = function(options)
                 opts.ops[lastKey] = opts.desc ? "lt" : "gt";
                 opts.start.forEach(function(x) { for (var p in x) obj[p] = x[p]; });
             }
-            logger.debug('select:', pool.name, opts.keys, other);
+            logger.debug('select:', pool.name, opts.keys, opts.sort, other);
 
             var req = self.sqlPrepare(op, table, obj, opts);
             pool.restoreOptions(opts, old);

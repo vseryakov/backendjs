@@ -416,9 +416,9 @@ The accounts API manages accounts and authentication, it provides basic user acc
         /account/subscribe?match=connection/add.*type:*like
 
         // To run in the browser:
-        (function poll() { 
-            Backend.send({ url: "/account/subscribe", complete: poll }, function(data) { 
-                console.log("received event:", data); 
+        (function poll() {
+            Backend.send({ url: "/account/subscribe", complete: poll }, function(data) {
+                console.log("received event:", data);
              });
          })();
 
@@ -711,10 +711,7 @@ When request comes for all matches for the location for example 37.7, -122.4, th
            }
 
 ## Messages
-The messaging API allows sending and recieving messages between accounts, it supports text and images. The typical usage of this API is to
-poll the counter record using `/counter/get` from time to time and check for `msg_count` and `msg_read` counters, once `msg_count` is greater than `msg_read` this means
-there is a new message arrived. Then call `/message/get` to retrieve all or only new messages arrived after some point in time and store the mtime
-from the last messages received so the next time we will use this time to get only new messages.
+The messaging API allows sending and recieving messages between accounts, it supports text and images.
 
 - `/message/image`
   Return the image data for the given message, the required parameters are:
@@ -722,12 +719,31 @@ from the last messages received so the next time we will use this time to get on
     - mtime - exact timestamp of the message
 
 - `/message/get`
-  Receive messages, the parameter `mtime` defines which messages to get, if omitted all messages will be returned. By `mtime` it is possible to
-  specify that only messages received since that time to return, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
-  Date.now() return in Javascript. The images are not returned, only link to the image in `icon` property of reach record,
+  Read all new messages, i.e. the messages that never been read or issued `/message/archive` call.
+
+  Parameters:
+   - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
+   - `_delete` - if set to 1, all returned messages will be deleted, not archived
+
+  Example:
+
+        # Get all new messages
+        /message/get
+
+        # Get all new messages and archive them
+        /message/get?_archive=1
+
+        # Get all new messages from the specific sender
+        /message/get?sender=12345
+
+- `/message/get/archive`
+  Receive archived messages. The images are not returned, only link to the image in `icon` property of reach record,
   the actual image data must be retrieved separately.
 
-  When `sender` is specified then all messages from given sender will be returned.
+  Parameters:
+   - `mtime` - if specified then only messages received since that time will be retirned, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
+     Date.now() return in Javascript.
+  - `sender` - if specified then all messages from the given sender will be returned.
 
   NOTE: The `mtime` is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
   also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
@@ -736,16 +752,19 @@ from the last messages received so the next time we will use this time to get on
   Example:
 
         # Get all messages
-        /message/get
+        /message/get/archive
 
         # Get all messages received after given mtime
-        /message/get?mtime=123475658690
+        /message/get/archive?mtime=123475658690
+
+        # Get all messages received before given mtime
+        /message/get/archive?mtime=123475658690&_ops=mtime,lt
 
         # Get all messages with custom filter: if msg text contains Hi
-        /message/get?_ops=msg,iregexp&msg=Hi
+        /message/get/archive?_ops=msg,iregexp&msg=Hi
 
         # Get all messages from the specific sender
-        /message/get?sender=12345
+        /message/get/archive?sender=12345
 
   Response:
 
@@ -761,17 +780,11 @@ from the last messages received so the next time we will use this time to get on
              "next_token": ""
            }
 
-- `/message/get/unread`
-  Read all unread messages, i.e. the messages that never been issued `/message/read` call.
-
-  Parameters:
-   - `_read` - if set to 1, all returned messages will be marked as read automatically, so no individual /message/read call needed
-
 - `/message/get/sent`
-  All messages i sent
+   Return all messages i sent out. All the same query rules apply as for the archived messages API call.
 
   Parameters:
-   - `id` - id where i sent messages
+   - `recipient` - id of the recipient where i have sent messages
    - `mtime` - time before or after messages sent, defined by _ops parametrs
 
   Example:
@@ -780,33 +793,45 @@ from the last messages received so the next time we will use this time to get on
         /message/get/sent?id=123&mtime=123475658690&_ops=mtime,le
 
 - `/message/add`
-  Send a message to an account, the following parametrrs must be specified:
+  Send a message to an account, the following parameters must be specified:
     - `id` - account id of the receiver
     - `msg` - text of the message, can be empty if `icon` property exists
     - `icon` - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
       can be a multipart file upload if submitted via browser, can be omitted if `msg/connection/get?type=invite&id=12345` property exists.
-
-  After successful post the message counters of the destination account will be updated: msg_count will be increased automatically
+    - _nosent - do not save this message in my sent messages
 
   Example:
 
         /message/add?id=12345&msg=Hello
         /message/add?id=12345&msg=this%2Bis%2Bthe%2Bpic&icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D
 
-- `/message/read`
-  Mark a message as read, this will update account counter `msg_read` automatically. The required query parameters are `sender` and `mtime`.
+- `/message/archive`
+  Move a new message to the archive. The required query parameters are `sender` and `mtime`.
 
   Example:
 
         /message/read?sender=12345&mtime=12366676434
 
 - `/message/del`
-  Delete the message by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
+  Delete new message(s) by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
 
   Example:
 
         /message/del?sender=12345&mtime=124345656567676
 
+- `/message/del/archive`
+  Delete archived message(s) by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
+
+  Example:
+
+        /message/del/archive?sender=12345&mtime=124345656567676
+
+- `/message/del/sent`
+  Delete the message(s) by `recipient` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages to the given recipient will be deleted.
+
+  Example:
+
+        /message/del/sent?recipient=12345&mtime=124345656567676
 
 ## Counters
 The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
@@ -816,17 +841,9 @@ process for the cached records thus only one copy of the cache per machine even 
 - `/counter/get`
   Return counter record for current account with all available columns of if `id` is given return public columns for given account, it works with `bk_counter` table
   which by default defines some common columns:
+    - ping - a counter for general use, can be used to send a notification event to any acount by increasing this counter for an account
     - like0 - how many i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type 'like'
     - like1 - how many liked me, reverse counter, who connected to me with type 'like'
-    - dislike0 - how many i disliked
-    - dislike1 - how many disliked me
-    - follow0 - how many i follow
-    - follow1 - how many follows me
-    - invite0 - how many i invited
-    - invite1 - how many invited me
-    - msg_count - how messages i received via messaging API
-    - msg_read - how many messages i read using messaging API, these counters allow to keep track of new messages, as soon as msg_count greater than msg_read
-    it means i have a new message
   More columns can be added to the bk_counter table.
 
   NOTE: The columns with suffixes 0 and 1 are special columns that support the Connections API, every time a new connection is created, the type of new connection

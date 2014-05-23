@@ -604,9 +604,12 @@ case "$ARG" in
 
   put-backend)
     # Put backend code to the remote site
-    [ "$BACKEND_PATH" = "" ] && BACKEND_PATH=node_modules/$BKJS
+    if [ "$BACKEND_PATH" = "" ]; then
+       mode=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("package.json")).name)')
+       [ "$mod" = "$BKSJ" ] && BACKEND_PATH=node_modules/$BKJS
+    fi
     [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
-    for f in build pages etc deps log tmp var images files web; do
+    for f in build etc deps log tmp var pages images files; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
     echo "Deploying the module to -l $BACKEND_USER $BACKEND_EXCLUDE $BACKEND_MASTER:$BACKEND_PATH"

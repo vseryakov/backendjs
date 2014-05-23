@@ -761,7 +761,7 @@ aws.ddbBatchGetItem = function(items, options, callback)
 //      - sort - index name to use, indexes are named the same as the corresponding column, with index primary keys for Keycondition will be used
 //      - ops - an object with operators to be used for properties if other than EQ.
 //      - keys - list of primary key columns, if there are other properties in the condition then they will be
-//         put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.
+//               put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.
 //
 // Example:
 //

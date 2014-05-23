@@ -2331,9 +2331,9 @@ core.searchObj = function(obj, options)
 //
 // Example:
 //
-//          core.objProperty({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
+//          core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
 //
-core.objProperty = function(obj, name, options)
+core.objGet = function(obj, name, options)
 {
     if (!obj) return null;
     if (!Array.isArray(name)) name = String(name).split(".");
@@ -2343,6 +2343,39 @@ core.objProperty = function(obj, name, options)
     }
     if (obj && options && options.list && !Array.isArray(obj)) obj = [ obj ];
     return obj;
+}
+
+// Set a property of the object, name can be an array or a string with property path inside the object, all non existent intermediate
+// objects will be create automatically. The options can have the folowing properties:
+// - incr - if 1 the numeric value will be added to the existing if any
+// - push - add to the array, if it is not an array a new empty aray is created
+//
+// Example
+//
+//          var a = core.objSet({}, "response.item.count", 1)
+//          core.objSet(a, "response.item.count", 1, { incr: 1 })
+//
+core.objSet = function(obj, name, value, options)
+{
+    if (!obj) obj = {};
+    if (!Array.isArray(name)) name = String(name).split(".");
+    if (!name || !name.length) return obj;
+    var p = name[name.length - 1], v = obj;
+    for (var i = 0; i < name.length - 1; i++) {
+        if (typeof obj[name[i]] == "undefined") obj[name[i]] = {};
+        obj = obj[name[i]];
+    }
+    if (options && options.push) {
+        if (!Array.isArray(obj[p])) obj[p] = [];
+        obj[p].push(value);
+    } else
+    if (options && options.incr) {
+        if (!obj[p]) obj[p] = 0;
+        obj[p] += value;
+    } else {
+        obj[p] = value;
+    }
+    return v;
 }
 
 // Merge an object with the options, all properties in the options override existing in the object, returns a new object

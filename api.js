@@ -126,30 +126,33 @@ var api = {
                        state: {},
                        mtime: { type: "bigint", now: 1 }},
 
-       // Messages between accounts
-       bk_message: { id: { primary: 1, index: 1, index1: 1 },  // my account_id
-                     mtime: { primary: 1 },                    // mtime:sender, the current timestamp in milliseconds and the sender
-                     status: { index: 1 },                     // status: R:mtime:sender or N:mtime:sender, where R - read, N - new
-                     sender: { index1: 1 },                    // sender:mtime, reverse index by sender
-                     acl_allow: {},                            // Who has access: all, auth, id:id...
-                     msg: { type: "text" },                    // Text of the message
-                     icon: {}},                                // Icon base64 or url
+       // New messages
+       bk_message: { id: { primary: 1 },                         // my account_id
+                     mtime: { primary: 1 },                      // mtime:sender
+                     sender: { index: 1 },                       // Sender id
+                     acl_allow: {},                              // Who has access: all, auth, id:id...
+                     msg: {},                                    // Text of the message
+                     icon: { type: "int" }},                     // 1 - icon present, 0 - no icon
+
+       // Archived messages
+       bk_archive: { id: { primary: 1, index: 1 },               // my account_id
+                     mtime: { primary: 1 },                      // mtime:sender
+                     sender: { index: 1 },                       // Sender id
+                     msg: {},                                    // Text of the message
+                     icon: { type: "int" }},                     // 1 - icon present, 0 - no icon
+
+       // Messages sent
+       bk_sent: { id: { primary: 1, index: 1 },                // my account
+                  mtime: { primary: 1 },                       // mtime:recipient
+                  recipient: { index: 1 },                     // Recipient id
+                  msg: {},                                     // Text of the message
+                  icon: { type: "int" }},                      // 1 - icon present, 0 - no icon
 
        // All accumulated counters for accounts
        bk_counter: { id: { primary: 1, pub: 1 },                               // account id
-                     ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy
+                     ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy with notification
                      like0: { type: "counter", value: 0, autoincr: 1 },        // who i liked
-                     like1: { type: "counter", value: 0 },                     // reversed, who liked me
-                     dislike0: { type: "counter", value: 0, autoincr: 1 },
-                     dislike1: { type: "counter", value: 0 },
-                     follow0: { type: "counter", value: 0, autoincr: 1 },
-                     follow1: { type: "counter", value: 0, },
-                     invite0: { type: "counter", value: 0, autoincr: 1 },
-                     invite1: { type: "counter", value: 0, },
-                     view0: { type: "counter", value: 0, autoincr: 1 },
-                     view1: { type: "counter", value: 0, },
-                     msg_count: { type: "counter", value: 0 },                  // total msgs received
-                     msg_read: { type: "counter", value: 0 }},                  // total msgs read
+                     like1: { type: "counter", value: 0 }},                    // reversed, who liked me
 
        // Keep historic data about account activity
        bk_history: { id: { primary: 1 },
@@ -203,7 +206,6 @@ var api = {
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "data-endpoint-unsecure", type: "bool", descr: "Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
-           { name: "caching", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with whatever cache configured" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints" },
@@ -778,11 +780,8 @@ api.checkSignature = function(req, callback)
         return callback({ status: 400, message: "Expired request" });
     }
 
-    var options = {};
-    if (this.caching.indexOf("bk_auth") > -1) options.cached = 1;
-
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-    core.context.db.get("bk_auth", { login: sig.login }, options, function(err, account) {
+    core.context.db.get("bk_auth", { login: sig.login }, function(err, account) {
         if (err) return callback({ status: 500, message: String(err) });
         if (!account) return callback({ status: 404, message: "No account record found" });
 
@@ -831,53 +830,26 @@ api.initAccountAPI = function()
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "get":
-        	if (!req.query.id) {
-        	    if (self.caching.indexOf("bk_account")) options.cached = 1, options.select = null;
-        		db.get("bk_account", { id: req.account.id }, options, function(err, row) {
-        			if (err) return self.sendReply(res, err);
-        			if (!row) return self.sendReply(res, 404);
-
-        		    // Setup session cookies for automatic authentication without signing
-        	        if (req.query._session) {
-        	            switch (req.query._session) {
-        	            case "1":
-        	                var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
-        	                req.session["bk-signature"] = sig["bk-signature"];
-        	                break;
-
-        	            case "0":
-        	                delete req.session["bk-signature"];
-        	                break;
-        	            }
-        	        }
-        			self.sendJSON(req, res, row);
-        		});
-        	} else {
-        		db.list("bk_account", req.query.id, options, function(err, rows) {
-        			if (err) return self.sendReply(res, err);
-        			self.sendJSON(req, res, rows);
-        		});
-        	}
+            self.getAccount(req, options, function(err, data, info) {
+                self.sendJSON(req, err, data);
+            });
             break;
 
         case "add":
             self.addAccount(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+                self.sendJSON(req, err, data);
             });
             break;
 
         case "update":
             self.updateAccount(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+                self.sendJSON(req, err, data);
             });
             break;
 
         case "del":
             self.deleteAccount(req.account, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+                self.sendJSON(req, err, data);
             });
             break;
 
@@ -886,27 +858,21 @@ api.initAccountAPI = function()
             break;
 
         case "select":
-            db.select("bk_account", req.query, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: next_token });
+            self.selectAccount(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
         case "put/secret":
-            if (!req.query.secret) return self.sendReply(res, 400, "secret is required");
-            req.account.secret = req.query.secret;
-            db.update("bk_auth", req.account, { cached: 1 }, function(err) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, {});
+            self.setAccountSecret(req, options, function(err) {
+                self.sendJSON(req, err, {});
             });
             break;
 
         case "select/location":
             options.table = "bk_account";
-            self.getLocations(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+            self.getLocation(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
@@ -918,13 +884,9 @@ api.initAccountAPI = function()
 
         case "select/icon":
             if (!req.query.id) req.query.id = req.account.id;
-            options.ops = { type: "begins_with" };
-            db.select("bk_icon", { id: req.query.id, type: "account:" }, options, function(err, rows) {
-                if (err) return self.sendReply(res, err);
-                // Filter out not allowed icons
-                rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
-                rows.forEach(function(x) { self.formatIcon(x, req.account); });
-                self.sendJSON(req, res, rows);
+            req.query.prefix = "account";
+            self.selectIcon(req, options, function(err, rows) {
+                self.sendJSON(req, err, rows);
             });
             break;
 
@@ -962,13 +924,8 @@ api.initIconAPI = function()
             break;
 
         case "select":
-            options.ops = { type: "begins_with" };
-            db.select("bk_icon", { id: req.query.id, type: req.query.prefix + ":" + req.query.type }, options, function(err, rows) {
-                if (err) return self.sendReply(res, err);
-                // Filter out not allowed icons
-                rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
-                rows.forEach(function(x) { self.formatIcon(x, req.account); });
-                self.sendJSON(req, res, rows);
+            self.selectIcon(req, options, function(err, rows) {
+                self.sendJSON(req, err, rows);
             });
             break;
 
@@ -990,13 +947,20 @@ api.initMessageAPI = function()
     var self = this;
     var db = core.context.db;
 
-    db.setProcessRow("bk_message", function(row, options, cols) {
-        if (row.mtime) {
-            var mtime = row.mtime.split(":");
-            row.mtime = core.toNumber(mtime[0]);
-            row.sender = mtime[1];
-        }
-        if (row.status) row.status = row.status[0];
+    function onMessageRow(row, options, cols) {
+        var mtime = row.mtime.split(":");
+        row.mtime = core.toNumber(mtime[0]);
+        row.sender = mtime[1];
+        if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+        return row;
+    }
+    db.setProcessRow("bk_message", onMessageRow);
+    db.setProcessRow("bk_archive", onMessageRow);
+
+    db.setProcessRow("bk_sent", function(row, options, cols) {
+        var mtime = row.mtime.split(":");
+        row.mtime = core.toNumber(mtime[0]);
+        row.recipient = mtime[1];
         if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
         return row;
     });
@@ -1014,50 +978,50 @@ api.initMessageAPI = function()
             break;
 
         case "get":
-            self.getMessages(req, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+            self.getMessage(req, options, function(err, rows, info) {
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
         case "get/sent":
-            self.getSentMessages(req, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+            self.getSentMessage(req, options, function(err, rows, info) {
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
-        case "get/recipient":
-            self.getMessageRecipients(req, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token ? core.toBase64(info.next_token) : "" });
+        case "get/archive":
+            self.getArchiveMessage(req, options, function(err, rows, info) {
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.toBase64(info.next_token) : "" });
             });
             break;
 
-        case "get/unread":
-            self.getNewMessages(req, options, function(err, rows, info) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token ? core.toBase64(info.next_token) : "" });
-            });
-            break;
-
-        case "read":
-            self.updateMessage(req, options, function(err, rows) {
-                return self.sendReply(res, err);
+        case "archive":
+            self.archiveMessage(req, options, function(err, rows) {
+                self.sendReply(res, err);
             });
             break;
 
         case "add":
             self.addMessage(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+                self.sendJSON(req, err, data);
             });
             break;
 
         case "del":
-            self.delMessages(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+            self.delMessage(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
+            });
+            break;
+
+        case "del/archive":
+            self.delArchiveMessage(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
+            });
+            break;
+
+        case "del/sent":
+            self.delSentMessage(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
@@ -1117,17 +1081,15 @@ api.initCounterAPI = function()
 
         case "incr":
             options.op = req.params[0];
-            self.incrCounters(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+            self.incrCounter(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
         case "get":
             var id = req.query.id || req.account.id;
-            if (self.caching.indexOf("bk_counter")) options.cached = 1, options.select = null;
             db.get("bk_counter", { id: id }, options, function(err, row) {
-                self.sendJSON(req, res, row);
+                self.sendJSON(req, err, row);
             });
             break;
 
@@ -1154,24 +1116,21 @@ api.initConnectionAPI = function()
         case "put":
         case "update":
             options.op = req.params[1];
-            self.putConnections(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+            self.putConnection(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
         case "del":
-            self.delConnections(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+            self.delConnection(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
         case "get":
             options.op = req.params[0];
-            self.getConnections(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+            self.getConnection(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
@@ -1194,16 +1153,14 @@ api.initLocationAPI = function()
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "put":
-            self.putLocations(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+            self.putLocation(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
         case "get":
-            self.getLocations(req, options, function(err, data) {
-                if (err) return self.sendReply(res, err);
-                self.sendJSON(req, res, data);
+            self.getLocation(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
@@ -1316,7 +1273,7 @@ api.initDataAPI = function()
     });
 
     // Basic operations on a table
-    this.app.all(/^\/data\/(select|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res, info) {
+    this.app.all(/^\/data\/(select|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
         // Table must exist
         var dbcols = db.getColumns(req.params[1]);
         if (!dbcols) return self.sendReply(res, "Unknown table");
@@ -1330,15 +1287,14 @@ api.initDataAPI = function()
             if (req.query._pool) options.pool = req.query._pool;
         }
 
-        db[req.params[0]](req.params[1], req.query, options, function(err, rows) {
-            if (err) return self.sendReply(res, err);
+        db[req.params[0]](req.params[1], req.query, options, function(err, rows, info) {
             switch (req.params[0]) {
             case "select":
             case "search":
-                self.sendJSON(req, res, { count: rows.length, data: rows, next_token: info.next_token });
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info.next_token });
                 break;
             default:
-                self.sendJSON(req, res, rows);
+                self.sendJSON(req, err, rows);
             }
         });
     });
@@ -1496,15 +1452,18 @@ api.registerPostProcess = function(method, path, callback)
     this.addHook('post', method, path, callback);
 }
 
-// Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in teh apps
-api.sendJSON = function(req, res, rows)
+// Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in the apps.
+// If err is not null the error message is returned immediately.
+api.sendJSON = function(req, err, rows)
 {
+    if (err) return this.sendReply(req.res, err);
+
     var hook = this.findHook('post', req.method, req.path);
     try {
-        if (!hook) return res.json(rows);
-        hook.callbacks.call(this, req, res, rows);
+        if (!hook) return req.res.json(rows);
+        hook.callbacks.call(this, req, req.res, rows);
     } catch(e) {
-        logger.error('sendJSON:', req.path, err.stack);
+        logger.error('sendJSON:', req.path, e.stack);
     }
 }
 
@@ -1541,7 +1500,7 @@ api.sendStatus = function(res, options)
             }
         }
     } catch(e) {
-        logger.error('sendStatus:', e.stack);
+        logger.error('sendStatus:', res.req.path, e.stack);
     }
     return false;
 }
@@ -1608,322 +1567,6 @@ api.sendEvent = function(req, key, data)
     }, req.msgInterval || 5000);
 }
 
-// Increase a counter, used in /counter/incr API call, options.op can be set to 'put'
-api.incrCounters = function(req, options, callback)
-{
-    var self = this;
-    var db = core.context.db;
-    var now = Date.now();
-    var op = options.op || "incr";
-
-    // Remove non public columns when updating other account
-    if (req.query.id && req.query.id != req.account.id) {
-        var obj = { id: req.query.id };
-        db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[x]) obj[x] = req.query[x]; });
-    } else {
-        var obj = req.query;
-        obj.id = req.account.id;
-    }
-    db[op]("bk_counter", obj, { cached: 1 }, function(err, rows) {
-        if (err) return callback(db.convertError("bk_counter", "incr", err));
-
-        // Notify only the other account
-        if (obj.id != req.account.id) {
-            ipc.publish(obj.id, { path: req.path, mtime: now, alias: req.account.alias, type: Object.keys(obj).join(",") });
-        }
-
-        callback(null, rows);
-
-        // Update history log
-        if (options.history) {
-            db.add("bk_history", { id: obj.id, type: req.path, data: core.cloneObj(obj, { mtime: 1 }) });
-        }
-    });
-}
-
-// Return all connections for the current account, this function is called by the `/connection/get` API call.
-api.getConnections = function(req, options, callback)
-{
-    var self = this;
-    var db = core.context.db;
-
-    if (req.query.type) req.query.type += ":" + (req.query.id || "");
-    req.query.id = req.account.id;
-    options.ops.type = "begins_with";
-    db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
-        if (err) return self.sendReply(res, err);
-        var next_token = info.next_token ? core.toBase64(info.next_token) : "";
-        // Split type and reference id
-        rows.forEach(function(row) {
-            var d = row.type.split(":");
-            row.type = d[0];
-            row.id = d[1];
-        });
-        // Just return connections
-        if (!core.toNumber(options.details)) return callback(null, { count: rows.length, data: rows, next_token: next_token });
-
-        // Get all account records for the id list
-        db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
-            if (err) return self.sendReply(res, err);
-            callback(null, { count: rows.length, data: rows, next_token: next_token });
-        });
-    });
-}
-
-// Create a connection between 2 accounts, this function is called by the `/connection/add` API call.
-api.putConnections = function(req, options, callback)
-{
-    var self = this;
-    var db = core.context.db;
-    var now = Date.now();
-    var op = options.op || 'put';
-
-    var id = req.query.id, type = req.query.type;
-    if (!id || !type) return callback({ status: 400, message: "id and type are required"});
-    if (id == req.account.id) return callback({ status: 400, message: "cannot connect to itself"});
-
-    // Override primary key properties, the rest of the properties will be added as is
-    req.query.id = req.account.id;
-    req.query.type = type + ":" + id;
-    req.query.mtime = now;
-    db[op]("bk_connection", req.query, options, function(err) {
-        if (err) return callback(db.convertError("bk_connection", op, err));
-
-        // Reverse reference to the same connection
-        req.query.id = id;
-        req.query.type = type + ":"+ req.account.id;
-        db[op]("bk_reference", req.query, options, function(err) {
-            if (err) {
-                db.del("bk_connection", { id: req.account.id, op: op, type: type + ":" + id });
-                return callback(err);
-            }
-            ipc.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type });
-
-            // We need to know if the other side is connected too, this will save one extra API call later
-            if (req.query._connected) {
-                db.get("bk_connection", req.query, { select: ['id'] }, function(err, row) {
-                    callback(null, { connected: row ? 1 : 0 });
-                });
-            } else {
-                callback(null, {});
-            }
-
-            async.series([
-               function(next) {
-                   // Update history log
-                   if (!options.history) return next();
-                   db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id }, next);
-               },
-               function(next) {
-                   // Update accumulated counter if we support this column and do it automatically
-                   next(op == 'update' ? new Error("stop") : null);
-               },
-               function(next) {
-                   var col = db.getColumn("bk_counter", type + '0');
-                   if (!col || !col.autoincr) return next();
-                   db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', 1), { cached: 1 }, function() {
-                       db.incr("bk_counter", core.newObj('id', id, type + '1', 1), { cached: 1 }, next);
-                   });
-               }]);
-        });
-    });
-}
-
-// Delete a connection, this function is called by the `/connection/del` API call
-api.delConnections = function(req, options, callback)
-{
-    var self = this;
-    var db = core.context.db;
-    var now = Date.now();
-    var id = req.query.id;
-    var type = req.query.type;
-
-    if (id && type) {
-        db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, options, function(err) {
-            if (err) return callback(err);
-            db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, function(err) {
-                if (err) return callback(err);
-
-                ipc.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type });
-
-                callback(null, {});
-
-                async.series([
-                   function(next) {
-                       // Update history log
-                       if (!options.history) return next();
-                       db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id }, next);
-                   },
-                   function(next) {
-                       // Update accumulated counter if we support this column and do it automatically
-                       var col = db.getColumn("bk_counter", req.query.type + "0");
-                       if (!col || !col.autoincr) return next();
-                       db.incr("bk_counter", core.newObj('id', req.account.id, type + '0', -1), { cached: 1 }, function() {
-                           db.incr("bk_counter", core.newObj('id', id, type + '1', -1), { cached: 1 }, next);
-                       });
-                   }]);
-            });
-        });
-    } else {
-        var counters = {};
-        db.select("bk_connection", { id: req.account.id }, options, function(err, rows) {
-            if (err) return next(err)
-            async.forEachSeries(rows, function(row, next2) {
-                var t = row.type.split(":");
-                if (id && t[1] != id) return next2();
-                if (type && t[0] != type) return next2();
-                // Keep track of all counters
-                var name0 = t[0] + '0', name1 = t[0] + '1';
-                var col = db.getColumn("bk_counter", name0);
-                if (col && col.autoincr) {
-                    if (!counters[req.account.id]) counters[req.account.id] = { id: req.account.id };
-                    if (!counters[req.account.id][name0]) counters[req.account.id][name0] = 0;
-                    counters[req.account.id][name0]--;
-                    if (!counters[t[1]]) counters[t[1]] = { id: t[1] };
-                    if (!counters[t[1]][name1]) counters[t[1]][name1] = 0;
-                    counters[t[1]][name1]--;
-                }
-                db.del("bk_reference", { id: t[1], type: t[0] + ":" + req.account.id }, options, function(err) {
-                    db.del("bk_connection", row, options, next2);
-                });
-            }, function(err) {
-                if (err) return callback(err);
-
-                // Update all counters for each id
-                async.forEachSeries(Object.keys(counters), function(id, next) {
-                    db.incr("bk_counter", counters[id], { cached: 1 }, next);
-                }, function(err) {
-                    // Update history log
-                    if (!options.history) return callback(err, {});
-                    db.add("bk_history", { id: req.account.id, type: req.path, data: type + ":" + id }, callback);
-                });
-            });
-        });
-    }
-}
-
-// Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
-// is used in `/location/get` request. It can be used in the applications with customized input and output if neccesary for the application specific logic.
-//
-// Example
-//
-//          # Request will look like: /recent/locations?latitude=34.1&longitude=-118.1&mtime=123456789
-//          this.app.all(/^\/recent\/locations$/, function(req, res) {
-//              var options = self.getOptions(req);
-//              options.keys = ["geohash","mtime"];
-//              options.ops = { mtime: 'gt' };
-//              options.details = true;
-//              self.getLocations(req, options, function(err, data) {
-//                  self.sendJSON(req, res, data);
-//              });
-//          });
-//
-api.getLocations = function(req, options, callback)
-{
-    var self = this;
-    var db = core.context.db;
-    var table = options.table || "bk_location";
-
-    // Perform location search based on hash key that covers the whole region for our configured max distance
-    if (!req.query.latitude || !req.query.longitude) return callback({ status: 400, message: "latitude/longitude are required" });
-
-    // Limit the distance within our configured range
-    req.query.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
-
-    // Continue pagination using the search token
-    var token = core.toJson(req.query._token);
-    if (token && token.geohash) {
-        if (token.latitude != req.query.latitude ||
-            token.longitude != req.query.longitude ||
-            token.distance != req.query.distance) return callback({ status: 400, message: "invalid token, latitude, longitude and distance must be the same" });
-        options = token;
-    }
-    // Rounded distance, not precise to keep from pin-pointing locations
-    if (typeof options.round == "undefined") options.round = core.minDistance;
-
-    db.getLocations(table, req.query, options, function(err, rows, info) {
-        var next_token = info.more ? core.toBase64(info) : null;
-        // Ignore current account, db still retrieves it but in the API we skip it
-        rows = rows.filter(function(row) { return row.id != req.account.id });
-        // Return accounts with locations
-        if (core.toNumber(options.details) && rows.length) {
-            var list = {}, ids = [];
-            rows = rows.map(function(row) {
-                // Skip duplicates
-                if (list[row.id]) return row;
-                ids.push({ id: row.id });
-                list[row.id] = row;
-                return row;
-            });
-            db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
-                if (err) return self.sendReply(res, err);
-                // Merge locations and accounts
-                rows.forEach(function(row) {
-                    var item = list[row.id];
-                    for (var p in item) row[p] = item[p];
-                });
-                callback(null, { count: rows.length, data: rows, next_token: next_token });
-            });
-        } else {
-            callback(null, { count: rows.length, data: rows, next_token: next_token });
-        }
-    });
-}
-
-// Save locstion coordinates for current account, this function is called by the `/location/put` API call
-api.putLocations = function(req, options, callback)
-{
-    var self = this;
-    var db = core.context.db;
-    var now = Date.now();
-
-    var latitude = req.query.latitude, longitude = req.query.longitude;
-    if (!latitude || !longitude) return callback({ status: 400, message: "latitude/longitude are required" });
-
-    // Get current location
-    db.get("bk_account", { id: req.account.id }, function(err, old) {
-        if (err || !old) return callback(err);
-
-        // Build new location record
-        var geo = core.geoHash(latitude, longitude);
-
-        // Skip if within minimal distance
-        var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
-        if (distance < core.minDistance || old.geohash == geo.geohash) return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
-
-        req.query.id = req.account.id;
-        req.query.geohash = geo.geohash;
-        var cols = db.getColumns("bk_location", options);
-        // Update all account columns in the location, they are very tightly connected and custom filters can
-        // be used for filtering locations based on other account properties like gender.
-        for (var p in cols) if (old[p] && !req.query[p]) req.query[p] = old[p];
-
-        var obj = { id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
-        db.update("bk_account", obj, function(err) {
-            if (err) return callback(err);
-
-            db.put("bk_location", req.query, function(err) {
-                if (err) return callback(err);
-
-                // Return new location record with the old coordinates
-                req.query.old = old;
-                callback(null, req.query);
-
-                async.series([
-                   function(next) {
-                       // Delete the old location, no need to wait even if fails we still have a new one recorded
-                       if (!old.geohash) return next();
-                       db.del("bk_location", old, next);
-                   },
-                   function(next) {
-                       // Update history log
-                       if (!options.history) return next();
-                       db.add("bk_history", { id: req.account.id, type: req.path, data: geo.hash + ":" + latitude + ":" + longitude }, next);
-                   }]);
-            });
-        });
-    });
-}
 
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 api.handleIcon = function(req, res, options)
@@ -1980,13 +1623,28 @@ api.formatIcon = function(row, account)
     }
 }
 
+// Return list of icons for the account, used in /icon/get API call
+api.selectIcon = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    options.ops = { type: "begins_with" };
+    db.select("bk_icon", { id: req.query.id, type: req.query.prefix + ":" + (req.query.type || "") }, options, function(err, rows) {
+        if (err) return callback(err, []);
+        // Filter out not allowed icons
+        rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
+        rows.forEach(function(x) { self.formatIcon(x, req.account); });
+        callback(err, rows);
+    });
+}
+
 // Return icon to the client, checks the bk_icon table for existence and permissions
 api.getIcon = function(req, res, id, options)
 {
     var self = this;
     var db = core.context.db;
 
-    if (self.caching.indexOf("bk_icon")) options.cached = 1;
     db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, row) {
         if (err) return self.sendReply(res, err);
         if (!row) return self.sendReply(res, 404, "Not found");
@@ -2058,13 +1716,26 @@ api.putIcon = function(req, id, options, callback)
     }
 }
 
-// Place the icon data to the destination
-api.storeIcon = function(icon, id, options, callback)
+// Place the icon data to the destination, if api.imagesS3 or options.imagesS3 specified then plave the image on the S3 drive
+api.storeIcon = function(file, id, options, callback)
 {
-    if (this.imagesS3) {
-        this.putIconS3(icon, id, options, callback);
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    if (this.imagesS3 || options.imagesS3) {
+        var aws = core.context.aws;
+        var icon = core.iconPath(id, options);
+        core.scaleIcon(file, options, function(err, data) {
+            if (err) return callback ? callback(err) : null;
+
+            var headers = { 'content-type': 'image/' + (options.ext || "jpeg") };
+            aws.queryS3(options.imagesS3 || self.imagesS3, icon, { method: "PUT", postdata: data, headers: headers }, function(err) {
+                if (callback) callback(err, icon);
+            });
+        });
     } else {
-        core.putIcon(icon, id, options, callback);
+        core.putIcon(file, id, options, callback);
     }
 }
 
@@ -2075,9 +1746,9 @@ api.delIcon = function(id, options, callback)
     if (!options) options = {};
 
     var icon = core.iconPath(id, options);
-    if (this.imagesS3) {
+    if (this.imagesS3 || options.imagesS3) {
         var aws = core.context.aws;
-        aws.queryS3(this.imagesS3, icon, { method: "DELETE" }, function(err) {
+        aws.queryS3(options.imagesS3 || this.imagesS3, icon, { method: "DELETE" }, function(err) {
             logger.edebug(err, 'delIcon:', id, options);
             if (callback) callback();
         });
@@ -2087,24 +1758,6 @@ api.delIcon = function(id, options, callback)
             if (callback) callback();
         });
     }
-}
-
-// Same as putIcon but store the icon in the S3 bucket, icon can be a file or a buffer with image data
-api.putIconS3 = function(file, id, options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
-
-    var aws = core.context.aws;
-    var icon = core.iconPath(id, options);
-    core.scaleIcon(file, options, function(err, data) {
-        if (err) return callback ? callback(err) : null;
-        var headers = { 'content-type': 'image/' + (options.ext || "jpeg") };
-        aws.queryS3(self.imagesS3, icon, { method: "PUT", postdata: data, headers: headers }, function(err) {
-            if (callback) callback(err, icon);
-        });
-    });
 }
 
 // Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name
@@ -2145,11 +1798,11 @@ api.storeFile = function(tmpfile, outfile, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    if (this.fileS3) {
+    if (this.fileS3 || options.fileS3) {
         var headers = { 'content-type': mime.lookup(outfile) };
         var ops = { method: "PUT", headers: headers }
         opts[Buffer.isBuffer(tmfile) ? 'postdata' : 'postfile'] = tmpfile;
-        aws.queryS3(this.filesS3, outfile, opts, function(err) {
+        aws.queryS3(options.filesS3 || this.fileS3, outfile, opts, function(err) {
             if (callback) callback(err, outfile);
         });
     } else {
@@ -2167,126 +1820,400 @@ api.storeFile = function(tmpfile, outfile, options, callback)
     }
 }
 
-// Delete file by name
-api.deleteFile = function(file, options, callback)
+// Delete file by name from the local filesystem or S3 drive if fileS3 is defined in api or options objects
+api.delFile = function(file, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    if (this.fileS3) {
-        aws.queryS3(this.filesS3, file, { method: "DELETE" }, function(err) {
+    if (this.fileS3 || options.fileS3) {
+        aws.queryS3(options.fileS3 || this.filesS3, file, { method: "DELETE" }, function(err) {
             if (callback) callback(err, outfile);
         });
     } else {
         fs.unlink(path.join(core.path.files, file), function(err) {
-            if (err) logger.error('deleteFile:', file, err);
+            if (err) logger.error('delFile:', file, err);
             if (callback) callback(err, outfile);
         })
     }
 }
 
-// Return messages, used in /message/get API call
-api.getMessages = function(req, options, callback)
+// Increase a counter, used in /counter/incr API call, options.op can be set to 'put'
+api.incrCounter = function(req, options, callback)
 {
+    var self = this;
     var db = core.context.db;
+    var now = Date.now();
+    var op = options.op || "incr";
 
-    if (!req.query.id) {
-        req.query.id = req.account.id;
+    // Remove non public columns when updating other account
+    if (req.query.id && req.query.id != req.account.id) {
+        var obj = { id: req.query.id };
+        db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[x]) obj[x] = req.query[x]; });
+    } else {
+        var obj = req.query;
+        obj.id = req.account.id;
     }
-    // All msgs to this id, can be me or a group/room/chat, need to verify access to this messages
-    if (req.query.id != req.account.id) {
-        options.ops.acl_allow = "in";
-        req.query.acl_allow = req.account.id
-    } else
-    // Using sender index, all msgs from the sender
-    if (req.query.sender) {
-        options.sort = "sender";
-        options.ops.sender = "begins_with";
-        options.select = Object.keys(db.getColumns("bk_message", options));
-        req.query.sender += ":";
-    }
-    // Additional restriction by messge time
-    if (req.query.mtime) {
-        if (!options.ops.mtime) options.ops.mtime = "gt";
-    }
-    db.select("bk_message", req.query, options, callback);
-}
 
+    db[op]("bk_counter", obj, options, function(err, rows) {
+        if (err) return callback(err);
 
-// Return sent messages, used in /message/get/sent API call
-api.getSentMessages = function(req, options, callback)
-{
-    var db = core.context.db;
-    if (!req.query.id) return callback({ status: 400, message: "id is required" });
+        // Notify only the other account
+        if (obj.id != req.account.id) {
+            ipc.publish(obj.id, { path: req.path, mtime: now, alias: req.account.alias, type: Object.keys(obj).join(",") });
+        }
 
-    req.query.sender = req.account.id + ":";
-    if (req.query.mtime && !options.ops.mtime) options.ops.mtime = "gt";
-
-    options.check_public = null;
-    options.ops.sender = "begins_with";
-    db.select("bk_message", req.query, options, callback);
-}
-
-// Return all recipients i sent messages to, used in /message/get/recepient API call
-// TODO: as of now it will only return recipients who sent at least 1 message to me, later will use connections for this
-api.getMessageRecipients = function(req, options, callback)
-{
-    var db = core.context.db;
-
-    req.query.id = req.account.id;
-    if (req.query.mtime && !options.ops.mtime) options.ops.mtime = "gt";
-
-    options.select = ["sender"];
-    options.check_public = null;
-    db.select("bk_message", req.query, options, function(err, rows, info) {
-        if (err) return self.sendReply(res, err);
-        var rc = [];
-        rows.forEach(function(x) {
-            if (x.sender && rc.indexOf(x.sender) == -1) rc.push(x.sender);
-        });
-        callback(err, rc, info);
+        callback(null, rows);
     });
 }
 
-// Return new/unread messages, used in /message/get/unread API call
-api.getNewMessages = function(req, options, callback)
+// Update auto counter for account and type
+api.incrAutoCounter = function(id, type, num, options, callback)
 {
     var db = core.context.db;
+
+    if (!id || !type || !num) return callback(null, []);
+    var col = db.getColumn("bk_counter", type, options) || {};
+    if (!col.autoincr) return callback(null, []);
+    db.incr("bk_counter", core.newObj('id', id, type, num), options, callback);
+}
+
+// Return all connections for the current account, this function is called by the `/connection/get` API call.
+api.getConnection = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    if (req.query.type) req.query.type += ":" + (req.query.id || "");
     req.query.id = req.account.id;
-    req.query.status = "N:";
-    options.sort = "status";
-    options.ops.status = "begins_with";
-    db.select("bk_message", req.query, options, function(err, rows, info) {
-        if (err) return self.sendReply(res, err);
-        // Mark all existing as read
-        if (core.toBool(req.query._read)) {
-            var nread = 0;
-            async.forEachSeries(rows, function(row, next) {
-                db.update("bk_message", { id: req.account.id, mtime: row.mtime, status: 'R:' + row.mtime }, options, function(err) {
-                    if (!err) nread++;
-                    next();
+    options.ops.type = "begins_with";
+    db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
+        if (err) return callback(err, []);
+
+        var next_token = info.next_token ? core.toBase64(info.next_token) : "";
+        // Split type and reference id
+        rows.forEach(function(row) {
+            var d = row.type.split(":");
+            row.type = d[0];
+            row.id = d[1];
+        });
+        // Just return connections
+        if (!core.toNumber(options.details)) return callback(null, { count: rows.length, data: rows, next_token: next_token });
+
+        // Get all account records for the id list
+        db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
+            if (err) return callback(err, []);
+
+            callback(null, { count: rows.length, data: rows, next_token: next_token });
+        });
+    });
+}
+
+// Create a connection between 2 accounts, this function is called by the `/connection/add` API call.
+api.putConnection = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var now = Date.now();
+    var op = options.op || 'put';
+
+    var id = req.query.id, type = req.query.type;
+    if (!id || !type) return callback({ status: 400, message: "id and type are required"});
+    if (id == req.account.id) return callback({ status: 400, message: "cannot connect to itself"});
+
+    // Override primary key properties, the rest of the properties will be added as is
+    req.query.id = req.account.id;
+    req.query.type = type + ":" + id;
+    req.query.mtime = now;
+    db[op]("bk_connection", req.query, options, function(err) {
+        if (err) return callback(err);
+
+        // Reverse reference to the same connection
+        req.query.id = id;
+        req.query.type = type + ":"+ req.account.id;
+        db[op]("bk_reference", req.query, options, function(err) {
+            // Remove on error
+            if (err) return db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, function() { callback(err); });
+
+            // Notify about connection change
+            ipc.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type });
+
+            // Update operation does not change the state of connections between the accounts
+            if (op == 'update') return callback(null, {});
+
+            // Keep track of all connections counters
+            self.incrAutoCounter(req.account.id, type + '0', 1, options, function(err) {
+                self.incrAutoCounter(id, type + '1', 1, options, function(err) {
+
+                    // We need to know if the other side is connected too, this will save one extra API call later
+                    if (!req.query._connected) return callback(null, {});
+
+                    // req.query already setup as a reference for us and as a connection for the other account
+                    db.get("bk_connection", req.query, { select: ['id'] }, function(err, row) {
+                        callback(null, { connected: row ? 1 : 0 });
+                    });
                 });
-            }, function(err) {
-                if (nread) db.incr("bk_counter", { id: req.account.id, msg_read: nread }, { cached: 1 });
-                callback(err, rows, info);
+            });
+        });
+    });
+}
+
+// Delete a connection, this function is called by the `/connection/del` API call
+api.delConnection = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var now = Date.now();
+
+    function del(type, id, cb) {
+        async.series([
+           function(next) {
+               db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, options, next);
+           },
+           function(next) {
+               self.incrAutoCounter(req.account.id, type + '0', -1, options, function() { next(); });
+           },
+           function(next) {
+               db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, next);
+           },
+           function(next) {
+               self.incrAutoCounter(id, type + '1', -1, options, function() { next() });
+           },
+           function(next) {
+               // Notify about connection change
+               ipc.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type });
+               next();
+           }],
+           function(err) {
+               cb(err, []);
+        });
+    }
+
+    // Single deletion
+    if (req.query.id && req.query.type) return del(req.query.type, req.query.id, callback);
+
+    // Delete by query
+    db.select("bk_connection", { id: req.account.id, type: req.query.type ? (req.query.type + ":" + (req.query.id || "")) : "" }, options, function(err, rows) {
+        if (err) return callback(err, []);
+
+        async.forEachSeries(rows, function(row, next) {
+            var t = row.type.split(":");
+            if (req.query.id && t[1] != req.query.id) return next();
+            if (req.query.type && t[0] != req.query.type) return next();
+            del(t[0], t[1], next);
+        }, callback);
+    });
+}
+
+// Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
+// is used in `/location/get` request. It can be used in the applications with customized input and output if neccesary for the application specific logic.
+//
+// Example
+//
+//          # Request will look like: /recent/locations?latitude=34.1&longitude=-118.1&mtime=123456789
+//          this.app.all(/^\/recent\/locations$/, function(req, res) {
+//              var options = self.getOptions(req);
+//              options.keys = ["geohash","mtime"];
+//              options.ops = { mtime: 'gt' };
+//              options.details = true;
+//              self.getLocations(req, options, function(err, data) {
+//                  self.sendJSON(req, err, data);
+//              });
+//          });
+//
+api.getLocation = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var table = options.table || "bk_location";
+
+    // Perform location search based on hash key that covers the whole region for our configured max distance
+    if (!req.query.latitude || !req.query.longitude) return callback({ status: 400, message: "latitude/longitude are required" });
+
+    // Limit the distance within our configured range
+    req.query.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
+
+    // Continue pagination using the search token
+    var token = core.toJson(req.query._token);
+    if (token && token.geohash) {
+        if (token.latitude != req.query.latitude ||
+            token.longitude != req.query.longitude ||
+            token.distance != req.query.distance) return callback({ status: 400, message: "invalid token, latitude, longitude and distance must be the same" });
+        options = token;
+    }
+    // Rounded distance, not precise to keep from pin-pointing locations
+    if (typeof options.round == "undefined") options.round = core.minDistance;
+
+    db.getLocations(table, req.query, options, function(err, rows, info) {
+        var next_token = info.more ? core.toBase64(info) : null;
+        // Ignore current account, db still retrieves it but in the API we skip it
+        rows = rows.filter(function(row) { return row.id != req.account.id });
+        // Return accounts with locations
+        if (core.toNumber(options.details) && rows.length) {
+            var list = {}, ids = [];
+            rows = rows.map(function(row) {
+                // Skip duplicates
+                if (list[row.id]) return row;
+                ids.push({ id: row.id });
+                list[row.id] = row;
+                return row;
+            });
+            db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
+                if (err) return self.sendReply(res, err);
+                // Merge locations and accounts
+                rows.forEach(function(row) {
+                    var item = list[row.id];
+                    for (var p in item) row[p] = item[p];
+                });
+                callback(null, { count: rows.length, data: rows, next_token: next_token });
             });
         } else {
-            callback(err, rows, info)
+            callback(null, { count: rows.length, data: rows, next_token: next_token });
         }
     });
 }
 
-// Mark a message as read, used in /message/read API call
-api.updateMessage = function(req, options, callback)
+// Save locstion coordinates for current account, this function is called by the `/location/put` API call
+api.putLocation = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var now = Date.now();
+
+    var latitude = req.query.latitude, longitude = req.query.longitude;
+    if (!latitude || !longitude) return callback({ status: 400, message: "latitude/longitude are required" });
+
+    // Get current location
+    db.get("bk_account", { id: req.account.id }, function(err, old) {
+        if (err || !old) return callback(err);
+
+        // Build new location record
+        var geo = core.geoHash(latitude, longitude);
+
+        // Skip if within minimal distance
+        var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
+        if (distance < core.minDistance || old.geohash == geo.geohash) return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
+
+        req.query.id = req.account.id;
+        req.query.geohash = geo.geohash;
+        var cols = db.getColumns("bk_location", options);
+        // Update all account columns in the location, they are very tightly connected and custom filters can
+        // be used for filtering locations based on other account properties like gender.
+        for (var p in cols) if (old[p] && !req.query[p]) req.query[p] = old[p];
+
+        var obj = { id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
+        db.update("bk_account", obj, function(err) {
+            if (err) return callback(err);
+
+            db.put("bk_location", req.query, function(err) {
+                if (err) return callback(err);
+
+                // Return new location record with the old coordinates
+                req.query.old = old;
+                if (!old.geohash) return callback(null, req.query);
+
+                // Delete the old location, ignore the error but still log it
+                db.del("bk_location", old, function() {
+                    callback(null, req.query);
+                });
+            });
+        });
+    });
+}
+
+// Return archived messages, used in /message/get API call
+api.getArchiveMessage = function(req, options, callback)
 {
     var db = core.context.db;
-    if (!req.query.sender || !req.query.mtime) return callback({ status: 400, message: "sender and mtime are required" });
+
     req.query.id = req.account.id;
-    req.query.mtime += ":" + req.query.sender;
-    req.query.status = "R:" + req.query.mtime;
-    db.update("bk_message", req.query, options, function(err, rows, info) {
-        if (!err) db.incr("bk_counter", { id: req.account.id, msg_read: 1 }, { cached: 1 });
-        callback(err, rows, info);
+    if (!options.ops.mtime) options.ops.mtime = "gt";
+
+    db.select("bk_archive", req.query, options, callback);
+}
+
+// Return sent messages to the specified account, used in /message/get/sent API call
+api.getSentMessage = function(req, options, callback)
+{
+    var db = core.context.db;
+
+    req.query.id = req.account.id;
+    if (!options.ops.mtime) options.ops.mtime = "gt";
+
+    options.check_public = null;
+    db.select("bk_sent", req.query, options, callback);
+}
+
+// Return new/unread messages, used in /message/get/unread API call
+api.getMessage = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    req.query.id = req.account.id;
+    if (!options.ops.mtime) options.ops.mtime = "gt";
+    options.noprocessrows = 1;
+
+    function del(rows, next) {
+        async.forEachLimit(rows, options.concurrency || 1, function(row, next2) {
+            db.del("bk_message", row, options, function() { next2() });
+        }, next);
+    }
+
+    db.select("bk_message", req.query, options, function(err, rows, info) {
+        if (err) return self.sendReply(res, err);
+console.log(rows)
+        options.ops = null;
+        // Move to archive
+        if (core.toBool(req.query._archive)) {
+            async.forEachSeries(rows, function(row, next) {
+                db.put("bk_archive", row, options, next);
+            }, function(err) {
+                if (err) return callback(err, []);
+
+                // Delete from the new after we archived it
+                del(rows, function() {
+                    db.processRows(null, "bk_message", rows, options);
+                    callback(err, rows, info);
+                });
+            });
+        } else
+
+        // Delete after read, if we crash now new messages will never be delivered
+        if (core.toBool(req.query._delete)) {
+            del(rows, function() {
+                db.processRows(null, "bk_message", rows, options);
+                callback(err, rows, info);
+            });
+        } else {
+            db.processRows(null, "bk_message", rows, options);
+            callback(err, rows, info);
+        }
+    });
+}
+
+// Mark a message as archived, used in /message/archive API call
+api.archiveMessage = function(req, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    if (!req.query.sender || !req.query.mtime) return callback({ status: 400, message: "sender and mtime are required" });
+
+    req.query.id = req.account.id;
+    req.query.mtime = req.query.mtime + ":" + req.query.sender;
+    db.get("bk_message", req.query, options, function(err, row, info) {
+        if (err) return callback(err, []);
+        if (!row) return callback({ status: 404, message: "not found" }, []);
+
+        options.ops = null;
+        row.mtime += ":" + row.sender;
+        db.put("bk_archive", row, options, function(err) {
+            if (err) return callback(err, []);
+
+            db.del("bk_message", row, options, function(err) {
+                callback(err, row, info);
+            });
+        });
     });
 }
 
@@ -2297,64 +2224,119 @@ api.addMessage = function(req, options, callback)
     var db = core.context.db;
     var now = Date.now();
 
-    if (!req.query.id) return callback({ status: 400, message: "receiver id is required" });
+    if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
-    req.query.mtime = now + ":" + req.account.id;
-    req.query.sender = req.account.id + ":" + now;
-    req.query.status = 'N:' + req.query.mtime;
+
+    req.query.sender = req.account.id;
+    req.query.mtime = now + ":" + req.query.sender;
     self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
         if (err) return callback(err);
+
         req.query.icon = icon ? 1 : 0;
         db.add("bk_message", req.query, options, function(err, rows, info) {
-            if (err) return callback(db.convertError("bk_message", "add", err));
+            if (err) return callback(err);
 
-            if (req.query.id != req.account.id) {
-                ipc.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) });
-            }
+            var sent = core.cloneObj(req.query);
+            sent.id = req.account.id;
+            sent.recipient = req.query.id;
+            sent.mtime = now + ':' + sent.recipient;
+            db.add("bk_sent", sent, options, function(err, rows, info) {
+                if (err) return db.del("bk_message", req.query, function() { callback(err); });
 
-            callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
+                if (req.query.id != req.account.id) {
+                    ipc.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) });
+                }
 
-            async.series([
-               function(next) {
-                   db.incr("bk_counter", { id: req.query.id, msg_count: 1 }, { cached: 1 }, next);
-               },
-               function(next) {
-                   // Update history log
-                   if (!options.history) return next();
-                   db.add("bk_history", { id: req.account.id, type: req.path, mtime: now, data: req.query.id }, next);
-               }]);
+                callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
+            });
         });
     });
 }
 
-// Delete a message or all messages for the given account from the given sender, used in /messge/del` API call
-api.delMessages = function(req, options, callback)
+// Delete a message or all messages for the given account from the given sender, used in /message/del` API call
+api.delMessage = function(req, options, callback)
 {
     var self = this;
     var db = core.context.db;
 
-    if (!req.query.sender) return callback({ status: 400, message: "sender is required" });
+    var table = options.table || "bk_message";
+    var sender = options.sender || "sender";
 
-    if (req.query.mtime) {
-        req.query.mtime += ":" + req.query.sender;
-        db.del("bk_message", { id: req.account.id, mtime: req.query.mtime }, options, function(err, rows) {
+    req.query.id = req.account.id;
+    if (!options.ops.mtime) options.ops.mtime = "gt";
+
+    // Single deletion
+    if (req.query.mtime && req.query[sender]) {
+        return db.del(table, { id: req.account.id, mtime: req.query.mtime + ":" + req.query[sender] }, options, callback);
+    }
+
+    // Delete by query
+    db.select(table, { id: req.account.id, mtime: (req.query.mtime ? (req.query.mtime + ":") + (req.query[sender] || "") : "") }, options, function(err, rows) {
+        if (err) return callback(err, []);
+
+        options.ops = null;
+        async.forEachSeries(rows, function(row, next) {
+            if (req.query[sender] && row[sender] != req.query[sender]) return next();
+            row.mtime += ":" + row[sender];
+            db.del(table, row, next);
+        }, callback);
+    });
+}
+
+// Delete the messages in the archive, used in /message/del/archive` API call
+api.delArchiveMessage = function(req, options, callback)
+{
+    options.table = "bk_archive";
+    options.sender = "sender";
+    this.delMessage(req, options, callback);
+}
+
+// Delete the messages i sent, used in /message/del/sent` API call
+api.delSentMessage = function(req, options, callback)
+{
+    options.table = "bk_sent";
+    options.sender = "recipient";
+    this.delMessage(req, options, callback);
+}
+
+// Return an account, used in /account/get API call
+api.getAccount  = function(req, options, callback)
+{
+    var db = core.context.db;
+    if (!req.query.id) {
+        db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
             if (err) return callback(err);
-            db.incr("bk_counter", { id: req.account.id, msg_count: -1 }, { cached: 1 }, callback);
+            if (!row) return callback({ status: 404, message: "not found" });
+
+            // Setup session cookies for automatic authentication without signing
+            if (req.query._session) {
+                switch (req.query._session) {
+                case "1":
+                    var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
+                    req.session["bk-signature"] = sig["bk-signature"];
+                    break;
+
+                case "0":
+                    delete req.session["bk-signature"];
+                    break;
+                }
+            }
+            callback(null, row, info);
         });
     } else {
-        options.sort = "sender";
-        options.ops = { sender: "begins_with" };
-        db.select("bk_message", { id: req.account.id, sender: req.query.sender + ":" }, options, function(err, rows) {
-            if (err) return callback(err);
-            async.forEachSeries(rows, function(row, next) {
-                row.mtime += ":" + row.sender;
-                db.del("bk_message", row, options, next);
-            }, function(err) {
-                if (err || !rows.count) return callback(err, {});
-                db.incr("bk_counter", { id: req.account.id, msg_count: -rows.count }, { cached: 1 }, callback);
-            });
-        });
+        db.list("bk_account", req.query.id, options, callback);
     }
+}
+
+// Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint
+api.selectAccount = function(req, options, callback)
+{
+    var db = core.context.db;
+    db.select("bk_account", req.query, options, function(err, rows, info) {
+        if (err) return callback(err, []);
+        var next_token = info && info.next_token ? core.toBase64(info.next_token) : "";
+        callback(err, { count: rows.length, data: rows, next_token: next_token });
+    });
 }
 
 // Register new account, used in /account/add API call
@@ -2375,23 +2357,30 @@ api.addAccount = function(req, options, callback)
     // Only admin can add accounts with the type
     if (req.account && req.account.type == "admin" && req.query.type) auth.type = req.query.type;
     db.add("bk_auth", auth, function(err) {
-        if (err) return callback(db.convertError("bk_auth", "add", err));
+        if (err) return callback(err);
         // Skip location related properties
         self.clearQuery(req, options, "bk_account", "noadd");
         db.add("bk_account", req.query, function(err) {
-            if (err) {
-                db.del("bk_auth", auth);
-                return callback(db.convertError("bk_account", "add", err));
-            }
+            if (err) return db.del("bk_auth", auth, function() { callback(err); });
+
             db.processRows(null, "bk_account", req.query, options);
             // Link account record for other middleware
             req.account = req.query;
             // Some dbs require the record to exist, just make one with default values
-            db.put("bk_counter", { id: req.query.id, like0: 0 }, function(err) {
+            db.put("bk_counter", { id: req.query.id, ping: 0 }, function() {
                 callback(err, req.query);
             });
         });
     });
+}
+
+// Change account secret, used in /account/put/secret API call
+api.setAccountSecret = function(req, options, callback)
+{
+    var db = core.context.db;
+    if (!req.query.secret) return callback({ status: 400, message: "secret is required" });
+    req.account.secret = req.query.secret;
+    db.update("bk_auth", req.account, options, callback);
 }
 
 // Update existing account, used in /account/update API call
@@ -2420,6 +2409,7 @@ api.deleteAccount = function(obj, options, callback)
 
     var db = core.context.db;
     if (!options.keep) options.keep = {};
+    options.count = 1000000;
 
     db.get("bk_account", { id: obj.id }, options, function(err, account) {
         if (err) return callback(err);
@@ -2458,7 +2448,13 @@ api.deleteAccount = function(obj, options, callback)
            },
            function(next) {
                if (options.keep.message) return next();
-               db.delAll("bk_message", { id: obj.id }, options, function() { next() });
+               db.delAll("bk_message", { id: obj.id }, options, function() {
+                   db.delAll("bk_archive", { id: obj.id }, options, function() {
+                       db.delAll("bk_sent", { id: obj.id }, options, function() {
+                           next();
+                       });
+                   });
+               });
            },
            function(next) {
                if (options.keep.icon) return next();
