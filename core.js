@@ -637,7 +637,7 @@ core.toNumber = function(str, decimals, dflt, min, max)
     // Autodetect floating number
     if (typeof decimals == "undefined" || decimals == null) decimals = /^[0-9-]+\.[0-9]+$/.test(str);
     if (typeof dflt == "undefined") dflt = 0;
-    var n = str[0] == 't' ? 1 : str[0] == 'f' ? 0 : (decimals ? parseFloat(str,10) : parseInt(str,10));
+    var n = str[0] == 't' ? 1 : str[0] == 'f' ? 0 : str == "infinity" ? Infinity : (decimals ? parseFloat(str,10) : parseInt(str,10));
     n = isNaN(n) ? dflt : n;
     if (typeof min != "undefined" && n < min) n = min;
     if (typeof max != "undefined" && n > max) n = max;

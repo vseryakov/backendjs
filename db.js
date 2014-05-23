@@ -306,7 +306,8 @@ db.getPools = function()
 //    - pooling - create generic pool for connection caching
 //    - watchfile - file path to be watched for changes, all clients will be destroyed gracefully
 //    - min - min number of open database connections
-//    - max - max number of open database connections, all attempts to run more will result in clinets waiting for the next available db connection
+//    - max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to Infinity no
+//            pooling will be enabled and result in unlimited connections, this is default for DynamoDB
 //    - max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue
 // The following pool callback can be assigned to the pool object:
 // - connect - a callback to be called when actual database client needs to be created, the callback signature is

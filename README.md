@@ -711,7 +711,8 @@ When request comes for all matches for the location for example 37.7, -122.4, th
            }
 
 ## Messages
-The messaging API allows sending and recieving messages between accounts, it supports text and images.
+The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
+may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.
 
 - `/message/image`
   Return the image data for the given message, the required parameters are:

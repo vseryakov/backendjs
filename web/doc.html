@@ -680,7 +680,8 @@ it must be passed as is as <code>_token=</code> parameter with all original quer
 </code></pre></li>
 </ul>
 <h2 id="messages">Messages</h2>
-<p>The messaging API allows sending and recieving messages between accounts, it supports text and images.</p>
+<p>The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
+may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
 <ul>
 <li><p><code>/message/image</code>
 Return the image data for the given message, the required parameters are:</p>
@@ -1705,7 +1706,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-mysql-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-mysql-tables</code> - PostgreSQL tables, list of tables that belong to this pool only</li>
 <li><code>db-dynamodb-pool</code> - DynamoDB endpoint url or &#39;default&#39; to use AWS account default region</li>
-<li><code>db-dynamodb-max</code> - Max number of open connection for the pool</li>
+<li><code>db-dynamodb-max</code> - Max number of open connection for the pool. Default: Infinity</li>
 <li><code>db-dynamodb-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
 <li><code>db-mongodb-pool</code> - MongoDB endpoint url</li>
 <li><code>db-mongodb-options</code> - MongoDB driver native options</li>
@@ -1861,7 +1862,7 @@ the worker processes if they die and restart them automatically. How many proces
      bk_counter: { id: { primary: 1, pub: 1 },                               // account id
                    ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy with notification
                    like0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },        // who i liked
-                   like1: { type: &quot;counter&quot;, value: 0 }},                    // reversed, who liked me
+                   like1: { type: &quot;counter&quot;, value: 0, autoincr: 1 }},       // reversed, who liked me
 
      // Keep historic data about account activity
      bk_history: { id: { primary: 1 },
@@ -3686,7 +3687,8 @@ due to some error.</p>
 <li>pooling - create generic pool for connection caching</li>
 <li>watchfile - file path to be watched for changes, all clients will be destroyed gracefully</li>
 <li>min - min number of open database connections</li>
-<li>max - max number of open database connections, all attempts to run more will result in clinets waiting for the next available db connection</li>
+<li>max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to Infinity no<pre><code>  pooling will be enabled and result in unlimited connections, this is default for DynamoDB
+</code></pre></li>
 <li>max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue
 The following pool callback can be assigned to the pool object:</li>
 </ul>
@@ -4142,16 +4144,16 @@ primary keys created outside of the backend application still be be detected pro
 <p>Each database pool also can support native options that are passed directly to the driver in the options, these properties are
 defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:</p>
 <pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index: 1, dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
-                              type: { primary: 1, pub: 1 },
-                              name: { index: 1, pub: 1, dynamodb: { projection: [&#39;type&#39;] } }
+                              type: { primary: 1, pub: 1, projection: 1 },
+                              name: { index: 1, pub: 1 } }
                             });
 </code></pre><p>Create DynamoDB table with global secondary index, first index property if not the same as primary key hash defines global index, if it is the same then local,
 below we create global secondary index on property &#39;name&#39; only, in the example above it was local secondary index for id and name. also local secondary index is
 created on id,title.</p>
 <pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index1: 1 },
-                              type: { primary: 1 },
-                              name: { index: 1, dynamodb: { projection: [&#39;type&#39;] } }
-                              title: { index1: 1 } }
+                              type: { primary: 1, projection: 1 },
+                              name: { index: 1 }
+                              title: { index1: 1, projection1: 1 } }
                             });
 </code></pre><p>Pass MongoDB options directly:</p>
 <pre><code>  db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
