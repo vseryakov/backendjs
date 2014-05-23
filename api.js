@@ -152,7 +152,7 @@ var api = {
        bk_counter: { id: { primary: 1, pub: 1 },                               // account id
                      ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy with notification
                      like0: { type: "counter", value: 0, autoincr: 1 },        // who i liked
-                     like1: { type: "counter", value: 0 }},                    // reversed, who liked me
+                     like1: { type: "counter", value: 0, autoincr: 1 }},       // reversed, who liked me
 
        // Keep historic data about account activity
        bk_history: { id: { primary: 1 },
@@ -2001,7 +2001,9 @@ api.delConnection = function(req, options, callback)
             if (req.query.id && t[1] != req.query.id) return next();
             if (req.query.type && t[0] != req.query.type) return next();
             del(t[0], t[1], next);
-        }, callback);
+        }, function(err) {
+            callback(err, []);
+        });
     });
 }
 
@@ -2162,7 +2164,7 @@ api.getMessage = function(req, options, callback)
 
     db.select("bk_message", req.query, options, function(err, rows, info) {
         if (err) return self.sendReply(res, err);
-console.log(rows)
+
         options.ops = null;
         // Move to archive
         if (core.toBool(req.query._archive)) {

@@ -3046,6 +3046,7 @@ db.mongodbInitPool = function(options)
         var dbkeys = pool.dbkeys[table] || [];
         // Default write concern
         if (!opts.w) opts.w = 1;
+        opts.safe = true;
 
         switch(req.op) {
         case "create":
@@ -3161,7 +3162,12 @@ db.mongodbInitPool = function(options)
                     o[p] = { '$ne': obj[p] };
                     break;
 
+                case "eq":
+                    o[p] = obj[p];
+                    break;
+
                 default:
+                    if (typeof obj[p] == "string" && !obj[p]) break;
                     o[p] = obj[p];
                 }
             }
@@ -3211,7 +3217,7 @@ db.mongodbInitPool = function(options)
             var o = { '$inc': {} };
             if (opts.counter) {
                 opts.counter.forEach(function(x) {
-                    if (!keys[x]) o['$inc'][x] = core.toNumber(o[x]);
+                    if (!keys[x]) o['$inc'][x] = core.toNumber(obj[x]);
                     delete o[x];
                 });
             }

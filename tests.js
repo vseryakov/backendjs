@@ -185,19 +185,19 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                core.checkTest(next, err, !params.obj || params.obj.like0!=1 || params.obj.ping!=0, "err6:" , params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.like0!=1 || params.obj.ping!=0, "err5-1:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: {} }
             core.sendRequest("/connection/del", options, function(err, params) {
-                next(err, "err5:" , params.obj);
+                next(err, "err5-2:" , params.obj);
             });
         },
         function(next) {
             var options = { login: login, secret: secret, query: { } }
             core.sendRequest("/connection/get", options, function(err, params) {
-                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err5-1:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err5-3:" , params.obj);
             });
         },
         function(next) {
@@ -209,7 +209,7 @@ tests.account = function(callback)
         function(next) {
             var options = { login: login, secret: secret }
             core.sendRequest("/counter/get", options, function(err, params) {
-                core.checkTest(next, err, !params.obj || params.obj.like0!=0 || params.obj.ping!=1, "err66:" , params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.like0!=0 || params.obj.ping!=1, "err6:" , params.obj);
             });
         },
         function(next) {
@@ -527,15 +527,16 @@ tests.db = function(callback)
 	    },
 	    function(next) {
             db.select("test2", { id: id2 }, { filter: function(row, o) { return row.id2 == '1' } }, function(err, rows) {
-                core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", rows);
+                core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", num2, rows);
             });
         },
         function(next) {
             db.select("test2", { id: id2 }, { async_filter: function(rows, opts, cb) {
+                console.log(rows)
                     cb(null, rows.filter(function(r) { return r.id2 == '1' }));
                 }
             }, function(err, rows) {
-                core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2, "err5-1:", rows.length, rows);
+                core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2, "err5-1:", num2, rows);
             });
         },
         function(next) {
@@ -548,7 +549,7 @@ tests.db = function(callback)
 	    function(next) {
 	    	db.incr("test3", { id: id, num: 1 }, { mtime: 1 }, function(err) {
 	    	    if (err) return next(err);
-	    		db.incr("test3", { id: id, num: 1 }, function(err) {
+	    		db.incr("test3", { id: id, num: 2 }, function(err) {
 	    		    if (err) return next(err);
 	    		    db.incr("test3", { id: id, num: -1 }, next);
 	    		});
@@ -556,7 +557,7 @@ tests.db = function(callback)
 	    },
 	    function(next) {
 	    	db.get("test3", { id: id }, function(err, row) {
-	    		core.checkTest(next, err, !row || row.id != id && row.num != 1, "err7:", row);
+	    		core.checkTest(next, err, !row || row.id != id && row.num != 2, "err7:", row);
 	    	});
 	    },
 	    function(next) {
