@@ -308,8 +308,8 @@ tests.location = function(callback)
                    latitude: { type: "real", semipub: 1 },
                    longitude: { type: "real", semipub: 1 },
                    distance: { type: "real" },
-                   rank: { type: 'int', index: 1, dynamodb: { projection: { geohash_rank: ["status"] } } },
-                   status: { value: 'good' },
+                   rank: { type: 'int', index: 1 },
+                   status: { value: 'good', projection: 1 },
 			       mtime: { type: "bigint", now: 1 }
 			},
 	};
@@ -532,7 +532,6 @@ tests.db = function(callback)
         },
         function(next) {
             db.select("test2", { id: id2 }, { async_filter: function(rows, opts, cb) {
-                console.log(rows)
                     cb(null, rows.filter(function(r) { return r.id2 == '1' }));
                 }
             }, function(err, rows) {

@@ -2831,7 +2831,8 @@ db.dynamodbInitPool = function(options)
                     global[name] = core.newObj(idx[0], 'HASH');
                 }
                 idx.forEach(function(y) { attrs[y] = 1 });
-                projection[name] = Object.keys(obj).filter(function(x, i) { return obj[x]["projection" + n]; });
+                var p = Object.keys(obj).filter(function(x, i) { return obj[x]["projection" + n]; });
+                if (p.length) projection[name] = p;
             });
 
             // All native properties for options from the key columns

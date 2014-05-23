@@ -714,11 +714,6 @@ When request comes for all matches for the location for example 37.7, -122.4, th
 The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.
 
-- `/message/image`
-  Return the image data for the given message, the required parameters are:
-    - sender - id of the sender returned in the by `/message/get` reply results for every message
-    - mtime - exact timestamp of the message
-
 - `/message/get`
   Read all new messages, i.e. the messages that never been read or issued `/message/archive` call.
 
@@ -833,6 +828,12 @@ may keep messages there as new, delete or archive them. Archiving means transfer
   Example:
 
         /message/del/sent?recipient=12345&mtime=124345656567676
+
+- `/message/image`
+  Return the image data for the given message, the required parameters are:
+    - sender - id of the sender returned in the by `/message/get` reply results for every message
+    - mtime - exact timestamp of the message
+
 
 ## Counters
 The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
