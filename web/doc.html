@@ -683,13 +683,6 @@ it must be passed as is as <code>_token=</code> parameter with all original quer
 <p>The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
 <ul>
-<li><p><code>/message/image</code>
-Return the image data for the given message, the required parameters are:</p>
-<ul>
-<li>sender - id of the sender returned in the by <code>/message/get</code> reply results for every message</li>
-<li>mtime - exact timestamp of the message</li>
-</ul>
-</li>
 <li><p><code>/message/get</code>
 Read all new messages, i.e. the messages that never been read or issued <code>/message/archive</code> call.</p>
 <p>Parameters:</p>
@@ -793,6 +786,13 @@ Delete the message(s) by <code>recipient</code> and/or <code>mtime</code> which 
 <p>Example:</p>
 <pre><code>  /message/del/sent?recipient=12345&amp;mtime=124345656567676
 </code></pre></li>
+<li><p><code>/message/image</code>
+Return the image data for the given message, the required parameters are:</p>
+<ul>
+<li>sender - id of the sender returned in the by <code>/message/get</code> reply results for every message</li>
+<li>mtime - exact timestamp of the message</li>
+</ul>
+</li>
 </ul>
 <h2 id="counters">Counters</h2>
 <p>The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
