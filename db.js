@@ -1122,18 +1122,22 @@ db.search = function(table, query, options, callback)
 //
 db.getLocations = function(table, query, options, callback)
 {
-    var rows = [];
+    if (typeof options == "function") callback = options,options = null;
+    options = this.getOptions(table, options);
     var cols = db.getColumns(table, options);
+    var keys = db.getKeys(table, options);
     var lcols =  ["geohash", "latitude", "longitude"];
+    var rows = [];
 
     // New location search
     if (!options.geohash) {
-        options = this.getOptions(table, options);
         options.count = options.gcount = core.toNumber(options.count, 0, 10, 0, 50);
         options.geokey = lcols[0] = options.geokey && cols[options.geokey] ? options.geokey : 'geohash';
         options.distance = core.toNumber(query.distance, 0, core.minDistance, 0, 999);
         options.start = null;
         options.semipub = 1;
+        // Have to maintain sorting order for pagination
+        if (!options.sort && keys.length > 1) options.sort = keys[1];
         var geo = core.geoHash(query.latitude, query.longitude, { distance: options.distance });
         for (var p in geo) options[p] = geo[p];
     	query[options.geokey] = geo.geohash;
