@@ -606,7 +606,7 @@ case "$ARG" in
     # Put backend code to the remote site
     if [ "$BACKEND_PATH" = "" ]; then
        mode=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("package.json")).name)')
-       [ "$mod" = "$BKSJ" ] && BACKEND_PATH=node_modules/$BKJS
+       [ "$mod" = "$BKJS" ] && BACKEND_PATH=node_modules/$BKJS
     fi
     [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
     for f in build etc deps log tmp var pages images files; do

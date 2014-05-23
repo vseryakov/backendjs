@@ -1300,8 +1300,8 @@ db.getCachedKey = function(table, query, options)
 // defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:
 //
 //          db.create("test_table", { id: { primary: 1, type: "int", index: 1, dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
-//                                    type: { primary: 1, pub: 1 },
-//                                    name: { index: 1, pub: 1, dynamodb: { projection: ['type'] } }
+//                                    type: { primary: 1, pub: 1, projection: 1 },
+//                                    name: { index: 1, pub: 1 } }
 //                                  });
 //
 // Create DynamoDB table with global secondary index, first index property if not the same as primary key hash defines global index, if it is the same then local,
@@ -1309,9 +1309,9 @@ db.getCachedKey = function(table, query, options)
 // created on id,title.
 //
 //          db.create("test_table", { id: { primary: 1, type: "int", index1: 1 },
-//                                    type: { primary: 1 },
-//                                    name: { index: 1, dynamodb: { projection: ['type'] } }
-//                                    title: { index1: 1 } }
+//                                    type: { primary: 1, projection: 1 },
+//                                    name: { index: 1 }
+//                                    title: { index1: 1, projection1: 1 } }
 //                                  });
 //
 // Pass MongoDB options directly:
@@ -2809,7 +2809,7 @@ db.dynamodbInitPool = function(options)
 
         switch(req.op) {
         case "create":
-            var local = {}, global = {}, attrs = {};
+            var local = {}, global = {}, attrs = {}, projection = {};
             var keys = Object.keys(obj).filter(function(x, i) { return obj[x].primary }).
                               sort(function(a,b) { return obj[a].primary - obj[b].primary }).
                               filter(function(x, i) { return i < 2 }).
@@ -2830,6 +2830,7 @@ db.dynamodbInitPool = function(options)
                     global[name] = core.newObj(idx[0], 'HASH');
                 }
                 idx.forEach(function(y) { attrs[y] = 1 });
+                projection[name] = Object.keys(obj).filter(function(x, i) { return obj[x]["projection" + n]; });
             });
 
             // All native properties for options from the key columns
@@ -2842,6 +2843,7 @@ db.dynamodbInitPool = function(options)
 
             opts.local = local;
             opts.global = global;
+            opts.projection = projection;
             aws.ddbCreateTable(table, attrs, keys, opts, function(err, item) {
                 callback(err, item.Item ? [item.Item] : []);
             });
