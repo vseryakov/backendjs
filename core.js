@@ -261,6 +261,10 @@ core.init = function(options, callback)
     var localConfig = path.resolve("etc/config");
     var db = self.context.db;
 
+    // No restriction on the client http clients
+    http.globalAgent.maxSockets = Infinity;
+    https.globalAgent.maxSockets = Infinity;
+
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {

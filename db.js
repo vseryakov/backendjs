@@ -92,6 +92,9 @@ var db = {
     sqlitePool: core.name,
     sqliteIdle: 86400000,
 
+    // DB pool defaults
+    dynamodbMax : Infinity,
+
     // Config parameters
     args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type: "bool", descr: "Do not use other db pools except default local pool" },
@@ -114,7 +117,7 @@ var db = {
            { name: "mysql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "mysql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "dynamodb-pool", descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
-           { name: "dynamodb-max", type: "number", min: 1, max: 10000, descr: "Max number of open connection for the pool"  },
+           { name: "dynamodb-max", type: "number", min: 1, max: Infinity, descr: "Max number of open connection for the pool"  },
            { name: "dynamodb-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "mongodb-pool", descr: "MongoDB endpoint url" },
            { name: "mongodb-options", type: "json", descr: "MongoDB driver native options" },
@@ -2740,7 +2743,7 @@ db.dynamodbInitPool = function(options)
     if (!options.pool) options.pool = "dynamodb";
 
     options.type = "dynamodb";
-    options.pooling = 1;
+    options.pooling = options.max > 0 && options.max != Infinity;
     options.max = options.max || 500;
     options.dboptions = { noJson: 1, strictTypes: 1 };
     var pool = this.createPool(options);

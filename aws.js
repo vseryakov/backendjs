@@ -118,7 +118,7 @@ aws.queryDDB = function (action, obj, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
     var start = Date.now();
-    var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ('https://dynamodb.' + this.region + '.amazonaws.com/');
+    var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ('http://dynamodb.' + this.region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
     var req = url.parse(uri);
