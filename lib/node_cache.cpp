@@ -48,7 +48,9 @@ struct LRUStringCache {
     }
     void incr(const string& k, const string& v) {
     	string o = get(k);
-    	set(k, vFmtStr("%lld", atoll(o.c_str()) + atoll(v.c_str())));
+    	char val[32];
+    	sprintf(val, "%lld", atoll(o.c_str()) + atoll(v.c_str()));
+    	set(k, val);
     }
     void del(const string &k) {
         const LRUStringItems::iterator it = items.find(k);
@@ -105,7 +107,9 @@ struct StringCache {
     }
     void incr(const string& k, const string& v) {
         string o = get(k);
-        set(k, vFmtStr("%lld", atoll(o.c_str()) + atoll(v.c_str())));
+        char val[32];
+        sprintf(val, "%lld", atoll(o.c_str()) + atoll(v.c_str()));
+        set(k, val);
     }
     void del(string key) {
         string_map::iterator it = items.find(key);
@@ -533,32 +537,39 @@ static Handle<Value> lruStats(const Arguments& args)
 }
 
 // Format:
-// key - del key
-// key\1 - del key
-// key\2 - del key
-// key\1val - set key=val
-// key\21 - incr key by 1
-// key\3 - return val for key
+// key - return key
+// \1key - del key
+// \2key\2val - set key with val
+// \3key\3val - incr key by val
+// \4 - clear cache
 static string lruServerRequest(char *buf, int len, void *data)
 {
+    char *val, *key = buf + 1;
     string rc;
 
-    char *val = strpbrk(buf, "\1\2\3");
-    if (!val) {
-        _lru.del(buf);
-    } else
-    if (!val[1]) {
-        if (*val == '\3') {
-            rc = _lru.get(buf);
-        } else {
-            _lru.del(string(buf, val - buf));
-        }
-    } else {
-        if (*val == '\2') {
-            _lru.incr(buf, val + 1);
-        } else {
-            _lru.set(buf, val + 1);
-        }
+    switch (buf[0]) {
+    case '\1':
+        _lru.del(key);
+        break;
+
+    case '\2':
+        val = strpbrk(key, "\2");
+        if (!val) break;
+        _lru.set(key, val + 1);
+        break;
+
+    case '\3':
+        val = strpbrk(key, "\3");
+        if (!val) break;
+        _lru.incr(key, val + 1);
+        break;
+
+    case '\4':
+        _lru.clear();
+        break;
+
+    default:
+        rc = _lru.get(buf);
     }
     return rc;
 }

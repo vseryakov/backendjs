@@ -220,7 +220,7 @@ var core = {
     cachePort: 20194,
     cacheHost: "127.0.0.1",
     msgType: '',
-    msgPort: 20195,
+    msgPort: 20196,
     msgHost: "127.0.0.1",
     subCallbacks: {},
 }
@@ -667,7 +667,7 @@ core.toDate = function(val)
 // Convert value to the proper type
 core.toValue = function(val, type)
 {
-    switch ((type || this.typeName(val)).trim()) {
+    switch ((type || "").trim()) {
     case 'array':
         return Array.isArray(val) ? val : String(val).split(/[,\|]/);
 
@@ -700,8 +700,11 @@ core.toValue = function(val, type)
     case "mtime":
         return /^[0-9\.]+$/.test(value) ? this.toNumber(val) : (new Date(val));
 
+    case "json":
+        return JSON.stringify(val);
+
     default:
-        return val;
+        return String(val);
     }
 }
 
@@ -1614,6 +1617,8 @@ core.geoHash = function(latitude, longitude, options)
 core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
 {
     var distance = backend.geoDistance(latitude1, longitude1, latitude2, longitude2);
+    if (isNaN(distance)) return distance;
+
     // Round the distance to the closes edge and fixed number of decimals
     if (options && typeof options.round == "number" && options.round > 0) {
         var decs = String(options.round).split(".")[1];

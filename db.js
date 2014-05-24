@@ -1424,8 +1424,13 @@ db.prepare = function(op, table, obj, options)
 
         for (var p in cols) {
             if (cols[p].now) obj[p] = Date.now();
-            if (options.noJson && cols[p].type == "json" && typeof obj[p] != "undefined") obj[p] = JSON.stringify(obj[p]);
+            // Handle json separately in sync with processRows
+            if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") obj[p] = JSON.stringify(obj[p]);
         }
+        break;
+
+    case "del":
+        if (options.strictTypes) this.prepareDataTypes(obj, cols);
         break;
 
     case "select":
@@ -1442,16 +1447,7 @@ db.prepare = function(op, table, obj, options)
                 }
             }
         }
-        // Convert simple types into the native according to the table definition
-        if (options.strictTypes) {
-            for (var p in cols) {
-                if (core.isNumeric(cols[p].type)) {
-                    if (typeof obj[p] == "string") obj[p] = core.toNumber(obj[p]);
-                } else {
-                    if (typeof obj[p] == "number") obj[p] = String(obj[p]);
-                }
-            }
-        }
+        if (options.strictTypes) this.prepareDataTypes(obj, cols);
         break;
     }
     return pool.prepare(op, table, obj, options);

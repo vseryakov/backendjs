@@ -1192,6 +1192,7 @@ api.initSystemAPI = function()
             switch (req.params[1]) {
             case "worker":
                 return res.json(self.getStatistics());
+
             default:
                 ipc.command({ op: "metrics" }, function(data) {
                     if (!data) return res.send(404);
@@ -1239,11 +1240,12 @@ api.initSystemAPI = function()
                 res.json();
                 break;
             default:
-                self.sendReply(res, 404, "Invalid command");
+                self.sendReply(res, 400, "Invalid command:" + req.params[1]);
             }
+            break;
 
         default:
-            self.sendReply(res, 404, "Invalid command");
+            self.sendReply(res, 400, "Invalid command:" + req.params[0]);
         }
     });
 }

@@ -87,7 +87,10 @@ ipc.initServer = function()
             try {
                 switch (msg.op) {
                 case "metrics":
-                    if (msg.name) core.metrics[msg.name] = msg.value;
+                    if (msg.name) {
+                        msg.value.mtime = Date.now();
+                        core.metrics[msg.name] = msg.value;
+                    }
                     if (msg.reply) {
                         msg.value = core.metrics;
                         worker.send(msg);
@@ -165,8 +168,6 @@ ipc.initServer = function()
                 case 'del':
                     if (msg.name) backend.lruDel(msg.name);
                     if (msg.reply) worker.send({});
-                    // If we connected then broadcast to other servers
-                    if (self.lruSocket && self.lruSocket.address) self.lruSocket.send(msg.name);
                     break;
 
                 case 'clear':
@@ -174,6 +175,9 @@ ipc.initServer = function()
                     if (msg.reply) worker.send({});
                     break;
                 }
+                // Send to all other nodes in the cluster
+                self.broadcastCache(msg.cmd, msg.name, msg.value);
+
             } catch(e) {
                 logger.error('msg:', e, msg);
             }
@@ -181,16 +185,17 @@ ipc.initServer = function()
     });
 }
 
-// Close all cacheing and messaging clients, can be called by a server or a worker
+// Close all caching and messaging clients, can be called by a server or a worker
 ipc.shutdown = function()
 {
-    try { if (this.lruSocket) this.lruSocket.close(); this.lruSocket = null; } catch(e) { logger.error('ipc.shutdown:', e); }
-    try { if (this.pubSocket) this.pubSocket.close(); this.pubSocket = null; } catch(e) { logger.error('ipc.shutdown:', e); }
-    try { if (this.subSocket) this.subSocket.close(); this.subSocket = null; } catch(e) { logger.error('ipc.shutdown:', e); }
+    var self = this;
+    ['lruSocket', 'cachePushSocket', 'cachePullSocket', 'msgPubSocket', 'msgSubSocket' ].forEach(function(x) { self.closeSocket(x); });
+
     try { if (this.amqpClient) this.amqpClient.disconnect(); this.amqpClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
     try { if (this.memcacheClient) this.memcacheClient.end(); this.memcacheClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
     try { if (this.redisCacheClient) this.redisCacheClient.quit(); this.redisCacheClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
     try { if (this.redisSubClient) this.redisSubClient.quit(); this.redisSubClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
+    try { if (this.redisPubClient) this.redisPubClient.quit(); this.redisPubClient = null; } catch(e) { logger.error('ipc.shutdown:', e); }
 }
 
 // Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed
@@ -209,15 +214,19 @@ ipc.initServerCaching = function()
         if (!backend.NNSocket || core.noCache) break;
         core.cacheBind = core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*";
 
-        // LRU cache server, receives cache requests, updates the local cache and then re-broadcasts it to other connected servers
-        if (!this.lruSocket) {
-            this.lruSocket = new backend.NNSocket(backend.AF_SP, backend.NN_BUS);
-            var err = this.lruSocket.bind("tcp://" + core.cacheBind + ":" + core.cachePort);
-            if (!err) err = backend.lruServerStart(this.lruSocket.socket, this.lruSocket.socket);
+        // Pair of cache sockets for communication between nodes and cache coordinators
+        this.bindSocket('cachePullSocket', backend.NN_PULL, core.cacheBind, core.cachePort);
+        this.connectSocket('cachePushSocket', backend.NN_PUSH, core.cacheHost, core.cachePort);
+
+        // LRU cache server, for broadcasting cache updates to all nodes in the cluster
+        this.bindSocket('lruSocket', backend.NN_BUS, core.cacheBind, core.cachePort + 1);
+        this.connectSocket('lruSocket', backend.NN_BUS, core.cacheHost, core.cachePort + 1);
+
+        // Forward cache requests to the bus
+        if (this.cachePullSocket && this.lruSocket) {
+            var err = backend.lruServerStart(this.cachePullSocket.socket, this.lruSocket.socket);
             if (err) logger.error('initServerCaching:', 'lru', backend.nn_strerror(err));
         }
-        // Connect to the cache broadcasters if provided or changed
-        this.connect(this.lruSocket, core.cacheHost, core.cachePort);
     }
     logger.debug('initServerCaching:', core.cacheType, core.cachePort, core.cacheHost, this.lruSocket);
 }
@@ -250,6 +259,102 @@ ipc.initClientCaching = function()
     logger.debug('initClientCaching:', core.cacheType, this.memcacheClient, this.redisClient);
 }
 
+// Initialize messaging system for the server process, can be called multiple times in case environment has changed
+ipc.initServerMessaging = function()
+{
+    switch (core.msgType || "") {
+    case "redis":
+        break;
+
+    default:
+        if (!backend.NNSocket || core.noMsg) break;
+        core.msgBind = core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*";
+
+        // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process connects to this socket.
+        this.bindSocket('subServerSocket', backend.NN_PUB, core.msgBind, core.msgPort + 1);
+
+        // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
+        // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
+        // and automatically uses next live server in case of failure.
+        this.bindSocket('pubServerSocket', backend.NN_PULL, core.msgBind, core.msgPort);
+        // Forward all messages to the sub server socket, we dont use proxy because PUB socket
+        // broadcasts to all peers but we want load-balancer
+        if (this.pubServerSocket && this.subServerSocket) this.pubServerSocket.setForward(this.subServerSocket);
+    }
+    logger.debug('initServerMessaging:', core.msgType, core.msgPort, this.subServerSocket, this.pubServerSocket);
+}
+
+// Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
+// publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.
+ipc.initClientMessaging = function()
+{
+    var self = this;
+
+    switch (core.msgType || "") {
+    case "amqp":
+        if (!core.amqpHost) break;
+        try {
+            var opts = core.amqpOptions || {};
+            opts.host = core.amqpHost;
+            this.amqpClient = amqp.createConnection(opts);
+            this.amqpClient.on('ready', function() {
+                this.amqpClient.queue(core.amqpQueueName || '', core.amqpQueueOptions | {}, function(q) {
+                    self.amqpQueue = q;
+                    q.subscribe(function(message, headers, info) {
+                        var cb = self.subCallbacks[info.routingKey];
+                        if (!cb) cb[0](cb[1], info.routingKey, message);
+                    });
+                });
+            });
+            this.amqpClient.on("error", function(err) { logger.error('amqp:', err); })
+        } catch(e) {
+            logger.error('initClientMessaging:', e);
+            this.amqpClient = null;
+        }
+        break;
+
+    case "redis":
+        if (!core.redisHost) break;
+        try {
+            this.redisPubClient = redis.createClient(core.redisPort, core.redisHost, core.redisOptions || {});
+        } catch(e) {
+            logger.error('initClientMessaging:', e);
+            this.redisPubClient = null;
+        }
+        try {
+            this.redisSubClient = redis.createClient(core.redisPort, core.redisHost, core.redisOptions || {});
+            this.redisSubClient.on("ready", function() {
+                self.redisSubClient.on("pmessage", function(channel, message) {
+                    var cb = self.subCallbacks[channel];
+                    if (!cb) cb[0](cb[1], channel, message);
+                });
+            });
+        } catch(e) {
+            logger.error('initClientMessaging:', e);
+            this.redisSubClient = null;
+        }
+        break;
+
+    default:
+        if (!backend.NNSocket || core.noMsg || !core.msgHost) break;
+
+        // Socket where we publish our messages
+        this.connectSocket('msgPubSocket', backend.NN_PUSH, core.msgHost, core.msgPort);
+
+        // Socket where we receive messages for us
+        this.connectSocket('msgSubSocket', backend.NN_SUB, core.msgHost, core.msgPort + 1);
+        if (this.msgSubSocket) {
+            this.msgSubSocket.setCallback(function(err, data) {
+                if (err) return logger.error('subscribe:', err);
+                data = data.split("\1");
+                var cb = self.subCallbacks[data[0]];
+                if (cb) cb[0](cb[1], data[0], data[1]);
+            });
+        }
+    }
+    logger.debug('initClientMessaging:', core.msgType, core.msgPort, this.msgPubSocket, this.redisClient, this.amqpClient);
+}
+
 // Send a command to the master process via IPC messages, callback is used for commands that return value back
 ipc.command = function(msg, callback)
 {
@@ -271,20 +376,38 @@ ipc.send = function(op, name, value, callback)
     this.command({ op: op, name: name, value: value }, callback);
 }
 
-// Return list of hosts the socket need to connect to, it checks already connected hosts and returns only new ones
-ipc.connect = function(sock, hosts, port)
+// Bind a socket to the address and port i.e. initialize the server socket
+ipc.bindSocket = function(name, type, host, port)
 {
-    if (!hosts) return;
+    if (!host) return;
 
-    if (sock instanceof backend.NNSocket) {
-        var connected = core.strSplit(sock.address || []);
-        hosts = core.strSplit(hosts).
-                     map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).
-                     filter(function(x) { return connected.indexOf(x) == -1 }).
-                     join(',');
-        if (!hosts) return;
-        var err = sock.connect(hosts);
-        if (err) logger.error('ipc.connect:', hosts, port, backend.nn_strerror(err));
+    if (!this[name]) this[name] = new backend.NNSocket(backend.AF_SP, type);
+    if (this[name] instanceof backend.NNSocket) {
+        var h = host.split(":");
+        host = "tcp://" + h[0] + ":" + (h[1] || port)
+        var err = this[name].bind(host);
+        if (err) logger.error('ipc.bindSocket:', host, this[name]);
+    }
+}
+
+// Connect to the host(s)
+ipc.connectSocket = function(name, type, host, port)
+{
+    if (!host) return;
+
+    if (!this[name]) this[name] = new backend.NNSocket(backend.AF_SP, type);
+    if (this[name] instanceof backend.NNSocket) {
+        host = core.strSplit(host).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
+        var err = this[name].connect(host);
+        if (err) logger.error('ipc.connect:', host, this[name]);
+    }
+}
+
+// Close a socket or a client
+ipc.closeSocket = function(name)
+{
+    if (this[name] instanceof backend.NNSocket) {
+        try { this[name].close(); this[name] = null; } catch(e) { logger.error('ipc.close:', name, e); }
     }
 }
 
@@ -293,6 +416,41 @@ ipc.connect = function(sock, hosts, port)
 ipc.configure = function(type)
 {
     this.send('init:' + type, "");
+}
+
+ipc.broadcastCache = function(cmd, name, value)
+{
+    try {
+        switch (core.cacheType || "") {
+        case "memcache":
+            break;
+
+        case "redis":
+            break;
+
+        default:
+            if (this.noCache || !this.cachePushSocket || !this.cachePushSocket.address.length) break;
+            switch (cmd) {
+            case 'put':
+                this.cachePushSocket.send("\2" + name + "\2" + value);
+                break;
+
+            case 'incr':
+                this.cachePushSocket.send("\3" + name + "\3" + value);
+                break;
+
+            case 'del':
+                this.cachePushSocket.send("\1" + name);
+                break;
+
+            case 'clear':
+                this.cachePushSocket.send("\4");
+                break;
+            }
+        }
+    } catch(e) {
+        logger.error('broadcastCache:', e);
+    }
 }
 
 ipc.statsCache = function(callback)
@@ -458,109 +616,6 @@ ipc.incrCache = function(key, val)
     }
 }
 
-// Initialize messaging system for the server process, can be called multiple times in case environment has changed
-ipc.initServerMessaging = function()
-{
-    switch (core.msgType || "") {
-    case "redis":
-        break;
-
-    default:
-        if (!backend.NNSocket || core.noMsg) break;
-        core.msgBind = core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*";
-
-        // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process
-        // connects to this socket.
-        if (!this.subServerSocket) {
-            this.subServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUB);
-            var err = this.subServerSocket.bind("tcp://" + core.msgBind + ":" + (core.msgPort + 1));
-            if (err) logger.error('initServerMessaging:', core.msgBind, (core.msgPort + 1), backend.nn_strerror(err));
-        }
-
-        // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
-        // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
-        // and automatically uses next live server in case of failure.
-        if (!this.pubServerSocket) {
-            this.pubServerSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PULL);
-            var err = this.pubServerSocket.bind("tcp://" + core.msgBind + ":" + core.msgPort);
-            if (err) logger.error('initServerMessaging:', core.msgBind, core.msgPort, backend.nn_strerror(err));
-            // Forward all messages to the sub server socket, we dont use proxy because PUB socket
-            // broadcasts to all peers but we want load-balancer
-            if (!err) this.pubServerSocket.setForward(this.subServerSocket);
-        }
-    }
-    logger.debug('initServerMessaging:', core.msgType, core.msgPort, this.subServerSocket, this.pubServerSocket);
-}
-
-// Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
-// publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.
-ipc.initClientMessaging = function()
-{
-    var self = this;
-
-    switch (core.msgType || "") {
-    case "amqp":
-        if (!core.amqpHost) break;
-        try {
-            var opts = core.amqpOptions || {};
-            opts.host = core.amqpHost;
-            this.amqpClient = amqp.createConnection(opts);
-            this.amqpClient.on('ready', function() {
-                this.amqpClient.queue(core.amqpQueueName || '', core.amqpQueueOptions | {}, function(q) {
-                    self.amqpQueue = q;
-                    q.subscribe(function(message, headers, info) {
-                        var cb = self.subCallbacks[info.routingKey];
-                        if (!cb) cb[0](cb[1], info.routingKey, message);
-                    });
-                });
-            });
-            this.amqpClient.on("error", function(err) { logger.error('amqp:', err); })
-        } catch(e) {
-            logger.error('initClientMessaging:', e);
-            this.amqpClient = null;
-        }
-        break;
-
-    case "redis":
-        if (!core.redisHost) break;
-        try {
-            this.redisSubClient = redis.createClient(core.redisPort, core.redisHost, core.redisOptions || {});
-            this.redisSubClient.on("ready", function() {
-                self.redisSubClient.on("pmessage", function(channel, message) {
-                    var cb = self.subCallbacks[channel];
-                    if (!cb) cb[0](cb[1], channel, message);
-                });
-            });
-        } catch(e) {
-            logger.error('initClientMessaging:', e);
-            this.redisSubClient = null;
-        }
-        break;
-
-    default:
-        if (!backend.NNSocket || core.noMsg || !core.msgHost) break;
-
-        // Socket where we publish our messages
-        if (!this.pubSocket) {
-            this.pubSocket = new backend.NNSocket(backend.AF_SP, backend.NN_PUSH);
-        }
-        this.connect(this.pubSocket, core.msgHost, core.msgPort);
-
-        // Socket where we receive messages for us
-        if (!this.subSocket) {
-            this.subSocket = new backend.NNSocket(backend.AF_SP, backend.NN_SUB);
-            this.subSocket.setCallback(function(err, data) {
-                if (err) return logger.error('subscribe:', err);
-                data = data.split("\1");
-                var cb = self.subCallbacks[data[0]];
-                if (cb) cb[0](cb[1], data[0], data[1]);
-            });
-        }
-        this.connect(this.subSocket, core.msgHost, core.msgPort + 1);
-    }
-    logger.debug('initClientMessaging:', core.msgType, core.msgPort, this.pubSocket, this.redisClient, this.amqpClient);
-}
-
 // Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
 // Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.
 ipc.subscribe = function(key, callback, data)
@@ -581,9 +636,9 @@ ipc.subscribe = function(key, callback, data)
             break;
 
         default:
-            if (!this.subSocket) break;
+            if (!this.msgSubSocket) break;
             this.subCallbacks[key] = [ callback, data ];
-            this.subSocket.subscribe(key);
+            this.msgSubSocket.subscribe(key);
         }
     } catch(e) {
         logger.error('ipcSubscribe:', this.subHost, key, e);
@@ -607,8 +662,8 @@ ipc.unsubscribe = function(key)
             break;
 
         default:
-            if (!this.subSocket) break;
-            this.subSocket.unsubscribe(key);
+            if (!this.msgSubSocket) break;
+            this.msgSubSocket.unsubscribe(key);
         }
     } catch(e) {
         logger.error('ipcUnsubscribe:', e);
@@ -621,8 +676,8 @@ ipc.publish = function(key, data)
     try {
         switch (core.msgType || "") {
         case "redis":
-            if (!this.redisSubClient) break;
-            this.redisSubClient.publish(key, data);
+            if (!this.redisPubClient) break;
+            this.redisPubClient.publish(key, data);
             break;
 
         case "amqp":
@@ -632,8 +687,8 @@ ipc.publish = function(key, data)
 
         default:
             // Nanomsg socket
-            if (!this.pubSocket) break;
-            this.pubSocket.send(key + "\1" + JSON.stringify(data));
+            if (!this.msgPubSocket) break;
+            this.msgPubSocket.send(key + "\1" + JSON.stringify(data));
         }
     } catch(e) {
         logger.error('ipcPublish:', e, key);

@@ -132,7 +132,9 @@ public:
     string file;
     leveldb::DB *handle;
     const leveldb::Snapshot *snapshot;
+#ifdef USE_NANOMSG
     NNServer server;
+#endif
 };
 
 struct LDBBaton {

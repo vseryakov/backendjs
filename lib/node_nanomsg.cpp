@@ -26,18 +26,14 @@
 #define nn_slow(x) (x)
 #endif
 
-static map<uint,int> _socks;
-
 class NNSocket: public ObjectWrap {
 public:
     NNSocket(int d = AF_SP, int t = NN_SUB): sock(-1), err(0), domain(d), type(t), rfd(-1), wfd(-1), peer(-1) {
         poll.data = NULL;
         Setup();
-        if (sock> -1) _socks[sock] = type;
     }
 
     ~NNSocket() {
-        _socks.erase(sock);
         Close();
     }
 
@@ -47,7 +43,7 @@ public:
     // Config parameters
     int domain;
     int type;
-    string url;
+    vector<string> address;
 
     // Socket OS descriptors
     int rfd;
@@ -62,7 +58,7 @@ public:
 
     int Setup() {
         sock = nn_socket(domain, type);
-        if (sock == -1) return Close();
+        if (sock < 0) return Close(sock);
         size_t fdsz = sizeof(rfd);
         nn_getsockopt(sock, NN_SOL_SOCKET, NN_RCVFD, (char*) &rfd, &fdsz);
         nn_getsockopt(sock, NN_SOL_SOCKET, NN_SNDFD, (char*) &wfd, &fdsz);
@@ -74,8 +70,10 @@ public:
         err = nn_errno();
         if (rc == -1) LogError("%d, domain=%d, type=%d, err=%s:%d", sock, domain, type, nn_strerror(err), err);
         ClosePoll();
-        if (sock > 0) nn_close(sock), sock = -1, rfd = -1, wfd = -1;
-        return rc;
+        if (sock >= 0) nn_close(sock);
+        sock = rfd = wfd = -1;
+        address.clear();
+        return err;
     }
 
     int ClosePoll() {
@@ -86,55 +84,83 @@ public:
     }
 
     int Bind(string addr) {
-        url = addr;
-        vector<string> urls = strSplit(url, " ,");
+        LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
+        if (sock < 0) return ENOTSOCK;
+        vector<string> urls = strSplit(addr, " ,");
         for (uint i = 0; i < urls.size(); i++) {
         	if (!urls[i].size()) continue;
+        	if (find(address.begin(), address.end(), urls[i]) != address.end()) continue;
             int rc = nn_bind(sock, urls[i].c_str());
-            if (nn_slow(rc == -1)) return Close(rc);
+            if (nn_slow(rc == -1)) return err = nn_errno();
+            address.push_back(urls[i]);
         }
-        LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
         return 0;
     }
 
     int Connect(string addr) {
-        url = addr;
-        vector<string> urls = strSplit(url, " ,");
-        for (uint i = 0; i < urls.size(); i++) {
-            int rc = nn_connect(sock, urls[i].c_str());
-            if (nn_slow(rc == -1)) return Close(rc);
-        }
         LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
+        if (sock < 0) return ENOTSOCK;
+        vector<string> urls = strSplit(addr, " ,");
+        for (uint i = 0; i < urls.size(); i++) {
+            if (!urls[i].size()) continue;
+            if (find(address.begin(), address.end(), urls[i]) != address.end()) continue;
+            int rc = nn_connect(sock, urls[i].c_str());
+            if (nn_slow(rc == -1)) return err = nn_errno();
+            address.push_back(urls[i]);
+        }
         return 0;
     }
 
     int Subscribe(string topic) {
+        if (sock < 0) return ENOTSOCK;
         int rc = nn_setsockopt(sock, NN_SUB, NN_SUB_SUBSCRIBE, topic.c_str(), 0);
-        if (nn_slow(rc == -1)) return Close(rc);
+        if (nn_slow(rc == -1)) return err = nn_errno();
         return 0;
     }
 
     int Unsubscribe(string topic) {
+        if (sock < 0) return ENOTSOCK;
         int rc = nn_setsockopt(sock, NN_SUB, NN_SUB_UNSUBSCRIBE, topic.c_str(), 0);
-        if (nn_slow(rc == -1)) return Close(rc);
+        if (nn_slow(rc == -1)) return err = nn_errno();
         return 0;
     }
 
     int SetOption(int opt, int n) {
+        if (sock < 0) return ENOTSOCK;
     	int rc = nn_setsockopt(sock, type, opt, &n, sizeof(n));
-    	if (nn_slow(rc == -1)) return Close(rc);
+    	if (nn_slow(rc == -1)) return err = nn_errno();
     	return 0;
     }
 
     int SetOption(int opt, string s) {
+        if (sock < 0) return ENOTSOCK;
     	int rc = nn_setsockopt(sock, type, opt, s.c_str(), 0);
-    	if (nn_slow(rc == -1)) return Close(rc);
+    	if (nn_slow(rc == -1)) return err = nn_errno();
     	return 0;
+    }
+
+    int Send(void *data, int len) {
+        if (sock < 0) return ENOTSOCK;
+        void *buf = nn_allocmsg(len, 0);
+        memcpy(buf, data, len + 1);
+        int rc = nn_send(sock, &buf, NN_MSG, NN_DONTWAIT);
+        if (nn_slow(rc == -1)) return err = nn_errno();
+        return 0;
+    }
+
+    int Recv(char **data, int *size) {
+        if (sock < 0) return ENOTSOCK;
+        if (!data || !size) return EINVAL;
+        int rc = nn_recv(sock, data, NN_MSG, NN_DONTWAIT);
+        if (rc == -1) return err = nn_errno();
+        *size = rc;
+        return 0;
     }
 
     static void HandleRead(uv_poll_t *w, int status, int revents) {
         NNSocket *s = (NNSocket*)w->data;
         if (nn_slow(status == -1 || !(revents & UV_READABLE))) return;
+        if (s->sock < 0) return;
 
         char *buf;
         HandleScope scope;
@@ -165,6 +191,7 @@ public:
     static void HandleForward(uv_poll_t *w, int status, int revents) {
         NNSocket *s = (NNSocket*)w->data;
         if (nn_slow(status == -1 || !(revents & UV_READABLE))) return;
+        if (s->sock < 0 || s->peer < 0) return;
 
         void *body;
         void *control;
@@ -189,6 +216,7 @@ public:
 
     // Implements a device, tranparent proxy between two sockets
     int SetProxy(NNSocket *p) {
+        if (sock < 0) return ENOTSOCK;
         if (!p) return err = EINVAL;
         // Make sure we are compatible with the peer
         if (type / 16 != p->type / 16 || domain != AF_SP_RAW || p->domain != AF_SP_RAW) {
@@ -213,6 +241,7 @@ public:
 
     int SetCallback(Handle<Function> cb) {
         ClosePoll();
+        if (sock < 0) return ENOTSOCK;
         if (rfd == -1 || cb.IsEmpty()) return 0;
         callback = Persistent<Function>::New(cb);
         uv_poll_init(uv_default_loop(), &poll, rfd);
@@ -223,12 +252,14 @@ public:
 
     // Set forwarding peer for the regular socket, will be used by reading handler
     int SetPeer(NNSocket *p) {
+        if (sock < 0) return ENOTSOCK;
         peer = p && p->wfd != -1 ? p->sock : -1;
         return 0;
     }
 
     // Forwards msgs from the current socket to the peer, one way
     int SetForward(NNSocket *p) {
+        if (sock < 0) return ENOTSOCK;
     	if (!p) return err = EINVAL;
     	if (rfd == -1 || p->wfd == -1) {
     		LogError("%d: invalid direction of sockets: %d/%d - %d/%d", sock, rfd, wfd, p->rfd, p->wfd);
@@ -241,6 +272,21 @@ public:
     	uv_poll_start(&poll, UV_READABLE, HandleForward);
     	poll.data = (void*)this;
     	return 0;
+    }
+
+    static void _device(void *arg) {
+        NNSocket *sock = (NNSocket*)arg;
+        sock->err = nn_device(sock->sock, sock->peer);
+        if (sock->err) LogError("%d: peer=%d", sock, sock->peer, nn_strerror(sock->err));
+    }
+
+    int StartDevice(NNSocket *p) {
+        if (sock < 0) return ENOTSOCK;
+        peer = p ? p->sock : -1;
+        if (peer < 0) return EINVAL;
+        uv_thread_t tid;
+        uv_thread_create(&tid, _device, (void*)this);
+        return 0;
     }
 
     static Persistent<FunctionTemplate> constructor_template;
@@ -275,7 +321,7 @@ public:
     static Handle<Value> AddressGetter(Local<String> str, const AccessorInfo& accessor) {
         HandleScope scope;
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-        return scope.Close(Local<String>::New(String::New(sock->url.c_str())));
+        return scope.Close(Local<Value>::New(toArray(sock->address)));
     }
 
     static Handle<Value> TypeGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -293,7 +339,7 @@ public:
     static Handle<Value> ErrorGetter(Local<String> str, const AccessorInfo& accessor) {
         HandleScope scope;
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-        return scope.Close(Local<String>::New(String::New(nn_strerror(sock->err))));
+        return scope.Close(Local<String>::New(String::New(sock->err ? nn_strerror(sock->err) : "")));
     }
 
     static Handle<Value> ReadFdGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -432,15 +478,22 @@ public:
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
     }
 
+    static Handle<Value> StartDevice(const Arguments& args) {
+        HandleScope scope;
+
+        NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
+        REQUIRE_ARGUMENT_OBJECT(0, obj);
+        NNSocket *sock2 = HasInstance(args[0]) ? ObjectWrap::Unwrap< NNSocket > (obj) : NULL;
+        int rc = sock->StartDevice(sock2);
+        return scope.Close(Local<Integer>::New(Integer::New(rc)));
+    }
+
     static Handle<Value> Send(const Arguments& args) {
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
         REQUIRE_ARGUMENT_AS_STRING(0, str);
-
-        void *buf = nn_allocmsg(str.length() + 1, 0);
-        memcpy(buf, *str, str.length() + 1);
-        int rc = nn_send(sock->sock, &buf, NN_MSG, NN_DONTWAIT);
+        int rc = sock->Send(*str, str.length() + 1);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
     }
 
@@ -448,28 +501,12 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
+        int size = 0;
         char *data = NULL;
-        int rc = nn_recv(sock->sock, &data, NN_MSG, NN_DONTWAIT);
-        if (rc == -1) return scope.Close(Undefined());
+        int rc = sock->Recv(&data, &size);
+        if (rc) return scope.Close(Undefined());
         Buffer *buffer = Buffer::New(data, rc, (Buffer::free_callback)nn_freemsg, NULL);
         return scope.Close(Local<Value>::New(buffer->handle_));
-    }
-
-    static Handle<Value> Sockets(const Arguments& args) {
-        HandleScope scope;
-
-        Local<Array> rc = Array::New();
-        map<uint,int>::const_iterator it = _socks.begin();
-        int i = 0;
-        while (it != _socks.end()) {
-            Local<Object> obj = Local<Object>::New(Object::New());
-            obj->Set(String::NewSymbol("sock"), Local<Integer>::New(Integer::New(it->first)));
-            obj->Set(String::NewSymbol("type"), Local<Integer>::New(Integer::New(it->second)));
-            rc->Set(Integer::New(i), obj);
-            it++;
-            i++;
-        }
-        return scope.Close(rc);
     }
 
     static Handle<Value> StrError(const Arguments& args) {
@@ -482,7 +519,6 @@ public:
     static void Init(Handle<Object> target) {
         HandleScope scope;
 
-        NODE_SET_METHOD(target, "nn_sockets", Sockets);
         NODE_SET_METHOD(target, "nn_strerror", StrError);
 
         Local < FunctionTemplate > t = FunctionTemplate::New(New);
@@ -511,12 +547,13 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "setProxy", SetProxy);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "setForward", SetForward);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "setPeer", SetPeer);
+        NODE_SET_PROTOTYPE_METHOD(constructor_template, "startDevice", StartDevice);
 
         target->Set(String::NewSymbol("NNSocket"), constructor_template->GetFunction());
 
         for (int i = 0; ; i++) {
             int val;
-            const char* name = nn_symbol (i, &val);
+            const char* name = nn_symbol(i, &val);
             if (!name) break;
             target->Set(String::NewSymbol(name), Integer::New(val), static_cast<PropertyAttribute>(ReadOnly | DontDelete) );
         }

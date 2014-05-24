@@ -463,6 +463,7 @@ tests.db = function(callback)
 	var self = this;
 	var tables = {
 	        test1: { id: { primary: 1, pub: 1 },
+	                 num: { type: "int" },
 	                 email: {} },
 			test2: { id: { primary: 1, pub: 1, index: 1 },
 			         id2: { primary: 1, projection: 1 },
@@ -492,9 +493,9 @@ tests.db = function(callback)
 	    	db.initTables(tables, next);
 	    },
 	    function(next) {
-            db.add("test1", { id: id, email: id }, function(err) {
+            db.add("test1", { id: id, email: id, num: '1' }, function(err) {
                 if (err) return next(err);
-                db.put("test1", { id: id2, email: id2 }, function(err) {
+                db.put("test1", { id: id2, email: id2, num: '2' }, function(err) {
                     if (err) return next(err);
                     db.put("test3", { id: id, num: 0 }, next);
                 });
@@ -506,8 +507,14 @@ tests.db = function(callback)
             });
         },
         function(next) {
-            db.get("test1", { id: id }, function(err, row) {
-                core.checkTest(next, err, !row || row.id != id, "err2:", row);
+            db.get("test3", { id: id }, function(err, row) {
+                core.checkTest(next, err, !row || row.id != id, "err1-1:", row);
+            });
+        },
+        function(next) {
+            // Type conversion for strictTypes
+            db.get("test1", { id: id, num: '1' }, function(err, row) {
+                core.checkTest(next, err, !row || row.id != id || row.num!=1, "err2:", row);
             });
         },
         function(next) {
@@ -817,10 +824,8 @@ tests.nnpubsub = function(callback)
                setTimeout(next, core.randomInt(1000));
            },
            function(err) {
-               logger.log('sockets1:', bn.nn_sockets())
                sock.send("exit");
                sock = null;
-               logger.log('sockets2:', bn.nn_sockets())
                callback(err);
            });
     }
@@ -828,7 +833,7 @@ tests.nnpubsub = function(callback)
 
 tests.nncache = function(callback)
 {
-    if (!self.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");
+    if (!core.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");
 
     var slave = core.getArgInt("-slave", 0);
     core.cacheHost = "127.0.0.1:20194,127.0.0.1:20197";
