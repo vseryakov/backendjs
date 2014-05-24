@@ -218,27 +218,27 @@ aws.queryS3 = function(bucket, key, options, callback)
 }
 
 // Run AWS instances with given arguments in user-data
-aws.runInstances = function(count, args, callback)
+aws.runInstances = function(count, args, options, callback)
 {
     var self = this;
-
-    if (!this.image) return callback ? callback(new Error("no imageId configured"), obj) : null;
+    if (typeof options == "function") callback = options, options = {};
+    
+    if (!this.imageId && !options.imageId) return callback ? callback(new Error("no imageId configured"), obj) : null;
 
     var req = { MinCount: count,
                 MaxCount: count,
-                ImageId: this.imageId,
-                InstanceType: this.instanceType,
-                KeyName: this.keypair,
+                ImageId: options.imageId || this.imageId,
+                InstanceType: options.instanceType || this.instanceType,
+                KeyName: options.keypair || this.keypair,
                 InstanceInitiatedShutdownBehavior: "terminate",
                 UserData: new Buffer(args).toString("base64") };
 
-    logger.log('runInstances:', this.name, 'count:', count, 'ami:', this.image, 'key:', this.keypair, 'args:', args);
+    logger.log('runInstances:', this.name, 'count:', count, 'ami:', req.imageId, 'key:', req.keypair, 'args:', args);
     this.queryEC2("RunInstances", req, function(err, obj) {
         logger.elog(err, 'runInstances:', self.name, util.inspect(obj, true, null));
         // Update tag name with current job
-        if (obj && obj.RunInstancesResponse && obj.RunInstancesResponse.instancesSet) {
-            var item = obj.RunInstancesResponse.instancesSet.item;
-            if (!Array.isArray(item)) item = [ item ];
+        var item = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
+        if (item) {
             var d = args.match(/\-jobname ([^ ]+)/i);
             // Update tags with delay to allow instances appear in the system
             if (d) setTimeout(function() {

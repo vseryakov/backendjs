@@ -2518,4 +2518,3 @@ api.collectStatistics = function()
         ipc.command({ op: "metrics", name: process.pid, value: this.getStatistics() });
     }
 }
-

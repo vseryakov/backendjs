@@ -19,6 +19,7 @@ var printf = require('printf');
 var async = require('async');
 var os = require('os');
 var emailjs = require('emailjs');
+var xml2json = require('xml2json');
 var uuid = require('uuid');
 var dns = require('dns');
 
@@ -74,6 +75,7 @@ var core = {
     ipaddr: '',
     ipaddrs: [],
     hostname: '',
+    instanceId: process.pid,
 
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
     // for manual installations `bkjs setup-server` will create a user with this id
@@ -820,7 +822,7 @@ core.isTrue = function(val1, val2, op, type)
 //     first argument is error object if any
 //     second is params object itself with updated fields
 //     third is HTTP response object
-// On end, the object params will contains the following updated properties:
+// On end, the object params will contain the following updated properties:
 //  - data if file was not specified, data will contain collected response body as string
 //  - status - HTTP response status code
 //  - mtime - Date object with the last modified time of the requested file
@@ -1161,7 +1163,7 @@ core.sendRequest = function(uri, options, callback)
         if (!options.secret) options.secret = self.backendSecret;
     }
     // Relative urls resolve against global backend host
-    if (uri.indexOf("://") == -1) uri = self.backendHost + uri;
+    if (typeof uri == "string" && uri.indexOf("://") == -1) uri = self.backendHost + uri;
 
     var db = self.context.db;
     self.httpGet(uri, options, function(err, params, res) {
@@ -1187,8 +1189,17 @@ core.sendRequest = function(uri, options, callback)
             params.data = self.decrypt(options.secret, params.data);
         }
         // Parse JSON and store in the params, set error if cannot be parsed, the caller will deal with it
-        if (params.data && params.type == "application/json") {
-            try { params.obj = JSON.parse(params.data); } catch(e) { err = e; }
+        if (params.data) {
+            switch (params.type) {
+            case "application/json":
+                try { params.obj = JSON.parse(params.data); } catch(e) { err = e; }
+                break;
+
+            case "text/xml":
+            case "application/xml":
+                try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e }
+                break;
+            }
         }
         if (params.status != 200) err = new Error("HTTP error: " + params.status);
         if (callback) callback(err, params, res);
@@ -2723,13 +2734,16 @@ core.checkTest = function()
 //
 //          # node tests.js -test-cmd test1
 //
-core.runTest = function(obj, name)
+core.runTest = function(obj, options, callback)
 {
     var self = this;
-    var name = name || this.getArg("-test-cmd");
-    if (name[0] == "_" || !obj[name]) {
+    if (!options) options = {};
+
+    var name = options.name || this.getArg("-test-cmd");
+    if (name[0] == "_" || !obj || !obj[name]) {
         console.log("usage: ", process.argv[0], process.argv[1], "-test-cmd", "command");
         console.log("        where command is one of: ", Object.keys(obj).filter(function(x) { return x[0] != "_" && typeof obj[x] == "function" }).join(", "));
+        if (cluster.isMaster && callback) return callback("invalid arguments");
         process.exit(0);
     }
 
@@ -2740,22 +2754,29 @@ core.runTest = function(obj, name)
         }, this.getArgInt("-test-delay", 500));
     }
 
-    var start = Date.now();
+    options.stime = Date.now();
     var count = this.getArgInt("-test-iterations", 1);
+    var forever = this.getArgInt("-test-forever", 0);
     logger.log("test started:", 'name:', name, 'db-pool:', this.context.db.pool);
 
     async.whilst(
-        function () { return count > 0; },
+        function () { return count > 0 || forever || options.running; },
         function (next) {
             count--;
-            obj[name](next);
+            obj[name](function(err) {
+                if (forever) err = null;
+                next(err);
+            });
         },
         function(err) {
             if (err) {
                 logger.error("test failed:", name, err);
+                if (cluster.isMaster && callback) return callback(err);
                 process.exit(1);
             }
-            logger.log("test stopped:", 'name:', name, 'db-pool:', self.context.db.pool, 'time:', Date.now() - start, "ms");
+            logger.log("test stopped:", 'name:', name, 'db-pool:', self.context.db.pool, 'time:', Date.now() - options.stime, "ms");
+            if (cluster.isMaster && callback) return callback();
             process.exit(0);
         });
 };
+

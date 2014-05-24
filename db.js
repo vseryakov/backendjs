@@ -946,6 +946,36 @@ db.list = function(table, query, options, callback)
     this.select(table, query, options, callback);
 }
 
+// Perform a batch of operations at the same time.
+// - op - is one of add, put, update, del
+// - objs a list of objects to put/delete from the database
+// - options can have the follwoing:
+//   - concurrency - number of how many operations to run at the same time, 1 means sequential
+//   - ignore_error - will run all operations without stopping on error, the callback will have third argument which is an array of arrays with failed operations
+db.batch = function(table, op, objs, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options,options = {};
+    options = this.getOptions(table, options);
+
+    // Custom handler for the operation
+    var pool = this.getPool(table, options);
+    if (pool.batch) return pool.batch(table, op, objs, options, callback);
+    var info = [];
+
+    async.forEachLimit(objs, options.concurrency || 1, function(obj, next) {
+        db[op](table, obj, options, function(err) {
+            if (err && options.ignore_error) {
+                info.push([ err, obj ]);
+                return next();
+            }
+            next(err);
+        });
+    }, function(err) {
+        if (callback) callback(err, [], info);
+    });
+}
+
 // Convenient helper for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
 // records matching given criteria. The obj is the same as passed to the `db.select` method which defined a condition which records to get.
 // The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
