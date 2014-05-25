@@ -2687,11 +2687,11 @@ core.watchLogs = function(callback)
 }
 
 // To be used in the tests, this function takes the following arguments
-// checkTest(next, err, result, ....)
+// checkTest(next, err, failure, ....)
 //  - next is a callback to be called after printing error condition if any, it takes err as its argument
 //  - err - is the error object passed by the most recent operation
-// - result - must be true, the condition is evaluated by the caller and this is the result of it
-// - all other arguments are printed in case of error or result being false
+//  - failure - must be true for failed test, the condition is evaluated by the caller and this is the result of it
+//  - all other arguments are printed in case of error or result being false
 //
 // Example
 //
