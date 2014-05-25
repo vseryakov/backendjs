@@ -1447,7 +1447,18 @@ db.prepare = function(op, table, obj, options)
                 }
             }
         }
-        if (options.strictTypes) this.prepareDataTypes(obj, cols);
+        // Convert simple types into the native according to the table definition, we dont use
+        // prepareDataTypes here because query parameters are not that strict and can be more arrays which we should not
+        // convert due to options.ops
+        if (options.strictTypes) {
+            for (var p in cols) {
+                if (core.isNumeric(cols[p].type)) {
+                    if (typeof obj[p] == "string") obj[p] = core.toNumber(obj[p]);
+                } else {
+                    if (typeof obj[p] == "number") obj[p] = String(obj[p]);
+                }
+            }
+        }
         break;
     }
     return pool.prepare(op, table, obj, options);
@@ -2021,7 +2032,11 @@ db.sqlExpr = function(name, value, options)
             }
         }
         if (list.length > 1) {
-            sql += name + " " + op + " " + this.sqlValue(list[0], options.type) + " AND " + this.sqlValue(list[1], options.type);
+            if (options.noBetween) {
+                sql += name + ">=" + this.sqlValue(list[0], options.type) + " AND " + name + "<=" + this.sqlValue(list[1], options.type);
+            } else {
+                sql += name + " " + op + " " + this.sqlValue(list[0], options.type) + " AND " + this.sqlValue(list[1], options.type);
+            }
         } else {
             sql += name + "=" + this.sqlValue(value, options.type, options.value, options.min, options.max);
         }
@@ -2271,17 +2286,20 @@ db.sqlWhere = function(table, query, keys, options)
         return query.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.getBindValue(table, options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
     }
     // Regular object with conditions
+    var opts = core.cloneObj(options);
     var where = [], c = {};
     (keys || []).forEach(function(k) {
         if (k[0] == "_") return;
-        var op = "", col = cols[k] || c, type = col.type || "", v = query[k];
+        var col = cols[k] || c, v = query[k];
+        opts.op = "";
+        opts.type = col.type || "";
         if (!v && v != null) return;
-        if (options.ops && options.ops[k]) op = options.ops[k];
-        if (!op && v == null) op = "null";
-        if (!op && Array.isArray(v)) op = "in";
-        if (options.opsMap && options.opsMap[op]) op = options.opsMap[op];
-        if (options.typesMap && options.typesMap[type]) type = options.typesMap[type];
-        var sql = self.sqlExpr(k, v, { op: op, type: type });
+        if (options.ops && options.ops[k]) opts.op = options.ops[k];
+        if (!opts.op && v == null) opts.op = "null";
+        if (!opts.op && Array.isArray(v)) opts.op = "in";
+        if (options.opsMap && options.opsMap[opts.op]) opts.op = options.opsMap[opts.op];
+        if (options.typesMap && options.typesMap[opts.type]) type = options.typesMap[opts.type];
+        var sql = self.sqlExpr(k, v, opts);
         if (sql) where.push(sql);
     });
     return where.join(" AND ");
@@ -3293,6 +3311,7 @@ db.cassandraInitPool = function(options)
                           noNulls: 1,
                           noLengths: 1,
                           noReplace: 1,
+                          noBetween: 1,
                           noJson: 1,
                           noCustomKey: 1,
                           noCompositeIndex: 1,

@@ -527,10 +527,10 @@ tests.db = function(callback)
 	    	db.add("test2", { id: id, id2: '1', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
-	    	db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
+	    	db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
-	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 0, num2: num2, mtime: now }, next);
+	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 1, num2: num2, mtime: now }, next);
 	    },
 	    function(next) {
             db.select("test2", { id: id2 }, { filter: function(row, o) { return row.id2 == '1' } }, function(err, rows) {
@@ -574,6 +574,16 @@ tests.db = function(callback)
 	    function(next) {
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
                 core.checkTest(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2, "err8-1:", rows);
+            });
+        },
+        function(next) {
+            db.select("test2", { id: id2, id2: "1,2" }, { ops: { id2: 'between' } }, function(err, rows) {
+                core.checkTest(next, err, rows.length!=2, "err8-2:", rows);
+            });
+        },
+        function(next) {
+            db.select("test2", { id: id2, num: "1,2" }, { ops: { num: 'between' } }, function(err, rows) {
+                core.checkTest(next, err, rows.length!=2, "err8-3:", rows);
             });
         },
 	    function(next) {
@@ -624,7 +634,7 @@ tests.db = function(callback)
 	        var rc = [];
             next_token = null;
             async.forEachSeries([2, 3], function(n, next2) {
-                db.select("test2", { id: id2 }, { start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
+                db.select("test2", { id: id2 }, { sort: "id2", start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
                     rc.push.apply(rc, rows);
                     next2(err);
@@ -639,7 +649,7 @@ tests.db = function(callback)
 	        // Check pagination with small page size with condition on the range key
             next_token = null;
 	        async.forEachSeries([2, 3], function(n, next2) {
-	            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
+	            db.select("test2", { id: id2, id2: '0' }, { sort: "id2", ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
 	                next_token = info.next_token;
 	                var isok = db.pool == "redis" ? rows.length>=n : rows.length==n;
 	                core.checkTest(next2, err, !isok || !info.next_token, "err11:", rows.length, n, info, rows);

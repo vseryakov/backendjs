@@ -145,7 +145,13 @@ $(function() {
      }
      Backend.clearHistory = function() {
         var url = $('#url').val();
-        if (!url) return;
+        if (!url) {
+            if (!$("#history").prop('selectedIndex')) {
+                localStorage['inputHistory.url'] = "";
+                this.initHistory();
+            }
+            return;
+        }
         var list = this.getHistory();
         list.splice(list.indexOf(url), 1);
         localStorage['inputHistory.url'] = list.join('\n');
@@ -284,7 +290,7 @@ $(function() {
       <tr><td>URL:</td>
           <td><input id="url" type="search" size=100" /></td>
           <td><button type="submit" >Run</button></td>
-          <td><select id="history"><option>History...</option></select></td>
+          <td><select id="history" title="Clear the current url or all if at the top"><option>History...</option></select></td>
           <td><button onclick="Backend.clearHistory()" title="Remove current request from the history">Clear</button></td>
           <td><input type="file" id="file" name="file" title="Upload a file, the last param in url must be empty like '/account/put/icon?type=0&icon=', it will be used for a file"/></td>
        </tr>
