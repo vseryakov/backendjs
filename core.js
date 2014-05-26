@@ -1204,7 +1204,7 @@ core.sendRequest = function(uri, options, callback)
                 break;
             }
         }
-        if (params.status != 200) err = new Error("HTTP error: " + params.status);
+        if (params.status != 200 && !err) err = this.newError("Response Error", "HTTP", params.status);
         if (callback) callback(err, params, res);
     });
 }
@@ -2283,6 +2283,15 @@ core.cloneObj = function()
     }
     for (var i = idx; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;
+}
+
+// Return a new Error object
+core.newError = function(msg, name, code)
+{
+    var err = new Error(msg + (code ? ": " + code : ""));
+    if (name) err.name = name;
+    if (code) e.code = code;
+    return err;
 }
 
 // Return new object using arguments as name value pairs for new object properties

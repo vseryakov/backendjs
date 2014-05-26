@@ -63,14 +63,14 @@ var api = {
 
     tables: {
         // Authentication by login, only keeps id and secret to check the siganture
-        bk_auth: { login: { primary: 1 },               // Account login
-                   id: {},                              // Auto generated UUID
-                   alias: {},                           // Account alias
-                   secret: {},                          // Account password
-                   type: {},                            // Account type: admin, ....
-                   acl_deny: {},                        // Deny access to matched url
-                   acl_allow: {},                       // Only grant access if matched this regexp
-                   expires: { type: "bigint" },         // Deny access to the account if this value is before current date, milliseconds
+        bk_auth: { login: { primary: 1 },                   // Account login
+                   id: {},                                  // Auto generated UUID
+                   alias: {},                               // Account alias
+                   secret: {},                              // Account password
+                   type: {},                                // Account type: admin, ....
+                   acl_deny: {},                            // Deny access to matched url
+                   acl_allow: {},                           // Only grant access if matched this regexp
+                   expires: { type: "bigint" },             // Deny access to the account if this value is before current date, milliseconds
                    mtime: { type: "bigint", now: 1 } },
 
         // Basic account information
@@ -89,13 +89,20 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
-                      latitude: { type: "real", noadd: 1 },
-                      longitude: { type: "real", noadd: 1 },
                       geohash: { noadd: 1 },
                       location: { noadd: 1 },
-                      ltime: { type: "bigint", noadd: 1 },
-                      ctime: { type: "bigint" },
-                      mtime: { type: "bigint", now: 1 } },
+                      latitude: { type: "real", noadd: 1 },
+                      longitude: { type: "real", noadd: 1 },
+                      ltime: { type: "bigint", noadd: 1 },    // Last location updte time
+                      ctime: { type: "bigint" },              // Create time
+                      mtime: { type: "bigint", now: 1 } },    // Last update time
+
+       // Status/presence support
+       bk_status: {
+           id: { primary: 1 },                               // account id
+           status: { primary: 1 },                           // status
+           mtime: { type: "bigint", now: 1 },                // last status change time
+       },
 
        // Keep track of icons uploaded
        bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
@@ -173,8 +180,8 @@ var api = {
 
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
-    subscribeTimeout: 900000,
-    subscribeInterval: 5000,
+    subscribeTimeout: 1800000,
+    subscribeInterval: 3000,
 
     // Collect body MIME types as binary blobs
     mimeBody: [],
@@ -216,8 +223,8 @@ var api = {
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
            { name: "deny", array: 1, set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
            { name: "deny-path", array: 1, key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
-           { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events, milliseconds"  },
-           { name: "subscribe-interval", type: "number", min: 500, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
+           { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
+           { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
 
@@ -1550,6 +1557,18 @@ api.subscribe = function(req, options)
     logger.debug('subscribe:', 'start', req.msgKey);
 }
 
+// Disconnect from subscription service. This forces disconnect even for persistent connections like socket.io or websockets.
+api.unsubscribe = function(req, options)
+{
+    if (req && req.msgKey) ipc.unsubscribe(req.msgKey);
+}
+
+// Publish an event for an account, key is account id or other key used for subscription, event is a string or an object
+api.publish = function(key, event, options)
+{
+    ipc.publish(key, event);
+}
+
 // Process a message received from subscription server or other even notifier, it is used by `api.subscribe` method for delivery events to the clients
 api.sendEvent = function(req, key, data)
 {
@@ -1563,12 +1582,16 @@ api.sendEvent = function(req, key, data)
     if (!req.msgData) req.msgData = [];
     req.msgData.push(data);
     if (req.msgTimeout) clearTimeout(req.msgTimeout);
-    req.msgTimeout = setTimeout(function() {
-        if (!req.res.headersSent) req.res.type('application/json').send("[" + req.msgData.join(",") + "]");
-        ipc.unsubscribe(key);
-    }, req.msgInterval || 5000);
+    if (!req.msgInterval) {
+        req.res.type('application/json').send("[" + req.msgData.join(",") + "]");
+        if (!req.httpProtocol) ipc.unsubscribe(key);
+    } else {
+        req.msgTimeout = setTimeout(function() {
+            if (!req.res.headersSent) req.res.type('application/json').send("[" + req.msgData.join(",") + "]");
+            if (!req.httpProtocol) ipc.unsubscribe(key);
+        }, req.msgInterval);
+    }
 }
-
 
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 api.handleIcon = function(req, res, options)
@@ -1862,7 +1885,7 @@ api.incrCounter = function(req, options, callback)
 
         // Notify only the other account
         if (obj.id != req.account.id) {
-            ipc.publish(obj.id, { path: req.path, mtime: now, alias: req.account.alias, type: Object.keys(obj).join(",") });
+            self.publish(obj.id, { path: req.path, mtime: now, alias: req.account.alias, type: Object.keys(obj).join(",") }, options);
         }
 
         callback(null, rows);
@@ -1938,7 +1961,7 @@ api.putConnection = function(req, options, callback)
             if (err) return db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, function() { callback(err); });
 
             // Notify about connection change
-            ipc.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type });
+            self.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type }, options);
 
             // Update operation does not change the state of connections between the accounts
             if (op == 'update') return callback(null, {});
@@ -1983,7 +2006,7 @@ api.delConnection = function(req, options, callback)
            },
            function(next) {
                // Notify about connection change
-               ipc.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type });
+               self.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type }, options);
                next();
            }],
            function(err) {
@@ -2248,7 +2271,7 @@ api.addMessage = function(req, options, callback)
                 if (err) return db.del("bk_message", req.query, function() { callback(err); });
 
                 if (req.query.id != req.account.id) {
-                    ipc.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) });
+                    self.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) }, options);
                 }
 
                 callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);

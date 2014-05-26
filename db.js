@@ -1276,7 +1276,7 @@ db.getCached = function(table, query, options, callback)
     var pool = this.getPool(table, options);
     var key = this.getCachedKey(table, query, options);
     var m = pool.metrics.Timer('cache').start();
-    ipc.getCache(key, function(rc) {
+    ipc.get(key, function(rc) {
         m.end();
         // Cached value retrieved
         if (rc) {
@@ -1287,7 +1287,7 @@ db.getCached = function(table, query, options, callback)
         // Retrieve account from the database, use the parameters like in Select function
         self.get(table, query, options, function(err, row) {
             // Store in cache if no error
-            if (row && !err) ipc.putCache(key, core.stringify(row));
+            if (row && !err) ipc.put(key, core.stringify(row));
             if (callback) callback(err, row);
         });
     });
@@ -1297,7 +1297,7 @@ db.getCached = function(table, query, options, callback)
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
 db.clearCached = function(table, query, options)
 {
-    ipc.delCache(this.getCachedKey(table, query, options));
+    ipc.del(this.getCachedKey(table, query, options));
 }
 
 // Returns concatenated values for the primary keys, this is used for caching records by primary key

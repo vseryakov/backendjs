@@ -1291,40 +1291,22 @@ it is required to clear cache manually there is `db.clearCached` method for that
 ## nanomsg
 
 For cache management signaling, all servers maintain local cache per machine, it is called `LRU` cache. This cache is maintained in the master Web process and
-serves all local Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (`cache-port=20194`)
+serves all local Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (`cache-port=20194/20195`)
 from other backend nodes. Every time any Web worker updates the local cache, its master process re-broadcasts the same request to other connected Web master
 processes on other nodes thus keeping in sync caches on all nodes.
 
-The basic flow is the following using a hypothetical example:
-
-- there are 4 nodes running in the network: node1, node2, node3 and node4, instead of the names nodeX we can use IP addresses as well.
-- all nodes configured with the parameter `cache-host=node1,node2`
-- nanomsg sockets may be connected to multiple endpoints, so we can have 2 cache servers for redundency.
-
-   _This config parameter can be specified in the local config file on all nodes
-   or can be defined in the DNS server as TXT record `cache-host`. If running in the AWS the config parameters also can be specified in
-   the user-data the same was as command line arguments._
-
-- any node which is requested for a cached record asks its local cache first for such key and if it is not found, retrieves it from the database and puts into local cache,
-   if running for a while, potentially every node now may contain same items in the cache and all requests for such items will be served without touching the db
-- an update request comes to the node3 which deletes a key from the local cache:
-   - node3 also sends 'del' request for the requested key to both node1 and node2 servers via connected sockets because of `cache-host` config parameter
-   - node1 and node2 servers receive 'del' request and delete the key from their local caches
-   - node1 and node2 re-send same request to all connected clients which are actually all nodes in the network, so all nodes receive 'del' cache request
-   - because we have 2 LRU servers, every node will receive the same del request twice which is very small packet and removing same item from the cache
-     costs nothing, both requests will be received within milliseconds from each other.
-   - next request to any of the nodes for that key we just deleted will result in retrieving the record from the database and putting back to the local cache again
-   - Important: each node maintains its own version of the cache, i.e. all nodes do not have exactly the same
-     items in the cache, over time they all retieve same records but only on demand and when one node puts an item in the cache it is not sent to all other nodes.
+In case of a single machine even with multiple CPUs there is nothing to configure, it is enabled by default. In case of multiple servers in the cluster
+it requires one or multiple cache coordinators to be configured. It can be any node(s) in the cluster. The coordinator's role is to broadcast
+cache requests to all nodes in the clusyer.
 
 For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliably and similar to
 what `memcached` or `Redis` server would do as well.
 
 The benefits of this approach is not to run any separate servers and dealing with its own configuration and support, using nanomsg
 internal backend cache system is self contained and does not need additional external resources, any node can be LRU server whose only role is to make sure all other
-nodes flush their caches if needed. Using redundant broadcast servers makes sure such flush requests reach all nodes in the cluster and there is no single point of failure.
+nodes flush their caches if needed. Using redundant coordinators servers makes sure cache requests reach all nodes in the cluster and there is no single point of failure.
 
-Essentually, setting `cache-host` to the list of any nodes in the network is what needs to be done to support distributed cache with nanomsg sockets.
+Essentually, setting `cache-host` to the list of any node(s) in the network is what needs to be done to support distributed cache with nanomsg sockets.
 
 ## memcached
 Setting `cache-type=memcache` and pointing `memcache-host` to one or more hosts running memcached servers is what needs to be done only, the rest of the
