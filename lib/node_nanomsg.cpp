@@ -28,7 +28,7 @@
 
 class NNSocket: public ObjectWrap {
 public:
-    NNSocket(int d = AF_SP, int t = NN_SUB): sock(-1), err(0), domain(d), type(t), rfd(-1), wfd(-1), peer(-1) {
+    NNSocket(int d = AF_SP, int t = NN_SUB): sock(-1), err(0), domain(d), type(t), rfd(-1), wfd(-1), peer(-1), dev_err(0), dev_state(0) {
         poll.data = NULL;
         Setup();
     }
@@ -48,13 +48,16 @@ public:
     // Socket OS descriptors
     int rfd;
     int wfd;
+    // Peer for forwading
+    int peer;
+
+    // Device status
+    int dev_err;
+    int dev_state;
 
     // Socket read/write support
     uv_poll_t poll;
     Persistent<Function> callback;
-
-    // Peer for forwading
-    int peer;
 
     int Setup() {
         sock = nn_socket(domain, type);
@@ -276,8 +279,10 @@ public:
 
     static void _device(void *arg) {
         NNSocket *sock = (NNSocket*)arg;
-        sock->err = nn_device(sock->sock, sock->peer);
-        if (sock->err) LogError("%d: peer=%d", sock, sock->peer, nn_strerror(sock->err));
+        sock->dev_state = 1;
+        sock->dev_err = nn_device(sock->sock, sock->peer);
+        if (sock->dev_err) LogError("%d: peer=%d", sock, sock->peer, nn_strerror(sock->dev_err));
+        sock->dev_state = 0;
     }
 
     int StartDevice(NNSocket *p) {
@@ -334,6 +339,18 @@ public:
         HandleScope scope;
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
         return scope.Close(Local<Integer>::New(Integer::New(sock->err)));
+    }
+
+    static Handle<Value> DevErrnoGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
+        return scope.Close(Local<Integer>::New(Integer::New(sock->dev_err)));
+    }
+
+    static Handle<Value> DeviceGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
+        return scope.Close(Local<Integer>::New(Integer::New(sock->dev_state)));
     }
 
     static Handle<Value> ErrorGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -532,6 +549,8 @@ public:
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("peer"), PeerGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("type"), TypeGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("address"), AddressGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("deverrno"), DevErrnoGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("device"), DeviceGetter);
         constructor_template->SetClassName(String::NewSymbol("NNSocket"));
 
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "setup", Setup);
@@ -600,6 +619,7 @@ void NNServer::Stop()
     if (poll.data) uv_poll_stop(&poll);
     poll.data = NULL;
     rfd = wfd = queue = err = 0;
+    rsock = wsock = -1;
     maxsize = 1524;
     bkcallback = NULL;
     if (bkfree) bkfree(data);
@@ -609,18 +629,23 @@ void NNServer::Stop()
 
 int NNServer::Start(int r, int w, bool q, NNServerCallback *cb, void *d, NNServerFree *f)
 {
+    if (r < 0) {
+        err = EINVAL;
+        return -1;
+    }
     rsock = r;
     wsock = w;
-
     size_t sz = sizeof(int);
-    nn_getsockopt(rsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &rproto, &sz);
-    nn_getsockopt(wsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &wproto, &sz);
 
+    nn_getsockopt(rsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &rproto, &sz);
     int rc = nn_getsockopt(rsock, NN_SOL_SOCKET, NN_RCVFD, (char*) &rfd, &sz);
     if (rc == -1) goto done;
 
-    if (wsock > -1) rc = nn_getsockopt(wsock, NN_SOL_SOCKET, NN_SNDFD, (char*) &wfd, &sz);
-    if (rc == -1) goto done;
+    if (wsock > -1) {
+        nn_getsockopt(wsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &wproto, &sz);
+        rc = nn_getsockopt(wsock, NN_SOL_SOCKET, NN_SNDFD, (char*) &wfd, &sz);
+        if (rc == -1) goto done;
+    }
 
     queue = q;
     bkcallback = cb;
@@ -629,6 +654,7 @@ int NNServer::Start(int r, int w, bool q, NNServerCallback *cb, void *d, NNServe
     uv_poll_init(uv_default_loop(), &poll, rfd);
     uv_poll_start(&poll, UV_READABLE, ReadRequest);
     poll.data = this;
+    LogDev("rsock=%d, wsock=%d, queue=%d", rsock, wsock, queue);
     return 0;
 
 done:
@@ -686,6 +712,7 @@ int NNServer::Recv(char **buf)
     int rc = nn_recv(rsock, (void*)buf, NN_MSG, NN_DONTWAIT);
     if (rc == -1) {
         err = nn_errno();
+        if (err == EAGAIN || err == EINTR) return rc;
         LogError("%d: %d: recv: %s", rproto, rsock, nn_strerror(err));
     }
     return rc;

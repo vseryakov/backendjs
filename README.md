@@ -12,8 +12,8 @@ Features:
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
-* Supports socket.io connections and process them with the same Express routes as HTTP requests
-* Supports several cache modes(Redis, memcached, local cache) for the database operations.
+* Supports socket.io/websocket connections and process them with the same Express routes as HTTP requests
+* Supports several cache modes(Redis, memcached, LRU) for the database operations.
 * Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
@@ -863,6 +863,27 @@ process for the cached records thus only one copy of the cache per machine even 
 
         /counter/incr?msg_read=5&
         /counter/incr?id=12345&ping=1
+
+## Status
+The status API maintains account status with the timestamp to be used for presence or any other purposes. This table can be cached with any available
+caching system like Redis, memcache, nanomsg to be very fast presence state system.
+
+- `/status/put`
+  Set the status of the current account, requires status parameter, automatically updates the timestamp
+
+  Example:
+
+        /status/put?status=online
+
+- `/status/get`
+  Return status for the account by id, if no id is psecified return statrus for the current account
+
+  Example:
+
+        /status/get?id=12345
+
+- `/status/del`
+  Delete current account status, mostly for clearing the cache or marking offline status
 
 ## History
 The history API maintains one table for all application specific logging records. All operations deal with current account only.

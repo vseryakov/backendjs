@@ -553,15 +553,17 @@ static string lruServerRequest(char *buf, int len, void *data)
         break;
 
     case '\2':
-        val = strpbrk(key, "\2");
+        val = strchr(key, '\2');
         if (!val) break;
-        _lru.set(key, val + 1);
+        *val++ = 0;
+        _lru.set(key, val);
         break;
 
     case '\3':
-        val = strpbrk(key, "\3");
+        val = strchr(key, '\3');
         if (!val) break;
-        _lru.incr(key, val + 1);
+        *val++ = 0;
+        _lru.incr(key, val);
         break;
 
     case '\4':
@@ -575,7 +577,7 @@ static string lruServerRequest(char *buf, int len, void *data)
 }
 
 #ifdef USE_NANOMSG
-static NNServer server;
+static NNServer server1, server2;
 
 static Handle<Value> lruServerStart(const Arguments& args)
 {
@@ -583,14 +585,16 @@ static Handle<Value> lruServerStart(const Arguments& args)
     REQUIRE_ARGUMENT_INT(0, rsock);
     REQUIRE_ARGUMENT_INT(1, wsock);
     OPTIONAL_ARGUMENT_INT(2, queue);
-    server.Start(rsock, wsock, queue, lruServerRequest, NULL, NULL);
+    server1.Start(rsock, wsock, queue, lruServerRequest, NULL, NULL);
+    if (wsock > -1) server2.Start(wsock, -1, queue, lruServerRequest, NULL, NULL);
     return scope.Close(Undefined());
 }
 
 static Handle<Value> lruServerStop(const Arguments& args)
 {
     HandleScope scope;
-    server.Stop();
+    server1.Stop();
+    server2.Stop();
     return scope.Close(Undefined());
 }
 #endif

@@ -83,6 +83,12 @@ ipc.initServer = function()
     this.initServerCaching();
     this.initServerMessaging();
 
+    // Cleanup died processes from metrics
+    cluster.on("exit", function(worker, code, signal) {
+        var now = Date.now();
+        Object.keys(core.metrics).forEach(function(x) { if (now - core.metrics[x] > 86400000) delete core.metrics[x]; });
+    });
+
     cluster.on('fork', function(worker) {
         // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
         worker.on('message', function(msg) {
@@ -180,7 +186,7 @@ ipc.initServer = function()
                     break;
                 }
                 // Send to all other nodes in the cluster
-                self.broadcast(msg.cmd, msg.name, msg.value);
+                self.broadcast(msg.op, msg.name, msg.value);
 
             } catch(e) {
                 logger.error('msg:', e, msg);
@@ -203,7 +209,7 @@ ipc.initServerCaching = function()
 
     default:
         if (!backend.NNSocket || core.noCache) break;
-        core.cacheBind = core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*";
+        core.cacheBind = core.cacheBind || (core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*");
 
         // Pair of cache sockets for communication between nodes and cache coordinators
         this.bind('pull', "nanomsg", core.cacheBind, core.cachePort, backend.NN_PULL);
@@ -216,7 +222,7 @@ ipc.initServerCaching = function()
         // Forward cache requests to the bus
         if (this.nanomsg.pull && this.nanomsg.lru) {
             var err = backend.lruServerStart(this.nanomsg.pull.socket, this.nanomsg.lru.socket);
-            if (err) logger.error('initServerCaching:', 'lru', backend.nn_strerror(err));
+            if (err) logger.error('initServerCaching:', 'pull/lru', backend.nn_strerror(err));
         }
     }
 }
@@ -244,7 +250,7 @@ ipc.initServerMessaging = function()
 
     default:
         if (!backend.NNSocket || core.noMsg) break;
-        core.msgBind = core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*";
+        core.msgBind = core.msgBind || (core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*");
 
         // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process connects to this socket.
         this.bind('sub', "nanomsg", core.msgBind, core.msgPort + 1, backend.NN_PUB);
@@ -268,7 +274,7 @@ ipc.initClientMessaging = function()
     case "amqp":
         this.connect("client", "amqp", core.amqpHost, core.amqpPort, core.amqpOptions, function() {
             this.queue(core.amqpQueueName || '', core.amqpQueueOptions | {}, function(q) {
-                self.amqpQueue = q;
+                self.amqp.queue = q;
                 q.subscribe(function(message, headers, info) {
                     var cb = self.subCallbacks[info.routingKey];
                     if (!cb) cb[0](cb[1], info.routingKey, message);
@@ -336,6 +342,8 @@ ipc.bind = function(name, type, host, port, options)
 {
     if (!host || !this[type]) return;
 
+    logger.debug("ipc.bind:", type, name, host, port, options);
+
     switch (type) {
     case "redis":
     case "memcache":
@@ -360,35 +368,25 @@ ipc.connect = function(name, type, host, port, options, callback)
 {
     if (!host || !this[type]) return;
 
-    switch (type) {
-    case "redis":
-        if (this[type][name]) break;
-        try {
-            this[type][name] = redis.createClient(port, host, options || {});
-            this[type][name].on("error", function(err) { logger.error(type, name, host, err) });
-            if (callback) this[type][name].on("ready", function() { callback.call(this) });
-        } catch(e) {
-            delete this[type][name];
-            logger.error('ipc.connect:', name, type, host, e);
-        }
-        break;
+    logger.debug("ipc.connect:", type, name, host, port, options);
 
+    switch (type) {
+    case "amqp":
+    case "redis":
     case "memcache":
         if (this[type][name]) break;
         try {
-            this[type][name] = new memcached(host, options || {});
-            this[type][name].on("error", function(err) { logger.error(type, name, host, err) });
-            if (callback) this[type][name].on("ready", function() { callback.call(this) });
-        } catch(e) {
-            delete this[type][name];
-            logger.error('ipc.connect:', name, type, host, e);
-        }
-        break;
-
-    case "amqp":
-        if (this[type][name]) break;
-        try {
-            this[type][name] = amqp.createConnection(core.cloneObj(options, "host", host));
+            switch (type) {
+            case "amqp":
+                this[type][name] = amqp.createConnection(core.cloneObj(options, "host", host));
+                break;
+            case "redis":
+                this[type][name] = redis.createClient(port, host, options || {});
+                break;
+            case "memcache":
+                this[type][name] = new memcached(host, options || {});
+                break;
+            }
             this[type][name].on("error", function(err) { logger.error(type, name, host, err) });
             if (callback) this[type][name].on("ready", function() { callback.call(this) });
         } catch(e) {
@@ -436,14 +434,7 @@ ipc.close = function(name, type)
     delete this[type][name];
 }
 
-// Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
-// reconfiguring itself, this command can be sent by any worker. type can be one of cche or msg
-ipc.configure = function(type)
-{
-    this.send('init:' + type, "");
-}
-
-ipc.broadcast = function(cmd, name, value)
+ipc.broadcast = function(op, name, value)
 {
     try {
         switch (core.cacheType || "") {
@@ -458,7 +449,7 @@ ipc.broadcast = function(cmd, name, value)
 
         default:
             if (this.noCache || !this.nanomsg.push || !this.nanomsg.push.address.length) break;
-            switch (cmd) {
+            switch (op) {
             case 'put':
                 this.nanomsg.push.send("\2" + name + "\2" + value);
                 break;
@@ -477,8 +468,15 @@ ipc.broadcast = function(cmd, name, value)
             }
         }
     } catch(e) {
-        logger.error('broadcastCache:', e);
+        logger.error('ipc.broadcast:', e);
     }
+}
+
+// Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
+// reconfiguring itself, this command can be sent by any worker. type can be one of cche or msg
+ipc.configure = function(type)
+{
+    this.send('init:' + type, "");
 }
 
 ipc.stats = function(callback)
@@ -498,7 +496,7 @@ ipc.stats = function(callback)
             this.send("stats", "", callback);
         }
     } catch(e) {
-        logger.error('ipcStats:', e);
+        logger.error('ipc.stats:', e);
         callback({});
     }
 }
@@ -555,7 +553,7 @@ ipc.clear = function()
             this.send("clear", key);
         }
     } catch(e) {
-        logger.error('ipcClear:', e);
+        logger.error('ipc.clear:', e);
     }
 }
 
@@ -576,7 +574,7 @@ ipc.get = function(key, callback)
             this.send("get", key, callback);
         }
     } catch(e) {
-        logger.error('ipcGet:', e);
+        logger.error('ipc.get:', e);
         callback();
     }
 }
@@ -598,7 +596,7 @@ ipc.del = function(key)
             this.send("del", key);
         }
     } catch(e) {
-        logger.error('ipcDel:', e);
+        logger.error('ipc.del:', e);
     }
 }
 
@@ -619,7 +617,7 @@ ipc.put = function(key, val)
             this.send("put", key, val);
         }
     } catch(e) {
-        logger.error('ipcPut:', e);
+        logger.error('ipc.put:', e);
     }
 }
 
@@ -640,7 +638,7 @@ ipc.incr = function(key, val)
             this.send("incr", key, val);
         }
     } catch(e) {
-        logger.error('ipcIncr:', e);
+        logger.error('ipc.incr:', e);
     }
 }
 
@@ -658,9 +656,9 @@ ipc.subscribe = function(key, callback, data)
             break;
 
         case "amqp":
-            if (!this.amqpQueue) break;
+            if (!this.amqp.queue) break;
             this.subCallbacks[key] = [ callback, data ];
-            this.amqpQueue.bind(key);
+            this.amqp.queue.bind(key);
             break;
 
         default:
@@ -669,7 +667,7 @@ ipc.subscribe = function(key, callback, data)
             this.nanomsg.sub.subscribe(key);
         }
     } catch(e) {
-        logger.error('ipcSubscribe:', this.subHost, key, e);
+        logger.error('ipc.subscribe:', this.subHost, key, e);
     }
 }
 
@@ -685,8 +683,8 @@ ipc.unsubscribe = function(key)
             break;
 
         case "amqp":
-            if (!this.amqpQueue) break;
-            this.amqpQueue.unbind(key);
+            if (!this.amqp.queue) break;
+            this.amqp.queue.unbind(key);
             break;
 
         default:
@@ -694,7 +692,7 @@ ipc.unsubscribe = function(key)
             this.nanomsg.sub.unsubscribe(key);
         }
     } catch(e) {
-        logger.error('ipcUnsubscribe:', e);
+        logger.error('ipc.unsubscribe:', e);
     }
 }
 
@@ -709,8 +707,8 @@ ipc.publish = function(key, data, callback)
             break;
 
         case "amqp":
-            if (!this.amqpClient) break;
-            this.amqpClient.publish(key, data);
+            if (!this.amqp.client) break;
+            this.amqp.client.publish(key, data);
             break;
 
         default:
@@ -719,7 +717,7 @@ ipc.publish = function(key, data, callback)
             this.nanomsg.pub.send(key + "\1" + JSON.stringify(data));
         }
     } catch(e) {
-        logger.error('ipcPublish:', e, key);
+        logger.error('ipc.publish:', e, key);
     }
 }
 

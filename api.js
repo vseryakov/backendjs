@@ -194,6 +194,7 @@ var api = {
 
     // Default endpoints
     endpoints: { "account": 'initAccountAPI',
+                 "status": "initStatusAPI",
                  "connection": 'initConnectionAPI',
                  "location": 'initLocationAPI',
                  "history": 'initHistoryAPI',
@@ -740,7 +741,7 @@ api.checkAccess = function(req, callback)
     var hook = this.findHook('access', req.method, req.path);
     if (hook) {
         logger.debug('checkAccess:', req.method, req.path, hook);
-        return hook.callbacks.call(this, req, callback)
+        return hook.callbacks.call(this, req, callback);
     }
     callback();
 }
@@ -903,6 +904,46 @@ api.initAccountAPI = function()
             req.query.prefix = 'account';
             if (!req.query.type) req.query.type = '0';
             self.handleIcon(req, res, options);
+            break;
+
+        default:
+            self.sendReply(res, 400, "Invalid command");
+        }
+    });
+}
+
+// Status/presence
+api.initStatusAPI = function()
+{
+    var self = this;
+    var db = core.context.db;
+
+    this.app.all(/^\/status\/([a-z\/]+)$/, function(req, res) {
+
+        if (req.method == "POST") req.query = req.body;
+        var options = self.getOptions(req);
+
+        switch (req.params[0]) {
+        case "get":
+            if (!req.query.id) req.query.id = req.account.id;
+            db.get("bk_status", { id: req.query.id }, options, function(err, row) {
+                if (err) return self.sendReply(res, err);
+                res.json(row);
+            });
+            break;
+
+        case "put":
+            if (!req.query.status) return self.sendReply(res, 400, "status is required");
+            req.query.id = req.account.id;
+            db.put("bk_status", req.query, options, function(err, row) {
+                self.sendReply(res, err);
+            });
+            break;
+
+        case "del":
+            db.del("bk_status", { id: req.account.id }, options, function(err, row) {
+                self.sendReply(res, err);
+            });
             break;
 
         default:
@@ -1222,29 +1263,29 @@ api.initSystemAPI = function()
                 ipc.configure('cache');
                 break;
             case 'stats':
-                ipc.statsCache(function(data) { res.send(data) });
+                ipc.stats(function(data) { res.send(data) });
                 break;
             case "keys":
-                ipc.keysCache(function(data) { res.send(data) });
+                ipc.keys(function(data) { res.send(data) });
                 break;
             case "get":
-                ipc.getCache(req.query.name, function(data) { res.send(data) });
+                ipc.get(req.query.name, function(data) { res.send(data) });
                 break;
             case "clear":
-                ipc.clearCache();
-                res.json("");
+                ipc.clear();
+                res.json({});
                 break;
             case "del":
-                ipc.delCache(req.query.name);
-                res.json("");
+                ipc.del(req.query.name);
+                res.json({});
                 break;
             case "incr":
-                ipc.incrCache(req.query.name, core.toNumber(req.query.value));
-                res.json();
+                ipc.incr(req.query.name, core.toNumber(req.query.value));
+                res.json({});
                 break;
             case "put":
-                ipc.putCache(req.params[1].split("/").pop(), req.query);
-                res.json();
+                ipc.put(req.query.name, req.query.value);
+                res.json({});
                 break;
             default:
                 self.sendReply(res, 400, "Invalid command:" + req.params[1]);

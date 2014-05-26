@@ -644,7 +644,6 @@ case "$ARG" in
         ;;
 
      run-backend)
-        killall node
         $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -debug -master -web -watch `pwd` $@
         ;;
 
@@ -653,7 +652,6 @@ case "$ARG" in
         ;;
 
      *)
-        killall node
         $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -master -web $@
         ;;
     esac

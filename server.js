@@ -400,6 +400,9 @@ server.startWatcher = function()
     core.role = 'watcher';
     process.title = core.name + ": watcher";
 
+    // REPL command prompt over TCP instead of the master process
+    if (core.replPort && !core.isArg("-master")) self.startRepl(core.replPort, core.replBind);
+
     if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname);
     logger.debug('startWatcher:', core.watchdirs);
     core.watchdirs.forEach(function(dir) {
@@ -424,9 +427,9 @@ server.startRepl = function(port, bind)
         self.repl.context.socket = socket;
     });
     repl.on('error', function(err) {
-       logger.error('startRepl:', err);
+       logger.error('startRepl:', port, bind, err);
     });
-    try { repl.listen(port, bind || '0.0.0.0'); } catch(e) { logger.error('startRepl:', e) }
+    try { repl.listen(port, bind || '0.0.0.0'); } catch(e) { logger.error('startRepl:', port, bind, e) }
     logger.log('startRepl:', core.role, 'port:', port, 'bind:', bind || '0.0.0.0');
 }
 

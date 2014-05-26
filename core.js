@@ -168,6 +168,7 @@ var core = {
             { name: "msg-port", type: "int", descr: "Ports to use for nanomsg sockets for message publish and subscribe, 2 ports will be used, this one and the next" },
             { name: "msg-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
             { name: "msg-host", dns: 1, descr: "Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used" },
+            { name: "msg-bind", descr: "Listen only on specified address for messaging sockets server in the master process" },
             { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP[:port],host[:port].." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-port", dns: 1, descr: "Port to Redis server for cache and messaging" },
@@ -178,6 +179,7 @@ var core = {
             { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
             { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used" },
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
+            { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
             { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
@@ -271,13 +273,13 @@ core.init = function(options, callback)
     async.series([
         function(next) {
             // Default config file from the home
-            self.loadConfig(configFile, next);
+            self.loadConfig(localConfig, next);
         },
 
         function(next) {
-            // Try to load local config file supplied with the app container
+            // Try to load specified config file
             if (localConfig == configFile) return next();
-            self.loadConfig(localConfig, next);
+            self.loadConfig(configFile, next);
         },
 
         // Load config params from the DNS TXT records, only the ones marked as dns
