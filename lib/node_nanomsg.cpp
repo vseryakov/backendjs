@@ -602,7 +602,7 @@ public:
         default:
             rc = _lru.get(buf);
         }
-        LogNotice("%s: %s=%s", buf[0] == '\1' ? "del" : buf[0] == '\2' ? "set" : buf[0] == '\3' ? "incr" : "clear", key, val);
+        LogDev("%s: %s=%s", buf[0] == '\1' ? "del" : buf[0] == '\2' ? "set" : buf[0] == '\3' ? "incr" : "clear", key, val);
         return rc;
     }
 

@@ -577,12 +577,15 @@ ipc.get = function(key, callback)
         switch (core.cacheType) {
         case "memcache":
             if (!this.memcache.client) return callback({});
-            this.memcache.client.get(key, function(e,v) { callback(v) });
+            this.memcache.client.get(key, function(e, v) { callback(v) });
             break;
 
         case "redis":
             if (!this.redis.client) return callback();
-            this.redis.client.get(key, function(e,v) { callback(v) });
+            this.redis.client.get(key, function(e, v) {
+                if (Array.isArray(key)) v = key.map(function(x) { return {} });
+                callback(v);
+            });
             break;
 
         case "nanomsg":

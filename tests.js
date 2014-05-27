@@ -844,6 +844,8 @@ tests.cache = function(callback)
 {
     if (!core.getArgInt("-test-workers")) logger.error("need -test-workers 1 argument");
 
+    var proc = null;
+
     if (cluster.isMaster) {
         ipc.initServer();
     } else {

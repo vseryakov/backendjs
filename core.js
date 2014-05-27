@@ -1205,6 +1205,7 @@ core.sendRequest = function(uri, options, callback)
                 break;
             }
         }
+        if (!params.obj) params.obj = {};
         if (params.status != 200 && !err) err = this.newError("Response Error", "HTTP", params.status);
         if (callback) callback(err, params, res);
     });
