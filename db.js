@@ -561,7 +561,7 @@ db.query = function(req, options, callback)
                     // Cache notification in case of updates, we must have the request prepared by the db.prepare
                     var cached = options.cached || self.caching.indexOf(table) > -1;
                     if (cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
-                        self.clearCached(table, req.obj, options);
+                        self.delCache(table, req.obj, options);
                     }
 
                     // Make sure no duplicates
@@ -1274,34 +1274,49 @@ db.getCached = function(table, query, options, callback)
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
     var pool = this.getPool(table, options);
-    var key = this.getCachedKey(table, query, options);
     var m = pool.metrics.Timer('cache').start();
-    ipc.get(key, function(rc) {
+    this.getCache(table, query, options, function(rc, err) {
         m.end();
         // Cached value retrieved
         if (rc) {
             pool.metrics.Counter("hits").inc();
-            return callback ? callback(null, JSON.parse(rc)) : null;
+            try { rc = JSON.parse(rc) } catch(e) { err = e };
+            return callback ? callback(err, rc) : null;
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
         self.get(table, query, options, function(err, row) {
             // Store in cache if no error
-            if (row && !err) ipc.put(key, core.stringify(row));
+            if (row && !err) self.putCache(table, row, options);
             if (callback) callback(err, row);
         });
     });
+}
 
+// Retrieve an object from the cache by key
+db.getCache = function(table, query, options, callback)
+{
+    var key = this.getCacheKey(table, query, options);
+    if (options) options.cacheKey = key;
+    ipc.get(key, callback);
+}
+
+// Store a record in the cache
+db.putCache = function(table, obj, options)
+{
+    var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, obj, options);
+    ipc.put(key, core.stringify(obj), options);
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
-db.clearCached = function(table, query, options)
+db.delCache = function(table, query, options)
 {
-    ipc.del(this.getCachedKey(table, query, options));
+    var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
+    ipc.del(key, options);
 }
 
 // Returns concatenated values for the primary keys, this is used for caching records by primary key
-db.getCachedKey = function(table, query, options)
+db.getCacheKey = function(table, query, options)
 {
     var prefix = options.prefix || table;
     return prefix + this.getKeys(table, options).map(function(x) { return ":" + query[x] }) + (options.select ? ":" + String(options.select) : "");

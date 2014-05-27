@@ -176,11 +176,10 @@ var core = {
             { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
             { name: "amqp-host", type: "json", descr: "Host running RabbitMQ" },
             { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
-            { name: "cache-type", descr: "One of the redis or memcache to use for caching in API requests" },
+            { name: "cache-type", descr: "One of the redis, memcache or nanomsg to use for caching in API requests" },
             { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used" },
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
-            { name: "no-cache", type:" bool", descr: "Disable caching, all gets will result in miss and puts will have no effect" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
@@ -218,10 +217,10 @@ var core = {
     context: {},
 
     // Cache and messaging properties
-    cacheType: '',
+    cacheType: 'nanomsg',
     cachePort: 20194,
     cacheHost: "127.0.0.1",
-    msgType: '',
+    msgType: 'nanomsg',
     msgPort: 20196,
     msgHost: "127.0.0.1",
     subCallbacks: {},
@@ -2444,6 +2443,12 @@ core.stringify = function(obj)
     return JSON.stringify(this.cloneObj(obj, { _skip_null: 1, _skip_cb: function(n,v) { return v == "" } }));
 }
 
+// Silent JSON parse
+core.jsonParse = function(obj)
+{
+    try { return JSON.parse(obj) } catch(e) { return null; }
+}
+
 // Return cookies that match given domain
 core.cookieGet = function(domain, callback)
 {
@@ -2715,9 +2720,9 @@ core.checkTest = function()
 {
     var next = arguments[0];
     if (arguments[1] || arguments[2]) {
-        var args = [ 'ERROR:', arguments[1] ? arguments[1] : new Error("failed condition") ];
+        var args = [ arguments[1] ? arguments[1] : new Error("failed condition") ];
         for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
-        console.log.apply(console, args);
+        logger.error(args);
         return next(args[1]);
     }
     next();
@@ -2755,25 +2760,32 @@ core.runTest = function(obj, options, callback)
     var self = this;
     if (!options) options = {};
 
+    var role = cluster.isMaster ? "master" : "worker";
     var name = options.name || this.getArg("-test-cmd");
     if (name[0] == "_" || !obj || !obj[name]) {
         console.log("usage: ", process.argv[0], process.argv[1], "-test-cmd", "command");
-        console.log("        where command is one of: ", Object.keys(obj).filter(function(x) { return x[0] != "_" && typeof obj[x] == "function" }).join(", "));
+        console.log("      where command is one of: ", Object.keys(obj).filter(function(x) { return x[0] != "_" && typeof obj[x] == "function" }).join(", "));
         if (cluster.isMaster && callback) return callback("invalid arguments");
         process.exit(0);
     }
+
+    options.stime = Date.now();
+    var count = this.getArgInt("-test-iterations", 1);
+    var forever = this.getArgInt("-test-forever", 0);
+    var keepmaster = this.getArgInt("-test-keepmaster", 0);
 
     if (cluster.isMaster) {
         setTimeout(function() {
             var workers = self.getArgInt("-test-workers", 0);
             for (var i = 0; i < workers; i++) cluster.fork();
         }, this.getArgInt("-test-delay", 500));
+
+        cluster.on("exit", function(worker) {
+            if (!Object.keys(cluster.workers).length && !forever && !keepmaster) process.exit(0);
+        });
     }
 
-    options.stime = Date.now();
-    var count = this.getArgInt("-test-iterations", 1);
-    var forever = this.getArgInt("-test-forever", 0);
-    logger.log("test started:", 'name:', name, 'db-pool:', this.context.db.pool);
+    logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', name, 'db-pool:', this.context.db.pool);
 
     async.whilst(
         function () { return count > 0 || forever || options.running; },
@@ -2785,12 +2797,13 @@ core.runTest = function(obj, options, callback)
             });
         },
         function(err) {
+            options.etime = Date.now();
             if (err) {
-                logger.error("test failed:", name, err);
+                logger.error("test failed:", role, 'name:', name, err);
                 if (cluster.isMaster && callback) return callback(err);
                 process.exit(1);
             }
-            logger.log("test stopped:", 'name:', name, 'db-pool:', self.context.db.pool, 'time:', Date.now() - options.stime, "ms");
+            logger.log("test stopped:", role, 'name:', name, 'db-pool:', self.context.db.pool, 'time:', options.etime - options.stime, "ms");
             if (cluster.isMaster && callback) return callback();
             process.exit(0);
         });

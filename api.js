@@ -1263,29 +1263,29 @@ api.initSystemAPI = function()
                 ipc.configure('cache');
                 break;
             case 'stats':
-                ipc.stats(function(data) { res.send(data) });
+                ipc.stats(function(data) { res.json(data) });
                 break;
             case "keys":
-                ipc.keys(function(data) { res.send(data) });
+                ipc.keys(function(data) { res.json(data) });
                 break;
             case "get":
-                ipc.get(req.query.name, function(data) { res.send(data) });
+                ipc.get(req.query.name, function(data) { res.json(data);console.log(data) });
                 break;
             case "clear":
                 ipc.clear();
-                res.json({});
+                res.json("");
                 break;
             case "del":
                 ipc.del(req.query.name);
-                res.json({});
+                res.json("");
                 break;
             case "incr":
                 ipc.incr(req.query.name, core.toNumber(req.query.value));
-                res.json({});
+                res.json("");
                 break;
             case "put":
                 ipc.put(req.query.name, req.query.value);
-                res.json({});
+                res.json("");
                 break;
             default:
                 self.sendReply(res, 400, "Invalid command:" + req.params[1]);

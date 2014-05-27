@@ -235,6 +235,7 @@ var Backend = {
         var self = this;
         // Shortcut to parse and format json from the string
         if (typeof obj == "string" && obj != "") {
+            if (obj[0] != "[" && obj[0] != "{") return obj;
             try { obj = JSON.parse(obj); } catch(e) { self.log(e) }
         }
         if (!indent) indent = "";

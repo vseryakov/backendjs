@@ -11,8 +11,7 @@ var cluster = require('cluster');
 var util = require('util');
 var path = require('path');
 var async = require('async');
-var spawn = require('child_process').spawn;
-var execFile = require('child_process').execFile;
+var child_process = require('child_process');
 var backend = require('backendjs')
 core = backend.core;
 ipc = backend.ipc;
@@ -805,7 +804,7 @@ tests.lmdb = function(callback)
     });
 }
 
-tests.nnpubsub = function(callback)
+tests.msg = function(callback)
 {
     if (!self.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");
 
@@ -841,74 +840,72 @@ tests.nnpubsub = function(callback)
     }
 }
 
-tests.nncache = function(callback)
+tests.cache = function(callback)
 {
-    if (!core.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");
-
-    var slave = core.getArgInt("-slave", 0);
-    core.cacheHost = "127.0.0.1:20194,127.0.0.1:20197";
+    if (!core.getArgInt("-test-workers")) logger.error("need -test-workers 1 argument");
 
     if (cluster.isMaster) {
-        if (!slave) {
-            main = 1;
-            var args = process.argv.slice(1).concat(["-cache-port", "20197", "-msg-port", "20198", "-slave", "1"]);
-            var pid = execFile(process.argv[0], args, {}, function(err, stdout, stderr) {
-                if (err) console.log(err);
-                if (stderr) console.log(stderr);
-                if (stdout) console.log(stdout);
-                pid = null;
-                if (!Object.keys(cluster.workers).length) process.exit(0);
-            });
-        }
         ipc.initServer();
-        cluster.on('exit', function(worker, code, signal) {
-            if (Object.keys(cluster.workers).length) return;
-            if (slave) process.exit(0);
-            if (!pid) process.exit(0);
-        });
     } else {
         ipc.initClient();
         async.series([
            function(next) {
-               logger.log("step 1");
-               setTimeout(next, 1000);
+               ipc.put("a", "1");
+               ipc.put("b", "1");
+               ipc.put("c", "1");
+               setTimeout(next, 10);
            },
            function(next) {
-               if (slave) return next();
-               logger.log("set 1");
-               db.put("bk_counter", { id: "1", ping: 1 }, { cached: 1 }, next);
-           },
-           function(next) {
-               logger.log("step 2");
-               setTimeout(next, 1000);
-           },
-           function(next) {
-               db.getCached("bk_counter", { id: "1" }, { select: ["id", "ping"] }, function(err, row) {
-                   logger.log("get ", row.ping);
-                   next();
+               ipc.get("a", function(val) {
+                   core.checkTest(next, null, val!="1", "value must be 1, got", val)
                });
            },
            function(next) {
-               if (slave) return next();
-               logger.log("set 2");
-               db.put("bk_counter", { id: "1", ping: 2 }, { cached: 1 }, next);
+               ipc.get(["a","b","c"], function(val) {
+                   core.checkTest(next, null, !val||val.a!="1"||val.b!="1"||val.c!="1", "value must be {a:1,b:1,c:1} got", val)
+               });
            },
            function(next) {
-               logger.log("step 3");
-               setTimeout(next, 1000);
-           }],
+               ipc.incr("a", 1);
+               setTimeout(next, 10);
+           },
+           function(next) {
+               ipc.get("a", function(val) {
+                   core.checkTest(next, null, val!="2", "value must be 2, got", val)
+               });
+           },
+           function(next) {
+               ipc.put("a", "3");
+               setTimeout(next, 10);
+           },
+           function(next) {
+               ipc.get("a", function(val) {
+                   core.checkTest(next, null, val!="3", "value must be 3, got", val)
+               });
+           },
+           function(next) {
+               ipc.del("a");
+               setTimeout(next, 10);
+           },
+           function(next) {
+               ipc.get("a", function(val) {
+                   core.checkTest(next, null, val!="", "value must be '', got", val)
+               });
+           },
+           ],
            function(err) {
-                db.getCached("bk_counter", { id: "1" }, { select: ["id", "ping"] }, function(err, row) {
-                    logger.log("end, must be 2, got", row.ping);
-                    callback(err);
+                if (!err) return callback();
+                ipc.keys(function(keys) {
+                    var vals = {};
+                    async.forEachSeries(keys, function(key, next) {
+                        ipc.get(key, function(val) { vals[key] = val; next(); })
+                    }, function() {
+                        logger.log("keys:", vals);
+                        callback(err);
+                    });
                 });
         });
     }
-}
-
-tests.pubsub = function(callback)
-{
-
 }
 
 tests.nndb = function(callback)

@@ -30,6 +30,9 @@ var ipc = {
 
 module.exports = ipc;
 
+// A handler for unhandled messages, it is called by the server and client
+ipc.onMessage = function(msg) {}
+
 // This function is called by Web worker process to setup IPC channels and support for cache and messaging
 ipc.initClient = function()
 {
@@ -68,6 +71,9 @@ ipc.initClient = function()
             case "heapsnapshot":
                 backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
                 break;
+
+            default:
+                self.onMessage(msg);
             }
         } catch(e) {
             logger.error('msg:worker:', e, msg);
@@ -156,7 +162,13 @@ ipc.initServer = function()
                     break;
 
                 case 'get':
-                    if (msg.name) msg.value = backend.lruGet(msg.name);
+                    if (Array.isArray(msg.name)) {
+                        msg.value = {};
+                        msg.name.forEach(function(x) { msg.value[x] = backend.lruGet(x); });
+                    } else
+                    if (msg.name) {
+                        msg.value = backend.lruGet(msg.name);
+                    }
                     worker.send(msg);
                     break;
 
@@ -166,27 +178,50 @@ ipc.initServer = function()
                     break;
 
                 case 'put':
-                    if (msg.name && msg.name) backend.lruSet(msg.name, msg.value);
-                    if (msg.reply) worker.send({});
+                    if (msg.name && msg.value) {
+                        if (!msg.local && self.nanomsg.lpush) {
+                            self.nanomsg.lpush.send("\2" + msg.name + "\2" + msg.value);
+                        } else {
+                            backend.lruPut(msg.name, msg.value);
+                        }
+                    }
+                    if (msg.reply) worker.send(msg);
                     break;
 
                 case 'incr':
-                    if (msg.name && msg.value) backend.lruIncr(msg.name, msg.value);
-                    if (msg.reply) worker.send({});
+                    if (msg.name && msg.value) {
+                        if (!msg.local && self.nanomsg.lpush) {
+                            self.nanomsg.lpush.send("\3" + msg.name + "\3" + msg.value);
+                        } else {
+                            msg.value = backend.lruIncr(msg.name, msg.value);
+                        }
+                    }
+                    if (msg.reply) worker.send(msg);
                     break;
 
                 case 'del':
-                    if (msg.name) backend.lruDel(msg.name);
-                    if (msg.reply) worker.send({});
+                    if (msg.name) {
+                        if (!msg.local && self.nanomsg.lpush) {
+                            self.nanomsg.lpush.send("\1" + msg.name);
+                        } else {
+                            backend.lruDel(msg.name);
+                        }
+                    }
+                    if (msg.reply) worker.send(msg);
                     break;
 
                 case 'clear':
-                    backend.lruClear();
+                    if (!msg.local && self.nanomsg.lpush) {
+                        self.nanomsg.lpush.send("\4");
+                    } else {
+                        backend.lruClear();
+                    }
                     if (msg.reply) worker.send({});
                     break;
+
+                default:
+                    self.onMessage(msg);
                 }
-                // Send to all other nodes in the cluster
-                self.broadcast(msg.op, msg.name, msg.value);
 
             } catch(e) {
                 logger.error('msg:', e, msg);
@@ -200,37 +235,43 @@ ipc.initServerCaching = function()
 {
     backend.lruInit(core.lruMax);
 
-    switch (core.cacheType || "") {
+    switch (core.cacheType) {
     case "memcache":
         break;
 
     case "redis":
         break;
 
-    default:
-        if (!backend.NNSocket || core.noCache) break;
+    case "nanomsg":
+        if (!backend.NNSocket) break;
         core.cacheBind = core.cacheBind || (core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*");
 
         // Pair of cache sockets for communication between nodes and cache coordinators
-        this.bind('pull', "nanomsg", core.cacheBind, core.cachePort, backend.NN_PULL);
-        this.connect('push', "nanomsg", core.cacheHost, core.cachePort, backend.NN_PUSH);
+        this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, backend.NN_PULL);
+        this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, backend.NN_PUSH);
 
-        // LRU cache server, for broadcasting cache updates to all nodes in the cluster
-        this.bind('lru', "nanomsg", core.cacheBind, core.cachePort + 1, backend.NN_BUS);
-        this.connect('lru', "nanomsg", core.cacheHost, core.cachePort + 1, backend.NN_BUS);
+        // Pair of sockets for delivering cache requests to the subscribers
+        this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, backend.NN_PUB);
+        if (this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, backend.NN_SUB)) {
+            var err = this.nanomsg.lsub.subscribe("");
+            if (err) logger.error('initServerCaching:', err, this.nanomsg.lsub);
+            err = backend.lruServerStart(this.nanomsg.lsub);
+            if (err) logger.error('initServerCaching:', err, this.nanomsg.lsub);
+        }
 
         // Forward cache requests to the bus
-        if (this.nanomsg.pull && this.nanomsg.lru) {
-            var err = backend.lruServerStart(this.nanomsg.pull.socket, this.nanomsg.lru.socket);
-            if (err) logger.error('initServerCaching:', 'pull/lru', backend.nn_strerror(err));
+        if (this.nanomsg.lpull) {
+            var err = this.nanomsg.lpull.setForward(this.nanomsg.lpub);
+            if (err) logger.error('initServerCaching:', err, this.nanomsg.lpull);
         }
+        break;
     }
 }
 
 // Initialize web worker caching system, can be called anytime the environment has changed
 ipc.initClientCaching = function()
 {
-    switch (core.cacheType || "") {
+    switch (core.cacheType) {
     case "memcache":
         this.connect("client", "memcache", core.memcacheHost, core.memcachePort, core.memcacheOptions);
         break;
@@ -244,11 +285,11 @@ ipc.initClientCaching = function()
 // Initialize messaging system for the server process, can be called multiple times in case environment has changed
 ipc.initServerMessaging = function()
 {
-    switch (core.msgType || "") {
+    switch (core.msgType) {
     case "redis":
         break;
 
-    default:
+    case "nanomsg":
         if (!backend.NNSocket || core.noMsg) break;
         core.msgBind = core.msgBind || (core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*");
 
@@ -261,6 +302,7 @@ ipc.initServerMessaging = function()
         this.bind('pub', "nanomsg", core.msgBind, core.msgPort, backend.NN_PULL);
         // Forward all messages to the sub server socket, we dont use proxy because PUB socket broadcasts to all peers but we want load-balancer
         if (this.nanomsg.pub && this.nanomsg.sub) this.nanomsg.pub.setForward(this.nanomsg.sub);
+        break;
     }
 }
 
@@ -270,7 +312,7 @@ ipc.initClientMessaging = function()
 {
     var self = this;
 
-    switch (core.msgType || "") {
+    switch (core.msgType) {
     case "amqp":
         this.connect("client", "amqp", core.amqpHost, core.amqpPort, core.amqpOptions, function() {
             this.queue(core.amqpQueueName || '', core.amqpQueueOptions | {}, function(q) {
@@ -293,7 +335,7 @@ ipc.initClientMessaging = function()
         });
         break;
 
-    default:
+    case "nanomsg":
         if (!backend.NNSocket || core.noMsg || !core.msgHost) break;
 
         // Socket where we publish our messages
@@ -306,6 +348,7 @@ ipc.initClientMessaging = function()
             var cb = self.subCallbacks[data[0]];
             if (cb) cb[0](cb[1], data[0], data[1]);
         });
+        break;
     }
 }
 
@@ -330,11 +373,14 @@ ipc.command = function(msg, callback)
 }
 
 // Always send text to the master, convert objects into JSON, value and callback are optional
-ipc.send = function(op, name, value, callback)
+ipc.send = function(op, name, value, options, callback)
 {
-    if (typeof value == "function") callback = value, value = '';
-    if (typeof value == "object") value = JSON.stringify(value);
-    this.command({ op: op, name: name, value: value }, callback);
+    if (typeof options == "function") callback = options, options = null;
+    var msg = { op: op };
+    if (name) msg.name = name;
+    if (value) msg.value = typeof value == "object" ? core.stringify(value) : value;
+    if (options && options.local) msg.local = true;
+    this.command(msg, callback);
 }
 
 // Bind a socket to the address and port i.e. initialize the server socket
@@ -357,8 +403,9 @@ ipc.bind = function(name, type, host, port, options)
             var h = host.split(":");
             host = "tcp://" + h[0] + ":" + (h[1] || port)
             var err = this[type][name].bind(host);
-            if (err) logger.error('ipc.bindSocket:', host, this[type][name]);
+            if (err) logger.error('ipc.bind:', host, this[type][name]);
         }
+        break;
     }
     return this[type][name];
 }
@@ -404,6 +451,7 @@ ipc.connect = function(name, type, host, port, options, callback)
             if (!err && callback) err = this[type][name].setCallback(callback);
             if (err) logger.error('ipc.connect:', host, this[type][name]);
         }
+        break;
     }
     return this[type][name];
 }
@@ -434,55 +482,17 @@ ipc.close = function(name, type)
     delete this[type][name];
 }
 
-ipc.broadcast = function(op, name, value)
-{
-    try {
-        switch (core.cacheType || "") {
-        case "memcache":
-            break;
-
-        case "amqp":
-            break;
-
-        case "redis":
-            break;
-
-        default:
-            if (this.noCache || !this.nanomsg.push || !this.nanomsg.push.address.length) break;
-            switch (op) {
-            case 'put':
-                this.nanomsg.push.send("\2" + name + "\2" + value);
-                break;
-
-            case 'incr':
-                this.nanomsg.push.send("\3" + name + "\3" + value);
-                break;
-
-            case 'del':
-                this.nanomsg.push.send("\1" + name);
-                break;
-
-            case 'clear':
-                this.nanomsg.push.send("\4");
-                break;
-            }
-        }
-    } catch(e) {
-        logger.error('ipc.broadcast:', e);
-    }
-}
-
 // Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
 // reconfiguring itself, this command can be sent by any worker. type can be one of cche or msg
 ipc.configure = function(type)
 {
-    this.send('init:' + type, "");
+    this.send('init:' + type);
 }
 
 ipc.stats = function(callback)
 {
     try {
-        switch (core.cacheType || "") {
+        switch (core.cacheType) {
         case "memcache":
             if (!this.memcache.client) return callback({});
             this.memcache.client.stats(function(e,v) { callback(v) });
@@ -491,9 +501,9 @@ ipc.stats = function(callback)
             if (!this.redis.client) return callback({});
             this.redis.client.info(function(e,v) { callback(v) });
             break;
-        default:
-            if (core.noCache) return callback({});
-            this.send("stats", "", callback);
+        case "nanomsg":
+            this.send("stats", "", "", callback);
+            break;
         }
     } catch(e) {
         logger.error('ipc.stats:', e);
@@ -504,7 +514,7 @@ ipc.stats = function(callback)
 ipc.keys = function(callback)
 {
     try {
-        switch (core.cacheType || "") {
+        switch (core.cacheType) {
         case "memcache":
             if (!this.memcache.client) return callback([]);
             this.memcache.client.items(function(err, items) {
@@ -522,13 +532,15 @@ ipc.keys = function(callback)
                 });
             });
             break;
+
         case "redis":
             if (!this.redis.client) return callback([]);
             this.redis.client.keys("*", function(e,v) { cb(v) });
             break;
-        default:
-            if (core.noCache) return callback([]);
-            this.send("keys", "", callback);
+
+        case "nanomsg":
+            this.send("keys", "", "", callback);
+            break;
         }
     } catch(e) {
         logger.error('ipcKeys:', e);
@@ -539,18 +551,20 @@ ipc.keys = function(callback)
 ipc.clear = function()
 {
     try {
-        switch (core.cacheType || "") {
+        switch (core.cacheType) {
         case "memcache":
             if (!this.memcache.client) break;
             this.memcache.client.flush();
             break;
+
         case "redis":
             if (!this.redis.client) break;
             this.redis.client.flushall();
             break;
-        default:
-            if (core.noCache) return;
+
+        case "nanomsg":
             this.send("clear", key);
+            break;
         }
     } catch(e) {
         logger.error('ipc.clear:', e);
@@ -560,18 +574,20 @@ ipc.clear = function()
 ipc.get = function(key, callback)
 {
     try {
-        switch (core.cacheType || "") {
+        switch (core.cacheType) {
         case "memcache":
             if (!this.memcache.client) return callback({});
             this.memcache.client.get(key, function(e,v) { callback(v) });
             break;
+
         case "redis":
             if (!this.redis.client) return callback();
             this.redis.client.get(key, function(e,v) { callback(v) });
             break;
-        default:
-            if (core.noCache) return callback();
-            this.send("get", key, callback);
+
+        case "nanomsg":
+            this.send("get", key, "", callback);
+            break;
         }
     } catch(e) {
         logger.error('ipc.get:', e);
@@ -579,63 +595,69 @@ ipc.get = function(key, callback)
     }
 }
 
-ipc.del = function(key)
+ipc.del = function(key, options)
 {
     try {
-        switch (core.cacheType || "") {
+        switch (core.cacheType) {
         case "memcache":
             if (!this.memcache.client) break;
             this.memcache.client.del(key);
             break;
+
         case "redis":
             if (!this.redis.client) break;
             this.redis.client.del(key, function() {});
             break;
-        default:
-            if (core.noCache) return;
-            this.send("del", key);
+
+        case "nanomsg":
+            this.send("del", key, "", options);
+            break;
         }
     } catch(e) {
         logger.error('ipc.del:', e);
     }
 }
 
-ipc.put = function(key, val)
+ipc.put = function(key, val, options)
 {
     try {
-        switch (core.cacheType || "") {
+        switch (core.cacheType) {
         case "memcache":
             if (!this.memcache.client) break;
             this.memcache.client.set(key, val, 0);
             break;
+
         case "redis":
             if (!this.redis.client) break;
             this.redis.client.set(key, val, function() {});
             break;
-        default:
-            if (core.noCache) return;
-            this.send("put", key, val);
+
+        case "nanomsg":
+            this.send("put", key, val, options);
+            break;
         }
     } catch(e) {
         logger.error('ipc.put:', e);
     }
 }
 
-ipc.incr = function(key, val)
+ipc.incr = function(key, val, options)
 {
     try {
-        switch (core.cacheType || "") {
+        switch (core.cacheType) {
         case "memcache":
             if (!this.memcache.client) break;
             this.memcache.client.incr(key, val, 0);
             break;
+
         case "redis":
             if (!this.redis.client) break;
             this.redis.client.incr(key, val, function() {});
             break;
-        default:
-            if (core.noCache) return;
-            this.send("incr", key, val);
+
+        case "nanomsg":
+            this.send("incr", key, val, options);
+            break;
         }
     } catch(e) {
         logger.error('ipc.incr:', e);
@@ -648,7 +670,7 @@ ipc.subscribe = function(key, callback, data)
 {
     var self = this;
     try {
-        switch (core.msgType || "") {
+        switch (core.msgType) {
         case "redis":
             if (!this.redis.sub) break;
             this.subCallbacks[key] = [ callback, data ];
@@ -661,10 +683,11 @@ ipc.subscribe = function(key, callback, data)
             this.amqp.queue.bind(key);
             break;
 
-        default:
+        case "nanomsg":
             if (!this.nanomsg.sub) break;
             this.subCallbacks[key] = [ callback, data ];
             this.nanomsg.sub.subscribe(key);
+            break;
         }
     } catch(e) {
         logger.error('ipc.subscribe:', this.subHost, key, e);
@@ -676,7 +699,7 @@ ipc.unsubscribe = function(key)
 {
     try {
         delete this.subCallbacks[key];
-        switch (core.msgType || "") {
+        switch (core.msgType) {
         case "redis":
             if (!this.redis.sub) break;
             this.redis.sub.punsubscribe(key);
@@ -687,9 +710,10 @@ ipc.unsubscribe = function(key)
             this.amqp.queue.unbind(key);
             break;
 
-        default:
+        case "nanomsg":
             if (!this.nanomsg.sub) break;
             this.nanomsg.sub.unsubscribe(key);
+            break;
         }
     } catch(e) {
         logger.error('ipc.unsubscribe:', e);
@@ -700,7 +724,7 @@ ipc.unsubscribe = function(key)
 ipc.publish = function(key, data, callback)
 {
     try {
-        switch (core.msgType || "") {
+        switch (core.msgType) {
         case "redis":
             if (!this.redis.pub) break;
             this.redis.pub.publish(key, data);
@@ -711,10 +735,10 @@ ipc.publish = function(key, data, callback)
             this.amqp.client.publish(key, data);
             break;
 
-        default:
-            // Nanomsg socket
+        case "nanomsg":
             if (!this.nanomsg.pub) break;
             this.nanomsg.pub.send(key + "\1" + JSON.stringify(data));
+            break;
         }
     } catch(e) {
         logger.error('ipc.publish:', e, key);

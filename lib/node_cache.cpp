@@ -5,202 +5,10 @@
 
 #include "node_backend.h"
 
-struct LRUStringCache {
-    typedef map<string, pair<string, list<string>::iterator> > LRUStringItems;
-    size_t size;
-    size_t max;
-    list<string> lru;
-    LRUStringItems items;
-    // stats
-    size_t hits, misses, cleans, ins, dels;
-
-    LRUStringCache(int m = 1000): max(m) { clear(); }
-    ~LRUStringCache() { clear(); }
-    string get(const string& k) {
-        const LRUStringItems::iterator it = items.find(k);
-        if (it == items.end()) {
-        	misses++;
-        	return string();
-        }
-        hits++;
-        lru.splice(lru.end(), lru, it->second.second);
-        return it->second.first;
-    }
-    void set(const string& k, const string& v) {
-        if (items.size() >= max) clean();
-        const LRUStringItems::iterator it = items.find(k);
-        if (it == items.end()) {
-        	list<string>::iterator it = lru.insert(lru.end(), k);
-        	items.insert(std::make_pair(k, std::make_pair(v, it)));
-        	V8::AdjustAmountOfExternalAllocatedMemory(k.size() + v.size());
-        	size += k.size() + v.size();
-        	ins++;
-        } else {
-            V8::AdjustAmountOfExternalAllocatedMemory(-it->second.first.size());
-            it->second.first = v;
-            V8::AdjustAmountOfExternalAllocatedMemory(v.size());
-        	lru.splice(lru.end(), lru, it->second.second);
-        }
-    }
-    bool exists(const string &k) {
-        const LRUStringItems::iterator it = items.find(k);
-        return it != items.end();
-    }
-    void incr(const string& k, const string& v) {
-    	string o = get(k);
-    	char val[32];
-    	sprintf(val, "%lld", atoll(o.c_str()) + atoll(v.c_str()));
-    	set(k, val);
-    }
-    void del(const string &k) {
-        const LRUStringItems::iterator it = items.find(k);
-        if (it == items.end()) return;
-        size -= k.size() + it->second.first.size();
-        V8::AdjustAmountOfExternalAllocatedMemory(-(k.size() + it->second.first.size()));
-        lru.erase(it->second.second);
-        items.erase(it);
-        dels++;
-    }
-    void clean() {
-        const LRUStringItems::iterator it = items.find(lru.front());
-        if (it == items.end()) return;
-        size -= it->first.size() + it->first.size();
-        items.erase(it);
-        lru.pop_front();
-        cleans++;
-    }
-    void clear() {
-        items.clear();
-        lru.clear();
-        V8::AdjustAmountOfExternalAllocatedMemory(-size);
-        size = ins = dels = cleans = hits = misses = 0;
-    }
-};
-
-struct StringCache {
-    string_map items;
-    string_map::const_iterator nextIt;
-    Persistent<Function> nextCb;
-    Persistent<Function> completed;
-
-    StringCache() { nextIt = items.end(); }
-    ~StringCache() { clear(); }
-    string get(string key) {
-        string_map::iterator it = items.find(key);
-        if (it != items.end()) return it->second;
-        return string();
-    }
-    void set(string key, string val) {
-        string_map::iterator it = items.find(key);
-        if (it != items.end()) {
-            V8::AdjustAmountOfExternalAllocatedMemory(-it->second.size());
-            it->second = val;
-            V8::AdjustAmountOfExternalAllocatedMemory(val.size());
-        } else {
-            items[key] = val;
-            V8::AdjustAmountOfExternalAllocatedMemory(key.size() + val.size());
-        }
-    }
-    bool exists(const string &k) {
-        string_map::iterator it = items.find(k);
-        return it != items.end();
-    }
-    void incr(const string& k, const string& v) {
-        string o = get(k);
-        char val[32];
-        sprintf(val, "%lld", atoll(o.c_str()) + atoll(v.c_str()));
-        set(k, val);
-    }
-    void del(string key) {
-        string_map::iterator it = items.find(key);
-        if (it != items.end()) {
-            V8::AdjustAmountOfExternalAllocatedMemory(-(it->first.size() + it->second.size()));
-            items.erase(it);
-        }
-    }
-    void clear() {
-        string_map::iterator it;
-        int n = 0;
-        for (it = items.begin(); it != items.end(); ++it) {
-            n += it->first.size() + it->second.size();
-        }
-        items.clear();
-        nextIt = items.end();
-        V8::AdjustAmountOfExternalAllocatedMemory(-n);
-        if (!nextCb.IsEmpty()) nextCb.Dispose();
-        if (!completed.IsEmpty()) completed.Dispose();
-        nextCb.Clear();
-        completed.Clear();
-    }
-
-    bool begin(Handle<Function> cb1 = Handle<Function>(), Handle<Function> cb2 = Handle<Function>()) {
-        if (!nextCb.IsEmpty()) nextCb.Dispose();
-        if (!completed.IsEmpty()) completed.Dispose();
-        nextCb = Persistent<Function>::New(cb1);
-        completed = Persistent<Function>::New(cb2);
-        nextIt = items.begin();
-        return true;
-    }
-    Handle<Value> next() {
-        HandleScope scope;
-        if (nextIt == items.end()) return scope.Close(Undefined());
-        Local<Array> obj(Array::New());
-        obj->Set(Integer::New(0), String::New(nextIt->first.c_str()));
-        obj->Set(Integer::New(1), String::New(nextIt->second.c_str()));
-        nextIt++;
-        return scope.Close(obj);
-    }
-    void each(Handle<Function> cb) {
-        string_map::const_iterator it = items.begin();
-        while (it != items.end()) {
-            HandleScope scope;
-            Local<Value> argv[2];
-            argv[0] = String::New(it->first.c_str());
-            argv[1] = String::New(it->second.c_str());
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), cb, 2, argv);
-            it++;
-        }
-    }
-    bool timer() {
-        if (nextIt != items.end()) {
-            uv_work_t *req = new uv_work_t;
-            req->data = this;
-            uv_queue_work(uv_default_loop(), req, WorkTimer, (uv_after_work_cb)AfterTimer);
-            return true;
-        } else {
-            uv_timer_t *req = new uv_timer_t;
-            uv_timer_init(uv_default_loop(), req);
-            req->data = this;
-            uv_timer_start(req, CompletedTimer, 0, 0);
-            return false;
-        }
-    }
-    static void WorkTimer(uv_work_t *req) {}
-    static void AfterTimer(uv_work_t *req, int status) {
-        HandleScope scope;
-        StringCache *cache = (StringCache *)req->data;
-        Local<Value> argv[2];
-        if (cache->nextIt != cache->items.end()) {
-            argv[0] = String::New(cache->nextIt->first.c_str());
-            argv[1] = String::New(cache->nextIt->second.c_str());
-            cache->nextIt++;
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), cache->nextCb, 2, argv);
-        }
-        delete req;
-    }
-    static void CompletedTimer(uv_timer_t *req, int status) {
-        HandleScope scope;
-        StringCache *cache = (StringCache *)req->data;
-        Local<Value> argv[1];
-        TRY_CATCH_CALL(Context::GetCurrent()->Global(), cache->completed, 0, argv);
-        delete req;
-    }
-};
-
 typedef map<string, StringCache> Cache;
 
-static Cache _cache;
-static LRUStringCache _lru;
+Cache _cache;
+LRUStringCache _lru;
 
 static Handle<Value> cacheClear(const Arguments& args)
 {
@@ -246,8 +54,8 @@ static Handle<Value> cacheIncr(const Arguments& args)
         _cache[*name] = StringCache();
         itc = _cache.find(*name);
     }
-    itc->second.incr(*key, *val);
-    return scope.Close(Undefined());
+    string v = itc->second.incr(*key, *val);
+    return scope.Close(Local<String>::New(String::New(v.c_str())));
 }
 
 static Handle<Value> cacheDel(const Arguments& args)
@@ -272,7 +80,7 @@ static Handle<Value> cacheGet(const Arguments& args)
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) {
-        return scope.Close(String::New(itc->second.get(*key).c_str()));
+        return scope.Close(Local<String>::New(String::New(itc->second.get(*key).c_str())));
     }
 
     return scope.Close(Undefined());
@@ -287,7 +95,7 @@ static Handle<Value> cacheExists(const Arguments& args)
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) {
-        return scope.Close(Boolean::New(itc->second.exists(*key)));
+        return scope.Close(Local<Boolean>::New(Boolean::New(itc->second.exists(*key))));
     }
 
     return scope.Close(Boolean::New(false));
@@ -337,7 +145,7 @@ static Handle<Value> cacheSize(const Arguments& args)
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) count = itc->second.items.size();
 
-    return scope.Close(Integer::New(count));
+    return scope.Close(Local<Integer>::New(Integer::New(count)));
 }
 
 static Handle<Value> cacheEach(const Arguments& args)
@@ -360,7 +168,7 @@ static Handle<Value> cacheBegin(const Arguments& args)
     REQUIRE_ARGUMENT_AS_STRING(0, name);
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) return scope.Close(Boolean::New(itc->second.begin()));
-    return scope.Close(Boolean::New(false));
+    return scope.Close(Local<Boolean>::New(Boolean::New(false)));
 }
 
 static Handle<Value> cacheNext(const Arguments& args)
@@ -380,7 +188,7 @@ static Handle<Value> cacheForEachNext(const Arguments& args)
     REQUIRE_ARGUMENT_AS_STRING(0, name);
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) return scope.Close(Boolean::New(itc->second.timer()));
-    return scope.Close(Boolean::New(false));
+    return scope.Close(Local<Boolean>::New(Boolean::New(false)));
 }
 
 static Handle<Value> cacheForEach(const Arguments& args)
@@ -439,13 +247,13 @@ static Handle<Value> lruInit(const Arguments& args)
 static Handle<Value> lruSize(const Arguments& args)
 {
     HandleScope scope;
-    return scope.Close(Integer::New(_lru.size));
+    return scope.Close(Local<Integer>::New(Integer::New(_lru.size)));
 }
 
 static Handle<Value> lruCount(const Arguments& args)
 {
     HandleScope scope;
-    return scope.Close(Integer::New(_lru.items.size()));
+    return scope.Close(Local<Integer>::New(Integer::New(_lru.items.size())));
 }
 
 static Handle<Value> lruClear(const Arguments& args)
@@ -474,8 +282,8 @@ static Handle<Value> lruIncr(const Arguments& args)
     REQUIRE_ARGUMENT_AS_STRING(0, key);
     REQUIRE_ARGUMENT_AS_STRING(1, val);
 
-    _lru.set(*key, *val);
-    return scope.Close(Undefined());
+    string str = _lru.incr(*key, *val);
+    return scope.Close(Local<String>::New(String::New(str.c_str())));
 }
 
 static Handle<Value> lruDel(const Arguments& args)
@@ -493,7 +301,7 @@ static Handle<Value> lruGet(const Arguments& args)
 
     REQUIRE_ARGUMENT_AS_STRING(0, key);
     string str = _lru.get(*key);
-    return scope.Close(String::New(str.c_str()));
+    return scope.Close(Local<String>::New(String::New(str.c_str())));
 }
 
 static Handle<Value> lruExists(const Arguments& args)
@@ -501,7 +309,7 @@ static Handle<Value> lruExists(const Arguments& args)
     HandleScope scope;
 
     REQUIRE_ARGUMENT_AS_STRING(0, key);
-    return scope.Close(Boolean::New(_lru.exists(*key)));
+    return scope.Close(Local<Boolean>::New(Boolean::New(_lru.exists(*key))));
 }
 
 static Handle<Value> lruKeys(const Arguments& args)
@@ -536,75 +344,12 @@ static Handle<Value> lruStats(const Arguments& args)
     return scope.Close(obj);
 }
 
-// Format:
-// key - return key
-// \1key - del key
-// \2key\2val - set key with val
-// \3key\3val - incr key by val
-// \4 - clear cache
-static string lruServerRequest(char *buf, int len, void *data)
-{
-    char *val, *key = buf + 1;
-    string rc;
-
-    switch (buf[0]) {
-    case '\1':
-        _lru.del(key);
-        break;
-
-    case '\2':
-        val = strchr(key, '\2');
-        if (!val) break;
-        *val++ = 0;
-        _lru.set(key, val);
-        break;
-
-    case '\3':
-        val = strchr(key, '\3');
-        if (!val) break;
-        *val++ = 0;
-        _lru.incr(key, val);
-        break;
-
-    case '\4':
-        _lru.clear();
-        break;
-
-    default:
-        rc = _lru.get(buf);
-    }
-    return rc;
-}
-
-#ifdef USE_NANOMSG
-static NNServer server1, server2;
-
-static Handle<Value> lruServerStart(const Arguments& args)
-{
-    HandleScope scope;
-    REQUIRE_ARGUMENT_INT(0, rsock);
-    REQUIRE_ARGUMENT_INT(1, wsock);
-    OPTIONAL_ARGUMENT_INT(2, queue);
-    server1.Start(rsock, wsock, queue, lruServerRequest, NULL, NULL);
-    if (wsock > -1) server2.Start(wsock, -1, queue, lruServerRequest, NULL, NULL);
-    return scope.Close(Undefined());
-}
-
-static Handle<Value> lruServerStop(const Arguments& args)
-{
-    HandleScope scope;
-    server1.Stop();
-    server2.Stop();
-    return scope.Close(Undefined());
-}
-#endif
-
 void CacheInit(Handle<Object> target)
 {
     HandleScope scope;
 
     NODE_SET_METHOD(target, "cacheSave", cacheSave);
-    NODE_SET_METHOD(target, "cacheSet", cacheSet);
+    NODE_SET_METHOD(target, "cachePut", cacheSet);
     NODE_SET_METHOD(target, "cacheIncr", cacheIncr);
     NODE_SET_METHOD(target, "cacheGet", cacheGet);
     NODE_SET_METHOD(target, "cacheExists", cacheExists);
@@ -623,17 +368,12 @@ void CacheInit(Handle<Object> target)
     NODE_SET_METHOD(target, "lruStats", lruStats);
     NODE_SET_METHOD(target, "lruSize", lruSize);
     NODE_SET_METHOD(target, "lruCount", lruCount);
-    NODE_SET_METHOD(target, "lruSet", lruSet);
+    NODE_SET_METHOD(target, "lruPut", lruSet);
     NODE_SET_METHOD(target, "lruGet", lruGet);
     NODE_SET_METHOD(target, "lruExists", lruExists);
     NODE_SET_METHOD(target, "lruIncr", lruIncr);
     NODE_SET_METHOD(target, "lruDel", lruDel);
     NODE_SET_METHOD(target, "lruKeys", lruKeys);
     NODE_SET_METHOD(target, "lruClear", lruClear);
-
-#ifdef USE_NANOMSG
-    NODE_SET_METHOD(target, "lruServerStart", lruServerStart);
-    NODE_SET_METHOD(target, "lruServerStop", lruServerStop);
-#endif
 }
 

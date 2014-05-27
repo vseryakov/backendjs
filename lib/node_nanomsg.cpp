@@ -26,6 +26,8 @@
 #define nn_slow(x) (x)
 #endif
 
+extern LRUStringCache _lru;
+
 class NNSocket: public ObjectWrap {
 public:
     NNSocket(int d = AF_SP, int t = NN_SUB): sock(-1), err(0), domain(d), type(t), rfd(-1), wfd(-1), peer(-1), dev_err(0), dev_state(0) {
@@ -39,11 +41,13 @@ public:
 
     int sock;
     int err;
+    string op;
 
     // Config parameters
     int domain;
     int type;
-    vector<string> address;
+    vector<string> baddr;
+    vector<string> caddr;
 
     // Socket OS descriptors
     int rfd;
@@ -60,6 +64,7 @@ public:
     Persistent<Function> callback;
 
     int Setup() {
+        op = __PRETTY_FUNCTION__;
         sock = nn_socket(domain, type);
         if (sock < 0) return Close(sock);
         size_t fdsz = sizeof(rfd);
@@ -75,7 +80,9 @@ public:
         ClosePoll();
         if (sock >= 0) nn_close(sock);
         sock = rfd = wfd = -1;
-        address.clear();
+        baddr.clear();
+        caddr.clear();
+        op.clear();
         return err;
     }
 
@@ -87,63 +94,70 @@ public:
     }
 
     int Bind(string addr) {
+        op = __PRETTY_FUNCTION__;
         LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
-        if (sock < 0) return ENOTSOCK;
+        if (sock < 0) return err = ENOTSOCK;
         vector<string> urls = strSplit(addr, " ,");
         for (uint i = 0; i < urls.size(); i++) {
         	if (!urls[i].size()) continue;
-        	if (find(address.begin(), address.end(), urls[i]) != address.end()) continue;
+        	if (find(baddr.begin(), baddr.end(), urls[i]) != baddr.end()) continue;
             int rc = nn_bind(sock, urls[i].c_str());
             if (nn_slow(rc == -1)) return err = nn_errno();
-            address.push_back(urls[i]);
+            baddr.push_back(urls[i]);
         }
         return 0;
     }
 
     int Connect(string addr) {
+        op = __PRETTY_FUNCTION__;
         LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
-        if (sock < 0) return ENOTSOCK;
+        if (sock < 0) return err = ENOTSOCK;
         vector<string> urls = strSplit(addr, " ,");
         for (uint i = 0; i < urls.size(); i++) {
             if (!urls[i].size()) continue;
-            if (find(address.begin(), address.end(), urls[i]) != address.end()) continue;
+            if (find(caddr.begin(), caddr.end(), urls[i]) != caddr.end()) continue;
             int rc = nn_connect(sock, urls[i].c_str());
             if (nn_slow(rc == -1)) return err = nn_errno();
-            address.push_back(urls[i]);
+            caddr.push_back(urls[i]);
         }
         return 0;
     }
 
     int Subscribe(string topic) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
         int rc = nn_setsockopt(sock, NN_SUB, NN_SUB_SUBSCRIBE, topic.c_str(), 0);
         if (nn_slow(rc == -1)) return err = nn_errno();
         return 0;
     }
 
     int Unsubscribe(string topic) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
         int rc = nn_setsockopt(sock, NN_SUB, NN_SUB_UNSUBSCRIBE, topic.c_str(), 0);
         if (nn_slow(rc == -1)) return err = nn_errno();
         return 0;
     }
 
     int SetOption(int opt, int n) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
     	int rc = nn_setsockopt(sock, type, opt, &n, sizeof(n));
     	if (nn_slow(rc == -1)) return err = nn_errno();
     	return 0;
     }
 
     int SetOption(int opt, string s) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
     	int rc = nn_setsockopt(sock, type, opt, s.c_str(), 0);
     	if (nn_slow(rc == -1)) return err = nn_errno();
     	return 0;
     }
 
     int Send(void *data, int len) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
         void *buf = nn_allocmsg(len, 0);
         memcpy(buf, data, len + 1);
         int rc = nn_send(sock, &buf, NN_MSG, NN_DONTWAIT);
@@ -152,8 +166,9 @@ public:
     }
 
     int Recv(char **data, int *size) {
-        if (sock < 0) return ENOTSOCK;
-        if (!data || !size) return EINVAL;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
+        if (!data || !size) return err = EINVAL;
         int rc = nn_recv(sock, data, NN_MSG, NN_DONTWAIT);
         if (rc == -1) return err = nn_errno();
         *size = rc;
@@ -219,7 +234,8 @@ public:
 
     // Implements a device, tranparent proxy between two sockets
     int SetProxy(NNSocket *p) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
         if (!p) return err = EINVAL;
         // Make sure we are compatible with the peer
         if (type / 16 != p->type / 16 || domain != AF_SP_RAW || p->domain != AF_SP_RAW) {
@@ -243,8 +259,9 @@ public:
     }
 
     int SetCallback(Handle<Function> cb) {
+        op = __PRETTY_FUNCTION__;
         ClosePoll();
-        if (sock < 0) return ENOTSOCK;
+        if (sock < 0) return err = ENOTSOCK;
         if (rfd == -1 || cb.IsEmpty()) return 0;
         callback = Persistent<Function>::New(cb);
         uv_poll_init(uv_default_loop(), &poll, rfd);
@@ -255,14 +272,16 @@ public:
 
     // Set forwarding peer for the regular socket, will be used by reading handler
     int SetPeer(NNSocket *p) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
         peer = p && p->wfd != -1 ? p->sock : -1;
         return 0;
     }
 
     // Forwards msgs from the current socket to the peer, one way
     int SetForward(NNSocket *p) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
     	if (!p) return err = EINVAL;
     	if (rfd == -1 || p->wfd == -1) {
     		LogError("%d: invalid direction of sockets: %d/%d - %d/%d", sock, rfd, wfd, p->rfd, p->wfd);
@@ -286,9 +305,10 @@ public:
     }
 
     int StartDevice(NNSocket *p) {
-        if (sock < 0) return ENOTSOCK;
+        op = __PRETTY_FUNCTION__;
+        if (sock < 0) return err = ENOTSOCK;
         peer = p ? p->sock : -1;
-        if (peer < 0) return EINVAL;
+        if (peer < 0) return err = EINVAL;
         uv_thread_t tid;
         uv_thread_create(&tid, _device, (void*)this);
         return 0;
@@ -323,10 +343,16 @@ public:
         return scope.Close(Local<Integer>::New(Integer::New(sock->peer)));
     }
 
-    static Handle<Value> AddressGetter(Local<String> str, const AccessorInfo& accessor) {
+    static Handle<Value> BindAddressGetter(Local<String> str, const AccessorInfo& accessor) {
         HandleScope scope;
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-        return scope.Close(Local<Value>::New(toArray(sock->address)));
+        return scope.Close(Local<Value>::New(toArray(sock->baddr)));
+    }
+
+    static Handle<Value> ConnectAddressGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
+        return scope.Close(Local<Value>::New(toArray(sock->caddr)));
     }
 
     static Handle<Value> TypeGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -351,6 +377,12 @@ public:
         HandleScope scope;
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
         return scope.Close(Local<Integer>::New(Integer::New(sock->dev_state)));
+    }
+
+    static Handle<Value> OpGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (accessor.This());
+        return scope.Close(Local<String>::New(String::New(sock->op.c_str())));
     }
 
     static Handle<Value> ErrorGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -393,7 +425,7 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_AS_STRING(0, addr);
+        OPTIONAL_ARGUMENT_STRING(0, addr);
 
         int rc = sock->Connect(*addr);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
@@ -403,7 +435,7 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_AS_STRING(0, addr);
+        OPTIONAL_ARGUMENT_STRING(0, addr);
 
         int rc = sock->Bind(*addr);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
@@ -432,7 +464,7 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_AS_STRING(0, topic);
+        OPTIONAL_ARGUMENT_STRING(0, topic);
 
         int rc = sock->Subscribe(*topic);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
@@ -442,7 +474,7 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_AS_STRING(0, topic);
+        OPTIONAL_ARGUMENT_STRING(0, topic);
 
         int rc = sock->Unsubscribe(*topic);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
@@ -452,7 +484,7 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_FUNCTION(0, cb);
+        OPTIONAL_ARGUMENT_FUNCTION(0, cb);
 
         int rc = sock->SetCallback(cb);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
@@ -462,8 +494,8 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_OBJECT(0, obj);
-        if (!HasInstance(args[0])) return scope.Close(Local<Integer>::New(Integer::New(sock->err = EINVAL)));
+        OPTIONAL_ARGUMENT_OBJECT(0, obj);
+        if (!HasInstance(obj)) return scope.Close(Local<Integer>::New(Integer::New(sock->err = EINVAL)));
 
         NNSocket *sock2 = ObjectWrap::Unwrap< NNSocket > (obj);
         int rc = sock->SetProxy(sock2);
@@ -477,8 +509,8 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_OBJECT(0, obj);
-        if (!HasInstance(args[0])) return scope.Close(Local<Integer>::New(Integer::New(sock->err = EINVAL)));
+        OPTIONAL_ARGUMENT_OBJECT(0, obj);
+        if (!HasInstance(obj)) return scope.Close(Local<Integer>::New(Integer::New(sock->err = EINVAL)));
 
         NNSocket *sock2 = ObjectWrap::Unwrap< NNSocket > (obj);
         int rc = sock->SetForward(sock2);
@@ -489,8 +521,8 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_OBJECT(0, obj);
-        NNSocket *sock2 = HasInstance(args[0]) ? ObjectWrap::Unwrap< NNSocket > (obj) : NULL;
+        OPTIONAL_ARGUMENT_OBJECT(0, obj);
+        NNSocket *sock2 = HasInstance(obj) ? ObjectWrap::Unwrap< NNSocket > (obj) : NULL;
         int rc = sock->SetPeer(sock2);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
     }
@@ -499,8 +531,8 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_OBJECT(0, obj);
-        NNSocket *sock2 = HasInstance(args[0]) ? ObjectWrap::Unwrap< NNSocket > (obj) : NULL;
+        OPTIONAL_ARGUMENT_OBJECT(0, obj);
+        NNSocket *sock2 = HasInstance(obj) ? ObjectWrap::Unwrap< NNSocket > (obj) : NULL;
         int rc = sock->StartDevice(sock2);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
     }
@@ -509,7 +541,7 @@ public:
         HandleScope scope;
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
-        REQUIRE_ARGUMENT_AS_STRING(0, str);
+        OPTIONAL_ARGUMENT_AS_STRING(0, str);
         int rc = sock->Send(*str, str.length() + 1);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
     }
@@ -529,28 +561,92 @@ public:
     static Handle<Value> StrError(const Arguments& args) {
         HandleScope scope;
 
-        REQUIRE_ARGUMENT_INT(0, err);
+        OPTIONAL_ARGUMENT_INT(0, err);
         return scope.Close(Local<String>::New(String::New(nn_strerror(err))));
+    }
+
+    static NNServer lruServer;
+    // Format:
+    // key - return key
+    // \1key - del key
+    // \2key\2val - set key with val
+    // \3key\3val - incr key by val
+    // \4 - clear cache
+    static string lruServerRequest(char *buf, int len, void *data) {
+        char *val = 0, *key = buf + 1;
+        string rc;
+
+        switch (buf[0]) {
+        case '\1':
+            _lru.del(key);
+            break;
+
+        case '\2':
+            val = strchr(key, '\2');
+            if (!val) break;
+            *val++ = 0;
+            _lru.set(key, val);
+            break;
+
+        case '\3':
+            val = strchr(key, '\3');
+            if (!val) break;
+            *val++ = 0;
+            _lru.incr(key, val);
+            break;
+
+        case '\4':
+            _lru.clear();
+            break;
+
+        default:
+            rc = _lru.get(buf);
+        }
+        LogNotice("%s: %s=%s", buf[0] == '\1' ? "del" : buf[0] == '\2' ? "set" : buf[0] == '\3' ? "incr" : "clear", key, val);
+        return rc;
+    }
+
+    static Handle<Value> lruServerStart(const Arguments& args) {
+        HandleScope scope;
+        OPTIONAL_ARGUMENT_OBJECT(0, obj1);
+        NNSocket *sock1 = HasInstance(obj1) ? ObjectWrap::Unwrap< NNSocket > (obj1) : NULL;
+        OPTIONAL_ARGUMENT_OBJECT(1, obj2);
+        NNSocket *sock2 = HasInstance(obj2) ? ObjectWrap::Unwrap< NNSocket > (obj2) : NULL;
+        OPTIONAL_ARGUMENT_INT(2, queue);
+        int rc = EINVAL;
+        lruServer.Stop();
+        if (sock1) rc = lruServer.Start(sock1->sock, sock2 ? sock2->sock : -1, queue, lruServerRequest, NULL, NULL);
+        return scope.Close(Local<Integer>::New(Integer::New(rc)));
+    }
+
+    static Handle<Value> lruServerStop(const Arguments& args) {
+        HandleScope scope;
+        lruServer.Stop();
+        return scope.Close(Undefined());
     }
 
     static void Init(Handle<Object> target) {
         HandleScope scope;
 
         NODE_SET_METHOD(target, "nn_strerror", StrError);
+        NODE_SET_METHOD(target, "lruServerStart", lruServerStart);
+        NODE_SET_METHOD(target, "lruServerStop", lruServerStop);
 
         Local < FunctionTemplate > t = FunctionTemplate::New(New);
         constructor_template = Persistent < FunctionTemplate > ::New(t);
         constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("derrno"), DevErrnoGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("device"), DeviceGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("writefd"), WriteFdGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("readfd"), ReadFdGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("errno"), ErrnoGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("error"), ErrorGetter);
-        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("socket"), SocketGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("op"), ErrorGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("peer"), PeerGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("type"), TypeGetter);
-        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("address"), AddressGetter);
-        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("deverrno"), DevErrnoGetter);
-        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("device"), DeviceGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("bound"), BindAddressGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("connected"), ConnectAddressGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("socket"), SocketGetter);
         constructor_template->SetClassName(String::NewSymbol("NNSocket"));
 
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "setup", Setup);
@@ -581,6 +677,7 @@ public:
 };
 
 Persistent<FunctionTemplate> NNSocket::constructor_template;
+NNServer NNSocket::lruServer;
 
 void NanoMsgInit(Handle<Object> target)
 {
@@ -629,22 +726,19 @@ void NNServer::Stop()
 
 int NNServer::Start(int r, int w, bool q, NNServerCallback *cb, void *d, NNServerFree *f)
 {
-    if (r < 0) {
-        err = EINVAL;
-        return -1;
-    }
+    if (r < 0) return err = EINVAL;
     rsock = r;
     wsock = w;
     size_t sz = sizeof(int);
 
     nn_getsockopt(rsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &rproto, &sz);
     int rc = nn_getsockopt(rsock, NN_SOL_SOCKET, NN_RCVFD, (char*) &rfd, &sz);
-    if (rc == -1) goto done;
+    if (rc == -1) return err = nn_errno();
 
     if (wsock > -1) {
         nn_getsockopt(wsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &wproto, &sz);
         rc = nn_getsockopt(wsock, NN_SOL_SOCKET, NN_SNDFD, (char*) &wfd, &sz);
-        if (rc == -1) goto done;
+        if (rc == -1) return err = nn_errno();
     }
 
     queue = q;
@@ -656,10 +750,6 @@ int NNServer::Start(int r, int w, bool q, NNServerCallback *cb, void *d, NNServe
     poll.data = this;
     LogDev("rsock=%d, wsock=%d, queue=%d", rsock, wsock, queue);
     return 0;
-
-done:
-    err = nn_errno();
-    return -1;
 }
 
 void NNServer::ReadRequest(uv_poll_t *w, int status, int revents)
@@ -720,7 +810,7 @@ int NNServer::Recv(char **buf)
 
 int NNServer::Send(string val)
 {
-    if (rproto != NN_REP) return 0;
+    if (rproto != NN_REP && rproto != NN_RESPONDENT) return 0;
     int rc = nn_send(rsock, val.c_str(), val.size() + 1, NN_DONTWAIT);
     if (rc == -1) {
         err = nn_errno();
