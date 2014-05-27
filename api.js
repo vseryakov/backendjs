@@ -735,7 +735,7 @@ api.checkBody = function(req, res, next)
 // - an object with status other than 0 or 200 to return the status and stop request processing
 api.checkAccess = function(req, callback)
 {
-    if (this.denyRx && req.path.match(this.denyRx)) return callback({ status: 401, message: "Access denied" });
+    if (this.denyRx && req.path.match(this.denyRx)) return callback({ status: 403, message: "Access denied" });
     if (this.allowRx && req.path.match(this.allowRx)) return callback({ status: 200, message: "" });
     // Call custom access handler for the endpoint
     var hook = this.findHook('access', req.method, req.path);
@@ -776,7 +776,7 @@ api.checkSignature = function(req, callback)
 
     // Sanity checks, required headers must be present and not empty
     if (!sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
-        return callback({ status: 401, message: "Invalid request: " + (!sig.method ? "no method provided" :
+        return callback({ status: 400, message: "Invalid request: " + (!sig.method ? "no method provided" :
                                                                        !sig.host ? "no host provided" :
                                                                        !sig.login ? "no login provided" :
                                                                        !sig.expires ? "no expiration provided" :
@@ -785,7 +785,7 @@ api.checkSignature = function(req, callback)
 
     // Make sure it is not expired, it may be milliseconds or ISO date
     if (sig.expires <= Date.now()) {
-        return callback({ status: 400, message: "Expired request" });
+        return callback({ status: 406, message: "Expired request" });
     }
 
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
@@ -795,15 +795,15 @@ api.checkSignature = function(req, callback)
 
         // Account expiration time
         if (account.expires && account.expires < Date.now()) {
-            return callback({ status: 404, message: "This account has expired" });
+            return callback({ status: 412, message: "This account has expired" });
         }
 
         // Verify ACL regex if specified, test the whole query string as it appears in the request query line
         if (account.acl_deny && sig.url.match(account.acl_deny)) {
-            return callback({ status: 401, message: "Access denied" });
+            return callback({ status: 403, message: "Access denied" });
         }
         if (account.acl_allow && !sig.url.match(account.acl_allow)) {
-            return callback({ status: 401, message: "Not permitted" });
+            return callback({ status: 403, message: "Not permitted" });
         }
 
         // Deal with encrypted body, use our account secret to decrypt, this is for raw data requests

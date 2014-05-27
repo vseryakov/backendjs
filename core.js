@@ -1154,6 +1154,7 @@ core.signRequest = function(login, secret, method, host, uri, options)
 // - queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
 // - rowid - unique record id to be used in case of queue management
 // - checksum - calculate checksum from the data
+// - anystatus - keep any HTTP status, dont treat as error if not 200
 core.sendRequest = function(uri, options, callback)
 {
     var self = this;
@@ -1206,7 +1207,7 @@ core.sendRequest = function(uri, options, callback)
             }
         }
         if (!params.obj) params.obj = {};
-        if (params.status != 200 && !err) err = this.newError("Response Error", "HTTP", params.status);
+        if (params.status != 200 && !err && !options.anystatus) err = self.newError("Response Error", "HTTP", params.status);
         if (callback) callback(err, params, res);
     });
 }
@@ -1600,8 +1601,8 @@ core.geoHash = function(latitude, longitude, options)
 
 	var geohash = backend.geoHashEncode(latitude, longitude);
 	return { geohash: geohash.substr(0, range[0]),
+             _geohash: geohash,
 			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
-             maxGeohash: geohash,
 			 latitude: latitude,
 			 longitude: longitude,
 			 minRange: range[1],
@@ -2292,7 +2293,7 @@ core.newError = function(msg, name, code)
 {
     var err = new Error(msg + (code ? ": " + code : ""));
     if (name) err.name = name;
-    if (code) e.code = code;
+    if (code) err.code = code;
     return err;
 }
 
