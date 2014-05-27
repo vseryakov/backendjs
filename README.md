@@ -20,6 +20,7 @@ Features:
 * nanomsg interface for messaging between processes and servers.
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
+* Can be used with any MVC or other types of frameworks that work on top of Express server.
 * Hosted on [github](https://github.com/vseryakov/backendjs), http://backendjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
 
 Check out the [Documentation](http://backendjs.io) for more details.
@@ -172,6 +173,9 @@ The principle behind the system is that nowadays the API services just return da
 the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
 processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.
 
+When the API layer is initialized, the api module contains `app` object which is Express application. The `api.initMiddleware` method which is supposed to be overridden
+is called with `this` pointing to the api module and Express server `this.app` created and initialized with security middleware but not any other routes or templates.
+
 The typical structure of a backendjs application is the following (created by the bkjs init-app command:
 
             var backend = require('backendjs');
@@ -183,7 +187,7 @@ The typical structure of a backendjs application is the following (created by th
                 ...
             });
 
-            // Optionally customize the Express environment
+            // Optionally customize the Express environment, setup MVC routes or else, this.app is the Express server
             api.initMiddleware = function()
             {
                 ...
@@ -1261,7 +1265,7 @@ List of available functions:
    - geoHashRow()
 - Generic cache outside of V8 memory pool
    - cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap
-   - cacheSet()
+   - cachePut()
    - cacheGet()
    - cacheDel()
    - cacheKeys()
@@ -1278,7 +1282,7 @@ List of available functions:
    - lruStats() - return statistics about the LRU cache
    - lruSize() - return size of the current LRU cache
    - lruCount() - number of keys in the LRU cache
-   - lruSet(name, val) - set/replace value by name
+   - lruPut(name, val) - set/replace value by name
    - lruGet(name) - return value by name
    - lruIncr(name, val) - increase value by given number, non existent items assumed to be 0
    - lruDel(name) - delete by name
@@ -1307,7 +1311,8 @@ Database layer support caching of the responses using `db.getCached` call, it re
 will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
 that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
 and refresh the cache, that is `{ cached: true }` can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
-it is required to clear cache manually there is `db.clearCached` method for that.
+it is required to clear cache manually there is `db.clearCache` method for that.
+Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
 
 ## nanomsg
 
@@ -1318,10 +1323,10 @@ processes on other nodes thus keeping in sync caches on all nodes.
 
 In case of a single machine even with multiple CPUs there is nothing to configure, it is enabled by default. In case of multiple servers in the cluster
 it requires one or multiple cache coordinators to be configured. It can be any node(s) in the cluster. The coordinator's role is to broadcast
-cache requests to all nodes in the clusyer.
+cache requests to all nodes in the cluster.
 
 For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliably and similar to
-what `memcached` or `Redis` server would do as well.
+what `memcached` or `Redis` servers would do as well.
 
 The benefits of this approach is not to run any separate servers and dealing with its own configuration and support, using nanomsg
 internal backend cache system is self contained and does not need additional external resources, any node can be LRU server whose only role is to make sure all other

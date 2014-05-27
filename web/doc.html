@@ -88,6 +88,7 @@ easily extendable to support any kind of database, provides a database driver on
 <li>nanomsg interface for messaging between processes and servers.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
+<li>Can be used with any MVC or other types of frameworks that work on top of Express server.</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, <a href="http://backendjs.io">http://backendjs.io</a> or <a href="http://vseryakov.github.io/backendjs">http://vseryakov.github.io/backendjs</a>, BSD licensed.</li>
 </ul>
 <p>Check out the <a href="http://backendjs.io">Documentation</a> for more details.</p>
@@ -211,6 +212,8 @@ may return data in whatever format is required.</p>
 <p>The principle behind the system is that nowadays the API services just return data which Web apps or mobiles apps can render to
 the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
 processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.</p>
+<p>When the API layer is initialized, the api module contains <code>app</code> object which is Express application. The <code>api.initMiddleware</code> method which is supposed to be overridden
+is called with <code>this</code> pointing to the api module and Express server <code>this.app</code> created and initialized with security middleware but not any other routes or templates.</p>
 <p>The typical structure of a backendjs application is the following (created by the bkjs init-app command:</p>
 <pre><code>        var backend = require(&#39;backendjs&#39;);
         var api = backend.api;
@@ -221,7 +224,7 @@ processing of the data is needed before sending it to the user, it is possible t
             ...
         });
 
-        // Optionally customize the Express environment
+        // Optionally customize the Express environment, setup MVC routes or else, this.app is the Express server
         api.initMiddleware = function()
         {
             ...
@@ -1228,7 +1231,7 @@ console.log(backend.backend)
 </li>
 <li>Generic cache outside of V8 memory pool<ul>
 <li>cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap</li>
-<li>cacheSet()</li>
+<li>cachePut()</li>
 <li>cacheGet()</li>
 <li>cacheDel()</li>
 <li>cacheKeys()</li>
@@ -1247,7 +1250,7 @@ console.log(backend.backend)
 <li>lruStats() - return statistics about the LRU cache</li>
 <li>lruSize() - return size of the current LRU cache</li>
 <li>lruCount() - number of keys in the LRU cache</li>
-<li>lruSet(name, val) - set/replace value by name</li>
+<li>lruPut(name, val) - set/replace value by name</li>
 <li>lruGet(name) - return value by name</li>
 <li>lruIncr(name, val) - increase value by given number, non existent items assumed to be 0</li>
 <li>lruDel(name) - delete by name</li>
@@ -1282,7 +1285,8 @@ console.log(backend.backend)
 will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
 that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
 and refresh the cache, that is <code>{ cached: true }</code> can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
-it is required to clear cache manually there is <code>db.clearCached</code> method for that.</p>
+it is required to clear cache manually there is <code>db.clearCache</code> method for that.
+Also there is a configuration option <code>-db-caching</code> to make any table automatically cached for all requests.</p>
 <h2 id="nanomsg">nanomsg</h2>
 <p>For cache management signaling, all servers maintain local cache per machine, it is called <code>LRU</code> cache. This cache is maintained in the master Web process and
 serves all local Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (<code>cache-port=20194/20195</code>)
@@ -1290,9 +1294,9 @@ from other backend nodes. Every time any Web worker updates the local cache, its
 processes on other nodes thus keeping in sync caches on all nodes.</p>
 <p>In case of a single machine even with multiple CPUs there is nothing to configure, it is enabled by default. In case of multiple servers in the cluster
 it requires one or multiple cache coordinators to be configured. It can be any node(s) in the cluster. The coordinator&#39;s role is to broadcast
-cache requests to all nodes in the clusyer.</p>
+cache requests to all nodes in the cluster.</p>
 <p>For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliably and similar to
-what <code>memcached</code> or <code>Redis</code> server would do as well.</p>
+what <code>memcached</code> or <code>Redis</code> servers would do as well.</p>
 <p>The benefits of this approach is not to run any separate servers and dealing with its own configuration and support, using nanomsg
 internal backend cache system is self contained and does not need additional external resources, any node can be LRU server whose only role is to make sure all other
 nodes flush their caches if needed. Using redundant coordinators servers makes sure cache requests reach all nodes in the cluster and there is no single point of failure.</p>
