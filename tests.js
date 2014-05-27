@@ -842,14 +842,13 @@ tests.msg = function(callback)
 
 tests.cache = function(callback)
 {
-    if (!core.getArgInt("-test-workers")) logger.error("need -test-workers 1 argument");
+    core.msgType = "none";
+    core.cacheBind = "127.0.0.1";
+    core.cacheHost = "127.0.0.1";
+    var nworkers = core.getArgInt("-test-workers");
+    if (!nworkers) logger.error("need -test-workers 1 argument");
 
-    var proc = null;
-
-    if (cluster.isMaster) {
-        ipc.initServer();
-    } else {
-        ipc.initClient();
+    function run1(cb) {
         async.series([
            function(next) {
                ipc.put("a", "1");
@@ -886,27 +885,88 @@ tests.cache = function(callback)
                });
            },
            function(next) {
-               ipc.del("a");
+               ipc.incr("a", 1);
                setTimeout(next, 10);
            },
            function(next) {
-               ipc.get("a", function(val) {
+               ipc.del("b");
+               setTimeout(next, 10);
+           },
+           function(next) {
+               ipc.get("b", function(val) {
                    core.checkTest(next, null, val!="", "value must be '', got", val)
                });
            },
            ],
            function(err) {
-                if (!err) return callback();
+                if (!err) return cb();
                 ipc.keys(function(keys) {
                     var vals = {};
                     async.forEachSeries(keys, function(key, next) {
                         ipc.get(key, function(val) { vals[key] = val; next(); })
                     }, function() {
                         logger.log("keys:", vals);
-                        callback(err);
+                        cb(err);
                     });
                 });
         });
+    }
+
+    function run2(cb) {
+        async.series([
+           function(next) {
+               ipc.get("a", function(val) {
+                   core.checkTest(next, null, val!="4", "value must be 4, got", val)
+               });
+           },
+           ],
+           function(err) {
+            cb(err);
+        });
+    }
+
+    if (cluster.isMaster) {
+        ipc.onMessage = function(msg) {
+            switch(msg.op) {
+            case "ready":
+                if (nworkers == 1) return this.send({ op: "run1" });
+                if (this.id == 1) return this.send({ op: "init" });
+                if (this.id > 1) return this.send({ op: "run1" });
+                break;
+            case "done":
+                if (nworkers == 1) break;
+                if (this.id > 1) cluster.workers[1].send({ op: "run2" });
+                break;
+            }
+        }
+        ipc.initServer();
+    } else {
+        ipc.onMessage = function(msg) {
+            switch (msg.op) {
+            case "init":
+                core.cacheBind = core.ipaddrs[0];
+                core.cachePort = 20000;
+                ipc.initServer();
+                ipc.initClient();
+                break;
+
+            case "run2":
+                run2(function(err) {
+                    if (!err) ipc.send("done");
+                    callback(err);
+                });
+                break;
+
+            case "run1":
+                run1(function(err) {
+                    if (!err) ipc.send("done");
+                    callback(err);
+                });
+                break;
+            }
+        }
+        ipc.initClient();
+        ipc.send("ready");
     }
 }
 

@@ -433,7 +433,7 @@ api.init = function(callback)
             self.setupSocketServer();
 
             // Notify the master about new worker server
-            ipc.send("api:ready", "");
+            ipc.send("api:ready");
 
             if (callback) callback.call(self, err);
         });
@@ -1228,7 +1228,7 @@ api.initSystemAPI = function()
     this.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
         switch (req.params[0]) {
         case "restart":
-            ipc.send("api:close", "");
+            ipc.send("api:close");
             res.json("");
             break;
 

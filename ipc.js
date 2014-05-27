@@ -30,7 +30,8 @@ var ipc = {
 
 module.exports = ipc;
 
-// A handler for unhandled messages, it is called by the server and client
+// A handler for unhandled messages, it is called by the server and client. In case of the server, `this` is a worker object, so to send a message back to the worker
+// use `this.send()`.
 ipc.onMessage = function(msg) {}
 
 // This function is called by Web worker process to setup IPC channels and support for cache and messaging
@@ -220,7 +221,7 @@ ipc.initServer = function()
                     break;
 
                 default:
-                    self.onMessage(msg);
+                    self.onMessage.call(worker, msg);
                 }
 
             } catch(e) {
@@ -268,20 +269,6 @@ ipc.initServerCaching = function()
     }
 }
 
-// Initialize web worker caching system, can be called anytime the environment has changed
-ipc.initClientCaching = function()
-{
-    switch (core.cacheType) {
-    case "memcache":
-        this.connect("client", "memcache", core.memcacheHost, core.memcachePort, core.memcacheOptions);
-        break;
-
-    case "redis":
-        this.connect("client", "redis", core.redisHost, core.redisPort, core.redisOptions);
-        break;
-    }
-}
-
 // Initialize messaging system for the server process, can be called multiple times in case environment has changed
 ipc.initServerMessaging = function()
 {
@@ -294,14 +281,30 @@ ipc.initServerMessaging = function()
         core.msgBind = core.msgBind || (core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*");
 
         // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process connects to this socket.
-        this.bind('sub', "nanomsg", core.msgBind, core.msgPort + 1, backend.NN_PUB);
+        this.bind('msub', "nanomsg", core.msgBind, core.msgPort + 1, backend.NN_PUB);
 
         // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
         // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
         // and automatically uses next live server in case of failure.
-        this.bind('pub', "nanomsg", core.msgBind, core.msgPort, backend.NN_PULL);
-        // Forward all messages to the sub server socket, we dont use proxy because PUB socket broadcasts to all peers but we want load-balancer
-        if (this.nanomsg.pub && this.nanomsg.sub) this.nanomsg.pub.setForward(this.nanomsg.sub);
+        if (this.bind('mpub', "nanomsg", core.msgBind, core.msgPort, backend.NN_PULL)) {
+            // Forward all messages to the sub server socket, we dont use proxy because PUB socket broadcasts to all peers but we want load-balancer
+            var err = this.nanomsg.mpub.setForward(this.nanomsg.msub);
+            if (err) logger.error('initServerMessaging:', err, this.nanomsg.msub);
+        }
+        break;
+    }
+}
+
+// Initialize web worker caching system, can be called anytime the environment has changed
+ipc.initClientCaching = function()
+{
+    switch (core.cacheType) {
+    case "memcache":
+        this.connect("client", "memcache", core.memcacheHost, core.memcachePort, core.memcacheOptions);
+        break;
+
+    case "redis":
+        this.connect("client", "redis", core.redisHost, core.redisPort, core.redisOptions);
         break;
     }
 }
