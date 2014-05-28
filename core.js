@@ -487,11 +487,31 @@ core.processArgs = function(name, ctx, argv, pass)
             default:
                 put(obj, key, val, x);
             }
-            // Append all process arguments into internal list when we processing all arguments, not in a pass
+            // Append all processed arguments into internal list when we processing all arguments, not in a pass
             self.argv[cname.substr(1)] = val || true;
         } catch(e) {
             logger.error('proessArgs:', e, x);
         }
+    });
+}
+
+// Add custom config parameters to be understood and processed by the config parser
+// - module - name of the module to add these params to
+// - args - a list of objectsin the format: { name: N, type: T, descr: D, min: M, max: M, array: B }, all except name are optional.
+//
+// Example:
+//
+//      core.describeArgs("api", [ { name: "num", type: "int", descr: "int param" }, { name: "list", array: 1, descr: "list of words" } ]);
+//
+core.describeArgs = function(module, args)
+{
+    var self = this;
+    if (!Array.isArray(args)) return;
+    var ctx = module == "coe" ? this : this.context[module];
+    if (!ctx) return logger.error("deescribeArgs:", "invalid module", module);
+    if (!ctx.args) ctx.args = [];
+    args.forEach(function(x) {
+        if (x.name) ctx.args.push(x);
     });
 }
 
@@ -1206,8 +1226,8 @@ core.sendRequest = function(uri, options, callback)
                 break;
             }
         }
+        if (params.status != 200 && !err && !options.anystatus) err = self.newError(util.format("ResponseError: %j", params.obj), "HTTP", params.status);
         if (!params.obj) params.obj = {};
-        if (params.status != 200 && !err && !options.anystatus) err = self.newError("Response Error", "HTTP", params.status);
         if (callback) callback(err, params, res);
     });
 }

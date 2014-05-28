@@ -1413,8 +1413,12 @@ api.describeTables = function(tables)
 // Clear request query properties specified in the table definition, if any columns for the table contains the property `name` nonempty, then
 // all request properties with the same name as this column name will be removed from the query. This for example is used for the `bk_account`
 // table to disable updating location related columns because speial location API maintains location data and updates the accounts table.
+//
+// The options can have a property in the form `keep_{name}` which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
+// this functionality without clearing table column definitions.
 api.clearQuery = function(req, options, table, name)
 {
+    if (options && options['keep_' + name]) return;
     var cols = core.context.db.getColumns(table, options);
     for (var p in cols) {
         if (cols[p][name]) delete req.query[p];
@@ -2420,11 +2424,9 @@ api.addAccount = function(req, options, callback)
     if (!req.query.alias) req.query.alias = req.query.name;
     req.query.id = core.uuid();
     req.query.mtime = req.query.ctime = Date.now();
-    // Add new auth record with only columns we support, NoSQL db can add any columns on the fly and we want to keep auth table very small
-    var auth = { id: req.query.id, login: req.query.login, alias: req.query.alias, secret: req.query.secret };
     // Only admin can add accounts with the type
-    if (req.account && req.account.type == "admin" && req.query.type) auth.type = req.query.type;
-    db.add("bk_auth", auth, function(err) {
+    if (req.query.type && (!req.account || req.account.type != "admin")) req.query.type = null;
+    db.add("bk_auth", req.query, function(err) {
         if (err) return callback(err);
         // Skip location related properties
         self.clearQuery(req, options, "bk_account", "noadd");
