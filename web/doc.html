@@ -2099,6 +2099,8 @@ using this method. Only columns with changed properties need to be specified, ot
 <p> Clear request query properties specified in the table definition, if any columns for the table contains the property <code>name</code> nonempty, then
 all request properties with the same name as this column name will be removed from the query. This for example is used for the <code>bk_account</code>
 table to disable updating location related columns because speial location API maintains location data and updates the accounts table.</p>
+<p>The options can have a property in the form <code>keep_{name}</code> which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
+this functionality without clearing table column definitions.</p>
 </li>
 </ul>
 
@@ -2798,6 +2800,18 @@ type can be bool, number, list, json</p>
 </ul>
 
 <ul>
+<li><p><code>core.describeArgs(module, args)</code></p>
+<p> Add custom config parameters to be understood and processed by the config parser</p>
+<ul>
+<li>module - name of the module to add these params to</li>
+<li>args - a list of objectsin the format: { name: N, type: T, descr: D, min: M, max: M, array: B }, all except name are optional.</li>
+</ul>
+<p>Example:</p>
+<pre><code>core.describeArgs(&quot;api&quot;, [ { name: &quot;num&quot;, type: &quot;int&quot;, descr: &quot;int param&quot; }, { name: &quot;list&quot;, array: 1, descr: &quot;list of words&quot; } ]);
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>core.showHelp(options)</code></p>
 <p> Print help about command line arguments and exit</p>
 </li>
@@ -2974,6 +2988,7 @@ Special parameters for options:</p>
 <li>queue - perform queue management, save in queue if cannot send right now, delete from queue if sent</li>
 <li>rowid - unique record id to be used in case of queue management</li>
 <li>checksum - calculate checksum from the data</li>
+<li>anystatus - keep any HTTP status, dont treat as error if not 200</li>
 </ul>
 </li>
 </ul>
@@ -4730,7 +4745,8 @@ Options can define the following:</p>
 
 <ul>
 <li><p><code>ipc.onMessage(msg)</code></p>
-<p> A handler for unhandled messages, it is called by the server and client</p>
+<p> A handler for unhandled messages, it is called by the server and client. In case of the server, <code>this</code> is a worker object, so to send a message back to the worker
+use <code>this.send()</code>.</p>
 </li>
 </ul>
 
@@ -4753,14 +4769,14 @@ Options can define the following:</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.initClientCaching()</code></p>
-<p> Initialize web worker caching system, can be called anytime the environment has changed</p>
+<li><p><code>ipc.initServerMessaging()</code></p>
+<p> Initialize messaging system for the server process, can be called multiple times in case environment has changed</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initServerMessaging()</code></p>
-<p> Initialize messaging system for the server process, can be called multiple times in case environment has changed</p>
+<li><p><code>ipc.initClientCaching()</code></p>
+<p> Initialize web worker caching system, can be called anytime the environment has changed</p>
 </li>
 </ul>
 
