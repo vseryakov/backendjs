@@ -537,6 +537,7 @@ The supposed usage for type is to concatenate common identifiers first with more
 by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
 then retrieving all icons for an album would be only query with album1: prefix.
 
+
 - `/icon/get/prefix`
 - `/icon/get/prefix/type`
 
