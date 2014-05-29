@@ -65,7 +65,7 @@ var core = {
     socketio: { port: 0, bind: "0.0.0.0", options: {} },
 
     // Proxy config
-    proxyPort: 8000,
+    proxyPort: 8080,
     proxyBind: '0.0.0.0',
 
     // Number of parallel tasks running at the same time, can be used by various modules

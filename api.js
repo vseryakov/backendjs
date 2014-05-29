@@ -485,6 +485,12 @@ api.handleServerRequest = function(req, res)
     d.run(function() { self.app(req, res); });
 }
 
+// Process a proxy request, called by the custom proxy server if there is no etc/proxy config file is present for simple cases
+api.handleProxyRequest = function(req, res, proxy) {}
+
+// Run before creating the proxy server for configuration and setup
+api.setupProxyServer = function() {}
+
 // Setup external socket server(s)
 api.setupSocketServer = function()
 {

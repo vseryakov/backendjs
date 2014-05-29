@@ -357,15 +357,22 @@ server.startProxy = function()
     core.role = 'proxy';
     process.title = core.name + ": proxy"
 
-    try { config = JSON.parse(fs.readFileSync(path.join(core.path.etc, "proxy")).toString()); } catch (e) { logger.error('startProxy:', e); }
-    if (!config) return logger.error('startProxy:', 'no config file');
-
-    if (config.https) {
-        Object.keys(config.https).forEach(function (key) {
-            try { config.https[key] = fs.readFileSync(path.join(core.path.etc, config.https[key])); } catch(e) { logger.error('startProxy:', e) }
-        });
+    // Config file based or custom based proxy server
+    var file = path.join(core.path.etc, "proxy"), options = {};
+    if (core.statSync(file).size) {
+        options = core.jsonParse(fs.readFileSync(file).toString());
+        if (!options) options = {};
+        if (options.https) {
+            Object.keys(options.https).forEach(function(key) {
+                try { options.https[key] = fs.readFileSync(path.join(core.path.etc, options.https[key])); } catch(e) { logger.error('startProxy:', e) }
+            });
+        }
     }
-    try { self.proxy = proxy.createServer(config).listen(core.proxyPort, core.proxyBind); } catch(e) { logger.error('startProxy:', e); };
+    if (!options.target && !options.forward) options = function(req, res, proxy) { api.handleProxyRequest(req, res, proxy); }
+    core.context.api.proxyserver = proxy.createServer(options);
+    try { core.context.api.proxyserver.listen(core.proxyPort, core.proxyBind); } catch(e) { logger.error('startProxy:', core.proxyPort, core.proxyBind, e); };
+    core.context.api.setupProxyServer();
+    logger.log('startProxy:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.proxyPort, core.proxyBind, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
 }
 
 // Restart the main process with the same arguments and setup as a monitor for the spawn child
