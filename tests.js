@@ -902,7 +902,7 @@ tests.cache = function(callback)
                 if (!err) return cb();
                 ipc.keys(function(keys) {
                     var vals = {};
-                    async.forEachSeries(keys, function(key, next) {
+                    async.forEachSeries(keys || [], function(key, next) {
                         ipc.get(key, function(val) { vals[key] = val; next(); })
                     }, function() {
                         logger.log("keys:", vals);
@@ -940,6 +940,7 @@ tests.cache = function(callback)
             }
         }
         ipc.initServer();
+        setInterval(function() { logger.log('keys:', backend.backend.lruKeys()); }, 1000);
     } else {
         ipc.onMessage = function(msg) {
             switch (msg.op) {

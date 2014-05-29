@@ -282,7 +282,7 @@ static Handle<Value> lruIncr(const Arguments& args)
     REQUIRE_ARGUMENT_AS_STRING(0, key);
     REQUIRE_ARGUMENT_AS_STRING(1, val);
 
-    string str = _lru.incr(*key, *val);
+    const string& str = _lru.incr(*key, *val);
     return scope.Close(Local<String>::New(String::New(str.c_str())));
 }
 
@@ -300,7 +300,7 @@ static Handle<Value> lruGet(const Arguments& args)
     HandleScope scope;
 
     REQUIRE_ARGUMENT_AS_STRING(0, key);
-    string str = _lru.get(*key);
+    const string& str = _lru.get(*key);
     return scope.Close(Local<String>::New(String::New(str.c_str())));
 }
 

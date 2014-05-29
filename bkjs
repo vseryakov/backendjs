@@ -682,15 +682,16 @@ case "$ARG" in
        mkdir -p deps
        (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
     fi
-    (cd deps/node && [ ! -f out/Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX)
+    (cd deps/node && [ ! -f out/Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BACKEND_PREFIX)
     (cd deps/node && git pull && make install clean)
     npm config set nodedir "$(pwd)/deps/node"
     ;;
 
   build-deps)
     BACKEND_PREFIX=$(pwd)/build
-    CFLAGS="-fPIC -I$BACKEND_PREFIX/include"
-    LDFLAGS="-L$BACKEND_PREFIX/lib"
+    CFLAGS="$CFLAGS -fPIC -g -I$BACKEND_PREFIX/include"
+    CXXFLAGS="$CXXFLAGS -fPIC -g -I$BACKEND_PREFIX/include"
+    LDFLAGS="$LDFLAGS -L$BACKEND_PREFIX/lib"
     PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
     [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include" && PKG_CONFIG_PATH=/opt/local/lib/pkgconfig:$PKG_CONFIG_PATH
     [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/local/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
@@ -701,7 +702,7 @@ case "$ARG" in
         if [ ! -d deps/openjpeg ]; then
            (cd deps && svn -r r2871 checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
         fi
-        (cd deps/openjpeg && cmake -DCMAKE_C_FLAGS=$CFLAGS -DCMAKE_INSTALL_PREFIX=$BACKEND_PREFIX -DBUILD_SHARED_LIBS:bool=off -DBUILD_CODEC:bool=off . && make)
+        (cd deps/openjpeg && cmake -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_INSTALL_PREFIX=$BACKEND_PREFIX -DBUILD_SHARED_LIBS:bool=off -DBUILD_CODEC:bool=off . && make)
         (cd deps/openjpeg && make install)
     fi
 
@@ -711,7 +712,7 @@ case "$ARG" in
            (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
         fi
         (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
-        (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --enable-debug --enable-static --disable-shared)
+        (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
         (cd deps/nanomsg && make install)
     fi
 
@@ -722,7 +723,7 @@ case "$ARG" in
            curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
            tar -C deps/ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
         fi
-        (cd deps/ImageMagick && [ ! -f Makefile ] && CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=$BACKEND_PREFIX --disable-docs --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS")
+        (cd deps/ImageMagick && [ ! -f Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BACKEND_PREFIX --disable-docs --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS")
         (cd deps/ImageMagick && make install)
     fi
     exit 0

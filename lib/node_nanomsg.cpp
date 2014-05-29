@@ -567,11 +567,11 @@ public:
 
     static NNServer lruServer;
     // Format:
-    // key - return key
     // \1key - del key
     // \2key\2val - set key with val
     // \3key\3val - incr key by val
     // \4 - clear cache
+    // \5key - return key
     static string lruServerRequest(char *buf, int len, void *data) {
         char *val = 0, *key = buf + 1;
         string rc;
@@ -599,10 +599,11 @@ public:
             _lru.clear();
             break;
 
-        default:
+        case '\5':
             rc = _lru.get(buf);
+            break;
         }
-        LogDev("%s: %s=%s", buf[0] == '\1' ? "del" : buf[0] == '\2' ? "set" : buf[0] == '\3' ? "incr" : "clear", key, val);
+        LogDev("%s: %s=%s", buf[0] == '\1' ? "del" : buf[0] == '\2' ? "set" : buf[0] == '\3' ? "incr" : buf[0] == '\4' ? "clear" : buf[0] == '\5' ? "get" : "none", key, val);
         return rc;
     }
 

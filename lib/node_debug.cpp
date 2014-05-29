@@ -36,6 +36,7 @@ struct FileOutputStream: public OutputStream {
     }
 };
 
+static bool run_segv = 0;
 static struct Code* code_head = NULL;
 static int stack_trace_index = 0;
 static Local<StackTrace> stack_trace;
@@ -161,6 +162,7 @@ static void jsbacktrace(void)
 static void sigbacktrace(int)
 {
     jsbacktrace();
+    while (run_segv) sleep(1);
     raise(SIGABRT);
 }
 
@@ -170,6 +172,7 @@ static void sigsegv(int)
     int size;
     size = backtrace(array, 50);
     backtrace_symbols_fd(array, size, 2);
+    while (run_segv) sleep(1);
     raise(SIGSEGV);
 }
 
@@ -182,6 +185,13 @@ static void install_handler(sig_t func)
     sigaction(SIGABRT, &sa, NULL);
     sigaction(SIGSEGV, &sa, NULL);
     sigaction(SIGBUS, &sa, NULL);
+}
+
+static Handle<Value> runsegv(const Arguments& args)
+{
+    OPTIONAL_ARGUMENT_INT(0, on);
+    run_segv = on;
+    return Undefined();
 }
 
 static Handle<Value> setsegv(const Arguments& args)
@@ -235,6 +245,7 @@ void DebugInit(Handle<Object> target)
 
     NODE_SET_METHOD(target, "rungc", rungc);
     NODE_SET_METHOD(target, "setsegv", setsegv);
+    NODE_SET_METHOD(target, "runsegv", runsegv);
     NODE_SET_METHOD(target, "setbacktrace", setbacktrace);
     NODE_SET_METHOD(target, "backtrace", backtrace);
     NODE_SET_METHOD(target, "heapSnapshot", heapSnapshot);

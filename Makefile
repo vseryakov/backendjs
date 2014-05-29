@@ -20,6 +20,9 @@ shell:
 clean:
 	./bkjs clean-backend
 
+distclean: clean
+	./bkjs clean-deps
+
 tests:
 	for d in sqlite pgsql mysql dynamodb mongodb cassandra redis; do (node tests.js -test-cmd $(TEST) -db-pool $$d -log log); done
 

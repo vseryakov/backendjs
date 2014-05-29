@@ -26,51 +26,22 @@ using namespace v8;
 using namespace std;
 
 #define REQUIRE_ARGUMENT(i) if (args.Length() <= i || args[i]->IsUndefined()) return ThrowException(Exception::TypeError(String::New("Argument " #i " is required")));
-
-#define REQUIRE_ARGUMENT_STRING(i, var) \
-        if (args.Length() <= (i) || !args[i]->IsString()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a string"))); \
-        String::Utf8Value var(args[i]->ToString());
-
-#define REQUIRE_ARGUMENT_AS_STRING(i, var) \
-        if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a string"))); \
-        String::Utf8Value var(args[i]->ToString());
-
-#define REQUIRE_ARGUMENT_OBJECT(i, var) \
-        if (args.Length() <= (i) || !args[i]->IsObject()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an object"))); \
-        Local<Object> var(args[i]->ToObject());
-
-#define REQUIRE_ARGUMENT_INT(i, var) \
-        if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an integer"))); \
-        int var = args[i]->Int32Value();
-
-#define REQUIRE_ARGUMENT_INT64(i, var) \
-        if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an integer"))); \
-        int64_t var = args[i]->NumberValue();
-
-#define REQUIRE_ARGUMENT_BOOL(i, var) \
-        if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a boolean"))); \
-        int var = args[i]->Int32Value();
-
-#define REQUIRE_ARGUMENT_NUMBER(i, var) \
-        if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a number"))); \
-        double var = args[i]->NumberValue();
-
-#define REQUIRE_ARGUMENT_ARRAY(i, var) \
-        if (args.Length() <= (i) || !args[i]->IsArray()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an array"))); \
-        Local<Array> var = Local<Array>::Cast(args[i]);
-
-#define REQUIRE_ARGUMENT_FUNCTION(i, var) \
-        if (args.Length() <= (i) || !args[i]->IsFunction()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a function"))); \
-        Local<Function> var = Local<Function>::Cast(args[i]);
+#define REQUIRE_ARGUMENT_STRING(i, var) if (args.Length() <= (i) || !args[i]->IsString()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a string"))); String::Utf8Value var(args[i]->ToString());
+#define REQUIRE_ARGUMENT_AS_STRING(i, var) if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a string"))); String::Utf8Value var(args[i]->ToString());
+#define REQUIRE_ARGUMENT_OBJECT(i, var) if (args.Length() <= (i) || !args[i]->IsObject()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an object"))); Local<Object> var(args[i]->ToObject());
+#define REQUIRE_ARGUMENT_INT(i, var) if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an integer"))); int var = args[i]->Int32Value();
+#define REQUIRE_ARGUMENT_INT64(i, var) if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an integer"))); int64_t var = args[i]->NumberValue();
+#define REQUIRE_ARGUMENT_BOOL(i, var) if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a boolean"))); int var = args[i]->Int32Value();
+#define REQUIRE_ARGUMENT_NUMBER(i, var) if (args.Length() <= (i)) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a number"))); double var = args[i]->NumberValue();
+#define REQUIRE_ARGUMENT_ARRAY(i, var) if (args.Length() <= (i) || !args[i]->IsArray()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be an array"))); Local<Array> var = Local<Array>::Cast(args[i]);
+#define REQUIRE_ARGUMENT_FUNCTION(i, var) if (args.Length() <= (i) || !args[i]->IsFunction()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a function"))); Local<Function> var = Local<Function>::Cast(args[i]);
 
 #define EXPECT_ARGUMENT_FUNCTION(i, var) Local<Function> var; \
         if (args.Length() > 0 && args.Length() > (i) && !args[(i) >= 0 ? (i) : args.Length() - 1]->IsUndefined()) { \
             if (!args[(i) >= 0 ? (i) : args.Length() - 1]->IsFunction()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a function"))); \
             var = Local<Function>::Cast(args[(i) >= 0 ? (i) : args.Length() - 1]); }
 
-#define OPTIONAL_ARGUMENT_FUNCTION(i, var) Local<Function> var; \
-        if (args.Length() > 0 && args.Length() > (i) && args[(i) >= 0 ? (i) : args.Length() - 1]->IsFunction()) var = Local<Function>::Cast(args[(i) >= 0 ? (i) : args.Length() - 1]);
-
+#define OPTIONAL_ARGUMENT_FUNCTION(i, var) Local<Function> var; if (args.Length() > 0 && args.Length() > (i) && args[(i) >= 0 ? (i) : args.Length() - 1]->IsFunction()) var = Local<Function>::Cast(args[(i) >= 0 ? (i) : args.Length() - 1]);
 #define OPTIONAL_ARGUMENT_INT(i, var) int var = (args.Length() > (i) && args[i]->IsInt32() ? args[i]->Int32Value() : 0);
 #define OPTIONAL_ARGUMENT_INT2(i, var, dflt) int var = (args.Length() > (i) && args[i]->IsInt32() ? args[i]->Int32Value() : dflt);
 #define OPTIONAL_ARGUMENT_NUMBER(i, var) float var = (args.Length() > (i) && args[i]->IsNumber() ? args[i]->NumberValue() : 0);
@@ -104,8 +75,10 @@ Handle<Value> toArray(vector<pair<string,string> > &list);
 Handle<Value> jsonParse(string str);
 string jsonStringify(Local<Value> obj);
 
+static const string empty;
+
 struct LRUStringCache {
-    typedef map<string, pair<string, list<string>::iterator> > LRUStringItems;
+    typedef unordered_map<string, pair<string, list<string>::iterator> > LRUStringItems;
     size_t size;
     size_t max;
     list<string> lru;
@@ -115,42 +88,43 @@ struct LRUStringCache {
 
     LRUStringCache(int m = 1000): max(m) { clear(); }
     ~LRUStringCache() { clear(); }
-    string get(const string& k) {
+    const string& get(const string& k) {
         const LRUStringItems::iterator it = items.find(k);
         if (it == items.end()) {
             misses++;
-            return string();
+            return empty;
         }
         hits++;
         lru.splice(lru.end(), lru, it->second.second);
         return it->second.first;
     }
-    void set(const string& k, const string& v) {
+    const string& set(const string& k, const string& v) {
         if (items.size() >= max) clean();
         const LRUStringItems::iterator it = items.find(k);
         if (it == items.end()) {
             list<string>::iterator it = lru.insert(lru.end(), k);
-            items.insert(std::make_pair(k, std::make_pair(v, it)));
+            pair<LRUStringItems::iterator,bool> p = items.insert(std::make_pair(k, std::make_pair(v, it)));
             V8::AdjustAmountOfExternalAllocatedMemory(k.size() + v.size());
             size += k.size() + v.size();
             ins++;
+            return p.first->second.first;
         } else {
             V8::AdjustAmountOfExternalAllocatedMemory(-it->second.first.size());
             it->second.first = v;
             V8::AdjustAmountOfExternalAllocatedMemory(v.size());
             lru.splice(lru.end(), lru, it->second.second);
+            return it->second.first;
         }
     }
     bool exists(const string &k) {
         const LRUStringItems::iterator it = items.find(k);
         return it != items.end();
     }
-    string incr(const string& k, const string& v) {
-        string o = get(k);
+    const string &incr(const string& k, const string& v) {
+        const string& o = get(k);
         char val[32];
         sprintf(val, "%lld", atoll(o.c_str()) + atoll(v.c_str()));
-        set(k, val);
-        return val;
+        return set(k, val);
     }
     void del(const string &k) {
         const LRUStringItems::iterator it = items.find(k);
@@ -185,12 +159,12 @@ struct StringCache {
 
     StringCache() { nextIt = items.end(); }
     ~StringCache() { clear(); }
-    string get(string key) {
+    string get(const string &key) {
         string_map::iterator it = items.find(key);
         if (it != items.end()) return it->second;
         return string();
     }
-    void set(string key, string val) {
+    void set(const string &key, const string &val) {
         string_map::iterator it = items.find(key);
         if (it != items.end()) {
             V8::AdjustAmountOfExternalAllocatedMemory(-it->second.size());
@@ -212,7 +186,7 @@ struct StringCache {
         set(k, val);
         return val;
     }
-    void del(string key) {
+    void del(const string &key) {
         string_map::iterator it = items.find(key);
         if (it != items.end()) {
             V8::AdjustAmountOfExternalAllocatedMemory(-(it->first.size() + it->second.size()));

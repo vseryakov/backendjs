@@ -74,6 +74,8 @@
 #include <list>
 #include <map>
 #include <queue>
+#include <tr1/unordered_map>
+using namespace std::tr1;
 using namespace std;
 
 #ifdef UNICODE

@@ -26,8 +26,8 @@ struct SyslogTls {
 
 static void _syslogOpen(string path, string tag, int options, int facility);
 static void _syslogClose(void);
-static void _syslogSend(int severity, string fmt, ...);
-static void _syslogSendV(int severity, string fmt, va_list ap);
+static void _syslogSend(int severity, const char *fmt, ...);
+static void _syslogSendV(int severity, const char *fmt, va_list ap);
 static void _syslogFreeTls(void *arg);
 static SyslogTls *_syslogGetTls(void);
 
@@ -171,7 +171,7 @@ static void _syslogClose(void)
     log->connected = 0;
 }
 
-static void _syslogSend(int severity, string fmt, ...)
+static void _syslogSend(int severity, const char *fmt, ...)
 {
     va_list ap;
 
@@ -180,10 +180,9 @@ static void _syslogSend(int severity, string fmt, ...)
     va_end(ap);
 }
 
-static void _syslogSendV(int severity, string fmt, va_list ap)
+static void _syslogSendV(int severity, const char *fmt, va_list ap)
 {
     string buf, err = strerror(errno);
-    time_t now = time(NULL);
     int fd, offset;
     SyslogTls *log = _syslogGetTls();
 
@@ -202,15 +201,29 @@ static void _syslogSendV(int severity, string fmt, va_list ap)
     if ((severity & LOG_FACMASK) == 0) severity |= log->facility;
 
     // build the message
-    buf = vFmtStr("<%d>%.15s ", severity, ctime(&now) + 4);
+    char tmp[128];
+    time_t now = time(NULL);
+    snprintf(tmp, sizeof(tmp), "<%d>%.15s ", severity, ctime(&now) + 4);
+    buf = tmp;
     offset = buf.size();
 
-    if (!log->tag.empty()) buf += log->tag;
-    if (log->options & LOG_PID) buf += vFmtStr("[%d]", getpid());
-    if (!log->tag.empty()) buf += ": ";
+    if (!log->tag.empty()) {
+        buf += log->tag;
+    }
+    if (log->options & LOG_PID) {
+        sprintf(tmp, "[%d]", getpid());
+        buf += tmp;
+    }
+    if (!log->tag.empty()) {
+        buf += ": ";
+    }
 
-    // substitute error message for %m
-    buf += vFmtStrV(strReplace(fmt, "%m", err), ap);
+    char *str = NULL;
+    int n = vasprintf(&str, fmt, ap);
+    if (n > 0) {
+        buf += str;
+        free(str);
+    }
 
     // output to stderr if requested
     if (log->options & LOG_PERROR) {
@@ -218,7 +231,8 @@ static void _syslogSendV(int severity, string fmt, va_list ap)
     }
 
     // output to the syslog socket
-    write(log->sock, buf.c_str(), buf.size());
+    int rc = write(log->sock, buf.c_str(), buf.size());
+    if (rc == -1) _syslogClose();
 
     // output to the console if requested
     if (log->options & LOG_CONS) {

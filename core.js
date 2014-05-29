@@ -2741,6 +2741,8 @@ core.watchLogs = function(callback)
 core.checkTest = function()
 {
     var next = arguments[0];
+    if (this.getArgInt("-test-forever", 0)) return next();
+
     if (arguments[1] || arguments[2]) {
         var args = [ arguments[1] ? arguments[1] : new Error("failed condition") ];
         for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
@@ -2756,6 +2758,7 @@ core.checkTest = function()
 // - -test-workers - number of workers to run the test at the same time
 // - -test-delay - number of milliseconds before starting worker processes, default is 500ms
 // - -test-iterations - how many times to run this test function, default is 1
+// - test-forever - run forever without reporting any errors, for performance testing
 //
 // All common command line arguments can be used, like -db-pool to specify which db to use.
 //

@@ -222,9 +222,9 @@ server.startMaster = function()
 
         logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
     } else {
+        core.dropPrivileges();
         this.startWorker();
     }
-    core.dropPrivileges();
 }
 
 // Job worker process
