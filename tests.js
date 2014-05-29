@@ -314,14 +314,11 @@ tests.location = function(callback)
 	};
 	var bbox = this.bbox;
     var rows = core.getArgInt("-rows", 10);
-    var distance = core.getArgInt("-distance", 25)
+    var distance = core.getArgInt("-distance", 25);
     var round = core.getArgInt("-round", 0)
     var reuse = core.getArgInt("-reuse", 0)
-    var latitude = core.getArgInt("-lat", 0)
-    var longitude = core.getArgInt("-lon", 0)
-
-    if (!latitude) latitude = core.randomNum(bbox[0], bbox[2])
-    if (!longitude) longitude = core.randomNum(bbox[1], bbox[3])
+    var latitude = core.getArgInt("-lat", core.randomNum(bbox[0], bbox[2]))
+    var longitude = core.getArgInt("-lon", core.randomNum(bbox[1], bbox[3]))
 
     var rc = [], top = {}, bad = 0, good = 0, error = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
@@ -333,17 +330,15 @@ tests.location = function(callback)
 
     async.series([
         function(next) {
-            if (reuse) return next();
-            async.forEachSeries(Object.keys(tables), function(t, next2) {
-                db.drop(t, function() { next2() });
-            }, next);
+            if (reuse || core.test.iterations) return next();
+            db.dropPoolTables("", tables, next);
         },
         function(next) {
-            if (reuse) return next();
+            if (reuse || core.test.iterations) return next();
         	db.initTables(tables, next);
         },
         function(next) {
-            if (reuse) return next();
+            if (reuse || core.test.iterations) return next();
         	async.whilst(
         		function () { return good < rows + count; },
         		function (next2) {
@@ -377,7 +372,7 @@ tests.location = function(callback)
         		});
         },
         function(next) {
-            if (reuse) return next();
+            if (reuse || core.test.iterations) return next();
             // Records beyond our distance
             bad = good;
             async.whilst(
@@ -484,9 +479,7 @@ tests.db = function(callback)
 
 	async.series([
 	    function(next) {
-	         async.forEachSeries(Object.keys(tables), function(t, next2) {
-	             db.drop(t, function() { next2() });
-	         }, next);
+	         db.dropPoolTables("", tables, next);
 	    },
 	    function(next) {
 	    	db.initTables(tables, next);

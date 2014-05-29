@@ -949,6 +949,8 @@ default is is open for access to all users but same security considerations appl
 
 - `/system/stats`
   Database pool statistics and other diagnostics
+  - latency - how long a pending request waits in queue at this moment
+  - busy - how many busy error responses have been returned so far
   - pool - database metrics
     - query - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
     - response - stats about only response times from the db without any local processing times of the result records
@@ -982,7 +984,8 @@ default is is open for access to all users but same security considerations appl
   Response:
 
          {
-            "toobusy": 0,
+            "latency": 0,
+            "busy": 0,
             "pool": {
                 "query": {
                     "meter": {

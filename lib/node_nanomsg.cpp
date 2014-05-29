@@ -158,10 +158,13 @@ public:
     int Send(void *data, int len) {
         op = __PRETTY_FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
-        void *buf = nn_allocmsg(len, 0);
-        memcpy(buf, data, len + 1);
-        int rc = nn_send(sock, &buf, NN_MSG, NN_DONTWAIT);
-        if (nn_slow(rc == -1)) return err = nn_errno();
+        void *msg = nn_allocmsg(len, 0);
+        memcpy(msg, data, len);
+        int rc = nn_send(sock, &msg, NN_MSG, NN_DONTWAIT);
+        if (nn_slow(rc == -1)) {
+            nn_freemsg(msg);
+            return err = nn_errno();
+        }
         return 0;
     }
 
@@ -542,7 +545,7 @@ public:
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
         OPTIONAL_ARGUMENT_AS_STRING(0, str);
-        int rc = sock->Send(*str, str.length() + 1);
+        int rc = str.length() ? sock->Send(*str, str.length() + 1) : 0;
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
     }
 

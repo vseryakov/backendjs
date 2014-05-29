@@ -99,11 +99,9 @@ var api = {
                       mtime: { type: "bigint", now: 1 } },    // Last update time
 
        // Status/presence support
-       bk_status: {
-           id: { primary: 1 },                               // account id
-           status: { primary: 1 },                           // status
-           mtime: { type: "bigint", now: 1 },                // last status change time
-       },
+       bk_status: { id: { primary: 1 },                               // account id
+                    status: {},                                       // status
+                    mtime: { type: "bigint", now: 1 }},               // last status change time
 
        // Keep track of icons uploaded
        bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
@@ -294,7 +292,7 @@ api.init = function(callback)
     if (logger.syslog) {
         self.accesslog = new stream.Stream();
         self.accesslog.writable = true;
-        self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; }
+        self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; };
     } else
     if (self.accessLog) {
         self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
@@ -547,8 +545,11 @@ api.startSocketServer = function()
     }
 }
 
-// Called on new socket connection, passed the socket connected as first argument, supports any type of sockets
+// Called on new socket connection, supports all type of sockets
 api.setupSocketConnection = function(socket) {}
+
+// Called when a socket connections is closed to cleanup all additional resources associated with it
+api.cleanupSocketConnection = function(socket) {}
 
 // Called before allowing the socket.io connection to be authorized
 api.checkSocketIORequest = function(data, callback) { callback(null, true); }
@@ -566,6 +567,7 @@ api.handleSocketIOConnect = function(socket)
 
     socket.on("disconnect", function() {
         self.closeWebSocketRequest(this);
+        self.cleanupSocketConnection(this);
     });
 
     socket.on("message", function(url, callback) {
@@ -593,6 +595,7 @@ api.handleWebSocketConnect = function(socket)
 
     socket.on("close", function() {
         self.closeWebSocketRequest(this);
+        self.cleanupSocketConnection(this);
     });
 
     socket.on("message", function(url, flags) {
@@ -629,7 +632,7 @@ api.createWebSocketRequest = function(socket, url, reply)
         this.req = null;
         this.wsock = null;
         this.emit("finish");
-    }
+    };
     if (!socket._requests) socket._requests = [];
     socket._requests.unshift(req);
     return req;
@@ -2582,13 +2585,19 @@ api.deleteAccount = function(obj, options, callback)
            },
            function(next) {
                if (options.keep.message) return next();
-               db.delAll("bk_message", { id: obj.id }, options, function() {
-                   db.delAll("bk_archive", { id: obj.id }, options, function() {
-                       db.delAll("bk_sent", { id: obj.id }, options, function() {
-                           next();
-                       });
-                   });
-               });
+               db.delAll("bk_message", { id: obj.id }, options, next);
+           },
+           function(next) {
+               if (options.keep.archive) return next();
+                   db.delAll("bk_archive", { id: obj.id }, options, next);
+           },
+           function(next) {
+               if (options.keep.sent) return next();
+               db.delAll("bk_sent", { id: obj.id }, options, next);
+           },
+           function(next) {
+               if (options.keep.status) return next();
+               db.del("bk_status", { id: obj.id }, options, next);
            },
            function(next) {
                if (options.keep.icon) return next();
@@ -2629,7 +2638,7 @@ api.getStatistics = function()
 {
     var pool = core.context.db.getPool();
     pool.metrics.stats = pool.stats();
-    return { toobusy: toobusy.lag(), pool: pool.metrics, api: this.metrics };
+    return { latency: toobusy.lag(), pool: pool.metrics, api: this.metrics };
 }
 
 // Metrics about the process

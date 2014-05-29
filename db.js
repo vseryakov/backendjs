@@ -266,7 +266,8 @@ db.initPoolTables = function(name, tables, options, callback)
     });
 }
 
-// Remove all registered tables from the pool
+// Delete all specified tables from the pool, if `pool` is empty then default pool will be used, `tables` is an object with table names as
+// properties, same table definition format as for create table method
 db.dropPoolTables = function(name, tables, options, callback)
 {
     var self = this;
@@ -274,7 +275,7 @@ db.dropPoolTables = function(name, tables, options, callback)
     if (!options) options = {};
 
     options.pool = name;
-    var pool = self.getPool('', { pool: name });
+    var pool = self.getPool('', options);
     async.forEachSeries(Object.keys(tables || {}), function(table, next) {
         self.drop(table, options, function() { next() });
     }, callback);

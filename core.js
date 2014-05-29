@@ -2759,6 +2759,8 @@ core.watchLogs = function(callback)
 //  - failure - must be true for failed test, the condition is evaluated by the caller and this is the result of it
 //  - all other arguments are printed in case of error or result being false
 //
+//  NOTE: In forever mode (-test-forever) any error is ignored and not reported
+//
 // Example
 //
 //          function(next) {
@@ -2786,7 +2788,7 @@ core.checkTest = function()
 // - -test-workers - number of workers to run the test at the same time
 // - -test-delay - number of milliseconds before starting worker processes, default is 500ms
 // - -test-iterations - how many times to run this test function, default is 1
-// - test-forever - run forever without reporting any errors, for performance testing
+// - -test-forever - run forever without reporting any errors, for performance testing
 //
 // All common command line arguments can be used, like -db-pool to specify which db to use.
 //
@@ -2815,9 +2817,10 @@ core.runTest = function(obj, options, callback)
 
     this.test = { role: cluster.isMaster ? "master" : "worker", iterations: 0, stime: Date.now() };
     this.test.delay = options.delay || this.getArgInt("-test-delay", 500);
-    this.test.count = this.getArgInt("-test-iterations", 1);
-    this.test.forever = this.getArgInt("-test-forever", 0);
-    this.test.keepmaster = this.getArgInt("-test-keepmaster", 0);
+    this.test.countdown = options.iterations || this.getArgInt("-test-iterations", 1);
+    this.test.forever = options.forever || this.getArgInt("-test-forever", 0);
+    this.test.keepmaster = options.keepmaster || this.getArgInt("-test-keepmaster", 0);
+    self.test.workers = options.workers || self.getArgInt("-test-workers", 0);
     this.test.cmd = options.cmd || this.getArg("-test-cmd");
     if (this.test.cmd[0] == "_" || !obj || !obj[this.test.cmd]) {
         console.log("usage: ", process.argv[0], process.argv[1], "-test-cmd", "command");
@@ -2827,11 +2830,7 @@ core.runTest = function(obj, options, callback)
     }
 
     if (cluster.isMaster) {
-        setTimeout(function() {
-            self.test.workers = options.workers || self.getArgInt("-test-workers", 0);
-            for (var i = 0; i < self.test.workers; i++) cluster.fork();
-        }, self.test.delay);
-
+        setTimeout(function() { for (var i = 0; i < self.test.workers; i++) cluster.fork(); }, self.test.delay);
         cluster.on("exit", function(worker) {
             if (!Object.keys(cluster.workers).length && !self.test.forever && !self.test.keepmaster) process.exit(0);
         });
@@ -2840,9 +2839,9 @@ core.runTest = function(obj, options, callback)
     logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', this.test.cmd, 'db-pool:', this.context.db.pool);
 
     async.whilst(
-        function () { return self.test.count > 0 || self.test.forever || self.test.running; },
+        function () { return self.test.countdown > 0 || self.test.forever || options.running; },
         function (next) {
-            self.test.count--;
+            self.test.countdown--;
             obj[self.test.cmd](function(err) {
                 self.test.iterations++;
                 if (self.test.forever) err = null;
