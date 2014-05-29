@@ -98,7 +98,7 @@ tests.account = function(callback)
             // Add all icons from the files
             var type = 0;
             async.forEachSeries(icons, function(icon, next2) {
-                icon = fs.readFileSync(icon).toString("base64");
+                icon = core.readFileSync(icon, { encoding : "base64" });
                 var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: type++, acl_allow: "allow" }  }
                 core.sendRequest("/account/put/icon", options, function(err, params) {
                     next2(err);
@@ -939,12 +939,15 @@ tests.cache = function(callback)
                 break;
             }
         }
-        ipc.initServer();
-        setInterval(function() { logger.log('keys:', backend.backend.lruKeys()); }, 1000);
+        if (!core.test.iterations) {
+            ipc.initServer();
+            setInterval(function() { logger.log('keys:', backend.backend.lruKeys()); }, 1000);
+        }
     } else {
         ipc.onMessage = function(msg) {
             switch (msg.op) {
             case "init":
+                if (core.test.iterations) break;
                 core.cacheBind = core.ipaddrs[0];
                 core.cachePort = 20000;
                 ipc.initServer();
@@ -966,7 +969,9 @@ tests.cache = function(callback)
                 break;
             }
         }
-        ipc.initClient();
+        if (!core.test.iterations) {
+            ipc.initClient();
+        }
         ipc.send("ready");
     }
 }

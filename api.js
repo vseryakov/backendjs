@@ -23,6 +23,7 @@ var session = require('cookie-session');
 var serveStatic = require('serve-static');
 var formidable = require('formidable');
 var socketio = require("socket.io");
+var ws = require("ws");
 var redis = require('redis');
 var mime = require('mime');
 var consolidate = require('consolidate');
@@ -312,7 +313,7 @@ api.init = function(callback)
                        (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
                        req.method + " " +
                        (req.logUrl || req.originalUrl || req.url) + " " +
-                       (req.httpProtocol || "HTTP") + "/" + req.httpVersion + " " +
+                       (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
                        res.statusCode + " " +
                        (res.get("Content-Length") || '-') + " - " +
                        (now - req._startTime) + " ms - " +
@@ -397,7 +398,7 @@ api.init = function(callback)
     if (self.allowSsl.length) {
         self.allowSslRx = new RegExp(self.allowSsl.map(function(x) { return "(" + x + ")"}).join("|"));
         self.registerAuthCheck('', self.allowSslRx, function(req, status, cb) {
-            if (req.socket.server != self.server) return cb({ status: 404, message: "ssl only" });
+            if (req.socket.server != self.sslserver) return cb({ status: 404, message: "ssl only" });
             cb();
         });
     }
@@ -411,9 +412,10 @@ api.init = function(callback)
             self.server = http.createServer(function(req, res) { self.handleServerRequest(req, res) });
             self.server.timeout = core.timeout;
             self.server.on('error', function(err) {
-                logger.error('api:', err);
+                logger.error('api:http:', err);
                 if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
             });
+            try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
 
             // Start SSL server
             if (core.ssl.key || core.ssl.pfx) {
@@ -423,14 +425,11 @@ api.init = function(callback)
                     logger.error('api:ssl:', err);
                     if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
                 });
+                try { self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init: ssl:', core.ssl, e); err = e; }
             }
 
-            // Primary http servers
-            try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
-            try { if (self.sslserver) self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init: ssl:', core.ssl, e); err = e; }
-
-            // External socket server(s), pass messages into the Express routing by wrapping into req/res objects
-            self.setupSocketServer();
+            // Sockets server(s), pass messages into the Express routing by wrapping into req/res objects
+            self.startSocketServer();
 
             // Notify the master about new worker server
             ipc.send("api:ready");
@@ -460,13 +459,19 @@ api.shutdown = function(callback)
             try { self.sslserver.close(function() { next() }); } catch(e) { next() }
         },
         function(next) {
+            if (!self.wsserver) return next();
+            try { self.wsserver.close(function() { next() }); } catch(e) { next() }
+        },
+        function(next) {
+            if (!self.socketioserver) return next();
+            try { self.socketioserver.close(function() { next() }); } catch(e) { next() }
+        }
+        ], function(err) {
+            clearTimeout(timeout);
             var pools = db.getPools();
             async.forEachLimit(pools, pools.length, function(pool, next) {
                 db.dbpool[pool.name].shutdown(next);
-            }, next);
-        }], function(err) {
-            clearTimeout(timeout);
-            if (callback) callback();
+            }, callback);
         });
 }
 
@@ -492,12 +497,12 @@ api.handleProxyRequest = function(req, res, proxy) {}
 api.setupProxyServer = function() {}
 
 // Setup external socket server(s)
-api.setupSocketServer = function()
+api.startSocketServer = function()
 {
     var self = this;
 
+    // socket.io server
     try {
-        // socket.io server
         if (core.socketio.port) {
             self.socketioserver = socketio.listen(core.socketio.port, core.socketio.options);
             // We must have Redis due to master/worker runtime
@@ -505,8 +510,8 @@ api.setupSocketServer = function()
             var h = core.socketio.options.redisHost || core.redisHost;
             var o = core.socketio.options.redisOptions || core.redisOptions;
             self.socketioserver.set('store', new socketio.RedisStore({ redisPub: redis.createClient(p, h, o), redisSub: redis.createClient(p, h, o), redisClient: redis.createClient(p, h, o) }));
-            self.socketioserver.set('authorization', function(data, callback) { self.checkSocketRequest(data, callback); });
-            self.socketioserver.sockets.on('connection', function(socket) { self.handleSocketConnect(socket); });
+            self.socketioserver.set('authorization', function(data, callback) { self.checkSocketIORequest(data, callback); });
+            self.socketioserver.sockets.on('connection', function(socket) { self.handleSocketIOConnect(socket); });
 
             // Expose socket.io.js client
             module.children.forEach(function(x) {
@@ -516,77 +521,130 @@ api.setupSocketServer = function()
             });
         }
     } catch(e) {
-        logger.error('setupSocketServer:', e);
+        logger.error('setupSocketServer: socket.io', e.stack);
+    }
+
+    // WebSocket server, by default uses the http port
+    try {
+        if (core.ws.port) {
+            if (core.ws.ssl) {
+                var server = https.createServer(core.ssl, function(req, res) { res.send(200, "OK"); });
+            } else {
+                var server = http.createServer(function(req, res) { res.send(200, "OK"); });
+            }
+            server.on('error', function(err) {
+                logger.error('api:ws:', err);
+                if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
+            });
+            try { server.listen(core.ws.port, core.ws.bind, core.backlog); } catch(e) { logger.error('startSocketServer: ws:', core.ws.port, core.ws.bind, e); }
+            var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
+            if (core.ws.path) opts.path = core.ws.path;
+            self.wsserver = new ws.Server(opts);
+            self.wsserver.on('connection', function(socket) { self.handleWebSocketConnect(socket); });
+        }
+    } catch(e) {
+        logger.error('setupSocketServer: ws', e.stack);
     }
 }
 
-// Wrap external socket connection into the Express routing, respond on backend command
-api.handleSocketConnect = function(socket)
+// Called on new socket connection, passed the socket connected as first argument, supports any type of sockets
+api.setupSocketConnection = function(socket) {}
+
+// Called before allowing the socket.io connection to be authorized
+api.checkSocketIORequest = function(data, callback) { callback(null, true); }
+
+// Wrap external socket.io connection into the Express routing, respond on backend command
+api.handleSocketIOConnect = function(socket)
 {
     var self = this;
 
-    this.checkSocketConnection(socket);
+    this.setupSocketConnection(socket);
 
     socket.on("error", function(err) {
         logger.error("socket:", err);
     });
 
     socket.on("disconnect", function() {
-        if (!this._requests) return;
-        while (this._requests.length > 0) {
-            var x = this._requests.pop();
-            x.emit("close");
-            x.res.end();
-        }
+        self.closeWebSocketRequest(this);
     });
 
     socket.on("message", function(url, callback) {
-        logger.debug("socket:", "msg", url, callback);
-
-        var req = new http.IncomingMessage();
-        req.socket = new net.Socket();
-        req.socket.ip = this.remoteAddress;
-        req.socket.__defineGetter__('remoteAddress', function() { return this.ip; });
-        req.connection = req.socket;
-        req._body = true;
-        req.httpVersionMajor = 1;
-        req.httpVersionMinor = 0;
+        var req = self.createWebSocketRequest(this, url, function(data) { if (callback) return callback(data); if (data) this.emit("message", data); });
         req.httpProtocol = "IO";
-        req.httpVersion = "1.0";
-        req.method = "GET";
         req.headers = this.headers || (this.handshake || {}).headers || {};
-        req.url = url;
-        req.logUrl = url.split("?")[0];
-
-        req.res = new http.ServerResponse(req);
-        req.res.assignSocket(req.socket);
-        req.res.io = this;
-        req.res.end = function(body) {
-            if (callback) {
-                callback(body);
-            } else
-            if (body) {
-                this.io.emit("message", body);
-            }
-            this.io._requests.splice(this.io._requests.indexOf(this.req), 1);
-            this.req.res = null;
-            this.req = null;
-            this.io = null;
-            this.emit("finish");
-        }
-        if (!this._requests) this._requests = [];
-        this._requests.unshift(req);
         req = null;
-
         self.handleServerRequest(this._requests[0], this._requests[0].res);
     });
 }
 
-// Called before allowing the socket.io connection to be authorized
-api.checkSocketRequest = function(data, callback) { callback(null, true); }
+// Called before allowing the WebSocket connection to be authorized
+api.checkWebSocketRequest = function(data, callback) { callback(true); }
 
-// Called on new socket.io connection, passed the socket connected as first argument
-api.checkSocketConnection = function(socket) {}
+// Wrap external WeSocket connection into the Express routing, respond on backend command
+api.handleWebSocketConnect = function(socket)
+{
+    var self = this;
+
+    this.setupSocketConnection(socket);
+
+    socket.on("error", function(err) {
+        logger.error("socket:", err);
+    });
+
+    socket.on("close", function() {
+        self.closeWebSocketRequest(this);
+    });
+
+    socket.on("message", function(url, flags) {
+        self.createWebSocketRequest(this, url, function(data) { this.send(data); })
+        self.handleServerRequest(this._requests[0], this._requests[0].res);
+    });
+}
+
+// Wrap WebSocket into HTTP request to be proceses by the Express routes
+api.createWebSocketRequest = function(socket, url, reply)
+{
+    logger.debug("socketRequest:", url);
+
+    var req = new http.IncomingMessage();
+    req.socket = new net.Socket();
+    req.socket.ip = this.remoteAddress;
+    req.socket.__defineGetter__('remoteAddress', function() { return this.ip; });
+    req.connection = req.socket;
+    req.httpVersionMajor = req.httpVersionMinor = 1;
+    req.httpProtocol = "WS";
+    req.method = "GET";
+    req.headers = this.headers || {};
+    req.url = String(url);
+    req.logUrl = req.url.split("?")[0];
+    req._body = true;
+
+    req.res = new http.ServerResponse(req);
+    req.res.assignSocket(req.socket);
+    req.res.wsock = socket;
+    req.res.end = function(body) {
+        reply.call(this.wsock, body);
+        this.wsock._requests.splice(this.wsock._requests.indexOf(this.req), 1);
+        this.req.res = null;
+        this.req = null;
+        this.wsock = null;
+        this.emit("finish");
+    }
+    if (!socket._requests) socket._requests = [];
+    socket._requests.unshift(req);
+    return req;
+}
+
+// Close all pending requests, this is called on socket close or disconnect
+api.closeWebSocketRequest = function(socket)
+{
+    if (!socket._requests) return;
+    while (socket._requests.length > 0) {
+        var x = socket._requests.pop();
+        x.emit("close");
+        x.res.end();
+    }
+}
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server
 // is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.

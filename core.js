@@ -64,6 +64,9 @@ var core = {
     // Sockets.io config
     socketio: { port: 0, bind: "0.0.0.0", options: {} },
 
+    // WebSockets config
+    ws: { port: 0, bind: "0.0.0.0", options: {} },
+
     // Proxy config
     proxyPort: 8080,
     proxyBind: '0.0.0.0',
@@ -138,6 +141,8 @@ var core = {
             { name: "backlog", descr: "The maximum length of the queue of pending connections, used by HTTP server in listen." },
             { name: "socketio-port", type: "number", obj: 'socketio', min: 0, descr: "port to listen for sockets.io server, this is global default" },
             { name: "socketio-bind", obj: 'socketio', descr: "Bind to this address only for sockets.io server, if not specified listen on all interfaces" },
+            { name: "ws-port", type: "number", obj: 'ws', min: 0, descr: "port to listen for WebSocket server, this is global default" },
+            { name: "ws-bind", obj: 'ws', descr: "Bind to this address only for WebSocket, if not specified listen on all interfaces" },
             { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
             { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },
@@ -1934,6 +1939,31 @@ core.statSync = function(file)
     return stat;
 }
 
+// Return contents of a file, empty if not exist or on error.
+// Options can specify the format:
+// - json - parse file as JSON, return an object, in case of error an empty object
+// - list - split contents with the given separator
+// - encoding - file encoding when converting to string
+// - logger - if 1 log all errors
+core.readFileSync = function(file, options)
+{
+    try {
+        var data = fs.readFileSync(file).toString(options && options.encoding ? options.encoding : "utf8");
+        if (options) {
+            if (options.json) data = JSON.parse(data);
+            if (options.list) data = data.split(options.list);
+        }
+        return data;
+    } catch(e) {
+        if (options) {
+            if (options.logger) logger.error('readFileSync:', file, e);
+            if (options.json) return {};
+            if (options.list) return [];
+        }
+        return "";
+    }
+}
+
 // Return list of files than match filter recursively starting with given path
 // - file - starting path
 // - filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync
@@ -2576,10 +2606,7 @@ core.createRepl = function(options)
 
     // Support history
     if (this.replFile) {
-        try {
-            r.rli.history = fs.readFileSync(this.replFile, 'utf-8').split('\n').reverse();
-        } catch (e) {}
-
+        r.rli.history = this.readFileSync(this.replFile, { list: '\n' }).reverse();
         r.rli.addListener('line', function(code) {
             if (code) {
                 fs.appendFile(self.replFile, code + '\n', function() {});
@@ -2741,7 +2768,7 @@ core.watchLogs = function(callback)
 core.checkTest = function()
 {
     var next = arguments[0];
-    if (this.getArgInt("-test-forever", 0)) return next();
+    if (this.test.forever) return next();
 
     if (arguments[1] || arguments[2]) {
         var args = [ arguments[1] ? arguments[1] : new Error("failed condition") ];
@@ -2784,51 +2811,55 @@ core.runTest = function(obj, options, callback)
 {
     var self = this;
     if (!options) options = {};
+    this.test = {};
 
-    var role = cluster.isMaster ? "master" : "worker";
-    var name = options.name || this.getArg("-test-cmd");
-    if (name[0] == "_" || !obj || !obj[name]) {
+    this.test.role = cluster.isMaster ? "master" : "worker";
+    this.test.cmd = options.cmd || this.getArg("-test-cmd");
+    if (this.test.cmd[0] == "_" || !obj || !obj[this.test.cmd]) {
         console.log("usage: ", process.argv[0], process.argv[1], "-test-cmd", "command");
         console.log("      where command is one of: ", Object.keys(obj).filter(function(x) { return x[0] != "_" && typeof obj[x] == "function" }).join(", "));
         if (cluster.isMaster && callback) return callback("invalid arguments");
         process.exit(0);
     }
 
-    options.stime = Date.now();
-    var count = this.getArgInt("-test-iterations", 1);
-    var forever = this.getArgInt("-test-forever", 0);
-    var keepmaster = this.getArgInt("-test-keepmaster", 0);
+    this.test.iterations = 0;
+    this.test.stime = Date.now();
+    this.test.delay = options.delay || this.getArgInt("-test-delay", 500);
+    this.test.count = this.getArgInt("-test-iterations", 1);
+    this.test.forever = this.getArgInt("-test-forever", 0);
+    this.test.keepmaster = this.getArgInt("-test-keepmaster", 0);
 
     if (cluster.isMaster) {
         setTimeout(function() {
-            var workers = self.getArgInt("-test-workers", 0);
-            for (var i = 0; i < workers; i++) cluster.fork();
-        }, this.getArgInt("-test-delay", 500));
+            self.test.workers = options.workers || self.getArgInt("-test-workers", 0);
+            for (var i = 0; i < self.test.workers; i++) cluster.fork();
+        }, self.test.delay);
 
         cluster.on("exit", function(worker) {
-            if (!Object.keys(cluster.workers).length && !forever && !keepmaster) process.exit(0);
+            if (!Object.keys(cluster.workers).length && !self.test.forever && !self.test.keepmaster) process.exit(0);
         });
     }
 
-    logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', name, 'db-pool:', this.context.db.pool);
+    logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', this.test.cmd, 'db-pool:', this.context.db.pool);
 
     async.whilst(
-        function () { return count > 0 || forever || options.running; },
+        function () { return self.test.count > 0 || self.test.forever || self.test.running; },
         function (next) {
-            count--;
-            obj[name](function(err) {
-                if (forever) err = null;
+            self.test.count--;
+            obj[self.test.cmd](function(err) {
+                self.test.iterations++;
+                if (self.test.forever) err = null;
                 next(err);
             });
         },
         function(err) {
-            options.etime = Date.now();
+            self.test.etime = Date.now();
             if (err) {
-                logger.error("test failed:", role, 'name:', name, err);
+                logger.error("test failed:", self.test.role, 'name:', self.test.cmd, err);
                 if (cluster.isMaster && callback) return callback(err);
                 process.exit(1);
             }
-            logger.log("test stopped:", role, 'name:', name, 'db-pool:', self.context.db.pool, 'time:', options.etime - options.stime, "ms");
+            logger.log("test stopped:", self.test.role, 'name:', self.test.cmd, 'db-pool:', self.context.db.pool, 'time:', self.test.etime - self.test.stime, "ms");
             if (cluster.isMaster && callback) return callback();
             process.exit(0);
         });

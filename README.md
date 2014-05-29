@@ -1,6 +1,10 @@
 # Backend.js framework for node.js
 
-General purpose backend framework.
+General purpose backend framework. The primary goal is to have a scalable platform for running and managing node.js
+servers for Web services implementation. This framework only covers the lower portion of the Web services system:
+node.js processes, HTTP servers, basic API functinality, database access, caching, messaging between processes,
+metrics and monitoring, a library of tools for developing node.js servers.
+For the UI and presentation layer there is no restrictions what to use as long as it can run on top of the Express server.
 
 Features:
 
@@ -20,7 +24,7 @@ Features:
 * nanomsg interface for messaging between processes and servers.
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
-* Can be used with any MVC or other types of frameworks that work on top of Express server.
+* Can be used with any MVC or other types of frameworks that work on top or with the Express server.
 * Hosted on [github](https://github.com/vseryakov/backendjs), http://backendjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
 
 Check out the [Documentation](http://backendjs.io) for more details.
