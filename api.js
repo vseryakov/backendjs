@@ -260,7 +260,10 @@ api.init = function(callback)
 
     // Latency watcher
     self.app.use(function(req, res, next) {
-        if (self.busyLatency && toobusy()) return self.sendReply(res, 503, "Server is unavailable");
+        if (self.busyLatency && toobusy()) {
+            self.metrics.Counter('busy').inc();
+            return self.sendReply(res, 503, "Server is unavailable");
+        }
         next();
     });
 
@@ -451,27 +454,21 @@ api.shutdown = function(callback)
     var db = core.context.db;
     async.parallel([
         function(next) {
-            if (!self.server) return next();
-            try { self.server.close(function() { next() }); } catch(e) { next() }
+            try { if (self.wsserver) self.wsserver.close(function() { next() }); } catch(e) { next() }
         },
         function(next) {
-            if (!self.sslserver) return next();
-            try { self.sslserver.close(function() { next() }); } catch(e) { next() }
+            try { if (self.socketioserver) self.socketioserver.close(function() { next() }); } catch(e) { next() }
         },
         function(next) {
-            if (!self.wsserver) return next();
-            try { self.wsserver.close(function() { next() }); } catch(e) { next() }
+            try { if (self.server) self.server.close(function() { next() }); } catch(e) { next() }
         },
         function(next) {
-            if (!self.socketioserver) return next();
-            try { self.socketioserver.close(function() { next() }); } catch(e) { next() }
-        }
+            try { if (self.sslserver) self.sslserver.close(function() { next() }); } catch(e) { next() }
+        },
         ], function(err) {
             clearTimeout(timeout);
             var pools = db.getPools();
-            async.forEachLimit(pools, pools.length, function(pool, next) {
-                db.dbpool[pool.name].shutdown(next);
-            }, callback);
+            async.forEachLimit(pools, pools.length, function(pool, next) { db.dbpool[pool.name].shutdown(next); }, callback);
         });
 }
 

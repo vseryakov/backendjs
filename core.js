@@ -79,6 +79,7 @@ var core = {
     ipaddrs: [],
     hostname: '',
     instanceId: process.pid,
+    maxCPUs: os.cpus().length,
 
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
     // for manual installations `bkjs setup-server` will create a user with this id
@@ -536,7 +537,7 @@ core.showHelp = function(options)
             var line = (x[0] ? x[0] + '-' : '') + y.name + "` - " + y.descr + (dflt ? ". Default: " + dflt : "");
             if (y.dns) line += ". DNS TXT configurable.";
             if (options && options.markdown) {
-                data += " * `" +  line + "\n";
+                data += "- `" +  line + "\n";
             } else {
                 console.log(printf("%-40s", line));
             }
@@ -2811,9 +2812,12 @@ core.runTest = function(obj, options, callback)
 {
     var self = this;
     if (!options) options = {};
-    this.test = {};
 
-    this.test.role = cluster.isMaster ? "master" : "worker";
+    this.test = { role: cluster.isMaster ? "master" : "worker", iterations: 0, stime: Date.now() };
+    this.test.delay = options.delay || this.getArgInt("-test-delay", 500);
+    this.test.count = this.getArgInt("-test-iterations", 1);
+    this.test.forever = this.getArgInt("-test-forever", 0);
+    this.test.keepmaster = this.getArgInt("-test-keepmaster", 0);
     this.test.cmd = options.cmd || this.getArg("-test-cmd");
     if (this.test.cmd[0] == "_" || !obj || !obj[this.test.cmd]) {
         console.log("usage: ", process.argv[0], process.argv[1], "-test-cmd", "command");
@@ -2821,13 +2825,6 @@ core.runTest = function(obj, options, callback)
         if (cluster.isMaster && callback) return callback("invalid arguments");
         process.exit(0);
     }
-
-    this.test.iterations = 0;
-    this.test.stime = Date.now();
-    this.test.delay = options.delay || this.getArgInt("-test-delay", 500);
-    this.test.count = this.getArgInt("-test-iterations", 1);
-    this.test.forever = this.getArgInt("-test-forever", 0);
-    this.test.keepmaster = this.getArgInt("-test-keepmaster", 0);
 
     if (cluster.isMaster) {
         setTimeout(function() {
