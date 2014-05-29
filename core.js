@@ -65,7 +65,7 @@ var core = {
     socketio: { port: 0, bind: "0.0.0.0", options: {} },
 
     // WebSockets config
-    ws: { port: 0, bind: "0.0.0.0", options: {} },
+    ws: { port: 0, bind: "0.0.0.0", },
 
     // Proxy config
     proxyPort: 8080,
@@ -139,10 +139,10 @@ var core = {
             { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
             { name: "backlog", descr: "The maximum length of the queue of pending connections, used by HTTP server in listen." },
-            { name: "socketio-port", type: "number", obj: 'socketio', min: 0, descr: "port to listen for sockets.io server, this is global default" },
+            { name: "socketio-port", type: "number", obj: 'socketio', min: 0, descr: "port to listen for sockets.io server" },
             { name: "socketio-bind", obj: 'socketio', descr: "Bind to this address only for sockets.io server, if not specified listen on all interfaces" },
-            { name: "ws-port", type: "number", obj: 'ws', min: 0, descr: "port to listen for WebSocket server, this is global default" },
-            { name: "ws-bind", obj: 'ws', descr: "Bind to this address only for WebSocket, if not specified listen on all interfaces" },
+            { name: "ws-port", type: "number", obj: 'ws', min: 0, descr: "port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers" },
+            { name: "ws-bind", obj: 'ws', descr: "Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports" },
             { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
             { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },

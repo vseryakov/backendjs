@@ -527,16 +527,19 @@ api.startSocketServer = function()
     // WebSocket server, by default uses the http port
     try {
         if (core.ws.port) {
-            if (core.ws.ssl) {
-                var server = https.createServer(core.ssl, function(req, res) { res.send(200, "OK"); });
-            } else {
-                var server = http.createServer(function(req, res) { res.send(200, "OK"); });
+            var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslserver : null;
+            if (!server) {
+                if (core.ws.ssl) {
+                    server = https.createServer(core.ssl, function(req, res) { res.send(200, "OK"); });
+                } else {
+                    server = http.createServer(function(req, res) { res.send(200, "OK"); });
+                }
+                server.on('error', function(err) {
+                    logger.error('api:ws:', err);
+                    if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
+                });
+                try { server.listen(core.ws.port, core.ws.bind, core.backlog); } catch(e) { logger.error('startSocketServer: ws:', core.ws.port, core.ws.bind, e); }
             }
-            server.on('error', function(err) {
-                logger.error('api:ws:', err);
-                if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
-            });
-            try { server.listen(core.ws.port, core.ws.bind, core.backlog); } catch(e) { logger.error('startSocketServer: ws:', core.ws.port, core.ws.bind, e); }
             var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
             if (core.ws.path) opts.path = core.ws.path;
             self.wsserver = new ws.Server(opts);

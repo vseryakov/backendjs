@@ -50,6 +50,10 @@ p, blockquote, ul, ol, dl, li, table, pre {
 	margin: 15px 0;
 }
 
+li, ul {
+    margin: 2px 0;
+}
+
 a, a:visited {
 	color: #4183C4;
 	background-color: inherit;
@@ -85,6 +89,12 @@ code {
 	border: 1px solid #EAEAEA;
 	margin: 0 2px;
 	padding: 0 5px;
+}
+
+p > code {
+    font-size: 12pt;
+    font-weight: bold;
+    font-family: "Avenir Next", Helvetica, Arial, sans-serif;
 }
 
 pre {

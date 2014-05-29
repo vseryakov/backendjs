@@ -16,7 +16,7 @@ Features:
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
-* Supports socket.io/websocket connections and process them with the same Express routes as HTTP requests
+* Supports socket.io/WebSockets connections and process them with the same Express routes as HTTP requests
 * Supports several cache modes(Redis, memcached, LRU) for the database operations.
 * Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
@@ -1449,13 +1449,13 @@ will never end up in this callback because it is called after the signature chec
 
 The backend can be configured to accept socket.io connections and process requests with the same HTTP routes registered by Express server.
 
-To start listening for socket.io, the port must be set, the config parameter `io-port`, via command line or config file.
+To start listening for socket.io, the port must be set, the config parameter `socketio-port`, via command line or config file.
 
 After that on the client side socket.io.js file is available from the backend via HTTP port or /socket.io/socket.io.js via socket port.
 
 Example on the server side:
 
-        ./app.js -io-port 8001
+        ./app.js -socketio-port 8001
 
 Example on the client side in the browser, connect to the http://localhost:8000 to get a html file:
 
@@ -1468,6 +1468,22 @@ Example on the client side in the browser, connect to the http://localhost:8000 
            });
            Backend.ioSend(socket, "/account/get");
         </script>
+
+# WebSockets connections
+
+The simplest way is to configure `ws-port` to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
+As with socket.io connections, all requests must be properly signed or not Web requests with all parameters encoded as for GET requests.
+
+Example:
+
+        wscat --connect ws://localhost:8000
+        connected (press CTRL+C to quit)
+        > /account/get
+        < {
+            "status": 400,
+            "message": "Invalid request: no host provided"
+          }
+        >
 
 # The backend provisioning utility: bkjs
 
