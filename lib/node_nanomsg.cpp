@@ -161,10 +161,7 @@ public:
         void *msg = nn_allocmsg(len, 0);
         memcpy(msg, data, len);
         int rc = nn_send(sock, &msg, NN_MSG, NN_DONTWAIT);
-        if (nn_slow(rc == -1)) {
-            nn_freemsg(msg);
-            return err = nn_errno();
-        }
+        if (nn_slow(rc == -1)) return err = nn_errno();
         return 0;
     }
 

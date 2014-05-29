@@ -359,11 +359,11 @@ case "$ARG" in
     ;;
 
   init-packages)
-    yum -yq install ntp rsync dnsmasq wget socat postfix unzip mc nano man telnet
-    yum -yq remove sendmail
-    yum -yq install git svn gdb gcc-c++ make cmake autoconf automake libtool
-    yum -yq install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel
-    yum -yq install mysql-devel mysql-server
+    yum -y -q install ntp rsync dnsmasq wget socat postfix unzip mc nano man telnet
+    yum -y -q remove sendmail
+    yum -y -q install git svn gdb gcc-c++ make cmake autoconf automake libtool
+    yum -y -q install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel
+    yum -y -q install mysql-devel mysql-server
 
     # Linux distro specific actions
     case "$OS_TYPE" in
@@ -377,11 +377,12 @@ case "$ARG" in
             echo "Setting up RPM Forge..."
             rpm -i http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.3-1.el6.rf.x86_64.rpm
          fi
-         yum -yq install postgresql93-devel postgresql93-server
+         yum -y -q install postgresql93-devel postgresql93-server
          ;;
 
       amazon)
-         yum -yq install postgresql9-devel postgresql9-server
+         yum-config-manager --enable epel
+         yum -y -q install postgresql9-devel postgresql9-server
          ;;
 
       *)
