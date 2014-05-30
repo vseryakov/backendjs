@@ -458,6 +458,7 @@ tests.db = function(callback)
 	var tables = {
 	        test1: { id: { primary: 1, pub: 1 },
 	                 num: { type: "int" },
+	                 num2: {},
 	                 email: {} },
 			test2: { id: { primary: 1, pub: 1, index: 1 },
 			         id2: { primary: 1, projection: 1 },
@@ -485,9 +486,9 @@ tests.db = function(callback)
 	    	db.initTables(tables, next);
 	    },
 	    function(next) {
-            db.add("test1", { id: id, email: id, num: '1' }, function(err) {
+            db.add("test1", { id: id, email: id, num: '1', num2: null, num3: 1, num4: 1 }, function(err) {
                 if (err) return next(err);
-                db.put("test1", { id: id2, email: id2, num: '2' }, function(err) {
+                db.put("test1", { id: id2, email: id2, num: '2', num2: null, num3: 1 }, function(err) {
                     if (err) return next(err);
                     db.put("test3", { id: id, num: 0 }, next);
                 });

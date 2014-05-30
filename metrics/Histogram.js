@@ -48,11 +48,9 @@ Histogram.prototype.percentiles = function(percentiles)
             } else {
                 var lower = values[Math.floor(pos) - 1];
                 var upper = values[Math.ceil(pos) - 1];
-
                 results[percentile] = lower + (pos - Math.floor(pos)) * (upper - lower);
             }
     }
-
     return results;
 };
 

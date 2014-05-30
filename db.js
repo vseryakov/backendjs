@@ -453,7 +453,7 @@ db.createPool = function(options)
     pool.metrics = new metrics(pool.name);
     // Some require properties can be initialized with options
     if (!pool.dboptions) pool.dboptions = {};
-    [ 'ops', 'typesMap', 'opsMap', 'namesMap' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
+    [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
     if (!pool.dbparams) pool.dbparams = {};
     if (!pool.type) pool.type = "unknown";
     this.dbpool[pool.name] = pool;
@@ -1279,9 +1279,10 @@ db.getCached = function(table, query, options, callback)
     this.getCache(table, query, options, function(rc, err) {
         m.end();
         // Cached value retrieved
+        if (rc) rc = core.jsonParse(rc);
+        // Parse errors treated as miss
         if (rc) {
             pool.metrics.Counter("hits").inc();
-            try { rc = JSON.parse(rc) } catch(e) { err = e };
             return callback ? callback(err, rc) : null;
         }
         pool.metrics.Counter("misses").inc();
@@ -1443,6 +1444,16 @@ db.prepare = function(op, table, obj, options)
             // Handle json separately in sync with processRows
             if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") obj[p] = JSON.stringify(obj[p]);
         }
+
+        // Keep only columns from the table definition if we have it
+        var o = {};
+        for (var p in obj) {
+            var v = obj[p];
+            if (this.skipColumn(p, v, options, cols)) continue;
+            if (v == null || v === "" && options.skipNull[op]) continue;
+            o[p] = v;
+        }
+        obj = o;
         break;
 
     case "del":
@@ -2342,7 +2353,8 @@ db.sqlWhere = function(table, query, keys, options)
 //      - noLengths - ignore column length for columns (Cassandra)
 //      - noIfExists - do not support IF EXISTS on table or indexes
 //      - noCompositeIndex - does not support composite indexes (Cassandra)
-//      - noauto - no support for auto increment columns
+//      - noAuto - no support for auto increment columns
+//      - skipNull - object with operations which dont support null(empty) values (DynamoDB cannot add/put empty/null values)
 db.sqlCreate = function(table, obj, options)
 {
     var self = this;
@@ -2364,7 +2376,7 @@ db.sqlCreate = function(table, obj, options)
                           return x + " " +
                               (function(t) { return (options.typesMap || {})[t] || t })(obj[x].type || options.defaultType || "text") + (!options.noLengths && obj[x].len ? " (" + obj[x].len + ") " : " ") +
                               (!options.noNulls && obj[x].notnull ? " NOT NULL " : " ") +
-                              (!options.noauto && obj[x].auto ? " AUTO_INCREMENT " : " ") +
+                              (!options.noAuto && obj[x].auto ? " AUTO_INCREMENT " : " ") +
                               (!options.noDefaults && typeof obj[x].value != "undefined" ? "DEFAULT " + self.sqlValue(obj[x].value, obj[x].type) : "") }).join(",") + " " +
                       (function(x) { return x ? ",PRIMARY KEY(" + x + ")" : "" })(keys('primary')) + " " + (options.tableOptions || "") + ")" ];
 
@@ -2810,7 +2822,7 @@ db.dynamodbInitPool = function(options)
     options.type = "dynamodb";
     options.pooling = options.max > 0 && options.max != Infinity;
     options.max = options.max || 500;
-    options.dboptions = { noJson: 1, strictTypes: 1 };
+    options.dboptions = { noJson: 1, strictTypes: 1, skipNull: { add: 1, put: 1 } };
     var pool = this.createPool(options);
 
     pool.cacheColumns = function(opts, callback) {
@@ -3008,31 +3020,31 @@ db.dynamodbInitPool = function(options)
             break;
 
         case "add":
-            // Add only listed columns if there is a .columns property specified
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, opts, dbcols); } });
             opts.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
-            aws.ddbPutItem(table, o, opts, function(err, rc) {
+            aws.ddbPutItem(table, obj, opts, function(err, rc) {
                 callback(err, [], rc);
             });
             break;
 
         case "put":
-            // Add/put only listed columns if there is a .columns property specified
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, opts, dbcols); } });
-            aws.ddbPutItem(table, o, opts, function(err, rc) {
+            aws.ddbPutItem(table, obj, opts, function(err, rc) {
                 callback(err, [], rc);
             });
             break;
 
         case "update":
+            var keys = self.getSearchQuery(table, obj);
+            if (!options.expected && !options.Expected) opts.expected = keys;
+            aws.ddbUpdateItem(table, keys, obj, opts, function(err, rc) {
+                callback(err, [], rc);
+            });
+            break;
+
         case "incr":
             var keys = self.getSearchQuery(table, obj);
-            // Keep nulls and empty strings, it means we have to delete this property.
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return self.skipColumn(n, v, opts, dbcols); }, _empty_to_null: 1 });
             // Increment counters, only specified columns will use ADD operation, they must be numbers
             if (opts.counter) opts.counter.forEach(function(x) { opts.ops[x] = 'ADD'; });
-            if (req.op == "update" && !options.expected && !options.Expected) opts.expected = keys;
-            aws.ddbUpdateItem(table, keys, o, opts, function(err, rc) {
+            aws.ddbUpdateItem(table, keys, obj, opts, function(err, rc) {
                 callback(err, [], rc);
             });
             break;
@@ -3060,7 +3072,7 @@ db.mongodbInitPool = function(options)
 
     options.type = "mongodb";
     options.pooling = true;
-    options.dboptions = { jsonColumns: true };
+    options.dboptions = { jsonColumns: true, skipNull: { add: 1, put: 1 } };
     var pool = this.createPool(options);
 
     pool.connect = function(opts, callback) {
@@ -3259,8 +3271,7 @@ db.mongodbInitPool = function(options)
 
         case "add":
             var collection = client.collection(table);
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return (v == null || v === "") || self.skipColumn(n, v, opts, dbcols); } });
-            collection.insert(o, opts, function(err, rc) {
+            collection.insert(obj, opts, function(err, rc) {
                 callback(err, []);
             });
             break;
@@ -3271,8 +3282,7 @@ db.mongodbInitPool = function(options)
         case "update":
             var collection = client.collection(table);
             var keys = self.getSearchQuery(table, obj, opts);
-            var o = core.cloneObj(obj, { _skip_cb: function(n,v) { return self.skipColumn(n, v, opts, dbcols); } });
-            collection.update(keys, { "$set": o }, opts, function(err, rc) {
+            collection.update(keys, { "$set": obj }, opts, function(err, rc) {
                 callback(err, []);
             });
             break;
@@ -3324,6 +3334,7 @@ db.cassandraInitPool = function(options)
                           noCoalesce: 1,
                           noConcat: 1,
                           noDefaults: 1,
+                          noAuto: 1,
                           noNulls: 1,
                           noLengths: 1,
                           noReplace: 1,
@@ -3569,34 +3580,84 @@ db.lmdbInitPool = function(options)
         default: return callback();
         }
     }
+    pool.getKeys = function(table, obj, opts, search) {
+        var keys = self.getQueryForKeys(this.dbkeys[table] || [], obj);
+        if (!search) return keys;
+        for (var p in keys) {
+            if (!opts.ops[p]) continue;
+            switch (opts.ops[p]) {
+            case "eq":
+            case "begins_with":
+            case "like%":
+                break;
+
+            default:
+                delete keys[p];
+            }
+        }
+        return keys;
+    }
+    pool.getKey = function(table, obj, opts, search) {
+        var keys = this.getKeys(table, obj, opts, search).join("|");
+        return table + "|" + keys;
+    }
     pool.query = function(client, req, opts, callback) {
         var pool = this;
         var obj = req.obj;
-        if (typeof obj == "string") obj = { name: obj, value: "" };
+        var table = req.table || "";
+        var keys = this.dbkeys[table] || [];
+        var cols = this.dbcolumns[table] || {};
 
         switch(req.op) {
         case "create":
         case "upgrade":
-        case "drop":
             callback(null, []);
             break;
 
+        case "drop":
+            client.dbhandle.all(table, table, opts, function(err, rows) {
+                if (err || !rows.length) return callback(err, []);
+                async.forEachLimit(rows, opts.concurrency || pool.concurrency, function(row, next) {
+                    client.dbhandle.del(row.name, next);
+                }, function(err) {
+                    callback(err, []);
+                });
+            });
+            break;
+
         case "get":
-            client.dbhandle.get(obj.name || "", function(err, item) {
-                callback(err, item ? [item] : []);
+            var key = this.getKey(table, obj, opts);
+            client.dbhandle.get(key, function(err, item) {
+                callback(err, item ? [core.jsonParse(item)] : []);
             });
             break;
 
         case "select":
         case "search":
-            client.dbhandle.all(obj.name || "", opts.end || "", opts, callback);
+            var dbkeys = this.getKeys(table, obj, opts, 1);
+            var key = this.getKey(table, obj, opts, 1);
+            // Custom filter on other columns
+            var other = Object.keys(obj).filter(function(x) { return x[0] != "_" && (keys.indexOf(x) == -1 || !dbkeys[x]) && typeof obj[x] != "undefined" });
+            client.dbhandle.all(key, key, opts, function(err, rows) {
+                if (err) return callback(err, []);
+                var rows = [];
+                rows.forEach(function(row) {
+                    row = core.jsonParse(row.value);
+                    if (row) rows.push(row);
+                });
+                if (other.length > 0) {
+                    rows = self.filterColumns(obj, rows, { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap });
+                }
+                callback(null, rows);
+            });
             break;
 
         case "list":
             var rc = [];
-            async.forEachSeries(obj, function(id, next) {
-                client.dbhandle.get(id, opts, function(err, val) {
-                    if (val) rc.push(val);
+            async.forEachSeries(obj, function(o, next) {
+                var key = this.getKey(table, o, opts);
+                client.dbhandle.get(key, opts, function(err, val) {
+                    if (val) rc.push(core.jsonParse(val));
                     next(err);
                 });
             }, function(err) {
@@ -3605,21 +3666,53 @@ db.lmdbInitPool = function(options)
             break;
 
         case "add":
-        case "put":
+            var key = this.getKey(table, obj, opts);
+            client.dbhandle.get(key, opts, function(err, item) {
+                if (err) return callback(err, []);
+                if (item) return callback(new Error("already exists"), []);
+                client.dbhandle.put(key, JSON.stringify(obj), opts, function(err) {
+                    callback(err, []);
+                });
+            });
+            break;
+
         case "update":
-            client.dbhandle.put(obj.name || "", obj.value || "", opts, function(err) {
+            var key = this.getKey(table, obj, opts);
+            client.dbhandle.get(key, opts, function(err, item) {
+                if (err) return callback(err, []);
+                if (!item) return callback(null, []);
+                item = core.jsonParse(item);
+                if (!item) item = obj; else for (var p in obj) item[p] = obj[p];
+                client.dbhandle.put(key, JSON.stringify(obj), opts, function(err) {
+                    callback(err, []);
+                });
+            });
+            break;
+
+        case "put":
+            var key = this.getKey(table, obj, opts);
+            client.dbhandle.put(key, JSON.stringify(obj), opts, function(err) {
                 callback(err, []);
             });
             break;
 
         case "incr":
-            client.dbhandle.incr(obj.name || "", obj.value || "", opts, function(err) {
-                callback(err, []);
+            var key = this.getKey(table, obj, opts);
+            var nums = (opts.counter || []).filter(function(x) { return keys.indexOf(x) == -1 });
+            if (!nums.length) return callback();
+            client.dbhandle.get(key, function(err, item) {
+                if (err) return callback(err);
+                item = core.jsonParse(item);
+                if (!item) item = obj; else nums.forEach(function(x) { item[x] = core.toNumber(item[x]) + obj[x]; });
+                client.dbhandle.put(key, item, JSON.stringify(obj), function(err) {
+                    callback(err, []);
+                });
             });
             break;
 
         case "del":
-            client.dbhandle.del(obj.name || "", opts, function(err) {
+            var key = this.getKey(table, obj, opts);
+            client.dbhandle.del(key, opts, function(err) {
                 callback(err, []);
             });
             break;
@@ -3690,8 +3783,6 @@ db.nndbInitPool = function(options)
 
         case "add":
         case "update":
-            obj.op = "put";
-
         case "put":
         case "del":
         case "incr":

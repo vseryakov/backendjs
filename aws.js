@@ -222,7 +222,7 @@ aws.runInstances = function(count, args, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
-    
+
     if (!this.imageId && !options.imageId) return callback ? callback(new Error("no imageId configured"), obj) : null;
 
     var req = { MinCount: count,
@@ -606,7 +606,7 @@ aws.ddbPutItem = function(name, item, options, callback)
 // - keys is an object with primary key attributes name and value.
 // - item is an object with properties where value can be:
 //      - number/string/array - action PUT, replace or add new value
-//      - null - action DELETE
+//      - null/empty string - action DELETE
 // - options may contain any valid native property if it starts with capital letter or special properties:
 //      - ops - an object with operators to be used for properties if other than PUT
 //      - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
@@ -645,6 +645,12 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
 
             case 'array':
                 if (!item[p].length) {
+                    params.AttributeUpdates[p] = { Action: 'DELETE' };
+                    break;
+                }
+
+            case "string":
+                if (!item[p]) {
                     params.AttributeUpdates[p] = { Action: 'DELETE' };
                     break;
                 }

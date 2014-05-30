@@ -514,7 +514,7 @@ public:
         string value = jsonGetStr(json, "value");
         int status = -1, flags = 0;
 
-        if (op == "put") {
+        if (op == "put" || op == "add" || op == "update") {
             status = db->Put(key.c_str(), key.size(), value.c_str(), value.size(), flags);
             value.clear();
         } else

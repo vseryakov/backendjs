@@ -13,10 +13,8 @@ Timer.prototype.start = function()
 {
     var self = this;
     return {
-        start : Date.now(),
-        end : function() {
-            self.update(Date.now() - this.start);
-        }
+        start: Date.now(),
+        end: function() { self.update(Date.now() - this.start); }
     }
 }
 

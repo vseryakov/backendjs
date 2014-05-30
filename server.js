@@ -24,6 +24,7 @@ var async = require('async');
 var printf = require('printf');
 var proxy = require('http-proxy');
 
+// The main server class that starts various processes
 var server = {
     // Watcher process status
     child: null,

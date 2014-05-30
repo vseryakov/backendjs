@@ -37,8 +37,7 @@ Meter.prototype.mark = function(n)
 Meter.prototype.start = function()
 {
     this._interval = setInterval(this._tick.bind(this), Meter.TICK_INTERVAL);
-    this._startTime = Date.now();
-    this._lastToJSON = Date.now();
+    this._startTime = this._lastToJSON = Date.now();
 };
 
 Meter.prototype.end = function()
@@ -69,12 +68,12 @@ Meter.prototype.meanRate = function()
 
 Meter.prototype.currentRate = function()
 {
+    var now = Date.now();
     var currentSum = this._currentSum;
-    var duration = Date.now() - this._lastToJSON;
+    var duration = now - this._lastToJSON;
     var currentRate = currentSum / duration * this._rateUnit;
-
     this._currentSum = 0;
-    this._lastToJSON = Date.now();
+    this._lastToJSON = now;
 
     // currentRate could be NaN if duration was 0, so fix that
     return currentRate || 0;

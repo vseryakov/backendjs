@@ -80,6 +80,7 @@ var core = {
     hostname: '',
     instanceId: process.pid,
     maxCPUs: os.cpus().length,
+    ctime: Date.now(),
 
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
     // for manual installations `bkjs setup-server` will create a user with this id
@@ -119,6 +120,9 @@ var core = {
     // Config parameters
     args: [ { name: "help", type: "callback", value: function() { core.showHelp() }, descr: "Print help and exit" },
             { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debugging messages, short of -log debug", pass: 1 },
+            { name: "debug-run-segv", type: "callback", value: function(v) { if(v) backend.runsegv(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
+            { name: "debug-set-segv", type: "callback", value: function(v) { if(v) backend.setsegv(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
+            { name: "debug-set-backtrace", type: "callback", value: function(v) { if(v) backend.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
             { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
             { name: "log-file", type: "callback", value: function(v) { if (v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
@@ -203,7 +207,6 @@ var core = {
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
             { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
-            { name: "backtrace", type: "callback", value: function() { backend.setbacktrace(); }, descr: "Enable backtrace facility, trap crashes and report the backtrace stack" },
             { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
     ],
 
@@ -2490,16 +2493,34 @@ core.mergeObj = function(obj, options)
     return rc;
 }
 
-// JSON stringify without empty properties
-core.stringify = function(obj)
+// JSON stringify without empty, null or undefined properties if no filter is given
+core.stringify = function(obj, filter)
 {
-    return JSON.stringify(this.cloneObj(obj, { _skip_null: 1, _skip_cb: function(n,v) { return v == "" } }));
+    if (!filter) {
+        filter = [];
+        for (var p in obj) if (typeof obj[p] != "undefined" && obj[p] !== null && obj[p] !== "") filter.push(p);
+    }
+    return JSON.stringify(obj, filter);
 }
 
-// Silent JSON parse
-core.jsonParse = function(obj)
+// Silent JSON parse, returns null on error, no exceptions raised.
+// options can specify the output in case of an error:
+// - list - return empty list
+// - obj - return empty obj
+// - str - return empty string
+core.jsonParse = function(obj, options)
 {
-    try { return JSON.parse(obj) } catch(e) { return null; }
+    try {
+        return JSON.parse(obj);
+    } catch(e) {
+        if (options) {
+            if (options.logging) logger.error('jsonParse:', e, obj);
+            if (options.obj) return {};
+            if (options.list) return [];
+            if (options.str) return "";
+        }
+        return null;
+    }
 }
 
 // Return cookies that match given domain
@@ -2777,7 +2798,7 @@ core.checkTest = function()
         var args = [ arguments[1] ? arguments[1] : new Error("failed condition") ];
         for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
         logger.error(args);
-        return next(args[1]);
+        return next(args[0]);
     }
     next();
 }

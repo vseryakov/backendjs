@@ -566,7 +566,7 @@ ipc.clear = function()
             break;
 
         case "nanomsg":
-            this.send("clear", key);
+            this.send("clear");
             break;
         }
     } catch(e) {

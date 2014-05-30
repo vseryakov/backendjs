@@ -276,14 +276,16 @@ api.init = function(callback)
     // Metrics starts early
     self.app.use(function(req, res, next) {
         self.metrics.Meter('rate').mark();
-        req.stopwatch = self.metrics.Timer('response').start();
         self.metrics.Histogram('queue').update(self.metrics.Counter('count').inc());
+        req.stopwatch = self.metrics.Timer('response').start();
+        req.stopwatch2 = self.metrics.Timer(req.path).start();
         var end = res.end;
         res.end = function(chunk, encoding) {
             res.end = end;
             res.end(chunk, encoding);
-            req.stopwatch.end();
             self.metrics.Counter('count').dec();
+            req.stopwatch.end();
+            req.stopwatch2.end();
         }
         next();
     });
@@ -1336,7 +1338,7 @@ api.initSystemAPI = function()
                 ipc.keys(function(data) { res.json(data) });
                 break;
             case "get":
-                ipc.get(req.query.name, function(data) { res.json(data);console.log(data) });
+                ipc.get(req.query.name, function(data) { res.send(data); });
                 break;
             case "clear":
                 ipc.clear();
@@ -2624,7 +2626,6 @@ api.deleteAccount = function(obj, options, callback)
 api.initStatistics = function()
 {
     var self = this;
-
     this.metrics = new metrics();
     this.collectStatistics();
     setInterval(function() { self.collectStatistics(); }, 30000);
@@ -2636,9 +2637,10 @@ api.initStatistics = function()
 // Returns an object with collected db and api statstics and metrics
 api.getStatistics = function()
 {
+    var info = {  };
     var pool = core.context.db.getPool();
     pool.metrics.stats = pool.stats();
-    return { latency: toobusy.lag(), pool: pool.metrics, api: this.metrics };
+    return { host: core.hostname, ip: core.ipaddrs, instance: core.instanceId, cpus: core.maxCPUs, ctime: core.ctime, latency: toobusy.lag(), pool: pool.metrics, api: this.metrics };
 }
 
 // Metrics about the process

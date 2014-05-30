@@ -561,7 +561,7 @@ static string NNHandleRequest(char *buf, int len, void *data)
     string key = jsonGetStr(json, "name");
     string value = jsonGetStr(json, "value");
 
-    if (op == "put") {
+    if (op == "put" || op == "add" || op == "update") {
         status = db->handle->Put(writeOptions, key, value);
         value.clear();
     } else
