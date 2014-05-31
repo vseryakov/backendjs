@@ -460,19 +460,22 @@ server.startDaemon = function()
 // Start REPL shell or execute any subcommand if specified
 server.startShell = function()
 {
+    var db = core.context.db;
+    var api = core.context.api;
+
     function exit(msg, code) { if (msg) console.log(msg); process.exit(code || 0); }
 
-    core.context.api.initTables(function(err) {
+    api.initTables(function(err) {
         // Add a user
         if (core.isArg("-add-user")) {
             var query = {};
-            var cols = core.context.db.getColumns("bk_account");
+            var cols = core.mergeObj(db.getColumns("bk_auth"), db.getColumns("bk_account"));
             for (var i = 1; i < process.argv.length; i++) {
                 var name = process.argv[i];
-                if ((cols[name] || name == "secret") && i + 1 < process.argv.length) query[name] = process.argv[++i];
+                if (cols[name] && i + 1 < process.argv.length) query[name] = process.argv[++i];
             }
             if (query.login && !query.name) query.name = query.login;
-            core.context.api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err) {
+            api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err) {
                 exit(err, err ? 1 : 0);
             });
         } else
@@ -487,9 +490,9 @@ server.startShell = function()
                 var d = process.argv[i].match(/^\-keep\-(.+)$/);
                 if (d) options[d[1]] = 1;
             }
-            core.context.db.get("bk_auth", { login: login }, function(err, row) {
+            db.get("bk_auth", { login: login }, function(err, row) {
                 if (err || !row) exit(err || "no user found with this login name", 1);
-                core.context.api.deleteAccount(row, options, function(err, data) {
+                api.deleteAccount(row, options, function(err, data) {
                     exit(err, err ? 1 : 0);
                 });
             });
@@ -506,8 +509,8 @@ server.startShell = function()
                     query[process.argv[i]] = process.argv[i + 1];
                 }
             }
-            core.context.db.get("bk_account", { id: id }, function(err, row) {
-                core.context.db.get("bk_auth", { login: row ? row.login : id }, function(err, row) {
+            db.get("bk_account", { id: id }, function(err, row) {
+                db.get("bk_auth", { login: row ? row.login : id }, function(err, row) {
                     if (err || !row) exit(err || "no user found with this login name or id", 1);
                     core.sendRequest(url, { login: row.login, secret: row.secret, query: query }, function(err, params) {
                         console.log(err || "", params.obj);
