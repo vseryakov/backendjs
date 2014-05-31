@@ -46,8 +46,8 @@ public:
     // Config parameters
     int domain;
     int type;
-    vector<string> baddr;
-    vector<string> caddr;
+    map<string,int> baddr;
+    map<string,int> caddr;
 
     // Socket OS descriptors
     int rfd;
@@ -100,10 +100,10 @@ public:
         vector<string> urls = strSplit(addr, " ,");
         for (uint i = 0; i < urls.size(); i++) {
         	if (!urls[i].size()) continue;
-        	if (find(baddr.begin(), baddr.end(), urls[i]) != baddr.end()) continue;
+            if (baddr.find(urls[i]) != baddr.end()) continue;
             int rc = nn_bind(sock, urls[i].c_str());
-            if (nn_slow(rc == -1)) return err = nn_errno();
-            baddr.push_back(urls[i]);
+            if (nn_slow(rc <= -1)) return err = nn_errno();
+            baddr[urls[i]] = rc;
         }
         return 0;
     }
@@ -115,10 +115,31 @@ public:
         vector<string> urls = strSplit(addr, " ,");
         for (uint i = 0; i < urls.size(); i++) {
             if (!urls[i].size()) continue;
-            if (find(caddr.begin(), caddr.end(), urls[i]) != caddr.end()) continue;
+            if (caddr.find(urls[i]) != caddr.end()) continue;
             int rc = nn_connect(sock, urls[i].c_str());
-            if (nn_slow(rc == -1)) return err = nn_errno();
-            caddr.push_back(urls[i]);
+            if (nn_slow(rc <= -1)) return err = nn_errno();
+            caddr[urls[i]] = rc;
+        }
+        return 0;
+    }
+
+    int Shutdown(int eid) {
+        op = __FUNCTION__;
+        LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, eid=%d", sock, domain, type, rfd, wfd, eid);
+        if (sock < 0) return err = ENOTSOCK;
+        int rc = nn_shutdown(sock, eid);
+        if (nn_slow(rc == -1)) return err = nn_errno();
+        for (map<string,int>::iterator it = caddr.begin(); it != caddr.end(); it++) {
+            if (it->second == eid) {
+                caddr.erase(it);
+                return 0;
+            }
+        }
+        for (map<string,int>::iterator it = baddr.begin(); it != baddr.end(); it++) {
+            if (it->second == eid) {
+                baddr.erase(it);
+                return 0;
+            }
         }
         return 0;
     }
@@ -346,13 +367,21 @@ public:
     static Handle<Value> BindAddressGetter(Local<String> str, const AccessorInfo& accessor) {
         HandleScope scope;
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-        return scope.Close(Local<Value>::New(toArray(sock->baddr)));
+        Local<Object> rc = Local<Object>::New(Object::New());
+        for (map<string,int>::iterator it = sock->baddr.begin(); it != sock->baddr.end(); it++) {
+            rc->Set(String::New(it->first.c_str()), Integer::New(it->second));
+        }
+        return scope.Close(rc);
     }
 
     static Handle<Value> ConnectAddressGetter(Local<String> str, const AccessorInfo& accessor) {
         HandleScope scope;
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
-        return scope.Close(Local<Value>::New(toArray(sock->caddr)));
+        Local<Object> rc = Local<Object>::New(Object::New());
+        for (map<string,int>::iterator it = sock->caddr.begin(); it != sock->caddr.end(); it++) {
+            rc->Set(String::New(it->first.c_str()), Integer::New(it->second));
+        }
+        return scope.Close(rc);
     }
 
     static Handle<Value> TypeGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -438,6 +467,16 @@ public:
         OPTIONAL_ARGUMENT_STRING(0, addr);
 
         int rc = sock->Bind(*addr);
+        return scope.Close(Local<Integer>::New(Integer::New(rc)));
+    }
+
+    static Handle<Value> Shutdown(const Arguments& args) {
+        HandleScope scope;
+
+        NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
+        OPTIONAL_ARGUMENT_INT(0, eid);
+
+        int rc = sock->Shutdown(eid);
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
     }
 
@@ -656,6 +695,7 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "close", Close);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "setOption", SetOption);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "connect", Connect);
+        NODE_SET_PROTOTYPE_METHOD(constructor_template, "shutdown", Shutdown);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "unsubscribe", Unsubscribe);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "send", Send);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "recv", Recv);
