@@ -64,7 +64,7 @@ public:
     Persistent<Function> callback;
 
     int Setup() {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         sock = nn_socket(domain, type);
         if (sock < 0) return Close(sock);
         size_t fdsz = sizeof(rfd);
@@ -94,7 +94,7 @@ public:
     }
 
     int Bind(string addr) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
         if (sock < 0) return err = ENOTSOCK;
         vector<string> urls = strSplit(addr, " ,");
@@ -109,7 +109,7 @@ public:
     }
 
     int Connect(string addr) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         LogDev("%d, domain=%d, type=%d, rfd=%d, wfd=%d, %s", sock, domain, type, rfd, wfd, addr.c_str());
         if (sock < 0) return err = ENOTSOCK;
         vector<string> urls = strSplit(addr, " ,");
@@ -124,7 +124,7 @@ public:
     }
 
     int Subscribe(string topic) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
         int rc = nn_setsockopt(sock, NN_SUB, NN_SUB_SUBSCRIBE, topic.c_str(), 0);
         if (nn_slow(rc == -1)) return err = nn_errno();
@@ -132,7 +132,7 @@ public:
     }
 
     int Unsubscribe(string topic) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
         int rc = nn_setsockopt(sock, NN_SUB, NN_SUB_UNSUBSCRIBE, topic.c_str(), 0);
         if (nn_slow(rc == -1)) return err = nn_errno();
@@ -140,7 +140,7 @@ public:
     }
 
     int SetOption(int opt, int n) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
     	int rc = nn_setsockopt(sock, type, opt, &n, sizeof(n));
     	if (nn_slow(rc == -1)) return err = nn_errno();
@@ -148,7 +148,7 @@ public:
     }
 
     int SetOption(int opt, string s) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
     	int rc = nn_setsockopt(sock, type, opt, s.c_str(), 0);
     	if (nn_slow(rc == -1)) return err = nn_errno();
@@ -156,7 +156,7 @@ public:
     }
 
     int Send(void *data, int len) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
         void *msg = nn_allocmsg(len, 0);
         memcpy(msg, data, len);
@@ -166,7 +166,7 @@ public:
     }
 
     int Recv(char **data, int *size) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
         if (!data || !size) return err = EINVAL;
         int rc = nn_recv(sock, data, NN_MSG, NN_DONTWAIT);
@@ -234,7 +234,7 @@ public:
 
     // Implements a device, tranparent proxy between two sockets
     int SetProxy(NNSocket *p) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
         if (!p) return err = EINVAL;
         // Make sure we are compatible with the peer
@@ -259,7 +259,7 @@ public:
     }
 
     int SetCallback(Handle<Function> cb) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         ClosePoll();
         if (sock < 0) return err = ENOTSOCK;
         if (rfd == -1 || cb.IsEmpty()) return 0;
@@ -272,7 +272,7 @@ public:
 
     // Set forwarding peer for the regular socket, will be used by reading handler
     int SetPeer(NNSocket *p) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
         peer = p && p->wfd != -1 ? p->sock : -1;
         return 0;
@@ -280,7 +280,7 @@ public:
 
     // Forwards msgs from the current socket to the peer, one way
     int SetForward(NNSocket *p) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
     	if (!p) return err = EINVAL;
     	if (rfd == -1 || p->wfd == -1) {
@@ -305,7 +305,7 @@ public:
     }
 
     int StartDevice(NNSocket *p) {
-        op = __PRETTY_FUNCTION__;
+        op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
         peer = p ? p->sock : -1;
         if (peer < 0) return err = EINVAL;
@@ -375,7 +375,7 @@ public:
 
     static Handle<Value> DeviceGetter(Local<String> str, const AccessorInfo& accessor) {
         HandleScope scope;
-        NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
+        NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (accessor.This());
         return scope.Close(Local<Integer>::New(Integer::New(sock->dev_state)));
     }
 
@@ -387,13 +387,13 @@ public:
 
     static Handle<Value> ErrorGetter(Local<String> str, const AccessorInfo& accessor) {
         HandleScope scope;
-        NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
+        NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (accessor.This());
         return scope.Close(Local<String>::New(String::New(sock->err ? nn_strerror(sock->err) : "")));
     }
 
     static Handle<Value> ReadFdGetter(Local<String> str, const AccessorInfo& accessor) {
         HandleScope scope;
-        NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
+        NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (accessor.This());
         return scope.Close(Local<Integer>::New(Integer::New(sock->rfd)));
     }
 
@@ -642,7 +642,7 @@ public:
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("readfd"), ReadFdGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("errno"), ErrnoGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("error"), ErrorGetter);
-        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("op"), ErrorGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("op"), OpGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("peer"), PeerGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("type"), TypeGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("bound"), BindAddressGetter);

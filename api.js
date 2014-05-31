@@ -1338,7 +1338,7 @@ api.initSystemAPI = function()
                 ipc.keys(function(data) { res.json(data) });
                 break;
             case "get":
-                ipc.get(req.query.name, function(data) { res.send(data); });
+                ipc.get(req.query.name, function(data) { res.json({ value: data }); });
                 break;
             case "clear":
                 ipc.clear();
