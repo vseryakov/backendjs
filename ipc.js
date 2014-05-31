@@ -93,7 +93,10 @@ ipc.initServer = function()
     // Cleanup died processes from metrics
     cluster.on("exit", function(worker, code, signal) {
         var now = Date.now();
-        Object.keys(core.metrics).forEach(function(x) { if (now - core.metrics[x] > 86400000) delete core.metrics[x]; });
+        Object.keys(core.metrics).forEach(function(x) {
+            if (x == worker.process.pid) core.metrics[x].terminated = now;
+            if (now - core.metrics[x] > 86400000) delete core.metrics[x];
+        });
     });
 
     cluster.on('fork', function(worker) {

@@ -130,6 +130,12 @@ var db = {
            { name: "cassandra-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
            { name: "cassandra-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "cassandra-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
+           { name: "lmdb-pool", descr: "Path to the local LMDB database" },
+           { name: "lmdb-options", type: "json", descr: "Options for the lmdm pool" },
+           { name: "lmdb-tables", type: "list", array: 1, descr: "LMDB tables, list of tables that belong to this pool only" },
+           { name: "leveldb-pool", descr: "Path to the local LevelDB database" },
+           { name: "leveldb-options", type: "json", descr: "Options for the levedb" },
+           { name: "leveldb-tables", type: "list", array: 1, descr: "LevelDB tables, list of tables that belong to this pool only" },
            { name: "redis-pool", descr: "Redis host" },
            { name: "redis-options", type: "json", descr: "Redis driver native options" },
            { name: "redis-tables", type: "list", array: 1, descr: "Redis tables, list of tables that belong to this pool only" },
@@ -3535,29 +3541,47 @@ db.cassandraCacheColumns = function(options, callback)
 //   options to the server command can contain:
 //   - bind - socket bind address, if no ipc:// socket will be used
 //   - socket - NN_PULL or NN_REP, default is NN_PULL
+db.leveldbInitPool = function(options)
+{
+    if (!options) options = {};
+    if (!options.pool) options.pool = "leveldb";
+    options.type = "leveldb";
+    return this.lmdbInitPool(options);
+}
+
 db.lmdbInitPool = function(options)
 {
     var self = this;
     if (!options) options = {};
-    if (!options.pool) options.pool = options.type = "lmdb";
-
+    if (!options.pool) options.pool = "lmdb";
+    if (!options.type) options.type = "lmdb"
+    if (!options.concurrency) options.concurrency = 3;
+    options.dboptions = { noJson: 1 };
     var pool = this.createPool(options);
 
+    // Assume all primary keys
+    pool.cacheColumns = function(opts, callback) {
+        for (var p in this.dbcolumns) {
+            this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
+        }
+        callback();
+    }
+
     pool.getLevelDB = function(callback) {
-        if (this.dbhandle) return callback(null, this);
+        if (this.dbhandle) return callback(null, this.dbhandle);
         try {
             if (!core.exists(this.create_if_missing)) options.create_if_missing = true;
             var path = core.path.spool + "/" + (options.db || ('ldb_' + core.processId()));
             new backend.LevelDB(path, options, function(err) {
                 pool.dbhandle = this;
-                callback(null, pool);
+                callback(null, this);
             });
         } catch(e) {
             callback(e);
         }
     }
     pool.getLMDB = function(callback) {
-        if (this.dbhandle) return callback(null, this);
+        if (this.dbhandle) return callback(null, this.dbhandle);
         try {
             if (!options.path) options.path = core.path.spool;
             if (!options.flags) options.flags = backend.MDB_CREATE;
@@ -3567,7 +3591,7 @@ db.lmdbInitPool = function(options)
             if (!this.env) this.env = new backend.LMDBEnv(options);
             new backend.LMDB(this.env, { name: options.db, flags: options.flags }, function(err) {
                 pool.dbhandle = this;
-                callback(err, pool);
+                callback(err, this);
             });
         } catch(e) {
             callback(e);
@@ -3598,8 +3622,9 @@ db.lmdbInitPool = function(options)
         return keys;
     }
     pool.getKey = function(table, obj, opts, search) {
-        var keys = this.getKeys(table, obj, opts, search).join("|");
-        return table + "|" + keys;
+        var keys = this.getKeys(table, obj, opts, search);
+        for (var p in keys) table += "|" + keys[p];
+        return table;
     }
     pool.query = function(client, req, opts, callback) {
         var pool = this;
@@ -3615,10 +3640,10 @@ db.lmdbInitPool = function(options)
             break;
 
         case "drop":
-            client.dbhandle.all(table, table, opts, function(err, rows) {
+            client.all(table, table, opts, function(err, rows) {
                 if (err || !rows.length) return callback(err, []);
                 async.forEachLimit(rows, opts.concurrency || pool.concurrency, function(row, next) {
-                    client.dbhandle.del(row.name, next);
+                    client.del(row.name, next);
                 }, function(err) {
                     callback(err, []);
                 });
@@ -3626,24 +3651,28 @@ db.lmdbInitPool = function(options)
             break;
 
         case "get":
-            var key = this.getKey(table, obj, opts);
-            client.dbhandle.get(key, function(err, item) {
+            var key = pool.getKey(table, obj, opts);
+            client.get(key, function(err, item) {
                 callback(err, item ? [core.jsonParse(item)] : []);
             });
             break;
 
         case "select":
         case "search":
-            var dbkeys = this.getKeys(table, obj, opts, 1);
-            var key = this.getKey(table, obj, opts, 1);
+            var dbkeys = pool.getKeys(table, obj, opts, 1);
+            var key = pool.getKey(table, obj, opts, 1);
+            var key2 = key.substr(0, key.length-1) + String.fromCharCode(key.charCodeAt(key.length-1)+1);
+            var cols = self.getSelectedColumns(table, opts);
             // Custom filter on other columns
             var other = Object.keys(obj).filter(function(x) { return x[0] != "_" && (keys.indexOf(x) == -1 || !dbkeys[x]) && typeof obj[x] != "undefined" });
-            client.dbhandle.all(key, key, opts, function(err, rows) {
+            client.all(key, key2, opts, function(err, items) {
                 if (err) return callback(err, []);
                 var rows = [];
-                rows.forEach(function(row) {
+                items.forEach(function(row) {
                     row = core.jsonParse(row.value);
-                    if (row) rows.push(row);
+                    if (!row) return;
+                    if (cols) row = cols.map(function(x) { return [x, row[x] ]}).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                    rows.push(row);
                 });
                 if (other.length > 0) {
                     rows = self.filterColumns(obj, rows, { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap });
@@ -3655,8 +3684,8 @@ db.lmdbInitPool = function(options)
         case "list":
             var rc = [];
             async.forEachSeries(obj, function(o, next) {
-                var key = this.getKey(table, o, opts);
-                client.dbhandle.get(key, opts, function(err, val) {
+                var key = pool.getKey(table, o, opts);
+                client.get(key, opts, function(err, val) {
                     if (val) rc.push(core.jsonParse(val));
                     next(err);
                 });
@@ -3666,53 +3695,53 @@ db.lmdbInitPool = function(options)
             break;
 
         case "add":
-            var key = this.getKey(table, obj, opts);
-            client.dbhandle.get(key, opts, function(err, item) {
+            var key = pool.getKey(table, obj, opts);
+            client.get(key, opts, function(err, item) {
                 if (err) return callback(err, []);
                 if (item) return callback(new Error("already exists"), []);
-                client.dbhandle.put(key, JSON.stringify(obj), opts, function(err) {
+                client.put(key, JSON.stringify(obj), opts, function(err) {
                     callback(err, []);
                 });
             });
             break;
 
         case "update":
-            var key = this.getKey(table, obj, opts);
-            client.dbhandle.get(key, opts, function(err, item) {
+            var key = pool.getKey(table, obj, opts);
+            client.get(key, opts, function(err, item) {
                 if (err) return callback(err, []);
                 if (!item) return callback(null, []);
                 item = core.jsonParse(item);
                 if (!item) item = obj; else for (var p in obj) item[p] = obj[p];
-                client.dbhandle.put(key, JSON.stringify(obj), opts, function(err) {
+                client.put(key, JSON.stringify(obj), opts, function(err) {
                     callback(err, []);
                 });
             });
             break;
 
         case "put":
-            var key = this.getKey(table, obj, opts);
-            client.dbhandle.put(key, JSON.stringify(obj), opts, function(err) {
+            var key = pool.getKey(table, obj, opts);
+            client.put(key, JSON.stringify(obj), opts, function(err) {
                 callback(err, []);
             });
             break;
 
         case "incr":
-            var key = this.getKey(table, obj, opts);
+            var key = pool.getKey(table, obj, opts);
             var nums = (opts.counter || []).filter(function(x) { return keys.indexOf(x) == -1 });
             if (!nums.length) return callback();
-            client.dbhandle.get(key, function(err, item) {
+            client.get(key, function(err, item) {
                 if (err) return callback(err);
                 item = core.jsonParse(item);
                 if (!item) item = obj; else nums.forEach(function(x) { item[x] = core.toNumber(item[x]) + obj[x]; });
-                client.dbhandle.put(key, item, JSON.stringify(obj), function(err) {
+                client.put(key, JSON.stringify(item), function(err) {
                     callback(err, []);
                 });
             });
             break;
 
         case "del":
-            var key = this.getKey(table, obj, opts);
-            client.dbhandle.del(key, opts, function(err) {
+            var key = pool.getKey(table, obj, opts);
+            client.del(key, opts, function(err) {
                 callback(err, []);
             });
             break;
@@ -3721,7 +3750,7 @@ db.lmdbInitPool = function(options)
             if (typeof opts.socket == "string") opts.socket = backend[opts.socket];
             client.nnsock = new backend.NNSocket(backend.AF_SP, opts.socket || backend.NN_PULL);
             var err = client.nnsock.bind(opts.bind || ('ipc://var/' + client.db.split("/").pop() + ".sock"));
-            err = client.dbhandle.startServer(client.nnsock, -1);
+            err = client.startServer(client.nnsock, -1);
             callback(err, []);
             break;
 

@@ -735,69 +735,6 @@ tests.cookie = function(callback)
     });
 }
 
-tests.lmdb = function(callback)
-{
-    var db = null, env;
-    var type = core.getArg("-type", "lmdb");
-    async.series([
-        function(next) {
-            if (type != "leveldb") return next();
-            new bn.LevelDB(core.path.spool + "/ldb", { create_if_missing: true }, function(err) {
-                db = this;
-                next(err);
-            });
-        },
-        function(next) {
-            if (type != "lmdb") return next();
-            env = new bn.LMDBEnv({ path: core.path.spool, dbs: 1 });
-            next();
-        },
-        function(next) {
-            if (type != "lmdb") return next();
-            env = new bn.LMDB(env, { name: "lmdb", flags: bn.MDB_CREATE }, function(err) {
-                db = this;
-                next(err);
-            });
-        },
-        function(next) {
-            for (var i = 0; i < 100; i++) {
-                db.put(String(i), String(i));
-            }
-            next();
-        },
-        function(next) {
-            async.forEachSeries([100,101,102,103], function(i, next) {
-                db.put(String(i), String(i), next);
-            }, function(err) {
-                next(err);
-            });
-        },
-        function(next) {
-            db.get("1", function(err, val) {
-                core.checkTest(next, err, val != "1", "err1:",val);
-            });
-        },
-        function(next) {
-            db.all("100", "104", function(err, list) {
-                core.checkTest(next, err, list.length != 4, "err2:", list);
-            });
-        },
-        function(next) {
-            db.incr("1", 1, function(err, val) {
-                next(err);
-            });
-        },
-        function(next) {
-            db.get("1", function(err, val) {
-                core.checkTest(next, err, val != "2", "err3:", val);
-            });
-        },
-    ],
-    function(err) {
-        callback(err);
-    });
-}
-
 tests.msg = function(callback)
 {
     if (!self.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");

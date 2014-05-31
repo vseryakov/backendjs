@@ -704,6 +704,7 @@ struct NNServerBaton {
 NNServer::NNServer()
 {
     poll.data = NULL;
+    bkfree = NULL;
     Stop();
 }
 
