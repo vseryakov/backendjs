@@ -1423,6 +1423,7 @@ db.prepare = function(op, table, obj, options)
     if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
 
     // Process special columns
+    var keys = pool.dbkeys[table.toLowerCase()] || [];
     var cols = pool.dbcolumns[table.toLowerCase()] || {};
     switch (op) {
     case "add":
@@ -1476,6 +1477,7 @@ db.prepare = function(op, table, obj, options)
                 }
             }
         }
+
         // Convert simple types into the native according to the table definition, we dont use
         // prepareDataTypes here because query parameters are not that strict and can be more arrays which we should not
         // convert due to options.ops
@@ -2974,6 +2976,10 @@ db.dynamodbInitPool = function(options)
             logger.debug('select:', 'dynamodb', op, keys, dbkeys, opts.sort, opts.count);
 
             opts.keys = dbkeys;
+            // IN is not supported for key condition, move it in the query
+            for (var p in opts.ops) {
+                if (opts.ops[p] == "in" && p == dbkeys[1]) opts.keys = [ dbkeys[0] ];
+            }
             opts.select = self.getSelectedColumns(table, opts);
             var rows = [];
             // Keep retrieving items until we reach the end or our limit
@@ -3192,13 +3198,14 @@ db.mongodbInitPool = function(options)
             var o = {};
             for (var p in obj) {
                 if (p[0] == '_') continue;
-                switch (opts.ops ? opts.ops[p] : "") {
+                switch (opts.ops[p]) {
                 case "regexp":
                     o[p] = { '$regex': obj[p] };
                     break;
 
                 case "between":
                     var val = core.strSplit(obj[p]);
+                    logger.log("BETWEEN", p, val, obj[p])
                     if (val.length == 2) {
                         o[p] = { '$gte': val[0], '$lte': val[1] };
                     } else {
@@ -3212,8 +3219,7 @@ db.mongodbInitPool = function(options)
                     break;
 
                 case "in":
-                    if (!o['$in']) o['$in'] = {};
-                    o['$in'][p] = core.strSplit(obj[p]);
+                    o[p] = { '$in': core.strSplit(obj[p]) };
                     break;
 
                 case ">":

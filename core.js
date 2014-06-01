@@ -1791,10 +1791,9 @@ core.strSplit = function(str, sep, num)
 {
     var self = this;
     if (!str) return [];
-    return (Array.isArray(str) ? str : String(str).
-            split(sep || /[,\|]/)).
+    return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).
             map(function(x) { return num ? self.toNumber(x) : typeof x == "string" ? x.trim() : x }).
-            filter(function(x) { return x });
+            filter(function(x) { return typeof x == "string" ? x : 1 });
 }
 
 // Split as above but keep only unique items
