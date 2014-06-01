@@ -952,8 +952,7 @@ default is is open for access to all users but same security considerations appl
   - latency - how long a pending request waits in queue at this moment
   - busy - how many busy error responses have been returned so far
   - pool - database metrics
-    - query - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
-    - response - stats about only response times from the db without any local processing times of the result records
+    - response - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
     - queue - stats about db requests at any given moment queued for the execution
     - cache - db cache response time and metrics
     - rate - req/sec rates
@@ -987,30 +986,6 @@ default is is open for access to all users but same security considerations appl
             "latency": 0,
             "busy": 0,
             "pool": {
-                "query": {
-                    "meter": {
-                        "mean": 0.001194894762493158,
-                        "count": 65,
-                        "currentRate": 0.001194894762493158,
-                        "1MinuteRate": 2.413646785930864e-158,
-                        "5MinuteRate": 1.2021442332952544e-33,
-                        "15MinuteRate": 7.127940837162242e-13
-                    },
-                    "histogram": {
-                        "min": 1,
-                        "max": 4,
-                        "sum": 99,
-                        "variance": 0.4096153846153847,
-                        "mean": 1.523076923076923,
-                        "stddev": 0.6400120191179106,
-                        "count": 65,
-                        "median": 1,
-                        "p75": 2,
-                        "p95": 2.6999999999999957,
-                        "p99": 4,
-                        "p999": 4
-                    }
-                },
                 "queue": {
                     "min": 1,
                     "max": 1,

@@ -517,15 +517,14 @@ db.query = function(req, options, callback)
 
     // Metrics collection
     var t1 = Date.now();
-    var m1 = pool.metrics.Timer('response');
-    var m2 = pool.metrics.Timer('query').start();
+    var m1 = pool.metrics.Timer('response').start();
     pool.metrics.Histogram('queue').update(pool.metrics.Counter('count').inc());
     pool.metrics.Meter('rate').mark();
 
     function onEnd(err, client, rows, info) {
         if (client) pool.free(client);
 
-        m2.end();
+        m1.end();
         pool.metrics.Counter('count').dec();
         if (err && !options.ignore_error) {
             pool.metrics.Counter("errors").inc();
@@ -551,9 +550,7 @@ db.query = function(req, options, callback)
         if (err) return onEnd(err, null, [], {});
 
         try {
-            m1.start();
             pool.query(client, req, options, function(err, rows, info) {
-                m1.end();
                 if (err) return onEnd(err, client, [], {});
 
                 try {
@@ -594,7 +591,6 @@ db.query = function(req, options, callback)
                 onEnd(err, client, rows, info);
             });
         } catch(e) {
-            m1.end();
             onEnd(e, client, [], {});
         }
     });

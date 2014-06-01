@@ -277,15 +277,15 @@ api.init = function(callback)
     self.app.use(function(req, res, next) {
         self.metrics.Meter('rate').mark();
         self.metrics.Histogram('queue').update(self.metrics.Counter('count').inc());
-        req.stopwatch = self.metrics.Timer('response').start();
-        req.stopwatch2 = self.metrics.Timer(req.path).start();
+        req.m1 = self.metrics.Timer('response').start();
+        req.m2 = self.metrics.Timer(req.path).start();
         var end = res.end;
         res.end = function(chunk, encoding) {
             res.end = end;
             res.end(chunk, encoding);
             self.metrics.Counter('count').dec();
-            req.stopwatch.end();
-            req.stopwatch2.end();
+            req.m1.end();
+            req.m2.end();
         }
         next();
     });
