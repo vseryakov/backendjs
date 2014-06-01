@@ -1327,7 +1327,7 @@ db.delCache = function(table, query, options)
 db.getCacheKey = function(table, query, options)
 {
     var prefix = options.prefix || table;
-    return prefix + this.getKeys(table, options).map(function(x) { return ":" + query[x] }) + (options.select ? ":" + String(options.select) : "");
+    return prefix + this.getKeys(table, options).map(function(x) { return ":" + query[x] });
 }
 
 // Create a table using column definitions represented as a list of objects. Each column definition can
@@ -3665,7 +3665,7 @@ db.lmdbInitPool = function(options)
             var cols = self.getSelectedColumns(table, opts);
             // Custom filter on other columns
             var other = Object.keys(obj).filter(function(x) { return x[0] != "_" && (keys.indexOf(x) == -1 || !dbkeys[x]) && typeof obj[x] != "undefined" });
-            client.all(key, key2, opts, function(err, items) {
+            client.all(key, key, opts, function(err, items) {
                 if (err) return callback(err, []);
                 var rows = [];
                 items.forEach(function(row) {

@@ -330,15 +330,15 @@ tests.location = function(callback)
 
     async.series([
         function(next) {
-            if (reuse || core.test.iterations) return next();
+            if (cluster.isWorker || reuse || core.test.iterations) return next();
             db.dropPoolTables("", tables, next);
         },
         function(next) {
-            if (reuse || core.test.iterations) return next();
+            if (cluster.isWorker || reuse || core.test.iterations) return next();
         	db.initTables(tables, next);
         },
         function(next) {
-            if (reuse || core.test.iterations) return next();
+            if (reuse) return next();
         	async.whilst(
         		function () { return good < rows + count; },
         		function (next2) {
@@ -372,7 +372,7 @@ tests.location = function(callback)
         		});
         },
         function(next) {
-            if (reuse || core.test.iterations) return next();
+            if (reuse) return next();
             // Records beyond our distance
             bad = good;
             async.whilst(

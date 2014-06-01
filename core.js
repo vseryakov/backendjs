@@ -384,7 +384,7 @@ core.setHome = function(home)
     if ((home || self.home) && cluster.isMaster) {
         if (home) self.home = path.resolve(home);
         try {
-            self.makePath(self.home);
+            self.makePathSync(self.home);
             process.chdir(self.home);
         } catch(e) {
             logger.error('setHome: cannot set home directory', self.home, e);

@@ -1529,7 +1529,7 @@ new image configuration.
         curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs && chmod 755 /tmp/bkjs
         sudo /tmp/bkjs setup-server -root /home/backend
 
-- NOTE: global system-wide options will be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables
+- NOTE: global system-wide options will be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_HOME env variables
 - reboot
 - login as `backend` user using the same AWS keypair private key
 - install the backendjs and node:

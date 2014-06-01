@@ -15,15 +15,15 @@ BKJS=backendjs
 [ -f /etc/$BKRC ] && . /etc/$BKRC
 [ -f /usr/local/etc/$BKRC ] && . /usr/local/etc/$BKRC
 
-[ "$BACKEND_ROOT" = "" ] && BACKEND_ROOT=~/.backend
-[ -f $BACKEND_ROOT/etc/profile ] && . $BACKEND_ROOT/etc/profile
+[ "$BACKEND_HOME" = "" ] && BACKEND_HOME=~/.backend
+[ -f $BACKEND_HOME/etc/profile ] && . $BACKEND_HOME/etc/profile
 
 # Make sure we have defaults set
 [ "$BACKEND_UID" = "" ] && BACKEND_UID=777
 [ "$BACKEND_USER" = "" ] && BACKEND_USER=backend
 [ "$BACKEND_IDLETIME" = "" ] && BACKEND_IDLETIME=900
 [ "$BACKEND_UPTIME" = "" ] && BACKEND_UPTIME=43200
-[ "$BACKEND_SSH_ARGS" = "" ] && BACKEND_SSH_ARGS="ssh -l $BACKEND_USER -o ConnectTimeout=5"
+[ "$BACKEND_SSH_ARGS" = "" ] && BACKEND_SSH_ARGS="-o ConnectTimeout=5"
 
 HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
@@ -64,14 +64,15 @@ ARG=$NAME
 # Global options
 while [ $# -gt 1 ]; do
     case "$1" in
-     -root) BACKEND_ROOT=$2;shift;shift;;
-     -home) BACKEND_ROOT=$2;shift;shift;;
+     -root) BACKEND_HOME=$2;shift;shift;;
+     -home) BACKEND_HOME=$2;shift;shift;;
      -prefix) BACKEND_PREFIX=$2;shift;shift;;
      -user) BACKEND_USER=$2;shift;shift;;
      -hostname) BACKEND_NAME=$2;shift;shift;;
      -host) BACKEND_MASTER=$2;shift;shift;;
      -node) NODE_PATH=$2;shift;shift;;
      -path) BACKEND_PATH=$2;shift;shift;;
+     -ssh) BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
      -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
      -delete) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
      *) break;;
@@ -81,20 +82,20 @@ done
 # Set paths after we know OS type and possible custom settings
 [ "$BACKEND_PREFIX" = "" ] && BACKEND_PREFIX=/usr/local
 [ "$BACKEND_DOMAIN" = "" ] && BACKEND_DOMAIN=localhost
-[ "$BACKUP" = "" ] && BACKUP=$BACKEND_ROOT/backup
+[ "$BACKUP" = "" ] && BACKUP=$BACKEND_HOME/backup
 [ "$CASSANDRA_PREFIX" = "" ] && CASSANDRA_PREFIX=$BACKEND_PREFIX/cassandra
-[ "$CASSANDRA_DIR" = "" ] && CASSANDRA_DIR=$BACKEND_ROOT/cassandra
+[ "$CASSANDRA_DIR" = "" ] && CASSANDRA_DIR=$BACKEND_HOME/cassandra
 [ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr
 [ "$PG_LIBDIR" = "" ] && PG_LIBDIR=$PG_PREFIX/lib
-[ "$PG_DIR" = "" ] && PG_DIR=$BACKEND_ROOT/postgres
-[ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BACKEND_ROOT/mysql
+[ "$PG_DIR" = "" ] && PG_DIR=$BACKEND_HOME/postgres
+[ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BACKEND_HOME/mysql
 [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=/usr
 [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BACKEND_PREFIX/dynamodb
-[ "$MONGO_DIR" = "" ] && MONGO_DIR=$BACKEND_ROOT/mongo
+[ "$MONGO_DIR" = "" ] && MONGO_DIR=$BACKEND_HOME/mongo
 [ "$NODE_PATH" = "" ] && NODE_PATH=$BACKEND_PREFIX/lib/node_modules
 [ "$NODE_BACKEND" = "" ] && NODE_BACKEND=$NODE_PATH/$BKJS
 
-export PATH=$BACKEND_ROOT/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
+export PATH=$BACKEND_HOME/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
 
 case "$ARG" in
@@ -136,15 +137,15 @@ case "$ARG" in
 
   setup-server)
     # Config parameters for the environment
-    $ECHO "BACKEND_ROOT=$BACKEND_ROOT" > /etc/$BKRC
+    $ECHO "BACKEND_HOME=$BACKEND_HOME" > /etc/$BKRC
     $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/$BKRC
     $ECHO "BACKEND_PREFIX=$BACKEND_PREFIX" >> /etc/$BKRC
     $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
     $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
     $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -web -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
-    mkdir -p $BACKEND_ROOT/etc
-    $ECHO "port=80" > $BACKEND_ROOT/etc/config
-    chown -R $BACKEND_USER $BACKEND_ROOT
+    mkdir -p $BACKEND_HOME/etc
+    $ECHO "port=80" > $BACKEND_HOME/etc/config
+    chown -R $BACKEND_USER $BACKEND_HOME
 
     # Install required packages and utilities
     ($0 init-packages)
@@ -175,9 +176,9 @@ case "$ARG" in
        mkdir -p /home/$BACKEND_USER/.ssh
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys /home/$BACKEND_USER/.ssh
        echo 'alias slog="tail -100 /var/log/messages"' >> /home/$BACKEND_USER/.bashrc
-       echo "alias blog=\"tail -100 $BACKEND_ROOT/log/backend.log\"" >> /home/$BACKEND_USER/.bashrc
-       echo "alias elog=\"tail -100 $BACKEND_ROOT/log/error.log\"" >> /home/$BACKEND_USER/.bashrc
-       echo "alias alog=\"tail -100 $BACKEND_ROOT/log/access.log\"" >> /home/$BACKEND_USER/.bashrc
+       echo "alias blog=\"tail -100 $BACKEND_HOME/log/backend.log\"" >> /home/$BACKEND_USER/.bashrc
+       echo "alias elog=\"tail -100 $BACKEND_HOME/log/error.log\"" >> /home/$BACKEND_USER/.bashrc
+       echo "alias alog=\"tail -100 $BACKEND_HOME/log/access.log\"" >> /home/$BACKEND_USER/.bashrc
        echo 'alias bcp="socat readline,history=.socat tcp4:localhost:2080"' >> /home/$BACKEND_USER/.bashrc
        echo 'alias bcp1="socat readline,history=.socat tcp4:localhost:2081"' >> /home/$BACKEND_USER/.bashrc
        echo 'alias ps="ps augx"' >> /home/$BACKEND_USER/.bashrc
@@ -227,10 +228,10 @@ case "$ARG" in
        fi
     fi
 
-    if [ "$(grep '#Backend $BACKEND_ROOT' /etc/logrotate.d/syslog)" = "" ]; then
+    if [ "$(grep '#Backend $BACKEND_HOME' /etc/logrotate.d/syslog)" = "" ]; then
        echo "Configuring logrotate..."
-       echo "#Backend $BACKEND_ROOT" > /etc/logrotate.d/syslog
-       echo "/var/log/cron /var/log/messages $BACKEND_ROOT/log/backend.log $BACKEND_ROOT/log/access.log {" >> /etc/logrotate.d/syslog
+       echo "#Backend $BACKEND_HOME" > /etc/logrotate.d/syslog
+       echo "/var/log/cron /var/log/messages $BACKEND_HOME/log/backend.log $BACKEND_HOME/log/access.log {" >> /etc/logrotate.d/syslog
        echo " missingok" >> /etc/logrotate.d/syslog
        echo " weekly" >> /etc/logrotate.d/syslog
        echo " sharedscripts" >> /etc/logrotate.d/syslog
@@ -241,9 +242,9 @@ case "$ARG" in
     fi
 
     # Setup syslog config
-    if [ "$(grep '#Backend $BACKEND_ROOT' /etc/rsyslog.conf)" = "" ]; then
+    if [ "$(grep '#Backend $BACKEND_HOME' /etc/rsyslog.conf)" = "" ]; then
        echo "Configuring rsyslog..."
-       echo "#Backend $BACKEND_ROOT" > /etc/rsyslog.conf
+       echo "#Backend $BACKEND_HOME" > /etc/rsyslog.conf
        echo '$ModLoad imklog' >> /etc/rsyslog.conf
        echo '$ModLoad imuxsock' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
@@ -255,8 +256,8 @@ case "$ARG" in
        echo '*.info;cron.none,local0.none,local5.none /var/log/messages' >> /etc/rsyslog.conf
        echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
-       echo "local0.* $BACKEND_ROOT/log/backend.log" >> /etc/rsyslog.conf
-       echo "local5.* $BACKEND_ROOT/log/access.log" >> /etc/rsyslog.conf
+       echo "local0.* $BACKEND_HOME/log/backend.log" >> /etc/rsyslog.conf
+       echo "local5.* $BACKEND_HOME/log/access.log" >> /etc/rsyslog.conf
        service rsyslogd restart
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
     fi
@@ -264,7 +265,7 @@ case "$ARG" in
     # Duplicate messages to the console for easier access
     if [[ $BACKEND_ARGS = *-instance* ]]; then
        echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
-       truncate -c -s 0 /var/log/messages $BACKEND_ROOT/log/backend.log $BACKEND_ROOT/log/error.log
+       truncate -c -s 0 /var/log/messages $BACKEND_HOME/log/backend.log $BACKEND_HOME/log/error.log
        service rsyslogd restart
     fi
 
@@ -316,11 +317,11 @@ case "$ARG" in
     # Permissions
     echo "Setting permissions..."
     sed -i 's/requiretty/!requiretty/' /etc/sudoers
-    [ ! -f $BACKEND_ROOT ] && mkdir -p $BACKEND_ROOT/etc $BACKEND_ROOT/var $BACKEND_ROOT/log && chown -R $BACKEND_USER $BACKEND_ROOT
-    touch /var/log/messages $BACKEND_ROOT/log/access.log $BACKEND_ROOT/log/backend.log
-    chmod -f g+r /var/log/messages $BACKEND_ROOT/log/*.log
-    chown -fR $BACKEND_USER $BACKEND_PREFIX $BACKEND_ROOT/etc $BACKEND_ROOT/var $BACKEND_ROOT/log/*.log
-    [ -f $BACKEND_ROOT/postgres ] && chown -fR postgres $BACKEND_ROOT/postgres
+    [ ! -f $BACKEND_HOME ] && mkdir -p $BACKEND_HOME/etc $BACKEND_HOME/var $BACKEND_HOME/log && chown -R $BACKEND_USER $BACKEND_HOME
+    touch /var/log/messages $BACKEND_HOME/log/access.log $BACKEND_HOME/log/backend.log
+    chmod -f g+r /var/log/messages $BACKEND_HOME/log/*.log
+    chown -fR $BACKEND_USER $BACKEND_PREFIX $BACKEND_HOME/etc $BACKEND_HOME/var $BACKEND_HOME/log/*.log
+    [ -f $BACKEND_HOME/postgres ] && chown -fR postgres $BACKEND_HOME/postgres
 
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
@@ -383,6 +384,7 @@ case "$ARG" in
       amazon)
          yum-config-manager --enable epel
          yum -y -q install postgresql9-devel postgresql9-server
+         yum remove gyp
          ;;
 
       *)
@@ -427,7 +429,7 @@ case "$ARG" in
     # Additional options for tar
     BACKUP_TAR_ARGS="--ignore-failed-read --exclude-backup $BACKUP_TAR_ARGS"
     # Files and dirs to backup
-    BACKUP_TAR_FILES="/etc /home/$BACKEND_USER $BACKEND_ROOT/etc $BACKEND_ROOT/web $BACKEND_PREFIX $BACKUP_FILES"
+    BACKUP_TAR_FILES="/etc /home/$BACKEND_USER $BACKEND_HOME/etc $BACKEND_HOME/web $BACKEND_PREFIX $BACKUP_FILES"
     # File extensions to exclude from the backup
     for ext in $BACKUP_TAR_EXCLUDE; do
        BACKUP_TAR_ARGS="--exclude='*.$ext' $BACKUP_TAR_ARGS"
@@ -477,7 +479,8 @@ case "$ARG" in
     ;;
 
   run-pgsql)
-    exec nohup $PG_PREFIX/bin/postgres -F -D $PG_DIR >>$BACKEND_ROOT/log/backend.log 2>&1 &
+    mkdir -p $BACKEND_HOME/var $BACKEND_HOME/log
+    exec nohup $PG_PREFIX/bin/postgres -F -D $PG_DIR >>$BACKEND_HOME/log/backend.log 2>&1 &
     ;;
 
   stop-pgsql)
@@ -498,8 +501,9 @@ case "$ARG" in
     ;;
 
   run-mysql)
-    [ -f $MYSQL_PREFIX/bin/mysqld ] && exec nohup $MYSQL_PREFIX/bin/mysqld >>$BACKEND_ROOT/log/backend.log 2>&1 &
-    [ -f $MYSQL_PREFIX/libexec/mysqld ] && exec nohup $MYSQL_PREFIX/libexec/mysqld >>$BACKEND_ROOT/log/backend.log 2>&1 &
+    mkdir -p $BACKEND_HOME/var $BACKEND_HOME/log
+    [ -f $MYSQL_PREFIX/bin/mysqld ] && exec nohup $MYSQL_PREFIX/bin/mysqld >>$BACKEND_HOME/log/backend.log 2>&1 &
+    [ -f $MYSQL_PREFIX/libexec/mysqld ] && exec nohup $MYSQL_PREFIX/libexec/mysqld >>$BACKEND_HOME/log/backend.log 2>&1 &
     ;;
 
   stop-mysql)
@@ -521,7 +525,8 @@ case "$ARG" in
     ;;
 
   run-dynamodb)
-    (cd $BACKEND_ROOT/var && exec nohup java -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar --port 8181 >>$BACKEND_ROOT/log/backend.log 2>&1 &)
+    mkdir -p $BACKEND_HOME/var $BACKEND_HOME/log
+    (cd $BACKEND_HOME/var && exec nohup java -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar --port 8181 >>$BACKEND_HOME/log/backend.log 2>&1 &)
     ;;
 
   stop-dynamodb)
@@ -548,7 +553,8 @@ case "$ARG" in
     ;;
 
   run-cassandra)
-    $CASSANDRA_PREFIX/bin/cassandra >>$BACKEND_ROOT/log/backend.log 2>&1
+    mkdir -p $BACKEND_HOME/var $BACKEND_HOME/log
+    $CASSANDRA_PREFIX/bin/cassandra >>$BACKEND_HOME/log/backend.log 2>&1
     ;;
 
   stop-cassandra)
@@ -577,8 +583,8 @@ case "$ARG" in
     ;;
 
   run-mongodb)
-    mkdir -p $MONGO_DIR
-    $BACKEND_PREFIX/bin/mongod --fork --dbpath $MONGO_DIR --syslog >>$BACKEND_ROOT/log/backend.log 2>&1
+    mkdir -p $MONGO_DIR $BACKEND_HOME/var $BACKEND_HOME/log
+    $BACKEND_PREFIX/bin/mongod --fork --dbpath $MONGO_DIR --syslog >>$BACKEND_HOME/log/backend.log 2>&1
     ;;
 
   stop-mongodb)
@@ -588,10 +594,10 @@ case "$ARG" in
   init-backend)
     case "$PLATFORM" in
      Darwin)
-         mkdir -p $BACKEND_ROOT/etc
-         if [ ! -f $BACKEND_ROOT/etc/config ]; then
-            echo "Creating default config file in $BACKEND_ROOT/etc/config..."
-            $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n#db-mysql-pool=mysql:///backend\n" > $BACKEND_ROOT/etc/config
+         mkdir -p $BACKEND_HOME/etc
+         if [ ! -f $BACKEND_HOME/etc/config ]; then
+            echo "Creating default config file in $BACKEND_HOME/etc/config..."
+            $ECHO "#debug=1\n#repl-port=2080\n#repl-port-web=2081\n#db-pool=cassandra\n#db-cassandra-pool=cql://127.0.0.1/backend\n#db-pgsql-pool=postgresql://postgres@127.0.0.1/backend\n#db-dynamodb-pool=http://localhost:8181\n#db-mysql-pool=mysql:///backend\n" > $BACKEND_HOME/etc/config
          fi
          echo "Making global backend module accessible in $NODE_BACKEND..."
          rm -rf $NODE_BACKEND && ln -s $(pwd) $NODE_BACKEND
@@ -614,22 +620,22 @@ case "$ARG" in
     for f in build etc deps log tmp var pages images files; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
-    echo "Deploying the module to -l $BACKEND_USER $BACKEND_EXCLUDE $BACKEND_MASTER:$BACKEND_PATH"
-    rsync -av -e "ssh -l $BACKEND_USER" $BACKEND_EXCLUDE `ls` $BACKEND_MASTER:$BACKEND_PATH
-    rsync -av -e "ssh -l $BACKEND_USER" $BACKEND_EXCLUDE web $BACKEND_MASTER:$BACKEND_PATH
+    echo "Deploying the module to -l $BACKEND_USER $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $BACKEND_MASTER:$BACKEND_PATH"
+    rsync -av -e "ssh -l $BACKEND_USER $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $BACKEND_MASTER:$BACKEND_PATH
+    rsync -av -e "ssh -l $BACKEND_USER $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE web $BACKEND_MASTER:$BACKEND_PATH
     ;;
 
   sync-backend)
     # Sync code from the master, only inside backend home
     [ "$BACKEND_MASTER" = "" -o "$BACKEND_PATH" = "" ] && exit
-    su - $BACKEND_USER -c "rsync -aqFF $BACKEND_EXCLUDE -e '$BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_PATH/ $BACKEND_ROOT"
+    su - $BACKEND_USER -c "rsync -aqFF $BACKEND_EXCLUDE -e 'ssh -l $BACKEND_USER $BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_PATH/ $BACKEND_HOME"
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
     [ -f $NODE_BACKEND/server.js ] && SCRIPT=$NODE_BACKEND/server.js
     [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
     [ -f server.js ] && SCRIPT=server.js
-    [ -f $BACKEND_ROOT/app.js ] && SCRIPT=$BACKEND_ROOT/app.js
+    [ -f $BACKEND_HOME/app.js ] && SCRIPT=$BACKEND_HOME/app.js
     [ -f app.js ] && SCRIPT=app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
     case "$ARG" in
@@ -640,20 +646,20 @@ case "$ARG" in
         if [[ $BACKEND_ARGS = *-init-server* ]]; then
            ($0 init-server)
         fi
-        echo "Starting node $NODE_ARGS $SCRIPT -home $BACKEND_ROOT $BACKEND_ARGS $@"
-        $BACKEND_PREFIX/bin/node $NODE_ARGS $SCRIPT -home $BACKEND_ROOT -daemon -monitor -master -syslog $BACKEND_ARGS $@
+        echo "Starting node $NODE_ARGS $SCRIPT -home $BACKEND_HOME $BACKEND_ARGS $@"
+        $BACKEND_PREFIX/bin/node $NODE_ARGS $SCRIPT -home $BACKEND_HOME -daemon -monitor -master -syslog $BACKEND_ARGS $@
         ;;
 
      run-backend)
-        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -debug -master -web -watch `pwd` $@
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_HOME -debug -master -web -watch `pwd` $@
         ;;
 
      run-shell|bksh)
-        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -shell $@
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_HOME -shell $@
         ;;
 
      *)
-        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_ROOT -master -web $@
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_HOME -master -web $@
         ;;
     esac
     ;;
@@ -929,13 +935,13 @@ backend.server.start();
     echo "  run-server - run the backend server process, if -init-server argument passed it will run init-server command before starting the $BKJS daemon"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  ntp - run ntpdate to keep local clock"
-    echo "  backup - run the backup script, store in $BACKEND_ROOT/backup"
+    echo "  backup - run the backup script, store in $BACKEND_HOME/backup"
     echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
     echo "  init-dynamodb - download and install local DynamoDB, start the server"
     echo "  get-dynamodb - install local DynamoDB server in $BACKEND_PREFIX/dynamodb"
-    echo "  run-dynamodb - run local DynamoDB server installed in $BACKEND_PREFIX/dynamodb, data files in $BACKEND_ROOT/var"
+    echo "  run-dynamodb - run local DynamoDB server installed in $BACKEND_PREFIX/dynamodb, data files in $BACKEND_HOME/var"
     echo "  stop-dynamodb - stop local DynamoDB server"
     echo "  get-cassandra - download and install Cassandra server in $CASSANDRA_PREFIX"
     echo "  init-cassandra - download and initialize Cassandra, create backend keyspace, run the server"
@@ -956,7 +962,7 @@ backend.server.start();
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  init-backend - init core backend environment, for the core development only, links NPM global backend module $NODE_BACKEND back to this sources"
-    echo "  put-backend path [-host host] [-path path] [-user user] [-exclude pattern] [-delete] - push the backend code to the master server, uses env BACKEND_MASTER or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
+    echo "  put-backend path [-host host] [-path path] [-user user] [-ssh opts] [-exclude pattern] [-delete] - push the backend code to the master server, uses env BACKEND_MASTER or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
     echo "  sync-backend [-host host] [-path path] [-delete] [-path remote-root] - synchronize other directories from the master host, runs on the instance"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
@@ -968,10 +974,12 @@ backend.server.start();
     echo "  -send-request login|id url param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
     echo ""
     echo "Common options:"
-    echo "  -root path - path to the backend home directory, default is $BACKEND_ROOT"
+    echo "  -root path - path to the backend home directory, default is $BACKEND_HOME"
     echo "  -home path - same as -root"
     echo "  -prefix path - path to the local binaries directory, default is $BACKEND_PREFIX"
     echo "  -node path - path to the node modules directory, default is $NODE_PATH"
+    echo "  -user name - set backend user on the remote or local side, default is $BACKEND_USER"
+    echo "  -ssh opts - pass additional parameters to the ssh command"
     ;;
 esac
 

@@ -248,6 +248,7 @@ public:
         LMDB_DB *db;
         uv_work_t req;
         string message;
+        string op;
         string key;
         string data;
         int64_t num;
@@ -345,7 +346,7 @@ public:
                 TRY_CATCH_CALL(d->db->handle_, d->callback, 1, argv);
             } else {
                 argv[0] = Local < Value > ::New(Null());
-                if (d->list.size()) {
+                if (d->op == "all") {
                     argv[1] = Local<Value>::New(toArray(d->list));
                 } else
                 if (d->data.size()) {
@@ -488,6 +489,7 @@ public:
         Baton* d = new Baton(db, callback);
         d->key = *start;
         d->data = *end;
+        d->op = "all";
         if (callback.IsEmpty()) {
             Work_All(&d->req);
             Handle<Value> rc = Local<Value>::New(toArray(d->list));

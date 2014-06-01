@@ -41,8 +41,8 @@
            "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
            "<!@(if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists libpq; then echo USE_PGSQL; fi)",
            "<!@(if test -f /usr/include/libpq-fe.h; then echo USE_PGSQL; fi)",
-           "<!@(PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists Wand; then echo USE_WAND; fi)",
-           "<!@(PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists libnanomsg; then echo USE_NANOMSG; fi)",
+           "<!@(export PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists Wand; then echo USE_WAND; fi)",
+           "<!@(export PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists libnanomsg; then echo USE_NANOMSG; fi)",
         ],
         "libraries": [
            "-L/opt/local/lib",
