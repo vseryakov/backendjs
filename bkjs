@@ -32,7 +32,7 @@ case "$PLATFORM" in
     [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
     # In multi-OS environment have to sync by OS type due to different dependencies in each distro
-    [ "$BACKEND_OS_TYPE" != "" -a "$BACKEND_MASTER" != "" ] && BACKEND_MASTER=$OS_TYPE-$BACKEND_MASTER
+    [ "$BACKEND_OS_TYPE" != "" -a "$BACKEND_HOST" != "" ] && BACKEND_HOST=$OS_TYPE-$BACKEND_HOST
     [ "$PG_PREFIX" = "" -a -d /usr/pgsql-9.3 ] && PG_PREFIX=/usr/pgsql-9.3
     KILLALL="killall -qr"
     ECHO="echo -e"
@@ -69,7 +69,8 @@ while [ $# -gt 1 ]; do
      -prefix) BACKEND_PREFIX=$2;shift;shift;;
      -user) BACKEND_USER=$2;shift;shift;;
      -hostname) BACKEND_NAME=$2;shift;shift;;
-     -host) BACKEND_MASTER=$2;shift;shift;;
+     -domain) BACKEND_DOMAIN=$2;shift;shift;;
+     -host) BACKEND_HOST=$2;shift;shift;;
      -node) NODE_PATH=$2;shift;shift;;
      -path) BACKEND_PATH=$2;shift;shift;;
      -ssh) BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
@@ -127,26 +128,6 @@ case "$ARG" in
     ;;
 
   init-server)
-    echo "Initializing backend..."
-    # Update to the latest code if necessary
-    ($0 sync-server)
-
-    # Restart itself with new code to continue the init sequence
-    ($0 setup-server)
-    ;;
-
-  setup-server)
-    # Config parameters for the environment
-    $ECHO "BACKEND_HOME=$BACKEND_HOME" > /etc/$BKRC
-    $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/$BKRC
-    $ECHO "BACKEND_PREFIX=$BACKEND_PREFIX" >> /etc/$BKRC
-    $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
-    $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
-    $ECHO "BACKEND_ARGS=\"$BACKEND_ARGS -web -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
-    mkdir -p $BACKEND_HOME/etc
-    $ECHO "port=80" > $BACKEND_HOME/etc/config
-    chown -R $BACKEND_USER $BACKEND_HOME
-
     # Install required packages and utilities
     ($0 init-packages)
 
@@ -187,8 +168,8 @@ case "$ARG" in
        echo 'ulimit -c unlimited' >> /home/$BACKEND_USER/.bash_profile
        echo 'export PGUSER=postgres' >> /home/$BACKEND_USER/.bash_profile
        echo 'export PGDATABASE=backend' >> /home/$BACKEND_USER/.bash_profile
-       chmod -R g-rwx,o-rwx .ssh
-       chown -R $BACKEND_USER /home/$BACKEND_USER $BACKEND_PREFIX
+       chmod -fR g-rwx,o-rwx .ssh
+       chown -fR $BACKEND_USER /home/$BACKEND_USER $BACKEND_PREFIX
     fi
 
     # Allow only pubkey auth
@@ -258,21 +239,22 @@ case "$ARG" in
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
        echo "local0.* $BACKEND_HOME/log/backend.log" >> /etc/rsyslog.conf
        echo "local5.* $BACKEND_HOME/log/access.log" >> /etc/rsyslog.conf
-       service rsyslogd restart
+       service rsyslog restart
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
+       mkdir -p $BACKEND_HOME/log
+       touch /var/log/messages $BACKEND_HOME/log/access.log $BACKEND_HOME/log/backend.log
     fi
 
     # Duplicate messages to the console for easier access
     if [[ $BACKEND_ARGS = *-instance* ]]; then
        echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
        truncate -c -s 0 /var/log/messages $BACKEND_HOME/log/backend.log $BACKEND_HOME/log/error.log
-       service rsyslogd restart
+       service rsyslog restart
     fi
 
-    # Coredumps for debugging
+    # Coredumps for debugging and open files limits
     if [ ! -f /etc/security/limits.d/90-core.conf ]; then
-       $ECHO '* soft core unlimited\n* hard core unlimited\n* soft nofile 32768\n* hard nofile 32768\nroot soft nofile 32768\nroot hard nofile 32768\n* soft memlock unlimited\n* hard memlock unlimited\nroot soft memlock unlimited\nroot hard memlock unlimited\n* soft as unlimited\n* hard as unlimited\nroot soft as unlimited\nroot hard as unlimited\n' > /etc/security/limits.d/90-core.conf
-       sed -i 's/1024/10024/' /etc/security/limits.d/90-nproc.conf
+       $ECHO '* soft core unlimited\n* hard core unlimited\n* soft nofile 256000\n* hard nofile 256000\nroot soft nofile 256000\nroot hard nofile 256000\n* soft memlock unlimited\n* hard memlock unlimited\nroot soft memlock unlimited\nroot hard memlock unlimited\n* soft as unlimited\n* hard as unlimited\nroot soft as unlimited\nroot hard as unlimited\n' > /etc/security/limits.d/90-core.conf
        sed -i 's/kernel.core_uses_pid = 1/kernel.core_uses_pid = 0/' /etc/sysctl.conf
        echo 'vm.max_map_count = 131072' >> /etc/sysctl.conf
     fi
@@ -314,23 +296,16 @@ case "$ARG" in
     chkconfig iptables off
     service iptables stop
 
-    # Permissions
-    echo "Setting permissions..."
-    sed -i 's/requiretty/!requiretty/' /etc/sudoers
-    [ ! -f $BACKEND_HOME ] && mkdir -p $BACKEND_HOME/etc $BACKEND_HOME/var $BACKEND_HOME/log && chown -R $BACKEND_USER $BACKEND_HOME
-    touch /var/log/messages $BACKEND_HOME/log/access.log $BACKEND_HOME/log/backend.log
-    chmod -f g+r /var/log/messages $BACKEND_HOME/log/*.log
-    chown -fR $BACKEND_USER $BACKEND_PREFIX $BACKEND_HOME/etc $BACKEND_HOME/var $BACKEND_HOME/log/*.log
-    [ -f $BACKEND_HOME/postgres ] && chown -fR postgres $BACKEND_HOME/postgres
-
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
 
     # Disable atime on the filesystem
     mount -o remount,noatime /
 
-    # Setup startup scripts
-    ($0 init-service)
+    # Permissions
+    sed -i 's/requiretty/!requiretty/' /etc/sudoers
+    mkdir -p $BACKEND_HOME/etc $BACKEND_HOME/var $BACKEND_HOME/node_modules
+    chown -fR $BACKEND_USER $BACKEND_HOME $BACKEND_PREFIX
 
     # Sync time
     ln -sf $BACKEND_PREFIX/bin/bkjs /etc/cron.hourly/ntp
@@ -352,6 +327,15 @@ case "$ARG" in
        ln -sf $BACKEND_PREFIX/bin/bkjs /etc/cron.hourly/check-idle
     fi
 
+    # Config parameters for the environment
+    $ECHO "BACKEND_HOME=$BACKEND_HOME" > /etc/$BKRC
+    $ECHO "BACKEND_NAME=$BACKEND_NAME" >> /etc/$BKRC
+    $ECHO "BACKEND_PREFIX=$BACKEND_PREFIX" >> /etc/$BKRC
+    $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
+    $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
+    $ECHO "BACKEND_ARGS=\"-web -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
+    $ECHO "port=80" > $BACKEND_HOME/etc/config
+
     ;;
 
   init-service)
@@ -360,6 +344,7 @@ case "$ARG" in
     ;;
 
   init-packages)
+    yum -y -q update
     yum -y -q install ntp rsync dnsmasq wget socat postfix unzip mc nano man telnet
     yum -y -q remove sendmail
     yum -y -q install git svn gdb gcc-c++ make cmake autoconf automake libtool
@@ -616,19 +601,19 @@ case "$ARG" in
        mod=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("package.json")).name)')
        [ "$mod" = "$BKJS" ] && BACKEND_PATH=node_modules/$BKJS
     fi
-    [ "$BACKEND_MASTER" = "" ] && echo "Remote host required, specify with -host or BACKEND_MASTER" && exit
+    [ "$BACKEND_HOST" = "" ] && echo "Remote host required, specify with -host or BACKEND_HOST" && exit
     for f in build etc deps log tmp var pages images files; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
-    echo "Deploying the module to -l $BACKEND_USER $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $BACKEND_MASTER:$BACKEND_PATH"
-    rsync -av -e "ssh -l $BACKEND_USER $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $BACKEND_MASTER:$BACKEND_PATH
-    rsync -av -e "ssh -l $BACKEND_USER $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE web $BACKEND_MASTER:$BACKEND_PATH
+    echo "Deploying the module to -l $BACKEND_USER $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $BACKEND_HOST:$BACKEND_PATH"
+    rsync -av -e "ssh -l $BACKEND_USER $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $BACKEND_HOST:$BACKEND_PATH
+    rsync -av -e "ssh -l $BACKEND_USER $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE web $BACKEND_HOST:$BACKEND_PATH
     ;;
 
   sync-backend)
     # Sync code from the master, only inside backend home
-    [ "$BACKEND_MASTER" = "" -o "$BACKEND_PATH" = "" ] && exit
-    su - $BACKEND_USER -c "rsync -aqFF $BACKEND_EXCLUDE -e 'ssh -l $BACKEND_USER $BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_PATH/ $BACKEND_HOME"
+    [ "$BACKEND_HOST" = "" -o "$BACKEND_PATH" = "" ] && exit
+    su - $BACKEND_USER -c "rsync -aqFF $BACKEND_EXCLUDE -e 'ssh -l $BACKEND_USER $BACKEND_SSH_ARGS' $BACKEND_HOST:$BACKEND_PATH/ $BACKEND_HOME"
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
@@ -716,7 +701,7 @@ case "$ARG" in
     pkg-config --silence-errors --exists libnanomsg
     if [ "$?" = "1" -a "$npm_config_backend_nanomsg" != "" ]; then
         if [ ! -d deps/nanomsg ]; then
-           (cd deps && git clone https://github.com/vseryakov/nanomsg.git)
+           (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
         fi
         (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
         (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
@@ -929,8 +914,8 @@ backend.server.start();
     echo "  restart - restart the backend service"
     echo "  stop - stop the backend service"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
-    echo "  init-server - sync the latest software if master is configured and run the setup phase iwth setup-server command"
-    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-user USER] [-root ROOTDIR] [-doman DOMAIN] [-hostname HOSTNAME]"
+    echo "  init-server - sync the latest software if master is configured and run the setup phase with setup-server command, create global /etc/backendrc config file from the command line options"
+    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-user USER] [-home HOMEDIR] [-doman DOMAIN] [-hostname HOSTNAME]"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
     echo "  run-server - run the backend server process, if -init-server argument passed it will run init-server command before starting the $BKJS daemon"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
@@ -962,7 +947,7 @@ backend.server.start();
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  init-backend - init core backend environment, for the core development only, links NPM global backend module $NODE_BACKEND back to this sources"
-    echo "  put-backend path [-host host] [-path path] [-user user] [-ssh opts] [-exclude pattern] [-delete] - push the backend code to the master server, uses env BACKEND_MASTER or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
+    echo "  put-backend path [-host host] [-path path] [-user user] [-ssh opts] [-exclude pattern] [-delete] - push the backend code to the master server, uses env BACKEND_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
     echo "  sync-backend [-host host] [-path path] [-delete] [-path remote-root] - synchronize other directories from the master host, runs on the instance"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"

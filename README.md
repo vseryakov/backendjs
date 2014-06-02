@@ -1486,9 +1486,9 @@ Most common used commands are:
 - bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
 - bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
 - bkjs init-app - create the app skeleton
-- bkjs put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only
-- bkjs setup-server [-root path] [-user user] - initialize Linux instance(Amazon,CentOS) for backend use, optional -root can be specified where the backend
-   home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user backend.
+- bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BACKEND_HOST env variable for host if not specified in the command line, this is for developent version of the backend only
+- bkjs init-server [-root path] [-user user] [-hostname name] [-domain domain] - initialize Linux instance(Amazon,CentOS) for backend use, optional -root can be specified where the backend
+   home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user `backend`.
 
 # Deployment use cases
 
@@ -1502,7 +1502,7 @@ new image configuration.
 - install commands
 
         curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs && chmod 755 /tmp/bkjs
-        sudo /tmp/bkjs setup-server -root /home/backend
+        sudo /tmp/bkjs init-server -root /home/backend
 
 - NOTE: global system-wide options will be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_HOME env variables
 - reboot
@@ -1525,7 +1525,7 @@ Run the backendjs on the AWS instance as user ec2-user with the backend in the u
 - install commands
 
         curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs && chmod 755 /tmp/bkjs
-        sudo /tmp/bkjs setup-server -root $HOME -user $(whoami) -prefix $HOME
+        sudo /tmp/bkjs init-server -root $HOME -user $(whoami) -prefix $HOME
         /tmp/bkjs build-node -prefix $HOME
         npm install backendjs --backend_nanomsg --backend_imagemagick
         sudo bkjs restart
@@ -1559,7 +1559,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
   The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
   defined via command line arguments as `-home` or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
-  `setup-server` command, for non-standard home use `/etc/backendrc` profile, specify `BACKEND_HOME=/home/backend` there and the rest will be taken care of
+  `init-server` command, for non-standard home use `/etc/backendrc` profile, specify `BACKEND_HOME=/home/backend` there and the rest will be taken care of
 
 - command line arguments
 

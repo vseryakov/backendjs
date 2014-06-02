@@ -15,6 +15,9 @@
 #define GETOPT_INT(obj,name) { Local<String> vname(String::New(#name)); if (obj->Has(vname))  name = obj->Get(vname)->ToInt32()->Value(); }
 #define GETOPT_STR(obj,name) { Local<String> vname(String::New(#name)); if (obj->Has(vname) && obj->Get(vname)->IsString()) { String::Utf8Value vstr(obj->Get(vname)->ToString()); name = *vstr; } }
 
+#define FLAG_BEGINS_WITH        128
+#define FLAG_DESCENDING         256
+
 class LMDB_ENV: public ObjectWrap {
 public:
 
@@ -208,7 +211,7 @@ public:
         txn = NULL;
         cursor = NULL;
     }
-    int GetAll(const char *start, size_t slen, const char *end, size_t elen, vector<pair<string,string> >*list) {
+    int GetAll(const char *start, size_t slen, const char *end, size_t elen, int flags, vector<pair<string,string> >*list) {
         MDB_val k, v, e;
         k.mv_size = slen;
         k.mv_data = (void*)start;
@@ -279,6 +282,9 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "stopServer", ServerStop);
 #endif
         target->Set(String::NewSymbol("LMDB"), constructor_template->GetFunction());
+
+        target->Set(String::NewSymbol("LMDB_BEGINS_WITH"), Integer::New(FLAG_BEGINS_WITH), static_cast<PropertyAttribute>(ReadOnly | DontDelete) );
+        target->Set(String::NewSymbol("LMDB_DESCENDING"), Integer::New(FLAG_DESCENDING), static_cast<PropertyAttribute>(ReadOnly | DontDelete) );
     }
 
     static Handle<Value> OpenGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -484,12 +490,14 @@ public:
 
         REQUIRE_ARGUMENT_STRING(0, start);
         REQUIRE_ARGUMENT_STRING(1, end);
+        OPTIONAL_ARGUMENT_INT(2, flags);
         OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
         Baton* d = new Baton(db, callback);
         d->key = *start;
         d->data = *end;
         d->op = "all";
+        d->flags = flags;
         if (callback.IsEmpty()) {
             Work_All(&d->req);
             Handle<Value> rc = Local<Value>::New(toArray(d->list));
@@ -503,7 +511,7 @@ public:
 
     static void Work_All(uv_work_t* req) {
         Baton* d = static_cast<Baton*>(req->data);
-        d->db->GetAll(d->key.c_str(), d->key.size(), d->data.c_str(), d->data.size(), &d->list);
+        d->db->GetAll(d->key.c_str(), d->key.size(), d->data.c_str(), d->data.size(), d->flags, &d->list);
         if (d->status) d->message = mdb_strerror(d->status);
         d->data.clear();
     }
@@ -522,7 +530,7 @@ public:
         } else
         if (op == "select") {
             vector<pair<string,string> > list;
-            status = db->GetAll(key.c_str(), key.size(), value.c_str(), value.size(), &list);
+            status = db->GetAll(key.c_str(), key.size(), value.c_str(), value.size(), 0, &list);
             if (!status) {
                 jsonValue *val = new jsonValue(JSON_ARRAY, "value");
                 for (uint i = 0; i < list.size(); i++) {

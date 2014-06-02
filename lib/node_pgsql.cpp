@@ -7,7 +7,6 @@
 
 #ifdef USE_PGSQL
 #include "libpq-fe.h"
-#include <string_bytes.h>
 
 #define POLL_STOP(poll) if (poll.data) uv_poll_stop(&poll), poll.data = NULL;
 #define POLL_START(poll,mode,cb, db) poll.data = db;uv_poll_start(&poll, mode, cb);
@@ -445,6 +444,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
         for (int c = 0; c < ccount; c++) {
             Local<Value> value;
             vector<string> list;
+            Buffer *buffer;
             char* name = PQfname(result, c);
             const char * val = PQgetvalue(result, r, c);
             int len = PQgetlength(result, r, c);
@@ -456,7 +456,8 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
             	break;
 
             case 17: // byteA
-            	value = StringBytes::Encode(val, PQgetlength(result, r, c), HEX);
+                buffer = Buffer::New(val, PQgetlength(result, r, c));
+                value = Local<Value>::New(buffer->handle_);
             	break;
 
             case 20:
