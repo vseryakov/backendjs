@@ -1424,6 +1424,7 @@ core.createPool = function(options)
     // if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
     // all items to be released, when expired the callback will be called
     pool.shutdown = function(callback, maxtime) {
+        logger.debug('pool.close:', 'shutdown:', this.name, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
         var self = this;
         this._pmax = -1;
         this.closeAll();

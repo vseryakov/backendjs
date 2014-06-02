@@ -215,7 +215,7 @@ var api = {
            { name: "data-endpoint-unsecure", type: "bool", descr: "Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
-           { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints" },
+           { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
            { name: "allow", array: 1, set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "disallow-path", type: "callback", value: function(v) {this.allow.splice(this.allow.indexOf(v),1)}, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
@@ -454,16 +454,20 @@ api.shutdown = function(callback)
     var db = core.context.db;
     async.parallel([
         function(next) {
-            try { if (self.wsserver) self.wsserver.close(function() { next() }); } catch(e) { next() }
+            if (!self.wsserver) return next();
+            try { self.wsserver.close(function() { next() }); } catch(e) { console.log(e);next() }
         },
         function(next) {
-            try { if (self.socketioserver) self.socketioserver.close(function() { next() }); } catch(e) { next() }
+            if (!self.socketioserver) return next();
+            try { if (self.socketioserver) self.socketioserver.close(function() { next() }); } catch(e) { console.log(e);next() }
         },
         function(next) {
-            try { if (self.server) self.server.close(function() { next() }); } catch(e) { next() }
+            if (!self.server) return next();
+            try { if (self.server) self.server.close(function() { next() }); } catch(e) { console.log(e);next() }
         },
         function(next) {
-            try { if (self.sslserver) self.sslserver.close(function() { next() }); } catch(e) { next() }
+            if (!self.sslserver) return next();
+            try { if (self.sslserver) self.sslserver.close(function() { next() }); } catch(e) { console.log(e);next() }
         },
         ], function(err) {
             clearTimeout(timeout);

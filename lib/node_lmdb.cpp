@@ -220,9 +220,17 @@ public:
         int rc = OpenCursor();
         rc = mdb_cursor_get(cursor, &k, &v, slen ? MDB_SET_RANGE : MDB_FIRST);
         while (rc == 0) {
-            if (elen && mdb_cmp(txn, db, &k, &e) > 0) break;
+            if (elen) {
+                if (flags & FLAG_DESCENDING) {
+
+                } else
+                if (flags & FLAG_BEGINS_WITH) {
+
+                } else
+                if (mdb_cmp(txn, db, &k, &e) > 0) break;
+            }
             list->push_back(pair<string,string>(string((const char*)k.mv_data, k.mv_size), string((const char*)v.mv_data, v.mv_size)));
-            rc = mdb_cursor_get(cursor, &k, &v, MDB_NEXT);
+            rc = mdb_cursor_get(cursor, &k, &v, flags & FLAG_DESCENDING ? MDB_PREV : MDB_NEXT);
         }
         CloseCursor();
         return rc;
