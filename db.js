@@ -1713,7 +1713,7 @@ db.getPublicColumns = function(table, options)
 // the last step woul dbe to cleanup all non public columns if necessary.
 // - options must have `check_public` property set to the current account id or other primary key value to be skipped and checked other records,
 //   setting it to non existent primary key value will clean all records.
-// - options may have `semupub` set to 1 to keep semipub columns.
+// - options may have `semipub` set to 1 to keep semipub columns to the end for post hooks, it will be their responsibility
 db.checkPublicColumns = function(table, rows, options)
 {
     if (!options || !options.check_public) return;
@@ -1761,6 +1761,11 @@ db.processRows = function(pool, table, rows, options)
 //
 // The callback accepts 3 arguments: function(row, options, columns)
 //   where - row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
+//
+// NOTE: This callback will be called before checking for public or semipublic columns, in the case when these columns are needed
+// by the post hooks, options can be set with `options.semipub=1`, in this case when query ends it will not delete semipub columns and
+// the post process hooks will be responsible for this.
+//
 //
 //  Example
 //

@@ -22,7 +22,6 @@ var ipc = {
     msgs: {},
     msgId: 1,
     workers: [],
-    api: {},
     nanomsg: {},
     redis: {},
     memcache: {},
@@ -96,7 +95,7 @@ ipc.initServer = function()
             if (x == worker.process.pid) core.metrics[x].terminated = now;
             if (now - core.metrics[x] > 86400000) delete core.metrics[x];
         });
-        delete self.api[worker.id];
+        self.onMessage.call(worker, { op: "cluster:exit" });
     });
 
     cluster.on('fork', function(worker) {
@@ -124,8 +123,6 @@ ipc.initServer = function()
                     for (var p in cluster.workers) self.workers.push(cluster.workers[p].pid);
 
                 case "api:ready":
-                    // Save worker data
-                    self.api[worker.id] = msg.value;
                     // Restart the next worker from the list
                     if (!self.workers.length) break;
                     for (var p in cluster.workers) {

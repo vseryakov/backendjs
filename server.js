@@ -264,37 +264,60 @@ server.startWeb = function(callback)
         // REPL command prompt over TCP
         if (core.replPortWeb) self.startRepl(core.replPortWeb, core.replBindWeb);
 
-        // In proxy mode we maintain continious sequence of ports for each worker starting with core.port
+        // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
         if (core.proxy.port) {
-            function getEnv() {
-                var env = {};
-                var port = core.port;
-                for (var p in cluster.workers) {
+            core.role = 'proxy';
+            self.proxyTargets = [];
 
+            self.getProxyPort = function() {
+                var ports = self.proxyTargets.map(function(x) { return x.port }).sort();
+                if (ports.length && ports[0] != core.proxy.port) return core.proxy.port;
+                for (var i = 1; i < ports.length; i++) {
+                    if (ports[i] - ports[i - 1] != 1) return ports[i - 1] + 1;
                 }
-                env.BACKEND_PORT = port;
-                return env;
+                return ports.length ? ports[ports.length-1] + 1 : core.proxy.port;
             }
-            function getTarget() {
-
+            self.getProxyTarget = function() {
+                var target = self.proxyTargets.shift();
+                if (target) self.proxyTargets.push(target);
+                return { target: { host: core.proxy.bind, port: target ? target.port : core.proxy.port } };
             }
+            self.clusterFork = function() {
+                var port = self.getProxyPort();
+                var worker = cluster.fork({ BACKEND_PORT: port });
+                self.proxyTargets.push({ id: worker.id, port: port });
+            }
+            ipc.onMessage = function(msg) {
+                switch (msg.op) {
+                case "api:ready":
+                    for (var i = 0; i < self.proxyTargets.length; i++) {
+                        if (self.proxyTargets[i].id == this.id) return self.proxyTargets[i] = msg.value;
+                    }
+                    break;
 
-            self.proxyTargets = {};
+                case "cluster:exit":
+                    for (var i = 0; i < self.proxyTargets.length; i++) {
+                        if (self.proxyTargets[i].id == this.id) return self.proxyTargets.splice(i, 1);
+                    }
+                    break;
+                }
+            }
             self.proxyServer = proxy.createServer();
-            self.proxyServer.on("error", function() { logger.error("proxy:", e.stack) })
-            self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, getTarget()); });
-            if (core.proxy.ssl) self.sslServer = core.createServer({ ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, getTarget()); });
-
-            logger.log('startProxy:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.proxyPort, core.proxyBind, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+            self.proxyServer.on("error", function(err) { logger.error("proxy:", err.stack) })
+            self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, self.getProxyTarget()); });
+            if (core.proxy.ssl) self.sslServer = core.createServer({ ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, self.getProxyTarget()); });
+            if (core.ws.port) {
+                self.server.on('upgrade', function(req, socket, head) {  self.proxyServer.ws(req, socket, head, self.getProxyTarget()); });
+                if (self.sslServer) self.sslServer.on('upgrade', function(req, socket, head) {  self.proxyServer.ws(req, socket, head, self.getProxyTarget()); });
+            }
         } else {
-            function getEnv() { return null }
+            self.getWorkerEnv = function() { return null; }
+            self.clusterFork = function() { return cluster.fork(); }
         }
 
         // Create tables and spawn Web workers
         api.initTables(function(err) {
-            for (var i = 0; i < self.maxProcesses; i++) {
-                cluster.fork(getEnv());
-            }
+            for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
         });
 
         // API related initialization
@@ -304,24 +327,28 @@ server.startWeb = function(callback)
         setInterval(function() {
             // Make sure we have all workers running
             var workers = Object.keys(cluster.workers);
-            for (var i = 0; i < this.maxProcesses - workers.length; i++) {
-                cluster.fork(getEnv());
-            }
+            for (var i = 0; i < this.maxProcesses - workers.length; i++) self.clusterFork();
         }, 5000);
 
         // Restart if any worker dies, keep the worker pool alive
         cluster.on("exit", function(worker, code, signal) {
             logger.log('web worker: died:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
-            self.respawn(function() { cluster.fork(getEnv()); });
+            self.respawn(function() { self.clusterFork(); });
         });
-        logger.log('startWeb:', 'master', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
+        logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
 
     } else {
         core.role = 'web';
         process.title = core.name + ": web"
 
-        // Port to listen in case of reverse proxy configuration
-        if (process.env.BACKEND_PORT) core.port = process.env.BACKEND_PORT;
+        // Port to listen in case of reverse proxy configuration, all other ports become offsets from the base
+        if (core.proxy.port) {
+            core.bind = process.env.BACKEND_BIND || core.proxy.bind;
+            core.port = core.toNumber(process.env.BACKEND_PORT || core.proxy.port);
+            if (core.ssl.port) core.ssl.port = core.port + 100;
+            if (core.ws.port) core.ws.port = core.port + 200;
+            if (core.socketio.port) core.socketio.port = core.port + 300;
+        }
 
         // Setup IPC communication
         ipc.initClient();

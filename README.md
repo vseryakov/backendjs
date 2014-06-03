@@ -24,6 +24,8 @@ Features:
 * nanomsg interface for messaging between processes and servers.
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
+* Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
+  server in front of them instead of relying on the OS scheduling between procsses listening on the same port.
 * Can be used with any MVC or other types of frameworks that work on top or with the Express server.
 * Hosted on [github](https://github.com/vseryakov/backendjs), http://backendjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
 

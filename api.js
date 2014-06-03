@@ -459,9 +459,8 @@ api.init = function(callback)
                 }
             }
 
-            // Notify the master about new worker server, send all ports we are listening on
-            var ports = Object.keys(self).filter(function(x) { return typeof self[x] == "object" && x.match(/[Ss]erver$/)}).map(function(x) { return core.newObj(x, self[x].serverPort) });
-            ipc.send("api:ready", "", ports);
+            // Notify the master about new worker server
+            ipc.command({ op: "api:ready", value: { id: cluster.worker.id, pid: process.pid, port: core.port } });
 
             if (callback) callback.call(self, err);
         });
@@ -819,8 +818,9 @@ api.checkSignature = function(req, callback)
     if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
     // Sanity checks, required headers must be present and not empty
-    if (!sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
-        return callback({ status: 400, message: "Invalid request: " + (!sig.method ? "no method provided" :
+    if (!sig.login || !sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
+        return callback({ status: 400, message: "Invalid request: " + (!sig.login ? "no login provided" :
+                                                                       !sig.method ? "no method provided" :
                                                                        !sig.host ? "no host provided" :
                                                                        !sig.login ? "no login provided" :
                                                                        !sig.expires ? "no expiration provided" :
