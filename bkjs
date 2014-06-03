@@ -71,6 +71,7 @@ while [ $# -gt 1 ]; do
      -hostname) BACKEND_NAME=$2;shift;shift;;
      -domain) BACKEND_DOMAIN=$2;shift;shift;;
      -host) BACKEND_HOST=$2;shift;shift;;
+     -port) BACKEND_PORT=$2;shift;shift;;
      -node) NODE_PATH=$2;shift;shift;;
      -path) BACKEND_PATH=$2;shift;shift;;
      -ssh) BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
@@ -334,7 +335,7 @@ case "$ARG" in
     $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
     $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
     $ECHO "BACKEND_ARGS=\"-web -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
-    $ECHO "port=80" > $BACKEND_HOME/etc/config
+    $ECHO "port=$BACKEND_PORT" > $BACKEND_HOME/etc/config
 
     ;;
 

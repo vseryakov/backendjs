@@ -22,6 +22,7 @@ var ipc = {
     msgs: {},
     msgId: 1,
     workers: [],
+    api: {},
     nanomsg: {},
     redis: {},
     memcache: {},
@@ -72,10 +73,8 @@ ipc.initClient = function()
             case "heapsnapshot":
                 backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
                 break;
-
-            default:
-                self.onMessage(msg);
             }
+            self.onMessage(msg);
         } catch(e) {
             logger.error('msg:worker:', e, msg);
         }
@@ -97,6 +96,7 @@ ipc.initServer = function()
             if (x == worker.process.pid) core.metrics[x].terminated = now;
             if (now - core.metrics[x] > 86400000) delete core.metrics[x];
         });
+        delete self.api[worker.id];
     });
 
     cluster.on('fork', function(worker) {
@@ -124,6 +124,8 @@ ipc.initServer = function()
                     for (var p in cluster.workers) self.workers.push(cluster.workers[p].pid);
 
                 case "api:ready":
+                    // Save worker data
+                    self.api[worker.id] = msg.value;
                     // Restart the next worker from the list
                     if (!self.workers.length) break;
                     for (var p in cluster.workers) {
@@ -222,10 +224,8 @@ ipc.initServer = function()
                     }
                     if (msg.reply) worker.send({});
                     break;
-
-                default:
-                    self.onMessage.call(worker, msg);
                 }
+                self.onMessage.call(worker, msg);
 
             } catch(e) {
                 logger.error('msg:', e, msg);

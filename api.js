@@ -177,6 +177,9 @@ var api = {
     disableSession: [],
     caching: [],
 
+    // All listening servers
+    servers: [],
+
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
     subscribeTimeout: 1800000,
@@ -412,30 +415,53 @@ api.init = function(callback)
         self.initTables(function(err) {
 
             // Start http server
-            self.server = http.createServer(function(req, res) { self.handleServerRequest(req, res) });
-            self.server.timeout = core.timeout;
-            self.server.on('error', function(err) {
-                logger.error('api:http:', err);
-                if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
-            });
-            try { self.server.listen(core.port, core.bind, core.backlog); } catch(e) { logger.error('api: init:', core.port, core.bind, e); err = e; }
-
-            // Start SSL server
-            if (core.ssl.key || core.ssl.pfx) {
-                self.sslserver = https.createServer(core.ssl, function(req, res) { self.handleServerRequest(req, res) });
-                self.sslserver.timeout = core.timeout;
-                self.sslserver.on('error', function(err) {
-                    logger.error('api:ssl:', err);
-                    if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
-                });
-                try { self.sslserver.listen(core.ssl.port, core.ssl.bind, core.backlog); } catch(e) { logger.error('api: init: ssl:', core.ssl, e); err = e; }
+            if (core.port) {
+                self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
             }
 
-            // Sockets server(s), pass messages into the Express routing by wrapping into req/res objects
-            self.startSocketServer();
+            // Start SSL server
+            if (core.ssl.port && (core.ssl.key || core.ssl.pfx)) {
+                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
+            }
 
-            // Notify the master about new worker server
-            ipc.send("api:ready");
+            // WebSocket server, by default uses the http port
+            if (core.ws.port) {
+                var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslServer : null;
+                if (!server) server = core.createServer({ ssl: core.ws.ssl ? core.ssl : null, port: core.ws.port, bind: core.ws.bind, restart: "web" }, function(req, res) { res.send(200, "OK"); });
+                if (server) {
+                    var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
+                    if (core.ws.path) opts.path = core.ws.path;
+                    self.wsServer = new ws.Server(opts);
+                    self.wsServer.serverName = "ws";
+                    self.wsServer.serverPort = core.ws.port;
+                    self.wsServer.on("error", function(err) { logger.error("api.init: ws:", err.stack)});
+                    self.wsServer.on('connection', function(socket) { self.handleWebSocketConnect(socket); });
+                }
+            }
+
+            // Sockets server(s), pass messages into the Express routing by wrapping into req/res objects socket.io server
+            if (core.socketio.port) {
+                // We must have Redis due to master/worker runtime
+                try { self.socketioServer = socketio.listen(core.socketio.port, core.socketio.options); } catch(e) { logger.error('api: init: socket.io:', core.socketio, e); }
+                if (self.socketioServer) {
+                    var p = core.socketio.options.redisPort || core.redisPort;
+                    var h = core.socketio.options.redisHost || core.redisHost;
+                    var o = core.socketio.options.redisOptions || core.redisOptions;
+                    self.socketioServer.serverName = "socket.io";
+                    self.socketioServer.serverPort = core.socketio.port;
+                    self.socketioServer.set('store', new socketio.RedisStore({ redisPub: redis.createClient(p, h, o), redisSub: redis.createClient(p, h, o), redisClient: redis.createClient(p, h, o) }));
+                    self.socketioServer.set('authorization', function(data, callback) { self.checkSocketIORequest(data, callback); });
+                    self.socketioServer.sockets.on('connection', function(socket) { self.handleSocketIOConnect(socket); });
+                    // Expose socket.io.js client library for browsers
+                    module.children.forEach(function(x) {
+                        if (x.id.match(/node_modules\/socket.io\/index.js/)) { self.app.use(serveStatic(path.dirname(x.id) + "/node_modules/socket.io-client/dist")); }
+                    });
+                }
+            }
+
+            // Notify the master about new worker server, send all ports we are listening on
+            var ports = Object.keys(self).filter(function(x) { return typeof self[x] == "object" && x.match(/[Ss]erver$/)}).map(function(x) { return core.newObj(x, self[x].serverPort) });
+            ipc.send("api:ready", "", ports);
 
             if (callback) callback.call(self, err);
         });
@@ -454,101 +480,46 @@ api.shutdown = function(callback)
     var db = core.context.db;
     async.parallel([
         function(next) {
-            if (!self.wsserver) return next();
-            try { self.wsserver.close(function() { next() }); } catch(e) { console.log(e);next() }
+            if (!self.wsServer) return next();
+            try { self.wsServer.close(); next(); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
         },
         function(next) {
-            if (!self.socketioserver) return next();
-            try { if (self.socketioserver) self.socketioserver.close(function() { next() }); } catch(e) { console.log(e);next() }
+            if (!self.socketioServer) return next();
+            try { self.socketioServer.server.close(function() { next() }); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
+        },
+        function(next) {
+            if (!self.sslServer) return next();
+            try { self.sslServer.close(function() { next() }); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
         },
         function(next) {
             if (!self.server) return next();
-            try { if (self.server) self.server.close(function() { next() }); } catch(e) { console.log(e);next() }
-        },
-        function(next) {
-            if (!self.sslserver) return next();
-            try { if (self.sslserver) self.sslserver.close(function() { next() }); } catch(e) { console.log(e);next() }
+            try { self.server.close(function() { next() }); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
         },
         ], function(err) {
             clearTimeout(timeout);
             var pools = db.getPools();
-            async.forEachLimit(pools, pools.length, function(pool, next) { db.dbpool[pool.name].shutdown(next); }, callback);
+            try {
+                async.forEachLimit(pools, pools.length, function(pool, next) { db.dbpool[pool.name].shutdown(next); }, callback);
+            } catch(e) {
+                logger.error("api.shutdown:", e.stack);
+                if (callback) callback();
+            }
         });
 }
 
 // Start Express middleware processing wrapped in the node domain
 api.handleServerRequest = function(req, res)
 {
-    var self = this;
+    var api = core.context.api;
     var d = domain.create();
     d.on('error', function(err) {
         logger.error('api:', req.path, err.stack);
-        self.sendReply(res, err);
-        self.shutdown(function() { process.exit(0); });
+        api.sendReply(res, err);
+        api.shutdown(function() { process.exit(0); });
     });
     d.add(req);
     d.add(res);
-    d.run(function() { self.app(req, res); });
-}
-
-// Process a proxy request, called by the custom proxy server if there is no etc/proxy config file is present for simple cases
-api.handleProxyRequest = function(req, res, proxy) {}
-
-// Run before creating the proxy server for configuration and setup
-api.setupProxyServer = function() {}
-
-// Setup external socket server(s)
-api.startSocketServer = function()
-{
-    var self = this;
-
-    // socket.io server
-    try {
-        if (core.socketio.port) {
-            self.socketioserver = socketio.listen(core.socketio.port, core.socketio.options);
-            // We must have Redis due to master/worker runtime
-            var p = core.socketio.options.redisPort || core.redisPort;
-            var h = core.socketio.options.redisHost || core.redisHost;
-            var o = core.socketio.options.redisOptions || core.redisOptions;
-            self.socketioserver.set('store', new socketio.RedisStore({ redisPub: redis.createClient(p, h, o), redisSub: redis.createClient(p, h, o), redisClient: redis.createClient(p, h, o) }));
-            self.socketioserver.set('authorization', function(data, callback) { self.checkSocketIORequest(data, callback); });
-            self.socketioserver.sockets.on('connection', function(socket) { self.handleSocketIOConnect(socket); });
-
-            // Expose socket.io.js client
-            module.children.forEach(function(x) {
-                if (x.id.match(/node_modules\/socket.io\/index.js/)) {
-                    self.app.use(serveStatic(path.dirname(x.id) + "/node_modules/socket.io-client/dist"));
-                }
-            });
-        }
-    } catch(e) {
-        logger.error('setupSocketServer: socket.io', e.stack);
-    }
-
-    // WebSocket server, by default uses the http port
-    try {
-        if (core.ws.port) {
-            var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslserver : null;
-            if (!server) {
-                if (core.ws.ssl) {
-                    server = https.createServer(core.ssl, function(req, res) { res.send(200, "OK"); });
-                } else {
-                    server = http.createServer(function(req, res) { res.send(200, "OK"); });
-                }
-                server.on('error', function(err) {
-                    logger.error('api:ws:', err);
-                    if (err.code == 'EADDRINUSE') core.killBackend("web", "SIGKILL", function() { process.exit(0) });
-                });
-                try { server.listen(core.ws.port, core.ws.bind, core.backlog); } catch(e) { logger.error('startSocketServer: ws:', core.ws.port, core.ws.bind, e); }
-            }
-            var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
-            if (core.ws.path) opts.path = core.ws.path;
-            self.wsserver = new ws.Server(opts);
-            self.wsserver.on('connection', function(socket) { self.handleWebSocketConnect(socket); });
-        }
-    } catch(e) {
-        logger.error('setupSocketServer: ws', e.stack);
-    }
+    d.run(function() { api.app(req, res); });
 }
 
 // Called on new socket connection, supports all type of sockets

@@ -68,8 +68,7 @@ var core = {
     ws: { port: 0, bind: "0.0.0.0", },
 
     // Proxy config
-    proxyPort: 8080,
-    proxyBind: '0.0.0.0',
+    proxy: { port: 0, ssl: false },
 
     // Number of parallel tasks running at the same time, can be used by various modules
     concurrency: 2,
@@ -164,9 +163,8 @@ var core = {
             { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules" },
             { name: "monitor", type: "none", descr: "For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line" },
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
-            { name: "proxy", type: "none", descr: "Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line" },
-            { name: "proxy-port", type: "number", min: 0, descr: "Proxy server port" },
-            { name: "proxy-bind", descr: "Proxy server listen address" },
+            { name: "proxy-port", type: "number", obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
+            { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default" },
             { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server process" },
             { name: "repl-bind-web", descr: "Web server REPL listen address" },
@@ -838,6 +836,35 @@ core.isTrue = function(val1, val2, op, type)
         if (this.toValue(val1, type) != this.toValue(val2, type)) return false;
     }
     return yes;
+}
+
+// Create a Web server with options and request handler, returns a server object.
+// Options can have the following properties:
+// - port - port number is required
+// - bind - address to bind
+// - restart - name of the processes to restart on address in use error, usually "web"
+// - ssl - an object with SSL options for TLS createServer call
+// - timeout - number of milliseconds for the request timeout
+// - name - server name to be assigned
+core.createServer = function(options, callback)
+{
+    if (!options || !options.port) {
+        logger.error('createServer:', 'invalid options', options);
+        return null;
+    }
+    var server = options.ssl ? https.createServer(options.ssl, callback) : http.createServer(callback);
+    if (options.timeout) server.timeout = options.timeout;
+    server.on('error', function onError(err) {
+        logger.error('web:', options, err.stack);
+        // Restart backend processes on address in use
+        if (err.code == 'EADDRINUSE' && options.restart) {
+            core.killBackend(options.restart, "SIGKILL", function() { process.exit(0) });
+        }
+    });
+    server.serverPort = options.port;
+    if (options.name) server.serverName = options.name;
+    try { server.listen(options.port, options.bind, this.backlog); } catch(e) { logger.error('server: listen:', options, e); server = null; }
+    return server;
 }
 
 // Downloads file using HTTP and pass it to the callback if provided
@@ -2496,7 +2523,7 @@ core.mergeObj = function(obj, options)
 // JSON stringify without empty, null or undefined properties if no filter is given
 core.stringify = function(obj, filter)
 {
-    if (!filter) {
+    if (!filter && this.typeName(obj) == "object") {
         filter = [];
         for (var p in obj) if (typeof obj[p] != "undefined" && obj[p] !== null && obj[p] !== "") filter.push(p);
     }

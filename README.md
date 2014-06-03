@@ -1151,6 +1151,7 @@ When the backend server starts and no -home argument passed in the command line 
 The backend directory structure is the following:
 
 * `etc` - configuration directory, all config files are there
+    * `etc/profile` - shell script loaded by the bkjs utility to customize env variables
     * `etc/config` - config parameters, same as specified in the command line but without leading -, each config parameter per line:
 
         Example:
@@ -1186,21 +1187,6 @@ The backend directory structure is the following:
 
                 bkjs run-backend -master -web
 
-    * `etc/proxy` - HTTP proxy config file, from http-proxy (https://github.com/nodejitsu/node-http-proxy)
-
-        Example:
-
-        1. Create file ~/.backend/etc/proxy with the following contents:
-
-                { "target" : { "host": "localhost", "port": 8001 } }
-
-        2. Start the proxy
-
-                bkjs -proxy
-
-        3. Now all requests will be sent to localhost:8001
-
-    * `etc/profile` - shell script loaded by the bkjs utility to customize env variables
 * `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
 * `var` - database files created by the server
 * `tmp` - temporary files

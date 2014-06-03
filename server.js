@@ -140,11 +140,6 @@ server.start = function()
         // Backend Web server
         if (core.isArg("-web")) {
             self.startWeb();
-        } else
-
-        // HTTP proxy
-        if (core.isArg("-proxy")) {
-            self.startProxy();
         }
     });
 }
@@ -185,7 +180,6 @@ server.startMaster = function()
 
         // Start other master processes
         if (core.isArg("-web")) this.startWebProcess();
-        if (core.isArg("-proxy")) this.startWebProxy();
 
         // REPL command prompt over TCP
         if (core.replPort) self.startRepl(core.replPort, core.replBind);
@@ -270,10 +264,36 @@ server.startWeb = function(callback)
         // REPL command prompt over TCP
         if (core.replPortWeb) self.startRepl(core.replPortWeb, core.replBindWeb);
 
+        // In proxy mode we maintain continious sequence of ports for each worker starting with core.port
+        if (core.proxy.port) {
+            function getEnv() {
+                var env = {};
+                var port = core.port;
+                for (var p in cluster.workers) {
+
+                }
+                env.BACKEND_PORT = port;
+                return env;
+            }
+            function getTarget() {
+
+            }
+
+            self.proxyTargets = {};
+            self.proxyServer = proxy.createServer();
+            self.proxyServer.on("error", function() { logger.error("proxy:", e.stack) })
+            self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, getTarget()); });
+            if (core.proxy.ssl) self.sslServer = core.createServer({ ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, getTarget()); });
+
+            logger.log('startProxy:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.proxyPort, core.proxyBind, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+        } else {
+            function getEnv() { return null }
+        }
+
         // Create tables and spawn Web workers
         api.initTables(function(err) {
             for (var i = 0; i < self.maxProcesses; i++) {
-                cluster.fork();
+                cluster.fork(getEnv());
             }
         });
 
@@ -285,20 +305,23 @@ server.startWeb = function(callback)
             // Make sure we have all workers running
             var workers = Object.keys(cluster.workers);
             for (var i = 0; i < this.maxProcesses - workers.length; i++) {
-                cluster.fork();
+                cluster.fork(getEnv());
             }
         }, 5000);
 
         // Restart if any worker dies, keep the worker pool alive
         cluster.on("exit", function(worker, code, signal) {
             logger.log('web worker: died:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
-            self.respawn(function() { cluster.fork(); });
+            self.respawn(function() { cluster.fork(getEnv()); });
         });
         logger.log('startWeb:', 'master', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
 
     } else {
         core.role = 'web';
         process.title = core.name + ": web"
+
+        // Port to listen in case of reverse proxy configuration
+        if (process.env.BACKEND_PORT) core.port = process.env.BACKEND_PORT;
 
         // Setup IPC communication
         ipc.initClient();
@@ -347,27 +370,6 @@ server.handleChildProcess = function(child, type, method)
         });
     });
     child.unref();
-}
-
-// Start http proxy as standalone server process
-server.startProxy = function()
-{
-    var self = this;
-    var api = core.context.api;
-
-    core.role = 'proxy';
-    process.title = core.name + ": proxy"
-
-    // Config file based or custom based proxy server
-    var options = core.readFileSync(path.join(core.path.etc, "proxy"), { json: 1, logger: 1 });
-    if (options.https) {
-        Object.keys(options.https).forEach(function(key) { options.https[key] = core.readFileSync(path.join(core.path.etc, options.https[key]), { logger: 1 }); });
-    }
-    if (!options.target && !options.forward) options = function(req, res, proxy) { api.handleProxyRequest(req, res, proxy); }
-    api.proxyserver = proxy.createServer(options);
-    try { api.proxyserver.listen(core.proxyPort, core.proxyBind); } catch(e) { logger.error('startProxy:', core.proxyPort, core.proxyBind, e); };
-    api.setupProxyServer();
-    logger.log('startProxy:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.proxyPort, core.proxyBind, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
 }
 
 // Restart the main process with the same arguments and setup as a monitor for the spawn child
