@@ -225,10 +225,10 @@ var core = {
 
     // Cache and messaging properties
     cacheType: 'nanomsg',
-    cachePort: 20194,
+    cachePort: 20100,
     cacheHost: "127.0.0.1",
     msgType: 'nanomsg',
-    msgPort: 20196,
+    msgPort: 20110,
     msgHost: "127.0.0.1",
     subCallbacks: {},
 }
@@ -1681,6 +1681,7 @@ core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, option
     if (options && typeof options.round == "number" && options.round > 0) {
         var decs = String(options.round).split(".")[1];
         distance = parseFloat(Number(Math.floor(distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
+        if (isNaN(distance)) return null;
     }
     return distance;
 }

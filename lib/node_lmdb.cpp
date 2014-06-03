@@ -524,7 +524,7 @@ public:
         d->data.clear();
     }
 
-     static string ServerProcess(char *buf, int len, void *data) {
+     static void ServerProcess(NNServer *server, const char *buf, int len, void *data) {
         LMDB_DB *db = (LMDB_DB*)data;
         jsonValue *json = jsonParse(buf, len, NULL);
         string op = jsonGetStr(json, "op");
@@ -549,6 +549,7 @@ public:
                 }
                 jsonSet(json, val);
                 value = jsonStringify(json);
+                server->Send(value.c_str(), value.size());
             }
         } else
         if (op == "get") {
@@ -568,7 +569,6 @@ public:
             value.clear();
         }
         jsonFree(json);
-        return value;
      }
 
 #ifdef USE_NANOMSG

@@ -549,7 +549,7 @@ Handle<Value> RepairDB(const Arguments& args)
     return args.This();
 }
 
-static string NNHandleRequest(char *buf, int len, void *data)
+static void NNHandleRequest(NNServer *server, const char *buf, int len, void *data)
 {
     LevelDB *db = (LevelDB*)data;
     leveldb::Status status;
@@ -570,6 +570,7 @@ static string NNHandleRequest(char *buf, int len, void *data)
         if (status.ok()) {
             jsonSet(json, JSON_STRING, "value", value);
             value = jsonStringify(json);
+            server->Send(value.c_str(), value.size());
         }
     } else
     if (op == "del") {
@@ -587,7 +588,6 @@ static string NNHandleRequest(char *buf, int len, void *data)
         value.clear();
     }
     jsonFree(json);
-    return value;
 }
 
 #ifdef USE_NANOMSG

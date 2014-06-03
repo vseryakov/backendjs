@@ -234,6 +234,7 @@ ipc.initServer = function()
 // Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed
 ipc.initServerCaching = function()
 {
+    var self = this;
     backend.lruInit(core.lruMax);
 
     switch (core.cacheType) {
@@ -251,13 +252,19 @@ ipc.initServerCaching = function()
         this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, backend.NN_PULL);
         this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, backend.NN_PUSH);
 
-        // Pair of sockets for delivering cache requests to the subscribers
+        // Pair of sockets for distributing cache requests to all subscribers
         this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, backend.NN_PUB);
         if (this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, backend.NN_SUB)) {
             var err = this.nanomsg.lsub.subscribe("");
             if (err) logger.error('initServerCaching:', err, this.nanomsg.lsub);
             err = backend.lruServerStart(this.nanomsg.lsub);
             if (err) logger.error('initServerCaching:', err, this.nanomsg.lsub);
+        }
+
+        // Response server for get requests
+        if (this.bind('lrep', "nanomsg", core.cacheBind, core.cachePort + 2, backend.NN_REP)) {
+            err = backend.lruServerStart(this.nanomsg.lrep);
+            if (err) logger.error('initServerCaching:', err, this.nanomsg.lrep);
         }
 
         // Forward cache requests to the bus
@@ -306,6 +313,35 @@ ipc.initClientCaching = function()
     case "redis":
         this.connect("client", "redis", core.redisHost, core.redisPort, core.redisOptions);
         break;
+
+    case "nanomsg":
+        break;
+        // Request/response sockets for cache retrieval
+        self.nanomsg.lreq = core.createPool({
+            min: 1,
+            max: 10000,
+            create: function(cb) {
+                var pool = this;
+                if (!this.nanomsg) this.nanomsg = { id: 0 };
+                var sock = self.connect.call(this, String(this.nanomsg.id++), "nanomsg", core.cacheHost, core.cachePort + 2, backend.NN_REQ, function(err, data ) {
+                    if (this.callback) callback(data);
+                    this.callback = null;
+                    pool.release(this);
+                });
+                sock.setOption(backend.NN_REQ_RESEND_IVL, 0);
+                cb(null, sock);
+            },
+            destroy: function(client) {
+                client.close();
+            },
+            send: function(name, callback) {
+                var pool = this;
+                this.acquire(function(err, client) {
+                    client.callback = callback;
+                    client.send("\5" + name);
+                });
+            }
+        });
     }
 }
 
@@ -416,9 +452,8 @@ ipc.bind = function(name, type, host, port, options)
 // Connect to the host(s)
 ipc.connect = function(name, type, host, port, options, callback)
 {
-    if (!host || !this[type]) return;
-
     logger.debug("ipc.connect:", type, name, host, port, options);
+    if (!host || !this[type]) return;
 
     switch (type) {
     case "amqp":

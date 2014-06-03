@@ -88,6 +88,7 @@ struct LRUStringCache {
 
     LRUStringCache(int m = 1000): max(m) { clear(); }
     ~LRUStringCache() { clear(); }
+
     const string& get(const string& k) {
         const LRUStringItems::iterator it = items.find(k);
         if (it == items.end()) {
@@ -273,7 +274,8 @@ struct StringCache {
 };
 
 #ifdef USE_NANOMSG
-typedef string (NNServerCallback)(char *buf,int len,void *data);
+class NNServer;
+typedef void (NNServerCallback)(NNServer *server, const char *buf, int size, void *data);
 typedef void (NNServerFree)(void *buf);
 
 class NNServer {
@@ -284,11 +286,10 @@ public:
     virtual int Start(int rfd, int wfd, bool queue, NNServerCallback *cb, void *data, NNServerFree *cbfree);
     virtual void Stop();
 
-    virtual string Run(char *buf, int len);
-
+    virtual void Run(const char *buf, int size);
     virtual int Recv(char **buf);
-    virtual int Send(string val);
-    virtual int Forward(char *buf, int size);
+    virtual int Send(const char *buf, int size);
+    virtual int Forward(const char *buf, int size);
     virtual void Free(char *buf);
     virtual string error(int err);
 

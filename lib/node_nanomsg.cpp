@@ -611,9 +611,8 @@ public:
     // \3key\3val - incr key by val
     // \4 - clear cache
     // \5key - return key
-    static string lruServerRequest(char *buf, int len, void *data) {
-        char *val = 0, *key = buf + 1;
-        string rc;
+    static void lruServerRequest(NNServer *server, const char *buf, int len, void *data) {
+        char *val = 0, *key = (char*)buf + 1;
 
         switch (buf[0]) {
         case '\1':
@@ -638,12 +637,13 @@ public:
             _lru.clear();
             break;
 
-        case '\5':
-            rc = _lru.get(buf);
+        case '\5': {
+            const string &rc = _lru.get(buf);
+            server->Send(rc.c_str(), rc.size() + 1);
             break;
         }
+        }
         LogDev("%s: %s=%s", buf[0] == '\1' ? "del" : buf[0] == '\2' ? "set" : buf[0] == '\3' ? "incr" : buf[0] == '\4' ? "clear" : buf[0] == '\5' ? "get" : "none", key, val);
-        return rc;
     }
 
     static Handle<Value> lruServerStart(const Arguments& args) {
@@ -736,7 +736,6 @@ struct NNServerBaton {
     }
     uv_work_t req;
     NNServer *server;
-    string value;
     char *buf;
     int len;
 };
@@ -768,7 +767,7 @@ void NNServer::Stop()
 
 int NNServer::Start(int r, int w, bool q, NNServerCallback *cb, void *d, NNServerFree *f)
 {
-    if (r < 0) return err = EINVAL;
+    if (r < 0 || !cb) return err = EINVAL;
     rsock = r;
     wsock = w;
     size_t sz = sizeof(int);
@@ -809,8 +808,7 @@ void NNServer::ReadRequest(uv_poll_t *w, int status, int revents)
         NNServerBaton *d = new NNServerBaton(srv, buf, len);
         uv_queue_work(uv_default_loop(), &d->req, WorkRequest, PostRequest);
     } else {
-        string val = srv->Run(buf, len);
-        srv->Send(val);
+        srv->Run(buf, len);
         srv->Free(buf);
     }
 }
@@ -818,20 +816,18 @@ void NNServer::ReadRequest(uv_poll_t *w, int status, int revents)
 void NNServer::PostRequest(uv_work_t* req, int status)
 {
     NNServerBaton* d = static_cast<NNServerBaton*>(req->data);
-    d->server->Send(d->value);
     delete d;
 }
 
 void NNServer::WorkRequest(uv_work_t* req)
 {
     NNServerBaton* d = static_cast<NNServerBaton*>(req->data);
-    d->value = d->server->Run(d->buf, d->len);
+    d->server->Run(d->buf, d->len);
 }
 
-string NNServer::Run(char *buf, int len)
+void NNServer::Run(const char *buf, int size)
 {
-    if (!buf || !len || !bkcallback) return string();
-    return bkcallback(buf, len, data);
+    bkcallback(this, buf, size, data);
 }
 
 string NNServer::error(int err)
@@ -850,10 +846,9 @@ int NNServer::Recv(char **buf)
     return rc;
 }
 
-int NNServer::Send(string val)
+int NNServer::Send(const char *buf, int size)
 {
-    if (rproto != NN_REP && rproto != NN_RESPONDENT) return 0;
-    int rc = nn_send(rsock, val.c_str(), val.size() + 1, NN_DONTWAIT);
+    int rc = nn_send(rsock, buf, size, NN_DONTWAIT);
     if (rc == -1) {
         err = nn_errno();
         LogError("%d: %d: send: %s", rproto, rsock, nn_strerror(err));
@@ -861,7 +856,7 @@ int NNServer::Send(string val)
     return 0;
 }
 
-int NNServer::Forward(char *buf, int size)
+int NNServer::Forward(const char *buf, int size)
 {
     if (wsock < 0) return 0;
     int rc = nn_send(wsock, buf, size, NN_DONTWAIT);

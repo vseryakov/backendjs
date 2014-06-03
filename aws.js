@@ -38,6 +38,7 @@ module.exports = aws;
 // Make AWS request, return parsed response as Javascript object or null in case of error
 aws.queryAWS = function(proto, method, host, path, obj, callback)
 {
+    var self = this;
     var curTime = new Date();
     var formattedTime = curTime.toISOString().replace(/\.[0-9]+Z$/, 'Z');
     var sigValues = new Array();
@@ -80,6 +81,7 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
 // AWS EC2 API parameters
 aws.queryEC2 = function(action, obj, callback)
 {
+    var self = this;
     var req = { Action: action, Version: '2012-12-01' };
     for (var p in obj) req[p] = obj[p];
     this.queryAWS('http://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
@@ -88,6 +90,7 @@ aws.queryEC2 = function(action, obj, callback)
 // Build version 4 signature headers
 aws.querySign = function(service, host, method, path, body, headers)
 {
+    var self = this;
     var now = new Date();
     var date = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
     var datetime = date.substr(0, 8);
@@ -116,6 +119,7 @@ aws.querySign = function(service, host, method, path, body, headers)
 // DynamoDB requests
 aws.queryDDB = function (action, obj, options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = {};
     var start = Date.now();
     var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ('http://dynamodb.' + this.region + '.amazonaws.com/');
@@ -153,6 +157,7 @@ aws.queryDDB = function (action, obj, options, callback)
 // Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well
 aws.signS3 = function(method, bucket, key, query, headers, expires)
 {
+    var self = this;
     var curTime = new Date().toUTCString();
     if (!headers["x-amz-date"]) headers["x-amz-date"] = curTime;
     if (!headers["content-type"]) headers["content-type"] = "binary/octet-stream; charset=utf-8";
@@ -207,6 +212,7 @@ aws.signS3 = function(method, bucket, key, query, headers, expires)
 // - file - file name where to save downloaded contents
 aws.queryS3 = function(bucket, key, options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     if (!options.headers) options.headers = {};
@@ -252,6 +258,7 @@ aws.runInstances = function(count, args, options, callback)
 // Retrieve instance meta data
 aws.getInstanceMeta = function(path, callback)
 {
+    var self = this;
     core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params) {
         logger.debug('getInstanceMeta:', path, params.data, err || "");
         if (callback) callback(err, params.data);
@@ -276,6 +283,7 @@ aws.getInstanceInfo = function(callback)
 // Convert a Javascript object into DynamoDB object
 aws.toDynamoDB = function(value, level)
 {
+    var self = this;
     switch (core.typeName(value)) {
     case 'number':
         return { "N": value.toString() };
@@ -426,6 +434,7 @@ aws.queryFilter = function(obj, options)
 //          { TableNames: [ name, ...] }
 aws.ddbListTables = function(options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     this.queryDDB('ListTables', {}, options, callback);
@@ -438,6 +447,7 @@ aws.ddbListTables = function(options, callback)
 //          { name: { AttributeDefinitions: [], KeySchema: [] ...} }
 aws.ddbDescribeTable = function(name, options, callback)
 {
+    var self = this;
     var params = { TableName: name };
     this.queryDDB('DescribeTable', params, options, function(err, rc) {
         logger.debug('DescribeTable:', name, util.inspect(rc, null, null));
@@ -452,6 +462,9 @@ aws.ddbDescribeTable = function(name, options, callback)
 //   - local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object
 //   - global - an object for global secondary indexes, same format as for local indexes
 //   - projection - an object with index name and list of projected properties to be included in the index or "ALL" for all properties, if omitted then default KEYS_ONLY is assumed
+//   - readCapacity - read capacity units for provisioned throughput
+//   - writeCapacity - write capacity units
+//
 //
 // Example:
 //
@@ -461,13 +474,17 @@ aws.ddbDescribeTable = function(name, options, callback)
 //                                    global: { name: { name: 'HASH', ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
 //                                    projection: { mtime: ['gender','age'],
 //                                                  name: ['name','gender'] },
-//                                    ReadCapacityUnits: 10,
-//                                    WriteCapacityUnits: 10 });
+//                                    readCapacity: 10,
+//                                    writeCapacity: 10 });
 aws.ddbCreateTable = function(name, attrs, keys, options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    var params = { TableName: name, AttributeDefinitions: [], KeySchema: [], ProvisionedThroughput: { ReadCapacityUnits: options.ReadCapacityUnits || 10, WriteCapacityUnits: options.WriteCapacityUnits || 5 }};
+    var params = { TableName: name,
+                   AttributeDefinitions: [],
+                   KeySchema: [],
+                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || 10, WriteCapacityUnits: options.writeCapacity || 5 }};
 
     if (Array.isArray(attrs) && attrs.length) {
         params.AttributeDefinitions = attrs;
@@ -524,15 +541,32 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
     this.queryDDB('CreateTable', params, options, callback);
 }
 
+// Remove a table from the database
 aws.ddbDeleteTable = function(name, options, callback)
 {
+    var self = this;
     var params = { TableName: name };
     this.queryDDB('DeleteTable', params, options, callback);
 }
 
-aws.ddbUpdateTable = function(name, rlimit, wlimit, options, callback)
+// Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
+// provisionined throughput on demand.
+// Options must provide the following properties:
+//  - name - table name
+//  - readCapacity -
+//  - writeCapacity - new povisioned throughtput settings
+//
+// Example of crontab job in etc/crontab:
+//
+//              [
+//              { "type": "server", "cron": "0 0 1 * * *", "job": { "aws.ddbUpdateTable": { "name": "bk_account", "readCapacity": 1000, "writeCapacity": 1000 } } },
+//              { "type": "server", "cron": "0 0 6 * * *", "job": { "aws.ddbUpdateTable": { "name": "bk_account", "readCapacity": 2000, "writeCapacity": 2000 } } }
+//              ]
+//
+aws.ddbUpdateTable = function(options, callback)
 {
-    var params = {"TableName": name, "ProvisionedThroughput": {"ReadCapacityUnits":rlimit,"WriteCapacityUnits":wlimit } };
+    var self = this;
+    var params = { TableName: options.name, ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity, WriteCapacityUnits: options.writeCapacity } };
     this.queryDDB('UpdateTable', params, options, callback);
 }
 

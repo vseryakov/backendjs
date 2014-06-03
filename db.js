@@ -1354,7 +1354,7 @@ db.getCacheKey = function(table, query, options)
 // Each database pool also can support native options that are passed directly to the driver in the options, these properties are
 // defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:
 //
-//          db.create("test_table", { id: { primary: 1, type: "int", index: 1, dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
+//          db.create("test_table", { id: { primary: 1, type: "int", index: 1, dynamodb: { readCapacity: 50, writeCapacity: 50 } },
 //                                    type: { primary: 1, pub: 1, projection: 1 },
 //                                    name: { index: 1, pub: 1 } }
 //                                  });
@@ -1738,6 +1738,7 @@ db.checkPublicColumns = function(table, rows, options)
 // `rows` can be list of records or single record.
 db.processRows = function(pool, table, rows, options)
 {
+    var self = this;
     if (!pool) pool = this.getPool(table, options);
 	if ((!pool.processRow[table] || !pool.processRow[table].length) && !options.noJson) return;
 
@@ -1776,6 +1777,7 @@ db.processRows = function(pool, table, rows, options)
 //
 db.setProcessRow = function(table, options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!table || !callback) return;
     var pool = this.getPool(table, options);
@@ -1904,6 +1906,7 @@ db.sqlCacheColumns = function(options, callback)
 // Prepare SQL statement for the given operation
 db.sqlPrepare = function(op, table, obj, options)
 {
+    var self = this;
     var pool = this.getPool(table, options);
     var req = null;
     switch (op) {
@@ -1957,6 +1960,7 @@ db.sqlQuote = function(val)
 // Return properly quoted value to be used directly in SQL expressions, format according to the type
 db.sqlValue = function(value, type, dflt, min, max)
 {
+    var self = this;
     if (value == "null") return "NULL";
     switch ((type || core.typeName(value))) {
     case "expr":
@@ -2196,6 +2200,7 @@ db.sqlTime = function(d)
 // - params - if given will contain values for binding parameters
 db.sqlFilter = function(columns, values, params)
 {
+    var self = this;
     var all = [], groups = {};
     if (!values) values = {};
     if (!params) params = [];
@@ -2269,6 +2274,7 @@ db.sqlFilter = function(columns, values, params)
 // Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging
 db.sqlLimit = function(options)
 {
+    var self = this;
     if (!options) options = {};
     var rc = "";
 
@@ -2414,12 +2420,14 @@ db.sqlCreate = function(table, obj, options)
 // Create ALTER TABLE ADD COLUMN statements for missing columns
 db.sqlUpgrade = function(table, obj, options)
 {
+    var self = this;
     return this.sqlCreate(table, obj, core.cloneObj(options || {}, "upgrade", 1));
 }
 
 // Create SQL DROP TABLE statement
 db.sqlDrop = function(table, obj, options)
 {
+    var self = this;
     return { text: "DROP TABLE IF EXISTS " + table };
 }
 
@@ -2452,6 +2460,7 @@ db.sqlSelect = function(table, query, options)
 // Build SQL insert statement
 db.sqlInsert = function(table, obj, options)
 {
+    var self = this;
     if (!options) options = {};
     var names = [], pnums = [], req = { values: [] }, i = 1
     // Columns should exist prior to calling this
@@ -2542,6 +2551,7 @@ db.sqlUpdate = function(table, obj, options)
 // Build SQL statement for delete
 db.sqlDelete = function(table, obj, options)
 {
+    var self = this;
     if (!options) options = {};
     var keys = this.getSearchKeys(table, options);
 
@@ -2570,7 +2580,16 @@ db.pgsqlInitPool = function(options)
     options.dboptions = { typesMap: { real: "numeric", bigint: "bigint", smallint: "smallint" }, noIfExists: 1, noReplace: 1, schema: ['public'] };
     options.type = "pgsql";
     var pool = this.sqlInitPool(options);
-    pool.connect = self.pgsqlConnect;
+    pool.connect = function(options, callback) {
+        new backend.PgSQLDatabase(options.db, function(err) {
+            if (err) {
+                logger.error('pgsqlOpen:', options, err);
+                return callback(err);
+            }
+            this.notify(function(msg) { logger.log('notify:', msg) });
+            callback(err, this);
+        });
+    }
     pool.bindValue = self.pgsqlBindValue;
     pool.cacheIndexes = self.pgsqlCacheIndexes;
     // No REPLACE INTO support, do it manually
@@ -2581,19 +2600,6 @@ db.pgsqlInitPool = function(options)
         });
     }
     return pool;
-}
-
-// Open PostgreSQL connection, execute initial statements
-db.pgsqlConnect = function(options, callback)
-{
-    new backend.PgSQLDatabase(options.db, function(err) {
-        if (err) {
-            logger.error('pgsqlOpen:', options, err);
-            return callback(err);
-        }
-        this.notify(function(msg) { logger.log('notify:', msg) });
-        callback(err, this);
-    });
 }
 
 // Cache indexes using the information_schema
@@ -2680,6 +2686,7 @@ db.sqliteInitPool = function(options)
 // with error as first argument and database object as second
 db.sqliteConnect = function(options, callback)
 {
+    var self = this;
     new backend.SQLiteDatabase(options.file, options.readonly ? backend.OPEN_READONLY : 0, function(err) {
         if (err) {
             // Do not report errors about not existing databases
@@ -2772,16 +2779,13 @@ db.mysqlInitPool = function(options)
     options.type = "mysql";
     options.dboptions = { typesMap: { json: "text", bigint: "bigint" }, sqlPlaceholder: "?", defaultType: "VARCHAR(128)", noIfExists: 1, noJson: 1, noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
-    pool.connect = self.mysqlConnect;
+    pool.connect = function(options, callback) {
+        new backend.MysqlDatabase(options.db, function(err) {
+            callback(err, this);
+        });
+    }
     pool.cacheIndexes = self.mysqlCacheIndexes;
     return pool;
-}
-
-db.mysqlConnect = function(options, callback)
-{
-    new backend.MysqlDatabase(options.db, function(err) {
-        callback(err, this);
-    });
 }
 
 db.mysqlCacheIndexes = function(options, callback)
@@ -3419,6 +3423,7 @@ db.cassandraInitPool = function(options)
 
 db.cassandraConnect = function(options, callback)
 {
+    var self = this;
     var hosts = core.strSplit(options.db).map(function(x) { return url.parse(x); });
     var db = new helenus.ConnectionPool({ hosts: hosts.map(function(x) { return x.host }),
                                           keyspace: hosts[0].path.substr(1),
@@ -3434,6 +3439,7 @@ db.cassandraConnect = function(options, callback)
 
 db.cassandraQuery = function(text, values, options, callback)
 {
+    var self = this;
     if (typeof values == "function") callback = values, values = null, options = null;
     if (typeof options == "function") callback = options, options = null;
     try {
@@ -3550,6 +3556,7 @@ db.cassandraCacheColumns = function(options, callback)
 //   - socket - NN_PULL or NN_REP, default is NN_PULL
 db.leveldbInitPool = function(options)
 {
+    var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "leveldb";
     options.type = "leveldb";
