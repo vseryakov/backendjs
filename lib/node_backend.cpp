@@ -258,14 +258,30 @@ static Handle<Value> geoHashAdjacent(const Arguments& args)
    return scope.Close(result);
 }
 
+static bool isNumber(Handle<Value> arg)
+{
+    HandleScope scope;
+    String::Utf8Value str(arg);
+    const char *p = *str;
+    while (*p && (*p == ' ' || *p == '-' || *p == '+')) p++;
+    if (!isdigit(*p)) return false;
+    return true;
+}
+
 static Handle<Value> geoDistance(const Arguments& args)
 {
    HandleScope scope;
 
-   REQUIRE_ARGUMENT_NUMBER(0, lat1);
-   REQUIRE_ARGUMENT_NUMBER(1, lon1);
-   REQUIRE_ARGUMENT_NUMBER(2, lat2);
-   REQUIRE_ARGUMENT_NUMBER(3, lon2);
+   if (args.Length() < 4) return scope.Close(Null());
+   double lat1 = args[0]->NumberValue();
+   double lon1 = args[1]->NumberValue();
+   double lat2 = args[2]->NumberValue();
+   double lon2 = args[3]->NumberValue();
+   if (isnan(lat1) || isnan(lon1) || isnan(lat2) || isnan(lon2)) return scope.Close(Null());
+   if (lat1 == 0 && !isNumber(args[0]->ToString())) return scope.Close(Null());
+   if (lon1 == 0 && !isNumber(args[1]->ToString())) return scope.Close(Null());
+   if (lat2 == 0 && !isNumber(args[2]->ToString())) return scope.Close(Null());
+   if (lon2 == 0 && !isNumber(args[3]->ToString())) return scope.Close(Null());
 
    return scope.Close(Local<Number>::New(Number::New(vDistance(lat1, lon1, lat2, lon2))));
 }

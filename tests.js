@@ -304,8 +304,8 @@ tests.location = function(callback)
 	var tables = {
 			geo: { geohash: { primary: 1, index: 1, semipub: 1 },
 			       id: { type: "int", primary: 1, pub: 1 },
-                   latitude: { type: "real", semipub: 1 },
-                   longitude: { type: "real", semipub: 1 },
+                   latitude: { type: "real", semipub: 1, projection: 1 },
+                   longitude: { type: "real", semipub: 1, projection: 1 },
                    distance: { type: "real" },
                    rank: { type: 'int', index: 1 },
                    status: { value: 'good', projection: 1 },
@@ -346,7 +346,7 @@ tests.location = function(callback)
         		    var lon = core.randomNum(bbox[1], bbox[3]);
         		    var obj = core.geoHash(lat, lon);
                     obj.distance = core.geoDistance(latitude, longitude, lat, lon, { round: round });
-                    if (obj.distance > distance) return next2();
+                    if (obj.distance == null || obj.distance > distance) return next2();
                     // Make sure its in the neighbors
                     if (geo.neighbors.indexOf(obj.geohash) == -1) return next2();
                     // Create several records in the same geohash box
@@ -382,7 +382,7 @@ tests.location = function(callback)
                     var lon = core.randomNum(bbox[1], bbox[3]);
                     var obj = core.geoHash(lat, lon);
                     obj.distance = core.geoDistance(latitude, longitude, lat, lon, { round: round });
-                    if (obj.distance <= distance || obj.distance > distance*2) return next2();
+                    if (obj.distance == null || obj.distance <= distance || obj.distance > distance*2) return next2();
                     bad++;
                     obj.id = String(bad);
                     obj.rank = bad;
@@ -439,7 +439,7 @@ tests.location = function(callback)
         function(next) {
             // Scan all neighbors within the distance and take top 2 ranks only, in desc order
             var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good" };
-            var options = { round: round, sort: "rank", desc: true, count: 50, top: 2, select: "geohash,id,status,rank" };
+            var options = { round: round, sort: "rank", desc: true, count: 50, top: 2, select: "latitude,longitude,id,status,rank" };
             db.getLocations("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'good' })
                 var iscount = Object.keys(top).reduce(function(x,y) { return x + Math.min(2, top[y].length) }, 0);

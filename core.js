@@ -1046,10 +1046,8 @@ core.httpGet = function(uri, params, callback)
           if (res.statusCode >= 301 && res.statusCode <= 307 && !params.noredirects) {
               params.redirects += 1;
               if (params.redirects < 10) {
-                  var uri2 = res.headers.location;
-                  if (uri2.indexOf("://") == -1) {
-                      uri2 = options.protocol + "//" + options.host + uri2;
-                  }
+                  var uri2 = res.headers.location || "";
+                  if (uri2.indexOf("://") == -1) uri2 = options.protocol + "//" + options.host + uri2;
                   logger.dev('httpGet:', 'redirect', uri2);
 
                   // Ignore redirects we don't want and return data received
@@ -1677,7 +1675,7 @@ core.geoHash = function(latitude, longitude, options)
 core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
 {
     var distance = backend.geoDistance(latitude1, longitude1, latitude2, longitude2);
-    if (isNaN(distance)) return distance;
+    if (isNaN(distance) || distance === null) return null;
 
     // Round the distance to the closes edge and fixed number of decimals
     if (options && typeof options.round == "number" && options.round > 0) {

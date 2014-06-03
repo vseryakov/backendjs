@@ -2201,14 +2201,16 @@ api.putLocation = function(req, options, callback)
 
     // Get current location
     db.get("bk_account", { id: req.account.id }, function(err, old) {
-        if (err || !old) return callback(err);
+        if (err || !old) return callback(err ? err : { status: 404, mesage: "account not found"});
 
         // Build new location record
         var geo = core.geoHash(latitude, longitude);
 
         // Skip if within minimal distance
-        var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
-        if (distance < core.minDistance || old.geohash == geo.geohash) return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
+        if (old.latitude || old.longitude) {
+            var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
+            if (distance == null || distance < core.minDistance || old.geohash == geo.geohash) return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
+        }
 
         req.query.id = req.account.id;
         req.query.geohash = geo.geohash;

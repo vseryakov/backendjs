@@ -1195,6 +1195,7 @@ db.getLocations = function(table, query, options, callback)
               // If no coordinates but only geohash decode it, it must be at least semipub as well
               items.forEach(function(row) {
                   row.distance = core.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
+                  if (row.distance == null) return;
                   // Limit the distance within the allowed range
                   if (options.round > 0 && row.distance - options.distance > options.round) return;
                   // Limit by exact distance
