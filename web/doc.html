@@ -93,6 +93,8 @@ easily extendable to support any kind of database, provides a database driver on
 <li>nanomsg interface for messaging between processes and servers.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
+<li>Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
+server in front of them instead of relying on the OS scheduling between procsses listening on the same port.</li>
 <li>Can be used with any MVC or other types of frameworks that work on top or with the Express server.</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, <a href="http://backendjs.io">http://backendjs.io</a> or <a href="http://vseryakov.github.io/backendjs">http://vseryakov.github.io/backendjs</a>, BSD licensed.</li>
 </ul>
@@ -907,9 +909,10 @@ default is is open for access to all users but same security considerations appl
 <li><p><code>/system/stats</code>
 Database pool statistics and other diagnostics</p>
 <ul>
+<li>latency - how long a pending request waits in queue at this moment</li>
+<li>busy - how many busy error responses have been returned so far</li>
 <li>pool - database metrics<ul>
-<li>query - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client</li>
-<li>response - stats about only response times from the db without any local processing times of the result records</li>
+<li>response - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client</li>
 <li>queue - stats about db requests at any given moment queued for the execution</li>
 <li>cache - db cache response time and metrics</li>
 <li>rate - req/sec rates</li>
@@ -946,32 +949,9 @@ Database pool statistics and other diagnostics</p>
 </ul>
 <p>Response:</p>
 <pre><code>   {
-      &quot;toobusy&quot;: 0,
+      &quot;latency&quot;: 0,
+      &quot;busy&quot;: 0,
       &quot;pool&quot;: {
-          &quot;query&quot;: {
-              &quot;meter&quot;: {
-                  &quot;mean&quot;: 0.001194894762493158,
-                  &quot;count&quot;: 65,
-                  &quot;currentRate&quot;: 0.001194894762493158,
-                  &quot;1MinuteRate&quot;: 2.413646785930864e-158,
-                  &quot;5MinuteRate&quot;: 1.2021442332952544e-33,
-                  &quot;15MinuteRate&quot;: 7.127940837162242e-13
-              },
-              &quot;histogram&quot;: {
-                  &quot;min&quot;: 1,
-                  &quot;max&quot;: 4,
-                  &quot;sum&quot;: 99,
-                  &quot;variance&quot;: 0.4096153846153847,
-                  &quot;mean&quot;: 1.523076923076923,
-                  &quot;stddev&quot;: 0.6400120191179106,
-                  &quot;count&quot;: 65,
-                  &quot;median&quot;: 1,
-                  &quot;p75&quot;: 2,
-                  &quot;p95&quot;: 2.6999999999999957,
-                  &quot;p99&quot;: 4,
-                  &quot;p999&quot;: 4
-              }
-          },
           &quot;queue&quot;: {
               &quot;min&quot;: 1,
               &quot;max&quot;: 1,
@@ -1136,6 +1116,7 @@ Database pool statistics and other diagnostics</p>
 <ul>
 <li><p><code>etc</code> - configuration directory, all config files are there</p>
 <ul>
+<li><code>etc/profile</code> - shell script loaded by the bkjs utility to customize env variables</li>
 <li><p><code>etc/config</code> - config parameters, same as specified in the command line but without leading -, each config parameter per line:</p>
 <p>  Example:</p>
 <pre><code>  debug=1
@@ -1167,24 +1148,10 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 </code></pre></li>
 </ol>
 </li>
-<li><p><code>etc/proxy</code> - HTTP proxy config file, from http-proxy (<a href="https://github.com/nodejitsu/node-http-proxy">https://github.com/nodejitsu/node-http-proxy</a>)</p>
-<p>  Example:</p>
-<ol>
-<li><p>Create file ~/.backend/etc/proxy with the following contents:</p>
-<pre><code> { &quot;target&quot; : { &quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: 8001 } }
-</code></pre></li>
-<li><p>Start the proxy</p>
-<pre><code> bkjs -proxy
-</code></pre></li>
-<li><p>Now all requests will be sent to localhost:8001</p>
-</li>
-</ol>
-</li>
-<li><p><code>etc/profile</code> - shell script loaded by the bkjs utility to customize env variables</p>
-</li>
 </ul>
 </li>
-<li><code>images</code> - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images</li>
+<li><p><code>images</code> - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images</p>
+</li>
 <li><code>var</code> - database files created by the server</li>
 <li><code>tmp</code> - temporary files</li>
 <li><code>web</code> - Web pages served by the static Express middleware</li>
@@ -1436,9 +1403,9 @@ customize the running environment, these should be regular shell scripts using b
 <li>bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
 <li>bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
 <li>bkjs init-app - create the app skeleton</li>
-<li>bkjs put-backend path [-host host] - sync sources of the app with the remote site, uses BACKEND_MASTER env variable for host if not specified in the command line, this is for developent version of the backend only</li>
-<li>bkjs setup-server [-root path] [-user user] - initialize Linux instance(Amazon,CentOS) for backend use, optional -root can be specified where the backend
- home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user backend.</li>
+<li>bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BACKEND_HOST env variable for host if not specified in the command line, this is for developent version of the backend only</li>
+<li>bkjs init-server [-root path] [-user user] [-hostname name] [-domain domain] - initialize Linux instance(Amazon,CentOS) for backend use, optional -root can be specified where the backend
+ home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user <code>backend</code>.</li>
 </ul>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <h2 id="custom-aws-instance-setup">Custom AWS instance setup</h2>
@@ -1449,9 +1416,9 @@ new image configuration.</p>
 <li>login as <code>ec2-user</code></li>
 <li><p>install commands</p>
 <pre><code>  curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs &amp;&amp; chmod 755 /tmp/bkjs
-  sudo /tmp/bkjs setup-server -root /home/backend
+  sudo /tmp/bkjs init-server -root /home/backend
 </code></pre></li>
-<li><p>NOTE: global system-wide options will be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_ROOT env variables</p>
+<li><p>NOTE: global system-wide options will be defined in the <code>/etc/backendrc</code> like BACKEND_ARGS, BACKEND_NAME, BACKEND_HOME env variables</p>
 </li>
 <li>reboot</li>
 <li>login as <code>backend</code> user using the same AWS keypair private key</li>
@@ -1471,7 +1438,7 @@ new image configuration.</p>
 <li>login as <code>ec2-user</code></li>
 <li><p>install commands</p>
 <pre><code>  curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs &amp;&amp; chmod 755 /tmp/bkjs
-  sudo /tmp/bkjs setup-server -root $HOME -user $(whoami) -prefix $HOME
+  sudo /tmp/bkjs init-server -root $HOME -user $(whoami) -prefix $HOME
   /tmp/bkjs build-node -prefix $HOME
   npm install backendjs --backend_nanomsg --backend_imagemagick
   sudo bkjs restart
@@ -1497,7 +1464,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 <li><p>config file</p>
 <p>The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
 defined via command line arguments as <code>-home</code> or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
-<code>setup-server</code> command, for non-standard home use <code>/etc/backendrc</code> profile, specify <code>BACKEND_HOME=/home/backend</code> there and the rest will be taken care of</p>
+<code>init-server</code> command, for non-standard home use <code>/etc/backendrc</code> profile, specify <code>BACKEND_HOME=/home/backend</code> there and the rest will be taken care of</p>
 </li>
 <li><p>command line arguments</p>
 <p>When running node scripts which use the backend, just specify <code>-home</code> command line argument with the directory where yor backend should be and the backend will use it</p>
@@ -1622,6 +1589,9 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <ul>
 <li><code>help</code> - Print help and exit</li>
 <li><code>debug</code> - Enable debugging messages, short of -log debug</li>
+<li><code>debug-run-segv</code> - On SEGV crash keep the process spinning so attaching with gdb is possible</li>
+<li><code>debug-set-segv</code> - Set default SEGV handler which shows backtrace of calls if debug info is available</li>
+<li><code>debug-set-backtrace</code> - Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well</li>
 <li><code>log</code> - Set debugging level: none, log, debug, dev</li>
 <li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog. Default: log/backend.log</li>
 <li><code>syslog</code> - Write all logging messages to syslog, connect to the local syslog server over Unix domain socket</li>
@@ -1662,9 +1632,8 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules</li>
 <li><code>monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
 <li><code>master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
-<li><code>proxy</code> - Start the HTTP proxy server, uses etc/proxy config file, can be specified only in the command line</li>
-<li><code>proxy-port</code> - Proxy server port. Default: 8080</li>
-<li><code>proxy-bind</code> - Proxy server listen address. Default: 0.0.0.0</li>
+<li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
+<li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests </li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default</li>
 <li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server process</li>
 <li><code>repl-bind-web</code> - Web server REPL listen address. Default: 0.0.0.0</li>
@@ -1705,7 +1674,6 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>max-distance</code> - Max searchable distance(radius) in km, for location searches to limit the upper bound. Default: 50</li>
 <li><code>min-distance</code> - Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. Default: 5</li>
 <li><code>instance</code> - Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
-<li><code>backtrace</code> - Enable backtrace facility, trap crashes and report the backtrace stack</li>
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: sqlite</li>
 <li><code>db-no-pools</code> - Do not use other db pools except default local pool</li>
@@ -1741,6 +1709,12 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-cassandra-max</code> - Max number of open connection for the pool</li>
 <li><code>db-cassandra-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-cassandra-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
+<li><code>db-lmdb-pool</code> - Path to the local LMDB database</li>
+<li><code>db-lmdb-options</code> - Options for the lmdm pool</li>
+<li><code>db-lmdb-tables</code> - LMDB tables, list of tables that belong to this pool only</li>
+<li><code>db-leveldb-pool</code> - Path to the local LevelDB database</li>
+<li><code>db-leveldb-options</code> - Options for the levedb</li>
+<li><code>db-leveldb-tables</code> - LevelDB tables, list of tables that belong to this pool only</li>
 <li><code>db-redis-pool</code> - Redis host</li>
 <li><code>db-redis-options</code> - Redis driver native options</li>
 <li><code>db-redis-tables</code> - Redis tables, list of tables that belong to this pool only</li>
@@ -1761,7 +1735,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-data-endpoint-unsecure</code> - Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution</li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: </li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: </li>
-<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, thisis a convenient options which registers AuthCheck callback for the given endpoints. Default: </li>
+<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints. Default: </li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: ^/$,.html$,.(ico|gif|png|jpg|svg)$,.(ttf|eof|woff)$,.(js|css)$,^/public,^/account/add$</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
@@ -1772,7 +1746,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds. Default: 1800000</li>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds. Default: 3000</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes. Default: 10485760</li>
-<li><code>server-max-processes</code> - Max processes to launch for servers. Default: 1</li>
+<li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2. Default: 1</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch for jobs. Default: 1</li>
 <li><code>server-idle-time</code> - If set and no jobs are submitted the backend will be shutdown, for instance mode only. Default: 120</li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process. Default: 30000</li>
@@ -1830,11 +1804,9 @@ the worker processes if they die and restart them automatically. How many proces
                     mtime: { type: &quot;bigint&quot;, now: 1 } },    // Last update time
 
      // Status/presence support
-     bk_status: {
-         id: { primary: 1 },                               // account id
-         status: { primary: 1 },                           // status
-         mtime: { type: &quot;bigint&quot;, now: 1 },                // last status change time
-     },
+     bk_status: { id: { primary: 1 },                               // account id
+                  status: {},                                       // status
+                  mtime: { type: &quot;bigint&quot;, now: 1 }},               // last status change time
 
      // Keep track of icons uploaded
      bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
@@ -1928,26 +1900,14 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 </ul>
 
 <ul>
-<li><p><code>api.handleProxyRequest(req, res, proxy)</code></p>
-<p> Process a proxy request, called by the custom proxy server if there is no etc/proxy config file is present for simple cases</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.setupProxyServer()</code></p>
-<p> Run before creating the proxy server for configuration and setup</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.startSocketServer()</code></p>
-<p> Setup external socket server(s)</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.setupSocketConnection(socket)</code></p>
-<p> Called on new socket connection, passed the socket connected as first argument, supports any type of sockets</p>
+<p> Called on new socket connection, supports all type of sockets</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.cleanupSocketConnection(socket)</code></p>
+<p> Called when a socket connections is closed to cleanup all additional resources associated with it</p>
 </li>
 </ul>
 
@@ -2697,7 +2657,7 @@ any other exact value to be checked against which corresponds to { Exists: true,
 <li>keys is an object with primary key attributes name and value.</li>
 <li>item is an object with properties where value can be:<ul>
 <li>number/string/array - action PUT, replace or add new value</li>
-<li>null - action DELETE</li>
+<li>null/empty string - action DELETE</li>
 </ul>
 </li>
 <li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
@@ -2955,6 +2915,21 @@ making it usable for repeating environments or storage solutions.</p>
 <ul>
 <li><p><code>core.isTrue(val1, val2, op, type)</code></p>
 <p> Evaluate expr, compare 2 values with optional type and operation</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.createServer(options, callback)</code></p>
+<p> Create a Web server with options and request handler, returns a server object.
+Options can have the following properties:</p>
+<ul>
+<li>port - port number is required</li>
+<li>bind - address to bind</li>
+<li>restart - name of the processes to restart on address in use error, usually &quot;web&quot;</li>
+<li>ssl - an object with SSL options for TLS createServer call</li>
+<li>timeout - number of milliseconds for the request timeout</li>
+<li>name - server name to be assigned</li>
+</ul>
 </li>
 </ul>
 
@@ -3560,14 +3535,20 @@ o = { a:1, b:2, c:5, d:1 }
 </ul>
 
 <ul>
-<li><p><code>core.stringify(obj)</code></p>
-<p> JSON stringify without empty properties</p>
+<li><p><code>core.stringify(obj, filter)</code></p>
+<p> JSON stringify without empty, null or undefined properties if no filter is given</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.jsonParse(obj)</code></p>
-<p> Silent JSON parse</p>
+<li><p><code>core.jsonParse(obj, options)</code></p>
+<p> Silent JSON parse, returns null on error, no exceptions raised.
+options can specify the output in case of an error:</p>
+<ul>
+<li>list - return empty list</li>
+<li>obj - return empty obj</li>
+<li>str - return empty string</li>
+</ul>
 </li>
 </ul>
 
@@ -3625,6 +3606,7 @@ checkTest(next, err, failure, ....)</p>
 <li>failure - must be true for failed test, the condition is evaluated by the caller and this is the result of it</li>
 <li>all other arguments are printed in case of error or result being false</li>
 </ul>
+<p>NOTE: In forever mode (-test-forever) any error is ignored and not reported</p>
 <p>Example</p>
 <pre><code>    function(next) {
         db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
@@ -3643,7 +3625,7 @@ The common command line arguments that supported:</p>
 <li>-test-workers - number of workers to run the test at the same time</li>
 <li>-test-delay - number of milliseconds before starting worker processes, default is 500ms</li>
 <li>-test-iterations - how many times to run this test function, default is 1</li>
-<li>test-forever - run forever without reporting any errors, for performance testing</li>
+<li>-test-forever - run forever without reporting any errors, for performance testing</li>
 </ul>
 <p>All common command line arguments can be used, like -db-pool to specify which db to use.</p>
 <p>After finish or in case of error the process exits, so this is not supposded tobe run inside the
@@ -3781,7 +3763,8 @@ Options can have the following properties:</p>
 
 <ul>
 <li><p><code>db.dropPoolTables(name, tables, options, callback)</code></p>
-<p> Remove all registered tables from the pool</p>
+<p> Delete all specified tables from the pool, if <code>pool</code> is empty then default pool will be used, <code>tables</code> is an object with table names as
+properties, same table definition format as for create table method</p>
 </li>
 </ul>
 
@@ -4487,7 +4470,7 @@ the last step woul dbe to cleanup all non public columns if necessary.</p>
 <ul>
 <li>options must have <code>check_public</code> property set to the current account id or other primary key value to be skipped and checked other records,
 setting it to non existent primary key value will clean all records.</li>
-<li>options may have <code>semupub</code> set to 1 to keep semipub columns.</li>
+<li>options may have <code>semipub</code> set to 1 to keep semipub columns to the end for post hooks, it will be their responsibility</li>
 </ul>
 </li>
 </ul>
@@ -4508,13 +4491,16 @@ specified table thus providing an opportunity to customize the result.</p>
 <p>All assigned callback to this table will be called in the order of the assignment.</p>
 <p>The callback accepts 3 arguments: function(row, options, columns)
  where - row is a row from the table, options are the obj passed to the db called and columns is an object with table&#39;s columns</p>
-<p>Example</p>
-<pre><code>db.setProcessRow(&quot;bk_account&quot;, function(row, opts, cols) {
-    if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-});
-</code></pre></li>
+<p>NOTE: This callback will be called before checking for public or semipublic columns, in the case when these columns are needed
+by the post hooks, options can be set with <code>options.semipub=1</code>, in this case when query ends it will not delete semipub columns and
+the post process hooks will be responsible for this.</p>
+</li>
 </ul>
-
+<p>  Example</p>
+<pre><code>  db.setProcessRow(&quot;bk_account&quot;, function(row, opts, cols) {
+      if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+  });
+</code></pre>
 <ul>
 <li><p><code>db.sqlInitPool(options)</code></p>
 <p> Create a database pool for SQL like databases</p>
@@ -4651,7 +4637,8 @@ options may contain the following properties:</p>
 <li>noLengths - ignore column length for columns (Cassandra)</li>
 <li>noIfExists - do not support IF EXISTS on table or indexes</li>
 <li>noCompositeIndex - does not support composite indexes (Cassandra)</li>
-<li>noauto - no support for auto increment columns</li>
+<li>noAuto - no support for auto increment columns</li>
+<li>skipNull - object with operations which dont support null(empty) values (DynamoDB cannot add/put empty/null values)</li>
 </ul>
 </li>
 </ul>
@@ -4762,7 +4749,7 @@ with error as first argument and database object as second</p>
 </ul>
 
 <ul>
-<li><p><code>db.lmdbInitPool(options)</code></p>
+<li><p><code>db.leveldbInitPool(options)</code></p>
 <p> Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
 table parameter is ignored, the object only supports the properties name and value in the record objects.</p>
 <p>Because this driver supports 2 databases it requires type to be specified, possible values are: <code>lmdb, leveldb</code></p>
@@ -4987,6 +4974,12 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 
 <h2 id="module-server">Module: SERVER</h2>
 <ul>
+<li><p><code>server</code></p>
+<p> The main server class that starts various processes</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>server.start()</code></p>
 <p> Start the server process, call the callback to perform some initialization before launchng any server, just after core.init</p>
 </li>
@@ -5037,12 +5030,6 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 <ul>
 <li><p><code>server.handleChildProcess(child, type, method)</code></p>
 <p> Setup exit listener on the child process and restart it</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.startProxy()</code></p>
-<p> Start http proxy as standalone server process</p>
 </li>
 </ul>
 

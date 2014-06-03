@@ -3210,7 +3210,6 @@ db.mongodbInitPool = function(options)
 
                 case "between":
                     var val = core.strSplit(obj[p]);
-                    logger.log("BETWEEN", p, val, obj[p])
                     if (val.length == 2) {
                         o[p] = { '$gte': val[0], '$lte': val[1] };
                     } else {
