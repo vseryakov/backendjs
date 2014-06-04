@@ -1260,7 +1260,7 @@ core.sendRequest = function(uri, options, callback)
                 break;
             }
         }
-        if (params.status != 200 && !err && !options.anystatus) err = self.newError(util.format("ResponseError: %j", params.obj), "HTTP", params.status);
+        if (params.status != 200 && !err && !options.anystatus) err = self.newError(util.format("ResponseError: %d: %j", params.status, params.obj), "HTTP", params.status);
         if (!params.obj) params.obj = {};
         if (callback) callback(err, params, res);
     });
@@ -2371,7 +2371,7 @@ core.cloneObj = function()
 // Return a new Error object
 core.newError = function(msg, name, code)
 {
-    var err = new Error(msg + (code ? ": " + code : ""));
+    var err = new Error(msg);
     if (name) err.name = name;
     if (code) err.code = code;
     return err;

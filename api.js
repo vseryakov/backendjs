@@ -100,7 +100,7 @@ var api = {
 
        // Status/presence support
        bk_status: { id: { primary: 1 },                               // account id
-                    status: {},                                       // status
+                    status: { value: "online" },                      // status, online, offline, away
                     mtime: { type: "bigint", now: 1 }},               // last status change time
 
        // Keep track of icons uploaded
@@ -969,17 +969,19 @@ api.initStatusAPI = function()
 
         switch (req.params[0]) {
         case "get":
-            if (!req.query.id) req.query.id = req.account.id;
-            db.get("bk_status", { id: req.query.id }, options, function(err, row) {
-                if (err) return self.sendReply(res, err);
-                res.json(row);
-            });
+            if (!req.query.id) {
+                db.get("bk_status", { id: req.account.id }, options, function(err, row) {
+                    self.sendJSON(req, err, row);
+                });
+            } else {
+                db.list("bk_status", req.query.id, options, function(err, rows) {
+                    self.sendJSON(req, err, rows);
+                });
+            }
             break;
 
         case "put":
-            if (!req.query.status) return self.sendReply(res, 400, "status is required");
-            req.query.id = req.account.id;
-            db.put("bk_status", req.query, options, function(err, row) {
+            db.put("bk_status", { id: req.account.id, status: req.query.status }, options, function(err, row) {
                 self.sendReply(res, err);
             });
             break;
@@ -2559,24 +2561,24 @@ api.deleteAccount = function(obj, options, callback)
                        db.del("bk_reference", { id: type[1], type: type[0] + ":" + obj.id }, options, function(err) {
                            db.del("bk_connection", row, options, next2);
                        });
-                   }, next);
+                   }, function() { next() });
                });
            },
            function(next) {
                if (options.keep.message) return next();
-               db.delAll("bk_message", { id: obj.id }, options, next);
+               db.delAll("bk_message", { id: obj.id }, options, function() { next() });
            },
            function(next) {
                if (options.keep.archive) return next();
-                   db.delAll("bk_archive", { id: obj.id }, options, next);
+               db.delAll("bk_archive", { id: obj.id }, options, function() { next() });
            },
            function(next) {
                if (options.keep.sent) return next();
-               db.delAll("bk_sent", { id: obj.id }, options, next);
+               db.delAll("bk_sent", { id: obj.id }, options, function() { next() });
            },
            function(next) {
                if (options.keep.status) return next();
-               db.del("bk_status", { id: obj.id }, options, next);
+               db.del("bk_status", { id: obj.id }, options, function() { next() });
            },
            function(next) {
                if (options.keep.icon) return next();
@@ -2586,12 +2588,12 @@ api.deleteAccount = function(obj, options, callback)
                    async.forEachSeries(rows, function(row, next2) {
                        self.formatIcon(row);
                        self.delIcon(obj.id, row, next2);
-                   }, next);
+                   }, function() { next() });
                });
            },
            function(next) {
                if (options.keep.location || !account.geohash) return next();
-               db.del("bk_location", { geohash: account.geohash, id: obj.id }, options, next);
+               db.del("bk_location", { geohash: account.geohash, id: obj.id }, options, function() { next() });
            }],
            function(err) {
                callback(err, obj);

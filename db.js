@@ -2545,7 +2545,13 @@ db.sqlUpdate = function(table, obj, options)
     if (options.using_timestamp) req.text += " USING TIMESTAMP " + options.using_timestamp;
     req.text += " SET " + sets.join(",") + " WHERE " + where;
     if (options.returning) req.text += " RETURNING " + options.returning;
-    if (options.expected) req.text += " IF " + Object.keys(options.expected).map(function(x) { return x + "=" + self.sqlValue(options.expected[x]) }).join(" AND ");
+    if (options.expected) {
+        var expected = Object.keys(options.expected).
+                              filter(function(x) { return ["string","number"].indexOf(core.typeName(options.expected[x])) > -1 }).
+                              map(function(x) { return x + "=" + self.sqlValue(options.expected[x]) }).
+                              join(" AND ");
+        if (expected) req.text += " IF " + expected;
+    }
     return req;
 }
 
@@ -2885,8 +2891,17 @@ db.dynamodbInitPool = function(options)
 
     // Convert into human readable messages
     pool.convertError = function(table, op, err, opts) {
-        if (op == "add" && err.message == "Attribute found when none expected.") return new Error("Record already exists");
-        if (op == "add" && err.message == "The conditional check failed") return new Error("Record already exists");
+        switch (op) {
+        case "add":
+            if (err.message == "Attribute found when none expected.") return core.newError("Record already exists", "", 400);
+            if (err.message == "The conditional check failed") return core.newError("Record already exists", "", 400);
+            break;
+        case "put":
+        case "incr":
+        case "update":
+            if (err.code == "ConditionalCheckFailedException") return core.newError("Not updated", "", "ExpectedCondition");
+            break;
+        }
         return err;
     }
 
@@ -3362,9 +3377,21 @@ db.cassandraInitPool = function(options)
                           noCompositeIndex: 1,
                           noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
-    pool.connect = self.cassandraConnect;
-    pool.bindValue = self.cassandraBindValue;
     pool.cacheColumns = self.cassandraCacheColumns;
+    pool.connect = function(options, callback) {
+        var self = this;
+        var hosts = core.strSplit(options.db).map(function(x) { return url.parse(x); });
+        var db = new helenus.ConnectionPool({ hosts: hosts.map(function(x) { return x.host }),
+                                              keyspace: hosts[0].path.substr(1),
+                                              user: hosts[0].auth ? hosts[0].auth.split(':')[0] : null,
+                                              password: hosts[0].auth ? hosts[0].auth.split(':')[1] : null });
+        db.query = this.cassandraQuery;
+        db.on('error', function(err) { logger.error('cassandra:', err); });
+        db.connect(function(err, keyspace) {
+            if (err) logger.error('cassandraOpen:', err);
+            if (callback) callback(err, db);
+        });
+    }
     // No REPLACE INTO support but UPDATE creates new record if no primary key exists
     pool.put = function(table, obj, opts, callback) {
         self.update(table, obj, opts, callback);
@@ -3416,26 +3443,9 @@ db.cassandraInitPool = function(options)
             if (lastOps) opts.ops[lastKey] = lastOps;
             return req;
         }
-
         return self.sqlPrepare(op, table, obj, opts);
     }
     return pool;
-}
-
-db.cassandraConnect = function(options, callback)
-{
-    var self = this;
-    var hosts = core.strSplit(options.db).map(function(x) { return url.parse(x); });
-    var db = new helenus.ConnectionPool({ hosts: hosts.map(function(x) { return x.host }),
-                                          keyspace: hosts[0].path.substr(1),
-                                          user: hosts[0].auth ? hosts[0].auth.split(':')[0] : null,
-                                          password: hosts[0].auth ? hosts[0].auth.split(':')[1] : null });
-    db.query = this.cassandraQuery;
-    db.on('error', function(err) { logger.error('cassandra:', err); });
-    db.connect(function(err, keyspace) {
-        if (err) logger.error('cassandraOpen:', err);
-        if (callback) callback(err, db);
-    });
 }
 
 db.cassandraQuery = function(text, values, options, callback)
@@ -3453,6 +3463,7 @@ db.cassandraQuery = function(text, values, options, callback)
                     obj[name] = value;
                     if (ts) obj["_timestamp"] = ts;
                     if (ttl) obj["_ttl"] = ttl;
+                    if (name == ['[applied]']) self.affected_rows = value ? 1 : 0;
                 });
                 rows.push(obj);
             });
