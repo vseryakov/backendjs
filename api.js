@@ -549,7 +549,8 @@ api.handleSocketIOConnect = function(socket)
     socket.on("message", function(url, callback) {
         var req = self.createWebSocketRequest(this, url, function(data) { if (callback) return callback(data); if (data) this.emit("message", data); });
         req.httpProtocol = "IO";
-        req.headers = this.headers || (this.handshake || {}).headers || {};
+        req.headers = this.handshake.headers || {};
+        req.socket.ip = this.handshake.address.address;
         req = null;
         self.handleServerRequest(this._requests[0], this._requests[0].res);
     });
@@ -587,16 +588,18 @@ api.createWebSocketRequest = function(socket, url, reply)
 
     var req = new http.IncomingMessage();
     req.socket = new net.Socket();
-    req.socket.ip = this.remoteAddress;
     req.socket.__defineGetter__('remoteAddress', function() { return this.ip; });
     req.connection = req.socket;
     req.httpVersionMajor = req.httpVersionMinor = 1;
     req.httpProtocol = "WS";
     req.method = "GET";
-    req.headers = this.headers || {};
     req.url = String(url);
     req.logUrl = req.url.split("?")[0];
     req._body = true;
+    if (socket.upgradeReq) {
+        if (socket.upgradeReq.headers) req.headers = socket.upgradeReq.headers;
+        if (socket.upgradeReq.connection) req.socket.ip = socket.upgradeReq.connection.remoteAddress;
+    }
 
     req.res = new http.ServerResponse(req);
     req.res.assignSocket(req.socket);

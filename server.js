@@ -339,7 +339,7 @@ server.startWeb = function(callback)
 
     } else {
         core.role = 'web';
-        process.title = core.name + ": web"
+        process.title = core.name + ": web";
 
         // Port to listen in case of reverse proxy configuration, all other ports become offsets from the base
         if (core.proxy.port) {

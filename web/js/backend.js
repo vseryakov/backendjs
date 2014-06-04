@@ -13,9 +13,10 @@ var Backend = {
     scramble: false,
 
     // Socket.io config
-    socketHost: null,
-    socketPort: 8001,
-    socketErrors: 0,
+    ioconf: { host: null, port: 8001, errors: 0 },
+
+    // Websockets
+    wsconf: { host: null, port: 8000, errors: 0 },
 
     // Return current credentials
     getCredentials: function() {
@@ -169,38 +170,64 @@ var Backend = {
     },
 
     // Connect to socket.io host and register callback on message receive
-    ioConnect: function(url, options, callback, onerror) {
+    ioConnect: function(url, options, onmessage, onerror) {
         var self = this;
-        if (typeof options == "function") callback = options, options = {}
-        if (!url) url = "http://" + (this.socketHost || window.location.hostname) + ":" + this.socketPort;
-        this.socketErrors = 0;
-        this.socket = io.connect(url, options);
-        this.socket.on("connect", function() {
-            self.socket.on("message", callback || function(data) { console.log('socket.io:', data) });
+        if (typeof options == "function") onmessage = options, onerror = onmessage, options = {};
+        if (!url) url = "http://" + (this.ioconf.host || window.location.hostname) + ":" + this.ioconf.port;
+        this.ioconf.errors = 0;
+        this.io = io.connect(url, options);
+        this.io.on("connect", function() {
+            self.io.on("message", onmessage || function(data) { console.log('socket.io:', data) });
         });
-        this.socket.on("error", function(err) {
-            console.log('socket.io:', self.socketErrors, err);
+        this.io.on("error", function(err) {
+            console.log('socket.io:', self.ioconf.errors, err);
             // Well, as 0.9.16 storm of reconnects can kill the server, we have to stop it
-            if (++self.socketErrors > 10) return self.ioClose();
+            if (++self.ioconf.errors > 10) return self.ioClose();
             onerror && onerror(err);
         });
-        return this.socket;
+        return this.io;
     },
 
     // Destroy the socket completely
     ioClose: function() {
-        if (!this.socket) return;
-        this.socket.removeAllListeners();
-        this.socket.socket.options.reconnect = false;
-        this.socket.disconnect();
-        this.socket.socket.transport.close();
-        for (var p in io.sockets) if (io.sockets[p] == this.socket.socket) delete io.sockets[p];
-        this.socket = null;
+        if (!this.io) return;
+        this.io.removeAllListeners();
+        this.io.socket.options.reconnect = false;
+        this.io.disconnect();
+        this.io.socket.transport.close();
+        for (var p in io.sockets) if (io.sockets[p] == this.io.socket) delete io.sockets[p];
+        this.io = null;
     },
 
     // Send request with the socket.io connection, url must be url-encoded, only GET requests are supported
     ioSend: function(url, callback) {
-        this.socket.emit("message", Backend.signUrl(url), callback);
+        if (this.io) this.io.emit("message", Backend.signUrl(url), callback);
+    },
+
+    // WebSokets helper functions
+    wsConnect: function(url, options, onmessage, onerror) {
+        var self = this;
+        if (typeof options == "function") onmessage = options, onerror = onmessage, options = {};
+        if (!url) url = "ws://" + (this.wsconf.host || window.location.hostname) + ":" + this.wsconf.port;
+        this.wsconf.errors = 0;
+        this.ws = new WebSocket(url);
+        this.ws.onopen = function() {
+            self.ws.onmessage = function(msg) { if (onmessage) return onmessage(msg.data); console.log('ws:', msg) };
+        }
+        this.ws.onerror = function(msg) {
+            console.log('ws:', self.wsconf.errors++, msg);
+            onerror && onerror(err);
+        }
+        this.ws.onclose = function() { self.ws = null; }
+    },
+
+    wsClose: function() {
+        if (!this.ws) return;
+        this.ws.close();
+    },
+
+    wsSend: function(url) {
+        if (this.ws) this.ws.send(Backend.signUrl(url));
     },
 
     // Percent encode with special symbols in addition

@@ -122,13 +122,13 @@ $(function() {
      Backend.apiTable = false;
      Backend.apiSocket = ko.observable(0);
      Backend.apiSocket.subscribe(function(val) {
-        if (!val) {
-            Backend.ioClose();
-        } else {
-            Backend.ioConnect("", function(data) {
-                Backend.formatResponse(data);
-            });
-        }
+        if (!val) return Backend.ioClose();
+        Backend.ioConnect("", function(data) { Backend.formatResponse(data); });
+     });
+     Backend.apiWS = ko.observable(0);
+     Backend.apiWS.subscribe(function(val) {
+        if (!val) return Backend.wsClose();
+        Backend.wsConnect("", function(data) { Backend.formatResponse(data); });
      });
      Backend.apiSession = ko.observable(0);
      Backend.apiSession.subscribe(function(val) {
@@ -245,7 +245,8 @@ $(function() {
                  $("#file").val('');
              });
          } else {
-             if (Backend.socket) return Backend.ioSend(url);
+             if (Backend.ws) return Backend.wsSend(url);
+             if (Backend.io) return Backend.ioSend(url);
 
              var options = { url: url };
              if (!Backend.doPrepare(options)) return;
@@ -296,6 +297,7 @@ $(function() {
        </tr>
        <tr>
           <td colspan=2></td>
+          <td><input type="checkbox" data-bind="checked: apiWS" title="Use WebSockets connection instead of HTTP"/> WebSockets</td>
           <td><input type="checkbox" data-bind="checked: apiSocket" title="Use socket.io connection instead of HTTP"/> Socket.io</td>
           <td><input type="checkbox" data-bind="checked: apiSession" title="Create a web session, it is needed to use file uploads from the console"/> Session</td>
           <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/> Tabular</td>
