@@ -1642,7 +1642,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>repl-file</code> - User specified file for REPL history. Default: .history</li>
 <li><code>lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes. Default: 10000</li>
 <li><code>no-msg</code> - Disable nanomsg messaging sockets</li>
-<li><code>msg-port</code> - Ports to use for nanomsg sockets for message publish and subscribe, 2 ports will be used, this one and the next. Default: 20196</li>
+<li><code>msg-port</code> - Ports to use for nanomsg sockets for message publish and subscribe, 2 ports will be used, this one and the next. Default: 20110</li>
 <li><code>msg-type</code> - One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets. Default: nanomsg</li>
 <li><code>msg-host</code> - Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used. Default: 127.0.0.1. DNS TXT configurable.</li>
 <li><code>msg-bind</code> - Listen only on specified address for messaging sockets server in the master process</li>
@@ -1655,7 +1655,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>amqp-options</code> - JSON object with options to the AMQP client, see npm doc amqp</li>
 <li><code>cache-type</code> - One of the redis, memcache or nanomsg to use for caching in API requests. Default: nanomsg</li>
 <li><code>cache-host</code> - Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used. Default: 127.0.0.1. DNS TXT configurable.</li>
-<li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests. Default: 20194</li>
+<li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests. Default: 20100</li>
 <li><code>cache-bind</code> - Listen only on specified address for cache sockets server in the master process</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>logwatcher-url</code> - The backend URL where logwatcher reports should be sent instead of email</li>
@@ -2603,18 +2603,44 @@ Options may contain the following properties:</p>
 <li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
 <li>global - an object for global secondary indexes, same format as for local indexes</li>
 <li>projection - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
+<li>readCapacity - read capacity units for provisioned throughput</li>
+<li>writeCapacity - write capacity units</li>
 </ul>
 </li>
 </ul>
-<p>Example:</p>
-<pre><code>    ddbCreateTable(&#39;users&#39;, { id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;},
-                            { id:&#39;HASH&#39;,name:&#39;RANGE&#39;},
-                            { local: { mtime: { mtime: &quot;HASH&quot; } },
-                              global: { name: { name: &#39;HASH&#39;, ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
-                              projection: { mtime: [&#39;gender&#39;,&#39;age&#39;],
-                                            name: [&#39;name&#39;,&#39;gender&#39;] },
-                              ReadCapacityUnits: 10,
-                              WriteCapacityUnits: 10 });
+</li>
+</ul>
+<p> Example:</p>
+<pre><code>      ddbCreateTable(&#39;users&#39;, { id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;},
+                              { id:&#39;HASH&#39;,name:&#39;RANGE&#39;},
+                              { local: { mtime: { mtime: &quot;HASH&quot; } },
+                                global: { name: { name: &#39;HASH&#39;, ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
+                                projection: { mtime: [&#39;gender&#39;,&#39;age&#39;],
+                                              name: [&#39;name&#39;,&#39;gender&#39;] },
+                                readCapacity: 10,
+                                writeCapacity: 10 });
+</code></pre>
+<ul>
+<li><p><code>aws.ddbDeleteTable(name, options, callback)</code></p>
+<p> Remove a table from the database</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbUpdateTable(options, callback)</code></p>
+<p> Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
+provisionined throughput on demand.
+Options must provide the following properties:</p>
+<ul>
+<li>name - table name</li>
+<li>readCapacity -</li>
+<li>writeCapacity - new povisioned throughtput settings</li>
+</ul>
+<p>Example of crontab job in etc/crontab:</p>
+<pre><code>        [
+        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 1 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 1000, &quot;writeCapacity&quot;: 1000 } } },
+        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 6 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 2000, &quot;writeCapacity&quot;: 2000 } } }
+        ]
 </code></pre></li>
 </ul>
 
@@ -4022,10 +4048,11 @@ if it is an array then check only specified columns</li>
 <li>select - a list of columns or expressions to return or all columns if not specified</li>
 <li>start - start records with this primary key, this is the next_token passed by the previous query</li>
 <li>count - how many records to return</li>
-<li>sort - sort by this column</li>
+<li>sort - sort by this column. <em>NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
+   <code>select</code> property might be used to get all required properties.</em></li>
 <li>check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column</li>
 <li>semipub - if true, semipub columns will be returned regardless of the check_public condition, it is responsibility of the caller now to cleanup the records before
-returning to the client</li>
+   returning to the client</li>
 <li>desc - if sorting, do in descending order</li>
 <li>page - starting page number for pagination, uses count to find actual record to start</li>
 <li>unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
@@ -4277,7 +4304,7 @@ this format is for simple and common use cases without using any other tools but
 primary keys created outside of the backend application still be be detected properly by <code>db.cacheColumns</code> method for every database.</p>
 <p>Each database pool also can support native options that are passed directly to the driver in the options, these properties are
 defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:</p>
-<pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index: 1, dynamodb: { ProvisionedThroughput: { ReadCapacityUnits: 50, WriteCapacityUnits: 50 } } },
+<pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index: 1, dynamodb: { readCapacity: 50, writeCapacity: 50 } },
                               type: { primary: 1, pub: 1, projection: 1 },
                               name: { index: 1, pub: 1 } }
                             });
@@ -4693,12 +4720,6 @@ options may define the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.pgsqlConnect(options, callback)</code></p>
-<p> Open PostgreSQL connection, execute initial statements</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.pgsqlCacheIndexes(options, callback)</code></p>
 <p> Cache indexes using the information_schema</p>
 </li>
@@ -4825,14 +4846,14 @@ use <code>this.send()</code>.</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.initServerMessaging()</code></p>
-<p> Initialize messaging system for the server process, can be called multiple times in case environment has changed</p>
+<li><p><code>ipc.initClientCaching()</code></p>
+<p> Initialize web worker caching system, can be called anytime the environment has changed</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initClientCaching()</code></p>
-<p> Initialize web worker caching system, can be called anytime the environment has changed</p>
+<li><p><code>ipc.initServerMessaging()</code></p>
+<p> Initialize messaging system for the server process, can be called multiple times in case environment has changed</p>
 </li>
 </ul>
 
