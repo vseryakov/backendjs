@@ -471,12 +471,21 @@ tests.db = function(callback)
 			         mtime: { type: "int" } },
 			test3: { id : { primary: 1, pub: 1 },
 			         num: { type: "counter", value: 0, pub: 1 } },
+			test4: { id: { primary: 1, pub: 1 },
+	                 type: { pub: 1 } },
 	};
 	var now = core.now();
 	var id = core.random(64);
 	var id2 = core.random(128);
     var num2 = core.randomNum(this.bbox[0], this.bbox[2]);
 	var next_token = null;
+
+	db.setProcessRow("test4", function(row, options, cols) {
+	    var type = row.type.split(":");
+	    row.type = type[0];
+	    row.mtime = type[1];
+        return row;
+    });
 
 	async.series([
 	    function(next) {
@@ -490,12 +499,12 @@ tests.db = function(callback)
                 if (err) return next(err);
                 db.put("test1", { id: id2, email: id2, num: '2', num2: null, num3: 1 }, function(err) {
                     if (err) return next(err);
-                    db.put("test3", { id: id, num: 0 }, next);
+                    db.put("test3", { id: id, num: 0, email: id }, next);
                 });
             });
         },
         function(next) {
-            db.get("test3", { id: id }, function(err, row) {
+            db.get("test1", { id: id }, function(err, row) {
                 core.checkTest(next, err, !row || row.id != id, "err1:", row);
             });
         },
@@ -511,9 +520,11 @@ tests.db = function(callback)
             });
         },
         function(next) {
-            db.list("test1", String([id,id2]),  function(err, rows) {
+            db.list("test1", String([id,id2]),  { check_public: id }, function(err, rows) {
                 var isok = rows.every(function(x) { return x.id==id || x.id==id2});
-                core.checkTest(next, err, rows.length!=2 || !isok, "err4:", rows.length, isok, rows);
+                var row1 = rows.filter(function(x) { return x.id==id}).pop();
+                var row2 = rows.filter(function(x) { return x.id==id2}).pop();
+                core.checkTest(next, err, rows.length!=2 || !isok || !row1.email || row2.email, "err4:", rows.length, isok, rows);
             });
         },
 	    function(next) {
@@ -525,6 +536,20 @@ tests.db = function(callback)
 	    function(next) {
 	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 1, num2: num2, mtime: now }, next);
 	    },
+	    function(next) {
+            db.put("test3", { id: id2, num: 2, emai: id2 }, next);
+        },
+        function(next) {
+            db.put("test4", { id: id, type: "like:" + Date.now() }, next);
+        },
+        function(next) {
+            db.select("test4", { id: id }, function(err, rows) {
+                core.checkTest(next, err, rows.length!=1 || rows[0].id != id || rows[0].type!="like", "err4-1:", rows);
+            });
+        },
+        function(next) {
+            db.delAll("test1", { id: id }, next);
+        },
 	    function(next) {
             db.select("test2", { id: id2 }, { filter: function(row, o) { return row.id2 == '1' } }, function(err, rows) {
                 core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", num2, rows);
@@ -544,10 +569,8 @@ tests.db = function(callback)
             });
         },
         function(next) {
-            db.list("test1", String([id,id2]), { check_public: id }, function(err, rows) {
-                var row1 = rows.filter(function(x) { return x.id==id}).pop();
-                var row2 = rows.filter(function(x) { return x.id==id2}).pop();
-                core.checkTest(next, err, rows.length!=2 || !row1.email || row2.email, "err6:", rows);
+            db.list("test3", String([id,id2]), function(err, rows) {
+                core.checkTest(next, err, rows.length!=2, "err6:", rows);
             });
         },
 	    function(next) {
