@@ -770,7 +770,7 @@ db.delAll = function(table, query, options, callback)
     if (pool.delAll && !options.process) return pool.delAll(table, query, options, callback);
 
     // Options without ops for delete
-    var opts = core.cloneObj(options, { ops: 1 });
+    var opts = core.cloneObj(options, { ops: 1 }, 'noprocessrows', 1);
     self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
