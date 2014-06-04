@@ -220,7 +220,7 @@ public:
             } else {
                 Local <Value> argv[2];
                 argv[0] = Local<Value>::New(Null());
-                argv[1] = Local<String>::New(String::New(buf));
+                argv[1] = Local<String>::New(String::New(buf, n));
                 TRY_CATCH_CALL(s->handle_, s->callback, 2, argv);
             }
         }
@@ -638,11 +638,10 @@ public:
             break;
 
         case '\5': {
-            const string &rc = _lru.get(buf);
-            server->Send(rc.c_str(), rc.size() + 1);
+            const string &rc = _lru.get(key);
+            server->Send(val = (char*)rc.c_str(), rc.size() + 1);
             break;
-        }
-        }
+        }}
         LogDev("%s: %s=%s", buf[0] == '\1' ? "del" : buf[0] == '\2' ? "set" : buf[0] == '\3' ? "incr" : buf[0] == '\4' ? "clear" : buf[0] == '\5' ? "get" : "none", key, val);
     }
 

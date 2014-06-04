@@ -302,7 +302,7 @@ server.startWeb = function(callback)
                     break;
                 }
             }
-            self.proxyServer = proxy.createServer();
+            self.proxyServer = proxy.createServer({ xfwd : true });
             self.proxyServer.on("error", function(err) { logger.error("proxy:", err.stack) })
             self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, self.getProxyTarget()); });
             if (core.proxy.ssl) self.sslServer = core.createServer({ ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, self.getProxyTarget()); });
@@ -348,6 +348,11 @@ server.startWeb = function(callback)
             if (core.ssl.port) core.ssl.port = core.port + 100;
             if (core.ws.port) core.ws.port = core.port + 200;
             if (core.socketio.port) core.socketio.port = core.port + 300;
+
+            // Proxy related config parameters in the Express
+            api.initMiddleware = function() {
+                this.app.set('trust proxy', true);
+            }
         }
 
         // Setup IPC communication

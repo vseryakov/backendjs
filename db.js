@@ -862,10 +862,11 @@ db.replace = function(table, obj, options, callback)
 //      - select - a list of columns or expressions to return or all columns if not specified
 //      - start - start records with this primary key, this is the next_token passed by the previous query
 //      - count - how many records to return
-//      - sort - sort by this column
+//      - sort - sort by this column. _NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
+//           `select` property might be used to get all required properties._
 //      - check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column
 //      - semipub - if true, semipub columns will be returned regardless of the check_public condition, it is responsibility of the caller now to cleanup the records before
-//        returning to the client
+//           returning to the client
 //      - desc - if sorting, do in descending order
 //      - page - starting page number for pagination, uses count to find actual record to start
 //      - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
@@ -1303,7 +1304,7 @@ db.getCache = function(table, query, options, callback)
 {
     var key = this.getCacheKey(table, query, options);
     if (options) options.cacheKey = key;
-    ipc.get(key, callback);
+    ipc.get(key, options, callback);
 }
 
 // Store a record in the cache
@@ -3930,7 +3931,7 @@ db.redisInitPool = function(options)
             });
         }
         // If only want primary keys then return as is
-        if (opts.select && core.strSplit(opts.select).every(function(x) { return keys.indexOf(x) })) {
+        if (opts.select && core.strSplit(opts.select).every(function(x) { return keys.indexOf(x)>-1 })) {
             return callback(null, obj);
         }
         var rows = [];

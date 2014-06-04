@@ -214,7 +214,7 @@ var core = {
     maxDistance: 50,
 
     // Inter-process messages
-    deferTimeout: 500,
+    deferTimeout: 100,
     lruMax: 10000,
 
     // REPL port for server

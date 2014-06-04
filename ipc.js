@@ -248,11 +248,11 @@ ipc.initServerCaching = function()
         if (!backend.NNSocket) break;
         core.cacheBind = core.cacheBind || (core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*");
 
-        // Pair of cache sockets for communication between nodes and cache coordinators
+        // Pair of cache sockets for pushing/receiving cache msgs between nodes and cache coordinators
         this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, backend.NN_PULL);
         this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, backend.NN_PUSH);
 
-        // Pair of sockets for distributing cache requests to all subscribers
+        // Pair of sockets for distributing cache requests to all nodes in the cluster
         this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, backend.NN_PUB);
         if (this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, backend.NN_SUB)) {
             var err = this.nanomsg.lsub.subscribe("");
@@ -261,17 +261,61 @@ ipc.initServerCaching = function()
             if (err) logger.error('initServerCaching:', err, this.nanomsg.lsub);
         }
 
-        // Response server for get requests
+        // Forward cache requests to the publish socket to be sent to all subscribed nodes
+        if (this.nanomsg.lpull) {
+            var err = this.nanomsg.lpull.setForward(this.nanomsg.lpub);
+            if (err) logger.error('initServerCaching:', err, this.nanomsg.lpull);
+        }
+
+        // Response server for get requests, only to be used on the coordinators for level2 cache
         if (this.bind('lrep', "nanomsg", core.cacheBind, core.cachePort + 2, backend.NN_REP)) {
             err = backend.lruServerStart(this.nanomsg.lrep);
             if (err) logger.error('initServerCaching:', err, this.nanomsg.lrep);
         }
 
-        // Forward cache requests to the bus
-        if (this.nanomsg.lpull) {
-            var err = this.nanomsg.lpull.setForward(this.nanomsg.lpub);
-            if (err) logger.error('initServerCaching:', err, this.nanomsg.lpull);
+        // Request socket pool for level2 cache
+        this.nanomsg.lnum = 0;
+        this.nanomsg.lreq = core.createPool({
+            min: 0,
+            max: 1000,
+            idle: 3600000,
+            create: function(callback) {
+                var sock = self.connect('lreq' + this.nanomsg.lnum++, "nanomsg", core.cacheHost, core.cachePort + 2, backend.NN_REQ, function(err, data) {
+                    self.nanomsg.lreq.release(this);
+                    var cb = this.callback;
+                    this.callback = null;
+                    if (cb) cb(data);
+                });
+                sock.setOption(backend.NN_REQ_RESEND_IVL, 0);
+                callback(null, sock);
+            },
+            destroy: function(client) { client.close(); },
+        });
+        this.nanomsg.send = function(name, callback) {
+            this.lreq.acquire(function(err, client) {
+                if (err) return callback();
+                client.callback = callback;
+                client.send("\5" + name);
+            });
         }
+        break;
+    }
+}
+
+// Initialize web worker caching system, can be called anytime the environment has changed
+ipc.initClientCaching = function()
+{
+    var self = this;
+    switch (core.cacheType) {
+    case "memcache":
+        this.connect("client", "memcache", core.memcacheHost, core.memcachePort, core.memcacheOptions);
+        break;
+
+    case "redis":
+        this.connect("client", "redis", core.redisHost, core.redisPort, core.redisOptions);
+        break;
+
+    case "nanomsg":
         break;
     }
 }
@@ -299,49 +343,6 @@ ipc.initServerMessaging = function()
             if (err) logger.error('initServerMessaging:', err, this.nanomsg.msub);
         }
         break;
-    }
-}
-
-// Initialize web worker caching system, can be called anytime the environment has changed
-ipc.initClientCaching = function()
-{
-    switch (core.cacheType) {
-    case "memcache":
-        this.connect("client", "memcache", core.memcacheHost, core.memcachePort, core.memcacheOptions);
-        break;
-
-    case "redis":
-        this.connect("client", "redis", core.redisHost, core.redisPort, core.redisOptions);
-        break;
-
-    case "nanomsg":
-        break;
-        // Request/response sockets for cache retrieval
-        self.nanomsg.lreq = core.createPool({
-            min: 1,
-            max: 10000,
-            create: function(cb) {
-                var pool = this;
-                if (!this.nanomsg) this.nanomsg = { id: 0 };
-                var sock = self.connect.call(this, String(this.nanomsg.id++), "nanomsg", core.cacheHost, core.cachePort + 2, backend.NN_REQ, function(err, data ) {
-                    if (this.callback) callback(data);
-                    this.callback = null;
-                    pool.release(this);
-                });
-                sock.setOption(backend.NN_REQ_RESEND_IVL, 0);
-                cb(null, sock);
-            },
-            destroy: function(client) {
-                client.close();
-            },
-            send: function(name, callback) {
-                var pool = this;
-                this.acquire(function(err, client) {
-                    client.callback = callback;
-                    client.send("\5" + name);
-                });
-            }
-        });
     }
 }
 
@@ -609,8 +610,10 @@ ipc.clear = function()
     }
 }
 
-ipc.get = function(key, callback)
+ipc.get = function(key, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
+
     try {
         switch (core.cacheType) {
         case "memcache":
@@ -627,7 +630,7 @@ ipc.get = function(key, callback)
             break;
 
         case "nanomsg":
-            this.send("get", key, "", callback);
+            this.send("get", key, "", options, callback);
             break;
         }
     } catch(e) {
