@@ -211,8 +211,8 @@ public:
         txn = NULL;
         cursor = NULL;
     }
-    int GetAll(const char *start, size_t slen, const char *end, size_t elen, int flags, vector<pair<string,string> >*list) {
-        MDB_val k, v, e;
+    int GetAll(const char *start, size_t slen, const char *end, size_t elen, uint flags, uint count, vector<pair<string,string> >*list) {
+        MDB_val k, v, e, b;
         k.mv_size = slen;
         k.mv_data = (void*)start;
         e.mv_size = elen;
@@ -222,14 +222,17 @@ public:
         while (rc == 0) {
             if (elen) {
                 if (flags & FLAG_DESCENDING) {
-
+                    if (mdb_cmp(txn, db, &k, &e) < 0) break;
                 } else
                 if (flags & FLAG_BEGINS_WITH) {
-
+                    b.mv_data = k.mv_data;
+                    b.mv_size = elen;
+                    if (mdb_cmp(txn, db, &b, &e)) break;
                 } else
                 if (mdb_cmp(txn, db, &k, &e) > 0) break;
             }
             list->push_back(pair<string,string>(string((const char*)k.mv_data, k.mv_size), string((const char*)v.mv_data, v.mv_size)));
+            if (count > 0 && list->size() >= count) break;
             rc = mdb_cursor_get(cursor, &k, &v, flags & FLAG_DESCENDING ? MDB_PREV : MDB_NEXT);
         }
         CloseCursor();
@@ -246,7 +249,7 @@ public:
 
     class Baton {
     public:
-        Baton(LMDB_DB *db_, Handle<Function> cb_): db(db_), num(0), status(0), flags(0) {
+        Baton(LMDB_DB *db_, Handle<Function> cb_): db(db_), num(0), status(0), flags(0), count(0) {
             db->Ref();
             req.data = this;
             callback = Persistent < Function > ::New(cb_);
@@ -266,6 +269,7 @@ public:
         vector<pair<string,string> > list;
         int status;
         int flags;
+        int count;
     };
 
     static Persistent<FunctionTemplate> constructor_template;
@@ -499,6 +503,7 @@ public:
         REQUIRE_ARGUMENT_STRING(0, start);
         REQUIRE_ARGUMENT_STRING(1, end);
         OPTIONAL_ARGUMENT_INT(2, flags);
+        OPTIONAL_ARGUMENT_INT(3, count);
         OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
         Baton* d = new Baton(db, callback);
@@ -506,6 +511,7 @@ public:
         d->data = *end;
         d->op = "all";
         d->flags = flags;
+        d->count = count;
         if (callback.IsEmpty()) {
             Work_All(&d->req);
             Handle<Value> rc = Local<Value>::New(toArray(d->list));
@@ -519,7 +525,7 @@ public:
 
     static void Work_All(uv_work_t* req) {
         Baton* d = static_cast<Baton*>(req->data);
-        d->db->GetAll(d->key.c_str(), d->key.size(), d->data.c_str(), d->data.size(), d->flags, &d->list);
+        d->db->GetAll(d->key.c_str(), d->key.size(), d->data.c_str(), d->data.size(), d->flags, d->count, &d->list);
         if (d->status) d->message = mdb_strerror(d->status);
         d->data.clear();
     }
@@ -538,7 +544,7 @@ public:
         } else
         if (op == "select") {
             vector<pair<string,string> > list;
-            status = db->GetAll(key.c_str(), key.size(), value.c_str(), value.size(), 0, &list);
+            status = db->GetAll(key.c_str(), key.size(), value.c_str(), value.size(), 0, 0, &list);
             if (!status) {
                 jsonValue *val = new jsonValue(JSON_ARRAY, "value");
                 for (uint i = 0; i < list.size(); i++) {

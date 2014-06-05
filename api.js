@@ -549,8 +549,10 @@ api.handleSocketIOConnect = function(socket)
     socket.on("message", function(url, callback) {
         var req = self.createWebSocketRequest(this, url, function(data) { if (callback) return callback(data); if (data) this.emit("message", data); });
         req.httpProtocol = "IO";
-        req.headers = this.handshake.headers || {};
-        req.socket.ip = this.handshake.address.address;
+        if (this.handshake) {
+            if (this.handshake.headers) req.headers = this.handshake.headers;
+            if (this.handshake.address) req.socket.ip = this.handshake.address.address;
+        }
         req = null;
         self.handleServerRequest(this._requests[0], this._requests[0].res);
     });

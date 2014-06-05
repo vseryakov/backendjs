@@ -663,7 +663,7 @@ tests.db = function(callback)
             }, function(err) {
                 // Redis cannot sort due to hash implementation, known bug
                 var isok = db.pool == "redis" ? rc.length>=5 : rc.length==5 && (rc[0].id2 == 1 && rc[rc.length-1].id2 == 5);
-                core.checkTest(next, err, !isok, "err10:", rc.length, isok, rc);
+                core.checkTest(next, err, !isok, "err10:", rc.length, isok, rc, next_token);
             })
 	    },
 	    function(next) {

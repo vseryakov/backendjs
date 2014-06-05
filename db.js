@@ -3593,6 +3593,14 @@ db.lmdbInitPool = function(options)
         callback();
     }
 
+    pool.nextToken = function(client, req, rows, opts) {
+        if (opts.count > 0 && rows.length == opts.count) {
+            var key = this.getKey(req.table, rows[rows.length - 1], { ops: {} }, 1);
+            return key.substr(0, key.length - 1) + String.fromCharCode(key.charCodeAt(key.length - 1) + 1);
+        }
+        return null;
+    }
+
     pool.getLevelDB = function(callback) {
         if (this.dbhandle) return callback(null, this.dbhandle);
         try {
@@ -3678,8 +3686,12 @@ db.lmdbInitPool = function(options)
 
         case "get":
             var key = pool.getKey(table, obj, opts);
-            client.get(key, function(err, item) {
-                callback(err, item ? [core.jsonParse(item)] : []);
+            var selected = self.getSelectedColumns(table, opts);
+            client.get(key, function(err, row) {
+                if (err || !row) return callback(err, []);
+                row = core.jsonParse(row);
+                if (selected) row = selected.map(function(x) { return [x, row[x] ]}).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                callback(err, [row]);
             });
             break;
 
@@ -3687,32 +3699,37 @@ db.lmdbInitPool = function(options)
         case "search":
             var dbkeys = pool.getKeys(table, obj, opts, 1);
             var key = pool.getKey(table, obj, opts, 1);
-            var key2 = key.substr(0, key.length-1) + String.fromCharCode(key.charCodeAt(key.length-1)+1);
-            var cols = self.getSelectedColumns(table, opts);
+            var selected = self.getSelectedColumns(table, opts);
             // Custom filter on other columns
             var other = Object.keys(obj).filter(function(x) { return x[0] != "_" && (keys.indexOf(x) == -1 || !dbkeys[x]) && typeof obj[x] != "undefined" });
-            client.all(key, key, opts, function(err, items) {
+            client.all(opts.start || key, key, backend.LMDB_BEGINS_WITH, opts.count, function(err, items) {
                 if (err) return callback(err, []);
                 var rows = [];
                 items.forEach(function(row) {
                     row = core.jsonParse(row.value);
                     if (!row) return;
-                    if (cols) row = cols.map(function(x) { return [x, row[x] ]}).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                    if (selected) row = selected.map(function(x) { return [x, row[x] ]}).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
                     rows.push(row);
                 });
                 if (other.length > 0) {
                     rows = self.filterColumns(obj, rows, { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap });
                 }
+                if (rows.length && opts.sort) rows.sort(function(a,b) { return (a[opts.sort] - b[opts.sort]) * (opts.desc ? -1 : 1) });
                 callback(null, rows);
             });
             break;
 
         case "list":
             var rc = [];
+            var selected = self.getSelectedColumns(table, opts);
             async.forEachSeries(obj, function(o, next) {
                 var key = pool.getKey(table, o, opts);
-                client.get(key, opts, function(err, val) {
-                    if (val) rc.push(core.jsonParse(val));
+                client.get(key, opts, function(err, row) {
+                    if (row) {
+                        row = core.jsonParse(row);
+                        if (selected) row = selected.map(function(x) { return [x, row[x] ]}).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+                        rc.push(row);
+                    }
                     next(err);
                 });
             }, function(err) {
@@ -3738,7 +3755,7 @@ db.lmdbInitPool = function(options)
                 if (!item) return callback(null, []);
                 item = core.jsonParse(item);
                 if (!item) item = obj; else for (var p in obj) item[p] = obj[p];
-                client.put(key, JSON.stringify(obj), opts, function(err) {
+                client.put(key, JSON.stringify(item), opts, function(err) {
                     callback(err, []);
                 });
             });
