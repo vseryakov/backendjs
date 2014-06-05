@@ -51,6 +51,10 @@ using namespace std;
 #define OPTIONAL_ARGUMENT_ARRAY(i, var) Local<Array> var(args.Length() > (i) && args[i]->IsArray() ? Local<Array>::Cast(args[i]) : Local<Array>::New(Array::New()));
 #define OPTIONAL_ARGUMENT_OBJECT(i, var) Local<Object> var(args.Length() > (i) && args[i]->IsObject() ? Local<Object>::Cast(args[i]) : Local<Object>::New(Object::New()));
 
+#define GETOPTS_BOOL(obj,opts,name) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) opts.name = obj->Get(name)->BooleanValue(); }
+#define GETOPTS_INT(obj,opts,name) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) opts.name = obj->Get(name)->ToInt32()->Value(); }
+#define GETOPTS_INTVAL(obj,opts,name,expr) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) { int val = obj->Get(name)->ToInt32()->Value(); opts.name = (expr); }}
+
 #define DEFINE_CONSTANT_INTEGER(target, constant, name) (target)->Set(String::NewSymbol(#name),Integer::New(constant),static_cast<PropertyAttribute>(ReadOnly | DontDelete) );
 #define DEFINE_CONSTANT_STRING(target, constant, name) (target)->Set(String::NewSymbol(#name),String::NewSymbol(constant),static_cast<PropertyAttribute>(ReadOnly | DontDelete));
 

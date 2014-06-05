@@ -524,7 +524,7 @@ tests.db = function(callback)
                 var isok = rows.every(function(x) { return x.id==id || x.id==id2});
                 var row1 = rows.filter(function(x) { return x.id==id}).pop();
                 var row2 = rows.filter(function(x) { return x.id==id2}).pop();
-                core.checkTest(next, err, rows.length!=2 || !isok || !row1.email || row2.email, "err4:", rows.length, isok, rows);
+                core.checkTest(next, err, rows.length!=2 || !isok || !row1.email || row2.email, "err3:", rows.length, isok, rows);
             });
         },
 	    function(next) {
@@ -544,7 +544,7 @@ tests.db = function(callback)
         },
         function(next) {
             db.select("test4", { id: id }, function(err, rows) {
-                core.checkTest(next, err, rows.length!=1 || rows[0].id != id || rows[0].type!="like", "err4-1:", rows);
+                core.checkTest(next, err, rows.length!=1 || rows[0].id != id || rows[0].type!="like", "err4:", rows);
             });
         },
         function(next) {

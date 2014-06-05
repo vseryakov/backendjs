@@ -15,9 +15,6 @@
 #define GETOPT_INT(obj,name) { Local<String> vname(String::New(#name)); if (obj->Has(vname))  name = obj->Get(vname)->ToInt32()->Value(); }
 #define GETOPT_STR(obj,name) { Local<String> vname(String::New(#name)); if (obj->Has(vname) && obj->Get(vname)->IsString()) { String::Utf8Value vstr(obj->Get(vname)->ToString()); name = *vstr; } }
 
-#define FLAG_BEGINS_WITH        128
-#define FLAG_DESCENDING         256
-
 class LMDB_ENV: public ObjectWrap {
 public:
 
@@ -112,6 +109,14 @@ class LMDB_DB: public ObjectWrap {
 public:
     LMDB_DB(MDB_env *e, string n, int f) : ObjectWrap(), name(n), flags(f), env(e), db(0), txn(0), cursor(0), open(0) {}
     ~LMDB_DB() { Close(); }
+
+    struct Options {
+        Options(): count(0), desc(0), begins_with(0), select(0) {}
+        int count;
+        bool desc;
+        bool begins_with;
+        bool select;
+    };
 
     void Close() {
         mdb_txn_abort(txn);
@@ -211,7 +216,7 @@ public:
         txn = NULL;
         cursor = NULL;
     }
-    int GetAll(const char *start, size_t slen, const char *end, size_t elen, uint flags, uint count, vector<pair<string,string> >*list) {
+    int Select(const char *start, size_t slen, const char *end, size_t elen, Options opts, vector<pair<string,string> >*list) {
         MDB_val k, v, e, b;
         k.mv_size = slen;
         k.mv_data = (void*)start;
@@ -221,10 +226,10 @@ public:
         rc = mdb_cursor_get(cursor, &k, &v, slen ? MDB_SET_RANGE : MDB_FIRST);
         while (rc == 0) {
             if (elen) {
-                if (flags & FLAG_DESCENDING) {
+                if (opts.desc) {
                     if (mdb_cmp(txn, db, &k, &e) < 0) break;
                 } else
-                if (flags & FLAG_BEGINS_WITH) {
+                if (opts.begins_with) {
                     b.mv_data = k.mv_data;
                     b.mv_size = elen;
                     if (mdb_cmp(txn, db, &b, &e)) break;
@@ -232,8 +237,8 @@ public:
                 if (mdb_cmp(txn, db, &k, &e) > 0) break;
             }
             list->push_back(pair<string,string>(string((const char*)k.mv_data, k.mv_size), string((const char*)v.mv_data, v.mv_size)));
-            if (count > 0 && list->size() >= count) break;
-            rc = mdb_cursor_get(cursor, &k, &v, flags & FLAG_DESCENDING ? MDB_PREV : MDB_NEXT);
+            if (opts.count > 0 && (int)list->size() >= opts.count) break;
+            rc = mdb_cursor_get(cursor, &k, &v, opts.desc ? MDB_PREV : MDB_NEXT);
         }
         CloseCursor();
         return rc;
@@ -249,7 +254,7 @@ public:
 
     class Baton {
     public:
-        Baton(LMDB_DB *db_, Handle<Function> cb_): db(db_), num(0), status(0), flags(0), count(0) {
+        Baton(LMDB_DB *db_, Handle<Function> cb_): db(db_), num(0), status(0), flags(0) {
             db->Ref();
             req.data = this;
             callback = Persistent < Function > ::New(cb_);
@@ -262,14 +267,13 @@ public:
         LMDB_DB *db;
         uv_work_t req;
         string message;
-        string op;
         string key;
         string data;
         int64_t num;
         vector<pair<string,string> > list;
         int status;
         int flags;
-        int count;
+        Options opts;
     };
 
     static Persistent<FunctionTemplate> constructor_template;
@@ -288,15 +292,13 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "put", Put);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "incr", Incr);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
-        NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
+        NODE_SET_PROTOTYPE_METHOD(constructor_template, "select", Select);
 #ifdef USE_NANOMSG
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "startServer", ServerStart);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "stopServer", ServerStop);
 #endif
         target->Set(String::NewSymbol("LMDB"), constructor_template->GetFunction());
 
-        target->Set(String::NewSymbol("LMDB_BEGINS_WITH"), Integer::New(FLAG_BEGINS_WITH), static_cast<PropertyAttribute>(ReadOnly | DontDelete) );
-        target->Set(String::NewSymbol("LMDB_DESCENDING"), Integer::New(FLAG_DESCENDING), static_cast<PropertyAttribute>(ReadOnly | DontDelete) );
     }
 
     static Handle<Value> OpenGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -364,7 +366,7 @@ public:
                 TRY_CATCH_CALL(d->db->handle_, d->callback, 1, argv);
             } else {
                 argv[0] = Local < Value > ::New(Null());
-                if (d->op == "all") {
+                if (d->opts.select) {
                     argv[1] = Local<Value>::New(toArray(d->list));
                 } else
                 if (d->data.size()) {
@@ -496,36 +498,37 @@ public:
         d->data.clear();
     }
 
-    static Handle<Value> All(const Arguments& args) {
+    static Handle<Value> Select(const Arguments& args) {
         HandleScope scope;
         LMDB_DB *db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
 
         REQUIRE_ARGUMENT_STRING(0, start);
         REQUIRE_ARGUMENT_STRING(1, end);
-        OPTIONAL_ARGUMENT_INT(2, flags);
-        OPTIONAL_ARGUMENT_INT(3, count);
+        OPTIONAL_ARGUMENT_OBJECT(2, opts);
         OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
         Baton* d = new Baton(db, callback);
         d->key = *start;
         d->data = *end;
-        d->op = "all";
-        d->flags = flags;
-        d->count = count;
+        d->opts.select = 1;
+        GETOPTS_BOOL(opts, d->opts, desc);
+        GETOPTS_BOOL(opts, d->opts, begins_with);
+        GETOPTS_INT(opts, d->opts, count);
+
         if (callback.IsEmpty()) {
-            Work_All(&d->req);
+            Work_Select(&d->req);
             Handle<Value> rc = Local<Value>::New(toArray(d->list));
             delete d;
             return scope.Close(rc);
         } else {
-            uv_queue_work(uv_default_loop(), &d->req, Work_All, Work_After);
+            uv_queue_work(uv_default_loop(), &d->req, Work_Select, Work_After);
         }
         return args.This();
     }
 
-    static void Work_All(uv_work_t* req) {
+    static void Work_Select(uv_work_t* req) {
         Baton* d = static_cast<Baton*>(req->data);
-        d->db->GetAll(d->key.c_str(), d->key.size(), d->data.c_str(), d->data.size(), d->flags, d->count, &d->list);
+        d->db->Select(d->key.c_str(), d->key.size(), d->data.c_str(), d->data.size(), d->opts, &d->list);
         if (d->status) d->message = mdb_strerror(d->status);
         d->data.clear();
     }
@@ -543,8 +546,9 @@ public:
             value.clear();
         } else
         if (op == "select") {
+            Options opts;
             vector<pair<string,string> > list;
-            status = db->GetAll(key.c_str(), key.size(), value.c_str(), value.size(), 0, 0, &list);
+            status = db->Select(key.c_str(), key.size(), value.c_str(), value.size(), opts, &list);
             if (!status) {
                 jsonValue *val = new jsonValue(JSON_ARRAY, "value");
                 for (uint i = 0; i < list.size(); i++) {

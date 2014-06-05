@@ -3674,7 +3674,7 @@ db.lmdbInitPool = function(options)
             break;
 
         case "drop":
-            client.all(table, table, opts, function(err, rows) {
+            client.select(table, table, opts, function(err, rows) {
                 if (err || !rows.length) return callback(err, []);
                 async.forEachLimit(rows, opts.concurrency || pool.concurrency, function(row, next) {
                     client.del(row.name, next);
@@ -3702,7 +3702,7 @@ db.lmdbInitPool = function(options)
             var selected = self.getSelectedColumns(table, opts);
             // Custom filter on other columns
             var other = Object.keys(obj).filter(function(x) { return x[0] != "_" && (keys.indexOf(x) == -1 || !dbkeys[x]) && typeof obj[x] != "undefined" });
-            client.all(opts.start || key, key, backend.LMDB_BEGINS_WITH, opts.count, function(err, items) {
+            client.select(opts.start || key, key, { begins_with: 1, count: opts.count }, function(err, items) {
                 if (err) return callback(err, []);
                 var rows = [];
                 items.forEach(function(row) {

@@ -12,10 +12,6 @@
 #include "leveldb/write_batch.h"
 #include "leveldb/filter_policy.h"
 
-#define GETOPT_BOOL(obj,opts,name) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) opts.name = obj->Get(name)->BooleanValue(); }
-#define GETOPT_INT(obj,opts,name) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) opts.name = obj->Get(name)->ToInt32()->Value(); }
-#define GETOPT_INTVAL(obj,opts,name,expr) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) { int val = obj->Get(name)->ToInt32()->Value(); opts.name = (expr); }}
-
 #define BATON_ERROR(baton) if (!baton->status.ok()) { string err(baton->status.ToString()); delete baton; return ThrowException(Exception::Error(String::New(err.c_str()))); }
 
 class LevelDB: public ObjectWrap {
@@ -25,6 +21,14 @@ public:
     static void Init(Handle<Object> target);
     static inline bool HasInstance(Handle<Value> val) { return constructor_template->HasInstance(val); }
 
+    struct Options {
+        Options(): count(0), desc(0), begins_with(0), select(0) {}
+        int count;
+        bool desc;
+        bool begins_with;
+        bool select;
+    };
+
     struct LDBBaton {
         uv_work_t request;
         LevelDB* db;
@@ -32,6 +36,7 @@ public:
         string value;
         string end;
         int64_t num;
+        Options opts;
         vector<pair<string,string> > list;
         Persistent<Function> callback;
         leveldb::Status status;
@@ -51,11 +56,11 @@ public:
         void GetReadOptions(Handle<Object> obj) {
             HandleScope scope;
             readOptions.snapshot = db->snapshot;
-            GETOPT_BOOL(obj, readOptions, fill_cache);
-            GETOPT_BOOL(obj, readOptions, verify_checksums);
+            GETOPTS_BOOL(obj, readOptions, fill_cache);
+            GETOPTS_BOOL(obj, readOptions, verify_checksums);
         }
         void GetWriteOptions(Handle<Object> obj) {
-            GETOPT_BOOL(obj, writeOptions, sync);
+            GETOPTS_BOOL(obj, writeOptions, sync);
         }
         void GetBatchOptions(Handle<Array> items) {
             HandleScope scope;
@@ -88,15 +93,15 @@ public:
         HandleScope scope;
 
         leveldb::Options options;
-        GETOPT_BOOL(obj, options, paranoid_checks);
-        GETOPT_BOOL(obj, options, create_if_missing);
-        GETOPT_BOOL(obj, options, error_if_exists);
-        GETOPT_INT(obj, options, write_buffer_size);
-        GETOPT_INT(obj, options, max_open_files);
-        GETOPT_INT(obj, options, block_size);
-        GETOPT_INTVAL(obj, options, compression, !val ? leveldb::kNoCompression : leveldb::kSnappyCompression);
-        GETOPT_INTVAL(obj, options, block_cache, leveldb::NewLRUCache(val));
-        GETOPT_INTVAL(obj, options, filter_policy, leveldb::NewBloomFilterPolicy(val));
+        GETOPTS_BOOL(obj, options, paranoid_checks);
+        GETOPTS_BOOL(obj, options, create_if_missing);
+        GETOPTS_BOOL(obj, options, error_if_exists);
+        GETOPTS_INT(obj, options, write_buffer_size);
+        GETOPTS_INT(obj, options, max_open_files);
+        GETOPTS_INT(obj, options, block_size);
+        GETOPTS_INTVAL(obj, options, compression, !val ? leveldb::kNoCompression : leveldb::kSnappyCompression);
+        GETOPTS_INTVAL(obj, options, block_cache, leveldb::NewLRUCache(val));
+        GETOPTS_INTVAL(obj, options, filter_policy, leveldb::NewBloomFilterPolicy(val));
         return options;
     }
 
@@ -106,9 +111,8 @@ public:
     static void Work_Open(uv_work_t* req);
     static void Work_After(uv_work_t* req);
 
-    static Handle<Value> All(const Arguments& args);
-    static void Work_All(uv_work_t* req);
-    static void Work_AfterAll(uv_work_t* req);
+    static Handle<Value> Select(const Arguments& args);
+    static void Work_Select(uv_work_t* req);
     static Handle<Value> Get(const Arguments& args);
     static void Work_Get(uv_work_t* req);
     static Handle<Value> Put(const Arguments& args);
@@ -239,9 +243,14 @@ void LevelDB::Work_After(uv_work_t* req)
     if (!baton->callback.IsEmpty() && baton->callback->IsFunction()) {
         Local<Value> argv[2] = { Local<Value>::New(Null()), Local<Value>::New(Null()) };
         if (!baton->status.ok()) argv[0] = Local<Value>::New(Exception::Error(String::New(baton->status.ToString().c_str())));
-        if (baton->value.size()) argv[1] = Local<Value>::New(String::New(baton->value.c_str())); else
-        if (baton->list.size()) argv[1] = Local<Value>::New(toArray(baton->list)); else
+        if (baton->value.size()) {
+            argv[1] = Local<Value>::New(String::New(baton->value.c_str()));
+        } else
+        if (baton->list.size() || baton->opts.select) {
+            argv[1] = Local<Value>::New(toArray(baton->list));
+        } else {
             argv[1] = Local<Number>::New(Number::New(baton->num));
+        }
         TRY_CATCH_CALL(baton->db->handle_, baton->callback, 2, argv);
     } else
     if (!baton->status.ok()) {
@@ -306,7 +315,7 @@ void LevelDB::Work_Get(uv_work_t* req)
     if (!baton->status.ok() && baton->status.IsNotFound()) baton->status = leveldb::Status::OK();
 }
 
-Handle<Value> LevelDB::All(const Arguments& args)
+Handle<Value> LevelDB::Select(const Arguments& args)
 {
     HandleScope scope;
     LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
@@ -320,27 +329,42 @@ Handle<Value> LevelDB::All(const Arguments& args)
     baton->GetReadOptions(opts);
     baton->key = *start;
     baton->end = *end;
+    baton->opts.select = 1;
+    GETOPTS_BOOL(opts, baton->opts, desc);
+    GETOPTS_BOOL(opts, baton->opts, begins_with);
+    GETOPTS_INT(opts, baton->opts, count);
     if (callback.IsEmpty()) {
-        Work_All(&baton->request);
+        Work_Select(&baton->request);
         BATON_ERROR(baton);
         Handle<Value> rc = toArray(baton->list);
         delete baton;
         return scope.Close(rc);
     } else {
-        uv_queue_work(uv_default_loop(), &baton->request, Work_All, (uv_after_work_cb)Work_After);
+        uv_queue_work(uv_default_loop(), &baton->request, Work_Select, (uv_after_work_cb)Work_After);
     }
     return args.This();
 }
 
-void LevelDB::Work_All(uv_work_t* req)
+void LevelDB::Work_Select(uv_work_t* req)
 {
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     leveldb::Iterator* it = baton->db->handle->NewIterator(baton->readOptions);
     if (baton->key.size()) it->Seek(baton->key); else it->SeekToFirst();
     while (it->Valid()) {
-        if (baton->end.size() && it->key().ToString() >= baton->end) break;
-        baton->list.push_back(pair<string,string>(it->key().ToString(), it->value().ToString()));
+        const string &key = it->key().ToString();
+        if (baton->end.size()) {
+            if (baton->opts.desc) {
+                if (key < baton->end) break;
+            } else
+            if (baton->opts.begins_with) {
+                if (strncmp(key.c_str(), baton->end.c_str(), baton->end.size())) break;
+            } else {
+                if (key > baton->end) break;
+            }
+        }
+        baton->list.push_back(pair<string,string>(key, it->value().ToString()));
+        if (baton->opts.count > 0 && (int)baton->list.size() >= baton->opts.count) break;
         it->Next();
     }
     baton->status = it->status();
@@ -626,7 +650,7 @@ void LevelDB::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "put", Put);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "incr", Incr);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "all", All);
+    NODE_SET_PROTOTYPE_METHOD(constructor_template, "select", Select);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "batch", Batch);
 
 #ifdef USE_NANOMSG

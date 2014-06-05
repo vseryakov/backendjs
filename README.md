@@ -1,4 +1,4 @@
-# Backend.js framework for node.js
+# Backend platform for node.js
 
 General purpose backend framework. The primary goal is to have a scalable platform for running and managing node.js
 servers for Web services implementation. This framework only covers the lower portion of the Web services system:

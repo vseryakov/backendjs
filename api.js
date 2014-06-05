@@ -1176,6 +1176,7 @@ api.initCounterAPI = function()
 
         switch (req.params[0]) {
         case "put":
+        case "update":
             req.query.id = req.account.id;
 
         case "incr":
