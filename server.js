@@ -348,11 +348,6 @@ server.startWeb = function(callback)
             if (core.ssl.port) core.ssl.port = core.port + 100;
             if (core.ws.port) core.ws.port = core.port + 200;
             if (core.socketio.port) core.socketio.port = core.port + 300;
-
-            // Proxy related config parameters in the Express
-            api.initMiddleware = function() {
-                this.app.set('trust proxy', true);
-            }
         }
 
         // Setup IPC communication
@@ -361,6 +356,11 @@ server.startWeb = function(callback)
         // Init API environment
         api.init(function(err) {
             core.dropPrivileges();
+            // Use proxy headers in the Express
+            if (core.proxy.port) {
+                this.app.set('trust proxy', true);
+            }
+            // Gracefull termination of the process
             self.terminate = function() {
                 api.shutdown(function() { process.exit(0); });
             }

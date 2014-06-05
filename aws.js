@@ -649,7 +649,7 @@ aws.ddbPutItem = function(name, item, options, callback)
 //
 // Example:
 //
-//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: 1 } })
+//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: 1 }, ReturnValues: "ALL_NEW" })
 //          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: null } })
 //          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png', num: 1 }, { op: { num: 'ADD', icons: 'ADD' }, expected: { id: null, num: { gt: 0 } } })
 //
