@@ -2217,7 +2217,9 @@ api.putLocation = function(req, options, callback)
         // Skip if within minimal distance
         if (old.latitude || old.longitude) {
             var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
-            if (distance == null || distance < core.minDistance || old.geohash == geo.geohash) return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
+            if (distance == null || distance <= core.minDistance) {
+                return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
+            }
         }
 
         req.query.id = req.account.id;
@@ -2236,7 +2238,7 @@ api.putLocation = function(req, options, callback)
 
                 // Return new location record with the old coordinates
                 req.query.old = old;
-                if (!old.geohash) return callback(null, req.query);
+                if (!old.geohash || old.geohash == geo.geohash) return callback(null, req.query);
 
                 // Delete the old location, ignore the error but still log it
                 db.del("bk_location", old, function() {
