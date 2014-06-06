@@ -460,7 +460,7 @@ api.init = function(callback)
             }
 
             // Notify the master about new worker server
-            ipc.command({ op: "api:ready", value: { id: cluster.worker.id, pid: process.pid, port: core.port } });
+            ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port } });
 
             if (callback) callback.call(self, err);
         });
@@ -2152,7 +2152,7 @@ api.getLocation = function(req, options, callback)
     var table = options.table || "bk_location";
 
     // Perform location search based on hash key that covers the whole region for our configured max distance
-    if (!req.query.latitude || !req.query.longitude) return callback({ status: 400, message: "latitude/longitude are required" });
+    if (!req.query.latitude && !req.query.longitude) return callback({ status: 400, message: "latitude/longitude are required" });
 
     // Limit the distance within our configured range
     req.query.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);

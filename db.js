@@ -770,12 +770,12 @@ db.delAll = function(table, query, options, callback)
     if (pool.delAll && !options.process) return pool.delAll(table, query, options, callback);
 
     // Options without ops for delete
-    var opts = core.cloneObj(options, { ops: 1 }, 'noprocessrows', 1);
-    self.select(table, query, options, function(err, rows) {
+    var opts = core.cloneObj(options, { ops: 1 }, 'noprocessrows', 1, 'ops', {});
+    self.select(table, query, opts, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
         async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
-            if (options && options.process) options.process(row, options);
+            if (options && options.process) options.process(row, opts);
             self.del(table, row, opts, next);
         }, function(err) {
             if (callback) callback(err, rows);
@@ -1504,7 +1504,7 @@ db.prepareDataTypes = function(obj, columns)
     if (!columns) return obj;
     for (var p in obj) {
         var col = columns[p];
-        if (col && col.type && typeof obj[p] != "undefined") obj[p] = core.toValue(obj[p], col.type);
+        if (col && (col.primary || col.type) && typeof obj[p] != "undefined") obj[p] = core.toValue(obj[p], col.type);
     }
     return obj;
 }
