@@ -248,30 +248,42 @@ ipc.initServerCaching = function()
         if (!backend.NNSocket) break;
         core.cacheBind = core.cacheBind || (core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*");
 
-        // Pair of cache sockets for pushing/receiving cache msgs between nodes and cache coordinators
-        this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, backend.NN_PULL);
-        this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, backend.NN_PUSH);
-
-        // Pair of sockets for distributing cache requests to all nodes in the cluster
-        this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, backend.NN_PUB);
-        if (this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, backend.NN_SUB)) {
-            var err = this.nanomsg.lsub.subscribe("");
-            if (err) logger.error('initServerCaching:', err, this.nanomsg.lsub);
-            err = backend.lruServerStart(this.nanomsg.lsub);
-            if (err) logger.error('initServerCaching:', err, this.nanomsg.lsub);
-        }
-
-        // Forward cache requests to the publish socket to be sent to all subscribed nodes
-        if (this.nanomsg.lpull) {
-            var err = this.nanomsg.lpull.setForward(this.nanomsg.lpub);
-            if (err) logger.error('initServerCaching:', err, this.nanomsg.lpull);
-        }
+        // Socket to send cache updates to one of the coordinators
+        this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, { type: backend.NN_PUSH });
+        // Socket to publish cache update to all connected subscribers
+        this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, { type: backend.NN_PUB });
+        // Socket to read a cache update and forward it to the subcribers
+        this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, { type: backend.NN_PULL, forward: this.nanomsg.lpub });
+        // Socket to subscribe for updates and actually update the cache
+        this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, { type: backend.NN_SUB, subscribe: "" }, function(err, data) {
+            if (err) return logger.error('lsub:', err);
+            // \1key - del key
+            // \2key\2val - set key with val
+            // \3key\3val - incr key by val
+            // \4 - clear cache
+            switch (data[0]) {
+            case "\1":
+                backend.lruDel(data.substr(1));
+                break;
+            case "\2":
+                data = data.substr(1).split("\2");
+                backend.lruPut(data[0], data[1]);
+                break;
+            case "\3":
+                data = data.substr(1).split("\3");
+                backend.lruIncr(data[0], data[1]);
+                break;
+            case "\4":
+                backend.lruClear();
+                break;
+            }
+        });
 
         // Response server for get requests, only to be used on the coordinators for level2 cache
-        if (this.bind('lrep', "nanomsg", core.cacheBind, core.cachePort + 2, backend.NN_REP)) {
-            err = backend.lruServerStart(this.nanomsg.lrep);
-            if (err) logger.error('initServerCaching:', err, this.nanomsg.lrep);
-        }
+        this.bind('lrep', "nanomsg", core.cacheBind, core.cachePort + 2, { type: backend.NN_REP }, function(err, key) {
+            if (err) return logger.error('lreq:', err);
+            this.send(backend.lruGet(key));
+        });
 
         // Request socket pool for level2 cache
         this.nanomsg.lnum = 0;
@@ -280,22 +292,21 @@ ipc.initServerCaching = function()
             max: 1000,
             idle: 3600000,
             create: function(callback) {
-                var sock = self.connect('lreq' + this.nanomsg.lnum++, "nanomsg", core.cacheHost, core.cachePort + 2, backend.NN_REQ, function(err, data) {
+                var sock = self.connect('lreq' + this.nanomsg.lnum++, "nanomsg", core.cacheHost, core.cachePort + 2, { type: backend.NN_REQ, opts: [backend.NN_REQ_RESEND_IVL, 0] }, function(err, key) {
                     self.nanomsg.lreq.release(this);
                     var cb = this.callback;
                     this.callback = null;
-                    if (cb) cb(data);
+                    if (cb) cb(key);
                 });
-                sock.setOption(backend.NN_REQ_RESEND_IVL, 0);
                 callback(null, sock);
             },
             destroy: function(client) { client.close(); },
         });
-        this.nanomsg.send = function(name, callback) {
+        this.nanomsg.send = function(key, callback) {
             this.lreq.acquire(function(err, client) {
                 if (err) return callback();
                 client.callback = callback;
-                client.send("\5" + name);
+                client.send(key);
             });
         }
         break;
@@ -332,16 +343,12 @@ ipc.initServerMessaging = function()
         core.msgBind = core.msgBind || (core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*");
 
         // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process connects to this socket.
-        this.bind('msub', "nanomsg", core.msgBind, core.msgPort + 1, backend.NN_PUB);
+        this.bind('msub', "nanomsg", core.msgBind, core.msgPort + 1, { type: backend.NN_PUB });
 
         // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
         // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
         // and automatically uses next live server in case of failure.
-        if (this.bind('mpub', "nanomsg", core.msgBind, core.msgPort, backend.NN_PULL)) {
-            // Forward all messages to the sub server socket, we dont use proxy because PUB socket broadcasts to all peers but we want load-balancer
-            var err = this.nanomsg.mpub.setForward(this.nanomsg.msub);
-            if (err) logger.error('initServerMessaging:', err, this.nanomsg.msub);
-        }
+        this.bind('mpub', "nanomsg", core.msgBind, core.msgPort, { type: backend.NN_PULL , forward: this.nanomsg.msub });
         break;
     }
 }
@@ -379,10 +386,10 @@ ipc.initClientMessaging = function()
         if (!backend.NNSocket || core.noMsg || !core.msgHost) break;
 
         // Socket where we publish our messages
-        this.connect('pub', "nanomsg", core.msgHost, core.msgPort, backend.NN_PUSH);
+        this.connect('pub', "nanomsg", core.msgHost, core.msgPort, { type: backend.NN_PUSH });
 
         // Socket where we receive messages for us
-        this.connect('sub', "nanomsg", core.msgHost, core.msgPort + 1, backend.NN_SUB, function(err, data) {
+        this.connect('sub', "nanomsg", core.msgHost, core.msgPort + 1, { type: backend.NN_SUB }, function(err, data) {
             if (err) return logger.error('subscribe:', err);
             data = data.split("\1");
             var cb = self.subCallbacks[data[0]];
@@ -424,7 +431,7 @@ ipc.send = function(op, name, value, options, callback)
 }
 
 // Bind a socket to the address and port i.e. initialize the server socket
-ipc.bind = function(name, type, host, port, options)
+ipc.bind = function(name, type, host, port, options, callback)
 {
     if (!host || !this[type]) return;
 
@@ -438,11 +445,12 @@ ipc.bind = function(name, type, host, port, options)
 
     case "nanomsg":
         if (!backend.NNSocket) break;
-        if (!this[type][name]) this[type][name] = new backend.NNSocket(backend.AF_SP, options);
+        if (!this[type][name]) this[type][name] = new backend.NNSocket(backend.AF_SP, options.type);
         if (this[type][name] instanceof backend.NNSocket) {
             var h = host.split(":");
             host = "tcp://" + h[0] + ":" + (h[1] || port)
             var err = this[type][name].bind(host);
+            if (!err) err = this.setup(name, type, options, callback);
             if (err) logger.error('ipc.bind:', host, this[type][name]);
         }
         break;
@@ -483,16 +491,35 @@ ipc.connect = function(name, type, host, port, options, callback)
 
     case "nanomsg":
         if (!backend.NNSocket) break;
-        if (!this[type][name]) this[type][name] = new backend.NNSocket(backend.AF_SP, options);
+        if (!this[type][name]) this[type][name] = new backend.NNSocket(backend.AF_SP, options.type);
         if (this[type][name] instanceof backend.NNSocket) {
             host = core.strSplit(host).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
             var err = this[type][name].connect(host);
-            if (!err && callback) err = this[type][name].setCallback(callback);
+            if (!err) err = this.setup(name, type, options, callback);
             if (err) logger.error('ipc.connect:', host, this[type][name]);
         }
         break;
     }
     return this[type][name];
+}
+
+// Setup a socket or client, return depends on the client type
+ipc.setup = function(name, type, options, callback)
+{
+    switch (type) {
+    case "nanomsg":
+        var err = 0;
+        if (!err && typeof options.peer != "undefined") err = this[type][name].setPeer(options.peer);
+        if (!err && typeof options.forward != "undefined") err = this[type][name].setForward(options.forward);
+        if (!err && typeof options.subscribe != "undefined") err = this[type][name].subscribe(options.subcribe);
+        if (!err && callback) err = this[type][name].setCallback(callback);
+        if (!err && Array.isArray(options.opts)) {
+            for (var i = 0; !err && i < options.opts.length - 1; i++) {
+                err = this[type][name].setOption(options.opts[i], options.opts[i + 1]);
+            }
+        }
+        return err;
+    }
 }
 
 // Close a socket or a client
@@ -519,13 +546,6 @@ ipc.close = function(name, type)
         break;
     }
     delete this[type][name];
-}
-
-// Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
-// reconfiguring itself, this command can be sent by any worker. type can be one of cche or msg
-ipc.configure = function(type)
-{
-    this.send('init:' + type);
 }
 
 ipc.stats = function(callback)

@@ -26,8 +26,6 @@
 #define nn_slow(x) (x)
 #endif
 
-extern LRUStringCache _lru;
-
 class NNSocket: public ObjectWrap {
 public:
     NNSocket(int d = AF_SP, int t = NN_SUB): sock(-1), err(0), domain(d), type(t), rfd(-1), wfd(-1), peer(-1), dev_err(0), dev_state(0) {
@@ -204,6 +202,7 @@ public:
         char *buf;
         HandleScope scope;
         int n = nn_recv(s->sock, (void*)&buf, NN_MSG, NN_DONTWAIT);
+        LogDev("sock=%d, size=%d, peer=%d, errno=%d", s->sock, n, s->peer, n == -1 ? nn_errno() : 0);
 
         // Send it out before calling the callback
         if (s->peer > -1 && n != -1) {
@@ -244,13 +243,15 @@ public:
         hdr.msg_iovlen = 1;
         hdr.msg_control = &control;
         hdr.msg_controllen = NN_MSG;
-        int rc = nn_recvmsg(s->sock, &hdr, NN_DONTWAIT);
-        if (rc == -1) {
+        int n = nn_recvmsg(s->sock, &hdr, NN_DONTWAIT);
+        LogDev("sock=%d, size=%d, peer=%d, errno=%d", s->sock, n, s->peer, n == -1 ? nn_errno() : 0);
+
+        if (n == -1) {
             s->err = nn_errno();
             return;
         }
-        rc = nn_sendmsg(s->peer, &hdr, NN_DONTWAIT);
-        if (rc == -1) s->err = nn_errno();
+        n = nn_sendmsg(s->peer, &hdr, NN_DONTWAIT);
+        if (n == -1) s->err = nn_errno();
     }
 
     // Implements a device, tranparent proxy between two sockets
@@ -362,6 +363,12 @@ public:
         HandleScope scope;
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
         return scope.Close(Local<Integer>::New(Integer::New(sock->peer)));
+    }
+
+    static Handle<Value> PollingGetter(Local<String> str, const AccessorInfo& accessor) {
+        HandleScope scope;
+        NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (accessor.This());
+        return scope.Close(Local<Integer>::New(Integer::New(sock->poll.data != NULL)));
     }
 
     static Handle<Value> BindAddressGetter(Local<String> str, const AccessorInfo& accessor) {
@@ -604,72 +611,10 @@ public:
         return scope.Close(Local<String>::New(String::New(nn_strerror(err))));
     }
 
-    static NNServer lruServer;
-    // Format:
-    // \1key - del key
-    // \2key\2val - set key with val
-    // \3key\3val - incr key by val
-    // \4 - clear cache
-    // \5key - return key
-    static void lruServerRequest(NNServer *server, const char *buf, int len, void *data) {
-        char *val = 0, *key = (char*)buf + 1;
-
-        switch (buf[0]) {
-        case '\1':
-            _lru.del(key);
-            break;
-
-        case '\2':
-            val = strchr(key, '\2');
-            if (!val) break;
-            *val++ = 0;
-            _lru.set(key, val);
-            break;
-
-        case '\3':
-            val = strchr(key, '\3');
-            if (!val) break;
-            *val++ = 0;
-            _lru.incr(key, val);
-            break;
-
-        case '\4':
-            _lru.clear();
-            break;
-
-        case '\5': {
-            const string &rc = _lru.get(key);
-            server->Send(val = (char*)rc.c_str(), rc.size() + 1);
-            break;
-        }}
-        LogDev("%s: %s=%s", buf[0] == '\1' ? "del" : buf[0] == '\2' ? "set" : buf[0] == '\3' ? "incr" : buf[0] == '\4' ? "clear" : buf[0] == '\5' ? "get" : "none", key, val);
-    }
-
-    static Handle<Value> lruServerStart(const Arguments& args) {
-        HandleScope scope;
-        OPTIONAL_ARGUMENT_OBJECT(0, obj1);
-        NNSocket *sock1 = HasInstance(obj1) ? ObjectWrap::Unwrap< NNSocket > (obj1) : NULL;
-        OPTIONAL_ARGUMENT_OBJECT(1, obj2);
-        NNSocket *sock2 = HasInstance(obj2) ? ObjectWrap::Unwrap< NNSocket > (obj2) : NULL;
-        OPTIONAL_ARGUMENT_INT(2, queue);
-        int rc = EINVAL;
-        lruServer.Stop();
-        if (sock1) rc = lruServer.Start(sock1->sock, sock2 ? sock2->sock : -1, queue, lruServerRequest, NULL, NULL);
-        return scope.Close(Local<Integer>::New(Integer::New(rc)));
-    }
-
-    static Handle<Value> lruServerStop(const Arguments& args) {
-        HandleScope scope;
-        lruServer.Stop();
-        return scope.Close(Undefined());
-    }
-
     static void Init(Handle<Object> target) {
         HandleScope scope;
 
         NODE_SET_METHOD(target, "nn_strerror", StrError);
-        NODE_SET_METHOD(target, "lruServerStart", lruServerStart);
-        NODE_SET_METHOD(target, "lruServerStop", lruServerStop);
 
         Local < FunctionTemplate > t = FunctionTemplate::New(New);
         constructor_template = Persistent < FunctionTemplate > ::New(t);
@@ -682,6 +627,7 @@ public:
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("error"), ErrorGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("op"), OpGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("peer"), PeerGetter);
+        constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("polling"), PollingGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("type"), TypeGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("bound"), BindAddressGetter);
         constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("connected"), ConnectAddressGetter);
@@ -717,7 +663,6 @@ public:
 };
 
 Persistent<FunctionTemplate> NNSocket::constructor_template;
-NNServer NNSocket::lruServer;
 
 void NanoMsgInit(Handle<Object> target)
 {
@@ -725,151 +670,5 @@ void NanoMsgInit(Handle<Object> target)
 
     NNSocket::Init(target);
 }
-
-struct NNServerBaton {
-    NNServerBaton(NNServer *s, char *b = 0, int l = 0): server(s), buf(b), len(l) {
-        req.data = s;
-    }
-    ~NNServerBaton() {
-        server->Free(buf);
-    }
-    uv_work_t req;
-    NNServer *server;
-    char *buf;
-    int len;
-};
-
-NNServer::NNServer()
-{
-    poll.data = NULL;
-    bkfree = NULL;
-    Stop();
-}
-
-NNServer::~NNServer()
-{
-    Stop();
-}
-
-void NNServer::Stop()
-{
-    if (poll.data) uv_poll_stop(&poll);
-    poll.data = NULL;
-    rfd = wfd = queue = err = 0;
-    rsock = wsock = -1;
-    maxsize = 1524;
-    bkcallback = NULL;
-    if (bkfree) bkfree(data);
-    data = NULL;
-    bkfree = NULL;
-}
-
-int NNServer::Start(int r, int w, bool q, NNServerCallback *cb, void *d, NNServerFree *f)
-{
-    if (r < 0 || !cb) return err = EINVAL;
-    rsock = r;
-    wsock = w;
-    size_t sz = sizeof(int);
-
-    nn_getsockopt(rsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &rproto, &sz);
-    int rc = nn_getsockopt(rsock, NN_SOL_SOCKET, NN_RCVFD, (char*) &rfd, &sz);
-    if (rc == -1) return err = nn_errno();
-
-    if (wsock > -1) {
-        nn_getsockopt(wsock, NN_SOL_SOCKET, NN_PROTOCOL, (char*) &wproto, &sz);
-        rc = nn_getsockopt(wsock, NN_SOL_SOCKET, NN_SNDFD, (char*) &wfd, &sz);
-        if (rc == -1) return err = nn_errno();
-    }
-
-    queue = q;
-    bkcallback = cb;
-    data = d;
-    bkfree = f;
-    uv_poll_init(uv_default_loop(), &poll, rfd);
-    uv_poll_start(&poll, UV_READABLE, ReadRequest);
-    poll.data = this;
-    LogDev("rsock=%d, wsock=%d, queue=%d", rsock, wsock, queue);
-    return 0;
-}
-
-void NNServer::ReadRequest(uv_poll_t *w, int status, int revents)
-{
-    if (status == -1 || !(revents & UV_READABLE)) return;
-    NNServer *srv = (NNServer*)w->data;
-
-    char *buf = NULL;
-    int len = srv->Recv(&buf);
-    if (len <= 0 || !buf) return;
-
-    srv->Forward(buf, len);
-
-    if (srv->queue) {
-        NNServerBaton *d = new NNServerBaton(srv, buf, len);
-        uv_queue_work(uv_default_loop(), &d->req, WorkRequest, PostRequest);
-    } else {
-        srv->Run(buf, len);
-        srv->Free(buf);
-    }
-}
-
-void NNServer::PostRequest(uv_work_t* req, int status)
-{
-    NNServerBaton* d = static_cast<NNServerBaton*>(req->data);
-    delete d;
-}
-
-void NNServer::WorkRequest(uv_work_t* req)
-{
-    NNServerBaton* d = static_cast<NNServerBaton*>(req->data);
-    d->server->Run(d->buf, d->len);
-}
-
-void NNServer::Run(const char *buf, int size)
-{
-    bkcallback(this, buf, size, data);
-}
-
-string NNServer::error(int err)
-{
-    return nn_strerror(err);
-}
-
-int NNServer::Recv(char **buf)
-{
-    int rc = nn_recv(rsock, (void*)buf, NN_MSG, NN_DONTWAIT);
-    if (rc == -1) {
-        err = nn_errno();
-        if (err == EAGAIN || err == EINTR) return rc;
-        LogError("%d: %d: recv: %s", rproto, rsock, nn_strerror(err));
-    }
-    return rc;
-}
-
-int NNServer::Send(const char *buf, int size)
-{
-    int rc = nn_send(rsock, buf, size, NN_DONTWAIT);
-    if (rc == -1) {
-        err = nn_errno();
-        LogError("%d: %d: send: %s", rproto, rsock, nn_strerror(err));
-    }
-    return 0;
-}
-
-int NNServer::Forward(const char *buf, int size)
-{
-    if (wsock < 0) return 0;
-    int rc = nn_send(wsock, buf, size, NN_DONTWAIT);
-    if (rc == -1) {
-        err = nn_errno();
-        LogError("%d: %d: forward: %s", wproto, wsock, nn_strerror(err));
-    }
-    return 0;
-}
-
-void NNServer::Free(char *buf)
-{
-    if (buf) nn_freemsg(buf);
-}
-
 
 #endif

@@ -1285,7 +1285,7 @@ api.initSystemAPI = function()
             break;
 
         case "config":
-            ipc.configure(req.params[1]);
+            ipc.send('init:' + req.params[1]);
             break;
 
         case "stats":
@@ -1304,7 +1304,7 @@ api.initSystemAPI = function()
         case "msg":
             switch (req.params[1]) {
             case 'init':
-                ipc.configure('msg');
+                ipc.send('init:msg');
                 break;
             }
             break;
@@ -1312,7 +1312,7 @@ api.initSystemAPI = function()
         case "cache":
             switch (req.params[1]) {
             case 'init':
-                ipc.configure('cache');
+                ipc.send('init:cache');
                 break;
             case 'stats':
                 ipc.stats(function(data) { res.json(data) });

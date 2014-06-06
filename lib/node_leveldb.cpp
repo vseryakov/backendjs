@@ -136,9 +136,6 @@ public:
     string file;
     leveldb::DB *handle;
     const leveldb::Snapshot *snapshot;
-#ifdef USE_NANOMSG
-    NNServer server;
-#endif
 };
 
 struct LDBBaton {
@@ -573,68 +570,6 @@ Handle<Value> RepairDB(const Arguments& args)
     return args.This();
 }
 
-static void NNHandleRequest(NNServer *server, const char *buf, int len, void *data)
-{
-    LevelDB *db = (LevelDB*)data;
-    leveldb::Status status;
-    leveldb::ReadOptions readOptions;
-    leveldb::WriteOptions writeOptions;
-
-    jsonValue *json = jsonParse(buf, len, NULL);
-    string op = jsonGetStr(json, "op");
-    string key = jsonGetStr(json, "name");
-    string value = jsonGetStr(json, "value");
-
-    if (op == "put" || op == "add" || op == "update") {
-        status = db->handle->Put(writeOptions, key, value);
-        value.clear();
-    } else
-    if (op == "get") {
-        status = db->handle->Get(readOptions, key, &value);
-        if (status.ok()) {
-            jsonSet(json, JSON_STRING, "value", value);
-            value = jsonStringify(json);
-            server->Send(value.c_str(), value.size());
-        }
-    } else
-    if (op == "del") {
-        status = db->handle->Delete(writeOptions, key);
-        value.clear();
-    } else
-    if (op == "incr") {
-        string val;
-        status = db->handle->Get(readOptions, key, &val);
-        if (!status.ok() && status.IsNotFound()) status = leveldb::Status::OK();
-        if (status.ok()) {
-            value = vFmtStr("%lld", atoll(val.c_str()) + atoll(value.c_str()));
-            status = db->handle->Put(writeOptions, key, value);
-        }
-        value.clear();
-    }
-    jsonFree(json);
-}
-
-#ifdef USE_NANOMSG
-Handle<Value> LevelDB::ServerStart(const Arguments& args)
-{
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
-    REQUIRE_ARGUMENT_INT(0, rsock);
-    REQUIRE_ARGUMENT_INT(0, wsock);
-    OPTIONAL_ARGUMENT_INT(1, queue);
-    db->server.Start(rsock, wsock, queue, NNHandleRequest, db, NULL);
-    return scope.Close(Undefined());
-}
-
-Handle<Value> LevelDB::ServerStop(const Arguments& args)
-{
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
-    db->server.Stop();
-    return scope.Close(Undefined());
-}
-#endif
-
 void LevelDB::Init(Handle<Object> target)
 {
     HandleScope scope;
@@ -652,11 +587,6 @@ void LevelDB::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "select", Select);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "batch", Batch);
-
-#ifdef USE_NANOMSG
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "startServer", ServerStart);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "stopServer", ServerStop);
-#endif
 
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "getProperty", GetProperty);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "getSnapshot", GetSnapshot);

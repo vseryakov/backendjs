@@ -3557,15 +3557,6 @@ db.cassandraCacheColumns = function(options, callback)
 // as properties for LevelDB as described in http://leveldb.googlecode.com/svn/trunk/doc/index.html
 //
 // The LevelDB database can only be shared by one process so if no unique options.db is given, it will create a unique database using core.processId()
-// - `select and search` actions support options.end property which defines the end condition for a range retrieval starting
-//   with obj.name property. If not end is given, all records till the end will be returned.
-// - `server` action starts internal server for LevelDB or LMDB databases, it creates nanomsg socket and listens for requests,
-//   support only basic commands: get,put,del,incr and updates the database direvtly without involving Javascript.
-//   This is supposed to be run in the master process, all updates are performed sequentially for now but will use
-//   uv workers in the future to perform updates in multiple threads at the same time.
-//   options to the server command can contain:
-//   - bind - socket bind address, if no ipc:// socket will be used
-//   - socket - NN_PULL or NN_REP, default is NN_PULL
 db.leveldbInitPool = function(options)
 {
     var self = this;
@@ -3787,14 +3778,6 @@ db.lmdbInitPool = function(options)
             client.del(key, opts, function(err) {
                 callback(err, []);
             });
-            break;
-
-        case "server":
-            if (typeof opts.socket == "string") opts.socket = backend[opts.socket];
-            client.nnsock = new backend.NNSocket(backend.AF_SP, opts.socket || backend.NN_PULL);
-            var err = client.nnsock.bind(opts.bind || ('ipc://var/' + client.db.split("/").pop() + ".sock"));
-            err = client.startServer(client.nnsock, -1);
-            callback(err, []);
             break;
 
         default:

@@ -293,10 +293,6 @@ public:
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "incr", Incr);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
         NODE_SET_PROTOTYPE_METHOD(constructor_template, "select", Select);
-#ifdef USE_NANOMSG
-        NODE_SET_PROTOTYPE_METHOD(constructor_template, "startServer", ServerStart);
-        NODE_SET_PROTOTYPE_METHOD(constructor_template, "stopServer", ServerStop);
-#endif
         target->Set(String::NewSymbol("LMDB"), constructor_template->GetFunction());
 
     }
@@ -532,74 +528,6 @@ public:
         if (d->status) d->message = mdb_strerror(d->status);
         d->data.clear();
     }
-
-     static void ServerProcess(NNServer *server, const char *buf, int len, void *data) {
-        LMDB_DB *db = (LMDB_DB*)data;
-        jsonValue *json = jsonParse(buf, len, NULL);
-        string op = jsonGetStr(json, "op");
-        string key = jsonGetStr(json, "name");
-        string value = jsonGetStr(json, "value");
-        int status = -1, flags = 0;
-
-        if (op == "put" || op == "add" || op == "update") {
-            status = db->Put(key.c_str(), key.size(), value.c_str(), value.size(), flags);
-            value.clear();
-        } else
-        if (op == "select") {
-            Options opts;
-            vector<pair<string,string> > list;
-            status = db->Select(key.c_str(), key.size(), value.c_str(), value.size(), opts, &list);
-            if (!status) {
-                jsonValue *val = new jsonValue(JSON_ARRAY, "value");
-                for (uint i = 0; i < list.size(); i++) {
-                    jsonValue *item = new jsonValue(JSON_OBJECT);
-                    jsonSet(item, JSON_STRING, "name", list[i].first);
-                    jsonSet(item, JSON_STRING, "value", list[i].second);
-                    jsonAppend(val, item);
-                }
-                jsonSet(json, val);
-                value = jsonStringify(json);
-                server->Send(value.c_str(), value.size());
-            }
-        } else
-        if (op == "get") {
-            status = db->Get(key.c_str(), key.size(), &value);
-            if (!status) {
-                jsonSet(json, JSON_STRING, "value", value);
-                value = jsonStringify(json);
-            }
-        } else
-        if (op == "del") {
-            status = db->Del(key.c_str(), key.size(), value.c_str(), value.size());
-            value.clear();
-        } else
-        if (op == "incr") {
-            int64_t num = atoll(value.c_str());
-            status = db->Incr(key.c_str(), key.size(), &num, flags);
-            value.clear();
-        }
-        jsonFree(json);
-     }
-
-#ifdef USE_NANOMSG
-     NNServer server;
-     static Handle<Value> ServerStart(const Arguments& args) {
-         HandleScope scope;
-         LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
-         REQUIRE_ARGUMENT_INT(0, rsock);
-         REQUIRE_ARGUMENT_INT(1, wsock);
-         OPTIONAL_ARGUMENT_INT(2, queue);
-         db->server.Start(rsock, wsock, queue, ServerProcess, db, NULL);
-         return scope.Close(Undefined());
-     }
-
-     static Handle<Value> ServerStop(const Arguments& args) {
-         HandleScope scope;
-         LMDB_DB* db = ObjectWrap::Unwrap < LMDB_DB > (args.This());
-         db->server.Stop();
-         return scope.Close(Undefined());
-     }
-#endif
 };
 
 Persistent<FunctionTemplate> LMDB_DB::constructor_template;
