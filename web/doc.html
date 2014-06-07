@@ -2,7 +2,7 @@
 <h1 id="-backend-img-logo-png-backendjs-documentation"><img src="img/logo.png" alt="Backend"> Backendjs Documentation</h1>
 <h2 id="table-of-contents">Table of contents</h2>
 <ul>
-<li><a href="#backend-js-framework-for-node-js"> Backend.js framework for node.js</a></li>
+<li><a href="#backend-platform-for-node-js"> Backend platform for node.js</a></li>
 <li><a href="#requirements-and-dependencies"> Requirements and dependencies</a></li>
 <li><a href="#installation"> Installation</a></li>
 <li><a href="#quick-start"> Quick start</a></li>
@@ -69,7 +69,7 @@
 </ul>
 </li>
 </ul>
-<h1 id="backend-js-framework-for-node-js">Backend.js framework for node.js</h1>
+<h1 id="backend-platform-for-node-js">Backend platform for node.js</h1>
 <p>General purpose backend framework. The primary goal is to have a scalable platform for running and managing node.js
 servers for Web services implementation. This framework only covers the lower portion of the Web services system:
 node.js processes, HTTP servers, basic API functinality, database access, caching, messaging between processes,
@@ -1805,7 +1805,7 @@ the worker processes if they die and restart them automatically. How many proces
 
      // Status/presence support
      bk_status: { id: { primary: 1 },                               // account id
-                  status: {},                                       // status
+                  status: { value: &quot;online&quot; },                      // status, online, offline, away
                   mtime: { type: &quot;bigint&quot;, now: 1 }},               // last status change time
 
      // Keep track of icons uploaded
@@ -2695,7 +2695,7 @@ any other exact value to be checked against which corresponds to { Exists: true,
 </li>
 </ul>
 <p>Example:</p>
-<pre><code>    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: 1 } })
+<pre><code>    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: 1 }, ReturnValues: &quot;ALL_NEW&quot; })
     ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: null } })
     ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39;, num: 1 }, { op: { num: &#39;ADD&#39;, icons: &#39;ADD&#39; }, expected: { id: null, num: { gt: 0 } } })
 </code></pre></li>
@@ -4777,19 +4777,6 @@ table parameter is ignored, the object only supports the properties name and val
 <p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
 as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
 <p>The LevelDB database can only be shared by one process so if no unique options.db is given, it will create a unique database using core.processId()</p>
-<ul>
-<li><code>select and search</code> actions support options.end property which defines the end condition for a range retrieval starting
-with obj.name property. If not end is given, all records till the end will be returned.</li>
-<li><code>server</code> action starts internal server for LevelDB or LMDB databases, it creates nanomsg socket and listens for requests,
-support only basic commands: get,put,del,incr and updates the database direvtly without involving Javascript.
-This is supposed to be run in the master process, all updates are performed sequentially for now but will use
-uv workers in the future to perform updates in multiple threads at the same time.
-options to the server command can contain:<ul>
-<li>bind - socket bind address, if no ipc:// socket will be used</li>
-<li>socket - NN_PULL or NN_REP, default is NN_PULL</li>
-</ul>
-</li>
-</ul>
 </li>
 </ul>
 
@@ -4883,7 +4870,7 @@ publish socket by the receiving end. Can be called anytime to reconfigure if the
 </ul>
 
 <ul>
-<li><p><code>ipc.bind(name, type, host, port, options)</code></p>
+<li><p><code>ipc.bind(name, type, host, port, options, callback)</code></p>
 <p> Bind a socket to the address and port i.e. initialize the server socket</p>
 </li>
 </ul>
@@ -4895,15 +4882,14 @@ publish socket by the receiving end. Can be called anytime to reconfigure if the
 </ul>
 
 <ul>
-<li><p><code>ipc.close(name, type)</code></p>
-<p> Close a socket or a client</p>
+<li><p><code>ipc.setup(name, type, options, callback)</code></p>
+<p> Setup a socket or client, return depends on the client type</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.configure(type)</code></p>
-<p> Reconfigure the caching and/or messaging in the client and server, sends init command to the master which will reconfigure all workers after
-reconfiguring itself, this command can be sent by any worker. type can be one of cche or msg</p>
+<li><p><code>ipc.close(name, type)</code></p>
+<p> Close a socket or a client</p>
 </li>
 </ul>
 
