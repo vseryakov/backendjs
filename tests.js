@@ -400,7 +400,7 @@ tests.location = function(callback)
                 });
         },
         function(next) {
-            // Scan all locations, do it in small chunks to verify we can continue withint the same geohash area
+            // Scan all locations, do it in small chunks to verify we can continue within the same geohash area
             var query = { latitude: latitude, longitude: longitude, distance: distance };
             var options = { count: gcount, round: round };
             async.doUntil(

@@ -1253,7 +1253,7 @@ db.get = function(table, query, options, callback)
     options = this.getOptions(table, options);
     if (!options._cached && (options.cached || this.caching.indexOf(table) > -1)) {
     	options._cached = 1;
-    	return this.getCached(table, query, options, callback);
+    	return this.getCached("get", table, query, options, callback);
     }
     var req = this.prepare("get", table, query, options);
     this.query(req, options, function(err, rows) {
@@ -1269,11 +1269,11 @@ db.get = function(table, query, options, callback)
 //
 //  Example:
 //
-//      db.getCache("bk_account", { id: req.query.id }, { select: "latitude,longitude" }, function(err, row) {
+//      db.getCached("get", "bk_account", { id: req.query.id }, { select: "latitude,longitude" }, function(err, row) {
 //          var distance = backend.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
 //      });
 //
-db.getCached = function(table, query, options, callback)
+db.getCached = function(op, table, query, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options,options = null;
@@ -1291,7 +1291,7 @@ db.getCached = function(table, query, options, callback)
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
-        self.get(table, query, options, function(err, row) {
+        self[op](table, query, options, function(err, row) {
             // Store in cache if no error
             if (row && !err) self.putCache(table, row, options);
             if (callback) callback(err, row);
@@ -1325,7 +1325,7 @@ db.delCache = function(table, query, options)
 db.getCacheKey = function(table, query, options)
 {
     var prefix = options.prefix || table;
-    return prefix + this.getKeys(table, options).map(function(x) { return ":" + query[x] });
+    return prefix + this.getKeys(table, options).map(function(x) { return "|" + query[x] });
 }
 
 // Create a table using column definitions represented as a list of objects. Each column definition can
@@ -1747,7 +1747,7 @@ db.processRows = function(pool, table, rows, options)
 	function processRow(row) {
 	    if (options.noJson) {
 	        for (var p in cols) {
-	            if (cols[p].type == "json" && typeof row[p] == "string" && row[p]) try { row[p] = JSON.parse(row[p]); } catch(e) { logger.error('processRow:', e, table, row[p].substr(0, 16)) }
+	            if (cols[p].type == "json" && typeof row[p] == "string" && row[p]) row[p] = core.jsonParse(row[p], { logging : 1 });
 	        }
 	    }
 	    if (Array.isArray(pool.processRow[table])) {

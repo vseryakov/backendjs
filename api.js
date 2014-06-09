@@ -1009,17 +1009,20 @@ api.initIconAPI = function()
     var self = this;
     var db = core.context.db;
 
-    this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9\.\_\-]+)\/?([a-z0-9\.\_\-])?$/, function(req, res) {
+    db.setProcessRow("bk_icon", function(row, options, cols) {
+        self.formatIcon(row, options.account);
+    });
 
+    this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9\.\_\-]+)\/?([a-z0-9\.\_\-])?$/, function(req, res) {
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
+        options.account = req.account;
         if (!req.query.id) req.query.id = req.account.id;
         req.query.prefix = req.params[1];
         req.query.type = req.params[2] || "";
-
         switch (req.params[0]) {
         case "get":
-            self.getIcon(req, res, req.query.id, { prefix: req.query.prefix, type: req.query.type });
+            self.getIcon(req, res, req.query.id, { prefix: req.query.prefix, type: req.query.type, account: req.account });
             break;
 
         case "select":
@@ -1078,19 +1081,19 @@ api.initMessageAPI = function()
 
         case "get":
             self.getMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.toBase64(info.next_token) : "" });
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token) : "" });
             });
             break;
 
         case "get/sent":
             self.getSentMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.toBase64(info.next_token) : "" });
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token) : "" });
             });
             break;
 
         case "get/archive":
             self.getArchiveMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.toBase64(info.next_token) : "" });
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token) : "" });
             });
             break;
 
@@ -1419,7 +1422,7 @@ api.getOptions = function(req)
     });
     if (req.query._select) options.select = req.query._select;
     if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50);
-    if (req.query._start) options.start = core.toJson(req.query._start);
+    if (req.query._start) options.start = core.base64ToJson(req.query._start);
     if (req.query._sort) options.sort = req.query._sort;
     if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
     if (req.query._width) options.width = core.toNumber(req.query._width);
@@ -1725,6 +1728,16 @@ api.handleIcon = function(req, res, options)
     });
 }
 
+// Verify icon permissions for given account id, returns true if allowed
+api.checkIcon = function(req, id, row)
+{
+    var acl = row.acl_allow || "";
+    if (acl == "all") return true;
+    if (acl == "auth" && req.account) return true;
+    if (acl.split(",").filter(function(x) { return x == id }).length) return true;
+    return id == req.account.id;
+}
+
 // Return formatted icon URL for the given account
 api.formatIcon = function(row, account)
 {
@@ -1737,7 +1750,8 @@ api.formatIcon = function(row, account)
         row.url = this.imagesUrl + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
     } else {
         if (row.prefix == "account") {
-            row.url = this.imagesUrl + '/account/get/icon?type=' + row.type;
+            row.url = this.imagesUrl + '/account/get/icon?';
+            if (row.type != '0') row.url += 'type=' + row.type;
         } else {
             row.url = this.imagesUrl + '/icon/get/' + row.prefix + "/" + row.type + "?";
         }
@@ -1756,7 +1770,6 @@ api.selectIcon = function(req, options, callback)
         if (err) return callback(err, []);
         // Filter out not allowed icons
         rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
-        rows.forEach(function(x) { self.formatIcon(x, req.account); });
         callback(err, rows);
     });
 }
@@ -1793,16 +1806,6 @@ api.sendIcon = function(req, res, id, options)
     } else {
         self.sendFile(req, res, icon);
     }
-}
-
-// Verify icon permissions for given account id, returns true if allowed
-api.checkIcon = function(req, id, row)
-{
-    var acl = row.acl_allow || "";
-    if (acl == "all") return true;
-    if (acl == "auth" && req.account) return true;
-    if (acl.split(",").filter(function(x) { return x == id }).length) return true;
-    return id == req.account.id;
 }
 
 // Store an icon for account, .type defines icon prefix
@@ -2012,7 +2015,7 @@ api.getConnection = function(req, options, callback)
     db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
 
-        var next_token = info.next_token ? core.toBase64(info.next_token) : "";
+        var next_token = info.next_token ? core.jsonToBase64(info.next_token) : "";
         // Split type and reference id
         rows.forEach(function(row) {
             var d = row.type.split(":");
@@ -2158,7 +2161,7 @@ api.getLocation = function(req, options, callback)
     req.query.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
 
     // Continue pagination using the search token
-    var token = core.toJson(req.query._token);
+    var token = core.base64ToJson(req.query._token);
     if (token && token.geohash) {
         if (token.latitude != req.query.latitude ||
             token.longitude != req.query.longitude ||
@@ -2169,7 +2172,7 @@ api.getLocation = function(req, options, callback)
     if (typeof options.round == "undefined") options.round = core.minDistance;
 
     db.getLocations(table, req.query, options, function(err, rows, info) {
-        var next_token = info.more ? core.toBase64(info) : null;
+        var next_token = info.more ? core.jsonToBase64(info) : null;
         // Ignore current account, db still retrieves it but in the API we skip it
         rows = rows.filter(function(row) { return row.id != req.account.id });
         // Return accounts with locations
@@ -2430,6 +2433,7 @@ api.delSentMessage = function(req, options, callback)
 // Return an account, used in /account/get API call
 api.getAccount  = function(req, options, callback)
 {
+    var self = this;
     var db = core.context.db;
     if (!req.query.id) {
         db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
@@ -2459,10 +2463,11 @@ api.getAccount  = function(req, options, callback)
 // Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint
 api.selectAccount = function(req, options, callback)
 {
+    var self = this;
     var db = core.context.db;
     db.select("bk_account", req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
-        var next_token = info && info.next_token ? core.toBase64(info.next_token) : "";
+        var next_token = info && info.next_token ? core.jsonToBase64(info.next_token) : "";
         callback(err, { count: rows.length, data: rows, next_token: next_token });
     });
 }
@@ -2546,9 +2551,7 @@ api.deleteAccount = function(obj, options, callback)
         async.series([
            function(next) {
                if (options.keep.auth) return next();
-               options.cached = true
                db.del("bk_auth", { login: obj.login }, options, function(err) {
-                   options.cached = false;
                    next(err);
                });
            },

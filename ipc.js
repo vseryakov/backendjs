@@ -255,7 +255,7 @@ ipc.initServerCaching = function()
         // Socket to read a cache update and forward it to the subcribers
         this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, { type: backend.NN_PULL, forward: this.nanomsg.lpub });
         // Socket to subscribe for updates and actually update the cache
-        this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, { type: backend.NN_SUB, subscribe: "" }, function(err, data) {
+        this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, { type: backend.NN_SUB, subscribe: [""] }, function(err, data) {
             if (err) return logger.error('lsub:', err);
             // \1key - del key
             // \2key\2val - set key with val
@@ -292,7 +292,7 @@ ipc.initServerCaching = function()
             max: 1000,
             idle: 3600000,
             create: function(callback) {
-                var sock = self.connect('lreq' + this.nanomsg.lnum++, "nanomsg", core.cacheHost, core.cachePort + 2, { type: backend.NN_REQ, opts: [backend.NN_REQ_RESEND_IVL, 0] }, function(err, key) {
+                var sock = self.connect('lreq' + this.nanomsg.lnum++, "nanomsg", core.cacheHost, core.cachePort + 2, { type: backend.NN_REQ, opts: [[backend.NN_REQ_RESEND_IVL, 0]] }, function(err, key) {
                     self.nanomsg.lreq.release(this);
                     var cb = this.callback;
                     this.callback = null;
@@ -506,18 +506,15 @@ ipc.connect = function(name, type, host, port, options, callback)
 // Setup a socket or client, return depends on the client type
 ipc.setup = function(name, type, options, callback)
 {
+    var self = this;
     switch (type) {
     case "nanomsg":
         var err = 0;
         if (!err && typeof options.peer != "undefined") err = this[type][name].setPeer(options.peer);
         if (!err && typeof options.forward != "undefined") err = this[type][name].setForward(options.forward);
-        if (!err && typeof options.subscribe != "undefined") err = this[type][name].subscribe(options.subcribe);
+        if (!err && Array.isArray(options.subscribe)) options.subscribe.forEach(function(x) { if (!err) err = self[type][name].subscribe(x); });
+        if (!err && Array.isArray(options.opts)) options.opts.forEach(function(x) { if (!err) err = self[type][name].setOption(x[0], x[1]); });
         if (!err && callback) err = this[type][name].setCallback(callback);
-        if (!err && Array.isArray(options.opts)) {
-            for (var i = 0; !err && i < options.opts.length - 1; i++) {
-                err = this[type][name].setOption(options.opts[i], options.opts[i + 1]);
-            }
-        }
         return err;
     }
 }

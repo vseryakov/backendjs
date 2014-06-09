@@ -1848,18 +1848,16 @@ core.arrayUnique = function(list, key)
 }
 
 // Stringify JSON into base64 string
-core.toBase64 = function(data)
+core.jsonToBase64 = function(data)
 {
 	return new Buffer(JSON.stringify(data)).toString("base64");
 }
 
 // Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is
-core.toJson = function(data)
+core.base64ToJson = function(data)
 {
 	var rc = "";
-	try {
-	    if (data.match(/^[0-9]+$/)) rc = this.toNumber(data); else rc = JSON.parse(new Buffer(data, "base64").toString());
-	} catch(e) {}
+	try { if (data.match(/^[0-9]+$/)) rc = this.toNumber(data); else rc = JSON.parse(new Buffer(data, "base64").toString()); } catch(e) {}
 	return rc;
 }
 

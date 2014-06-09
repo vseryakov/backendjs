@@ -953,10 +953,10 @@ server.launchJob = function(job, options, callback)
                 "-backend-key", core.backendKey || "",
                 "-backend-secret", core.backendSecret || "",
                 "-server-jobname", Object.keys(job).join(","),
-                "-server-job", core.toBase64(job) ];
+                "-server-job", core.jsonToBase64(job) ];
 
     if (!options.noshutdown) {
-        args.push("-server-job", core.toBase64({ 'server.shutdown': { runlast: 1 } }));
+        args.push("-server-job", core.jsonToBase64({ 'server.shutdown': { runlast: 1 } }));
     }
 
     // Command line arguments for the instance, must begin with -
@@ -980,7 +980,7 @@ server.queueJob = function(job)
         break;
 
     case "string":
-    	var o = core.toJson(job);
+    	var o = core.base64ToJson(job);
     	if (!o) logger.error('queueJob:', 'invalid job', job);
     	this.queue.push(o);
         break;
