@@ -161,11 +161,6 @@ var api = {
                      like0: { type: "counter", value: 0, autoincr: 1 },        // who i liked
                      like1: { type: "counter", value: 0, autoincr: 1 }},       // reversed, who liked me
 
-       // Keep historic data about account activity
-       bk_history: { id: { primary: 1 },
-                     mtime: { type: "bigint", primary: 1, now: 1 },
-                     type: {},
-                     data: {} }
     }, // tables
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -200,7 +195,6 @@ var api = {
                  "status": "initStatusAPI",
                  "connection": 'initConnectionAPI',
                  "location": 'initLocationAPI',
-                 "history": 'initHistoryAPI',
                  "counter": 'initCounterAPI',
                  "icon": 'initIconAPI',
                  "message": 'initMessageAPI',
@@ -386,7 +380,7 @@ api.init = function(callback)
 
     // Disable access to endpoints if session exists, meaning Web app
     self.disableSession.forEach(function(x) {
-        self.registerAuthCheck('', new RegExp(x), function(req, status, cb) {
+        self.registerPreProcess('', new RegExp(x), function(req, status, cb) {
             if (req.session && req.session['bk-signature']) return cb({ status: 401, message: "Not authorized" });
             cb();
         });
@@ -395,7 +389,7 @@ api.init = function(callback)
     // Admin only access
     if (self.allowAdmin.length) {
         self.allowAdminRx = new RegExp(self.allowAdmin.map(function(x) { return "(" + x + ")"}).join("|"));
-        self.registerAuthCheck('', self.allowAdminRx, function(req, status, cb) {
+        self.registerPreProcess('', self.allowAdminRx, function(req, status, cb) {
             if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
             cb();
         });
@@ -404,7 +398,7 @@ api.init = function(callback)
     // SSL only access
     if (self.allowSsl.length) {
         self.allowSslRx = new RegExp(self.allowSsl.map(function(x) { return "(" + x + ")"}).join("|"));
-        self.registerAuthCheck('', self.allowSslRx, function(req, status, cb) {
+        self.registerPreProcess('', self.allowSslRx, function(req, status, cb) {
             if (req.socket.server != self.sslserver) return cb({ status: 404, message: "ssl only" });
             cb();
         });
@@ -1134,38 +1128,6 @@ api.initMessageAPI = function()
     });
 }
 
-// History management
-api.initHistoryAPI = function()
-{
-    var self = this;
-    var db = core.context.db;
-
-    this.app.all(/^\/history\/([a-z]+)$/, function(req, res) {
-
-        if (req.method == "POST") req.query = req.body;
-        var options = self.getOptions(req);
-        switch (req.params[0]) {
-        case "add":
-            if (!req.query.type || !req.query.data) return self.sendReply(res, 400, "type and data are required");
-            self.sendReply(res);
-            req.query.id = req.account.id;
-            req.query.mtime = Date.now();
-            db.add("bk_history", req.query);
-            break;
-
-        case "get":
-            options.ops = { mtime: 'gt' };
-            db.select("bk_history", { id: req.account.id, mtime: req.query.mtime || 0 }, options, function(err, rows) {
-                res.json(rows);
-            });
-            break;
-
-        default:
-            self.sendReply(res, 400, "Invalid command");
-        }
-    });
-}
-
 // Counters management
 api.initCounterAPI = function()
 {
@@ -1524,8 +1486,10 @@ api.registerAccessCheck = function(method, path, callback)
     this.addHook('access', method, path, callback);
 }
 
-// Similar to `registerAccessCheck` but this callback will be called after the signature or session is verified.
-// The purpose of this hook is too check permissions of a valid user to resources or in case of error perform any other action
+// Similar to `registerAccessCheck` but this callback will be called after the signature or session is verified but before
+// the API route method is called.
+//
+// The purpose of this hook is to perform some preparations or check permissions of a valid user to resources or in case of error perform any other action
 // like redirection or returning something explaining what to do in case of failure. The callback for this call is different then in `checkAccess` hooks.
 // - method can be '' in such case all mathods will be matched
 // - path is a string or regexp of the request URL similr to registering Express routes
@@ -1534,19 +1498,19 @@ api.registerAccessCheck = function(method, path, callback)
 //
 // Example:
 //
-//           api.registerAuthCheck('GET', '/account/get', function(req, status, cb) {
+//           api.registerPreProcess('GET', '/account/get', function(req, status, cb) {
 //                if (status.status != 200) status = { status: 302, url: '/error.html' };
 //                cb(status)
 //           });
 //
 // Example with admin access only:
 //
-//          api.registerAccessCheck('POST', '/data/', function(req, cb) {
+//          api.registerPreProcess('POST', '/data/', function(req, status, cb) {
 //              if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
 //              cb();
 //          });
 //
-api.registerAuthCheck = function(method, path, callback)
+api.registerPreProcess = function(method, path, callback)
 {
     this.addHook('auth', method, path, callback);
 }

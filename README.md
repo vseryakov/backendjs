@@ -212,7 +212,7 @@ The typical structure of a backendjs application is the following (created by th
 
             // Optionally register access permissions callbacks
             api.registerAccessCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
-            api.registerAuthCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
+            api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) { ...  });
             ...
 
             backend.server.start();
@@ -896,17 +896,6 @@ caching system like Redis, memcache, nanomsg to be very fast presence state syst
 - `/status/del`
   Delete current account status, mostly for clearing the cache or marking offline status
 
-## History
-The history API maintains one table for all application specific logging records. All operations deal with current account only.
-
-- `/history/add`
-  Add a record to the `bk_history` table for current account, timestamp is added automatically, all other fields are optional but by default
-  this table contains only 2 columns: `type` and `data` for genetic logging, it can to be extended to support any other application logic if needed.
-
-- `/history/get`
-  Return history record for current account, if mtime is not specified all records from the beginning will be returned, use `_count` and `_start` parameters to paginate through
-  all available records or specify `mtime=` with the timestamp in milliseconds to start with particular time.
-
 ## Data
 The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...
@@ -916,7 +905,7 @@ who can access it.*
   - To disable this endpoint completely in the config: api-disable=data
   - To allow admins to access it only:
 
-        api.registerAuthCheck('GET', '/data', function(req, status, cb) { if (req.account.type != "admin") return cb({ status: 401, message: 'access denied' }; cb(status)); });
+        api.registerPreProcess('GET', '/data', function(req, status, cb) { if (req.account.type != "admin") return cb({ status: 401, message: 'access denied' }; cb(status)); });
 
 - `/data/columns`
 - `/data/columns/TABLE`
@@ -1404,7 +1393,7 @@ First we disable all allowed paths to the html and registration:
 Second we define auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:
 
-        api.registerAuthCheck('', /^\/$|\.html$/, function(req, status, callback) {
+        api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
             if (status.status != 200) {
                 status.status = 302;
                 status.url = '/public/index.html';
