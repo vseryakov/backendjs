@@ -107,6 +107,7 @@ var api = {
        bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
                   type: { primary: 1, pub: 1 },               // prefix:type
                   acl_allow: {},                              // Who can see it: all, auth, id:id...
+                  ext: {},                                    // saved image extension
                   descr: {},
                   latitude: { type: "real" },
                   longitude: { type: "real" },
@@ -1706,6 +1707,7 @@ api.handleIcon = function(req, res, options)
 
     req.query.id = req.account.id;
     req.query.type = options.prefix + ":" + options.type;
+    if (options.ext) req.query.ext = options.ext;
     if (req.query.latitude && req.query.longitude) req.query.geohash = core.geoHash(req.query.latitude, req.query.longitude);
 
     db[op]("bk_icon", req.query, function(err, rows) {
@@ -1784,6 +1786,7 @@ api.getIcon = function(req, res, id, options)
         if (err) return self.sendReply(res, err);
         if (!row) return self.sendReply(res, 404, "Not found");
         if (!self.checkIcon(req, id, row)) return self.sendReply(res, 401, "Not allowed");
+        if (row.ext) options.ext = row.ext;
         self.sendIcon(req, res, id, options);
     });
 }
@@ -1871,6 +1874,8 @@ api.delIcon = function(id, options, callback)
     if (!options) options = {};
 
     var icon = core.iconPath(id, options);
+    logger.debug('delIcon:', id, options);
+
     if (this.imagesS3 || options.imagesS3) {
         var aws = core.context.aws;
         aws.queryS3(options.imagesS3 || this.imagesS3, icon, { method: "DELETE" }, function(err) {
@@ -2594,7 +2599,7 @@ api.deleteAccount = function(obj, options, callback)
            function(next) {
                if (options.keep.icon) return next();
                db.delAll("bk_icon", { id: obj.id }, options, function(err, rows) {
-                   if (!options.keep.images) return next();
+                   if (options.keep.images) return next();
                    // Delete all image files
                    async.forEachSeries(rows, function(row, next2) {
                        self.formatIcon(row);

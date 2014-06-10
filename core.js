@@ -2243,7 +2243,7 @@ core.putIcon = function(file, id, options, callback)
 //          - if any is 0 that means keep the original size
 //     - filter - ImageMagick image filters, default is lanczos
 //     - quality - 0-99 percent, image scaling quality
-//     - ext - image format: png, gif, jpg
+//     - ext - image format: png, gif, jpg, jp2
 //     - flip - flip horizontally
 //     - flop - flip vertically
 //     - blue_radius, blur_sigma - perform adaptive blur on the image
