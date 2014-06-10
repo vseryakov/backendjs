@@ -851,79 +851,6 @@ db.replace = function(table, obj, options, callback)
     });
 }
 
-// Select objects from the database that match supplied conditions.
-// - query - can be an object with properties for the condition, all matching records will be returned
-// - query - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
-// - options can use the following special properties:
-//      - ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
-//         `>, gt, <, lt, =, !=, <>, >=, ge, <=, le, in, between, regexp, iregexp, begins_with, like%, ilike%`
-//      - opsMap - operator mapping between supplied operators and actual operators supported by the db
-//      - typesMap - type mapping between supplied and actual column types, an object
-//      - select - a list of columns or expressions to return or all columns if not specified
-//      - start - start records with this primary key, this is the next_token passed by the previous query
-//      - count - how many records to return
-//      - sort - sort by this column. _NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
-//           `select` property might be used to get all required properties._
-//      - check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column
-//      - semipub - if true, semipub columns will be returned regardless of the check_public condition, it is responsibility of the caller now to cleanup the records before
-//           returning to the client
-//      - desc - if sorting, do in descending order
-//      - page - starting page number for pagination, uses count to find actual record to start
-//      - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
-//          table for the same id only one instance will be returned
-//
-// On return, the callback can check third argument which is an object with some predefined properties along with driver specific properties returned by the query:
-// - affected_rows - how many records this operation affected, for add/put/update
-// - inserted_oid - last created auto generated id
-// - next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query
-//
-//  Example: get by primary key, refer above for default table definitions
-//
-//          db.select("bk_message", { id: '123' }, { count: 2 }, function(err, rows) {
-//
-//          });
-//
-//  Example: get all icons with type greater or equal to 2
-//
-//          db.select("bk_icon", { id: '123', type: '2' }, { select: 'id,type', ops: { type: 'ge' } }, function(err, rows) {
-//
-//          });
-//
-//  Example: get unread msgs sorted by time, recent first
-//
-//          db.select("bk_message", { id: '123', status: 'N:' }, { sort: "status", desc: 1, ops: { status: "begins_with" } }, function(err, rows) {
-//
-//          });
-//
-//  Example: allow all accounts icons to be visible
-//
-//          db.select("bk_account", {}, function(err, rows) {
-//              rows.forEach(function(row) {
-//                  row.acl_allow = 'auth';
-//                  db.update("bk_icon", row);
-//              });
-//          });
-//
-//  Example: scan accounts with custom filter, not by primary key: all females
-//
-//          db.select("bk_account", { gender: 'f' }, function(err, rows) {
-//
-//          });
-//
-//  Example: select connections using primary key and other filter columns: all likes for the last day
-//
-//          db.select("bk_connection", { id: '123', type: 'like', mtime: Date.now()-86400000 }, { ops: { type: "begins_with", mtime: "gt" } }, function(err, rows) {
-//
-//          });
-//
-db.select = function(table, query, options, callback)
-{
-    if (typeof options == "function") callback = options,options = null;
-    options = this.getOptions(table, options);
-    var req = this.prepare(Array.isArray(query) ? "list" : "select", table, query, options);
-    this.query(req, options, callback);
-}
-
 // Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column
 // Example
 //
@@ -1235,6 +1162,83 @@ db.getLocations = function(table, query, options, callback)
     });
 }
 
+// Select objects from the database that match supplied conditions.
+// - query - can be an object with properties for the condition, all matching records will be returned
+// - query - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
+// - options can use the following special properties:
+//    - ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
+//       `>, gt, <, lt, =, !=, <>, >=, ge, <=, le, in, between, regexp, iregexp, begins_with, like%, ilike%`
+//    - opsMap - operator mapping between supplied operators and actual operators supported by the db
+//    - typesMap - type mapping between supplied and actual column types, an object
+//    - select - a list of columns or expressions to return or all columns if not specified
+//    - start - start records with this primary key, this is the next_token passed by the previous query
+//    - count - how many records to return
+//    - sort - sort by this column. _NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
+//         `select` property might be used to get all required properties._
+//    - check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column
+//    - semipub - if true, semipub columns will be returned regardless of the check_public condition, it is responsibility of the caller now to cleanup the records before
+//         returning to the client
+//    - desc - if sorting, do in descending order
+//    - page - starting page number for pagination, uses count to find actual record to start
+//    - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+//        table for the same id only one instance will be returned
+//
+// On return, the callback can check third argument which is an object with some predefined properties along with driver specific properties returned by the query:
+// - affected_rows - how many records this operation affected, for add/put/update
+// - inserted_oid - last created auto generated id
+// - next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query
+//
+// Example: get by primary key, refer above for default table definitions
+//
+//        db.select("bk_message", { id: '123' }, { count: 2 }, function(err, rows) {
+//
+//        });
+//
+// Example: get all icons with type greater or equal to 2
+//
+//        db.select("bk_icon", { id: '123', type: '2' }, { select: 'id,type', ops: { type: 'ge' } }, function(err, rows) {
+//
+//        });
+//
+// Example: get unread msgs sorted by time, recent first
+//
+//        db.select("bk_message", { id: '123', status: 'N:' }, { sort: "status", desc: 1, ops: { status: "begins_with" } }, function(err, rows) {
+//
+//        });
+//
+// Example: allow all accounts icons to be visible
+//
+//        db.select("bk_account", {}, function(err, rows) {
+//            rows.forEach(function(row) {
+//                row.acl_allow = 'auth';
+//                db.update("bk_icon", row);
+//            });
+//        });
+//
+// Example: scan accounts with custom filter, not by primary key: all females
+//
+//        db.select("bk_account", { gender: 'f' }, function(err, rows) {
+//
+//        });
+//
+// Example: select connections using primary key and other filter columns: all likes for the last day
+//
+//        db.select("bk_connection", { id: '123', type: 'like', mtime: Date.now()-86400000 }, { ops: { type: "begins_with", mtime: "gt" } }, function(err, rows) {
+//
+//        });
+//
+db.select = function(table, query, options, callback)
+{
+    if (typeof options == "function") callback = options,options = null;
+    options = this.getOptions(table, options);
+    if (!options._cached && (options.cached || this.caching.indexOf(table) > -1)) {
+        options._cached = 1;
+        return this.getCached("select", table, query, options, callback);
+    }
+    var req = this.prepare(Array.isArray(query) ? "list" : "select", table, query, options);
+    this.query(req, options, callback);
+}
+
 // Retrieve one record from the database by primary key, returns found record or null if not found
 // Options can use the following special properties:
 //  - select - a list of columns or expressions to return, default is to return all columns
@@ -1325,7 +1329,7 @@ db.delCache = function(table, query, options)
 db.getCacheKey = function(table, query, options)
 {
     var prefix = options.prefix || table;
-    return prefix + this.getKeys(table, options).map(function(x) { return "|" + query[x] });
+    return prefix + this.getKeys(table, options).map(function(x) { return "|" + query[x] }).join("");
 }
 
 // Create a table using column definitions represented as a list of objects. Each column definition can
