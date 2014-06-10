@@ -544,9 +544,9 @@ server.startShell = function()
                 }
             }
             db.get("bk_account", { id: id }, function(err, row) {
-                db.get("bk_auth", { login: row ? row.login : id }, function(err, row) {
+                db.get("bk_auth", { login: row ? row.login : id }, function(err, row) { console.log(row);
                     if (err || !row) exit(err || "no user found with this login name or id", 1);
-                    core.sendRequest(url, { login: row.login, secret: row.secret, query: query }, function(err, params) {
+                    core.sendRequest({ url: url, login: row.login, secret: row.secret, query: query }, function(err, params) {
                         console.log(err || "", params.obj);
                         process.exit(err ? 1 : 0);
                     });
@@ -566,7 +566,7 @@ server.startTestServer = function(options)
         options.running = options.stime = options.etime = options.id = 0;
         core.context.aws.getInstanceInfo(function() {
             setInterval(function() {
-                core.sendRequest(options.host + '/ping/' + core.instanceId + '/' + options.id, function(err, params) {
+                core.sendRequest({ url: options.host + '/ping/' + core.instanceId + '/' + options.id }, function(err, params) {
                     if (err) return;
                     logger.debug(params.obj);
 

@@ -2017,6 +2017,7 @@ api.getConnection = function(req, options, callback)
 
     if (req.query.type) req.query.type += ":" + (req.query.id || "");
     req.query.id = req.account.id;
+    if (!options.ops) options.ops = {};
     options.ops.type = "begins_with";
     db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
@@ -2264,6 +2265,7 @@ api.getArchiveMessage = function(req, options, callback)
     var db = core.context.db;
 
     req.query.id = req.account.id;
+    if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
 
     db.select("bk_archive", req.query, options, callback);
@@ -2275,6 +2277,7 @@ api.getSentMessage = function(req, options, callback)
     var db = core.context.db;
 
     req.query.id = req.account.id;
+    if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
 
     options.check_public = null;
@@ -2288,6 +2291,7 @@ api.getMessage = function(req, options, callback)
     var db = core.context.db;
 
     req.query.id = req.account.id;
+    if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
     options.noprocessrows = 1;
 
@@ -2400,6 +2404,7 @@ api.delMessage = function(req, options, callback)
     var sender = options.sender || "sender";
 
     req.query.id = req.account.id;
+    if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
 
     // Single deletion

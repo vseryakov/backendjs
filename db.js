@@ -1328,7 +1328,7 @@ db.delCache = function(table, query, options)
 db.getCacheKey = function(table, query, options)
 {
     var prefix = options.prefix || table;
-    return prefix + this.getKeys(table, options).map(function(x) { return "|" + query[x] }).join("");
+    return prefix + this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return "|" + query[x] }).join("");
 }
 
 // Create a table using column definitions represented as a list of objects. Each column definition can
