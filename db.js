@@ -168,9 +168,8 @@ var db = {
 
         // Pending requests to be sent to the backend by core.sendRequst
         bk_queue: { id: { primary: 1 },
-                    url: {},
-                    postdata: { type: "text" },
-                    counter: { type: 'int' },
+                    data: { type: "json" },
+                    ctime: { type: "bigint" },
                     mtime: { type: "bigint", now: 1 }
         },
 

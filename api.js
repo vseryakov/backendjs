@@ -1797,7 +1797,7 @@ api.sendIcon = function(req, res, id, options)
     var self = this;
     var aws = core.context.aws;
     var icon = core.iconPath(id, options);
-    logger.log('sendIcon:', icon, id, options)
+    logger.log('sendIcon:', icon, id, options);
 
     if (self.imagesS3) {
         aws.queryS3(self.imagesS3, icon, options, function(err, params) {

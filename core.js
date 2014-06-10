@@ -328,6 +328,11 @@ core.init = function(options, callback)
             self.loadDbConfig(options, next);
         },
 
+        // Send pending requests
+        function(next) {
+            self.processRequestQueue(next);
+        },
+
         function(next) {
             // Can only watch existing files, new config files will be ignored after the start up
             fs.exists(configFile, function(exists) {
@@ -1202,30 +1207,32 @@ core.signRequest = function(login, secret, method, host, uri, options)
 // *When used with API endpoints, the `backend-host` parameter must be set in the config or command line to the base URL of the backend,
 // like http://localhost:8000, this is when `uri` is relative URL. Absolute URLs do not need this parameter.*
 // Special parameters for options:
+// - url - url if options is first argument
 // - login - login to use for access credentials instead of global credentials
 // - secret - secret to use for access instead of global credentials
 // - proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
 // - queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
-// - rowid - unique record id to be used in case of queue management
+// - id - unique record id to be used in case of queue management
 // - checksum - calculate checksum from the data
 // - anystatus - keep any HTTP status, dont treat as error if not 200
-core.sendRequest = function(uri, options, callback)
+core.sendRequest = function(options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
+    if (typeof options == "string") options = { url: options };
     if (typeof options.sign == "undefined") options.sign = true;
-
-    // Nothing to do without credentials
     if (options.sign) {
         if (!options.login) options.login = self.backendLogin;
         if (!options.secret) options.secret = self.backendSecret;
     }
-    // Relative urls resolve against global backend host
-    if (typeof uri == "string" && uri.indexOf("://") == -1) uri = self.backendHost + uri;
 
+    // Relative urls resolve against global backend host
+    if (typeof options.url == "string" && options.url.indexOf("://") == -1) {
+        options.url = self.backendHost + options.url;
+    }
     var db = self.context.db;
-    self.httpGet(uri, options, function(err, params, res) {
+
+    self.httpGet(options.url, core.cloneObj(options), function(err, params, res) {
         // Queue management, insert on failure or delete on success
         if (options.queue) {
             if (params.status == 200) {
@@ -1233,13 +1240,18 @@ core.sendRequest = function(uri, options, callback)
                     db.del("bk_queue", { id: options.id });
                 }
             } else {
-                if (!options.id) options.id = core.hash(uri + (options.postdata || ""));
-                options.mtime = self.now();
-                options.counter = (options.counter || 0) + 1;
-                if (options.counter > 10) {
-                    db.del("bk_queue", { id: options.id });
+                options.counter = self.toNumber(options.counter) + 1;
+                if ((options.retries && options.counter > options.retries) ||
+                    (options.expires && Date.now() > options.expires)) {
+                    if (options.id) {
+                        db.del("bk_queue", { id: options.id });
+                    }
                 } else {
-                    db.put("bk_queue", options);
+                    db.put("bk_queue", { id: options.id || self.uuid(), data: options, ctime: Date.now() });
+
+                    if (!self.requestQueueTimer) {
+                        self.requestQueueTimer = setInterval(function() { self.processRequestQueue() }, self.requestQueueInterval || 30000);
+                    }
                 }
             }
         }
@@ -1267,14 +1279,19 @@ core.sendRequest = function(uri, options, callback)
 }
 
 // Send all pending updates from the queue table
-core.processQueue = function(callback)
+core.processRequestQueue = function(callback)
 {
     var self = this;
     var db = self.context.db;
 
     db.select("bk_queue", {}, { sort: "mtime" } , function(err, rows) {
+        if (!rows.length && self.requestQueueTimer) {
+            clearInterval(self.requestQueueTimer);
+        }
         async.forEachSeries(rows, function(row, next) {
-            self.sendRequest(row.url, self.extendObj(row, "queue", true), function(err2) { next(); });
+            if (self.typeName(row.data) != "object") return next();
+            for (var p in row) if (p != "data") row.data[p] = row[p];
+            self.sendRequest(row.data, function(err2) { next(); });
         }, function(err3) {
             if (rows.length) logger.log('processQueue:', 'sent', rows.length);
             if (callback) callback();
@@ -2786,7 +2803,7 @@ core.watchLogs = function(callback)
             if (errors.length > 1) {
                 logger.log('logwatcher:', 'found errors, send report to', self.logwatcherEmail, self.logwatcherUrl);
                 if (self.logwatcherUrl) {
-                    self.sendRequest(self.logwatcherUrl, { sign: true, queue: true, headers: { "content-type": "text/plain" }, postdata: errors }, callback);
+                    self.sendRequest({ url: self.logwatcherUrl, queue: true, headers: { "content-type": "text/plain" }, postdata: errors }, callback);
                 } else {
                     self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, callback);
                 }

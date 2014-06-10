@@ -60,19 +60,19 @@ tests.account = function(callback)
     async.series([
         function(next) {
             var query = { login: login, secret: secret, name: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
-            core.sendRequest("/account/add", { sign: false, query: query }, function(err, params) {
+            core.sendRequest({ url: "/account/add", sign: false, query: query }, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret }
-            core.sendRequest("/account/del", options, function(err, params) {
+            var options = { url: "/account/del", login: login, secret: secret }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || params.obj.name != name, "err1:", params.obj);
             });
         },
         function(next) {
             var query = { login: login + 'other', secret: secret, name: name + ' Other', gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
-            core.sendRequest("/account/add", { sign: false, query: query }, function(err, params) {
+            core.sendRequest({ url: "/account/add", sign: false, query: query }, function(err, params) {
                 otherid = params.obj.id;
                 next(err);
             });
@@ -88,7 +88,7 @@ tests.account = function(callback)
                     query[d[1]] = process.argv[++i];
                 }
             }
-            core.sendRequest("/account/add", { sign: false, query: query }, function(err, params) {
+            core.sendRequest({ url: "/account/add", sign: false, query: query }, function(err, params) {
                 myid = params.obj.id;
                 next(err);
             });
@@ -99,196 +99,196 @@ tests.account = function(callback)
             var type = 0;
             async.forEachSeries(icons, function(icon, next2) {
                 icon = core.readFileSync(icon, { encoding : "base64" });
-                var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: type++, acl_allow: "allow" }  }
-                core.sendRequest("/account/put/icon", options, function(err, params) {
+                var options = { url: "/account/put/icon", login: login, secret: secret, method: "POST", postdata: { icon: icon, type: type++, acl_allow: "allow" }  }
+                core.sendRequest(options, function(err, params) {
                     next2(err);
                 });
             }, next);
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { latitude: latitude, longitude: longitude } };
-            core.sendRequest("/location/put", options, function(err, params) {
+            var options = { url: "/location/put", login: login, secret: secret, query: { latitude: latitude, longitude: longitude } };
+            core.sendRequest(options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { alias: "test" + name } };
-            core.sendRequest("/account/update", options, function(err, params) {
+            var options = { url: "/account/update",login: login, secret: secret, query: { alias: "test" + name } };
+            core.sendRequest(options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { secret: "test" } };
-            core.sendRequest("/account/put/secret", options, function(err, params) {
+            var options = { url: "/account/put/secret", login: login, secret: secret, query: { secret: "test" } };
+            core.sendRequest(options, function(err, params) {
                 secret = "test";
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret }
-            core.sendRequest("/account/get", options, function(err, params) {
+            var options = { url: "/account/get", login: login, secret: secret }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next,err, !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude, "err1:",params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { icon: icon, type: 98, acl_allow: "all" }  }
-            core.sendRequest("/account/put/icon", options, function(err, params) {
+            var options = { url: "/account/put/icon", login: login, secret: secret, query: { icon: icon, type: 98, acl_allow: "all" }  }
+            core.sendRequest(options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, method: "POST", postdata: { icon: icon, type: 99, _width: 128, _height: 128, acl_allow: "auth" }  }
-            core.sendRequest("/account/put/icon", options, function(err, params) {
+            var options = { url: "/account/put/icon", login: login, secret: secret, method: "POST", postdata: { icon: icon, type: 99, _width: 128, _height: 128, acl_allow: "auth" }  }
+            core.sendRequest(options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { _consistent: 1 } }
-            core.sendRequest("/account/select/icon", options, function(err, params) {
+            var options = { url: "/account/select/icon", login: login, secret: secret, query: { _consistent: 1 } }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || params.obj.length!=2+icons.length || !params.obj[0].acl_allow, "err2:", params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { id: id, type: "like" }  }
-            core.sendRequest("/connection/add", options, function(err, params) {
-                options = { login: login, secret: secret, query: { id: core.random(), type: "like" }  }
-                core.sendRequest("/connection/add", options, function(err, params) {
+            var options = { url: "/connection/add", login: login, secret: secret, query: { id: id, type: "like" }  }
+            core.sendRequest(options, function(err, params) {
+                options = { url: "/connection/add", login: login, secret: secret, query: { id: core.random(), type: "like" }  }
+                core.sendRequest(options, function(err, params) {
                     next(err);
                 });
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { type: "like" } }
-            core.sendRequest("/connection/get", options, function(err, params) {
-                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=2, "err3:",params.obj);
+            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "like" } }
+            core.sendRequest(options, function(err, params) {
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=2, "err3:", params.obj.count, params.obj.data);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret }
-            core.sendRequest("/counter/get", options, function(err, params) {
+            var options = { url: "/counter/get", login: login, secret: secret }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || params.obj.like0!=2, "err4:", params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { id: id, type: "like" }  }
-            core.sendRequest("/connection/del", options, function(err, params) {
+            var options = { url: "/connection/del", login: login, secret: secret, query: { id: id, type: "like" }  }
+            core.sendRequest(options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { type: "like" } }
-            core.sendRequest("/connection/get", options, function(err, params) {
+            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "like" } }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err5:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret }
-            core.sendRequest("/counter/get", options, function(err, params) {
+            var options = { url: "/counter/get", login: login, secret: secret }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || params.obj.like0!=1 || params.obj.ping!=0, "err5-1:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: {} }
-            core.sendRequest("/connection/del", options, function(err, params) {
+            var options = { url: "/connection/del", login: login, secret: secret, query: {} }
+            core.sendRequest(options, function(err, params) {
                 next(err, "err5-2:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { } }
-            core.sendRequest("/connection/get", options, function(err, params) {
+            var options = { url: "/connection/get", login: login, secret: secret, query: { } }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err5-3:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { ping: "1" } }
-            core.sendRequest("/counter/incr", options, function(err, params) {
+            var options = { url: "/counter/incr", login: login, secret: secret, query: { ping: "1" } }
+            core.sendRequest(options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret }
-            core.sendRequest("/counter/get", options, function(err, params) {
+            var options = { url: "/counter/get", login: login, secret: secret }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || params.obj.like0!=0 || params.obj.ping!=1, "err6:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { id: otherid, msg: "test123" }  }
-            core.sendRequest("/message/add", options, function(err, params) {
+            var options = { url: "/message/add", login: login, secret: secret, query: { id: otherid, msg: "test123" }  }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj, "err7:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { id: myid, icon: icon }  }
-            core.sendRequest("/message/add", options, function(err, params) {
+            var options = { url: "/message/add", login: login, secret: secret, query: { id: myid, icon: icon }  }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj, "err8:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { id: myid, msg: "test000" }  }
-            core.sendRequest("/message/add", options, function(err, params) {
+            var options = { url: "/message/add", login: login, secret: secret, query: { id: myid, msg: "test000" }  }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj, "err8-1:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { } }
-            core.sendRequest("/message/get", options, function(err, params) {
+            var options = { url: "/message/get", login: login, secret: secret, query: { } }
+            core.sendRequest(options, function(err, params) {
                 msgs = params.obj;
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=2, "err9:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { sender: myid } }
-            core.sendRequest("/message/get", options, function(err, params) {
+            var options = { url: "/message/get", login: login, secret: secret, query: { sender: myid } }
+            core.sendRequest(options, function(err, params) {
                 msgs = params.obj;
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=2 || msgs.data[0].sender!=myid, "err10:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { sender: msgs.data[0].sender, mtime: msgs.data[0].mtime } }
-            core.sendRequest("/message/archive", options, function(err, params) {
+            var options = { url: "/message/archive", login: login, secret: secret, query: { sender: msgs.data[0].sender, mtime: msgs.data[0].mtime } }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj, "err11:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { sender: msgs.data[0].sender, mtime: msgs.data[0].mtime } }
-            core.sendRequest("/message/image", options, function(err, params) {
+            var options = { url: "/message/image", login: login, secret: secret, query: { sender: msgs.data[0].sender, mtime: msgs.data[0].mtime } }
+            core.sendRequest(options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { _archive: 1 } }
-            core.sendRequest("/message/get", options, function(err, params) {
+            var options = { url: "/message/get", login: login, secret: secret, query: { _archive: 1 } }
+            core.sendRequest(options, function(err, params) {
                 msgs = params.obj;
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err13:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { } }
-            core.sendRequest("/message/get", options, function(err, params) {
+            var options = { url: "/message/get", login: login, secret: secret, query: { } }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err14:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { recipient: otherid } }
-            core.sendRequest("/message/get/sent", options, function(err, params) {
+            var options = { url: "/message/get/sent", login: login, secret: secret, query: { recipient: otherid } }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1 || params.obj.data[0].recipient!=otherid || params.obj.data[0].msg!="test123", "err15:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { } }
-            core.sendRequest("/message/get/archive", options, function(err, params) {
+            var options = { url: "/message/get/archive", login: login, secret: secret, query: { } }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=2, "err16:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { sender: myid } }
-            core.sendRequest("/message/del/archive", options, function(err, params) {
+            var options = { url: "/message/del/archive", login: login, secret: secret, query: { sender: myid } }
+            core.sendRequest(options, function(err, params) {
                 next(err, "err17:" , params.obj);
             });
         },
         function(next) {
-            var options = { login: login, secret: secret, query: { sender: myid } }
-            core.sendRequest("/message/get/archive", options, function(err, params) {
+            var options = { url: "/message/get/archive", login: login, secret: secret, query: { sender: myid } }
+            core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err18:" , params.obj);
             });
         },
