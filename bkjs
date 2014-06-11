@@ -20,7 +20,6 @@ BKJS=backendjs
 
 # Make sure we have defaults set
 [ "$BACKEND_UID" = "" ] && BACKEND_UID=777
-[ "$BACKEND_PORT" = "" ] && BACKEND_PORT=80
 [ "$BACKEND_USER" = "" ] && BACKEND_USER=backend
 [ "$BACKEND_IDLETIME" = "" ] && BACKEND_IDLETIME=900
 [ "$BACKEND_UPTIME" = "" ] && BACKEND_UPTIME=43200
@@ -336,8 +335,9 @@ case "$ARG" in
     $ECHO "BACKEND_PREFIX=$BACKEND_PREFIX" >> /etc/$BKRC
     $ECHO "BACKEND_DOMAIN=$BACKEND_DOMAIN" >> /etc/$BKRC
     $ECHO "BACKEND_USER=$BACKEND_USER" >> /etc/$BKRC
-    $ECHO "BACKEND_ARGS=\"-web -uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
-    $ECHO "port=$BACKEND_PORT" > $BACKEND_HOME/etc/config
+    $ECHO "BACKEND_ARGS=\"-uid $(id -u $BACKEND_USER)\"" >> /etc/$BKRC
+    [ "$BACKEND_PORT" != "" ] && $ECHO "port=$BACKEND_PORT" > $BACKEND_HOME/etc/config
+    chown $BACKEND_USER $BACKEND_HOME/etc/config /etc/$BKRC
 
     ;;
 
@@ -639,7 +639,7 @@ case "$ARG" in
         ;;
 
      run-backend)
-        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_HOME -debug -master -web -watch `pwd` $@
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_HOME -debug -master -watch `pwd` $@
         ;;
 
      run-shell|bksh)
@@ -647,7 +647,7 @@ case "$ARG" in
         ;;
 
      *)
-        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_HOME -master -web $@
+        $BACKEND_PREFIX/bin/node $SCRIPT -home $BACKEND_HOME -master $@
         ;;
     esac
     ;;
@@ -958,8 +958,9 @@ backend.server.start();
     echo ""
     echo "bksh subcommands:"
     echo "  -add-user login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form name value "
-    echo "  -del-user login LOGIN  [-keep-message] [-keep-location]... - delete a new user, -keep-TABLE tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
-    echo "  -send-request login|id url param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
+    echo "  -update-user [login LOGIN] [id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form name value "
+    echo "  -del-user [login LOGIN] [id ID] [keep message] [keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
+    echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BACKEND_HOME"

@@ -88,13 +88,7 @@ ipc.initServer = function()
     this.initServerCaching();
     this.initServerMessaging();
 
-    // Cleanup died processes from metrics
     cluster.on("exit", function(worker, code, signal) {
-        var now = Date.now();
-        Object.keys(core.metrics).forEach(function(x) {
-            if (x == worker.process.pid) core.metrics[x].terminated = now;
-            if (now - core.metrics[x] > 86400000) delete core.metrics[x];
-        });
         self.onMessage.call(worker, { op: "cluster:exit" });
     });
 
@@ -105,17 +99,6 @@ ipc.initServer = function()
             logger.dev('msg:master:', msg);
             try {
                 switch (msg.op) {
-                case "metrics":
-                    if (msg.name) {
-                        msg.value.mtime = Date.now();
-                        core.metrics[msg.name] = msg.value;
-                    }
-                    if (msg.reply) {
-                        msg.value = core.metrics;
-                        worker.send(msg);
-                    }
-                    break;
-
                 case "api:close":
                     // Start gracefull restart of all api workers, wait till a new worker starts and then send a signal to another in the list.
                     // This way we keep active processes responding to the requests while restarting
@@ -250,10 +233,12 @@ ipc.initServerCaching = function()
 
         // Socket to send cache updates to one of the coordinators
         this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, { type: backend.NN_PUSH });
+
         // Socket to publish cache update to all connected subscribers
         this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, { type: backend.NN_PUB });
         // Socket to read a cache update and forward it to the subcribers
         this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, { type: backend.NN_PULL, forward: this.nanomsg.lpub });
+
         // Socket to subscribe for updates and actually update the cache
         this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, { type: backend.NN_SUB, subscribe: [""] }, function(err, data) {
             if (err) return logger.error('lsub:', err);

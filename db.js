@@ -563,7 +563,7 @@ db.query = function(req, options, callback)
 
                     // Cache notification in case of updates, we must have the request prepared by the db.prepare
                     var cached = options.cached || self.caching.indexOf(table) > -1;
-                    if (cached && table && req.obj && req.op && ['add','put','update','incr','del'].indexOf(req.op) > -1) {
+                    if (cached && table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
                         self.delCache(table, req.obj, options);
                     }
 
@@ -699,7 +699,7 @@ db.updateAll = function(table, query, obj, options, callback)
 
     // Options without ops for update
     var opts = core.cloneObj(options, { ops: 1 });
-    self.select(table, obj, options, function(err, rows) {
+    self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
         async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
@@ -1290,14 +1290,14 @@ db.getCached = function(op, table, query, options, callback)
         // Parse errors treated as miss
         if (rc) {
             pool.metrics.Counter("hits").inc();
-            return callback ? callback(err, rc) : null;
+            return callback ? callback(err, rc, {}) : null;
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
-        self[op](table, query, options, function(err, row) {
+        self[op](table, query, options, function(err, row, info) {
             // Store in cache if no error
             if (row && !err) self.putCache(table, row, options);
-            if (callback) callback(err, row);
+            if (callback) callback(err, row, info);
         });
     });
 }
@@ -1306,6 +1306,7 @@ db.getCached = function(op, table, query, options, callback)
 db.getCache = function(table, query, options, callback)
 {
     var key = this.getCacheKey(table, query, options);
+    if (!key) return callback();
     if (options) options.cacheKey = key;
     ipc.get(key, options, callback);
 }
@@ -1314,21 +1315,22 @@ db.getCache = function(table, query, options, callback)
 db.putCache = function(table, obj, options)
 {
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, obj, options);
-    ipc.put(key, core.stringify(obj), options);
+    if (key) ipc.put(key, core.stringify(obj), options);
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
 db.delCache = function(table, query, options)
 {
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
-    ipc.del(key, options);
+    if (key) ipc.del(key, options);
 }
 
 // Returns concatenated values for the primary keys, this is used for caching records by primary key
 db.getCacheKey = function(table, query, options)
 {
-    var prefix = options.prefix || table;
-    return prefix + this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return "|" + query[x] }).join("");
+    var keys = this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { query[x] }).join("|");
+    if (keys) keys = (options.prefix || table) + "|" + keys;
+    return keys;
 }
 
 // Create a table using column definitions represented as a list of objects. Each column definition can

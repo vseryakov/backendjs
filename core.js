@@ -81,6 +81,9 @@ var core = {
     maxCPUs: os.cpus().length,
     ctime: Date.now(),
 
+    // Collector of statistics
+    collectInterval: 30,
+
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
     // for manual installations `bkjs setup-server` will create a user with this id
     uid: 777,
@@ -90,7 +93,6 @@ var core = {
     // Watched source files for changes, restarts the process if any file has changed
     watchdirs: [],
     timers: {},
-    metrics: {},
 
     // Log watcher config, watch for server restarts as well
     logwatcherMax: 1000000,
@@ -166,6 +168,7 @@ var core = {
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default" },
+            { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
             { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server process" },
             { name: "repl-bind-web", descr: "Web server REPL listen address" },
             { name: "repl-port", type: "number", min: 1001, descr: "Port for REPL interface in the master, if specified it initializes REPL in the master server process" },
@@ -189,6 +192,8 @@ var core = {
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
+            { name: "collect-url", descr: "The backend URL where all collected statistics should be sent" },
+            { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
@@ -218,8 +223,8 @@ var core = {
     lruMax: 10000,
 
     // REPL port for server
-    replBindWeb: '0.0.0.0',
-    replBind: '0.0.0.0',
+    replBindWeb: '127.0.0.1',
+    replBind: '127.0.0.1',
     replFile: '.history',
     context: {},
 
@@ -1232,7 +1237,7 @@ core.sendRequest = function(options, callback)
     }
     var db = self.context.db;
 
-    self.httpGet(options.url, core.cloneObj(options), function(err, params, res) {
+    this.httpGet(options.url, core.cloneObj(options), function(err, params, res) {
         // Queue management, insert on failure or delete on success
         if (options.queue) {
             if (params.status == 200) {

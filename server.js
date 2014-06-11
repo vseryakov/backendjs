@@ -179,7 +179,7 @@ server.startMaster = function()
         process.title = core.name + ': master';
 
         // Start other master processes
-        if (core.isArg("-web")) this.startWebProcess();
+        if (!core.noWeb) this.startWebProcess();
 
         // REPL command prompt over TCP
         if (core.replPort) self.startRepl(core.replPort, core.replBind);
@@ -377,15 +377,8 @@ server.startWeb = function(callback)
 // Spawn web server from the master as a separate master with web workers, it is used when web and master processes are running on the same server
 server.startWebProcess = function()
 {
-    var child = this.spawnProcess([], [ "-master", "-proxy" ], { stdio: 'inherit' });
+    var child = this.spawnProcess([ "-web" ], [ "-master", "-proxy" ], { stdio: 'inherit' });
     this.handleChildProcess(child, "web", "startWebProcess");
-}
-
-// Spawn web proxy from the master as a separate master with web workers
-server.startWebProxy = function()
-{
-    var child = this.spawnProcess([ "-db-no-pools" ], ["-master", "-web" ], { stdio: 'inherit' });
-    this.handleChildProcess(child, "proxy", "startWebProxy");
 }
 
 // Setup exit listener on the child process and restart it
@@ -497,17 +490,31 @@ server.startShell = function()
     var db = core.context.db;
     var api = core.context.api;
 
-    function exit(msg, code) { if (msg) console.log(msg); process.exit(code || 0); }
+    function exit(msg, code) {
+        if (msg) console.log(msg);
+        process.exit(code || 0);
+    }
+    function getUser(obj, callback) {
+        db.get("bk_account", { id: obj.id }, function(err, row) {
+            db.get("bk_auth", { login: row ? row.login : obj.login }, function(err, row) {
+                if (!row) exit("ERROR: no user found with this id: " + util.inspect(obj), 1);
+                callback(row);
+            });
+        });
+    }
+    function getQuery() {
+        var query = {};
+        var cols = core.mergeObj(db.getColumns("bk_auth"), db.getColumns("bk_account"));
+        for (var i = 1; i < process.argv.length; i++) {
+            if (cols[process.argv[i]] && i + 1 < process.argv.length) query[process.argv[i]] = process.argv[++i];
+        }
+        return query;
+    }
 
     api.initTables(function(err) {
         // Add a user
         if (core.isArg("-add-user")) {
-            var query = {};
-            var cols = core.mergeObj(db.getColumns("bk_auth"), db.getColumns("bk_account"));
-            for (var i = 1; i < process.argv.length; i++) {
-                var name = process.argv[i];
-                if (cols[name] && i + 1 < process.argv.length) query[name] = process.argv[++i];
-            }
+            var query = getQuery();
             if (query.login && !query.name) query.name = query.login;
             api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err) {
                 exit(err, err ? 1 : 0);
@@ -515,17 +522,23 @@ server.startShell = function()
         } else
 
         // Delete a user and all its history according to the options
-        if (core.isArg("-del-user")) {
-            var login = core.getArg("login");
-            if (!login) exit("login is required", 1);
+        if (core.isArg("-update-user")) {
+            var query = getQuery();
+            getUser(query, function(row) {
+                api.updateAccount({ account: row, query: query }, function(err, data) {
+                    exit(err, err ? 1 : 0);
+                });
+            });
+        } else
 
-            var options = {}
-            for (var i = 1; i < process.argv.length; i++) {
-                var d = process.argv[i].match(/^\-keep\-(.+)$/);
-                if (d) options[d[1]] = 1;
+        // Delete a user and all its history according to the options
+        if (core.isArg("-del-user")) {
+            var query = getQuery();
+            var options = {};
+            for (var i = 1; i < process.argv.length - 1; i += 2) {
+                if (process.argv[i] == "keep") options[process.argv[i + 1]] = 1;
             }
-            db.get("bk_auth", { login: login }, function(err, row) {
-                if (err || !row) exit(err || "no user found with this login name", 1);
+            getUser(query, function(row) {
                 api.deleteAccount(row, options, function(err, data) {
                     exit(err, err ? 1 : 0);
                 });
@@ -534,22 +547,14 @@ server.startShell = function()
 
         // Send API request
         if (core.isArg("-send-request")) {
-            var query = {}, url = "", id = "";
-            for (var i = process.argv.indexOf("-send-request") + 1; i < process.argv.length - 1; i += 2) {
-                if (!id) {
-                    id = process.argv[i];
-                    url = process.argv[i + 1];
-                } else {
-                    query[process.argv[i]] = process.argv[i + 1];
-                }
+            var query = {}, url = core.getArg("-url"), id = core.getArg("-id"), login = core.getArg("-login");
+            for (var i = 1; i < process.argv.length - 1; i += 2) {
+                if (process.argv[i][0] != "-") query[process.argv[i]] = process.argv[i + 1];
             }
-            db.get("bk_account", { id: id }, function(err, row) {
-                db.get("bk_auth", { login: row ? row.login : id }, function(err, row) { console.log(row);
-                    if (err || !row) exit(err || "no user found with this login name or id", 1);
-                    core.sendRequest({ url: url, login: row.login, secret: row.secret, query: query }, function(err, params) {
-                        console.log(err || "", params.obj);
-                        process.exit(err ? 1 : 0);
-                    });
+            getUser({ id: id, login: login }, function(row) {
+                core.sendRequest({ url: url, login: row.login, secret: row.secret, query: query }, function(err, params) {
+                    console.log(err || "", params.obj);
+                    process.exit(err ? 1 : 0);
                 });
             });
         } else {

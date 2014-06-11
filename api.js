@@ -69,6 +69,7 @@ var api = {
                    alias: {},                               // Account alias
                    secret: {},                              // Account password
                    type: {},                                // Account type: admin, ....
+                   status: {},                              // Status of the account
                    acl_deny: {},                            // Deny access to matched url
                    acl_allow: {},                           // Only grant access if matched this regexp
                    expires: { type: "bigint" },             // Deny access to the account if this value is before current date, milliseconds
@@ -207,6 +208,7 @@ var api = {
            { name: "files-s3", descr: "S3 bucket name where to store files" },
            { name: "busy-latency", type: "number", descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
+           { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
@@ -289,42 +291,44 @@ api.init = function(callback)
     });
 
     // Access log via file or syslog
-    if (logger.syslog) {
-        self.accesslog = new stream.Stream();
-        self.accesslog.writable = true;
-        self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; };
-    } else
-    if (self.accessLog) {
-        self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
-        self.accesslog.on('error', function(err) { logger.error('accesslog:', err); self.accesslog = logger; })
-    } else {
-        self.accesslog = logger;
-    }
-
-    self.app.use(function(req, res, next) {
-        if (req._accessLog) return;
-        req._accessLog = true;
-        req._startTime = new Date;
-        var end = res.end;
-        res.end = function(chunk, encoding) {
-            res.end = end;
-            res.end(chunk, encoding);
-            var now = new Date();
-            var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
-                       (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
-                       req.method + " " +
-                       (req.logUrl || req.originalUrl || req.url) + " " +
-                       (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
-                       res.statusCode + " " +
-                       (res.get("Content-Length") || '-') + " - " +
-                       (now - req._startTime) + " ms - " +
-                       (req.headers['user-agent'] || "-") + " " +
-                       (req.headers['version'] || "-") + " " +
-                       (req.account ? req.account.login : "-") + "\n";
-            self.accesslog.write(line);
+    if (!self.noAccessLog) {
+        if (logger.syslog) {
+            self.accesslog = new stream.Stream();
+            self.accesslog.writable = true;
+            self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; };
+        } else
+        if (self.accessLog) {
+            self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
+            self.accesslog.on('error', function(err) { logger.error('accesslog:', err); self.accesslog = logger; })
+        } else {
+            self.accesslog = logger;
         }
-        next();
-    });
+
+        self.app.use(function(req, res, next) {
+            if (req._accessLog) return;
+            req._accessLog = true;
+            req._startTime = new Date;
+            var end = res.end;
+            res.end = function(chunk, encoding) {
+                res.end = end;
+                res.end(chunk, encoding);
+                var now = new Date();
+                var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
+                           (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
+                           req.method + " " +
+                           (req.logUrl || req.originalUrl || req.url) + " " +
+                           (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
+                           res.statusCode + " " +
+                           (res.get("Content-Length") || '-') + " - " +
+                           (now - req._startTime) + " ms - " +
+                           (req.headers['user-agent'] || "-") + " " +
+                           (req.headers['version'] || "-") + " " +
+                           (req.account ? req.account.login : "-") + "\n";
+                self.accesslog.write(line);
+            }
+            next();
+        });
+    }
 
     // Request parsers
     self.app.use(cookieParser());
@@ -778,27 +782,42 @@ api.checkBody = function(req, res, next)
 // - an object with status other than 0 or 200 to return the status and stop request processing
 api.checkAccess = function(req, callback)
 {
+    var self = this;
     if (this.denyRx && req.path.match(this.denyRx)) return callback({ status: 403, message: "Access denied" });
     if (this.allowRx && req.path.match(this.allowRx)) return callback({ status: 200, message: "" });
+
     // Call custom access handler for the endpoint
-    var hook = this.findHook('access', req.method, req.path);
-    if (hook) {
-        logger.debug('checkAccess:', req.method, req.path, hook);
-        return hook.callbacks.call(this, req, callback);
+    var hooks = this.findHook('access', req.method, req.path);
+    if (hooks.length) {
+        async.forEachSeries(hooks, function(hook, next) {
+            logger.debug('checkAccess:', req.method, req.path, hook.path);
+            hook.callbacks.call(self, req, function(err) {
+                if (err && err.status != 200) return next(err);
+                next();
+            });
+        }, callback);
+        return;
     }
     callback();
 }
 
 // Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed
 // - req is Express request object
-// - status contains the signature verification status, an object wth status: and message: properties
-// - callback is a function(req, status) to be called with the resulted status where status must be an object with status and message properties as well
+// - status contains the signature verification status, an object with status: and message: properties
+// - callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well
 api.checkAuthorization = function(req, status, callback)
 {
-    var hook = this.findHook('auth', req.method, req.path);
-    if (hook) {
-        logger.debug('checkAuthorization:', req.method, req.path, hook);
-        return hook.callbacks.call(this, req, status, callback);
+    var self = this;
+    var hooks = this.findHook('auth', req.method, req.path);
+    if (hooks.length) {
+        async.forEachSeries(hooks, function(hook, next) {
+            logger.debug('checkAuthorization:', req.method, req.path, hook.path);
+            hook.callbacks.call(self, req, status, function(err) {
+                if (err && err.status != 200) return next(err);
+                next();
+            });
+        }, callback);
+        return;
     }
     // Pass the status back to the checkRequest
     callback(status);
@@ -1255,16 +1274,7 @@ api.initSystemAPI = function()
             break;
 
         case "stats":
-            switch (req.params[1]) {
-            case "worker":
-                return res.json(self.getStatistics());
-
-            default:
-                ipc.command({ op: "metrics" }, function(data) {
-                    if (!data) return res.send(404);
-                    res.json(data);
-                });
-            }
+            res.json(self.getStatistics());
             break;
 
         case "msg":
@@ -1443,24 +1453,25 @@ api.clearQuery = function(req, options, table, name)
     }
 }
 
-// Find registered hook for given type and path
+// Find registered hooks for given type and path
 api.findHook = function(type, method, path)
 {
+    var hooks = [];
     var routes = this.hooks[type];
-    if (!routes) return null;
+    if (!routes) return hooks;
     for (var i = 0; i < routes.length; ++i) {
         if ((!routes[i].method || routes[i].method == method) && routes[i].match(path)) {
-            return routes[i];
+            hooks.push(routes[i]);
         }
     }
-    return null;
+    return hooks;
 }
 
 // Register a hook callback for the type and method and request url, if already exists does nothing.
 api.addHook = function(type, method, path, callback)
 {
-    var hook = this.findHook(type, method, path);
-    if (hook) return false;
+    var hooks = this.findHook(type, method, path);
+    if (hooks.some(function(x) { return x.method == method && x.path == path })) return false;
     this.hooks[type].push(new express.Route(method, path, callback));
     return true;
 }
@@ -1520,7 +1531,25 @@ api.registerPreProcess = function(method, path, callback)
 // - method can be '' in such case all mathods will be matched
 // - path is a string or regexp of the request URL similar to registering Express routes
 // - callback is a function with the following parameters: function(req, res, rows) where rows is the result returned by the API handler,
-//   the callback MUST return data back to the client or any other status code
+//   the callback may not return data back to the client, in this next post process hook will be called and eventually the result will be sent back to the client.
+//   **To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called**
+//
+// Example, just update the rows, it will be sent
+//
+//          api.registerPostProcess('', '/data/', function(req, res, rows) {
+//              rows.forEach(function(row) { ...});
+//          });
+//
+// Example, add data to the rows
+//
+//          api.registerPostProcess('', '/data/', function(req, res, row) {
+//              db.get("bk_account", { id: row.id }, function(err, rec) {
+//                  row.name = rec.name;
+//                  res.json(row);
+//              });
+//              return true;
+//          });
+//
 api.registerPostProcess = function(method, path, callback)
 {
     this.addHook('post', method, path, callback);
@@ -1530,15 +1559,20 @@ api.registerPostProcess = function(method, path, callback)
 // If err is not null the error message is returned immediately.
 api.sendJSON = function(req, err, rows)
 {
+    var self = this;
     if (err) return this.sendReply(req.res, err);
 
-    var hook = this.findHook('post', req.method, req.path);
-    try {
-        if (!hook) return req.res.json(rows);
-        hook.callbacks.call(this, req, req.res, rows);
-    } catch(e) {
-        logger.error('sendJSON:', req.path, e.stack);
-    }
+    var hooks = this.findHook('post', req.method, req.path);
+    if (!hooks.length) return req.res.json(rows);
+    var sent = 0;
+
+    async.forEachSeries(hooks, function(hook, next) {
+        try { sent = hook.callbacks.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.path, e.stack); }
+        logger.debug('sendJSON:', req.method, req.path, hook.path, 'sent:', sent || req.res.headersSent);
+        next(sent || req.res.headersSent);
+    }, function(err) {
+        if (!sent && !req.res.headersSent) req.res.json(rows);
+    });
 }
 
 // Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
@@ -2499,8 +2533,8 @@ api.updateAccount = function(req, options, callback)
     // Skip location related properties
     self.clearQuery(req, options, "bk_account", "noadd");
     db.update("bk_account", req.query, function(err, rows, info) {
-        if (err || !req.query.alias) return callback(err, rows, info);
-        db.update("bk_auth", { login: req.account.login, alias: req.query.alias }, callback);
+        if (err || (!req.query.status && !req.query.alias)) return callback(err, rows, info);
+        db.update("bk_auth", { login: req.account.login, alias: req.query.alias, status: req.query.status }, callback);
     });
 }
 
@@ -2593,7 +2627,7 @@ api.initStatistics = function()
     var self = this;
     this.metrics = new metrics();
     this.collectStatistics();
-    setInterval(function() { self.collectStatistics(); }, 30000);
+    setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
     if (this.busyLatency) toobusy.maxLag(this.busyLatency); else toobusy.shutdown();
@@ -2602,10 +2636,9 @@ api.initStatistics = function()
 // Returns an object with collected db and api statstics and metrics
 api.getStatistics = function()
 {
-    var info = {  };
     var pool = core.context.db.getPool();
     pool.metrics.stats = pool.stats();
-    return { host: core.hostname, ip: core.ipaddrs, instance: core.instanceId, cpus: core.maxCPUs, ctime: core.ctime, latency: toobusy.lag(), pool: pool.metrics, api: this.metrics };
+    return { host: core.hostname, pid: process.pid, ip: core.ipaddrs, instance: core.instanceId, cpus: core.maxCPUs, ctime: core.ctime, latency: toobusy.lag(), pool: pool.metrics, api: this.metrics };
 }
 
 // Metrics about the process
@@ -2622,7 +2655,7 @@ api.collectStatistics = function()
     this.metrics.Histogram('totalmem').update(os.totalmem());
     this.metrics.Histogram("util").update(util * 100 / cpus.length);
 
-    if (cluster.isWorker) {
-        ipc.command({ op: "metrics", name: process.pid, value: this.getStatistics() });
+    if (cluster.isWorker && core.collectUrl) {
+        core.sendRequest({ url: core.collectUrl, query: this.getStatistics() });
     }
 }
