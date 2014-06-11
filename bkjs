@@ -693,7 +693,7 @@ case "$ARG" in
     mkdir -p deps
 
     pkg-config --silence-errors --exists libopenjp2
-    if [ "$?" = "1" -a "$npm_config_backend_imagemagick" != "" ]; then
+    if [ "$?" = "1" -a "$npm_config_backend_openjpeg" != "" -a "$npm_config_backend_imagemagick" != "" ]; then
         if [ ! -d deps/openjpeg ]; then
            (cd deps && svn -r r2871 checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
         fi
