@@ -51,6 +51,7 @@ var core = {
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logFile: "log/backend.log",
     errFile: "log/error.log",
+    configFile: [],
 
     // HTTP settings
     port: 8000,
@@ -130,7 +131,7 @@ var core = {
             { name: "console", type: "callback", value: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
             { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
-            { name: "config-file", type: "path", descr: "Path to the config file instead of the default etc/config, can be absolute or relative path", pass: 1 },
+            { name: "config-file", type: "path", array: 1, descr: "Path to other config file(s) in additional to etc/config, can be absolute or relative path", pass: 1 },
             { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks", pass: 1 },
             { name: "etc-dir", type: "callback", value: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
             { name: "web-dir", type: "callback", value: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
@@ -250,6 +251,7 @@ core.init = function(options, callback)
 
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
+    var db = self.context.db;
 
     // Random proces id to be used as a prefix in clusters
     self.pid = crypto.randomBytes(4).toString('hex');
@@ -259,6 +261,10 @@ core.init = function(options, callback)
 
     // Default home as absolute path
     self.setHome(self.home);
+
+    // No restriction on the client http clients
+    http.globalAgent.maxSockets = Infinity;
+    https.globalAgent.maxSockets = Infinity;
 
     // Find our IP address
     var intf = os.networkInterfaces();
@@ -272,25 +278,19 @@ core.init = function(options, callback)
     });
     // Default domain from local host name
     self.domain = self.domainName(os.hostname());
-    var configFile = path.resolve(this.configFile || path.join(self.path.etc, "config"));
-    var localConfig = path.resolve("etc/config");
-    var db = self.context.db;
-
-    // No restriction on the client http clients
-    http.globalAgent.maxSockets = Infinity;
-    https.globalAgent.maxSockets = Infinity;
 
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
-            // Default config file from the home
-            self.loadConfig(localConfig, next);
-        },
+            // Default config files
+            var file = path.resolve(path.join(self.path.etc, "config"));
+            if (self.configFile.indexOf(file) == -1) self.configFile.push(file);
+            file = path.resolve("etc/config");
+            if (self.configFile.indexOf(file) == -1) self.configFile.push(file);
 
-        function(next) {
-            // Try to load specified config file
-            if (localConfig == configFile) return next();
-            self.loadConfig(configFile, next);
+            async.forEachSeries(self.configFile, function(file, next2) {
+                self.loadConfig(file, function() { next2(); });
+            }, next);
         },
 
         // Load config params from the DNS TXT records, only the ones marked as dns
@@ -340,13 +340,15 @@ core.init = function(options, callback)
 
         function(next) {
             // Can only watch existing files, new config files will be ignored after the start up
-            fs.exists(configFile, function(exists) {
-                if (!exists) return next();
-                fs.watch(configFile, function (event, filename) {
-                    self.setTimeout(filename, function() { self.loadConfig(configFile); }, 5000);
+            async.forEachSeries(self.configFile, function(file, next2) {
+                fs.exists(file, function(exists) {
+                    if (!exists) return next2();
+                    fs.watch(file, function (event, filename) {
+                        self.setTimeout(filename, function() { self.loadConfig(file); }, 5000);
+                    });
+                    next2();
                 });
-                next();
-            });
+            }, next);
         },
 
         function(next) {
@@ -434,9 +436,9 @@ core.processArgs = function(name, ctx, argv, pass)
         if (x.array) {
             if (!Array.isArray(obj[key]) || x.set) obj[key] = [];
             if (Array.isArray(val)) {
-                val.forEach(function(x) { obj[key].push(x); });
+                val.forEach(function(x) { if (obj[key].indexOf(x) == -1) obj[key].push(x); });
             } else {
-                obj[key].push(val);
+                if (obj[key].indexOf(val) == -1) obj[key].push(val);
             }
         } else {
             obj[key] = val;
@@ -562,11 +564,10 @@ core.showHelp = function(options)
 core.loadConfig = function(file, callback)
 {
     var self = this;
-    if (!file) return callback ? callback() : null;
 
     logger.debug('loadConfig:', file);
 
-    fs.readFile(file, function(err, data) {
+    fs.readFile(file || "", function(err, data) {
         if (!err && data) {
             var argv = [], lines = data.toString().split("\n");
             for (var i = 0; i < lines.length; i++) {
@@ -578,7 +579,7 @@ core.loadConfig = function(file, callback)
             }
             self.parseArgs(argv);
         }
-        if (callback) callback();
+        if (callback) callback(err);
     });
 }
 

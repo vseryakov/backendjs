@@ -1793,17 +1793,24 @@ api.getIcon = function(req, res, id, options)
 api.sendIcon = function(req, res, id, options)
 {
     var self = this;
+    if (!options) options = {};
     var aws = core.context.aws;
     var icon = core.iconPath(id, options);
     logger.log('sendIcon:', icon, id, options);
 
-    if (self.imagesS3) {
-        aws.queryS3(self.imagesS3, icon, options, function(err, params) {
-            if (err) return self.sendReply(res, err);
-
-            res.type("image/" + (options.ext || "jpeg"));
-            res.send(200, params.data);
+    if (options.imagesS3 || self.imagesS3) {
+        var headers = {};
+        var params = url.parse(aws.signS3("GET", options.imagesS3 || self.imagesS3, icon, {}, headers));
+        params.headers = headers;
+        var s3req = http.request(params, function(s3res) {
+            s3res.pipe(res, { end: true });
         });
+        s3req.on("error", function(err) {
+            logger.error('sendIcon:', err);
+            req.abort();
+        });
+        s3req.end();
+
     } else {
         self.sendFile(req, res, icon);
     }
@@ -1813,6 +1820,8 @@ api.sendIcon = function(req, res, id, options)
 api.putIcon = function(req, id, options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
 
     // Multipart upload can provide more than one icon, file name can be accompanied by file_type property to define type for each icon, for
     // only one uploaded file req.query.type still will be used
@@ -1869,6 +1878,7 @@ api.storeIcon = function(file, id, options, callback)
 // Delete an icon for account, .type defines icon prefix
 api.delIcon = function(id, options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
@@ -1877,7 +1887,7 @@ api.delIcon = function(id, options, callback)
 
     if (this.imagesS3 || options.imagesS3) {
         var aws = core.context.aws;
-        aws.queryS3(options.imagesS3 || this.imagesS3, icon, { method: "DELETE" }, function(err) {
+        aws.queryS3(options.imagesS3 || self.imagesS3, icon, { method: "DELETE" }, function(err) {
             logger.edebug(err, 'delIcon:', id, options);
             if (callback) callback();
         });
