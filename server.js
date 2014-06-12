@@ -490,71 +490,79 @@ server.startShell = function()
     var db = core.context.db;
     var api = core.context.api;
 
-    function exit(msg, code) {
+    function exit(err, msg) {
+        if (err) console.log(err);
         if (msg) console.log(msg);
-        process.exit(code || 0);
+        process.exit(err ? 1 : 0);
     }
     function getUser(obj, callback) {
         db.get("bk_account", { id: obj.id }, function(err, row) {
+            if (err) exit(err);
+
             db.get("bk_auth", { login: row ? row.login : obj.login }, function(err, row) {
-                if (!row) exit("ERROR: no user found with this id: " + util.inspect(obj), 1);
+                if (err || !row) exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
                 callback(row);
             });
         });
     }
     function getQuery() {
         var query = {};
-        var cols = core.mergeObj(db.getColumns("bk_auth"), db.getColumns("bk_account"));
         for (var i = 1; i < process.argv.length; i++) {
-            if (cols[process.argv[i]] && i + 1 < process.argv.length) query[process.argv[i]] = process.argv[++i];
+            if (process.argv[i][0] != "-" && i + 1 < process.argv.length) query[process.argv[i]] = process.argv[++i];
         }
         return query;
     }
 
     api.initTables(function(err) {
         // Add a user
-        if (core.isArg("-add-user")) {
+        if (core.isArg("-account-add")) {
             var query = getQuery();
             if (query.login && !query.name) query.name = query.login;
-            api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err) {
-                exit(err, err ? 1 : 0);
+            api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err, data) {
+                exit(err, data);
             });
         } else
 
         // Delete a user and all its history according to the options
-        if (core.isArg("-update-user")) {
+        if (core.isArg("-account-update")) {
             var query = getQuery();
             getUser(query, function(row) {
-                api.updateAccount({ account: row, query: query }, function(err, data) {
-                    exit(err, err ? 1 : 0);
+                api.updateAccount({ account: row, query: query }, {}, function(err, data) {
+                    exit(err, data);
                 });
             });
         } else
 
         // Delete a user and all its history according to the options
-        if (core.isArg("-del-user")) {
+        if (core.isArg("-account-del")) {
             var query = getQuery();
             var options = {};
             for (var i = 1; i < process.argv.length - 1; i += 2) {
-                if (process.argv[i] == "keep") options[process.argv[i + 1]] = 1;
+                if (process.argv[i] == "-keep") options[process.argv[i + 1]] = 1;
             }
             getUser(query, function(row) {
                 api.deleteAccount(row, options, function(err, data) {
-                    exit(err, err ? 1 : 0);
+                    exit(err, data);
+                });
+            });
+        } else
+
+        // Update location
+        if (core.isArg("-location-put")) {
+            var query = getQuery();
+            getUser(query, function(row) {
+                api.putLocation({ account: row, query: query }, {}, function(err, data) {
+                    exit(err, data);
                 });
             });
         } else
 
         // Send API request
         if (core.isArg("-send-request")) {
-            var query = {}, url = core.getArg("-url"), id = core.getArg("-id"), login = core.getArg("-login");
-            for (var i = 1; i < process.argv.length - 1; i += 2) {
-                if (process.argv[i][0] != "-") query[process.argv[i]] = process.argv[i + 1];
-            }
+            var query = getQuery(), url = core.getArg("-url"), id = core.getArg("-id"), login = core.getArg("-login");
             getUser({ id: id, login: login }, function(row) {
                 core.sendRequest({ url: url, login: row.login, secret: row.secret, query: query }, function(err, params) {
-                    console.log(err || "", params.obj);
-                    process.exit(err ? 1 : 0);
+                    exit(err, params.obj);
                 });
             });
         } else {

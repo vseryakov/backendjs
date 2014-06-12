@@ -173,6 +173,7 @@ var api = {
     disable: [],
     disableSession: [],
     caching: [],
+    unsecure: [],
 
     // All listening servers
     servers: [],
@@ -212,7 +213,7 @@ var api = {
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
-           { name: "data-endpoint-unsecure", type: "bool", descr: "Allow the Data API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
+           { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
@@ -1359,12 +1360,8 @@ api.initDataAPI = function()
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
 
-        // Allow access to all columns and db pools
-        if (self.dataEndpointUnsecure) {
-            delete options.check_public;
-            if (req.query._pool) options.pool = req.query._pool;
-        }
-
+        // Allow access to all db pools
+        if (req.query._pool) options.pool = req.query._pool;
         db[req.params[0]](req.params[1], req.query, options, function(err, rows, info) {
             switch (req.params[0]) {
             case "select":
@@ -1408,6 +1405,9 @@ api.getOptions = function(req)
         var ops = core.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) options.ops[ops[i]] = ops[i+1];
     }
+    // Disable check public verification
+    var ep = req.path.substr(1).split("/").shift();
+    if (ep && this.unsecure.indexOf(ep) > -1) delete options.check_public;
     return options;
 }
 
