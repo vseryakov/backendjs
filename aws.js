@@ -21,6 +21,8 @@ var aws = {
     args: [ { name: "key", descr: "AWS access key" },
             { name: "secret", descr: "AWS access secret" },
             { name: "region", descr: "AWS region" },
+            { name: "ddb-read-capacity", type: "int", min: 1, descr: "Default DynamoDB read capacity for all tables" },
+            { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
             { name: "keypair", descr: "AWS instance keypair name for remote job instances" },
             { name: "image-id", descr: "AWS image id to be used for remote job instances" },
             { name: "instance-type", descr: "AWS instance type for remote jobs launched on demand" } ],
@@ -484,7 +486,8 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
     var params = { TableName: name,
                    AttributeDefinitions: [],
                    KeySchema: [],
-                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || 10, WriteCapacityUnits: options.writeCapacity || 5 }};
+                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || 5,
+                                            WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || 5 }};
 
     if (Array.isArray(attrs) && attrs.length) {
         params.AttributeDefinitions = attrs;

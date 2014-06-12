@@ -1329,7 +1329,7 @@ db.delCache = function(table, query, options)
 db.getCacheKey = function(table, query, options)
 {
     var keys = this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return query[x] }).join("|");
-    if (keys) keys = (options && options.prefix ? options.prefix : table) + "|" + keys;
+    if (keys) keys = (options && options.cachePrefix ? options.cachePrefix : table) + "|" + keys;
     return keys;
 }
 
@@ -1358,7 +1358,7 @@ db.getCacheKey = function(table, query, options)
 // primary keys created outside of the backend application still be be detected properly by `db.cacheColumns` method for every database.
 //
 // Each database pool also can support native options that are passed directly to the driver in the options, these properties are
-// defined in the object with the same name as the db driver, for example to define Projection for the DynamoDB index:
+// defined in the object with the same name as the db driver, all properties are combined, for example to define provisioned throughput for the DynamoDB index:
 //
 //          db.create("test_table", { id: { primary: 1, type: "int", index: 1, dynamodb: { readCapacity: 50, writeCapacity: 50 } },
 //                                    type: { primary: 1, pub: 1, projection: 1 },

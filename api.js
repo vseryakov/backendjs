@@ -174,6 +174,7 @@ var api = {
     disableSession: [],
     caching: [],
     unsecure: [],
+    templating: "ejs",
 
     // All listening servers
     servers: [],
@@ -210,7 +211,10 @@ var api = {
            { name: "busy-latency", type: "number", descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
+           { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
+           { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
+           { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
@@ -337,7 +341,9 @@ api.init = function(callback)
     self.app.use(function(req, res, next) { return self.checkBody(req, res, next); });
 
     // Keep session in the cookies
-    self.app.use(session({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
+    if (!self.noSession) {
+        self.app.use(session({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
+    }
 
     // Check the signature
     self.app.use(function(req, res, next) { return self.checkRequest(req, res, next); });
@@ -346,14 +352,18 @@ api.init = function(callback)
     self.initMiddleware.call(self);
 
     // Templating engine setup
-    self.app.engine('html', consolidate[self.templating || 'ejs']);
-    self.app.set('view engine', 'html');
-    // Use app specific views path if created even if it is empty
-    self.app.set('views', fs.existsSync(core.path.web + "/views") ? core.path.web + "/views" : __dirname + '/views');
+    if (!self.noTemplating) {
+        self.app.engine('html', consolidate[self.templating || 'ejs']);
+        self.app.set('view engine', 'html');
+        // Use app specific views path if created even if it is empty
+        self.app.set('views', fs.existsSync(core.path.web + "/views") ? core.path.web + "/views" : __dirname + '/views');
+    }
 
     // Serve from default web location in the package or from application specific location
-    self.app.use(serveStatic(core.path.web));
-    self.app.use(serveStatic(__dirname + "/web"));
+    if (!self.noStatic) {
+        self.app.use(serveStatic(core.path.web));
+        self.app.use(serveStatic(__dirname + "/web"));
+    }
 
     self.app.use(self.app.router);
 
@@ -363,6 +373,10 @@ api.init = function(callback)
         self.sendReply(res, err);
     });
 
+    // For health checks
+    self.app.all("/ping", function(req, res) {
+        res.send(200);
+    });
     // Return images by prefix, id and possibly type
     self.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([0-9])?$/, function(req, res) {
         self.getIcon(req, res, req.params[1], { prefix: req.params[0], type: req.params[2] });
