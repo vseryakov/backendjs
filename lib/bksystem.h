@@ -46,6 +46,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <poll.h>
+#include <pwd.h>
+#include <grp.h>
 #include <pthread.h>
 #include <sys/wait.h>
 #include <sys/resource.h>

@@ -41,6 +41,7 @@ var core = {
 
     // Instance mode, remote jobs
     instance: false,
+    instanceId: process.pid,
 
     // Home directory, current by default, must be absolute path
     home: process.env.BACKEND_HOME || (process.env.HOME + '/.backend'),
@@ -51,7 +52,6 @@ var core = {
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logFile: "log/backend.log",
     errFile: "log/error.log",
-    configFile: [],
 
     // HTTP settings
     port: 8000,
@@ -78,7 +78,6 @@ var core = {
     ipaddr: '',
     ipaddrs: [],
     hostname: '',
-    instanceId: process.pid,
     maxCPUs: os.cpus().length,
     ctime: Date.now(),
 
@@ -86,8 +85,8 @@ var core = {
     collectInterval: 30,
 
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
-    // for manual installations `bkjs setup-server` will create a user with this id
-    uid: 777,
+    // for manual installations `bkjs int-server` will create a user with this id
+    uid: 0,
     gid: 0,
     umask: '0002',
 
@@ -126,23 +125,24 @@ var core = {
             { name: "debug-set-segv", type: "callback", value: function(v) { if(v) backend.setsegv(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
             { name: "debug-set-backtrace", type: "callback", value: function(v) { if(v) backend.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
             { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
-            { name: "log-file", type: "callback", value: function(v) { if (v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
+            { name: "log-file", type: "callback", value: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
             { name: "console", type: "callback", value: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
             { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
-            { name: "config-file", type: "path", array: 1, descr: "Path to other config file(s) in additional to etc/config, can be absolute or relative path", pass: 1 },
+            { name: "cfg-file", type: "callback", value: function(v) { if(v) this.cfgFile=path.resolve(v);this.parseConfig(this.readFileSync(this.cfgFile)); }, descr: "Path to the config file read before the default etc/config, if absolute path it can set the home to be used later by the default config", pass: 1 },
             { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks", pass: 1 },
             { name: "etc-dir", type: "callback", value: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
             { name: "web-dir", type: "callback", value: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
             { name: "tmp-dir", type: "callback", value: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
             { name: "spool-dir", type: "callback", value: function(v) { if (v) this.path.spool = v; }, descr: "Path where to keep modifiable files" },
             { name: "log-dir", type: "callback", value: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
-            { name: "files-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep uploaded files" },
+            { name: "files-dir", type: "callback", value: function(v) { if (v) this.path.files = v; }, descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
-            { name: "uid", type: "number", min: 0, max: 9999, descr: "User id to switch after startup if running as root, used by Web servers and job workers" },
-            { name: "gid", type: "number", min: 0, max: 9999, descr: "Group id to switch after startup if running to root" },
-            { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used" },
+            { name: "force-uid", type: "callback", value: "dropPrivileges", descr: "Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.", pass: 1 },
+            { name: "uid", type: "callback", value: function(v) { var u = backend.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
+            { name: "gid", type: "callback", value: function(v) { var g = backend.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
+            { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used", pass: 1 },
             { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
             { name: "backlog", descr: "The maximum length of the queue of pending connections, used by HTTP server in listen." },
@@ -259,7 +259,7 @@ core.init = function(options, callback)
     // Initial args to run before the config file
     self.processArgs("core", self, process.argv, 1);
 
-    // Default home as absolute path
+    // Default home as absolute path from the command line or custom config file passed
     self.setHome(self.home);
 
     // No restriction on the client http clients
@@ -278,19 +278,13 @@ core.init = function(options, callback)
     });
     // Default domain from local host name
     self.domain = self.domainName(os.hostname());
+    // Default config file
+    self.configFile = path.resolve(path.join(self.path.etc, "config"));
 
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
-            // Default config files
-            var file = path.resolve(path.join(self.path.etc, "config"));
-            if (self.configFile.indexOf(file) == -1) self.configFile.push(file);
-            file = path.resolve("etc/config");
-            if (self.configFile.indexOf(file) == -1) self.configFile.push(file);
-
-            async.forEachSeries(self.configFile, function(file, next2) {
-                self.loadConfig(file, function() { next2(); });
-            }, next);
+            self.loadConfig(self.configFile, function() { next(); });
         },
 
         // Load config params from the DNS TXT records, only the ones marked as dns
@@ -309,23 +303,32 @@ core.init = function(options, callback)
             try { process.umask(self.umask); } catch(e) { logger.error("umask:", self.umask, e) }
 
             // Resolve to absolute paths
-            var files = [];
-            Object.keys(self.path).forEach(function(p) {
-                self[p] = path.resolve(self.path[p]);
-                files.push(self[p]);
-            });
+            Object.keys(self.path).forEach(function(p) { self.path[p] = path.resolve(self.path[p]); });
 
+            // Create all subfolders with permissions, run it before initializing db which may create files in the spool folder
             if (!cluster.isWorker && !self.worker) {
-                // Create all subfolders
-                files.forEach(function(dir) { self.mkdirSync(dir); });
-
-                // Make sure created files are owned by regular user, not the root
-                if (process.getuid() == 0) {
-                    files.push(path.join(self.path.spool, self.name + ".db"));
-                    files.forEach(function(f) { self.chownSync(f) });
-                }
+                Object.keys(self.path).forEach(function(p) {
+                    self.mkdirSync(p);
+                    self.chownSync(p);
+                });
             }
+            next();
+        },
+
+        function(next) {
+            self.preInit.call(self, next);
+        },
+
+        function(next) {
             db.init(options, next);
+        },
+
+        // Make sure spool and db files are owned by regular user, not the root
+        function(next) {
+            if (!cluster.isWorker && !self.worker && process.getuid() == 0) {
+                self.findFileSync(self.path.spool).forEach(function(p) { self.chownSync(p); });
+            }
+            next();
         },
 
         // Load all available config parameters from the config database for the specified config type
@@ -340,7 +343,7 @@ core.init = function(options, callback)
 
         function(next) {
             // Can only watch existing files, new config files will be ignored after the start up
-            async.forEachSeries(self.configFile, function(file, next2) {
+            async.forEachSeries([self.configFile, self.cfgFile ||""], function(file, next2) {
                 fs.exists(file, function(exists) {
                     if (!exists) return next2();
                     fs.watch(file, function (event, filename) {
@@ -352,7 +355,6 @@ core.init = function(options, callback)
         },
 
         function(next) {
-            if (!self.postInit) return next();
             self.postInit.call(self, next);
         }],
 
@@ -364,6 +366,9 @@ core.init = function(options, callback)
             });
     });
 }
+
+// Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized
+core.preInit = function(callback) { callback() }
 
 // Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
 // init steps that all processes require to have.
@@ -393,8 +398,9 @@ core.setHome = function(home)
 	var self = this;
     if ((home || self.home) && cluster.isMaster) {
         if (home) self.home = path.resolve(home);
+        // On create set permissions
+        if (self.makePathSync(self.home)) self.chownSync(self.home);
         try {
-            self.makePathSync(self.home);
             process.chdir(self.home);
         } catch(e) {
             logger.error('setHome: cannot set home directory', self.home, e);
@@ -403,6 +409,21 @@ core.setHome = function(home)
         logger.dev('setHome:', self.home);
     }
     self.home = process.cwd();
+}
+
+// Parse config lines for the file or other place
+core.parseConfig = function(data)
+{
+    if (!data) return;
+    var argv = [], lines = data.toString().split("\n");
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line.match(/^([a-z_-]+)/)) continue;
+        line = line.split("=");
+        if (line[0]) argv.push('-' + line[0]);
+        if (line[1]) argv.push(line.slice(1).join('='));
+    }
+    this.parseArgs(argv);
 }
 
 // Parse command line arguments
@@ -568,17 +589,7 @@ core.loadConfig = function(file, callback)
     logger.debug('loadConfig:', file);
 
     fs.readFile(file || "", function(err, data) {
-        if (!err && data) {
-            var argv = [], lines = data.toString().split("\n");
-            for (var i = 0; i < lines.length; i++) {
-                var line = lines[i].trim();
-                if (!line.match(/^([a-z_-]+)/)) continue;
-                line = line.split("=");
-                if (line[0]) argv.push('-' + line[0]);
-                if (line[1]) argv.push(line.slice(1).join('='));
-            }
-            self.parseArgs(argv);
-        }
+        if (!err) self.parseConfig(data);
         if (callback) callback(err);
     });
 }
@@ -1998,6 +2009,7 @@ core.statSync = function(file)
 // - logger - if 1 log all errors
 core.readFileSync = function(file, options)
 {
+    if (!file) return "";
     try {
         var data = fs.readFileSync(file).toString(options && options.encoding ? options.encoding : "utf8");
         if (options) {
@@ -2018,7 +2030,8 @@ core.readFileSync = function(file, options)
 // Return list of files than match filter recursively starting with given path
 // - file - starting path
 // - filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync
-core.findFileSync = function(file, filter)
+// - depth - if a number specifies max depth to go into the subfolders, starts with 1
+core.findFileSync = function(file, filter, depth)
 {
     var list = [];
     try {
@@ -2032,9 +2045,10 @@ core.findFileSync = function(file, filter)
             if (file != "." && file != ".." && (!filter || filter(file, stat))) {
                 list.push(file);
             }
+            if (typeof depth == "number" && depth == 0) return list;
             var files = fs.readdirSync(file);
             for (var i in files) {
-                list = list.concat(this.findFileSync(path.join(file, files[i]), filter));
+                list = list.concat(this.findFileSync(path.join(file, files[i]), filter, depth ? depth - 1 : null));
             }
         }
     } catch(e) {
@@ -2043,20 +2057,24 @@ core.findFileSync = function(file, filter)
     return list;
 }
 
-// Recursively create all directories, return 1 if created or 0 on error, no exceptions are raised, error is logged only
+// Recursively create all directories, return 1 if created or 0 on error or if exists, no exceptions are raised, error is logged only
 core.makePathSync = function(dir)
 {
+    var rc = 0;
     var list = path.normalize(dir).split("/");
     for (var i = 0, dir = ''; i < list.length; i++) {
         dir += list[i] + '/';
         try {
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir);
+                rc = 1;
+            }
         } catch(e) {
             logger.error('makePath:', dir, e);
             return 0;
         }
     }
-    return 1;
+    return rc;
 }
 
 // Async version of makePath, stops on first error
@@ -2121,20 +2139,6 @@ core.unlinkPathSync = function(dir)
     return 1;
 }
 
-// Change file owner, multiples files can be specified, do not report errors about non existent files
-core.chownSync = function()
-{
-    for (var i = 0; i < arguments.length; i++) {
-        var file = arguments[i];
-        if (!file) continue;
-        try {
-            fs.chownSync(file, this.uid, this.gid);
-        } catch(e) {
-            if (e.code != 'ENOENT') logger.error('chownSync:', this.uid, this.gid, file, e);
-        }
-    }
-}
-
 // Create a directories if do not exist, multiple dirs can be specified
 core.mkdirSync = function()
 {
@@ -2147,10 +2151,26 @@ core.mkdirSync = function()
     }
 }
 
+// Change file owner, multiples files can be specified, do not report errors about non existent files, the uid/gid must be set to non-root user
+// for this function to work and it is called by the root only
+core.chownSync = function()
+{
+    if (process.getuid() || !this.uid) return;
+    for (var i = 0; i < arguments.length; i++) {
+        var file = arguments[i];
+        if (!file) continue;
+        try {
+            fs.chownSync(file, this.uid, this.gid);
+        } catch(e) {
+            if (e.code != 'ENOENT') logger.error('chownSync:', this.uid, this.gid, file, e);
+        }
+    }
+}
+
 // Drop root privileges and switch to regular user
 core.dropPrivileges = function()
 {
-    if (process.getuid() == 0) {
+    if (process.getuid() == 0 && this.uid) {
         logger.debug('init: switching to', this.uid, this.gid);
         try { process.setgid(this.gid); } catch(e) { logger.error('setgid:', this.gid, e); }
         try { process.setuid(this.uid); } catch(e) { logger.error('setuid:', this.uid, e); }

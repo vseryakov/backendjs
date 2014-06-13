@@ -109,16 +109,47 @@ Handle<Value> toArray(vector<pair<string,string> > &list)
     return scope.Close(rc);
 }
 
-static Handle<Value> splitArray(const Arguments& args)
+static Handle<Value> getUser(const Arguments& args)
 {
    HandleScope scope;
+   struct passwd *pw = NULL;
 
-   REQUIRE_ARGUMENT_AS_STRING(0, str);
-   OPTIONAL_ARGUMENT_STRING(1, delim);
-   OPTIONAL_ARGUMENT_STRING(2, quotes);
+   if (args.Length() > 0) {
+       String::Utf8Value name(args[0]->ToString());
+       pw = getpwnam(*name);
+       if (!pw) pw = getpwuid(args[0]->ToInteger()->Int32Value());
+   } else {
+       pw = getpwnam(getlogin());
+   }
+   Local<Object> obj = Local<Object>::New(Object::New());
+   if (pw) {
+       obj->Set(String::NewSymbol("uid"), Local<Integer>::New(Integer::New(pw->pw_uid)));
+       obj->Set(String::NewSymbol("gid"), Local<Integer>::New(Integer::New(pw->pw_gid)));
+       obj->Set(String::NewSymbol("name"), Local<String>::New(String::New(pw->pw_name)));
+       obj->Set(String::NewSymbol("dir"), Local<String>::New(String::New(pw->pw_dir)));
+   }
+   return scope.Close(obj);
+}
 
-   vector<string> list = strSplit(*str, *delim, *quotes);
-   return scope.Close(toArray(list));
+static Handle<Value> getGroup(const Arguments& args)
+{
+   HandleScope scope;
+   struct group *g = NULL;
+
+   if (args.Length() > 0) {
+       String::Utf8Value name(args[0]->ToString());
+       g = getgrnam(*name);
+       if (!g) g = getgrgid(args[0]->ToInteger()->Int32Value());
+   } else {
+       struct passwd *pw = getpwnam(getlogin());
+       g = getgrgid(pw ? pw->pw_gid : 0);
+   }
+   Local<Object> obj = Local<Object>::New(Object::New());
+   if (g) {
+       obj->Set(String::NewSymbol("gid"), Local<Integer>::New(Integer::New(g->gr_gid)));
+       obj->Set(String::NewSymbol("name"), Local<String>::New(String::New(g->gr_name)));
+   }
+   return scope.Close(obj);
 }
 
 static Handle<Value> countWords(const Arguments& args)
@@ -367,7 +398,8 @@ void backend_init(Handle<Object> target)
 
     DebugInit(target);
 
-    NODE_SET_METHOD(target, "splitArray", splitArray);
+    NODE_SET_METHOD(target, "getUser", getUser);
+    NODE_SET_METHOD(target, "getGroup", getGroup);
 
     NODE_SET_METHOD(target, "logging", logging);
     NODE_SET_METHOD(target, "loggingChannel", loggingChannel);

@@ -30,6 +30,9 @@ var aws = {
     region: 'us-east-1',
     s3: "s3.amazonaws.com",
     instanceType: "t1.micro",
+    instanceIndex: 0,
+    tokenExpiration: 0,
+    amiProfile: "",
 
     // Translation map for operators
     opsMap: { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' },
@@ -101,6 +104,7 @@ aws.querySign = function(service, host, method, path, body, headers)
     headers['X-Amz-Date'] = date;
     if (body && !headers['content-type']) headers['content-type'] = 'application/x-www-form-urlencoded; charset=utf-8';
     if (body && !headers['content-length']) headers['content-length'] = body.length;
+    if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
 
     function trimAll(header) { return header.toString().trim().replace(/\s+/g, ' '); }
     var credString = [ datetime, this.region, service, 'aws4_request' ].join('/');
@@ -163,8 +167,8 @@ aws.signS3 = function(method, bucket, key, query, headers, expires)
     var curTime = new Date().toUTCString();
     if (!headers["x-amz-date"]) headers["x-amz-date"] = curTime;
     if (!headers["content-type"]) headers["content-type"] = "binary/octet-stream; charset=utf-8";
-    if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
     if (headers["content-type"] && headers["content-type"].indexOf("charset=") == -1) headers["content-type"] += "; charset=utf-8";
+    if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
 
     // Construct the string to sign and query string
     var strSign = (method || "GET") + "\n" + (headers['content-md5']  || "") + "\n" + (headers['content-type'] || "") + "\n" + (expires || "") + "\n";
@@ -198,6 +202,7 @@ aws.signS3 = function(method, bucket, key, query, headers, expires)
     // Build REST url if expires is given, no need to send headers
     if (expires) {
         uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Expires=" + expires + "&Signature=" + encodeURIComponent(signature);
+        if (this.securityToken) uri += "&SecurityToken=" + this.securityToken;
     }
     logger.debug('signS3:', uri, headers);
     return uri;
@@ -262,8 +267,33 @@ aws.getInstanceMeta = function(path, callback)
 {
     var self = this;
     core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params) {
-        logger.debug('getInstanceMeta:', path, params.data, err || "");
-        if (callback) callback(err, params.data);
+        logger.debug('getInstanceMeta:', path, params.status, params.data, err || "");
+        if (callback) callback(err, params.status == 200 ? params.data : "");
+    });
+}
+
+// Retrieve instance credentials using EC2 instance profile and setup for AWS access
+aws.getInstanceCredentials = function(callback)
+{
+    if (!this.amiProfile) return callback ? callback() : null;
+
+    var self = this;
+    self.getInstanceMeta("/latest/meta-data/iam/security-credentials/" + self.amiProfile, function(err, data) {
+        if (!err && data) {
+            var obj = core.jsonParse(data, { obj: 1 });
+            if (obj.Code === 'Success') {
+                self.key = obj.AccessKeyId;
+                self.secret = obj.SecretAccessKey;
+                self.securityToken = obj.Token;
+                self.tokenExpiration = core.toDate(obj.Expiration).getTime();
+            }
+        }
+        var now = Date.now();
+        if (self.tokenExpiration > now) {
+            clearTimeout(self.tokenTimer);
+            self.tokenTimer = setTimeout(function() { self.getInstanceCredentials() }, Math.max(self.tokenExpiration - now - 120000, 5000));
+        }
+        if (callback) callback(err);
     });
 }
 
@@ -272,13 +302,31 @@ aws.getInstanceInfo = function(callback)
 {
     var self = this;
 
-    self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, idx) {
-        if (!err && idx) self.instanceIndex = core.toNumber(idx);
-        self.getInstanceMeta("/latest/meta-data/instance-id", function(err2, id) {
-            if (!err2 && id) self.instanceId = id;
-            logger.log('getInstanceInfo:', self.name, 'id:', self.instanceId, 'index:', self.instanceIndex, '/', idx, err || err2 || "");
+    async.series([
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, idx) {
+                if (!err && idx) self.instanceIndex = core.toNumber(idx);
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/instance-id", function(err, id) {
+                if (!err && id) core.instanceId = id;
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/iam/security-credentials/", function(err, name) {
+                if (!err && name) self.amiProfile = name;
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceCredentials(next);
+        },
+        ], function(err) {
+            if (!err) logger.log('getInstanceInfo:', self.name, 'id:', core.instanceId, 'idx:', self.instanceIndex, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration);
             if (callback) callback();
-        });
     });
 }
 
