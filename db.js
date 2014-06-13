@@ -1230,10 +1230,10 @@ db.select = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
-    if (!options._cached && (options.cached || this.caching.indexOf(table) > -1)) {
-        options._cached = 1;
-        return this.getCached("select", table, query, options, callback);
-    }
+//    if (!options._cached && (options.cached || this.caching.indexOf(table) > -1)) {
+//        options._cached = 1;
+//        return this.getCached("select", table, query, options, callback);
+//    }
     var req = this.prepare(Array.isArray(query) ? "list" : "select", table, query, options);
     this.query(req, options, callback);
 }
