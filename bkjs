@@ -52,17 +52,13 @@ while [ $# -gt 1 ]; do
      -home) BACKEND_HOME=$2;shift;shift;;
      -prefix) BACKEND_PREFIX=$2;shift;shift;;
      -user) BACKEND_USER=$2;shift;shift;;
-     -hostname) BACKEND_NAME=$2;shift;shift;;
      -domain) BACKEND_DOMAIN=$2;shift;shift;;
-     -dns) BACKEND_DNS=$2;shift;shift;;
      -host) BACKEND_HOST=$2;shift;shift;;
-     -port) BACKEND_PORT=$2;shift;shift;;
      -path) BACKEND_PATH=$2;shift;shift;;
      -node_path) NODE_PATH=$2;shift;shift;;
      -node) NODE_BIN=$2;shift;shift;;
      -npm) NPM_BIN=$2;shift;shift;;
      -bkjs) BKJS_BIN=$2;shift;shift;;
-     -sync) BACKEND_SYNC=$2;shift;shift;;
      -ssh) BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
      -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
      -delete) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
@@ -70,13 +66,11 @@ while [ $# -gt 1 ]; do
     esac
 done
 
+# Home must be specified or use the default
 [ "$BACKEND_HOME" = "" ] && BACKEND_HOME=~/.backend
 [ -f $BACKEND_HOME/etc/profile ] && . $BACKEND_HOME/etc/profile
 
-export PATH=$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
-export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
-
-# Set paths after we know OS type and possible custom settings
+# Setup all variables with defaults
 [ "$BACKEND_USER" = "" ] && BACKEND_USER=$(whoami)
 [ "$BACKEND_PREFIX" = "" ] && BACKEND_PREFIX=/usr/local
 [ "$BACKEND_DOMAIN" = "" ] && BACKEND_DOMAIN=localhost
@@ -94,6 +88,12 @@ export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_C
 [ "$BACKEND_IDLETIME" = "" ] && BACKEND_IDLETIME=900
 [ "$BACKEND_UPTIME" = "" ] && BACKEND_UPTIME=43200
 [ "$BACKEND_SSH_ARGS" = "" ] && BACKEND_SSH_ARGS="-o ConnectTimeout=5"
+
+# Setup paths
+export PATH=$BACKEND_HOME/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
+export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
+
+# Locate binaries after all variables are set
 [ "$NODE_BIN" = "" ] && NODE_BIN=$(which node 2>/dev/null)
 [ "$NODE_BIN" = "" ] && NODE_BIN=$BACKEND_PREFIX/bin/node
 [ "$NPM_BIN" = "" ] && NPM_BIN=$(which npm 2>/dev/null)
@@ -133,27 +133,36 @@ case "$ARG" in
     # Install required packages and utilities
     ($0 init-packages)
 
-    # Set hostname with unique EC2 instance if not set explicitly
-    [ "$BACKEND_NAME" = "" ] && BACKEND_NAME=$(echo "api-$(wget -q -t1 -T1 -O - http://169.254.169.254/latest/meta-data/instance-id)"|sed 's/-$//g')
-    echo "Setting hostname to $BACKEND_NAME.$BACKEND_DOMAIN..."
-    hostname $BACKEND_NAME.$BACKEND_DOMAIN
-    echo $BACKEND_NAME.$BACKEND_DOMAIN > /etc/hostname
+    # Additional arguments via EC2 instance user data
+    export BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
+
+    ($0 init-hostname)
+    ($0 init-ssh)
+    ($0 init-user)
+    ($0 init-system)
+    ($0 init-logrotate)
+    ($0 init-rsyslog)
+    ($0 init-service)
+    ;;
+
+  init-hostname)
+    # Set hostname with name and domain
+    [ "$BACKEND_HOST" = "" ] && exit
+    hostname $BACKEND_HOST.$BACKEND_DOMAIN
+    echo $BACKEND_HOST.$BACKEND_DOMAIN > /etc/hostname
     if [ -f /etc/sysconfig/network ]; then
-       echo "HOSTNAME=$BACKEND_NAME.$BACKEND_DOMAIN" > /tmp/network
+       echo "HOSTNAME=$BACKEND_HOST.$BACKEND_DOMAIN" > /tmp/network
        grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
        mv /tmp/network /etc/sysconfig/network
     fi
+    ;;
 
-    # Additional arguments via EC2 instance user data
-    BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
-
+  init-user)
     # Add local user
     if [ "$(grep $BACKEND_USER /etc/passwd)" = "" ]; then
        echo "Adding user $BACKEND_USER..."
        useradd -g 0 -m $BACKEND_USER
        echo "$BACKEND_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
-       echo "Defaults env_keep += \"NODE_PATH\"" >> /etc/sudoers.d/$BKJS
-       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin" >> /etc/sudoers.d/$BKJS
        mkdir -p /home/$BACKEND_USER/.ssh /home/$BACKEND_USER/node_modules
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys /home/$BACKEND_USER/.ssh
        chmod -fR g-rwx,o-rwx /home/$BACKEND_USER/.ssh
@@ -168,7 +177,9 @@ case "$ARG" in
        echo 'export PATH=$PATH:$HOME/node_modules/.bin' >> /home/$BACKEND_USER/.bash_profile
        chown -R $BACKEND_USER /home/$BACKEND_USER
     fi
+    ;;
 
+  init-ssh)
     # Allow only pubkey auth
     if [ "$(grep '#Backend' /etc/ssh/sshd_config)" = "" ]; then
        echo "Configuring ssh..."
@@ -184,7 +195,10 @@ case "$ARG" in
        mv /tmp/sshd_config /etc/ssh
        service sshd restart
     fi
+    ;;
 
+  init-logrotate)
+    # Setup logrotate for backend log files
     if [ "$(grep '#Backend $BACKEND_HOME' /etc/logrotate.d/syslog)" = "" ]; then
        echo "Configuring logrotate..."
        echo "#Backend $BACKEND_HOME" > /etc/logrotate.d/syslog
@@ -197,8 +211,10 @@ case "$ARG" in
        echo " endscript" >> /etc/logrotate.d/syslog
        echo "}" >> /etc/logrotate.d/syslog
     fi
+    ;;
 
-    # Setup syslog config
+  init-rsyslog)
+    # Setup syslog config for backend logging
     if [ "$(grep '#Backend $BACKEND_HOME' /etc/rsyslog.conf)" = "" ]; then
        echo "Configuring rsyslog..."
        echo "#Backend $BACKEND_HOME" > /etc/rsyslog.conf
@@ -220,17 +236,43 @@ case "$ARG" in
        mkdir -p $BACKEND_HOME/log
        touch /var/log/messages $BACKEND_HOME/log/access.log $BACKEND_HOME/log/backend.log
     fi
+    ;;
+
+  init-system)
+    # Disable firewall and SELinux
+    if [ -f /etc/selinux/config ]; then
+        sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
+    fi
+    chkconfig iptables off
+    service iptables stop
+
+    # Allow sudo use local binaries
+    sed -i 's/requiretty/!requiretty/' /etc/sudoers
+    echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BACKEND_PREFIX" >> /etc/sudoers.d/$BKJS
 
     # File handles and coredumps for debugging
-    if [ ! -f /etc/security/limits.d/90-core.conf ]; then
-       $ECHO '* soft core unlimited\n* hard core unlimited\n* soft nofile 256000\n* hard nofile 256000\nroot soft nofile 256000\nroot hard nofile 256000\n* soft memlock unlimited\n* hard memlock unlimited\nroot soft memlock unlimited\nroot hard memlock unlimited\n* soft as unlimited\n* hard as unlimited\nroot soft as unlimited\nroot hard as unlimited\n' > /etc/security/limits.d/90-core.conf
+    if [ ! -f /etc/security/limits.d/99-$BKJS.conf ]; then
+       $ECHO '* soft core unlimited' > /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* hard core unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* soft nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* hard nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root soft nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root hard nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* soft memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* hard memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root soft memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root hard memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* soft as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* hard as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root soft as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root hard as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
     fi
 
     # System tuning
     if [ "$(grep '#Backend' /etc/sysctl.conf)" = "" ]; then
-       sed -i 's/kernel.core_uses_pid = 1/kernel.core_uses_pid = 0/' /etc/sysctl.conf
        echo "#Backend" >> /etc/sysctl.conf
-       echo 'vm.max_map_count = 131072' >> /etc/sysctl.conf
+       echo 'kernel.core_uses_pid=0' >> /etc/sysctl.conf
+       echo 'vm.max_map_count=131072' >> /etc/sysctl.conf
        echo 'vm.min_free_kbytes=65536' >> /etc/sysctl.conf
        echo 'net.ipv4.ip_local_port_range=1024 65000' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_tw_reuse=1' >> /etc/sysctl.conf
@@ -250,9 +292,13 @@ case "$ARG" in
        echo 'net.ipv4.tcp_wmem=4096 65536 16777216' >> /etc/sysctl.conf
        sysctl -p /etc/sysctl.conf
     fi
+    ;;
 
-    # Setup postfix origin to domain name
-    if [ "$BACKEND_DOMAIN" != "localhost" -a "$(grep '#Backend' /etc/postfix/main.cf)" = "" ]; then
+  init-postfix)
+    # Setup postfix with origin domain name
+    if [ ! -f /etc/postfix/main.cf -o "$(grep '#Backend' /etc/postfix/main.cf)" = "" ]; then
+       yum -y -q remove sendmail
+       yum -y -q install postfix
        echo "Configuring postfix..."
        echo '#Backend config' > /tmp/main.cf
        echo 'myorigin = $mydomain' >> /tmp/main.cf
@@ -261,9 +307,12 @@ case "$ARG" in
        chkconfig postfix on
        postfix start
     fi
+    ;;
 
+  init-dns)
     # DNS cache
-    if [ "$BACKEND_DNS" != "" -a ! -f /etc/dnsmasq.conf -o "$(grep '#Backend' /etc/dnsmasq.conf)" = "" ]; then
+    if [ ! -f /etc/dnsmasq.conf -o "$(grep '#Backend' /etc/dnsmasq.conf)" = "" ]; then
+       yum -y -q install dnsmasq
        echo "#Backend" > /etc/dnsmasq.conf
        echo "domain-needed" >> /etc/dnsmasq.conf
        echo "bogus-priv" >> /etc/dnsmasq.conf
@@ -279,49 +328,17 @@ case "$ARG" in
        chkconfig dnsmasq on
        service dnsmasq restart
     fi
+    ;;
 
-    # Make sure we use right Java, DynamoDB/Cassandra requires version 7, has to be installed manually on CentOS
-    if [ -f /usr/local/java ]; then
-       alternatives --install /usr/bin/java java /usr/local/java/bin/java 20000
-    fi
-
+  init-instance)
     # Instance mode, duplicate messages to the console for easier access
-    if [[ $BACKEND_ARGS = *-instance* ]]; then
-       echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
-       truncate -c -s 0 /var/log/messages $BACKEND_HOME/log/backend.log $BACKEND_HOME/log/error.log
-       service rsyslog restart
-       # Support for shutdown as normal user for instances
-       chmod u+s /sbin/reboot
-       # Make sure instances are not running indefinitely
-       ln -sf $BKJS_BIN /etc/cron.hourly/check-idle
-    fi
-
-    # Disable firewall and SELinux
-    if [ -f /etc/selinux/config ]; then
-        sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
-    fi
-    sed -i 's/requiretty/!requiretty/' /etc/sudoers
-    chkconfig iptables off
-    service iptables stop
-
-    # Disable atime on the filesystem
-    mount -o remount,noatime /
-
-    # Sync time
-    ln -sf $BKJS_BIN /etc/cron.hourly/ntp
-
-    # Sync files from the master
-    for dir in $BACKEND_SYNC; do
-       ln -sf $BKJS_BIN /etc/cron.hourly/sync-$dir
-       ($0 sync-$dir)
-    done
-
-    # Config parameters for the environment
-    mkdir -p $BACKEND_HOME/etc $BACKEND_HOME/var $BACKEND_HOME/node_modules
-    [ "$BACKEND_PORT" != "" ] && $ECHO "port=$BACKEND_PORT" > $BACKEND_HOME/etc/config
-    [ "$BACKEND_USER" != "root" ] && $ECHO "uid=$BACKEND_USER" >> $BACKEND_HOME/etc/config
-    chown -fR $BACKEND_USER $BACKEND_HOME $BACKEND_PREFIX
-
+    echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
+    truncate -c -s 0 /var/log/messages $BACKEND_HOME/log/backend.log $BACKEND_HOME/log/error.log
+    service rsyslog restart
+    # Support for shutdown as normal user for instances
+    chmod u+s /sbin/reboot
+    # Make sure instances are not running indefinitely
+    ln -sf $BKJS_BIN /etc/cron.hourly/check-idle
     ;;
 
   init-service)
@@ -330,12 +347,9 @@ case "$ARG" in
     ;;
 
   init-packages)
+    # Install required runtime packages
     yum -y -q update
-    yum -y -q install ntp rsync dnsmasq wget socat postfix unzip mc nano man telnet
-    yum -y -q remove sendmail
-    yum -y -q install git svn gdb gcc-c++ make cmake autoconf automake libtool
-    yum -y -q install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel
-    yum -y -q install mysql-devel mysql-server
+    yum -y -q install ntp rsync wget socat mc nano man telnet
 
     # Linux distro specific actions
     case "$OS_TYPE" in
@@ -344,21 +358,32 @@ case "$ARG" in
             echo "Setting up PostgreSQL repo..."
             rpm -i http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
          fi
-
-         if [ ! -f /etc/yum.repos.d/rpmforge.repo ]; then
-            echo "Setting up RPM Forge..."
-            rpm -i http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.3-1.el6.rf.x86_64.rpm
-         fi
-         yum -y -q install postgresql93-devel postgresql93-server
+         yum -y -q install postgresql93-server
          ;;
 
       amazon)
          yum-config-manager --enable epel
-         yum -y -q install postgresql9-devel postgresql9-server
+         yum -y -q install postgresql9-server
          yum remove gyp
          ;;
+    esac
+    ;;
 
-      *)
+  init-devel)
+    # Install development packages for compiling nide and modules
+    yum -y -q install git svn gdb gcc-c++ make cmake autoconf automake libtool
+    yum -y -q install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel
+    yum -y -q install mysql-devel
+
+    # Linux distro specific actions
+    case "$OS_TYPE" in
+      centos)
+         yum -y -q install postgresql93-devel
+         ;;
+
+      amazon)
+         yum -y -q install postgresql9-devel
+         yum remove gyp
          ;;
     esac
     ;;
@@ -882,12 +907,21 @@ backend.server.start();
     echo "  restart - restart the backend service"
     echo "  stop - stop the backend service"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
-    echo "  init-server - sync the latest software if master is configured and run the setup phase with setup-server command, create global /etc/backendrc config file from the command line options"
-    echo "  setup-server - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS), optional params: [-user USER] [-home HOMEDIR] [-doman DOMAIN] [-hostname HOSTNAME]"
+    echo "  init-server [-user USER] [-home HOME] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
+    echo "  init-hostname [-host HOST] - set the hostname"
+    echo "  init-user [-user NAME] - create a new user for the backend"
+    echo "  init-ssh - setup SSH permissions, allow only public key auth"
+    echo "  init-logrotate - setup logrotate for the backend log files"
+    echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
+    echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
+    echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
+    echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
+    echo "  init-instance - configure for temporary job instance"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
-    echo "  run-server - run the backend server process, if -init-server argument passed it will run init-server command before starting the $BKJS daemon"
+    echo "  init-packages - install required packges and updates"
+    echo "  init-devel - install development packages for node and modules compiclation"
+    echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
-    echo "  ntp - run ntpdate to keep local clock"
     echo "  backup - run the backup script, store in $BACKEND_HOME/backup"
     echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"
     echo "  run-pgsql - run local PostgreSQL server"
@@ -914,8 +948,8 @@ backend.server.start();
     echo "  clean-deps - clean dependencies binary and object files"
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
-    echo "  put-backend path [-host host] [-path path] [-user user] [-ssh opts] [-exclude pattern] [-delete] - push the backend code to the master server, uses env BACKEND_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
-    echo "  sync-backend [-host host] [-path path] [-delete] [-path remote-root] - synchronize other directories from the master host, runs on the instance"
+    echo "  put-backend path [-host HOST] [-path PATH] [-user USER] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BACKEND_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
+    echo "  sync-backend [-host HOST] [-path PATH] [-delete] [-path REMOTE-ROOT] - synchronize other directories from the master host, runs on the instance"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
