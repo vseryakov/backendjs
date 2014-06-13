@@ -7,11 +7,11 @@
 # description: backendjs server
 #
 
-BK=bkjs
-BKJS=backendjs
+export BK=bkjs
+export BKJS=backendjs
 
-HOST=$(uname -n | awk -F. '{print $1}')
-PLATFORM=$(uname -s)
+export HOST=$(uname -n | awk -F. '{print $1}')
+export PLATFORM=$(uname -s)
 case "$PLATFORM" in
   Linux)
     [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
@@ -19,19 +19,19 @@ case "$PLATFORM" in
     # In multi-OS environment have to sync by OS type due to different dependencies in each distro
     [ "$BACKEND_OS_TYPE" != "" -a "$BACKEND_HOST" != "" ] && BACKEND_HOST=$OS_TYPE-$BACKEND_HOST
     [ "$PG_PREFIX" = "" -a -d /usr/pgsql-9.3 ] && PG_PREFIX=/usr/pgsql-9.3
-    KILLALL="killall -qr"
-    ECHO="echo -e"
-    SED="sed -i"
+    export KILLALL="killall -qr"
+    export ECHO="echo -e"
+    export SED="sed -i"
     ;;
 
   Darwin)
-    OS_TYPE=macosx
-    [ "$BACKEND_PREFIX" = "" ] && BACKEND_PREFIX=/opt/local
-    [ "$PG_PREFIX" = "" ] && PG_PREFIX=$BACKEND_PREFIX/lib/postgresql93 && PG_LIBDIR=$PG_PREFIX
-    [ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=$BACKEND_PREFIX/lib/mysql56
-    KILLALL="killall -m"
-    ECHO=echo
-    SED="sed -i .orig"
+    export OS_TYPE=macosx
+    [ "$BACKEND_PREFIX" = "" ] && export BACKEND_PREFIX=/opt/local
+    [ "$PG_PREFIX" = "" ] && export PG_PREFIX=$BACKEND_PREFIX/lib/postgresql93 && PG_LIBDIR=$PG_PREFIX
+    [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=$BACKEND_PREFIX/lib/mysql56
+    export KILLALL="killall -m"
+    export ECHO=echo
+    export SED="sed -i .orig"
     ;;
 
   *)
@@ -48,58 +48,58 @@ ARG=$NAME
 # Global options
 while [ $# -gt 1 ]; do
     case "$1" in
-     -root) BACKEND_HOME=$2;shift;shift;;
-     -home) BACKEND_HOME=$2;shift;shift;;
-     -prefix) BACKEND_PREFIX=$2;shift;shift;;
-     -user) BACKEND_USER=$2;shift;shift;;
-     -domain) BACKEND_DOMAIN=$2;shift;shift;;
-     -host) BACKEND_HOST=$2;shift;shift;;
-     -path) BACKEND_PATH=$2;shift;shift;;
-     -node_path) NODE_PATH=$2;shift;shift;;
-     -node) NODE_BIN=$2;shift;shift;;
-     -npm) NPM_BIN=$2;shift;shift;;
-     -bkjs) BKJS_BIN=$2;shift;shift;;
-     -ssh) BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
-     -exclude) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
-     -delete) BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
+     -root) export BACKEND_HOME=$2;shift;shift;;
+     -home) export BACKEND_HOME=$2;shift;shift;;
+     -prefix) export BACKEND_PREFIX=$2;shift;shift;;
+     -user) export BACKEND_USER=$2;shift;shift;;
+     -domain) export BACKEND_DOMAIN=$2;shift;shift;;
+     -host) export BACKEND_HOST=$2;shift;shift;;
+     -path) export BACKEND_PATH=$2;shift;shift;;
+     -node_path) export NODE_PATH=$2;shift;shift;;
+     -node) export NODE_BIN=$2;shift;shift;;
+     -npm) export NPM_BIN=$2;shift;shift;;
+     -bkjs) export BKJS_BIN=$2;shift;shift;;
+     -ssh) export BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
+     -exclude) vBACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
+     -delete) vBACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
      *) break;;
     esac
 done
 
 # Home must be specified or use the default
-[ "$BACKEND_HOME" = "" ] && BACKEND_HOME=~/.backend
+[ "$BACKEND_HOME" = "" ] && export BACKEND_HOME=~/.backend
 [ -f $BACKEND_HOME/etc/profile ] && . $BACKEND_HOME/etc/profile
 
 # Setup all variables with defaults
-[ "$BACKEND_USER" = "" ] && BACKEND_USER=$(whoami)
-[ "$BACKEND_PREFIX" = "" ] && BACKEND_PREFIX=/usr/local
-[ "$BACKEND_DOMAIN" = "" ] && BACKEND_DOMAIN=localhost
-[ "$BACKUP" = "" ] && BACKUP=$BACKEND_HOME/backup
-[ "$CASSANDRA_PREFIX" = "" ] && CASSANDRA_PREFIX=$BACKEND_PREFIX/cassandra
-[ "$CASSANDRA_DIR" = "" ] && CASSANDRA_DIR=$BACKEND_HOME/cassandra
-[ "$PG_PREFIX" = "" ] && PG_PREFIX=/usr
-[ "$PG_LIBDIR" = "" ] && PG_LIBDIR=$PG_PREFIX/lib
-[ "$PG_DIR" = "" ] && PG_DIR=$BACKEND_HOME/postgres
-[ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BACKEND_HOME/mysql
-[ "$MYSQL_PREFIX" = "" ] && MYSQL_PREFIX=/usr
-[ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BACKEND_PREFIX/dynamodb
-[ "$MONGO_DIR" = "" ] && MONGO_DIR=$BACKEND_HOME/mongo
-[ "$NODE_PATH" = "" ] && NODE_PATH=$BACKEND_PREFIX/lib/node_modules
-[ "$BACKEND_IDLETIME" = "" ] && BACKEND_IDLETIME=900
-[ "$BACKEND_UPTIME" = "" ] && BACKEND_UPTIME=43200
-[ "$BACKEND_SSH_ARGS" = "" ] && BACKEND_SSH_ARGS="-o ConnectTimeout=5"
+[ "$BACKEND_USER" = "" ] && export BACKEND_USER=$(whoami)
+[ "$BACKEND_PREFIX" = "" ] && export BACKEND_PREFIX=/usr/local
+[ "$BACKEND_DOMAIN" = "" ] && export BACKEND_DOMAIN=localhost
+[ "$BACKEND_BACKUP" = "" ] && export BACKEND_BACKUP=$BACKEND_HOME/backup
+[ "$CASSANDRA_PREFIX" = "" ] && export CASSANDRA_PREFIX=$BACKEND_PREFIX/cassandra
+[ "$CASSANDRA_DIR" = "" ] && export CASSANDRA_DIR=$BACKEND_HOME/cassandra
+[ "$PG_PREFIX" = "" ] && export PG_PREFIX=/usr
+[ "$PG_LIBDIR" = "" ] && export PG_LIBDIR=$PG_PREFIX/lib
+[ "$PG_DIR" = "" ] && export PG_DIR=$BACKEND_HOME/postgres
+[ "$MYSQL_DIR" = "" ] && export MYSQL_DIR=$BACKEND_HOME/mysql
+[ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=/usr
+[ "$DYNAMODB_PREFIX" = "" ] && export DYNAMODB_PREFIX=$BACKEND_PREFIX/dynamodb
+[ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BACKEND_HOME/mongo
+[ "$NODE_PATH" = "" ] && export NODE_PATH=$BACKEND_PREFIX/lib/node_modules
+[ "$BACKEND_IDLETIME" = "" ] && export BACKEND_IDLETIME=900
+[ "$BACKEND_UPTIME" = "" ] && export BACKEND_UPTIME=43200
+[ "$BACKEND_SSH_ARGS" = "" ] && export BACKEND_SSH_ARGS="-o ConnectTimeout=5"
 
 # Setup paths
 export PATH=$BACKEND_HOME/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
 
 # Locate binaries after all variables are set
-[ "$NODE_BIN" = "" ] && NODE_BIN=$(which node 2>/dev/null)
-[ "$NODE_BIN" = "" ] && NODE_BIN=$BACKEND_PREFIX/bin/node
-[ "$NPM_BIN" = "" ] && NPM_BIN=$(which npm 2>/dev/null)
-[ "$NPM_BIN" = "" ] && NPM_BIN=$BACKEND_PREFIX/bin/npm
-[ "$BKJS_BIN" = "" ] && BKJS_BIN=$(which bkjs 2>/dev/null)
-[ "$BKJS_BIN" = "" ] && BKJS_BIN=$BACKEND_PREFIX/bin/$BK
+[ "$NODE_BIN" = "" ] && export NODE_BIN=$(which node 2>/dev/null)
+[ "$NODE_BIN" = "" ] && export NODE_BIN=$BACKEND_PREFIX/bin/node
+[ "$NPM_BIN" = "" ] && export NPM_BIN=$(which npm 2>/dev/null)
+[ "$NPM_BIN" = "" ] && export NPM_BIN=$BACKEND_PREFIX/bin/npm
+[ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which bkjs 2>/dev/null)
+[ "$BKJS_BIN" = "" ] && export BKJS_BIN=$BACKEND_PREFIX/bin/$BK
 
 case "$ARG" in
   start)
@@ -133,16 +133,13 @@ case "$ARG" in
     # Install required packages and utilities
     ($0 init-packages)
 
-    # Additional arguments via EC2 instance user data
-    export BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
-
     ($0 init-hostname)
     ($0 init-ssh)
     ($0 init-user)
     ($0 init-system)
     ($0 init-logrotate)
     ($0 init-rsyslog)
-    ($0 init-service)
+    ($0 init-home)
     ;;
 
   init-hostname)
@@ -163,7 +160,7 @@ case "$ARG" in
        echo "Adding user $BACKEND_USER..."
        useradd -g 0 -m $BACKEND_USER
        echo "$BACKEND_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
-       mkdir -p /home/$BACKEND_USER/.ssh /home/$BACKEND_USER/node_modules
+       mkdir -p /home/$BACKEND_USER/.ssh
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys /home/$BACKEND_USER/.ssh
        chmod -fR g-rwx,o-rwx /home/$BACKEND_USER/.ssh
        echo 'alias slog="tail -100 /var/log/messages"' >> /home/$BACKEND_USER/.bashrc
@@ -175,8 +172,13 @@ case "$ARG" in
        echo 'alias ps="ps augx"' >> /home/$BACKEND_USER/.bashrc
        echo 'alias mc="mc -b"' >> /home/$BACKEND_USER/.bashrc
        echo 'export PATH=$PATH:$HOME/node_modules/.bin' >> /home/$BACKEND_USER/.bash_profile
-       chown -R $BACKEND_USER /home/$BACKEND_USER
     fi
+    ;;
+
+  init-home)
+    # Create required directories
+    mkdir -p $BACKEND_HOME/node_modules $BACKEND_HOME/log $BACKEND_HOME/etc $BACKEND_HOME/var
+    chown -R $BACKEND_USER $BACKEND_HOME
     ;;
 
   init-ssh)
@@ -364,13 +366,12 @@ case "$ARG" in
       amazon)
          yum-config-manager --enable epel
          yum -y -q install postgresql9-server
-         yum remove gyp
          ;;
     esac
     ;;
 
   init-devel)
-    # Install development packages for compiling nide and modules
+    # Install development packages for compiling node and modules
     yum -y -q install git svn gdb gcc-c++ make cmake autoconf automake libtool
     yum -y -q install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel
     yum -y -q install mysql-devel
@@ -409,7 +410,7 @@ case "$ARG" in
     ntpdate pool.ntp.org > /dev/null 2>&1
     ;;
 
-  backup)
+  run-backup)
     [ "$BACKUP_DIR" = "" ] && exit
     DATE=$(date +%m-%d-%y)
     DOW=$(date +%w)
@@ -594,12 +595,13 @@ case "$ARG" in
        [ "$mod" = "$BKJS" ] && BACKEND_PATH=node_modules/$BKJS
     fi
     [ "$BACKEND_HOST" = "" ] && echo "Remote host required, specify with -host or BACKEND_HOST" && exit
-    for f in build etc deps log tmp var pages images files; do
+    for f in etc build deps images files log pages tmp var; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
-    echo "Deploying the module to -l $BACKEND_USER $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $BACKEND_HOST:$BACKEND_PATH"
-    rsync -av -e "ssh -l $BACKEND_USER $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $BACKEND_HOST:$BACKEND_PATH
-    rsync -av -e "ssh -l $BACKEND_USER $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE web $BACKEND_HOST:$BACKEND_PATH
+    [ "$BACKEND_USER" != "$(whoami)" ] && BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS -l $BACKEND_USER"
+    echo "Deploying the module to $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $BACKEND_HOST:$BACKEND_PATH"
+    rsync -av -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $BACKEND_HOST:$BACKEND_PATH
+    rsync -av -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE web $BACKEND_HOST:$BACKEND_PATH
     ;;
 
   sync-backend)
@@ -620,9 +622,10 @@ case "$ARG" in
      run-server)
         # Additional arguments via EC2 instance user data
         BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
+
         # Perform setup and possibly get newest source code if sync master is configured
-        if [[ $BACKEND_ARGS = *-init-server* ]]; then
-           ($0 init-server)
+        if [[ $BACKEND_ARGS = *-sync-backend* ]]; then
+           ($0 sync-backend)
         fi
         echo "Starting node $NODE_ARGS $SCRIPT -home $BACKEND_HOME $BACKEND_ARGS $@"
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME -daemon -monitor -master -syslog $BACKEND_ARGS $@
@@ -673,13 +676,13 @@ case "$ARG" in
     ;;
 
   build-deps)
-    BACKEND_PREFIX=$(pwd)/build
-    CFLAGS="$CFLAGS -fPIC -g -I$BACKEND_PREFIX/include"
-    CXXFLAGS="$CXXFLAGS -fPIC -g -I$BACKEND_PREFIX/include"
-    LDFLAGS="$LDFLAGS -L$BACKEND_PREFIX/lib"
-    PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
-    [ -d /opt/local/lib ] && LDFLAGS="$LDFLAGS -L/opt/local/lib" && CFLAGS="$CFLAGS -I/opt/local/include" && PKG_CONFIG_PATH=/opt/local/lib/pkgconfig:$PKG_CONFIG_PATH
-    [ -d /usr/local/lib ] && LDFLAGS="$LDFLAGS -L/usr/local/lib" && CFLAGS="$CFLAGS -I/usr/local/include"
+    export BACKEND_PREFIX=$(pwd)/build
+    export CFLAGS="$CFLAGS -fPIC -g -I$BACKEND_PREFIX/include"
+    export CXXFLAGS="$CXXFLAGS -fPIC -g -I$BACKEND_PREFIX/include"
+    export LDFLAGS="$LDFLAGS -L$BACKEND_PREFIX/lib"
+    export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
+    [ -d /opt/local/lib ] && export LDFLAGS="$LDFLAGS -L/opt/local/lib" && export CFLAGS="$CFLAGS -I/opt/local/include" && export PKG_CONFIG_PATH=/opt/local/lib/pkgconfig:$PKG_CONFIG_PATH
+    [ -d /usr/local/lib ] && export LDFLAGS="$LDFLAGS -L/usr/local/lib" && export CFLAGS="$CFLAGS -I/usr/local/include" && export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
     mkdir -p deps
 
     pkg-config --silence-errors --exists libopenjp2
@@ -697,7 +700,7 @@ case "$ARG" in
            (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
         fi
         (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
-        (cd deps/nanomsg && [ ! -f Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
+        (cd deps/nanomsg && [ ! -f Makefile ] && ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)
         (cd deps/nanomsg && make install)
     fi
 
@@ -708,7 +711,7 @@ case "$ARG" in
            curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
            tar -C deps/ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
         fi
-        (cd deps/ImageMagick && [ ! -f Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BACKEND_PREFIX --disable-docs --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS")
+        (cd deps/ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$BACKEND_PREFIX --disable-docs --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl)
         (cd deps/ImageMagick && make install)
     fi
     exit 0
@@ -920,6 +923,7 @@ backend.server.start();
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
+    echo "  init-home - setup backend home with required folders"
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  backup - run the backup script, store in $BACKEND_HOME/backup"
@@ -967,6 +971,8 @@ backend.server.start();
     echo "  -prefix path - path to the local binaries directory, default is $BACKEND_PREFIX"
     echo "  -node path - path to the node modules directory, default is $NODE_PATH"
     echo "  -user name - set backend user on the remote or local side, default is $BACKEND_USER"
+    echo "  -host host - host to be used transfer or sync, default is $BACKEND_HOST"
+    echo "  -path path - path to be used for transfer or sync, default is $BACKEND_PATH"
     echo "  -ssh opts - pass additional parameters to the ssh command"
     ;;
 esac
