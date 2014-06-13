@@ -7,11 +7,11 @@
 # description: backendjs server
 #
 
-export BK=bkjs
-export BKJS=backendjs
+BK=bkjs
+BKJS=backendjs
 
-export HOST=$(uname -n | awk -F. '{print $1}')
-export PLATFORM=$(uname -s)
+HOST=$(uname -n | awk -F. '{print $1}')
+PLATFORM=$(uname -s)
 case "$PLATFORM" in
   Linux)
     [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
@@ -19,19 +19,20 @@ case "$PLATFORM" in
     # In multi-OS environment have to sync by OS type due to different dependencies in each distro
     [ "$BACKEND_OS_TYPE" != "" -a "$BACKEND_HOST" != "" ] && BACKEND_HOST=$OS_TYPE-$BACKEND_HOST
     [ "$PG_PREFIX" = "" -a -d /usr/pgsql-9.3 ] && PG_PREFIX=/usr/pgsql-9.3
-    export KILLALL="killall -qr"
-    export ECHO="echo -e"
-    export SED="sed -i"
+    [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
+    KILLALL="killall -qr"
+    ECHO="echo -e"
+    SED="sed -i"
     ;;
 
   Darwin)
-    export OS_TYPE=macosx
+    OS_TYPE=macosx
     [ "$BACKEND_PREFIX" = "" ] && export BACKEND_PREFIX=/opt/local
     [ "$PG_PREFIX" = "" ] && export PG_PREFIX=$BACKEND_PREFIX/lib/postgresql93 && PG_LIBDIR=$PG_PREFIX
     [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=$BACKEND_PREFIX/lib/mysql56
-    export KILLALL="killall -m"
-    export ECHO=echo
-    export SED="sed -i .orig"
+    KILLALL="killall -m"
+    ECHO=echo
+    SED="sed -i .orig"
     ;;
 
   *)
@@ -48,20 +49,15 @@ ARG=$NAME
 # Global options
 while [ $# -gt 1 ]; do
     case "$1" in
-     -root) export BACKEND_HOME=$2;shift;shift;;
      -home) export BACKEND_HOME=$2;shift;shift;;
      -prefix) export BACKEND_PREFIX=$2;shift;shift;;
      -user) export BACKEND_USER=$2;shift;shift;;
      -domain) export BACKEND_DOMAIN=$2;shift;shift;;
      -host) export BACKEND_HOST=$2;shift;shift;;
      -path) export BACKEND_PATH=$2;shift;shift;;
-     -node_path) export NODE_PATH=$2;shift;shift;;
-     -node) export NODE_BIN=$2;shift;shift;;
-     -npm) export NPM_BIN=$2;shift;shift;;
-     -bkjs) export BKJS_BIN=$2;shift;shift;;
      -ssh) export BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
-     -exclude) vBACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
-     -delete) vBACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
+     -exclude) export BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
+     -delete) export BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
      *) break;;
     esac
 done
@@ -84,13 +80,12 @@ done
 [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=/usr
 [ "$DYNAMODB_PREFIX" = "" ] && export DYNAMODB_PREFIX=$BACKEND_PREFIX/dynamodb
 [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BACKEND_HOME/mongo
-[ "$NODE_PATH" = "" ] && export NODE_PATH=$BACKEND_PREFIX/lib/node_modules
 [ "$BACKEND_IDLETIME" = "" ] && export BACKEND_IDLETIME=900
 [ "$BACKEND_UPTIME" = "" ] && export BACKEND_UPTIME=43200
 [ "$BACKEND_SSH_ARGS" = "" ] && export BACKEND_SSH_ARGS="-o ConnectTimeout=5"
 
 # Setup paths
-export PATH=$BACKEND_HOME/bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
+export PATH=$BACKEND_HOME/bin:$BACKEND_HOME/node_modules/.bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
 export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
 
 # Locate binaries after all variables are set
@@ -140,6 +135,10 @@ case "$ARG" in
     ($0 init-logrotate)
     ($0 init-rsyslog)
     ($0 init-home)
+
+    # Create global profile
+    echo "BACKEND_HOME=$BACKEND_HOME" > /etc/sysconfig/$BKJS
+    echo "BACKEND_ARGS=" >> /etc/sysconfig/$BKJS
     ;;
 
   init-hostname)
@@ -156,22 +155,25 @@ case "$ARG" in
 
   init-user)
     # Add local user
+    BHOME=/home/$BACKEND_USER
     if [ "$(grep $BACKEND_USER /etc/passwd)" = "" ]; then
-       echo "Adding user $BACKEND_USER..."
        useradd -g 0 -m $BACKEND_USER
        echo "$BACKEND_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
-       mkdir -p /home/$BACKEND_USER/.ssh
-       [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys /home/$BACKEND_USER/.ssh
-       chmod -fR g-rwx,o-rwx /home/$BACKEND_USER/.ssh
-       echo 'alias slog="tail -100 /var/log/messages"' >> /home/$BACKEND_USER/.bashrc
-       echo "alias blog=\"tail -100 $BACKEND_HOME/log/backend.log\"" >> /home/$BACKEND_USER/.bashrc
-       echo "alias elog=\"tail -100 $BACKEND_HOME/log/error.log\"" >> /home/$BACKEND_USER/.bashrc
-       echo "alias alog=\"tail -100 $BACKEND_HOME/log/access.log\"" >> /home/$BACKEND_USER/.bashrc
-       echo 'alias bcp="socat readline,history=.socat tcp4:localhost:2080"' >> /home/$BACKEND_USER/.bashrc
-       echo 'alias bcp1="socat readline,history=.socat tcp4:localhost:2081"' >> /home/$BACKEND_USER/.bashrc
-       echo 'alias ps="ps augx"' >> /home/$BACKEND_USER/.bashrc
-       echo 'alias mc="mc -b"' >> /home/$BACKEND_USER/.bashrc
-       echo 'export PATH=$PATH:$HOME/node_modules/.bin' >> /home/$BACKEND_USER/.bash_profile
+       mkdir -p -m 700 $BHOME/.ssh && chown $BACKEND_USER $BHOME/.ssh
+       [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys $BHOME/.ssh && chown $BACKEND_USER $BHOME/.ssh/*
+    fi
+    # Aliases and environment
+    if [ "$(grep '#Backend' $BHOME/.bashrc)" = "" ]; then
+       echo '#Backend' >> $BHOME/.bashrc
+       echo 'export PATH=$PATH:$HOME/node_modules/.bin' >> $BHOME/.bashrc
+       echo 'alias slog="tail -100 /var/log/messages"' >> $BHOME/.bashrc
+       echo "alias blog=\"tail -100 $BACKEND_HOME/log/backend.log\"" >> $BHOME/.bashrc
+       echo "alias elog=\"tail -100 $BACKEND_HOME/log/error.log\"" >> $BHOME/.bashrc
+       echo "alias alog=\"tail -100 $BACKEND_HOME/log/access.log\"" >> $BHOME/.bashrc
+       echo 'alias bcp="socat readline,history=.socat tcp4:localhost:2080"' >> $BHOME/.bashrc
+       echo 'alias bcp1="socat readline,history=.socat tcp4:localhost:2081"' >> $BHOME/.bashrc
+       echo 'alias ps="ps augx"' >> $BHOME/.bashrc
+       echo 'alias mc="mc -b"' >> $BHOME/.bashrc
     fi
     ;;
 
@@ -611,7 +613,9 @@ case "$ARG" in
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
-    [ -f $NODE_PATH/$BKJS/server.js ] && SCRIPT=$NODE_PATH/$BKJS/server.js
+    [ -f /usr/lib/node_modules/$BKJS/server.js ] && SCRIPT=/usr/lib/node_modules/$BKJS/server.js
+    [ -f $BACKEND_PREFIX/lib/node_modules/$BKJS/server.js ] && SCRIPT=$BACKEND_PREFIX/lib/node_modules/$BKJS/server.js
+    [ -f $BACKEND_HOME/node_modules/$BKJS/server.js ] && SCRIPT=$BACKEND_HOME/node_modules/$BKJS/server.js
     [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
     [ -f server.js ] && SCRIPT=server.js
     [ -f $BACKEND_HOME/app.js ] && SCRIPT=$BACKEND_HOME/app.js
@@ -946,7 +950,7 @@ backend.server.start();
     echo "  run-mongodb - run local Mongo server installed in $BACKEND_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
     echo "  build-deps - build all required nad optional software for the backend binary module"
-    echo "  build-node - build node and install in $BACKEND_PREFIX or in [-prefix PATH]"
+    echo "  build-node - build node and install in $BACKEND_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
     echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
     echo "  clean-deps - clean dependencies binary and object files"
@@ -969,7 +973,6 @@ backend.server.start();
     echo "  -root path - path to the backend home directory, default is $BACKEND_HOME"
     echo "  -home path - same as -root"
     echo "  -prefix path - path to the local binaries directory, default is $BACKEND_PREFIX"
-    echo "  -node path - path to the node modules directory, default is $NODE_PATH"
     echo "  -user name - set backend user on the remote or local side, default is $BACKEND_USER"
     echo "  -host host - host to be used transfer or sync, default is $BACKEND_HOST"
     echo "  -path path - path to be used for transfer or sync, default is $BACKEND_PATH"

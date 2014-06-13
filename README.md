@@ -1450,11 +1450,10 @@ which is used in the backend development and can be useful for others running or
 Running without arguments will bring help screen with description of all available commands.
 
 The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
-On startup the bkjs tries to load and source the following config files:
+On Linux, when started the bkjs tries to load and source the following config files:
 
-        /etc/backendrc
-        /usr/local/etc/backendrc
-        ~/.backend/etc/profile
+        /etc/sysconfig/backendjs
+        $BACKEND_HOME/etc/profile
 
 Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.
@@ -1464,7 +1463,7 @@ Most common used commands are:
 - bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
 - bkjs init-app - create the app skeleton
 - bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BACKEND_HOST env variable for host if not specified in the command line, this is for developent version of the backend only
-- bkjs init-server [-root path] [-user user] [-hostname name] [-domain domain] - initialize Linux instance(Amazon,CentOS) for backend use, optional -root can be specified where the backend
+- bkjs init-server [-home path] [-user user] [-host name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
    home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user `backend`.
 
 # Deployment use cases
@@ -1474,26 +1473,20 @@ Most common used commands are:
 Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
 new image configuration.
 
-- start new AWS instance via AWS console, use Amazon Linux or CentOS 6
+- start new AWS instance via AWS console, use Amazon Linux
 - login as `ec2-user`
 - install commands
 
-        curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs && chmod 755 /tmp/bkjs
-        sudo /tmp/bkjs init-server -root /home/backend
-
-- NOTE: global system-wide options will be defined in the `/etc/backendrc` like BACKEND_ARGS, BACKEND_NAME, BACKEND_HOME env variables
-- reboot
-- login as `backend` user using the same AWS keypair private key
-- install the backendjs and node:
-
-        /tmp/bkjs build-node
+        yum-config-manager --enable epel
+        sudo yum install npm
         npm install backendjs --backend_nanomsg --backend_imagemagick
+        sudo bkjs init-service
+        sudo bkjs restart
 
-- reboot and login into the server
-- run `ps agx`, it should show several backend processes running
-- try to access the instance via HTTP port for the API console or documentation
+- try to access the instance via HTTP port 8000 for the API console or documentation
+- after reboot the server will be started automatically
 
-## Custom AWS instance with existing user
+## Custom AWS instance
 
 Run the backendjs on the AWS instance as user ec2-user with the backend in the user home
 
@@ -1502,25 +1495,14 @@ Run the backendjs on the AWS instance as user ec2-user with the backend in the u
 - install commands
 
         curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs && chmod 755 /tmp/bkjs
-        sudo /tmp/bkjs init-server -root $HOME -user $(whoami) -prefix $HOME
+        sudo /tmp/bkjs init-server -home $HOME -user $(whoami) -prefix $HOME
+        /tmp/bkjs init-devel
         /tmp/bkjs build-node -prefix $HOME
-        npm install backendjs --backend_nanomsg --backend_imagemagick
+        npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
         sudo bkjs restart
 
 - run `ps agx`, it should show several backend processes running
 - try to access the instance via HTTP port for the API console or documentation
-
-## Existing AWS instance, minimal install
-
-In case of existing properly setup AWS instance running Linux with Amazon AMI or CentOS, and only needed to start the backendjs as a service, assuming
-node.js is already installed:
-
-        sudo npm install backendjs -g
-        sudo bkjs init-service
-
-After that the backend will be started by the system on the next reboot or force the start by `sudo service backendjs start`
-
-Note: To install all system packages required for the backend `sudo bkjs init-packages`
 
 ## AWS Beanstalk deployment
 
@@ -1536,7 +1518,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
   The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
   defined via command line arguments as `-home` or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
-  `init-server` command, for non-standard home use `/etc/backendrc` profile, specify `BACKEND_HOME=/home/backend` there and the rest will be taken care of
+  `init-server` command, for non-standard home use `/etc/sysconfig/backendjs` profile, specify `BACKEND_HOME=/home/backend` there and the rest will be taken care of
 
 - command line arguments
 
