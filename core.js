@@ -302,9 +302,6 @@ core.init = function(options, callback)
 
             try { process.umask(self.umask); } catch(e) { logger.error("umask:", self.umask, e) }
 
-            // Resolve to absolute paths
-            Object.keys(self.path).forEach(function(p) { self.path[p] = path.resolve(self.path[p]); });
-
             // Create all subfolders with permissions, run it before initializing db which may create files in the spool folder
             if (!cluster.isWorker && !self.worker) {
                 Object.keys(self.path).forEach(function(p) {
@@ -500,6 +497,12 @@ core.processArgs = function(name, ctx, argv, pass)
             case "real":
             case "number":
                 put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
+                break;
+            case "map":
+                put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {}), x);
+                break;
+            case "intmap":
+                put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = self.toNumber(y[1]); return x }, {}), x);
                 break;
             case "list":
                 put(obj, key, self.strSplitUnique(val, x.separator), x);

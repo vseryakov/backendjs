@@ -193,6 +193,10 @@ var api = {
     // Default busy latency 1 sec
     busyLatency: 1000,
 
+    // API related limts
+    allowConnection: [],
+    iconLimit: {},
+
     // Default endpoints
     endpoints: { "account": 'initAccountAPI',
                  "status": "initStatusAPI",
@@ -220,7 +224,9 @@ var api = {
            { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
+           { name: "allow-connection", array: 1, descr: "List of connection types that are allowed only, this limits types of connections to be used for all accounts" },
            { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
+           { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "allow", array: 1, set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "disallow-path", type: "callback", value: function(v) {this.allow.splice(this.allow.indexOf(v),1)}, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
@@ -910,6 +916,8 @@ api.initAccountAPI = function()
     var self = this;
     var db = core.context.db;
 
+    db.setProcessRow("bk_icon", self.checkIcon);
+
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
 
         if (req.method == "POST") req.query = req.body;
@@ -981,7 +989,7 @@ api.initAccountAPI = function()
             options.op = req.params[0].substr(0, 3);
             req.query.prefix = 'account';
             if (!req.query.type) req.query.type = '0';
-            self.handleIcon(req, res, options);
+            self.handleIconRequest(req, res, options);
             break;
 
         default:
@@ -1038,14 +1046,10 @@ api.initIconAPI = function()
     var self = this;
     var db = core.context.db;
 
-    db.setProcessRow("bk_icon", function(row, options, cols) {
-        self.formatIcon(row, options.account);
-    });
-
     this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9\.\_\-]+)\/?([a-z0-9\.\_\-])?$/, function(req, res) {
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
-        options.account = req.account;
+
         if (!req.query.id) req.query.id = req.account.id;
         req.query.prefix = req.params[1];
         req.query.type = req.params[2] || "";
@@ -1063,7 +1067,7 @@ api.initIconAPI = function()
         case "del":
         case "put":
             options.op = req.params[0];
-            self.handleIcon(req, res, options);
+            self.handleIconRequest(req, res, options);
             break;
 
         default:
@@ -1083,7 +1087,6 @@ api.initMessageAPI = function()
         row.mtime = core.toNumber(mtime[0]);
         row.sender = mtime[1];
         if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
-        return row;
     }
     db.setProcessRow("bk_message", onMessageRow);
     db.setProcessRow("bk_archive", onMessageRow);
@@ -1093,7 +1096,6 @@ api.initMessageAPI = function()
         row.mtime = core.toNumber(mtime[0]);
         row.recipient = mtime[1];
         if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
-        return row;
     });
 
     this.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
@@ -1400,7 +1402,9 @@ api.initTables = function(callback)
 // distinguish control parameters from query parameters.
 api.getOptions = function(req)
 {
-    var options = { check_public: req.account ? req.account.id : null, ops: {} };
+    var options = { ops: {},
+                    check_public: req.account ? req.account.id : null,
+                    account: req.account ? { id: req.account.id, login: req.account.login } : { id: null, login: null } };
     ["details", "consistent", "desc", "total"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") options[x] = core.toBool(req.query["_" + x]);
     });
@@ -1415,7 +1419,6 @@ api.getOptions = function(req)
     if (req.query._quality) options.quality = core.toNumber(req.query._quality);
     if (req.query._round) options.round = core.toNumber(req.query._round);
     if (req.query._ops) {
-        if (!options.ops) options.ops = {};
         var ops = core.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) options.ops[ops[i]] = ops[i+1];
     }
@@ -1707,7 +1710,8 @@ api.sendEvent = function(req, key, data)
 }
 
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
-api.handleIcon = function(req, res, options)
+// Verify icon limits before adding new icons
+api.handleIconRequest = function(req, res, options)
 {
     var self = this;
     var db = core.context.db;
@@ -1716,43 +1720,54 @@ api.handleIcon = function(req, res, options)
     options.force = true;
     options.prefix = req.query.prefix || "account";
     options.type = req.query.type || "";
+    // Max number of allowed icons per type or globally
+    var limit = self.iconLimit[options.type] || self.iconLimit['*'];
 
-    req.query.id = req.account.id;
-    req.query.type = options.prefix + ":" + options.type;
-    if (options.ext) req.query.ext = options.ext;
-    if (req.query.latitude && req.query.longitude) req.query.geohash = core.geoHash(req.query.latitude, req.query.longitude);
+    async.series([
+       function(next) {
+           if (op != "put" || !limit) return next();
 
-    db[op]("bk_icon", req.query, function(err, rows) {
-        if (err) return self.sendReply(res, err);
+           var opts = { ops: { type: "begins_with" }, account: req.account };
+           db.select("bk_icon", { id: req.account.id, type: options.prefix + ":" }, opts, function(err, rows) {
+               if (err) return next(err);
+               // We can override existing icon but not add a new one
+               if (rows.length >= limit && !rows.some(function(x) { return x.type == options.type })) {
+                   return next({ status: 400, message: "No more icons allowed" });
+               }
+               next();
+           });
+       },
 
-        switch (op) {
-        case "put":
-            self.putIcon(req, req.account.id, options, function(err, icon) {
-                if (err || !icon) db.del('bk_icon', obj);
-                self.sendReply(res, err);
-            });
-            break;
+       function(next) {
+           req.query.id = req.account.id;
+           req.query.type = options.prefix + ":" + options.type;
+           if (options.ext) req.query.ext = options.ext;
+           if (req.query.latitude && req.query.longitude) req.query.geohash = core.geoHash(req.query.latitude, req.query.longitude);
 
-        case "del":
-            self.delIcon(req.account.id, options, function(err) {
-                self.sendReply(res, err);
-            });
-            break;
-        }
+           db[op]("bk_icon", req.query, function(err, rows) {
+               if (err) return next(err);
+
+               switch (op) {
+               case "put":
+                   self.putIcon(req, req.account.id, options, function(err, icon) {
+                       if (err || !icon) db.del('bk_icon', req.query);
+                       next(err);
+                   });
+                   break;
+
+               case "del":
+                   self.delIcon(req.account.id, options, function(err) {
+                       next(err);
+                   });
+                   break;
+               }
+           });
+       }], function(err) {
+            self.sendReply(res, err);
     });
 }
 
-// Verify icon permissions for given account id, returns true if allowed
-api.checkIcon = function(req, id, row)
-{
-    var acl = row.acl_allow || "";
-    if (acl == "all") return true;
-    if (acl == "auth" && req.account) return true;
-    if (acl.split(",").filter(function(x) { return x == id }).length) return true;
-    return id == req.account.id;
-}
-
-// Return formatted icon URL for the given account
+// Return formatted icon URL for the given account, verify permissions
 api.formatIcon = function(row, account)
 {
     var type = row.type.split(":");
@@ -1773,6 +1788,24 @@ api.formatIcon = function(row, account)
     }
 }
 
+// Verify icon permissions and format for the result, used in setProcessrow for the bk_icon table
+api.checkIcon = function(row, options, cols)
+{
+    var acl = row.acl_allow || "";
+    var id = options.account ? options.account.id : "";
+
+    if (acl != "all") {
+        if (acl == "auth") {
+            if (!id) return true;
+        } else
+        if (acl) {
+            if (!acl.split(",").some(function(x) { return x == id })) return true;
+        } else
+        if (row.id != id) return true;
+    }
+    api.formatIcon(row, options.account);
+}
+
 // Return list of icons for the account, used in /icon/get API call
 api.selectIcon = function(req, options, callback)
 {
@@ -1781,9 +1814,6 @@ api.selectIcon = function(req, options, callback)
 
     options.ops = { type: "begins_with" };
     db.select("bk_icon", { id: req.query.id, type: req.query.prefix + ":" + (req.query.type || "") }, options, function(err, rows) {
-        if (err) return callback(err, []);
-        // Filter out not allowed icons
-        rows = rows.filter(function(x) { return self.checkIcon(req, req.query.id, x); });
         callback(err, rows);
     });
 }
@@ -1797,7 +1827,6 @@ api.getIcon = function(req, res, id, options)
     db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, row) {
         if (err) return self.sendReply(res, err);
         if (!row) return self.sendReply(res, 404, "Not found");
-        if (!self.checkIcon(req, id, row)) return self.sendReply(res, 401, "Not allowed");
         if (row.ext) options.ext = row.ext;
         self.sendIcon(req, res, id, options);
     });
@@ -2074,6 +2103,9 @@ api.putConnection = function(req, options, callback)
     var id = req.query.id, type = req.query.type;
     if (!id || !type) return callback({ status: 400, message: "id and type are required"});
     if (id == req.account.id) return callback({ status: 400, message: "cannot connect to itself"});
+
+    // Check for allowed connection types
+    if (self.allowConnection.length && self.allowConnection.indexOf(type) == -1) return callback({ status: 400, message: "invalid connection"});
 
     // Override primary key properties, the rest of the properties will be added as is
     req.query.id = req.account.id;

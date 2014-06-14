@@ -934,6 +934,9 @@ aws.ddbScanTable = function(name, condition, options, callback)
     if (options.count) {
         params.Limit = options.count;
     }
+    if (options.total) {
+        params.Select = "COUNT";
+    }
     params.ScanFilter = this.queryFilter(condition, options)
 
     this.queryDDB('Scan', params, options, function(err, rc) {

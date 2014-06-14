@@ -1494,7 +1494,7 @@ Run the backendjs on the AWS instance as user ec2-user with the backend in the u
 - login as `ec2-user`
 - install commands
 
-        curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs && chmod 755 /tmp/bkjs
+        curl -L -o /tmp/bkjs http://backendjs.io/bkjs && chmod 755 /tmp/bkjs
         sudo /tmp/bkjs init-server -home $HOME -user $(whoami) -prefix $HOME
         /tmp/bkjs init-devel
         /tmp/bkjs build-node -prefix $HOME

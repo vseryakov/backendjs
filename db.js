@@ -571,7 +571,7 @@ db.query = function(req, options, callback)
                     if (options.unique) items = core.arrayUnique(items, options.unique);
 
                     // Convert values if we have custom column callback
-                    if (!options.noprocessrows) self.processRows(pool, table, rows, options);
+                    if (!options.noprocessrows) rows = self.processRows(pool, table, rows, options);
 
                     // Custom filter to return the final result set
                     if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
@@ -1230,10 +1230,6 @@ db.select = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
-//    if (!options._cached && (options.cached || this.caching.indexOf(table) > -1)) {
-//        options._cached = 1;
-//        return this.getCached("select", table, query, options, callback);
-//    }
     var req = this.prepare(Array.isArray(query) ? "list" : "select", table, query, options);
     this.query(req, options, callback);
 }
@@ -1746,20 +1742,32 @@ db.processRows = function(pool, table, rows, options)
 {
     var self = this;
     if (!pool) pool = this.getPool(table, options);
-	if ((!pool.processRow[table] || !pool.processRow[table].length) && !options.noJson) return;
-
+    var hooks = pool.processRow[table];
+	if ((!hooks || !hooks.length) && !options.noJson) return rows;
 	var cols = pool.dbcolumns[(table || "").toLowerCase()] || {};
+
 	function processRow(row) {
 	    if (options.noJson) {
 	        for (var p in cols) {
-	            if (cols[p].type == "json" && typeof row[p] == "string" && row[p]) row[p] = core.jsonParse(row[p], { logging : 1 });
+	            if (cols[p].type == "json" && typeof row[p] == "string" && row[p]) {
+	                row[p] = core.jsonParse(row[p], { logging : 1 });
+	            }
 	        }
 	    }
-	    if (Array.isArray(pool.processRow[table])) {
-	        pool.processRow[table].forEach(function(x) { x.call(pool, row, options, cols); });
+	    // Stop of the first hook returning true to remove this row from the list
+	    if (Array.isArray(hooks)) {
+	        for (var i = 0; i < hooks.length; i++) {
+	            if (hooks[i].call(pool, row, options, cols) === true) return false;
+	        }
 	    }
+	    return true;
 	}
-	if (Array.isArray(rows)) rows.forEach(processRow); else processRow(rows);
+	if (Array.isArray(rows)) {
+	    rows = rows.filter(processRow);
+	} else {
+	    processRow(rows);
+	}
+	return rows;
 }
 
 // Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
@@ -1770,6 +1778,8 @@ db.processRows = function(pool, table, rows, options)
 // The callback accepts 3 arguments: function(row, options, columns)
 //   where - row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
 //
+// **If the callback returns true, row will be filtered out and not included in the final result set.**
+//
 // NOTE: This callback will be called before checking for public or semipublic columns, in the case when these columns are needed
 // by the post hooks, options can be set with `options.semipub=1`, in this case when query ends it will not delete semipub columns and
 // the post process hooks will be responsible for this.
@@ -1779,6 +1789,10 @@ db.processRows = function(pool, table, rows, options)
 //
 //      db.setProcessRow("bk_account", function(row, opts, cols) {
 //          if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+//      });
+//
+//      db.setProcessRow("bk_icon", function(row, opts, cols) {
+//          if (row.type == "private" && row.id != opts.account.id) return true;
 //      });
 //
 db.setProcessRow = function(table, options, callback)
@@ -3017,6 +3031,7 @@ db.dynamodbInitPool = function(options)
             async.doUntil(
                function(next) {
                    aws[op](table, keys, opts, function(err, item) {
+                       if (opts.total) item.Items.push({ count: item.Count });
                        rows.push.apply(rows, item.Items);
                        client.next_token = item.LastEvaluatedKey ? aws.fromDynamoDB(item.LastEvaluatedKey) : null;
                        opts.count -= item.Items.length;
