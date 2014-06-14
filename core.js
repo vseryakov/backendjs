@@ -243,6 +243,9 @@ core.init = function(options, callback)
     if (!options) options = {};
     var db = self.context.db;
 
+    // Process role
+    if (options.role) this.role = options.role;
+
     // Random proces id to be used as a prefix in clusters
     self.pid = crypto.randomBytes(4).toString('hex');
 
@@ -266,6 +269,7 @@ core.init = function(options, callback)
             self.ipaddrs.push(y.address);
         });
     });
+
     // Default domain from local host name
     self.domain = self.domainName(os.hostname());
     // Default config file
@@ -279,6 +283,7 @@ core.init = function(options, callback)
 
         // Load config params from the DNS TXT records, only the ones marked as dns
         function(next) {
+            if (options.noInit) return next();
             self.loadDnsConfig(options, next);
         },
 
@@ -303,11 +308,13 @@ core.init = function(options, callback)
         },
 
         function(next) {
+            if (options.noInit) return next();
             // Custom application init
             self.preInit.call(self, next);
         },
 
         function(next) {
+            if (options.noInit) return next();
             // Run all configure methods for every module
             async.forEachSeries(Object.keys(self.context), function(name, next2) {
                 var ctx = self.context[name];
@@ -317,7 +324,14 @@ core.init = function(options, callback)
         },
 
         function(next) {
+            if (options.noInit) return next();
             db.init(options, next);
+        },
+
+        // Load all available config parameters from the config database for the specified config type
+        function(next) {
+            if (options.noInit) return next();
+            self.loadDbConfig(options, next);
         },
 
         // Make sure spool and db files are owned by regular user, not the root
@@ -328,19 +342,10 @@ core.init = function(options, callback)
             next();
         },
 
-        // Load all available config parameters from the config database for the specified config type
         function(next) {
-            self.loadDbConfig(options, next);
-        },
-
-        // Send pending requests
-        function(next) {
-            self.processRequestQueue(next);
-        },
-
-        function(next) {
+            if (options.noInit) return next();
             // Can only watch existing files, new config files will be ignored after the start up
-            async.forEachSeries([self.configFile, self.cfgFile ||""], function(file, next2) {
+            async.forEachSeries([self.configFile, self.cfgFile || ""], function(file, next2) {
                 fs.exists(file, function(exists) {
                     if (!exists) return next2();
                     fs.watch(file, function (event, filename) {
@@ -352,6 +357,7 @@ core.init = function(options, callback)
         },
 
         function(next) {
+            if (options.noInit) return next();
             self.postInit.call(self, next);
         }],
 
@@ -605,7 +611,7 @@ core.loadDbConfig = function(options, callback)
     if (!options) options = {};
     var db = self.context.db;
 
-    if (!db.configType || !db.getPoolByName(db.config)) return callback ? callback() : null;
+    if (!db.config || !db.getPoolByName(db.config)) return callback ? callback() : null;
 
     db.select("bk_config", { type: db.configType }, { select: ['name','value'], pool: db.config }, function(err, rows) {
         var argv = [];
@@ -614,7 +620,7 @@ core.loadDbConfig = function(options, callback)
             if (x.value) argv.push(x.value);
         });
         self.parseArgs(argv);
-        callback();
+        if (callback) callback();
     });
 }
 
@@ -1257,21 +1263,17 @@ core.sendRequest = function(options, callback)
         if (options.queue) {
             if (params.status == 200) {
                 if (options.id) {
-                    db.del("bk_queue", { id: options.id });
+                    db.del("bk_queue", { id: options.id }, { pool: db.local });
                 }
             } else {
                 options.counter = self.toNumber(options.counter) + 1;
                 if ((options.retries && options.counter > options.retries) ||
                     (options.expires && Date.now() > options.expires)) {
                     if (options.id) {
-                        db.del("bk_queue", { id: options.id });
+                        db.del("bk_queue", { id: options.id }, { pool: db.local });
                     }
                 } else {
-                    db.put("bk_queue", { id: options.id || self.uuid(), data: options, ctime: Date.now() });
-
-                    if (!self.requestQueueTimer) {
-                        self.requestQueueTimer = setInterval(function() { self.processRequestQueue() }, self.requestQueueInterval || 30000);
-                    }
+                    db.put("bk_queue", { id: options.id || self.uuid(), data: options, ctime: Date.now() }, { pool: db.local });
                 }
             }
         }
@@ -1304,10 +1306,7 @@ core.processRequestQueue = function(callback)
     var self = this;
     var db = self.context.db;
 
-    db.select("bk_queue", {}, { sort: "mtime" } , function(err, rows) {
-        if (!rows.length && self.requestQueueTimer) {
-            clearInterval(self.requestQueueTimer);
-        }
+    db.select("bk_queue", {}, { sort: "mtime", pool: db.local } , function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
             if (self.typeName(row.data) != "object") return next();
             for (var p in row) if (p != "data") row.data[p] = row[p];
@@ -2753,21 +2752,17 @@ core.watchFiles = function(dir, pattern, callback)
     });
 }
 
-// Watch log files for errors and report via email
+// Watch log files for errors and report via email or POST url
 core.watchLogs = function(callback)
 {
     var self = this;
+    var db = self.context.db;
 
-    // Need email to send
-    if (!self.logwatcherEmail && !self.logwatcherUrl) return callback ? callback() : false;
+    // Check interval
+    self.logwatcherMtime = Date.now();
 
     // From address, use current hostname
     if (!self.logwatcherFrom) self.logwatcherFrom = "logwatcher@" + (self.domain || os.hostname());
-
-    // Check interval
-    var now = Date.now();
-    if (self.logwatcherMtime && (now - self.logwatcherMtime)/1000 < self.logwatcherInterval*60) return;
-    self.logwatcherMtime = now;
 
     var match = null;
     if (self.logwatcherMatch) {
@@ -2777,7 +2772,6 @@ core.watchLogs = function(callback)
     if (self.logwatcherIgnore) {
         try { ignore = new RegExp(self.logwatcherIgnore.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) { logger.error('watchLogs:', e, self.logwatcherIgnore) }
     }
-    var db = self.context.db;
 
     // Load all previous positions for every log file, we start parsing file from the previous last stop
     db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' }, pool: db.local }, function(err, rows) {
@@ -2833,7 +2827,8 @@ core.watchLogs = function(callback)
                 logger.log('logwatcher:', 'found errors, send report to', self.logwatcherEmail, self.logwatcherUrl);
                 if (self.logwatcherUrl) {
                     self.sendRequest({ url: self.logwatcherUrl, queue: true, headers: { "content-type": "text/plain" }, postdata: errors }, callback);
-                } else {
+                } else
+                if (self.logwatcherEmail) {
                     self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, callback);
                 }
             } else {

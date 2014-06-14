@@ -87,86 +87,50 @@ server.start = function()
 
     // Mark the time we started for calculating idle times properly
     self.jobTime = core.now();
-
+    process.title = core.name + ": process";
     logger.debug("server: start", process.argv);
 
-    var options = {};
-    // Because core.init always initialize the whole environment we must disable some features
-    // in some cases like monitor does not need all db pools, etc..
-    if (!core.isArg("-shell") && core.isArg(["-daemon", "-proxy", "-watch", "-monitor"])) {
-        options.noPools = options.noDns = 1;
+    // REPL shell
+    if (core.isArg("-shell")) {
+        return core.init({ role: "shell" }, function() { self.startShell(); });
     }
 
-    // Parse all params and load config file
-    core.init(options, function() {
-        process.title = core.name + ": process";
+    // Go to background
+    if (core.isArg("-daemon")) {
+        return core.init({ role: "daemon", noInit: 1 }, function() { self.startDaemon(); });
+    }
 
-        // REPL shell
-        if (core.isArg("-shell")) {
-            return self.startShell();
-        }
+    // Graceful shutdown, kill all children processes
+    process.once('exit', function() { self.onexit()  });
+    process.once('SIGTERM', function () { self.onkill(); });
 
-        // Go to background
-        if (core.isArg("-daemon")) {
-            return self.startDaemon();
-        }
+    // Watch monitor for modified source files, for development mode only, in production -monitor is used
+    if (core.isArg("-watch")) {
+        return core.init({ role: "watcher", noInit: 1 }, function() { self.startWatcher(); });
+    }
 
-        // Graceful shutdown, kill all children processes
-        process.once('exit', function() {
-            self.exiting = true;
-            if (self.child) self.child.kill('SIGTERM');
-            for (var pid in self.pids) { try { process.kill(pid) } catch(e) {} };
-        });
+    // Start server monitor, it will watch the process and restart automatically
+    if (core.isArg("-monitor")) {
+        return core.init({ role: "monitor", noInit: 1 }, function() { self.startMonitor(); });
+    }
 
-        process.once('SIGTERM', function () {
-            self.terminate();
-        });
+    // Master server
+    if (core.isArg("-master")) {
+        return core.init({ role: "master" }, function() { self.startMaster(); });
+    }
 
-        // Watch monitor for modified source files, for development mode only, in production -monitor is used
-        if (core.isArg("-watch")) {
-            self.startWatcher();
-        } else
-
-        // Start server monitor, it will watch the process and restart automatically
-        if (core.isArg("-monitor")) {
-            self.startMonitor();
-        } else
-
-        // Master server
-        if (core.isArg("-master")) {
-            self.startMaster();
-        } else
-
-        // Backend Web server
-        if (core.isArg("-web")) {
-            self.startWeb();
-        }
-    });
-}
-
-// Terminates the server process
-server.terminate = function()
-{
-    this.exiting = true;
-    process.exit(0);
+    // Backend Web server
+    if (core.isArg("-web")) {
+        return core.init({ role: "web" }, function() { self.startWeb(); });
+    }
 }
 
 // Start process monitor, running as root
 server.startMonitor = function()
 {
-    var self = this;
     process.title = core.name + ': monitor';
     core.role = 'monitor';
-
-    if (cluster.isMaster) {
-        this.startProcess();
-
-        // Log watcher job
-        setInterval(function() { self.execJob("core.watchLogs"); }, core.logwatcherInterval*60000 + 1000);
-
-    } else {
-        this.startWorker();
-    }
+    this.startProcess();
 }
 
 // Setup worker environment
@@ -187,15 +151,14 @@ server.startMaster = function()
         // Setup background tasks
         this.loadSchedules();
 
-        // Watch config directory for changes
-        fs.watch(core.path.etc, function (event, filename) {
-            logger.debug('watcher:', event, filename);
-            switch (filename) {
-            case "crontab":
-                core.setTimeout(filename, function() { self.loadSchedules(); }, 5000);
-                break;
-            }
-        });
+        // Log watcher job
+        if (core.logwatcherEmail || core.logwatcherUrl) {
+            setInterval(function() { self.execJob("core.watchLogs"); }, core.logwatcherInterval * 60000);
+        }
+
+        // Pending requests from local queue
+        core.processRequestQueue();
+        setInterval(function() { core.processRequestQueue() }, core.requestQueueInterval || 60000);
 
         // Maintenance tasks
         setInterval(function() {
@@ -734,6 +697,21 @@ server.startTestServer = function(options)
     logger.log('startTestMaster: started', options || "");
 }
 
+// Kill all child processes on exit
+server.onexit = function()
+{
+    this.exiting = true;
+    if (this.child) try { this.child.kill('SIGTERM'); } catch(e) {}
+    for (var pid in this.pids) { try { process.kill(pid) } catch(e) {} };
+}
+
+// Terminates the server process
+server.onkill = function()
+{
+    this.exiting = true;
+    process.exit(0);
+}
+
 // Sleep and keep a worker busy
 server.sleep = function(options, callback)
 {
@@ -1106,7 +1084,7 @@ server.loadSchedules = function()
 {
     var self = this;
 
-    fs.readFile("etc/crontab", function(err, data) {
+    fs.readFile(core.path.etc + "/crontab", function(err, data) {
         if (err || !data || !data.length) return;
         data = data.toString();
         try {
@@ -1120,9 +1098,16 @@ server.loadSchedules = function()
                 });
             }
             logger.log("loadSchedules:", self.crontab.length, "schedules");
+
         } catch(e) {
             logger.log('loadSchedules:', e, data);
         }
+    });
+
+    // Watch config directory for changes
+    if (this.cronWatcher) return;
+    this.cronWatcher = fs.watch(core.path.etc, function (event, filename) {
+        if (filename == "crontab") core.setTimeout(filename, function() { self.loadSchedules(); }, 5000);
     });
 }
 

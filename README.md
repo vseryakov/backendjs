@@ -1531,9 +1531,9 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 - config database
 
   If `-db-config` is specified in the command line or `db-config=` in the local config file, this will trigger loading additional
-  config parameters from the specified databae pool, it will load all records from tbe bk_config table on that db pool. `db-config` defines the
-  configuration group or type to load, by default the config group is 'core', so even if ther is only one config group it must be specified in the `db-config`
-  parameter. Using the database to store configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
+  config parameters from the specified databae pool, it will load all records from tbe bk_config table on that db pool. `db-config-type` defines the
+  configuration group or type to load, by default all records will be use for config parameters if not specified. Using the database to store
+  configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
   a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.
 
 - DNS records
