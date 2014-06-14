@@ -1416,7 +1416,7 @@ new image configuration.</p>
 <li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
 <li>login as <code>ec2-user</code></li>
 <li><p>install commands</p>
-<pre><code>  curl -o /tmp/bkjs https://raw.githubusercontent.com/vseryakov/backendjs/master/bkjs &amp;&amp; chmod 755 /tmp/bkjs
+<pre><code>  curl -L -o /tmp/bkjs http://backendjs.io/bkjs &amp;&amp; chmod 755 /tmp/bkjs
   sudo /tmp/bkjs init-server -home $HOME -user $(whoami) -prefix $HOME
   /tmp/bkjs init-devel
   /tmp/bkjs build-node -prefix $HOME
@@ -1718,7 +1718,9 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-unsecure</code> - Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution. Default: </li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: </li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: </li>
+<li><code>api-allow-connection</code> - List of connection types that are allowed only, this limits types of connections to be used for all accounts. Default: </li>
 <li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints. Default: </li>
+<li><code>api-icon-limit</code> - Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type. Default: [object Object]</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: ^/$,.html$,.(ico|gif|png|jpg|svg)$,.(ttf|eof|woff)$,.(js|css)$,^/public,^/account/add$</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
@@ -2244,20 +2246,21 @@ events using account id as a key.</p>
 </ul>
 
 <ul>
-<li><p><code>api.handleIcon(req, res, options)</code></p>
-<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkIcon(req, id, row)</code></p>
-<p> Verify icon permissions for given account id, returns true if allowed</p>
+<li><p><code>api.handleIconRequest(req, res, options)</code></p>
+<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
+Verify icon limits before adding new icons</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>api.formatIcon(row, account)</code></p>
-<p> Return formatted icon URL for the given account</p>
+<p> Return formatted icon URL for the given account, verify permissions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkIcon(row, options, cols)</code></p>
+<p> Verify icon permissions and format for the result, used in setProcessrow for the bk_icon table</p>
 </li>
 </ul>
 
@@ -4525,6 +4528,7 @@ specified table thus providing an opportunity to customize the result.</p>
 <p>All assigned callback to this table will be called in the order of the assignment.</p>
 <p>The callback accepts 3 arguments: function(row, options, columns)
  where - row is a row from the table, options are the obj passed to the db called and columns is an object with table&#39;s columns</p>
+<p><strong>If the callback returns true, row will be filtered out and not included in the final result set.</strong></p>
 <p>NOTE: This callback will be called before checking for public or semipublic columns, in the case when these columns are needed
 by the post hooks, options can be set with <code>options.semipub=1</code>, in this case when query ends it will not delete semipub columns and
 the post process hooks will be responsible for this.</p>
@@ -4533,6 +4537,10 @@ the post process hooks will be responsible for this.</p>
 <p>  Example</p>
 <pre><code>  db.setProcessRow(&quot;bk_account&quot;, function(row, opts, cols) {
       if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+  });
+
+  db.setProcessRow(&quot;bk_icon&quot;, function(row, opts, cols) {
+      if (row.type == &quot;private&quot; &amp;&amp; row.id != opts.account.id) return true;
   });
 </code></pre>
 <ul>
