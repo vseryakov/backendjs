@@ -1446,9 +1446,9 @@ defined via command line arguments as <code>-home</code> or via environment vari
 </code></pre></li>
 <li><p>config database</p>
 <p>If <code>-db-config</code> is specified in the command line or <code>db-config=</code> in the local config file, this will trigger loading additional
-config parameters from the specified databae pool, it will load all records from tbe bk_config table on that db pool. <code>db-config</code> defines the
-configuration group or type to load, by default the config group is &#39;core&#39;, so even if ther is only one config group it must be specified in the <code>db-config</code>
-parameter. Using the database to store configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
+config parameters from the specified databae pool, it will load all records from tbe bk_config table on that db pool. <code>db-config-type</code> defines the
+configuration group or type to load, by default all records will be use for config parameters if not specified. Using the database to store
+configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
 a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.</p>
 </li>
 <li><p>DNS records
@@ -1642,7 +1642,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns. Default: [[0-9]+]: (ERROR|WARNING): ,message&quot;:&quot;ERROR:,queryAWS:.+Errors:</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes. Default: 60</li>
 <li><code>logwatcher-file</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
-<li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers. Default: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:20.0) Gecko/20100101 Firefox/20.0,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.29.13 (KHTML, like Gecko) Version/6.0.4 Safari/536.29.13,Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.65 Safari/537.31,Mozilla/5.0 (X11; Linux i686) AppleWebKit/534.34 (KHTML, like Gecko) Safari/534.34,Opera/9.80 (Macintosh; Intel Mac OS X 10.7.5) Presto/2.12.388 Version/12.15,Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727,Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.2; BRI/2</li>
+<li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers. Default: </li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
 <li><code>backend-secret</code> - Credentials secret for the master backend access when using core.sendRequest</li>
@@ -1656,8 +1656,8 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-no-pools</code> - Do not use other db pools except default local pool</li>
 <li><code>db-caching</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: </li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: sqlite</li>
-<li><code>db-config</code> - Configuration database pool for config parameters, if not defined the default pool will be used</li>
-<li><code>db-config-type</code> - Config group to use when requesting confguration from the database, must be defined to be used</li>
+<li><code>db-config</code> - Configuration database pool for config parameters, must be defined to use remote db for config parameters</li>
+<li><code>db-config-type</code> - Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded</li>
 <li><code>db-sqlite-pool</code> - SQLite pool db name, absolute path or just a name. Default: backend</li>
 <li><code>db-sqlite-max</code> - Max number of open connection for the pool</li>
 <li><code>db-sqlite-idle</code> - Number of ms for a connection to be idle before being destroyed. Default: 86400000</li>
@@ -2459,7 +2459,7 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
-<li><p><code>api.deleteAccount(obj, options, callback)</code></p>
+<li><p><code>api.deleteAccount(id, options, callback)</code></p>
 <p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
 The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
 delete an account but keep all messages and location: keep: { message: 1, location: 1 }</p>
@@ -2485,6 +2485,12 @@ delete an account but keep all messages and location: keep: { message: 1, locati
 </ul>
 
 <h2 id="module-aws">Module: AWS</h2>
+<ul>
+<li><p><code>aws.configure(options, callback)</code></p>
+<p> Initialization of metadata</p>
+</li>
+</ul>
+
 <ul>
 <li><p><code>aws.queryAWS(proto, method, host, path, obj, callback)</code></p>
 <p> Make AWS request, return parsed response as Javascript object or null in case of error</p>
@@ -3629,7 +3635,7 @@ This function is not async-safe, it uses sync calls</p>
 
 <ul>
 <li><p><code>core.watchLogs(callback)</code></p>
-<p> Watch log files for errors and report via email</p>
+<p> Watch log files for errors and report via email or POST url</p>
 </li>
 </ul>
 
@@ -5008,12 +5014,6 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 </ul>
 
 <ul>
-<li><p><code>server.terminate()</code></p>
-<p> Terminates the server process</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>server.startMonitor()</code></p>
 <p> Start process monitor, running as root</p>
 </li>
@@ -5076,6 +5076,18 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 <ul>
 <li><p><code>server.startShell()</code></p>
 <p> Start REPL shell or execute any subcommand if specified</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.onexit()</code></p>
+<p> Kill all child processes on exit</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.onkill()</code></p>
+<p> Terminates the server process</p>
 </li>
 </ul>
 
