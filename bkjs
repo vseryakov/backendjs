@@ -208,7 +208,7 @@ case "$ARG" in
        echo "#Backend $BACKEND_HOME" > /etc/logrotate.d/syslog
        echo "/var/log/cron /var/log/messages $BACKEND_HOME/log/backend.log $BACKEND_HOME/log/access.log {" >> /etc/logrotate.d/syslog
        echo " missingok" >> /etc/logrotate.d/syslog
-       echo " weekly" >> /etc/logrotate.d/syslog
+       echo " daily" >> /etc/logrotate.d/syslog
        echo " sharedscripts" >> /etc/logrotate.d/syslog
        echo " postrotate" >> /etc/logrotate.d/syslog
        echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog

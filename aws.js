@@ -88,7 +88,7 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
         if (err || !params.data) return callback ? callback(err) : null;
         var obj = null;
         try { obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e }
-        if (logger.level || params.status != 200) logger.log('queryAWS:', query, util.inspect(obj, true, null));
+        if (logger.level || params.status != 200) logger.log('queryAWS:', query, obj);
         if (callback) callback(err, obj);
     });
 }
@@ -152,7 +152,7 @@ aws.queryDDB = function (action, obj, options, callback)
         // Reply is always JSON but we dont take any chances
         try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
         if (params.status != 200) {
-            logger[options.ignore_error ? "debug" : "error"]('queryDDB:', action, util.inspect(obj, null, null), err || params.data);
+            logger[options.ignore_error ? "debug" : "error"]('queryDDB:', action, obj, err || params.data);
             // Try several times
             if (options.retries > 0 && (params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException|ThrottlingException)/))) {
                 options.retries--;

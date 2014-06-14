@@ -217,7 +217,7 @@ var api = {
            { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
-           { name: "allow-connection", array: 1, descr: "List of connection types that are allowed only, this limits types of connections to be used for all accounts" },
+           { name: "allow-connection", type: "list", array: 1, descr: "List of connection types that are allowed only, this limits types of connections to be used for all accounts" },
            { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
@@ -658,6 +658,9 @@ api.initWebServer = function() {}
 api.checkRequest = function(req, res, callback)
 {
     var self = this;
+
+    // Request options that the API routes will merge with, can be used by pre process hooks
+    req.options = {};
 
     self.checkAccess(req, function(rc1) {
         // Status is given, return an error or proceed to the next module
@@ -1415,6 +1418,8 @@ api.getOptions = function(req)
     // Disable check public verification
     var ep = req.path.substr(1).split("/").shift();
     if (ep && this.unsecure.indexOf(ep) > -1) delete options.check_public;
+    // Override with options provided in the hooks
+    for (var p in req.options) options[p] = req.options[p];
     return options;
 }
 

@@ -529,7 +529,7 @@ db.query = function(req, options, callback)
             pool.metrics.Counter("errors").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
         } else {
-            logger.debug("db.query:", pool.name, (Date.now() - t1), 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
+            logger.debug("db.query:", pool.name, Date.now() - t1, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
         }
         if (typeof callback != "function")  return;
         try {
