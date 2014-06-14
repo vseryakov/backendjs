@@ -305,8 +305,8 @@ core.init = function(options, callback)
             // Create all subfolders with permissions, run it before initializing db which may create files in the spool folder
             if (!cluster.isWorker && !self.worker) {
                 Object.keys(self.path).forEach(function(p) {
-                    self.mkdirSync(p);
-                    self.chownSync(p);
+                    self.mkdirSync(self.path[p]);
+                    self.chownSync(self.path[p]);
                 });
             }
             next();

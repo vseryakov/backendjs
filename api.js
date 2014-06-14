@@ -383,9 +383,12 @@ api.init = function(callback)
     self.app.all("/ping", function(req, res) {
         res.send(200);
     });
+
     // Return images by prefix, id and possibly type
     self.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([0-9])?$/, function(req, res) {
-        self.getIcon(req, res, req.params[1], { prefix: req.params[0], type: req.params[2] });
+        req.query.prefix = req.params[0];
+        req.query.type = req.params[2];
+        self.getIcon(req, res, req.params[1], {});
     });
 
     // Convert allow/deny lists into single regexp
@@ -942,7 +945,7 @@ api.initAccountAPI = function()
             break;
 
         case "del":
-            self.deleteAccount(req.account, options, function(err, data) {
+            self.deleteAccount(req.account.id, options, function(err, data) {
                 self.sendJSON(req, err, data);
             });
             break;
@@ -973,7 +976,8 @@ api.initAccountAPI = function()
         case "get/icon":
             if (!req.query.id) req.query.id = req.account.id;
             if (!req.query.type) req.query.type = '0';
-            self.getIcon(req, res, req.query.id, { prefix: 'account', type: req.query.type });
+            req.query.prefix = 'account';
+            self.getIcon(req, res, req.query.id, options);
             break;
 
         case "select/icon":
@@ -1055,7 +1059,7 @@ api.initIconAPI = function()
         req.query.type = req.params[2] || "";
         switch (req.params[0]) {
         case "get":
-            self.getIcon(req, res, req.query.id, { prefix: req.query.prefix, type: req.query.type, account: req.account });
+            self.getIcon(req, res, req.query.id, options);
             break;
 
         case "select":
@@ -1824,10 +1828,12 @@ api.getIcon = function(req, res, id, options)
     var self = this;
     var db = core.context.db;
 
-    db.get("bk_icon", { id: id, type: options.prefix + ":" + options.type }, options, function(err, row) {
+    db.get("bk_icon", { id: id, type: req.query.prefix + ":" + req.query.type }, options, function(err, row) {
         if (err) return self.sendReply(res, err);
         if (!row) return self.sendReply(res, 404, "Not found");
         if (row.ext) options.ext = row.ext;
+        options.prefix = req.query.prefix;
+        options.type = req.query.type;
         self.sendIcon(req, res, id, options);
     });
 }
@@ -2597,28 +2603,24 @@ api.updateAccount = function(req, options, callback)
 // Delete account specified by the obj. Used in `/account/del` API call.
 // The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
 // delete an account but keep all messages and location: keep: { message: 1, location: 1 }
-api.deleteAccount = function(obj, options, callback)
+api.deleteAccount = function(id, options, callback)
 {
     var self = this;
 
-    if (!obj || !obj.id || !obj.login) return callback({ status: 400, message: "id, login must be specified" });
+    if (!id) return callback({ status: 400, message: "id must be specified" });
 
     var db = core.context.db;
     if (!options.keep) options.keep = {};
     options.count = 1000000;
 
-    db.get("bk_account", { id: obj.id }, options, function(err, account) {
+    db.get("bk_account", { id: id }, options, function(err, obj) {
         if (err) return callback(err);
-        if (!account) return callback({ status: 404, message: "No account found" });
-        // Merge the records to be returned to the client
-        for (var p in account) if(!obj[p]) obj[p] = account[p];
+        if (!obj) return callback({ status: 404, message: "No account found" });
 
         async.series([
            function(next) {
                if (options.keep.auth) return next();
-               db.del("bk_auth", { login: obj.login }, options, function(err) {
-                   next(err);
-               });
+               db.del("bk_auth", { login: obj.login }, options, next);
            },
            function(next) {
                if (options.keep.account) return next();
@@ -2668,8 +2670,8 @@ api.deleteAccount = function(obj, options, callback)
                });
            },
            function(next) {
-               if (options.keep.location || !account.geohash) return next();
-               db.del("bk_location", { geohash: account.geohash, id: obj.id }, options, function() { next() });
+               if (options.keep.location || !obj.geohash) return next();
+               db.del("bk_location", { geohash: obj.geohash, id: obj.id }, options, function() { next() });
            }],
            function(err) {
                callback(err, obj);

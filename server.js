@@ -541,7 +541,7 @@ server.startShell = function()
                 if (process.argv[i] == "-keep") options[process.argv[i + 1]] = 1;
             }
             getUser(query, function(row) {
-                api.deleteAccount(row, options, function(err, data) {
+                api.deleteAccount(row.id, options, function(err, data) {
                     exit(err, data);
                 });
             });
