@@ -601,9 +601,10 @@ case "$ARG" in
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
     [ "$BACKEND_USER" != "$(whoami)" ] && BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS -l $BACKEND_USER"
-    echo "Deploying the module to $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $BACKEND_HOST:$BACKEND_PATH"
-    rsync -av -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $BACKEND_HOST:$BACKEND_PATH
-    rsync -av -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE web $BACKEND_HOST:$BACKEND_PATH
+    for h in $BACKEND_HOST; do
+        echo "Deploying the module to $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $h:$BACKEND_PATH"
+        rsync -av -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $h:$BACKEND_PATH
+    done
     ;;
 
   sync-backend)
