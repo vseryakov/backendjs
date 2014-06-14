@@ -40,6 +40,14 @@ var aws = {
 
 module.exports = aws;
 
+// Initialization of metadata
+aws.configure = function(options, callback)
+{
+    if (typeof options == "callback") callback = options, options = null;
+    if (os.platform() != "linux") return callback();
+    this.getInstanceInfo(callback);
+}
+
 // Make AWS request, return parsed response as Javascript object or null in case of error
 aws.queryAWS = function(proto, method, host, path, obj, callback)
 {
@@ -49,8 +57,9 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
     var sigValues = new Array();
     sigValues.push(["AWSAccessKeyId", this.key]);
     sigValues.push(["SignatureMethod", "HmacSHA256"]);
-    sigValues.push(new Array("SignatureVersion", "2"));
+    sigValues.push(["SignatureVersion", "2"]);
     sigValues.push(["Timestamp", formattedTime]);
+    if (this.securityToken) sigValues.push(["SecurityToken", this.securityToken]);
 
     // Mix in the additional parameters. params must be an Array of tuples as for sigValues above
     for (var p in obj) {
@@ -304,12 +313,6 @@ aws.getInstanceInfo = function(callback)
 
     async.series([
         function(next) {
-            self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, idx) {
-                if (!err && idx) self.instanceIndex = core.toNumber(idx);
-                next(err);
-            });
-        },
-        function(next) {
             self.getInstanceMeta("/latest/meta-data/instance-id", function(err, id) {
                 if (!err && id) core.instanceId = id;
                 next(err);
@@ -325,7 +328,7 @@ aws.getInstanceInfo = function(callback)
             self.getInstanceCredentials(next);
         },
         ], function(err) {
-            if (!err) logger.log('getInstanceInfo:', self.name, 'id:', core.instanceId, 'idx:', self.instanceIndex, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration);
+            logger.debug('getInstanceInfo:', self.name, 'id:', core.instanceId, 'idx:', self.instanceIndex, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration, err || "");
             if (callback) callback();
     });
 }

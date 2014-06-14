@@ -106,17 +106,7 @@ var core = {
                        { name: "errFile", match: /.+/, } ],
 
     // User agent
-    userAgent: [ "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0",
-                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:21.0) Gecko/20100101 Firefox/21.0",
-                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:20.0) Gecko/20100101 Firefox/20.0",
-                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.29.13 (KHTML, like Gecko) Version/6.0.4 Safari/536.29.13",
-                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.65 Safari/537.31",
-                 "Mozilla/5.0 (X11; Linux i686) AppleWebKit/534.34 (KHTML, like Gecko) Safari/534.34",
-                 "Opera/9.80 (Macintosh; Intel Mac OS X 10.7.5) Presto/2.12.388 Version/12.15",
-                 "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20100101 Firefox/21.0",
-                 "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727",
-                 "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.2; BRI/2",
-    ],
+    userAgent: [],
 
     // Config parameters
     args: [ { name: "help", type: "callback", value: function() { core.showHelp() }, descr: "Print help and exit" },
@@ -313,7 +303,17 @@ core.init = function(options, callback)
         },
 
         function(next) {
+            // Custom application init
             self.preInit.call(self, next);
+        },
+
+        function(next) {
+            // Run all configure methods for every module
+            async.forEachSeries(Object.keys(self.context), function(name, next2) {
+                var ctx = self.context[name];
+                if (!ctx.configure) return next2();
+                ctx.configure(options, next2);
+            }, next);
         },
 
         function(next) {
@@ -942,7 +942,7 @@ core.httpGet = function(uri, params, callback)
     options.rejectUnauthorized = false;
 
     // Make sure required headers are set
-    if (!options.headers['user-agent']) {
+    if (!options.headers['user-agent'] && this.userAgent.length) {
         options.headers['user-agent'] = this.userAgent[this.randomInt(0, this.userAgent.length-1)];
     }
     if (options.method == "POST" && !options.headers["content-type"]) {
