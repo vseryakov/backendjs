@@ -298,6 +298,13 @@ tests.account = function(callback)
     });
 }
 
+tests.resetTables = function(tables, callback)
+{
+    db.dropPoolTables(db.pool, tables, function() {
+        db.initPoolTables(db.pool, tables, callback);
+    });
+}
+
 tests.location = function(callback)
 {
 	var self = this;
@@ -315,8 +322,8 @@ tests.location = function(callback)
 	var bbox = this.bbox;
     var rows = core.getArgInt("-rows", 10);
     var distance = core.getArgInt("-distance", 25);
-    var round = core.getArgInt("-round", 0)
-    var reuse = core.getArgInt("-reuse", 0)
+    var round = core.getArgInt("-round", 0);
+    var reset = core.getArgInt("-reset", 1);
     var latitude = core.getArgInt("-lat", core.randomNum(bbox[0], bbox[2]))
     var longitude = core.getArgInt("-lon", core.randomNum(bbox[1], bbox[3]))
 
@@ -330,12 +337,8 @@ tests.location = function(callback)
 
     async.series([
         function(next) {
-            if (cluster.isWorker || reuse || core.test.iterations) return next();
-            db.dropPoolTables("", tables, next);
-        },
-        function(next) {
-            if (cluster.isWorker || reuse || core.test.iterations) return next();
-        	db.initTables(tables, next);
+            if (!cluster.isMaster && !reset) return next();
+            self.resetTables(tables, next);
         },
         function(next) {
             if (reuse) return next();
@@ -489,10 +492,7 @@ tests.db = function(callback)
 
 	async.series([
 	    function(next) {
-	         db.dropPoolTables("", tables, next);
-	    },
-	    function(next) {
-	    	db.initTables(tables, next);
+	         self.resetTables(tables, next);
 	    },
 	    function(next) {
             db.add("test1", { id: id, email: id, num: '1', num2: null, num3: 1, num4: 1 }, function(err) {

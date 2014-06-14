@@ -908,24 +908,23 @@ db.batch = function(table, op, objs, options, callback)
 
 // Convenient helper for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
 // records matching given criteria. The obj is the same as passed to the `db.select` method which defined a condition which records to get.
-// The rowCallback must be present and is called for every rows batch retrieved and second parameter which is the function to be called
+// The rowCallback must be present and is called for every row or batch retrieved and second parameter which is the function to be called
 // once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
 // Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.
 //
 // Parameters:
 //  - table - table to scan
 //  - query - an object with query conditions, same as in `db.select`
-//  - options - same as in `db.select`, the only required property is `count` to specify sixe of every batch, default is 100
+//  - options - same as in `db.select`, the only required property is `count` to specify size of every batch, default is 100
+//  - batch - if true rowCallback will be called with all rows from the batch, not every row individually
 //  - rowCallback - process records when called like this `callback(rows, next)
 //  - endCallback - end of scan when called like this: `callback(err)
 //
 //  Example:
 //
-//          db.scan("bk_account", {}, { count:10, pool:"dynamodb" }, function(rows, next) {
-//              async.forEachSeries(rows, function(row, next2) {
-//                  // Copy all accounts from one db into another
-//                  db.add("bk_account", row, { pool: "pgsql" }, next2)
-//              }, next);
+//          db.scan("bk_account", {}, { count: 10, pool: "dynamodb" }, function(row, next) {
+//              // Copy all accounts from one db into another
+//              db.add("bk_account", row, { pool: "pgsql" }, next);
 //          }, function(err) { });
 //
 db.scan = function(table, query, options, rowCallback, callback)
@@ -942,10 +941,12 @@ db.scan = function(table, query, options, rowCallback, callback)
       function(next) {
           db.select(table, query, options, function(err, rows, info) {
               if (err) return next(err);
-              rowCallback(rows, function(err) {
-                  options.start = info.next_token;
-                  next(err);
-              });
+              options.start = info.next_token;
+              if (options.batch) {
+                  rowCallback(rows, next);
+              } else {
+                  async.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next)
+              }
           });
       }, function(err) {
           if (callback) callback(err);
