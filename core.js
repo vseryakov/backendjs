@@ -516,6 +516,9 @@ core.processArgs = function(name, ctx, argv, pass)
             case "regexp":
                 put(obj, key, new RegExp(val), x);
                 break;
+            case "regexpmap":
+                obj[key] = self.toRegexpMap(x.set ? null : obj[key], val, x.del);
+                break;
             case "json":
                 put(obj, key, JSON.parse(val), x);
                 break;
@@ -523,7 +526,7 @@ core.processArgs = function(name, ctx, argv, pass)
                 put(obj, key, path.resolve(val), x);
                 break;
             case "file":
-                try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', val, e); }
+                try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', key, val, e); }
                 break;
             case "callback":
                 if (typeof x.value == "string") {
@@ -765,6 +768,29 @@ core.toValue = function(val, type)
     default:
         return String(val);
     }
+}
+
+// Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in config type `regexpmap`
+core.toRegexpMap = function(obj, val, del)
+{
+    if (this.typeName(obj) != "object") obj = {};
+    if (!Array.isArray(obj.list)) obj.list = [];
+    if (val) {
+        if (del) {
+            obj.list.splice(obj.list.indexOf(val), 1);
+        } else {
+            if (Array.isArray(val)) obj.list = obj.list.concat(val); else obj.list.push(val);
+        }
+    }
+    obj.rx = null;
+    if (obj.list.length) {
+        try {
+            obj.rx = new RegExp(obj.list.map(function(x) { return "(" + x + ")"}).join("|"));
+        } catch(e) {
+            logger.error('toRegexpMap:', val, e);
+        }
+    }
+    return obj;
 }
 
 // Returns true if the given type belongs to the numeric family

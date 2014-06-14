@@ -40,28 +40,7 @@ var backend = require(__dirname + '/build/Release/backend');
 // the worker processes if they die and restart them automatically. How many processes to spawn can be configured via `-server-max-workers` config parameter.
 var api = {
 
-    // No authentication for these urls
-    allow: ["^/$",
-            "\\.html$",
-            "\\.(ico|gif|png|jpg|svg)$",
-            "\\.(ttf|eof|woff)$",
-            "\\.(js|css)$",
-            "^/public",
-            "^/account/add$" ],
-
-    // Only for admins
-    allowAdmin: [],
-    // Allow only HTTPS requests
-    allowSsl: [],
-
-    // Refuse access to these urls
-    deny: [],
-
-    // Where images/file are kept
-    imagesUrl: '',
-    imagesS3: '',
-    fileS3: '',
-
+    // Main tables to support default endpoints
     tables: {
         // Authentication by login, only keeps id and secret to check the siganture
         bk_auth: { login: { primary: 1 },                   // Account login
@@ -169,9 +148,23 @@ var api = {
     // Post process, callbacks to be called after successfull API calls, takes as input the result.
     hooks: { access: [], auth: [], post: [] },
 
+    // No authentication for these urls
+    allow: core.toRegexpMap(null, ["^/$", "\\.html$", "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$", "\\.ttf$", "\\.eof$", "\\.woff$", "\\.js$", "\\.css$", "^/public", "^/account/add$" ]),
+    // Only for admins
+    allowAdmin: {},
+    // Allow only HTTPS requests
+    allowSsl: {},
+    // Refuse access to these urls
+    deny: {},
+
+    // Where images/file are kept
+    imagesUrl: '',
+    imagesS3: '',
+    fileS3: '',
+
     // Disabled API endpoints
     disable: [],
-    disableSession: [],
+    disableSession: {},
     caching: [],
     unsecure: [],
     templating: "ejs",
@@ -223,19 +216,19 @@ var api = {
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
-           { name: "disable-session", type: "list", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
+           { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-connection", array: 1, descr: "List of connection types that are allowed only, this limits types of connections to be used for all accounts" },
-           { name: "allow-admin", array: 1, descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
+           { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
-           { name: "allow", array: 1, set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
-           { name: "allow-path", array: 1, key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
-           { name: "disallow-path", type: "callback", value: function(v) {this.allow.splice(this.allow.indexOf(v),1)}, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
-           { name: "allow-ssl", array: 1, descr: "Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused" },
-           { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
-           { name: "deny", array: 1, set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
-           { name: "deny-path", array: 1, key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
+           { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
+           { name: "allow-path", type: "regexpmap", key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
+           { name: "disallow-path", type: "regexpmap", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
+           { name: "allow-ssl", type: "regexpmap", descr: "Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused" },
+           { name: "deny", type:" regexpmap", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
+           { name: "deny-path", type: "regexpmap", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
+           { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
 
@@ -391,11 +384,6 @@ api.init = function(callback)
         self.getIcon(req, res, req.params[1], {});
     });
 
-    // Convert allow/deny lists into single regexp
-    if (this.allow.length) this.allowRx = new RegExp(this.allow.map(function(x) { return "(" + x + ")"}).join("|"));
-    if (this.allowSsl.length) this.allowSslRx = new RegExp(this.allowSsl.map(function(x) { return "(" + x + ")"}).join("|"));
-    if (this.deny.length) this.denyRx = new RegExp(this.deny.map(function(x) { return "(" + x + ")"}).join("|"));
-
     // Managing accounts, basic functionality
     for (var p in self.endpoints) {
         if (self.disable.indexOf(p) == -1) self[self.endpoints[p]].call(this);
@@ -407,26 +395,24 @@ api.init = function(callback)
     if (!self.tables.bk_connection) delete self.tables.bk_reference;
 
     // Disable access to endpoints if session exists, meaning Web app
-    self.disableSession.forEach(function(x) {
-        self.registerPreProcess('', new RegExp(x), function(req, status, cb) {
+    if (self.disableSession.rx) {
+        self.registerPreProcess('', self.disableSession.rx, function(req, status, cb) {
             if (req.session && req.session['bk-signature']) return cb({ status: 401, message: "Not authorized" });
             cb();
         });
-    });
+    }
 
     // Admin only access
-    if (self.allowAdmin.length) {
-        self.allowAdminRx = new RegExp(self.allowAdmin.map(function(x) { return "(" + x + ")"}).join("|"));
-        self.registerPreProcess('', self.allowAdminRx, function(req, status, cb) {
+    if (self.allowAdmin.rx) {
+        self.registerPreProcess('', self.allowAdmin.rx, function(req, status, cb) {
             if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
             cb();
         });
     }
 
     // SSL only access
-    if (self.allowSsl.length) {
-        self.allowSslRx = new RegExp(self.allowSsl.map(function(x) { return "(" + x + ")"}).join("|"));
-        self.registerPreProcess('', self.allowSslRx, function(req, status, cb) {
+    if (self.allowSsl.rx) {
+        self.registerPreProcess('', self.allowSsl.rx, function(req, status, cb) {
             if (req.socket.server != self.sslserver) return cb({ status: 404, message: "ssl only" });
             cb();
         });
@@ -807,8 +793,8 @@ api.checkBody = function(req, res, next)
 api.checkAccess = function(req, callback)
 {
     var self = this;
-    if (this.denyRx && req.path.match(this.denyRx)) return callback({ status: 403, message: "Access denied" });
-    if (this.allowRx && req.path.match(this.allowRx)) return callback({ status: 200, message: "" });
+    if (this.deny.rx && req.path.match(this.deny.rx)) return callback({ status: 403, message: "Access denied" });
+    if (this.allow.rx && req.path.match(this.allow.rx)) return callback({ status: 200, message: "" });
 
     // Call custom access handler for the endpoint
     var hooks = this.findHook('access', req.method, req.path);
