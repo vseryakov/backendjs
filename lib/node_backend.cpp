@@ -5,6 +5,7 @@
 
 #include "node_backend.h"
 #include "snappy.h"
+#include "bkunzip.h"
 
 string exceptionString(TryCatch* try_catch)
 {
@@ -389,6 +390,34 @@ static Handle<Value> snappyUncompress(const Arguments& args)
    return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
 }
 
+static Handle<Value> unzipFile(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, zip);
+   REQUIRE_ARGUMENT_STRING(1, file);
+   OPTIONAL_ARGUMENT_STRING(2, outfile);
+
+   if (args.Length() == 3) {
+       int rc = VUnzip::unzip(*zip, *file, *outfile);
+       return scope.Close(Local<Integer>::New(Integer::New(rc)));
+   }
+
+   string out = VUnzip::toString(*zip, *file);
+   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+}
+
+static Handle<Value> unzip(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, zip);
+   REQUIRE_ARGUMENT_STRING(1, dir);
+
+   int rc = VUnzip::unzip(*zip, *dir);
+   return scope.Close(Local<Integer>::New(Integer::New(rc)));
+}
+
 void backend_init(Handle<Object> target)
 {
     HandleScope scope;
@@ -418,6 +447,9 @@ void backend_init(Handle<Object> target)
     NODE_SET_METHOD(target, "geoHashAdjacent", geoHashAdjacent);
     NODE_SET_METHOD(target, "geoHashGrid", geoHashGrid);
     NODE_SET_METHOD(target, "geoHashRow", geoHashRow);
+
+    NODE_SET_METHOD(target, "unzipFile", unzipFile);
+    NODE_SET_METHOD(target, "unzip", unzip);
 
     CacheInit(target);
     SyslogInit(target);

@@ -67,6 +67,7 @@
            "lib/bksqlite.cpp",
            "lib/bklog.cpp",
            "lib/bklib.cpp",
+           "lib/bkunzip.cpp",
            "lib/regexp.cpp",
            "lib/sqlite/sqlite3.cpp",
            "lib/lmdb/mdb.c",

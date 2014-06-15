@@ -51,7 +51,7 @@ var server = {
     // Time of the last update on jobs and workers
     jobTime: 0,
     // Interval between jobs scheduler
-    jobsInterval: 180000,
+    jobsInterval: 0,
     // Schedules cron jobs
     crontab: [],
     // Default jobs host to be executed
@@ -75,7 +75,7 @@ var server = {
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
            { name: "max-jobs", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue only" },
-           { name: "jobs-interval", type: "number", descr: "Interval between executing job queue, 0 disables job processing, min interval is 60 secs" } ],
+           { name: "jobs-interval", type: "number", min: 60, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs" } ],
 };
 
 module.exports = server;
@@ -158,7 +158,7 @@ server.startMaster = function()
 
         // Pending requests from local queue
         core.processRequestQueue();
-        setInterval(function() { core.processRequestQueue() }, core.requestQueueInterval || 60000);
+        setInterval(function() { core.processRequestQueue() }, core.requestQueueInterval || 300000);
 
         // Maintenance tasks
         setInterval(function() {
@@ -173,7 +173,7 @@ server.startMaster = function()
         }, 30000);
 
         // Primary jobs
-        if (self.jobsInterval >= 60000) setInterval(function() { self.processJobs() }, self.jobsInterval);
+        if (self.jobsInterval > 0) setInterval(function() { self.processJobs() }, self.jobsInterval * 1000);
 
         // API related initialization
         core.context.api.initMasterServer();

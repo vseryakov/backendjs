@@ -1280,7 +1280,7 @@ core.sendRequest = function(options, callback)
 
     // Relative urls resolve against global backend host
     if (typeof options.url == "string" && options.url.indexOf("://") == -1) {
-        options.url = self.backendHost + options.url;
+        options.url = (self.backendHost || "http://localhost:" + this.port) + options.url;
     }
     var db = self.context.db;
 
