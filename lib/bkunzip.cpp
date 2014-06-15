@@ -895,7 +895,7 @@ int VUnzip::extract(string filename, string outfile)
     char buffer[4096];
     string outname(!outfile.empty() ? outfile : filename);
     string tmp = outname + ".tmp";
-    int fd = ::open(tmp.c_str(), O_CREAT|O_WRONLY);
+    int fd = ::open(tmp.c_str(), O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
     if (fd < 0) {
         LogError("Can not create file %s: %s", tmp.c_str(), strerror(errno));
         return 0;

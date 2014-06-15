@@ -347,6 +347,7 @@ case "$ARG" in
 
   init-service)
     ln -sf $BKJS_BIN /etc/init.d/$BKJS
+    ln -sf $BKJS_BIN /etc/cron.hourly/sync-backend
     chkconfig $BKJS on
     ;;
 
@@ -607,11 +608,10 @@ case "$ARG" in
     done
     ;;
 
-  sync)
+  sync-backend)
     # Sync code from the master, only inside backend home, must be explicitely configured
     [ "$BACKEND_MASTER" = "" ] && exit
-    [ "$BACKEND_SYNC" = "" ] && BACKEND_SYNC=sync
-    su - $BACKEND_USER -c "rsync -aqFF -e 'ssh $BACKEND_SSH_ARGS' $BACKEND_MASTER:$BACKEND_SYNC/ $BACKEND_HOME"
+    rsync -aqFF -e 'ssh -l $BACKEND_USER $BACKEND_SSH_ARGS' $BACKEND_MASTER:${BACKEND_SYNC-sync}/ $BACKEND_HOME
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
@@ -630,7 +630,7 @@ case "$ARG" in
         BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
 
         # Perform setup and possibly get newest source code if sync master is configured
-        ($0 sync)
+        ($0 sync-backend)
 
         echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME $BACKEND_ARGS $@"
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME -daemon -monitor -master -syslog $BACKEND_ARGS $@
