@@ -1580,9 +1580,9 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>log-dir</code> - Path where to keep other log files, log-file and err-file are not affected by this</li>
 <li><code>files-dir</code> - Path where to keep uploaded files</li>
 <li><code>images-dir</code> - Path where to keep images</li>
-<li><code>force-uid</code> - Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.</li>
 <li><code>uid</code> - User id or name to switch after startup if running as root, used by Web servers and job workers</li>
 <li><code>gid</code> - Group id or name to switch after startup if running to root</li>
+<li><code>force-uid</code> - Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.</li>
 <li><code>umask</code> - Permissions mask for new files, calls system umask on startup, if not specified the current umask is used. Default: 0002</li>
 <li><code>port</code> - port to listen for the HTTP server, this is global default. Default: 8000</li>
 <li><code>bind</code> - Bind to this address only, if not specified listen on all interfaces. Default: 0.0.0.0</li>
@@ -1740,7 +1740,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>server-job</code> - Job specification, JSON encoded as base64 of the job object</li>
 <li><code>server-jobs-tag</code> - This server executes jobs that match this tag, cannot be empty, default is current hostname. Default: Vlad-Macbook</li>
 <li><code>server-max-jobs</code> - How many jobs to execute at any iteration, this relates to the bk_jobs queue only. Default: 1</li>
-<li><code>server-jobs-interval</code> - Interval between executing job queue, 0 disables job processing, min interval is 60 secs. Default: 180000</li>
+<li><code>server-jobs-interval</code> - Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs</li>
 </ul>
 <h2 id="module-api">Module: API</h2>
 <ul>
@@ -2602,6 +2602,7 @@ Options may contain the following properties:</p>
 <li>attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS</li>
 <li>keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys</li>
 <li>options may contain any valid native property if it starts with capital letter and the following:<ul>
+<li>wait - number of milliseconds to wait for ACTIVE status</li>
 <li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
 <li>global - an object for global secondary indexes, same format as for local indexes</li>
 <li>projection - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
@@ -3811,7 +3812,7 @@ Options can have the following properties:</p>
 
 <ul>
 <li><p><code>db.dropPoolTables(name, tables, options, callback)</code></p>
-<p> Delete all specified tables from the pool, if <code>pool</code> is empty then default pool will be used, <code>tables</code> is an object with table names as
+<p> Delete all specified tables from the pool, if <code>name</code> is empty then default pool will be used, <code>tables</code> is an object with table names as
 properties, same table definition format as for create table method</p>
 </li>
 </ul>
