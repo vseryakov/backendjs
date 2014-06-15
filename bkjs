@@ -41,10 +41,17 @@ case "$PLATFORM" in
     ;;
 esac
 
-# If started without parameters use script name as a parameter
+# There are special commands that can be used as the script name
 NAME=$(echo $0 | awk -F/ '{print $NF}')
-ARG=$NAME
-[ "$NAME" = "$BK" ] && ARG=$1 && shift
+case "$NAME" in
+  bksh|sync-backend|check-backend)
+    ARG=$NAME
+    ;;
+
+  *)
+    ARG=$1;shift
+    ;;
+esac
 
 # Global options
 while [ $# -gt 1 ]; do
@@ -63,7 +70,7 @@ while [ $# -gt 1 ]; do
 done
 
 # Home must be specified or use the default
-[ "$BACKEND_HOME" = "" ] && export BACKEND_HOME=~/.backend
+[ "$BACKEND_HOME" = "" ] && export BACKEND_HOME=$(sh -c "echo ~$BACKEND_USER")
 [ -f $BACKEND_HOME/etc/profile ] && . $BACKEND_HOME/etc/profile
 
 # Setup all variables with defaults
@@ -82,7 +89,6 @@ done
 [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BACKEND_HOME/mongo
 [ "$BACKEND_IDLETIME" = "" ] && export BACKEND_IDLETIME=900
 [ "$BACKEND_UPTIME" = "" ] && export BACKEND_UPTIME=43200
-[ "$BACKEND_SSH_ARGS" = "" ] && export BACKEND_SSH_ARGS="-o ConnectTimeout=5"
 
 # Setup paths
 export PATH=$BACKEND_HOME/bin:$BACKEND_HOME/node_modules/.bin:$BACKEND_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
@@ -342,7 +348,7 @@ case "$ARG" in
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
     # Make sure instances are not running indefinitely
-    ln -sf $BKJS_BIN /etc/cron.hourly/check-idle
+    ln -sf $BKJS_BIN /etc/cron.hourly/check-backend
     ;;
 
   init-service)
@@ -392,7 +398,7 @@ case "$ARG" in
     esac
     ;;
 
-  check-idle)
+  check-backend)
     uptime=$(</proc/uptime)
     uptime=${uptime%%.*}
     if [ $uptime -gt $BACKEND_IDLETIME ]; then
@@ -611,7 +617,7 @@ case "$ARG" in
   sync-backend)
     # Sync code from the master, only inside backend home, must be explicitely configured
     [ "$BACKEND_MASTER" = "" ] && exit
-    rsync -aqFF -e 'ssh -l $BACKEND_USER $BACKEND_SSH_ARGS' $BACKEND_MASTER:${BACKEND_SYNC-sync}/ $BACKEND_HOME
+    rsync -aqFF -e "ssh -l $BACKEND_USER -yn -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $BACKEND_MASTER:${BACKEND_SYNC-sync}/ $BACKEND_HOME
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
@@ -906,7 +912,7 @@ backend.server.start();
     ;;
 
   *)
-    [ "$ARG" != "" ] && echo "error: unknown command: $ARG $@"
+    [ "$ARG" != "" ] && echo "error: unknown command: $ARG: $@"
     echo ""
     echo "usage: $BK command ..."
     echo "  where command is:"
@@ -930,7 +936,7 @@ backend.server.start();
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
-    echo "  check-idle - to be run on instances, check for idleness,if no jobs running then shutdown the host"
+    echo "  check-backend - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  backup - run the backup script, store in $BACKEND_HOME/backup"
     echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"
     echo "  run-pgsql - run local PostgreSQL server"
@@ -958,7 +964,7 @@ backend.server.start();
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  put-backend path [-host HOST] [-path PATH] [-user USER] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BACKEND_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
-    echo "  sync-backend [-host HOST] [-path PATH] [-delete] [-path REMOTE-ROOT] - synchronize other directories from the master host, runs on the instance"
+    echo "  sync-backend - synchronize other directories from the master host, runs on the instance, must use BACKEND_MASTER set to the host name where to get files"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
     echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"

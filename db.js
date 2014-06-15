@@ -271,7 +271,7 @@ db.initPoolTables = function(name, tables, options, callback)
     });
 }
 
-// Delete all specified tables from the pool, if `pool` is empty then default pool will be used, `tables` is an object with table names as
+// Delete all specified tables from the pool, if `name` is empty then default pool will be used, `tables` is an object with table names as
 // properties, same table definition format as for create table method
 db.dropPoolTables = function(name, tables, options, callback)
 {
@@ -279,7 +279,7 @@ db.dropPoolTables = function(name, tables, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    options.pool = name;
+    if (name) options.pool = name;
     var pool = self.getPool('', options);
     async.forEachSeries(Object.keys(tables || {}), function(table, next) {
         self.drop(table, options, function() { next() });
@@ -2972,8 +2972,9 @@ db.dynamodbInitPool = function(options)
             opts.local = local;
             opts.global = global;
             opts.projection = projection;
+            if (typeof opts.wait == "undefined") opts.wait = 3000;
             aws.ddbCreateTable(table, attrs, keys, opts, function(err, item) {
-                callback(err, item.Item ? [item.Item] : []);
+                callback(err, [], item);
             });
             break;
 

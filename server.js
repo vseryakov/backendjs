@@ -193,7 +193,7 @@ server.startWorker = function()
     process.title = core.name + ': worker';
 
     process.on("message", function(job) {
-        logger.log('startWorker:', 'pid:', process.pid, 'job:', util.inspect(job, null, null));
+        logger.debug('startWorker:', 'job:', job);
         self.runJob(job);
     });
 
@@ -795,7 +795,7 @@ server.runJob = function(job)
                 if (idx > -1) self.jobs.splice(idx, 1);
                 if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
 
-                logger.log('runJob:', 'finished', jname);
+                logger.debug('runJob:', 'finished', jname);
                 if (!self.jobs.length && cluster.isWorker) process.exit(0);
             });
         })(name);
@@ -810,7 +810,7 @@ server.runJob = function(job)
         self.jobTime = core.now();
         self.jobs.push(name);
         if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
-        logger.log('runJob:', 'started', name, job[name] || "");
+        logger.debug('runJob:', 'started', name, job[name] || "");
         obj[spec[1]].apply(obj, args);
     }
 }
@@ -890,7 +890,7 @@ server.execJob = function(job)
     }
 
     self.jobTime = core.now();
-    logger.log('execJob:', 'workers:', workers.length, 'job:', util.inspect(job, null, null))
+    logger.debug('execJob:', 'workers:', workers.length, 'job:', job);
 
     // Start a worker, send the job and wait when it finished
     var worker = cluster.fork();
@@ -905,7 +905,7 @@ server.execJob = function(job)
         self.jobs = self.jobs.concat(Object.keys(job));
     });
     worker.on("exit", function(code, signal) {
-        logger.log('execJob: finished:', worker.id, 'pid:', worker.process.pid, 'code:', code || 0, '/', signal || 0, 'job:', util.inspect(job, null, null));
+        logger.log('execJob: finished:', worker.id, 'pid:', worker.process.pid, 'code:', code || 0, '/', signal || 0, 'job:',job);
         for (var p in job) {
             var idx = self.jobs.indexOf(p);
             if (idx > -1) self.jobs.splice(idx, 1);
@@ -936,7 +936,7 @@ server.launchJob = function(job, options, callback)
     }
 
     self.jobTime = core.now();
-    logger.log('launchJob:', util.inspect(job, true, null), options);
+    logger.log('launchJob:', job, 'options:', options);
 
     // Common arguments for remote workers
     var args = ["-master", "-instance",
@@ -1000,7 +1000,7 @@ server.scheduleCronjob = function(spec, obj)
     var self = this;
     var job = self.checkJob('local', obj.job);
     if (!job) return;
-    logger.debug('scheduleCronjob:', spec, util.inspect(obj, true, null));
+    logger.debug('scheduleCronjob:', spec, obj);
     var cj = new cron.CronJob(spec, function() {
         if (this.job.host && !this.job.id && !this.job.tag) {
             self.submitJob({ type: this.job.type, host: this.job.host, job: this.job.job });

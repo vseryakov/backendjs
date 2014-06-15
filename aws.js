@@ -258,7 +258,7 @@ aws.runInstances = function(count, args, options, callback)
 
     logger.log('runInstances:', this.name, 'count:', count, 'ami:', req.imageId, 'key:', req.keypair, 'args:', args);
     this.queryEC2("RunInstances", req, function(err, obj) {
-        logger.elog(err, 'runInstances:', self.name, util.inspect(obj, true, null));
+        logger.elog(err, 'runInstances:', self.name, obj);
         // Update tag name with current job
         var item = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
         if (item) {
@@ -504,7 +504,7 @@ aws.ddbDescribeTable = function(name, options, callback)
     var self = this;
     var params = { TableName: name };
     this.queryDDB('DescribeTable', params, options, function(err, rc) {
-        logger.debug('DescribeTable:', name, util.inspect(rc, null, null));
+        logger.debug('DescribeTable:', name, rc);
         if (callback) callback(err, rc);
     });
 }
@@ -513,6 +513,7 @@ aws.ddbDescribeTable = function(name, options, callback)
 // - attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS
 // - keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys
 // - options may contain any valid native property if it starts with capital letter and the following:
+//   - wait - number of milliseconds to wait for ACTIVE status
 //   - local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object
 //   - global - an object for global secondary indexes, same format as for local indexes
 //   - projection - an object with index name and list of projected properties to be included in the index or "ALL" for all properties, if omitted then default KEYS_ONLY is assumed
@@ -593,7 +594,27 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
         if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
     }
 
-    this.queryDDB('CreateTable', params, options, callback);
+    this.queryDDB('CreateTable', params, options, function(err, item) {
+        if (err || !options.wait) return callback(err, item);
+
+        // Wait because DynamoDB cannot create multiple tables at once especially with indexes
+        var now = Date.now();
+        var status = item.TableDescription.TableStatus;
+        async.until(
+          function() {
+              return status != "ACTIVE" || Date.now() - now < options.wait;
+          },
+          function(next) {
+              aws.ddbDescribeTable(name, options, function(err, rc) {
+                  if (err) return next(err);
+                  status = rc.Table.TableStatus;
+                  setTimeout(next, 250);
+              });
+          },
+          function(err) {
+              callback(err, item);
+          });
+    });
 }
 
 // Remove a table from the database
