@@ -337,14 +337,14 @@ ipc.shutdown = function()
 }
 
 // Send a command to the master process via IPC messages, callback is used for commands that return value back
-ipc.command = function(msg, callback)
+ipc.command = function(msg, callback, timeout)
 {
     if (!cluster.isWorker) return callback ? callback() : null;
 
     if (typeof callback == "function") {
         msg.reply = true;
         msg.id = this.msgId++;
-        core.deferCallback(this.msgs, msg, function(m) { callback(m.value); });
+        core.deferCallback(this.msgs, msg, function(m) { callback(m.value); }, timeout);
     }
     try { process.send(msg); } catch(e) { logger.error('send:', e, msg.op, msg.name); }
 }
@@ -357,7 +357,7 @@ ipc.send = function(op, name, value, options, callback)
     if (name) msg.name = name;
     if (value) msg.value = typeof value == "object" ? core.stringify(value) : value;
     if (options && options.local) msg.local = true;
-    this.command(msg, callback);
+    this.command(msg, callback, options ? options.timeout : 0);
 }
 
 // Bind a socket to the address and port i.e. initialize the server socket

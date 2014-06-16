@@ -449,14 +449,16 @@ case "$ARG" in
   sync-backend)
     # Sync code from the master, only inside backend home, must be explicitely configured
     [ "$BACKEND_MASTER" = "" ] && exit
-    name=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).name)}catch(e){}")
-    version=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).version)}catch(e){}")
-    update=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).version.split('.').slice(0,2).join('.'))}catch(e){}")
-    rsync -aqFF $BACKEND_DEBUG -e "ssh -l $BACKEND_USER -y -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $BACKEND_MASTER:sync/${name-app}/${update-0}/ $BACKEND_HOME
+    set -e
+    cd $BACKEND_HOME
+    name=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).name)}catch(e){}")
+    version=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
+    update=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version.split('.').slice(0,2).join('.'))}catch(e){}")
+    rsync -aqFF $BACKEND_DEBUG -e "ssh -l $BACKEND_USER -y -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $BACKEND_MASTER:sync/${name-app}/${update-0.0}/ $BACKEND_HOME
     # Check for version change and run the restart command
-    nversion=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).version)}catch(e){}")
+    nversion=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
     [ ! -z $BACKEND_DEBUG ] && echo "old version: '$version', new version: '$nversion'"
-    [ "$nversion" != "" -a "$version" != "$nversion" ] && cd $BACKEND_HOME && npm restart
+    [ "$nversion" != "" -a "$version" != "$nversion" ] && npm restart
     ;;
 
   put-backend)

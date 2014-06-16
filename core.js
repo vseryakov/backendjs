@@ -210,8 +210,8 @@ var core = {
     maxDistance: 50,
 
     // Inter-process messages
-    deferTimeout: 100,
-    lruMax: 10000,
+    deferTimeout: 50,
+    lruMax: 100000,
 
     // REPL port for server
     replBindWeb: '127.0.0.1',

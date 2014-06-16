@@ -1481,7 +1481,7 @@ new image configuration.
         sudo yum install npm
         npm install backendjs --backend_nanomsg --backend_imagemagick
         sudo bkjs init-service
-        sudo bkjs restart
+        bkjs restart
 
 - try to access the instance via HTTP port 8000 for the API console or documentation
 - after reboot the server will be started automatically
@@ -1499,7 +1499,7 @@ Run the backendjs on the AWS instance as user ec2-user with the backend in the u
         /tmp/bkjs init-devel
         /tmp/bkjs build-node -prefix $HOME
         npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
-        sudo bkjs restart
+        bkjs restart
 
 - run `ps agx`, it should show several backend processes running
 - try to access the instance via HTTP port for the API console or documentation
