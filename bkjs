@@ -104,6 +104,13 @@ export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_C
 
 case "$ARG" in
   start)
+    # Additional arguments via EC2 instance user data
+    export BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
+
+    # Perform setup and possibly get newest source code if sync master is configured
+    ($0 sync-backend)
+
+    echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME $BACKEND_ARGS $@"
     $0 run-server
     ;;
 
@@ -617,7 +624,9 @@ case "$ARG" in
   sync-backend)
     # Sync code from the master, only inside backend home, must be explicitely configured
     [ "$BACKEND_MASTER" = "" ] && exit
-    rsync -aqFF -e "ssh -l $BACKEND_USER -yn -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $BACKEND_MASTER:${BACKEND_SYNC-sync}/ $BACKEND_HOME
+    name=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).name)}catch(e){}")
+    version=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).version.split('.').slice(0,2).join('.'))}catch(e){}")
+    rsync -aqFF -e "ssh -l $BACKEND_USER -yn -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $BACKEND_MASTER:sync/${name-app}/${version-0}/ $BACKEND_HOME
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
@@ -632,13 +641,6 @@ case "$ARG" in
 
     case "$ARG" in
      run-server)
-        # Additional arguments via EC2 instance user data
-        BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
-
-        # Perform setup and possibly get newest source code if sync master is configured
-        ($0 sync-backend)
-
-        echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME $BACKEND_ARGS $@"
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME -daemon -monitor -master -syslog $BACKEND_ARGS $@
         ;;
 
@@ -736,8 +738,8 @@ case "$ARG" in
 
   npm-deps)
     shift;
-    modules=$(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))' | sed "s/$BKJS//g")
-    $NPM_BIN install $modules $@
+    modules=$(node -e 'try{console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))}catch(e){}' | sed "s/$BKJS//g")
+    [ "$modules" != "" ] && $NPM_BIN install $modules $@
     ;;
 
   init-app)
