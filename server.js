@@ -529,6 +529,7 @@ server.startShell = function()
                 });
             });
         } else {
+            ipc.initClient();
             core.createRepl();
         }
     });

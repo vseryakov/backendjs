@@ -119,8 +119,7 @@ var core = {
             { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
             { name: "console", type: "callback", value: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
             { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
-            { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
-            { name: "cfg-file", type: "callback", value: function(v) { if(v) this.cfgFile=path.resolve(v);this.parseConfig(this.readFileSync(this.cfgFile)); }, descr: "Path to the config file read before the default etc/config, if absolute path it can set the home to be used later by the default config", pass: 1 },
+            { name: "conf-file", descr: "Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path", pass: 1 },
             { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks", pass: 1 },
             { name: "etc-dir", type: "callback", value: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
             { name: "web-dir", type: "callback", value: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
@@ -151,6 +150,7 @@ var core = {
             { name: "ssl-ciphers", obj: 'ssl', descr: "A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
             { name: "ssl-request-cert", type: "bool", obj: 'ssl', descr: "If true the server will request a certificate from clients that connect and attempt to verify that certificate. " },
             { name: "ssl-reject-unauthorized", type: "bool", obj: 'ssl', decr: "If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true" },
+            { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
             { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules" },
@@ -178,7 +178,7 @@ var core = {
             { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
             { name: "amqp-host", type: "json", descr: "Host running RabbitMQ" },
             { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
-            { name: "cache-type", descr: "One of the redis, memcache or nanomsg to use for caching in API requests" },
+            { name: "cache-type", descr: "One of the local, redis, memcache or nanomsg to use for caching in API requests" },
             { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used" },
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
@@ -273,12 +273,12 @@ core.init = function(options, callback)
     // Default domain from local host name
     self.domain = self.domainName(os.hostname());
     // Default config file
-    self.configFile = path.resolve(path.join(self.path.etc, "config"));
+    self.confFile = path.resolve(self.confFile || path.join(self.path.etc, "config"));
 
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
-            self.loadConfig(self.configFile, function() { next(); });
+            self.loadConfig(self.confFile, function() { next(); });
         },
 
         // Load config params from the DNS TXT records, only the ones marked as dns
@@ -344,16 +344,14 @@ core.init = function(options, callback)
 
         function(next) {
             if (options.noInit) return next();
-            // Can only watch existing files, new config files will be ignored after the start up
-            async.forEachSeries([self.configFile, self.cfgFile || ""], function(file, next2) {
-                fs.exists(file, function(exists) {
-                    if (!exists) return next2();
-                    fs.watch(file, function (event, filename) {
-                        self.setTimeout(filename, function() { self.loadConfig(file); }, 5000);
-                    });
-                    next2();
+            // Can only watch existing files
+            fs.exists(self.confFile, function(exists) {
+                if (!exists) return next();
+                fs.watch(self.confFile, function (event, filename) {
+                    self.setTimeout(filename, function() { self.loadConfig(self.confFile); }, 5000);
                 });
-            }, next);
+                next();
+            });
         },
 
         function(next) {

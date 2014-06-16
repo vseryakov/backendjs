@@ -164,44 +164,22 @@ ipc.initServer = function()
                     break;
 
                 case 'put':
-                    if (msg.name && msg.value) {
-                        if (!msg.local && self.nanomsg.lpush) {
-                            self.nanomsg.lpush.send("\2" + msg.name + "\2" + msg.value);
-                        } else {
-                            backend.lruPut(msg.name, msg.value);
-                        }
-                    }
+                    if (msg.name && msg.value) backend.lruPut(msg.name, msg.value);
                     if (msg.reply) worker.send(msg);
                     break;
 
                 case 'incr':
-                    if (msg.name && msg.value) {
-                        if (!msg.local && self.nanomsg.lpush) {
-                            self.nanomsg.lpush.send("\3" + msg.name + "\3" + msg.value);
-                        } else {
-                            msg.value = backend.lruIncr(msg.name, msg.value);
-                        }
-                    }
+                    if (msg.name && msg.value) msg.value = backend.lruIncr(msg.name, msg.value);
                     if (msg.reply) worker.send(msg);
                     break;
 
                 case 'del':
-                    if (msg.name) {
-                        if (!msg.local && self.nanomsg.lpush) {
-                            self.nanomsg.lpush.send("\1" + msg.name);
-                        } else {
-                            backend.lruDel(msg.name);
-                        }
-                    }
+                    if (msg.name) backend.lruDel(msg.name);
                     if (msg.reply) worker.send(msg);
                     break;
 
                 case 'clear':
-                    if (!msg.local && self.nanomsg.lpush) {
-                        self.nanomsg.lpush.send("\4");
-                    } else {
-                        backend.lruClear();
-                    }
+                    backend.lruClear();
                     if (msg.reply) worker.send({});
                     break;
                 }
@@ -230,9 +208,6 @@ ipc.initServerCaching = function()
     case "nanomsg":
         if (!backend.NNSocket) break;
         core.cacheBind = core.cacheBind || (core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*");
-
-        // Socket to send cache updates to one of the coordinators
-        this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, { type: backend.NN_PUSH });
 
         // Socket to publish cache update to all connected subscribers
         this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, { type: backend.NN_PUB });
@@ -263,37 +238,6 @@ ipc.initServerCaching = function()
                 break;
             }
         });
-
-        // Response server for get requests, only to be used on the coordinators for level2 cache
-        this.bind('lrep', "nanomsg", core.cacheBind, core.cachePort + 2, { type: backend.NN_REP }, function(err, key) {
-            if (err) return logger.error('lreq:', err);
-            this.send(backend.lruGet(key));
-        });
-
-        // Request socket pool for level2 cache
-        this.nanomsg.lnum = 0;
-        this.nanomsg.lreq = core.createPool({
-            min: 0,
-            max: 1000,
-            idle: 3600000,
-            create: function(callback) {
-                var sock = self.connect('lreq' + this.nanomsg.lnum++, "nanomsg", core.cacheHost, core.cachePort + 2, { type: backend.NN_REQ, opts: [[backend.NN_REQ_RESEND_IVL, 0]] }, function(err, key) {
-                    self.nanomsg.lreq.release(this);
-                    var cb = this.callback;
-                    this.callback = null;
-                    if (cb) cb(key);
-                });
-                callback(null, sock);
-            },
-            destroy: function(client) { client.close(); },
-        });
-        this.nanomsg.send = function(key, callback) {
-            this.lreq.acquire(function(err, client) {
-                if (err) return callback();
-                client.callback = callback;
-                client.send(key);
-            });
-        }
         break;
     }
 }
@@ -312,6 +256,7 @@ ipc.initClientCaching = function()
         break;
 
     case "nanomsg":
+        this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, { type: backend.NN_PUSH });
         break;
     }
 }
@@ -604,6 +549,11 @@ ipc.clear = function()
             break;
 
         case "nanomsg":
+            if (!this.nanomsg.lpush) break;
+            this.nanomsg.lpush.send("\4");
+            break;
+
+        case "local":
             this.send("clear");
             break;
         }
@@ -656,6 +606,11 @@ ipc.del = function(key, options)
             break;
 
         case "nanomsg":
+            if (!this.nanomsg.lpush) break;
+            this.nanomsg.lpush.send("\1" + key);
+            break;
+
+        case "local":
             this.send("del", key, "", options);
             break;
         }
@@ -679,6 +634,11 @@ ipc.put = function(key, val, options)
             break;
 
         case "nanomsg":
+            if (!this.nanomsg.lpush) break;
+            this.nanomsg.lpush.send("\2" + key + "\2" + val);
+            break;
+
+        case "local":
             this.send("put", key, val, options);
             break;
         }
@@ -702,6 +662,11 @@ ipc.incr = function(key, val, options)
             break;
 
         case "nanomsg":
+            if (!this.nanomsg.lpush) break;
+            this.nanomsg.lpush.send("\3" + key + "\3" + val);
+            break;
+
+        case "local":
             this.send("incr", key, val, options);
             break;
         }
