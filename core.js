@@ -28,7 +28,7 @@ var core = {
     name: 'backend',
 
     // Protocol version
-    version: '2014.04.15',
+    version: '2014.06.15',
 
     // Process and config parameters
     argv: {},
@@ -183,7 +183,7 @@ var core = {
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
-            { name: "collect-url", descr: "The backend URL where all collected statistics should be sent" },
+            { name: "collect-host", descr: "The backend URL where all collected statistics should be sent" },
             { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },

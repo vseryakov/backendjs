@@ -1275,7 +1275,7 @@ api.initSystemAPI = function()
     this.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
         switch (req.params[0]) {
         case "restart":
-            ipc.send("api:close");
+            ipc.send("api:restart");
             res.json("");
             break;
 
@@ -2704,7 +2704,7 @@ api.collectStatistics = function()
     this.metrics.Histogram('totalmem').update(os.totalmem());
     this.metrics.Histogram("util").update(util * 100 / cpus.length);
 
-    if (cluster.isWorker && core.collectUrl) {
-        core.sendRequest({ url: core.collectUrl, query: this.getStatistics() });
+    if (cluster.isWorker && core.collectHost) {
+        core.sendRequest({ url: core.collectHost, query: this.getStatistics() });
     }
 }

@@ -102,7 +102,7 @@ server.start = function()
 
     // Graceful shutdown, kill all children processes
     process.once('exit', function() { self.onexit()  });
-    process.once('SIGTERM', function () { self.onkill(); });
+    process.once('SIGTERM', function() { self.onkill(); });
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
     if (core.isArg("-watch")) {
@@ -297,7 +297,16 @@ server.startWeb = function(callback)
         cluster.on("exit", function(worker, code, signal) {
             logger.log('web worker: died:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
             self.respawn(function() { self.clusterFork(); });
+            // Exit when all workers are terminated
+            if (self.exiting && !Object.keys(cluster.workers).length) process.exit(0);
         });
+        // Graceful shutdown if the server needs restart
+        self.onkill = function() {
+            self.exiting = true;
+            setTimeout(function() { process.exit(0); }, 60000);
+            logger.log('web server: shutdown started');
+            for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
+        }
         logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
 
     } else {
@@ -324,12 +333,11 @@ server.startWeb = function(callback)
                 this.app.set('trust proxy', true);
             }
             // Gracefull termination of the process
-            self.terminate = function() {
-                api.shutdown(function() { process.exit(0); });
-            }
+            self.onkill = function() { api.shutdown(function() { process.exit(0); } ); }
+
             process.on("uncaughtException", function(err) {
                 logger.error('fatal:', err.stack);
-                api.shutdown(function() { process.exit(0); });
+                self.onkill();
             });
         });
 
@@ -739,8 +747,8 @@ server.shutdown = function(options, callback)
 // If respawning too fast, delay otherwise schedule new process after short timeout
 server.respawn = function(callback)
 {
-	var self = this;
-    if (self.exiting) return;
+    if (this.exiting) return;
+    var self = this;
     var now = Date.now;
     if (self.crashTime && now - self.crashTime < self.crashInterval*(self.crashCount+1)) {
         if (self.crashCount && this.crashEvents >= this.crashCount) {

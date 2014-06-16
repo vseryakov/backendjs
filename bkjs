@@ -56,11 +56,13 @@ esac
 # Global options
 while [ $# -gt 1 ]; do
     case "$1" in
+     -debug) export BACKEND_DEBUG=$2;shift;shift;;
      -home) export BACKEND_HOME=$2;shift;shift;;
      -prefix) export BACKEND_PREFIX=$2;shift;shift;;
      -user) export BACKEND_USER=$2;shift;shift;;
      -domain) export BACKEND_DOMAIN=$2;shift;shift;;
      -host) export BACKEND_HOST=$2;shift;shift;;
+     -master) export BACKEND_MASTER=$2;shift;shift;;
      -path) export BACKEND_PATH=$2;shift;shift;;
      -ssh) export BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
      -exclude) export BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
@@ -128,12 +130,16 @@ case "$ARG" in
 
   stop-web)
     $KILLALL $1 'backend: web'
-    $KILLALL $1 'backend: web'
     exit 0
     ;;
 
   stop-server)
     $KILLALL $1 'backend: server'
+    exit 0
+    ;;
+
+  stop-master)
+    $KILLALL $1 'backend: master'
     exit 0
     ;;
 
@@ -178,7 +184,7 @@ case "$ARG" in
     # Aliases and environment
     if [ "$(grep '#Backend' $BHOME/.bashrc)" = "" ]; then
        echo '#Backend' >> $BHOME/.bashrc
-       echo 'export PATH=$PATH:$HOME/node_modules/.bin' >> $BHOME/.bashrc
+       echo 'export PATH=$PATH:$BHOME/bin:$BHOME/node_modules/.bin' >> $BHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $BHOME/.bashrc
        echo "alias blog=\"tail -100 $BACKEND_HOME/log/backend.log\"" >> $BHOME/.bashrc
        echo "alias elog=\"tail -100 $BACKEND_HOME/log/error.log\"" >> $BHOME/.bashrc
@@ -252,6 +258,7 @@ case "$ARG" in
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
        mkdir -p $BACKEND_HOME/log
        touch /var/log/messages $BACKEND_HOME/log/access.log $BACKEND_HOME/log/backend.log
+       chown -R $BACKEND_USER $BACKEND_HOME/log
     fi
     ;;
 
@@ -265,7 +272,7 @@ case "$ARG" in
 
     # Allow sudo use local binaries
     sed -i 's/requiretty/!requiretty/' /etc/sudoers
-    echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BACKEND_PREFIX" >> /etc/sudoers.d/$BKJS
+    echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BACKEND_PREFIX:$BACKEND_HOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
 
     # File handles and coredumps for debugging
     if [ ! -f /etc/security/limits.d/99-$BKJS.conf ]; then
@@ -360,8 +367,13 @@ case "$ARG" in
 
   init-service)
     ln -sf $BKJS_BIN /etc/init.d/$BKJS
-    ln -sf $BKJS_BIN /etc/cron.hourly/sync-backend
     chkconfig $BKJS on
+    ;;
+
+  init-sync)
+    echo "HOME=$BACKEND_HOME" > etc/cron/$BKJS
+    echo "*/5 * * * * $BACKEND_USER $BKJS_BIN sync-backend" >> /etc/cron.d/$BKJS
+
     ;;
 
   init-packages)
@@ -405,6 +417,65 @@ case "$ARG" in
     esac
     ;;
 
+  run-backend|run-server|run-shell|run|backendjs|bksh)
+    [ -f /usr/lib/node_modules/$BKJS/server.js ] && SCRIPT=/usr/lib/node_modules/$BKJS/server.js
+    [ -f $BACKEND_PREFIX/lib/node_modules/$BKJS/server.js ] && SCRIPT=$BACKEND_PREFIX/lib/node_modules/$BKJS/server.js
+    [ -f $BACKEND_HOME/node_modules/$BKJS/server.js ] && SCRIPT=$BACKEND_HOME/node_modules/$BKJS/server.js
+    [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
+    [ -f server.js ] && SCRIPT=server.js
+    [ -f $BACKEND_HOME/app.js ] && SCRIPT=$BACKEND_HOME/app.js
+    [ -f app.js ] && SCRIPT=app.js
+    [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
+
+    case "$ARG" in
+     run-server)
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME -daemon -monitor -master -syslog $BACKEND_ARGS $@
+        ;;
+
+     run-backend)
+        $NODE_BIN $SCRIPT -home $BACKEND_HOME -debug -master -watch `pwd` $@
+        ;;
+
+     run-shell|bksh)
+        $NODE_BIN $SCRIPT -home $BACKEND_HOME -shell $@
+        ;;
+
+     *)
+        $NODE_BIN $SCRIPT -home $BACKEND_HOME -master $@
+        ;;
+    esac
+    ;;
+
+  sync-backend)
+    # Sync code from the master, only inside backend home, must be explicitely configured
+    [ "$BACKEND_MASTER" = "" ] && exit
+    name=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).name)}catch(e){}")
+    version=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).version)}catch(e){}")
+    update=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).version.split('.').slice(0,2).join('.'))}catch(e){}")
+    rsync -aqFF $BACKEND_DEBUG -e "ssh -l $BACKEND_USER -y -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $BACKEND_MASTER:sync/${name-app}/${update-0}/ $BACKEND_HOME
+    # Check for version change and run the restart command
+    nversion=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).version)}catch(e){}")
+    [ ! -z $BACKEND_DEBUG ] && echo "old version: '$version', new version: '$nversion'"
+    [ "$nversion" != "" -a "$version" != "$nversion" ] && cd $BACKEND_HOME && npm restart
+    ;;
+
+  put-backend)
+    # Put backend code to the remote site
+    if [ "$BACKEND_PATH" = "" ]; then
+       mod=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("package.json")).name)')
+       [ "$mod" = "$BKJS" ] && BACKEND_PATH=node_modules/$BKJS
+    fi
+    [ "$BACKEND_HOST" = "" ] && echo "Remote host required, specify with -host or BACKEND_HOST" && exit
+    for f in bin etc build deps images files log pages tmp var; do
+        BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
+    done
+    [ "$BACKEND_USER" != "$(whoami)" ] && BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS -l $BACKEND_USER"
+    for h in $BACKEND_HOST; do
+        echo "Deploying the module to $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $h:$BACKEND_PATH"
+        rsync -av -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $h:$BACKEND_PATH
+    done
+    ;;
+
   check-backend)
     uptime=$(</proc/uptime)
     uptime=${uptime%%.*}
@@ -426,8 +497,8 @@ case "$ARG" in
     ntpdate pool.ntp.org > /dev/null 2>&1
     ;;
 
-  run-backup)
-    [ "$BACKUP_DIR" = "" ] && exit
+  backup-backend)
+    [ "$BACKEND_BACKUP" = "" ] && exit
     DATE=$(date +%m-%d-%y)
     DOW=$(date +%w)
     DAY=$(date +%d|sed 's/^0*//g')
@@ -441,37 +512,37 @@ case "$ARG" in
     FILE="$FILE-$HOST"
     # Additional options for tar
     BACKUP_TAR_ARGS="--ignore-failed-read --exclude-backup $BACKUP_TAR_ARGS"
-    # Files and dirs to backup
-    BACKUP_TAR_FILES="/etc /home/$BACKEND_USER $BACKEND_HOME/etc $BACKEND_HOME/web $BACKEND_PREFIX $BACKUP_FILES"
     # File extensions to exclude from the backup
     for ext in $BACKUP_TAR_EXCLUDE; do
        BACKUP_TAR_ARGS="--exclude='*.$ext' $BACKUP_TAR_ARGS"
     done
-    mkdir -p $BACKUP_DIR
+    # Files and dirs to backup
+    BACKUP_FILES="/etc /home/$BACKEND_USER $BACKEND_HOME/etc $BACKEND_HOME/web $BACKEND_PREFIX $BACKUP_FILES"
+    mkdir -p $BACKEND_BACKUP
 
     # Database backup if exists
     if [ "$BACKUP_PG" != "" -a -d $PG_DIR/base ]; then
-       BACKUP_TAR_FILES="$TAR_FILES $PG_DIR/*.conf"
+       BACKUP_FILES="$BACKUP_FILES $PG_DIR/*.conf"
        # PG directory on CentOS is separate
-       [ -e $PG_PREFIX ] && BACKUP_TAR_FILES="$BACKUP_TAR_FILES $PG_PREFIX"
-       $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_PG > $BACKUP_DIR/$FILE.pgsql.dump
+       [ -e $PG_PREFIX ] && BACKUP_FILES="$BACKUP_FILES $PG_PREFIX"
+       $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_PG > $BACKEND_BACKUP/$FILE.pgsql.dump
     fi
     if [ "$BACKUP_MYSQL" != "" -a -d $MYSQL_DIR/mysql ]; then
-       $MYSQL_PREFIX/bin/mysqldump $BACKUP_MYSQL > $BACKUP_DIR/$FILE.mysql.dump
+       $MYSQL_PREFIX/bin/mysqldump $BACKUP_MYSQL > $BACKEND_BACKUP/$FILE.mysql.dump
     fi
 
     # Filesystem backup
     if [ "$BACKUP_FS" != "" ]; then
-       tar $BACKUP_TAR_ARGS -czf $BACKUP_DIR/$FILE.tar.gz $BACKUP_TAR_FILES 2>&1 |egrep -v "tar: Removing leading|tar:.+ignored|as we read it"
+       tar $BACKUP_TAR_ARGS -czf $BACKEND_BACKUP/$FILE.tar.gz $BACKUP_FILES 2>&1 |egrep -v "tar: Removing leading|tar:.+ignored|as we read it"
     fi
 
     # Send to remote host if configured, must be full ssh url with path like user@host:/path
     [ "$BACKUP_REMOTE" = "" ] && exit
 
     FILES=""
-    [ -f $BACKUP_DIR/$FILE.tar.gz ] && FILES="$FILES $BACKUP_DIR/$FILE.tar.gz"
-    [ -f $BACKUP_DIR/$FILE.pgsql.dump ] && FILES="$FILES $BACKUP_DIR/$FILE.pgsql.dump"
-    [ -f $BACKUP_DIR/$FILE.mysql.dump ] && FILES="$FILES $BACKUP_DIR/$FILE.mysql.dump"
+    [ -f $BACKEND_BACKUP/$FILE.tar.gz ] && FILES="$FILES $BACKEND_BACKUP/$FILE.tar.gz"
+    [ -f $BACKEND_BACKUP/$FILE.pgsql.dump ] && FILES="$FILES $BACKEND_BACKUP/$FILE.pgsql.dump"
+    [ -f $BACKEND_BACKUP/$FILE.mysql.dump ] && FILES="$FILES $BACKEND_BACKUP/$FILE.mysql.dump"
     [ "$FILES" = "" ] && exit
 
     for h in $BACKUP_REMOTE; do
@@ -482,6 +553,7 @@ case "$ARG" in
   init-pgsql)
     if [ ! -f $PG_DIR/postgresql.conf ]; then
        mkdir -p $PG_DIR
+       [ "$OS_TYPE" = "amazon" && -d /var/run/postgresql ] && sudo chown $BACKEND_USER /var/run/postgresql
        $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
        $SED "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf
        $SED "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
@@ -604,60 +676,6 @@ case "$ARG" in
     kill $(ps agx|grep mongod|grep -v grep|awk '{print $1}')
     ;;
 
-  put-backend)
-    # Put backend code to the remote site
-    if [ "$BACKEND_PATH" = "" ]; then
-       mod=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("package.json")).name)')
-       [ "$mod" = "$BKJS" ] && BACKEND_PATH=node_modules/$BKJS
-    fi
-    [ "$BACKEND_HOST" = "" ] && echo "Remote host required, specify with -host or BACKEND_HOST" && exit
-    for f in etc build deps images files log pages tmp var; do
-        BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
-    done
-    [ "$BACKEND_USER" != "$(whoami)" ] && BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS -l $BACKEND_USER"
-    for h in $BACKEND_HOST; do
-        echo "Deploying the module to $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $h:$BACKEND_PATH"
-        rsync -av -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $h:$BACKEND_PATH
-    done
-    ;;
-
-  sync-backend)
-    # Sync code from the master, only inside backend home, must be explicitely configured
-    [ "$BACKEND_MASTER" = "" ] && exit
-    name=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).name)}catch(e){}")
-    version=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('$BACKEND_HOME/package.json')).version.split('.').slice(0,2).join('.'))}catch(e){}")
-    rsync -aqFF -e "ssh -l $BACKEND_USER -yn -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $BACKEND_MASTER:sync/${name-app}/${version-0}/ $BACKEND_HOME
-    ;;
-
-  run-backend|run-server|run-shell|run|backendjs|bksh)
-    [ -f /usr/lib/node_modules/$BKJS/server.js ] && SCRIPT=/usr/lib/node_modules/$BKJS/server.js
-    [ -f $BACKEND_PREFIX/lib/node_modules/$BKJS/server.js ] && SCRIPT=$BACKEND_PREFIX/lib/node_modules/$BKJS/server.js
-    [ -f $BACKEND_HOME/node_modules/$BKJS/server.js ] && SCRIPT=$BACKEND_HOME/node_modules/$BKJS/server.js
-    [ -f node_modules/$BKJS/server.js ] && SCRIPT=node_modules/$BKJS/server.js
-    [ -f server.js ] && SCRIPT=server.js
-    [ -f $BACKEND_HOME/app.js ] && SCRIPT=$BACKEND_HOME/app.js
-    [ -f app.js ] && SCRIPT=app.js
-    [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
-
-    case "$ARG" in
-     run-server)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME -daemon -monitor -master -syslog $BACKEND_ARGS $@
-        ;;
-
-     run-backend)
-        $NODE_BIN $SCRIPT -home $BACKEND_HOME -debug -master -watch `pwd` $@
-        ;;
-
-     run-shell|bksh)
-        $NODE_BIN $SCRIPT -home $BACKEND_HOME -shell $@
-        ;;
-
-     *)
-        $NODE_BIN $SCRIPT -home $BACKEND_HOME -master $@
-        ;;
-    esac
-    ;;
-
   show-help)
     $NODE_BIN -e "require('$BKJS').core.showHelp()"
     ;;
@@ -738,7 +756,7 @@ case "$ARG" in
 
   npm-deps)
     shift;
-    modules=$(node -e 'try{console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))}catch(e){}' | sed "s/$BKJS//g")
+    modules=$($NODE_BIN -e 'try{console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))}catch(e){}' | sed "s/$BKJS//g")
     [ "$modules" != "" ] && $NPM_BIN install $modules $@
     ;;
 
@@ -934,12 +952,18 @@ backend.server.start();
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instance - configure for temporary job instance"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
+    echo "  init-sync - setup a cron job to run sync-backend command every 5 minites to check for new software on the \$BACKEND_MASTER server"
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
+    echo "  init-app - create application skeleton for an application based on the backend, app name can be specified as the first argument"
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
+    echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
+    echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
+    echo "  put-backend path [-host HOST] [-path PATH] [-user USER] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BACKEND_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
+    echo "  sync-backend - synchronize other directories from the master host, runs on the instance, must use BACKEND_MASTER set to the host name where to get files"
     echo "  check-backend - to be run on instances, check for idleness,if no jobs running then shutdown the host"
-    echo "  backup - run the backup script, store in $BACKEND_HOME/backup"
+    echo "  backup-backend - run the backup script, store in \$BACKEND_BACKUP, can be used in crontabs with symlink"
     echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
@@ -960,16 +984,11 @@ backend.server.start();
     echo "  stop-mongodb - stop local Mongo server"
     echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BACKEND_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
-    echo "  clean-backend - clean the source directory"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
+    echo "  clean-backend - clean the source directory"
     echo "  clean-deps - clean dependencies binary and object files"
     echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
-    echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
-    echo "  put-backend path [-host HOST] [-path PATH] [-user USER] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BACKEND_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
-    echo "  sync-backend - synchronize other directories from the master host, runs on the instance, must use BACKEND_MASTER set to the host name where to get files"
-    echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  show-help - show all backend command line and config parameters"
-    echo "  init-app - create app skeleton for an application based on the backend, app name can be specified as the first argument"
     echo ""
     echo "bksh subcommands:"
     echo "  -account-add login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value "

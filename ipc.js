@@ -49,7 +49,7 @@ ipc.initClient = function()
 
         try {
             switch (msg.op || "") {
-            case "api:close":
+            case "api:restart":
                 core.context.api.shutdown(function() { process.exit(0); });
                 break;
 
@@ -99,7 +99,7 @@ ipc.initServer = function()
             logger.dev('msg:master:', msg);
             try {
                 switch (msg.op) {
-                case "api:close":
+                case "api:restart":
                     // Start gracefull restart of all api workers, wait till a new worker starts and then send a signal to another in the list.
                     // This way we keep active processes responding to the requests while restarting
                     if (self.workers.length) break;
@@ -112,7 +112,7 @@ ipc.initServer = function()
                         var idx = self.workers.indexOf(cluster.workers[p].pid);
                         if (idx == -1) continue;
                         self.workers.splice(idx, 1);
-                        cluster.workers[p].send({ op: "api:close" });
+                        cluster.workers[p].send({ op: "api:restart" });
                         return;
                     }
                     break;
