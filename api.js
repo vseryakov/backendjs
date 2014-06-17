@@ -2503,7 +2503,7 @@ api.getAccount  = function(req, options, callback)
             if (!row) return callback({ status: 404, message: "not found" });
 
             // Setup session cookies for automatic authentication without signing
-            if (req.query._session) {
+            if (req.query._session && req.session) {
                 switch (req.query._session) {
                 case "1":
                     var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
@@ -2549,7 +2549,7 @@ api.addAccount = function(req, options, callback)
     req.query.mtime = req.query.ctime = Date.now();
     // Only admin can add accounts with the type
     if (req.query.type && (!req.account || req.account.type != "admin")) req.query.type = null;
-    db.add("bk_auth", req.query, function(err) {
+    db.add("bk_auth", req.query, options, function(err) {
         if (err) return callback(err);
         // Skip location related properties
         self.clearQuery(req, options, "bk_account", "noadd");
