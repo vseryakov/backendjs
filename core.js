@@ -2429,7 +2429,7 @@ core.cloneObj = function()
         if (filter[p]) continue;
         if (filter._skip_null && (obj[p] == null || typeof obj[p] == "undefined")) continue;
         if (filter._skip_cb && filter._skip_cb(p, obj[p])) continue;
-        rc[p] = this.cloneObj(obj[p]);
+        rc[p] = obj[p];
     }
     for (var i = idx; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;

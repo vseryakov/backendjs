@@ -157,7 +157,6 @@ case "$ARG" in
 
     # Create global profile
     echo "BACKEND_HOME=$BACKEND_HOME" > /etc/sysconfig/$BKJS
-    echo "BACKEND_ARGS=" >> /etc/sysconfig/$BKJS
     ;;
 
   init-hostname)
@@ -191,6 +190,7 @@ case "$ARG" in
     if [ "$(grep '#Backend' $BHOME/.bashrc)" = "" ]; then
 
        echo '#Backend' >> $BHOME/.bashrc
+       echo "umask 022" >> $BHOME/.bashrc
        echo 'export PATH=$PATH:$BHOME/bin:$BHOME/node_modules/.bin' >> $BHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $BHOME/.bashrc
        echo "alias blog=\"tail -100 $BACKEND_HOME/log/backend.log\"" >> $BHOME/.bashrc
