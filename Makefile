@@ -42,5 +42,5 @@ doc:
 	-if [ -d pages ]; then cd pages && git commit -a -m docs; fi
 	-if [ -d pages ]; then cd pages && git push; fi
 	-if [ -d pages/site ]; then cp bkjs pages/site; fi
-	-if [ -d pages/site ]; then cd pages/site && git push; fi
+	-if [ -d pages/site ]; then cd pages/site && git commit -a -m docs && git push; fi
 
