@@ -378,8 +378,7 @@ case "$ARG" in
     ;;
 
   init-sync)
-    echo "HOME=$BACKEND_HOME" > etc/cron/$BKJS
-    echo "*/5 * * * * $BACKEND_USER $BKJS_BIN sync-backend" >> /etc/cron.d/$BKJS
+    echo "*/5 * * * * $BACKEND_USER $BKJS_BIN sync-backend" > /etc/cron.d/$BKJS
     ;;
 
   init-packages)
