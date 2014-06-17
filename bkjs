@@ -44,7 +44,7 @@ esac
 # There are special commands that can be used as the script name
 NAME=$(echo $0 | awk -F/ '{print $NF}')
 case "$NAME" in
-  bksh|sync-backend|check-backend)
+  bksh|sync-backend|check-backend|backup-backend)
     ARG=$NAME
     ;;
 
@@ -375,7 +375,8 @@ case "$ARG" in
     ;;
 
   init-sync)
-    echo "*/15 * * * * $BACKEND_USER $BKJS_BIN sync-backend" > /etc/cron.d/$BKJS
+    echo 'MAILTO=""' > /etc/cron.d/$BKJS
+    echo "*/15 * * * * $BACKEND_USER $BKJS_BIN sync-backend" >> /etc/cron.d/$BKJS
     ;;
 
   init-packages)
@@ -451,15 +452,22 @@ case "$ARG" in
   sync-backend)
     # Sync code from the master, only inside backend home, must be explicitely configured
     [ "$BACKEND_MASTER" = "" ] && exit
-    set -e
     cd $BACKEND_HOME
+    log=/dev/null
     name=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).name)}catch(e){}")
+    network=$(ip -4 -o addr show eth0|awk '{split($4,a,".");printf "%s.%s\n",a[1],a[2]}')
+    subnet=$(ip -4 -o addr show eth0|awk '{split($4,a,".");printf "%s.%s.%s\n",a[1],a[2],a[3]}')
     version=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
-    update=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version.split('.').slice(0,2).join('.'))}catch(e){}")
-    rsync -aqFF $BACKEND_DEBUG -e "ssh -l $BACKEND_USER -y -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $BACKEND_MASTER:sync/${name-app}/${update-0.0}/ $BACKEND_HOME
+    update=$(echo $version|awk '{split($0,a,".");printf "%s.%s\n",a[1],a[2]}')
+    name=${name-app}/${update-0.0}
+    dirs=$BACKEND_MASTER:sync/$name/
+    [ "$network" != "" ] && dirs="$dirs $BACKEND_MASTER:sync/$name-$network/"
+    [ "$subnet" != "" ] && dirs="$dirs $BACKEND_MASTER:sync/$name-$subnet/"
+    [ "$BACKEND_DEBUG" != "" ] && log=/dev/tty
+    rsync -aqFF $BACKEND_DEBUG -e "ssh -l $BACKEND_USER -y -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $dirs $BACKEND_HOME 2>$log
     # Check for version change and run the restart command
     nversion=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
-    [ ! -z $BACKEND_DEBUG ] && echo "old version: '$version', new version: '$nversion'"
+    [ "$BACKEND_DEBUG" != "" ] && echo "old version: $version, new version: $nversion"
     [ "$nversion" != "" -a "$version" != "$nversion" ] && npm restart
     ;;
 
@@ -476,7 +484,7 @@ case "$ARG" in
     [ "$BACKEND_USER" != "$(whoami)" ] && BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS -l $BACKEND_USER"
     for h in $BACKEND_HOST; do
         echo "Deploying the module to $BACKEND_SSH_ARGS $BACKEND_EXCLUDE $h:$BACKEND_PATH"
-        rsync -av -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $h:$BACKEND_PATH
+        rsync -av $BACKEND_DEBUG -e "ssh $BACKEND_SSH_ARGS" $BACKEND_EXCLUDE `ls` $h:$BACKEND_PATH
     done
     ;;
 

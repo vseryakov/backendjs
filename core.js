@@ -76,8 +76,11 @@ var core = {
 
     // Local host IPs and name
     ipaddr: '',
+    subnet: '',
+    network: '',
     ipaddrs: [],
     hostname: '',
+    domain: '',
     maxCPUs: os.cpus().length,
     ctime: Date.now(),
 
@@ -269,6 +272,8 @@ core.init = function(options, callback)
             self.ipaddrs.push(y.address);
         });
     });
+    self.subnet = self.ipaddr.split(".").slice(0, 3).join(".");
+    self.network = self.ipaddr.split(".").slice(0, 2).join(".");
 
     // Default domain from local host name
     self.domain = self.domainName(os.hostname());
@@ -615,14 +620,7 @@ core.loadDbConfig = function(options, callback)
     if (!db.config || !db.getPoolByName(db.config)) return callback ? callback() : null;
 
     // Request configs by network
-    var type = undefined;
-    this.ipaddrs.forEach(function(x) {
-        if (!type) type = [];
-        var ip = x.split(".").slice(0, 2).join(".");
-        if (type.indexOf(ip) == -1) type.push(ip);
-        ip = x.split(".").slice(0, 3).join(".");
-        if (type.indexOf(ip) == -1) type.push(ip);
-    });
+    var type = self.subnet ? [ self.subnet, self.network ] : undefined;
     // Custom config type
     if (db.configType) {
         if (!type) type = [];
