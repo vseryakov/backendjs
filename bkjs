@@ -181,8 +181,15 @@ case "$ARG" in
        mkdir -p -m 700 $BHOME/.ssh && chown $BACKEND_USER $BHOME/.ssh
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys $BHOME/.ssh && chown $BACKEND_USER $BHOME/.ssh/*
     fi
+
+    # Allow path in sudo
+    if [ ! -f /etc/sudoers.d/$BKJS ]; then
+       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:$BACKEND_PREFIX/bin:$BHOME/bin:$BHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
+    fi
+
     # Aliases and environment
     if [ "$(grep '#Backend' $BHOME/.bashrc)" = "" ]; then
+
        echo '#Backend' >> $BHOME/.bashrc
        echo 'export PATH=$PATH:$BHOME/bin:$BHOME/node_modules/.bin' >> $BHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $BHOME/.bashrc
@@ -193,6 +200,7 @@ case "$ARG" in
        echo 'alias bcp1="socat readline,history=.socat tcp4:localhost:2081"' >> $BHOME/.bashrc
        echo 'alias ps="ps augx"' >> $BHOME/.bashrc
        echo 'alias mc="mc -b"' >> $BHOME/.bashrc
+       echo 'alias df="df -h"' >> $BHOME/.bashrc
     fi
     ;;
 
@@ -272,7 +280,6 @@ case "$ARG" in
 
     # Allow sudo use local binaries
     sed -i 's/requiretty/!requiretty/' /etc/sudoers
-    echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BACKEND_PREFIX:$BACKEND_HOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
 
     # File handles and coredumps for debugging
     if [ ! -f /etc/security/limits.d/99-$BKJS.conf ]; then

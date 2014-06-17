@@ -21,5 +21,7 @@ docs
 deps
 etc
 bin
+var
+tmp
 pages
 
