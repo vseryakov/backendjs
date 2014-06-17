@@ -614,8 +614,25 @@ core.loadDbConfig = function(options, callback)
 
     if (!db.config || !db.getPoolByName(db.config)) return callback ? callback() : null;
 
-    db.select("bk_config", { type: db.configType }, { select: ['name','value'], pool: db.config }, function(err, rows) {
+    // Request configs by network
+    var type = undefined;
+    this.ipaddrs.forEach(function(x) {
+        if (!type) type = [];
+        var ip = x.split(".").slice(0, 2).join(".");
+        if (type.indexOf(ip) == -1) type.push(ip);
+        ip = x.split(".").slice(0, 3).join(".");
+        if (type.indexOf(ip) == -1) type.push(ip);
+    });
+    // Custom config type
+    if (db.configType) {
+        if (!type) type = [];
+        type.push(db.configType);
+    }
+
+    db.select("bk_config", { type: type }, { select: ['name','value'], ops: { type: "in" }, pool: db.config }, function(err, rows) {
         var argv = [];
+        // Sort inside to be persistent across databases
+        rows.sort(function(a,b) { return b.type - a.type});
         rows.forEach(function(x) {
             if (x.name) argv.push('-' + x.name);
             if (x.value) argv.push(x.value);
