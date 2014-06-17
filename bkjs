@@ -106,9 +106,6 @@ export PKG_CONFIG_PATH=$BACKEND_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_C
 
 case "$ARG" in
   start)
-    # Additional arguments via EC2 instance user data
-    export BACKEND_ARGS="$BACKEND_ARGS $(wget -q -t1 -T1 -O - http://169.254.169.254/latest/user-data)"
-
     # Perform setup and possibly get newest source code if sync master is configured
     ($0 sync-backend)
 
@@ -736,6 +733,7 @@ case "$ARG" in
     if [ "$?" = "1" -a "$npm_config_backend_nanomsg" != "" ]; then
         if [ ! -d deps/nanomsg ]; then
            (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
+           sed -i 's/-lnanomsg/-lnanomsg @LIBS@/g' deps/nanomsg/libnanomsg.pc.in
         fi
         (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
         (cd deps/nanomsg && [ ! -f Makefile ] && ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)

@@ -418,6 +418,18 @@ static Handle<Value> unzip(const Arguments& args)
    return scope.Close(Local<Integer>::New(Integer::New(rc)));
 }
 
+static Handle<Value> strSplit(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_AS_STRING(0, str);
+   OPTIONAL_ARGUMENT_STRING(1, delim);
+   OPTIONAL_ARGUMENT_STRING(2, quotes);
+
+   vector<string> list = strSplit(*str, *delim, *quotes);
+   return scope.Close(toArray(list));
+}
+
 void backend_init(Handle<Object> target)
 {
     HandleScope scope;
@@ -426,6 +438,8 @@ void backend_init(Handle<Object> target)
     vsqlite_init();
 
     DebugInit(target);
+
+    NODE_SET_METHOD(target, "strSplit", strSplit);
 
     NODE_SET_METHOD(target, "getUser", getUser);
     NODE_SET_METHOD(target, "getGroup", getGroup);

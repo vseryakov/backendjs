@@ -2692,7 +2692,7 @@ api.getStatistics = function()
 {
     var pool = core.context.db.getPool();
     pool.metrics.stats = pool.stats();
-    return { host: core.hostname, pid: process.pid, ip: core.ipaddrs, instance: core.instanceId, cpus: core.maxCPUs, ctime: core.ctime, latency: toobusy.lag(), pool: pool.metrics, api: this.metrics };
+    return { host: core.hostname, pid: process.pid, ip: core.ipaddr, instance: core.instanceId, cpus: core.maxCPUs, ctime: core.ctime, latency: toobusy.lag(), pool: pool.metrics, api: this.metrics };
 }
 
 // Metrics about the process

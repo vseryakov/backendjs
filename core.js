@@ -416,7 +416,7 @@ core.setHome = function(home)
 core.parseConfig = function(data)
 {
     if (!data) return;
-    var argv = [], lines = data.toString().split("\n");
+    var argv = [], lines = String(data).split("\n");
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
         if (!line.match(/^([a-z_-]+)/)) continue;

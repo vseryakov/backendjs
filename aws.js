@@ -11,6 +11,7 @@ var os = require('os');
 var cluster = require('cluster');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
+var backend = require(__dirname + '/build/Release/backend');
 var printf = require('printf');
 var async = require('async');
 var cheerio = require('cheerio');
@@ -316,6 +317,12 @@ aws.getInstanceInfo = function(callback)
         function(next) {
             self.getInstanceMeta("/latest/meta-data/instance-id", function(err, id) {
                 if (!err && id) core.instanceId = id;
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/user-data", function(err, data) {
+                if (!err && data) core.parseArgs(backend.strSplit(data, " ", '"\''));
                 next(err);
             });
         },

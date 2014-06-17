@@ -664,7 +664,8 @@ vector<string> strSplit(const string str, const string delim, const string quote
         } else {
             rc.push_back(str.substr(i, q != string::npos ? q - i : j - i));
         }
-        i = j + 1;
+        i = q != string::npos ? q + 1 : j + 1;
+        q = string::npos;
     }
     return rc;
 }
