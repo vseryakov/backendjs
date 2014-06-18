@@ -3015,7 +3015,7 @@ db.dynamodbInitPool = function(options)
             }
             var keys = Object.keys(obj);
             // If we have other key columns we have to use custom filter
-            var other = keys.filter(function(x) { return x[0] != "_" && pool.dbkeys[table].indexOf(x) == -1 && typeof obj[x] != "undefined" });
+            var other = keys.filter(function(x) { return x[0] != "_" && dbkeys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
             // Query based on the keys
             keys = self.getSearchQuery(table, obj, { keys: keys });
             // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering

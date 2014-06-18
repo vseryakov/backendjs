@@ -190,6 +190,10 @@ var api = {
     allowConnection: [],
     iconLimit: {},
 
+    // Metrics and stats
+    metrics: new metrics(),
+    stats: { urls: new metrics(), accounts: new metrics(), messages: new metrics(), connections: new metrics() },
+
     // Default endpoints
     endpoints: { "account": 'initAccountAPI',
                  "status": "initStatusAPI",
@@ -1949,6 +1953,7 @@ api.delIcon = function(id, options, callback)
 // - name - defines the basename for the file, no extention, if not given same name as property will be used
 // - ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.
 // - extkeep - tells always to keep actual extention from the uploaded file
+// - encoding - encoding of the body, default is base64
 api.putFile = function(req, name, options, callback)
 {
     var self = this;
@@ -1962,12 +1967,12 @@ api.putFile = function(req, name, options, callback)
     } else
     // JSON object submitted with .name property with the icon contents
     if (typeof req.body == "object" && req.body[name]) {
-        var data = new Buffer(req.body[name], "base64");
+        var data = new Buffer(req.body[name], options.encoding || "base64");
         self.storeFile(data, outfile, options, callback);
     } else
     // Query base64 encoded parameter
     if (req.query[name]) {
-        var data = new Buffer(req.query[name], "base64");
+        var data = new Buffer(req.query[name], options.encoding || "base64");
         self.storeFile(data, outfile, options, callback);
     } else {
         return callback();
@@ -1988,17 +1993,21 @@ api.storeFile = function(tmpfile, outfile, options, callback)
             if (callback) callback(err, outfile);
         });
     } else {
-        if (Buffer.isBuffer(tmpfile)) {
-            fs.writeFile(path.join(core.path.files, outfile), tmpfile, function(err) {
-                if (err) logger.error('storeFile:', outfile, err);
-                if (callback) callback(err, outfile);
-            });
-        } else {
-            core.moveFile(tmpfile, path.join(core.path.files, outfile), true, function(err) {
-                if (err) logger.error('storeFile:', outfile, err);
-                if (callback) callback(err, outfile);
-            });
-        }
+        outfile = path.join(core.path.files, outfile);
+        core.makePath(path.dirname(outfile), function(err) {
+            if (err) return callback ? callback(err) : null;
+            if (Buffer.isBuffer(tmpfile)) {
+                fs.writeFile(outfile, tmpfile, function(err) {
+                    if (err) logger.error('storeFile:', outfile, err);
+                    if (callback) callback(err, outfile);
+                });
+            } else {
+                core.moveFile(tmpfile, outfile, true, function(err) {
+                    if (err) logger.error('storeFile:', outfile, err);
+                    if (callback) callback(err, outfile);
+                });
+            }
+        });
     }
 }
 
@@ -2687,8 +2696,6 @@ api.deleteAccount = function(id, options, callback)
 api.initStatistics = function()
 {
     var self = this;
-    this.metrics = new metrics();
-    this.stats = { urls: new metrics(), accounts: new metrics(), messages: new metrics(), connections: new metrics() };
     this.collectStatistics();
 
     setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);

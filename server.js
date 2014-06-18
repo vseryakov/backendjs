@@ -66,7 +66,7 @@ var server = {
     idleTime: 120,
 
     // Config parameters
-    args: [{ name: "max-processes", type: "callback", value: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-2) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
+    args: [{ name: "max-processes", type: "callback", value: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
