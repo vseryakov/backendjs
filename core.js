@@ -2451,11 +2451,12 @@ core.cloneObj = function()
 }
 
 // Return a new Error object
-core.newError = function(msg, name, code)
+core.newError = function(msg, name, code, status)
 {
     var err = new Error(msg);
     if (name) err.name = name;
     if (code) err.code = code;
+    if (status) err.status = status;
     return err;
 }
 

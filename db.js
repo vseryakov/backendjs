@@ -2913,13 +2913,13 @@ db.dynamodbInitPool = function(options)
     pool.convertError = function(table, op, err, opts) {
         switch (op) {
         case "add":
-            if (err.message == "Attribute found when none expected.") return core.newError("Record already exists", "", 400);
-            if (err.message == "The conditional check failed") return core.newError("Record already exists", "", 400);
+            if (err.message == "Attribute found when none expected.") return core.newError("Record already exists", "", 412);
+            if (err.message == "The conditional check failed") return core.newError("Record already exists", "", 412);
             break;
         case "put":
         case "incr":
         case "update":
-            if (err.code == "ConditionalCheckFailedException") return core.newError("Not updated", "", "ExpectedCondition");
+            if (err.code == "ConditionalCheckFailedException") return core.newError("Not updated", "", "ExpectedCondition", 412);
             break;
         }
         return err;

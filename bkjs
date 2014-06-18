@@ -185,7 +185,6 @@ case "$ARG" in
 
     # Aliases and environment
     if [ "$(grep '#Backend' $BHOME/.bashrc)" = "" ]; then
-
        echo '#Backend' >> $BHOME/.bashrc
        echo "umask 022" >> $BHOME/.bashrc
        echo 'export PATH=$PATH:$BHOME/bin:$BHOME/node_modules/.bin' >> $BHOME/.bashrc
@@ -464,7 +463,7 @@ case "$ARG" in
     [ "$network" != "" ] && dirs="$dirs $BACKEND_MASTER:sync/$name-$network/"
     [ "$subnet" != "" ] && dirs="$dirs $BACKEND_MASTER:sync/$name-$subnet/"
     [ "$BACKEND_DEBUG" != "" ] && log=/dev/tty
-    rsync -aqFF $BACKEND_DEBUG -e "ssh -l $BACKEND_USER -y -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $dirs $BACKEND_HOME 2>$log
+    rsync -aqFF $BACKEND_DEBUG -e "ssh -l $BACKEND_USER -y -o StrictHostKeyChecking=no -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $dirs $BACKEND_HOME 2>$log
     # Check for version change and run the restart command
     nversion=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
     [ "$BACKEND_DEBUG" != "" ] && echo "old version: $version, new version: $nversion"

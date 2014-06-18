@@ -1590,7 +1590,10 @@ api.sendJSON = function(req, err, rows)
 // Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
 api.sendReply = function(res, status, msg)
 {
-    if (status instanceof Error || status instanceof Object) msg = status.message, status = status.status || 500;
+    if (status instanceof Error || status instanceof Object) {
+        msg = status.message;
+        status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
+    }
     if (!status) status = 200, msg = "";
     return this.sendStatus(res, { status: status, message: String(msg || "") });
 }
