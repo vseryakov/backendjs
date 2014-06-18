@@ -145,8 +145,8 @@ var db = {
     tables: {
         // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
         // to be used by different backends or workers, 'core' is default global group
-        bk_config: { type: { primary: 1, value: 'core' },       // config group, 'core' is default basic type
-                     name: { primary: 1 },                      // name of the parameter
+        bk_config: { name: { primary: 1 },                      // name of the parameter
+                     type: { primary: 1 },                      // config type
                      value: {},                                 // the value
                      mtime: { type: "bigint", now: 1 }
         },
@@ -166,7 +166,7 @@ var db = {
                       expires: { type:" bigint" }
         },
 
-        // Pending requests to be sent to the backend by core.sendRequst
+        // Pending requests to be sent to the backend by core.sendRequest
         bk_queue: { id: { primary: 1 },
                     data: { type: "json" },
                     ctime: { type: "bigint" },
@@ -3026,6 +3026,7 @@ db.dynamodbInitPool = function(options)
             // IN is not supported for key condition, move it in the query
             for (var p in opts.ops) {
                 if (opts.ops[p] == "in" && p == dbkeys[1]) opts.keys = [ dbkeys[0] ];
+                if (opts.ops[p] == "in" && p == dbkeys[0]) op = 'ddbScanTable';
             }
             opts.select = self.getSelectedColumns(table, opts);
             var rows = [];

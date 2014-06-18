@@ -1591,7 +1591,7 @@ api.sendJSON = function(req, err, rows)
 api.sendReply = function(res, status, msg)
 {
     if (status instanceof Error || status instanceof Object) {
-        msg = status.message;
+        msg = status.message || "Error occured";
         status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
     }
     if (!status) status = 200, msg = "";
