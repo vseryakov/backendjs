@@ -341,7 +341,7 @@ tests.location = function(callback)
             self.resetTables(tables, next);
         },
         function(next) {
-            if (reuse) return next();
+            if (!reset) return next();
         	async.whilst(
         		function () { return good < rows + count; },
         		function (next2) {
@@ -375,7 +375,7 @@ tests.location = function(callback)
         		});
         },
         function(next) {
-            if (reuse) return next();
+            if (!reset) return next();
             // Records beyond our distance
             bad = good;
             async.whilst(

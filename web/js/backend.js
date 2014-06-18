@@ -128,6 +128,21 @@ var Backend = {
         return url + (url.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
     },
 
+    // Encode url query
+    encodeUrl: function(url) {
+        if (url && url.indexOf("?") > -1) {
+            var url = url.split("?");
+            var q = url[1].split("&");
+            url = url[0] + "?";
+            for (var i in q) {
+                var v = q[i].split("=");
+                fn = unescape(v[0]);
+                if (v[1]) url += "&" + fn + "=" + this.encode(v[1]);
+            }
+        }
+        return url;
+    },
+
     // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response
     // url can be string with url or an object with .url, .data and .type properties, for POST set .type to POST and provide .data
     send: function(options, onsuccess, onerror) {

@@ -1065,8 +1065,8 @@ db.search = function(table, query, options, callback)
 //  - sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
 //    in case of SQL this is the second part of the primary key
 //
-// On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
-// the next_token returned by the previous call
+// On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
+// the next_token returned by the previous call and query will be ignored
 //
 // On return, the callback's third argument contains the object that must be provided for subsequent searches until rows array is empty.
 //
@@ -2913,13 +2913,13 @@ db.dynamodbInitPool = function(options)
     pool.convertError = function(table, op, err, opts) {
         switch (op) {
         case "add":
-            if (err.message == "Attribute found when none expected.") return core.newError("Record already exists", "", 412);
-            if (err.message == "The conditional check failed") return core.newError("Record already exists", "", 412);
+            if (err.message == "Attribute found when none expected.") return core.newError("Record already exists", "", 409);
+            if (err.message == "The conditional check failed") return core.newError("Record already exists", "", 409);
             break;
         case "put":
         case "incr":
         case "update":
-            if (err.code == "ConditionalCheckFailedException") return core.newError("Not updated", "", "ExpectedCondition", 412);
+            if (err.code == "ConditionalCheckFailedException") return core.newError("Not updated", "", "ExpectedCondition", 406);
             break;
         }
         return err;

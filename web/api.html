@@ -120,6 +120,7 @@ $(function() {
      Backend.apiUrl = ko.observable('');
      Backend.apiEmail = ko.observable();
      Backend.apiTable = false;
+     Backend.apiEscape = false;
      Backend.apiSocket = ko.observable(0);
      Backend.apiSocket.subscribe(function(val) {
         if (!val) return Backend.ioClose();
@@ -207,7 +208,10 @@ $(function() {
      }
      Backend.doPrepare = function(options) {
         var file = $("#file")[0];
-        if (!file.files.length) return true;
+        if (!file.files.length) {
+            if (Backend.apiEscape) options.url = Backend.encodeUrl(options.url);
+            return true;
+        }
         if (!Backend.session) {
             Backend.apiResponse("Please enable session in order to upload files.");
             return false;
@@ -297,6 +301,7 @@ $(function() {
        </tr>
        <tr>
           <td colspan=2></td>
+          <td><input type="checkbox" data-bind="checked: apiEscape" title="Encode url query, it is in the human readable form"/> Encode URL</td>
           <td><input type="checkbox" data-bind="checked: apiWS" title="Use WebSockets connection instead of HTTP"/> WebSockets</td>
           <td><input type="checkbox" data-bind="checked: apiSocket" title="Use socket.io connection instead of HTTP"/> Socket.io</td>
           <td><input type="checkbox" data-bind="checked: apiSession" title="Create a web session, it is needed to use file uploads from the console"/> Session</td>

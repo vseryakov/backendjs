@@ -1779,7 +1779,7 @@ core.encrypt = function(key, data, algorithm)
         b64 += encrypt.final('base64');
     } catch(e) {
         b64 = '';
-        logger.error('encrypt:', e);
+        logger.debug('encrypt:', e, data);
     }
     return b64;
 }
@@ -1794,7 +1794,7 @@ core.decrypt = function(key, data, algorithm)
         msg += decrypt.final('utf8');
     } catch(e) {
         msg = '';
-        logger.error('decrypt:', e);
+        logger.debug('decrypt:', e, data);
     };
     return msg;
 }
@@ -1922,17 +1922,28 @@ core.arrayUnique = function(list, key)
     return rc;
 }
 
-// Stringify JSON into base64 string
-core.jsonToBase64 = function(data)
+// Stringify JSON into base64 string, if secret is given, sign the data with it
+core.jsonToBase64 = function(data, secret)
 {
-	return new Buffer(JSON.stringify(data)).toString("base64");
+    data = JSON.stringify(data);
+    if (secret) return this.encrypt(secret, data);
+	return new Buffer(data).toString("base64");
 }
 
-// Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is
-core.base64ToJson = function(data)
+// Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
+// that data is not chnaged and was signed with the same secret
+core.base64ToJson = function(data, secret)
 {
 	var rc = "";
-	try { if (data.match(/^[0-9]+$/)) rc = this.toNumber(data); else rc = JSON.parse(new Buffer(data, "base64").toString()); } catch(e) {}
+	if (secret) data = this.decrypt(secret, data);
+	try {
+	    if (data.match(/^[0-9]+$/)) {
+	        rc = this.toNumber(data);
+	    } else {
+	        if (!secret) data = new Buffer(data, "base64").toString();
+	        rc = JSON.parse(data);
+	    }
+	} catch(e) {}
 	return rc;
 }
 

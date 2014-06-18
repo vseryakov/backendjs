@@ -1105,19 +1105,19 @@ api.initMessageAPI = function()
 
         case "get":
             self.getMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token) : "" });
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "" });
             });
             break;
 
         case "get/sent":
             self.getSentMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token) : "" });
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "" });
             });
             break;
 
         case "get/archive":
             self.getArchiveMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token) : "" });
+                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "" });
             });
             break;
 
@@ -1403,7 +1403,7 @@ api.getOptions = function(req)
     });
     if (req.query._select) options.select = req.query._select;
     if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50);
-    if (req.query._start) options.start = core.base64ToJson(req.query._start);
+    if (req.query._start) options.start = core.base64ToJson(req.query._start, req.query.secret);
     if (req.query._sort) options.sort = req.query._sort;
     if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
     if (req.query._width) options.width = core.toNumber(req.query._width);
@@ -2073,7 +2073,7 @@ api.getConnection = function(req, options, callback)
     db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
 
-        var next_token = info.next_token ? core.jsonToBase64(info.next_token) : "";
+        var next_token = info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "";
         // Split type and reference id
         rows.forEach(function(row) {
             var d = row.type.split(":");
@@ -2214,6 +2214,16 @@ api.getLocation = function(req, options, callback)
     var self = this;
     var db = core.context.db;
     var table = options.table || "bk_location";
+    var secret = req.account ? req.account.secret : "";
+
+    // Continue pagination using the search token
+    var token = core.base64ToJson(req.query._token, secret);
+    if (token && token.geohash && token.latitude && token.longitude) {
+        options = token;
+        req.query.latitude = options.latitude;
+        req.query.longitude = options.longitude;
+        req.query.distance = options.distance;
+    }
 
     // Perform location search based on hash key that covers the whole region for our configured max distance
     if (!req.query.latitude && !req.query.longitude) return callback({ status: 400, message: "latitude/longitude are required" });
@@ -2221,19 +2231,11 @@ api.getLocation = function(req, options, callback)
     // Limit the distance within our configured range
     req.query.distance = core.toNumber(req.query.distance, 0, core.minDistance, core.minDistance, core.maxDistance);
 
-    // Continue pagination using the search token
-    var token = core.base64ToJson(req.query._token);
-    if (token && token.geohash) {
-        if (token.latitude != req.query.latitude ||
-            token.longitude != req.query.longitude ||
-            token.distance != req.query.distance) return callback({ status: 400, message: "invalid token, latitude, longitude and distance must be the same" });
-        options = token;
-    }
     // Rounded distance, not precise to keep from pin-pointing locations
     if (typeof options.round == "undefined") options.round = core.minDistance;
 
     db.getLocations(table, req.query, options, function(err, rows, info) {
-        var next_token = info.more ? core.jsonToBase64(info) : null;
+        var next_token = info.more ? core.jsonToBase64(info, secret) : null;
         // Ignore current account, db still retrieves it but in the API we skip it
         rows = rows.filter(function(row) { return row.id != req.account.id });
         // Return accounts with locations
@@ -2532,7 +2534,7 @@ api.selectAccount = function(req, options, callback)
     var db = core.context.db;
     db.select("bk_account", req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
-        var next_token = info && info.next_token ? core.jsonToBase64(info.next_token) : "";
+        var next_token = info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "";
         callback(err, { count: rows.length, data: rows, next_token: next_token });
     });
 }
