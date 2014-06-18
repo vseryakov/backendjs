@@ -333,7 +333,10 @@ server.startWeb = function(callback)
                 this.app.set('trust proxy', true);
             }
             // Gracefull termination of the process
-            self.onkill = function() { api.shutdown(function() { process.exit(0); } ); }
+            self.onkill = function() {
+                self.exiting = true;
+                api.shutdown(function() { process.exit(0); } );
+            }
 
             process.on("uncaughtException", function(err) {
                 logger.error('fatal:', err.stack);

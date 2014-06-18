@@ -127,15 +127,18 @@ case "$ARG" in
 
   stop-web)
     $KILLALL $1 'backend: web'
+    $KILLALL $1 'backend: web'
     exit 0
     ;;
 
   stop-server)
     $KILLALL $1 'backend: server'
+    $KILLALL $1 'backend: server'
     exit 0
     ;;
 
   stop-master)
+    $KILLALL $1 'backend: master'
     $KILLALL $1 'backend: master'
     exit 0
     ;;

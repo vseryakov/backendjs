@@ -160,7 +160,7 @@ var api = {
     // Where images/file are kept
     imagesUrl: '',
     imagesS3: '',
-    fileS3: '',
+    filesS3: '',
 
     // Disabled API endpoints
     disable: [],
@@ -1985,11 +1985,12 @@ api.storeFile = function(tmpfile, outfile, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    if (this.fileS3 || options.fileS3) {
+    if (this.filesS3 || options.filesS3) {
+        var aws = core.context.aws;
         var headers = { 'content-type': mime.lookup(outfile) };
-        var ops = { method: "PUT", headers: headers }
-        opts[Buffer.isBuffer(tmfile) ? 'postdata' : 'postfile'] = tmpfile;
-        aws.queryS3(options.filesS3 || this.fileS3, outfile, opts, function(err) {
+        var params = { method: "PUT", headers: headers }
+        params[Buffer.isBuffer(tmpfile) ? 'postdata' : 'postfile'] = tmpfile;
+        aws.queryS3(options.filesS3 || this.filesS3, outfile, params, function(err) {
             if (callback) callback(err, outfile);
         });
     } else {
@@ -2011,14 +2012,15 @@ api.storeFile = function(tmpfile, outfile, options, callback)
     }
 }
 
-// Delete file by name from the local filesystem or S3 drive if fileS3 is defined in api or options objects
+// Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects
 api.delFile = function(file, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    if (this.fileS3 || options.fileS3) {
-        aws.queryS3(options.fileS3 || this.filesS3, file, { method: "DELETE" }, function(err) {
+    if (this.filesS3 || options.filesS3) {
+        var aws = core.context.aws;
+        aws.queryS3(options.filesS3 || this.filesS3, file, { method: "DELETE" }, function(err) {
             if (callback) callback(err, outfile);
         });
     } else {
