@@ -259,7 +259,7 @@ core.init = function(options, callback)
     self.setHome(self.home);
 
     // No restriction on the client http clients
-    http.globalAgent.maxSockets = Infinity;
+    http.globalAgent.maxSockets = http.Agent.defaultMaxSockets = Infinity;
     https.globalAgent.maxSockets = Infinity;
 
     // Find our IP address

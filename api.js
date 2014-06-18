@@ -273,7 +273,7 @@ api.init = function(callback)
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version);
         res.header('Access-Control-Allow-Origin', '*');
-        res.header('Access-Control-Allow-Headers', 'b-signature');
+        res.header('Access-Control-Allow-Headers', 'bk-signature');
         next();
     });
 
@@ -282,7 +282,7 @@ api.init = function(callback)
         self.metrics.Meter('rate').mark();
         self.metrics.Histogram('queue').update(self.metrics.Counter('count').inc());
         req.m1 = self.metrics.Timer('response').start();
-        req.m2 = self.metrics.Timer(req.path).start();
+        req.m2 = self.stats.urls.Timer(req.path).start();
         var end = res.end;
         res.end = function(chunk, encoding) {
             res.end = end;
@@ -2114,6 +2114,8 @@ api.putConnection = function(req, options, callback)
     db[op]("bk_connection", req.query, options, function(err) {
         if (err) return callback(err);
 
+        self.stats.connections.Meter(op + ":" + type).mark();
+
         // Reverse reference to the same connection
         req.query.id = id;
         req.query.type = type + ":"+ req.account.id;
@@ -2152,6 +2154,8 @@ api.delConnection = function(req, options, callback)
     var now = Date.now();
 
     function del(type, id, cb) {
+        self.stats.connections.Meter('del:' + type).mark();
+
         async.series([
            function(next) {
                db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, options, next);
@@ -2443,6 +2447,7 @@ api.addMessage = function(req, options, callback)
                 if (req.query.id != req.account.id) {
                     self.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) }, options);
                 }
+                self.stats.messages.Meter('add').mark();
 
                 callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
             });
@@ -2561,6 +2566,8 @@ api.addAccount = function(req, options, callback)
         db.add("bk_account", req.query, function(err) {
             if (err) return db.del("bk_auth", auth, function() { callback(err); });
 
+            self.stats.accounts.Meter('add').mark();
+
             db.processRows(null, "bk_account", req.query, options);
             // Link account record for other middleware
             req.account = req.query;
@@ -2670,7 +2677,8 @@ api.deleteAccount = function(id, options, callback)
                db.del("bk_location", { geohash: obj.geohash, id: obj.id }, options, function() { next() });
            }],
            function(err) {
-               callback(err, obj);
+                if (!err) self.stats.accounts.Meter('del').mark();
+                callback(err, obj);
         });
     });
 }
@@ -2680,6 +2688,7 @@ api.initStatistics = function()
 {
     var self = this;
     this.metrics = new metrics();
+    this.stats = { urls: new metrics(), accounts: new metrics(), messages: new metrics(), connections: new metrics() };
     this.collectStatistics();
 
     setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);
@@ -2697,7 +2706,12 @@ api.getStatistics = function()
 {
     var pool = core.context.db.getPool();
     pool.metrics.stats = pool.stats();
-    return { host: core.hostname, pid: process.pid, ip: core.ipaddr, instance: core.instanceId, cpus: core.maxCPUs, ctime: core.ctime, latency: toobusy.lag(), pool: pool.metrics, api: this.metrics };
+    var rc = { host: core.hostname, pid: process.pid,
+               ip: core.ipaddr, instance: core.instanceId, latency: toobusy.lag(), cpus: core.maxCPUs,
+               ctime: core.ctime, mtime: Date.now(),
+               pool: pool.metrics, api: this.metrics };
+    for (var p in this.stats) rc[p] = this.stats[p];
+    return rc;
 }
 
 // Metrics about the process
