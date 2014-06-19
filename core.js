@@ -84,8 +84,9 @@ var core = {
     maxCPUs: os.cpus().length,
     ctime: Date.now(),
 
-    // Collector of statistics
+    // Collector of statistics, seconds
     collectInterval: 30,
+    collectSendInterval: 300,
 
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
     // for manual installations `bkjs int-server` will create a user with this id
@@ -188,6 +189,7 @@ var core = {
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "collect-host", descr: "The backend URL where all collected statistics should be sent" },
             { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
+            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
@@ -276,7 +278,8 @@ core.init = function(options, callback)
     self.network = self.ipaddr.split(".").slice(0, 2).join(".");
 
     // Default domain from local host name
-    self.domain = self.domainName(os.hostname());
+    self.hostname = os.hostname();
+    self.domain = self.domainName(self.hostname);
     // Default config file
     self.confFile = path.resolve(self.confFile || path.join(self.path.etc, "config"));
 

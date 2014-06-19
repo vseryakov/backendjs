@@ -141,6 +141,28 @@ var api = {
                      like0: { type: "counter", value: 0, autoincr: 1 },        // who i liked
                      like1: { type: "counter", value: 0, autoincr: 1 }},       // reversed, who liked me
 
+       // Collected stats
+       bk_collect: { ip: { primary: 1 },
+                     mtime: { type: "bigint", primary: 1 },
+                     ctime: { type: "bigint" },
+                     host: {},
+                     instance: {},
+                     latency: { type: "int" },
+                     cpus: { type: "int" },
+                     api: { type: "json" },
+                     pool: { type: "json" },
+                     urls: { type: "json" },
+                     connections: { type: "json" },
+                     accounts: { type: "json" },
+                     messages: { type: "json" },
+                     rss: { type: "json" },
+                     heap: { type: "json" },
+                     loadavg: { type: "json" },
+                     freemem: { type: "json" },
+                     totalmem: { type: "json" },
+                     util: { type: "json" },
+                     data: { type: "json" }},
+
     }, // tables
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -191,8 +213,8 @@ var api = {
     iconLimit: {},
 
     // Metrics and stats
-    metrics: new metrics(),
-    stats: { urls: new metrics(), accounts: new metrics(), messages: new metrics(), connections: new metrics() },
+    metrics: new metrics('host', '', 'pid', process.pid, 'ip', '', 'instance', '', 'latency', 0, 'cpus', 0, 'ctime', 0, 'mtime', Date.now(),
+                         'api', new metrics(), 'urls', new metrics(), 'accounts', new metrics(), 'messages', new metrics(), 'connections', new metrics()),
 
     // Default endpoints
     endpoints: { "account": 'initAccountAPI',
@@ -267,7 +289,7 @@ api.init = function(callback)
     // Latency watcher
     self.app.use(function(req, res, next) {
         if (self.busyLatency && toobusy()) {
-            self.metrics.Counter('busy').inc();
+            self.metrics.api.Counter('busy').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
         next();
@@ -283,15 +305,15 @@ api.init = function(callback)
 
     // Metrics starts early
     self.app.use(function(req, res, next) {
-        self.metrics.Meter('rate').mark();
-        self.metrics.Histogram('queue').update(self.metrics.Counter('count').inc());
-        req.m1 = self.metrics.Timer('response').start();
-        req.m2 = self.stats.urls.Timer(req.path).start();
+        self.metrics.api.Meter('rate').mark();
+        self.metrics.api.Histogram('queue').update(self.metrics.api.Counter('count').inc());
+        req.m1 = self.metrics.api.Timer('response').start();
+        req.m2 = self.metrics.urls.Timer(req.path).start();
         var end = res.end;
         res.end = function(chunk, encoding) {
             res.end = end;
             res.end(chunk, encoding);
-            self.metrics.Counter('count').dec();
+            self.metrics.api.Counter('count').dec();
             req.m1.end();
             req.m2.end();
         }
@@ -1277,10 +1299,11 @@ api.initSystemAPI = function()
 
     // Return current statistics
     this.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
+        var options = self.getOptions(req);
         switch (req.params[0]) {
         case "restart":
             ipc.send("api:restart");
-            res.json("");
+            res.json({});
             break;
 
         case "config":
@@ -1299,6 +1322,12 @@ api.initSystemAPI = function()
             }
             break;
 
+        case "collect":
+            db.put("bk_collect", req.body, options, function(err) {
+                res.json({});
+            });
+            break;
+
         case "cache":
             switch (req.params[1]) {
             case 'init':
@@ -1315,19 +1344,19 @@ api.initSystemAPI = function()
                 break;
             case "clear":
                 ipc.clear();
-                res.json("");
+                res.json({});
                 break;
             case "del":
                 ipc.del(req.query.name);
-                res.json("");
+                res.json({});
                 break;
             case "incr":
                 ipc.incr(req.query.name, core.toNumber(req.query.value));
-                res.json("");
+                res.json({});
                 break;
             case "put":
                 ipc.put(req.query.name, req.query.value);
-                res.json("");
+                res.json({});
                 break;
             default:
                 self.sendReply(res, 400, "Invalid command:" + req.params[1]);
@@ -1373,8 +1402,6 @@ api.initDataAPI = function()
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
 
-        // Allow access to all db pools
-        if (req.query._pool) options.pool = req.query._pool;
         db[req.params[0]](req.params[1], req.query, options, function(err, rows, info) {
             switch (req.params[0]) {
             case "select":
@@ -1419,9 +1446,14 @@ api.getOptions = function(req)
         var ops = core.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) options.ops[ops[i]] = ops[i+1];
     }
-    // Disable check public verification
+    // Disable check public verification and allow any pool to be used
     var ep = req.path.substr(1).split("/").shift();
-    if (ep && this.unsecure.indexOf(ep) > -1) delete options.check_public;
+    if (ep) {
+        if (this.unsecure.indexOf(ep) > -1) {
+            delete options.check_public;
+            if (req.query._pool) options.pool = req.query._pool;
+        }
+    }
     // Override with options provided in the hooks
     for (var p in req.options) options[p] = req.options[p];
     return options;
@@ -2125,7 +2157,7 @@ api.putConnection = function(req, options, callback)
     db[op]("bk_connection", req.query, options, function(err) {
         if (err) return callback(err);
 
-        self.stats.connections.Meter(op + ":" + type).mark();
+        self.metrics.connections.Meter(op + ":" + type).mark();
 
         // Reverse reference to the same connection
         req.query.id = id;
@@ -2165,7 +2197,7 @@ api.delConnection = function(req, options, callback)
     var now = Date.now();
 
     function del(type, id, cb) {
-        self.stats.connections.Meter('del:' + type).mark();
+        self.metrics.connections.Meter('del:' + type).mark();
 
         async.series([
            function(next) {
@@ -2458,7 +2490,7 @@ api.addMessage = function(req, options, callback)
                 if (req.query.id != req.account.id) {
                     self.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) }, options);
                 }
-                self.stats.messages.Meter('add').mark();
+                self.metrics.messages.Meter('add').mark();
 
                 callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
             });
@@ -2577,7 +2609,7 @@ api.addAccount = function(req, options, callback)
         db.add("bk_account", req.query, function(err) {
             if (err) return db.del("bk_auth", auth, function() { callback(err); });
 
-            self.stats.accounts.Meter('add').mark();
+            self.metrics.accounts.Meter('add').mark();
 
             db.processRows(null, "bk_account", req.query, options);
             // Link account record for other middleware
@@ -2688,7 +2720,7 @@ api.deleteAccount = function(id, options, callback)
                db.del("bk_location", { geohash: obj.geohash, id: obj.id }, options, function() { next() });
            }],
            function(err) {
-                if (!err) self.stats.accounts.Meter('del').mark();
+                if (!err) self.metrics.accounts.Meter('del').mark();
                 callback(err, obj);
         });
     });
@@ -2703,7 +2735,7 @@ api.initStatistics = function()
     setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);
 
     if (cluster.isWorker && core.collectHost) {
-        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, 300000);
+        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000);
     }
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
@@ -2715,12 +2747,8 @@ api.getStatistics = function()
 {
     var pool = core.context.db.getPool();
     pool.metrics.stats = pool.stats();
-    var rc = { host: core.hostname, pid: process.pid,
-               ip: core.ipaddr, instance: core.instanceId, latency: toobusy.lag(), cpus: core.maxCPUs,
-               ctime: core.ctime, mtime: Date.now(),
-               pool: pool.metrics, api: this.metrics };
-    for (var p in this.stats) rc[p] = this.stats[p];
-    return rc;
+    this.metrics.pool = pool.metrics;
+    return this.metrics;
 }
 
 // Metrics about the process
@@ -2730,6 +2758,13 @@ api.collectStatistics = function()
     var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
     var avg = os.loadavg();
     var mem = process.memoryUsage();
+    this.metrics.host = core.hostname;
+    this.metrics.ip = core.ipaddr;
+    this.metrics.ctime = core.ctime;
+    this.metrics.cpus = core.maxCPUs;
+    this.metrics.instance = core.instanceId;
+    this.metrics.latency = toobusy.lag();
+    this.metrics.mtime = Date.now();
     this.metrics.Histogram('rss').update(mem.rss);
     this.metrics.Histogram('heap').update(mem.heapUsed);
     this.metrics.Histogram('loadavg').update(avg[2]);
