@@ -47,11 +47,11 @@ var api = {
                    id: {},                                  // Auto generated UUID
                    alias: {},                               // Account alias
                    secret: {},                              // Account password
-                   type: {},                                // Account type: admin, ....
                    status: {},                              // Status of the account
-                   acl_deny: {},                            // Deny access to matched url
-                   acl_allow: {},                           // Only grant access if matched this regexp
-                   expires: { type: "bigint" },             // Deny access to the account if this value is before current date, milliseconds
+                   type: { admin: 1 },                      // Account type: admin, ....
+                   acl_deny: { admin: 1 },                  // Deny access to matched url
+                   acl_allow: { admin: 1 },                 // Only grant access if matched this regexp
+                   expires: { type: "bigint", admin: 1 },   // Deny access to the account if this value is before current date, milliseconds
                    mtime: { type: "bigint", now: 1 } },
 
         // Basic account information
@@ -70,11 +70,11 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
-                      geohash: { noadd: 1 },
-                      location: { noadd: 1 },
-                      latitude: { type: "real", noadd: 1 },
-                      longitude: { type: "real", noadd: 1 },
-                      ltime: { type: "bigint", noadd: 1 },    // Last location updte time
+                      geohash: { hidden: 1 },
+                      location: { hidden: 1 },
+                      latitude: { type: "real", hidden: 1 },
+                      longitude: { type: "real", hidden: 1 },
+                      ltime: { type: "bigint", hidden: 1 },    // Last location updte time
                       ctime: { type: "bigint" },              // Create time
                       mtime: { type: "bigint", now: 1 } },    // Last update time
 
@@ -1269,7 +1269,6 @@ api.initLocationAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
-
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
@@ -1299,6 +1298,7 @@ api.initSystemAPI = function()
 
     // Return current statistics
     this.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
+        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "restart":
@@ -1323,7 +1323,7 @@ api.initSystemAPI = function()
             break;
 
         case "collect":
-            db.put("bk_collect", req.body, options, function(err) {
+            db.put("bk_collect", req.query, options, function(err) {
                 res.json({});
             });
             break;
@@ -2600,12 +2600,18 @@ api.addAccount = function(req, options, callback)
     if (!req.query.alias) req.query.alias = req.query.name;
     req.query.id = core.uuid();
     req.query.mtime = req.query.ctime = Date.now();
+
+    // Skip location related properties
+    self.clearQuery(req, options, "bk_account", "hidden");
+
     // Only admin can add accounts with the type
-    if (req.query.type && (!req.account || req.account.type != "admin")) req.query.type = null;
+    if (req.account && req.account.type != "admin") {
+        self.clearQuery(req, options, "bk_auth", "admin");
+        self.clearQuery(req, options, "bk_account", "admin");
+    }
     db.add("bk_auth", req.query, options, function(err) {
         if (err) return callback(err);
-        // Skip location related properties
-        self.clearQuery(req, options, "bk_account", "noadd");
+
         db.add("bk_account", req.query, function(err) {
             if (err) return db.del("bk_auth", auth, function() { callback(err); });
 
@@ -2615,20 +2621,11 @@ api.addAccount = function(req, options, callback)
             // Link account record for other middleware
             req.account = req.query;
             // Some dbs require the record to exist, just make one with default values
-            db.put("bk_counter", { id: req.query.id, ping: 0 }, function() {
+            db.put("bk_counter", req.query, function() {
                 callback(err, req.query);
             });
         });
     });
-}
-
-// Change account secret, used in /account/put/secret API call
-api.setAccountSecret = function(req, options, callback)
-{
-    var db = core.context.db;
-    if (!req.query.secret) return callback({ status: 400, message: "secret is required" });
-    req.account.secret = req.query.secret;
-    db.update("bk_auth", req.account, options, callback);
 }
 
 // Update existing account, used in /account/update API call
@@ -2639,11 +2636,31 @@ api.updateAccount = function(req, options, callback)
     req.query.mtime = Date.now();
     req.query.id = req.account.id;
     // Skip location related properties
-    self.clearQuery(req, options, "bk_account", "noadd");
+    self.clearQuery(req, options, "bk_account", "hidden");
+
+    // Skip admin properties if any
+    if (req.account && req.account.type != "admin") {
+        self.clearQuery(req, options, "bk_auth", "admin");
+        self.clearQuery(req, options, "bk_account", "admin");
+    }
     db.update("bk_account", req.query, function(err, rows, info) {
-        if (err || (!req.query.status && !req.query.alias)) return callback(err, rows, info);
-        db.update("bk_auth", { login: req.account.login, alias: req.query.alias, status: req.query.status }, callback);
+        if (err) return callback(err);
+        // Avoid updating bk_auth and flushing cache if nothing to update
+        req.query.login = req.account.login;
+        var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), req.query, { all_columns: 1, skip_columns: ["id","login","mtime"] });
+        console.log(obj)
+        if (!Object.keys(obj).length) return callback(err, rows, info);
+        db.update("bk_auth", req.query, callback);
     });
+}
+
+// Change account secret, used in /account/put/secret API call
+api.setAccountSecret = function(req, options, callback)
+{
+    var db = core.context.db;
+    if (!req.query.secret) return callback({ status: 400, message: "secret is required" });
+    req.account.secret = req.query.secret;
+    db.update("bk_auth", req.account, options, callback);
 }
 
 // Delete account specified by the obj. Used in `/account/del` API call.

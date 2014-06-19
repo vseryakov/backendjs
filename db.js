@@ -455,7 +455,7 @@ db.createPool = function(options)
     pool.dbkeys = {};
     pool.dbindexes = {};
     pool.dbcache = {};
-    pool.metrics = new metrics(pool.name);
+    pool.metrics = new metrics('name', pool.name);
     // Some require properties can be initialized with options
     if (!pool.dboptions) pool.dboptions = {};
     [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
@@ -1536,7 +1536,7 @@ db.getOptions = function(table, options)
     return options;
 }
 
-// Return cached columns for a table or null, columns is an object with column names and objects for definition
+// Return columns for a table or null, columns is an object with column names and objects for definition
 db.getColumns = function(table, options)
 {
     return this.getPool(table, options).dbcolumns[(table || "").toLowerCase()] || {};
@@ -1567,12 +1567,10 @@ db.getSelectedColumns = function(table, options)
 // Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped
 db.skipColumn = function(name, val, options, columns)
 {
-	var rc = !name || name[0] == '_' || typeof val == "undefined" ||
-	         (options.skip_null && val === null) ||
-	         (!options.all_columns && (!columns || !columns[name])) ||
-	         (options.skip_columns && options.skip_columns.indexOf(name) > -1) ? true : false;
-	logger.dev('skipColumn:', name, val, rc);
-	return rc;
+	return !name || name[0] == '_' || typeof val == "undefined" ||
+	       (options && options.skip_null && val === null) ||
+	       (options && !options.all_columns && (!columns || !columns[name])) ||
+	       (options && options.skip_columns && options.skip_columns.indexOf(name) > -1) ? true : false;
 }
 
 // Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is usee
@@ -1622,10 +1620,11 @@ db.getSearchQuery = function(table, obj, options)
 }
 
 // Returns an object based on the list of keys, basically returns a subset of properties
-db.getQueryForKeys = function(keys, obj)
+db.getQueryForKeys = function(keys, obj, options)
 {
+    var self = this;
     return (keys || []).
-            filter(function(x) { return x[0] != "_" && typeof obj[x] != "undefined" }).
+            filter(function(x) { return !self.skipColumn(x, obj[x]) }).
             map(function(x) { return [ x, obj[x] ] }).
             reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
 }

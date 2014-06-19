@@ -112,7 +112,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/account/update",login: login, secret: secret, query: { alias: "test" + name } };
+            var options = { url: "/account/update",login: login, secret: secret, query: { alias: "test" + name }, type: "testadmin", latitude: 1, type: "admin" };
             core.sendRequest(options, function(err, params) {
                 next(err);
             });
@@ -127,7 +127,7 @@ tests.account = function(callback)
         function(next) {
             var options = { url: "/account/get", login: login, secret: secret }
             core.sendRequest(options, function(err, params) {
-                core.checkTest(next,err, !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude, "err1:",params.obj);
+                core.checkTest(next,err, !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude || params.obj.type, "err1:",params.obj);
             });
         },
         function(next) {

@@ -155,7 +155,7 @@ aws.queryDDB = function (action, obj, options, callback)
         if (params.status != 200) {
             logger[options.ignore_error ? "debug" : "error"]('queryDDB:', action, obj, err || params.data);
             // Try several times
-            if (options.retries > 0 && (params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException|ThrottlingException)/))) {
+            if (options.retries > 0 && (params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/))) {
                 options.retries--;
                 return setTimeout(function() { self.queryDDB(action, obj, options, callback); }, options.timeout);
             }
