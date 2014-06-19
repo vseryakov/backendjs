@@ -1635,6 +1635,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>collect-host</code> - The backend URL where all collected statistics should be sent</li>
 <li><code>collect-interval</code> - How often to collect statistics and metrics in seconds. Default: 30</li>
+<li><code>collect-send-interval</code> - How often to send collected statistics to the master server in seconds. Default: 300</li>
 <li><code>logwatcher-url</code> - The backend URL where logwatcher reports should be sent instead of email</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
@@ -1851,6 +1852,28 @@ the worker processes if they die and restart them automatically. How many proces
                    ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy with notification
                    like0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },        // who i liked
                    like1: { type: &quot;counter&quot;, value: 0, autoincr: 1 }},       // reversed, who liked me
+
+     // Collected stats
+     bk_collect: { ip: { primary: 1 },
+                   mtime: { type: &quot;bigint&quot;, primary: 1 },
+                   ctime: { type: &quot;bigint&quot; },
+                   host: {},
+                   instance: {},
+                   latency: { type: &quot;int&quot; },
+                   cpus: { type: &quot;int&quot; },
+                   api: { type: &quot;json&quot; },
+                   pool: { type: &quot;json&quot; },
+                   urls: { type: &quot;json&quot; },
+                   connections: { type: &quot;json&quot; },
+                   accounts: { type: &quot;json&quot; },
+                   messages: { type: &quot;json&quot; },
+                   rss: { type: &quot;json&quot; },
+                   heap: { type: &quot;json&quot; },
+                   loadavg: { type: &quot;json&quot; },
+                   freemem: { type: &quot;json&quot; },
+                   totalmem: { type: &quot;json&quot; },
+                   util: { type: &quot;json&quot; },
+                   data: { type: &quot;json&quot; }},
 </code></pre></li>
 </ul>
 
@@ -2310,6 +2333,7 @@ Output file name is built according to the following options properties:</li>
 <li>name - defines the basename for the file, no extention, if not given same name as property will be used</li>
 <li>ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
 <li>extkeep - tells always to keep actual extention from the uploaded file</li>
+<li>encoding - encoding of the body, default is base64</li>
 </ul>
 </li>
 </ul>
@@ -2322,7 +2346,7 @@ Output file name is built according to the following options properties:</li>
 
 <ul>
 <li><p><code>api.delFile(file, options, callback)</code></p>
-<p> Delete file by name from the local filesystem or S3 drive if fileS3 is defined in api or options objects</p>
+<p> Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects</p>
 </li>
 </ul>
 
@@ -3263,14 +3287,15 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
-<li><p><code>core.jsonToBase64(data)</code></p>
-<p> Stringify JSON into base64 string</p>
+<li><p><code>core.jsonToBase64(data, secret)</code></p>
+<p> Stringify JSON into base64 string, if secret is given, sign the data with it</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.base64ToJson(data)</code></p>
-<p> Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is</p>
+<li><p><code>core.base64ToJson(data, secret)</code></p>
+<p> Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
+that data is not chnaged and was signed with the same secret</p>
 </li>
 </ul>
 
@@ -3508,7 +3533,7 @@ Example:<pre><code>  core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4
 </ul>
 
 <ul>
-<li><p><code>core.newError(msg, name, code)</code></p>
+<li><p><code>core.newError(msg, name, code, status)</code></p>
 <p> Return a new Error object</p>
 </li>
 </ul>
@@ -3743,8 +3768,8 @@ other database will not require any application code changes.</p>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
       // to be used by different backends or workers, &#39;core&#39; is default global group
-      bk_config: { type: { primary: 1, value: &#39;core&#39; },       // config group, &#39;core&#39; is default basic type
-                   name: { primary: 1 },                      // name of the parameter
+      bk_config: { name: { primary: 1 },                      // name of the parameter
+                   type: { primary: 1 },                      // config type
                    value: {},                                 // the value
                    mtime: { type: &quot;bigint&quot;, now: 1 }
       },
@@ -3764,7 +3789,7 @@ other database will not require any application code changes.</p>
                     expires: { type:&quot; bigint&quot; }
       },
 
-      // Pending requests to be sent to the backend by core.sendRequst
+      // Pending requests to be sent to the backend by core.sendRequest
       bk_queue: { id: { primary: 1 },
                   data: { type: &quot;json&quot; },
                   ctime: { type: &quot;bigint&quot; },
@@ -4166,8 +4191,8 @@ round number and uses decimal point of the round number to limit decimals in the
 <li>sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
 in case of SQL this is the second part of the primary key</li>
 </ul>
-<p>On first call, options must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
-the next_token returned by the previous call</p>
+<p>On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
+the next_token returned by the previous call and query will be ignored</p>
 <p>On return, the callback&#39;s third argument contains the object that must be provided for subsequent searches until rows array is empty.</p>
 <p>Example</p>
 <pre><code>    var query = { latitude: -118, longitude: 30, distance: 10 };
