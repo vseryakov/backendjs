@@ -2735,7 +2735,7 @@ db.sqliteConnect = function(options, callback)
             logger.debug('sqliteOpen:', options.file, sql);
             db.exec(sql, next);
     }, function(err2) {
-            logger.edebug(err2, 'sqliteOpen:', 'init', options.file);
+            if (err) logger.error('sqliteOpen:', 'init', options.file, err);
             callback(err2, db);
         });
     });

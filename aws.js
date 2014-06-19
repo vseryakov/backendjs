@@ -259,7 +259,7 @@ aws.runInstances = function(count, args, options, callback)
 
     logger.log('runInstances:', this.name, 'count:', count, 'ami:', req.imageId, 'key:', req.keypair, 'args:', args);
     this.queryEC2("RunInstances", req, function(err, obj) {
-        logger.elog(err, 'runInstances:', self.name, obj);
+        if (err) logger.error('runInstances:', self.name, obj);
         // Update tag name with current job
         var item = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
         if (item) {

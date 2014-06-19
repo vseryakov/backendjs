@@ -743,7 +743,6 @@ case "$ARG" in
     if [ "$?" = "1" -a "$npm_config_backend_nanomsg" != "" ]; then
         if [ ! -d deps/nanomsg ]; then
            (cd deps && git clone https://github.com/nanomsg/nanomsg.git)
-           sed -i 's/-lnanomsg/-lnanomsg @LIBS@/g' deps/nanomsg/libnanomsg.pc.in
         fi
         (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
         (cd deps/nanomsg && [ ! -f Makefile ] && ./configure --prefix=$BACKEND_PREFIX --enable-static --disable-shared)

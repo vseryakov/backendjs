@@ -163,41 +163,37 @@ logger.printStream = function(level, msg)
 
 logger.printError = function()
 {
-    process.stderr.write(this.prefix("ERROR") + util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
+    process.stderr.write(this.prefix("ERROR") + this.format(arguments) + "\n");
 }
 
 logger.log = function()
 {
     if (this.level < 0) return;
-    this.print('INFO', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+    this.print('INFO', this.format(arguments));
 }
 
 // Make it one line to preserve space, syslog cannot output very long lines
 logger.debug = function()
 {
     if (this.level < 1) return;
-    var str = "";
-    for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
-    this.print('DEBUG', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
+    this.print('DEBUG', this.format(arguments));
 }
 
 logger.dev = function()
 {
     if (this.level < 2) return;
-    var str = "";
-    for (var p in  arguments) str += util.inspect(arguments[p], { depth: null }) + " ";
-    this.print('DEV', str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " "));
+    this.print('DEV', this.format(arguments));
 }
 
 logger.warn = function()
 {
     if (this.level < 0) return;
-    this.print('WARNING', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+    this.print('WARNING', this.format(arguments));
 }
 
 logger.error = function()
 {
-    this.print('ERROR', util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " "));
+    this.print('ERROR', this.format(arguments));
 }
 
 logger.dump = function()
@@ -205,20 +201,11 @@ logger.dump = function()
     this.stream.write(util.format.apply(this, arguments).replace(/[ \r\n\t]+/g, " ") + "\n");
 }
 
-// Display error if first argument is an Error object or debug
-logger.edebug = function()
+logger.format = function(args)
 {
-    var args = Array.prototype.slice.call(arguments, 1)
-    if (arguments[0] instanceof Error) return this.error.apply(this, arguments);
-    this.debug.apply(this, args);
-}
-
-// Display error if first argument is an Error object or log
-logger.elog = function()
-{
-    var args = Array.prototype.slice.call(arguments, 1)
-    if (arguments[0] instanceof Error) return this.error.apply(this, arguments);
-    this.log.apply(this, args);
+    var str = "";
+    for (var p in args) str += util.inspect(args[p], { depth: null }) + " ";
+    return str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " ");
 }
 
 // Print stack backtrace as error

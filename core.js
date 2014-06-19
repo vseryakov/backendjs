@@ -2275,7 +2275,7 @@ core.getIcon = function(uri, id, options, callback)
             if (err) return self.getIcon(uri, id, self.delObj(options, 'verify'), callback);
 
             self.httpGet(uri, { method: 'HEAD' }, function(err2, params) {
-                logger.edebug(err2, 'getIcon:', id, imgfile, 'size1:', stats.size, 'size2:', params.size);
+                if (err) logger.error('getIcon:', id, imgfile, 'size1:', stats.size, 'size2:', params.size, err);
                 // Not the same, get a new one
                 if (params.size !== stats.size) return self.getIcon(uri, id, self.delObj(options, 'verify'), callback);
                 // Same, just verify types
@@ -2292,7 +2292,7 @@ core.getIcon = function(uri, id, options, callback)
         // Error in downloading
         if (err || params.status != 200) {
             fs.unlink(tmpfile, function() {});
-            logger.edebug(err, 'getIcon:', id, uri, 'not found', 'status:', params.status);
+            if (err) logger.error('getIcon:', id, uri, 'not found', 'status:', params.status, err);
             return (callback ? callback(err || new Error('Status ' + params.status)) : null);
         }
         // Store in the proper location
@@ -2326,7 +2326,7 @@ core.putIcon = function(file, id, options, callback)
         if (yes && !options.force) return callback();
         // Make new scaled icon
         self.scaleIcon(file, options, function(err) {
-            logger.edebug(err, "putIcon:", id, file, 'path:', options);
+            if (err) logger.error("putIcon:", id, file, 'path:', options, err);
             if (callback) callback(err, options.outfile);
         });
     });
@@ -2362,7 +2362,7 @@ core.scaleIcon = function(infile, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     backend.resizeImage(infile, options, function(err, data) {
-        logger.edebug(err, 'scaleIcon:', typeof infile == "object" ? infile.length : infile, options);
+        if (err) logger.error('scaleIcon:', typeof infile == "object" ? infile.length : infile, options, err);
         if (callback) callback(err, data);
     });
 }
