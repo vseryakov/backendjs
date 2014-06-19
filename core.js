@@ -2985,7 +2985,7 @@ core.runTest = function(obj, options, callback)
             obj[self.test.cmd](function(err) {
                 self.test.iterations++;
                 if (self.test.forever) err = null;
-                setImmediate(next);
+                setImmediate(function() { next(err) });
             });
         },
         function(err) {

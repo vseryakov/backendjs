@@ -1967,12 +1967,11 @@ api.delIcon = function(id, options, callback)
     if (this.imagesS3 || options.imagesS3) {
         var aws = core.context.aws;
         aws.queryS3(options.imagesS3 || self.imagesS3, icon, { method: "DELETE" }, function(err) {
-            logger.edebug(err, 'delIcon:', id, options);
             if (callback) callback();
         });
     } else {
         fs.unlink(icon, function(err) {
-            logger.edebug(err, 'delIcon:', id, options);
+            if (err) logger.error('delIcon:', id, err, options);
             if (callback) callback();
         });
     }
@@ -2604,7 +2603,7 @@ api.addAccount = function(req, options, callback)
     // Skip location related properties
     self.clearQuery(req, options, "bk_account", "hidden");
 
-    // Only admin can add accounts with the type
+    // Only admin can add accounts with admin properties
     if (req.account && req.account.type != "admin") {
         self.clearQuery(req, options, "bk_auth", "admin");
         self.clearQuery(req, options, "bk_account", "admin");
@@ -2648,7 +2647,6 @@ api.updateAccount = function(req, options, callback)
         // Avoid updating bk_auth and flushing cache if nothing to update
         req.query.login = req.account.login;
         var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), req.query, { all_columns: 1, skip_columns: ["id","login","mtime"] });
-        console.log(obj)
         if (!Object.keys(obj).length) return callback(err, rows, info);
         db.update("bk_auth", req.query, callback);
     });
