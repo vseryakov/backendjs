@@ -1102,7 +1102,7 @@ db.getLocations = function(table, query, options, callback)
         var geo = core.geoHash(query.latitude, query.longitude, { distance: options.distance });
         for (var p in geo) options[p] = geo[p];
     	query[options.geokey] = geo.geohash;
-    	['latitude', 'longitude', 'distance' ]. forEach(function(x) { delete query[x]; });
+    	['latitude', 'longitude', 'distance' ].forEach(function(x) { delete query[x]; });
     } else {
         // Original query
         query = options.gquery;
@@ -1154,7 +1154,7 @@ db.getLocations = function(table, query, options, callback)
       },
       function(err) {
           // Indicates that there could be more rows still even if we reached our count
-          options.more = options.start || options.neighbors.length > 0;
+          options.more = options.start || options.neighbors.length > 0 ? true : false;
           // Keep original query and count for pagination
           options.gquery = query;
           options.count = options.gcount;

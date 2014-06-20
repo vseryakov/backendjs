@@ -62,7 +62,7 @@ while [ $# -gt 1 ]; do
      -user) export BACKEND_USER=$2;shift;shift;;
      -domain) export BACKEND_DOMAIN=$2;shift;shift;;
      -host) export BACKEND_HOST=$2;shift;shift;;
-     -master) export BACKEND_MASTER=$2;shift;shift;;
+     -sync) export BACKEND_SYNC=$2;shift;shift;;
      -path) export BACKEND_PATH=$2;shift;shift;;
      -ssh) export BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
      -exclude) export BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
@@ -453,7 +453,7 @@ case "$ARG" in
 
   sync-backend)
     # Sync code from the master, only inside backend home, must be explicitely configured
-    [ "$BACKEND_MASTER" = "" ] && exit
+    [ "$BACKEND_SYNC" = "" ] && exit
     cd $BACKEND_HOME
     log=/dev/null
     name=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).name)}catch(e){}")
@@ -462,9 +462,9 @@ case "$ARG" in
     version=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
     update=$(echo $version|awk '{split($0,a,".");printf "%s.%s\n",a[1],a[2]}')
     name=${name-app}/${update-0.0}
-    dirs=$BACKEND_MASTER:sync/$name/
-    [ "$network" != "" ] && dirs="$dirs $BACKEND_MASTER:sync/$name-$network/"
-    [ "$subnet" != "" ] && dirs="$dirs $BACKEND_MASTER:sync/$name-$subnet/"
+    dirs=$BACKEND_SYNC:sync/$name/
+    [ "$network" != "" ] && dirs="$dirs $BACKEND_SYNC:sync/$name-$network/"
+    [ "$subnet" != "" ] && dirs="$dirs $BACKEND_SYNC:sync/$name-$subnet/"
     [ "$BACKEND_DEBUG" != "" ] && log=/dev/tty
     rsync -aqFF $BACKEND_DEBUG -e "ssh -l $BACKEND_USER -y -o StrictHostKeyChecking=no -o ConnectTimeout=5 $BACKEND_SSH_ARGS" $dirs $BACKEND_HOME 2>$log
     # Check for version change and run the restart command
@@ -567,7 +567,7 @@ case "$ARG" in
   init-pgsql)
     if [ ! -f $PG_DIR/postgresql.conf ]; then
        mkdir -p $PG_DIR
-       [ "$OS_TYPE" = "amazon" && -d /var/run/postgresql ] && sudo chown $BACKEND_USER /var/run/postgresql
+       [ "$OS_TYPE" = "amazon" -a -d /var/run/postgresql ] && sudo chown $BACKEND_USER /var/run/postgresql
        $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
        $SED "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf
        $SED "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
@@ -966,7 +966,7 @@ backend.server.start();
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instance - configure for temporary job instance"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
-    echo "  init-sync - setup a cron job to run sync-backend command every 5 minites to check for new software on the \$BACKEND_MASTER server"
+    echo "  init-sync - setup a cron job to run sync-backend command every 5 minites to check for new software on the \$BACKEND_SYNC server"
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
@@ -975,7 +975,7 @@ backend.server.start();
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  put-backend path [-host HOST] [-path PATH] [-user USER] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BACKEND_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS"
-    echo "  sync-backend - synchronize other directories from the master host, runs on the instance, must use BACKEND_MASTER set to the host name where to get files"
+    echo "  sync-backend - synchronize other directories from the master host, runs on the instance, must use BACKEND_SYNC set to the host name where to get files"
     echo "  check-backend - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  backup-backend - run the backup script, store in \$BACKEND_BACKUP, can be used in crontabs with symlink"
     echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"

@@ -75,7 +75,7 @@ var server = {
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
            { name: "max-jobs", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue only" },
-           { name: "jobs-interval", type: "number", min: 60, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs" } ],
+           { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs" } ],
 };
 
 module.exports = server;
@@ -784,8 +784,7 @@ server.spawnProcess = function(args, skip, opts)
     return spawn(process.argv[0], argv, opts);
 }
 
-// Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process
-// terminates.
+// Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.
 server.runJob = function(job)
 {
     var self = this;
@@ -967,7 +966,12 @@ server.launchJob = function(job, options, callback)
         if (p[0] != '-') continue;
         args.push(p, options[p])
     }
-    aws.runInstances(1, args.map(function(x) { return String(x).replace(/ /g, '%20') }).join(" "), callback);
+    options.UserData = args.map(function(x) { return String(x).replace(/ /g, '%20') }).join(" ");
+    var d = args.match(/\-jobname ([^ ]+)/i);
+    if (d) options.instanceName = d[1];
+    if (typeof options.InstanceInitiatedShutdownBehavior == "undefined") options.InstanceInitiatedShutdownBehavior = "terminate";
+
+    aws.runInstances(options, callback);
     return true;
 }
 

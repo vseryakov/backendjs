@@ -14,6 +14,7 @@ var logger = {
     stream: process.stdout,
     writable: true,
     levels: { test: 3, dev: 2, debug: 1, warn: 0, info: 0, none: -1 },
+    labels: null,
 
     // syslog facilities
     LOG_KERN: (0<<3),
@@ -144,6 +145,25 @@ logger.setDebug = function(level)
     backend.logging(self.level + 2);
 }
 
+// Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level
+logger.setDebugLabel = function(str)
+{
+    var self = this;
+    String(str).split(",").forEach(function(x) {
+        x = x.trim();
+        switch (x[0]) {
+        case '-':
+            if (self.labels) delete self.labels[x.substr(1)];
+            if (!Object.keys(self.labels).length) self.labels = null;
+            break;
+        case '+':
+            if (!self.labels) self.labels = {};
+            self.labels[x.substr(1)] = 1;
+            break;
+        }
+    });
+}
+
 // Assign output channel to system logger, default is stdout
 logger.setChannel = function(name)
 {
@@ -175,7 +195,7 @@ logger.log = function()
 // Make it one line to preserve space, syslog cannot output very long lines
 logger.debug = function()
 {
-    if (this.level < 1) return;
+    if (this.level < 1 && (!this.labels || !this.labels[arguments[0]])) return;
     this.print('DEBUG', this.format(arguments));
 }
 

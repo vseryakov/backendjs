@@ -87,10 +87,13 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
 
     core.httpGet(proto + host + path + '?' + query, { method: method, postdata: postdata }, function(err, params) {
         if (err || !params.data) return callback ? callback(err) : null;
-        var obj = null;
-        try { obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e }
-        if (logger.level || params.status != 200) logger.log('queryAWS:', query, obj);
-        if (callback) callback(err, obj);
+        try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
+        if (params.status != 200) {
+            logger[options.ignore_error ? "debug" : "error"]('queryAWS:', query, err || params.data);
+            return callback ? callback(err, params.obj) : null;
+        }
+        logger.debug('queryAWS:', query, params.obj);
+        if (callback) callback(err, params.obj);
     });
 }
 
@@ -98,7 +101,7 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
 aws.queryEC2 = function(action, obj, callback)
 {
     var self = this;
-    var req = { Action: action, Version: '2012-12-01' };
+    var req = { Action: action, Version: '2014-05-01' };
     for (var p in obj) req[p] = obj[p];
     this.queryAWS('http://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
 }
@@ -236,38 +239,53 @@ aws.queryS3 = function(bucket, key, options, callback)
     if (!options.headers) options.headers = {};
     var uri = this.signS3(options.method, bucket, key, options.query, options.headers, options.expires);
     core.httpGet(uri, options, function(err, params) {
-        if (params.status != 200) logger.error('queryS3:', uri, params.status, params.headers, params.data);
         if (callback) callback(err, params);
     });
 }
 
 // Run AWS instances with given arguments in user-data
-aws.runInstances = function(count, args, options, callback)
+aws.runInstances = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
 
-    if (!this.imageId && !options.imageId) return callback ? callback(new Error("no imageId configured"), obj) : null;
+    if (!this.imageId && !options.ImageId) return callback ? callback(new Error("no imageId configured"), obj) : null;
 
-    var req = { MinCount: count,
-                MaxCount: count,
-                ImageId: options.imageId || this.imageId,
-                InstanceType: options.instanceType || this.instanceType,
-                KeyName: options.keypair || this.keypair,
-                InstanceInitiatedShutdownBehavior: "terminate",
-                UserData: new Buffer(args).toString("base64") };
+    var req = { MinCount: options.MinCount || options.count || 1,
+                MaxCount: options.MaxCount || options.count || 1,
+                ImageId: options.ImageId || this.imageId,
+                InstanceType: options.InstanceType || this.instanceType,
+                KeyName: options.KeyName || this.keyName || "",
+                InstanceInitiatedShutdownBehavior: options.InstanceInitiatedShutdownBehavior || "stop",
+                UserData: options.UserData ? new Buffer(options.UserData).toString("base64") : "" };
 
-    logger.log('runInstances:', this.name, 'count:', count, 'ami:', req.imageId, 'key:', req.keypair, 'args:', args);
+    // All upper case properties are native EC2 parameters
+    for (var p in options) {
+        if (p[0] >= 'A' && p[0] <= 'Z' && !req[p]) req[p] = options[p];
+    }
+
+    logger.debug('runInstances:', this.name, options);
     this.queryEC2("RunInstances", req, function(err, obj) {
-        if (err) logger.error('runInstances:', self.name, obj);
-        // Update tag name with current job
-        var item = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
-        if (item) {
-            var d = args.match(/\-jobname ([^ ]+)/i);
+        if (err) return callback ? callback(err) : null;
+
+        // Instances list
+        var items = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
+        if (items) {
+            var tags = options.tags;
+            if (options.instanceName) {
+                if (!tags) tags = {};
+                tags["Tag.1.Key"] = 'Name';
+                tags["Tag.1.Value"] = options.instanceName;
+            }
             // Update tags with delay to allow instances appear in the system
-            if (d) setTimeout(function() {
-                item.forEach(function(x) { self.queryEC2("CreateTags", { "ResourceId.1": x.instanceId, "Tag.1.Key": 'Name', "Tag.1.Value": d[1] }); });
-            }, 15000);
+            if (tags) {
+                setTimeout(function() {
+                    items.forEach(function(x) {
+                        tags["ResourceId.1"] = x.instanceId;
+                        self.queryEC2("CreateTags", tags);
+                    });
+                }, 15000);
+            }
         }
         if (callback) callback(err, obj);
     });

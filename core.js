@@ -115,6 +115,7 @@ var core = {
     // Config parameters
     args: [ { name: "help", type: "callback", value: function() { core.showHelp() }, descr: "Print help and exit" },
             { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debugging messages, short of -log debug", pass: 1 },
+            { name: "debug-label", type: "callback", value: function(v) { logger.setDebugLabel(v); }, descr: "Enable debugging labels, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
             { name: "debug-run-segv", type: "callback", value: function(v) { if(v) backend.runsegv(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
             { name: "debug-set-segv", type: "callback", value: function(v) { if(v) backend.setsegv(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
             { name: "debug-set-backtrace", type: "callback", value: function(v) { if(v) backend.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
