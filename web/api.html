@@ -145,14 +145,13 @@ $(function() {
         return a;
      }
      Backend.clearHistory = function() {
-        var url = $('#url').val();
-        if (!url) {
-            if (!$("#history").prop('selectedIndex')) {
-                localStorage['inputHistory.url'] = "";
-                this.initHistory();
-            }
+        if ($("#history").prop('selectedIndex') == 0) {
+            localStorage['inputHistory.url'] = "";
+            this.initHistory();
             return;
         }
+        var url = $('#url').val();
+        if (!url) return;
         var list = this.getHistory();
         list.splice(list.indexOf(url), 1);
         localStorage['inputHistory.url'] = list.join('\n');
@@ -265,6 +264,7 @@ $(function() {
      }
 
      $('#history').on('change', function() {
+        if ($("#history").prop('selectedIndex') == 0) return;
         $('#url').val($('#history').val());
         Backend.doRun();
      });

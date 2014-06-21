@@ -25,7 +25,8 @@ var aws = {
             { name: "ddb-read-capacity", type: "int", min: 1, descr: "Default DynamoDB read capacity for all tables" },
             { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
             { name: "keypair", descr: "AWS instance keypair name for remote job instances" },
-            { name: "image-id", descr: "AWS image id to be used for remote job instances" },
+            { name: "image-id", descr: "AWS image id to be used for instances" },
+            { name: "subnet-id", descr: "AWS subnet id to be used for instances" },
             { name: "instance-type", descr: "AWS instance type for remote jobs launched on demand" } ],
 
     region: 'us-east-1',
@@ -65,7 +66,7 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
 
     // Mix in the additional parameters. params must be an Array of tuples as for sigValues above
     for (var p in obj) {
-        sigValues.push([p, obj[p]]);
+        if (typeof obj[p] != "undefined") sigValues.push([p, obj[p]]);
     }
     var strSign = "", query = "", postdata = "";
 
@@ -104,6 +105,15 @@ aws.queryEC2 = function(action, obj, callback)
     var req = { Action: action, Version: '2014-05-01' };
     for (var p in obj) req[p] = obj[p];
     this.queryAWS('http://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
+}
+
+// AWS ELB API parameters
+aws.queryELB = function(action, obj, callback)
+{
+    var self = this;
+    var req = { Action: action, Version: '2012-06-01' };
+    for (var p in obj) req[p] = obj[p];
+    this.queryAWS('http://', 'POST', 'elasticloadbalancing.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
 // Build version 4 signature headers
@@ -259,6 +269,16 @@ aws.runInstances = function(options, callback)
                 InstanceInitiatedShutdownBehavior: options.InstanceInitiatedShutdownBehavior || "stop",
                 UserData: options.UserData ? new Buffer(options.UserData).toString("base64") : "" };
 
+    if (!options["SubnetId"] && this.subnetId) options["SubnetId"] = this.subnetId;
+    if (!options["IamInstanceProfile.Name"] && this.iamProfile) optionsoptions["IamInstanceProfile.Name"] = this.iamProfile;
+    if (!options["Placement.AvailabilityZone"] && this.availZone) options["Placement.AvailabilityZone"] = this.availZone;
+
+    options["NetworkInterface.0.DeviceIndex"] = 0;
+    if (options.ip) options["NetworkInterface.0.PrivateIpAddress"] = options.ip;
+    if (optios.publicIp) options["NetworkInterface.0.AssociatePublicIpAddress"] = true;
+
+    if (options.file) options.UserData = core.readFileSync(options.file).toString("base64");
+
     // All upper case properties are native EC2 parameters
     for (var p in options) {
         if (p[0] >= 'A' && p[0] <= 'Z' && !req[p]) req[p] = options[p];
@@ -271,20 +291,21 @@ aws.runInstances = function(options, callback)
         // Instances list
         var items = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
         if (items) {
-            var tags = options.tags;
-            if (options.instanceName) {
-                if (!tags) tags = {};
-                tags["Tag.1.Key"] = 'Name';
-                tags["Tag.1.Value"] = options.instanceName;
-            }
             // Update tags with delay to allow instances appear in the system
-            if (tags) {
-                setTimeout(function() {
-                    items.forEach(function(x) {
-                        tags["ResourceId.1"] = x.instanceId;
-                        self.queryEC2("CreateTags", tags);
-                    });
-                }, 15000);
+            if (options.instanceName) {
+                var tags = {};
+                items.forEach(function(x, i) {
+                    tags["ResourceId." + (i+1)] = x.instanceId;
+                    tags["Tag." + (i+1) + ".Key"] = 'Name';
+                    tags["Tag." + (i+1) + ".Value"] = options.instanceName;
+                });
+                setTimeout(function() { self.queryEC2("CreateTags", tags);  }, 15000);
+            }
+            // Add to the ELB
+            if (options.elbName) {
+                var params = { LoadBalancerName: options.elbName };
+                items.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
+                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, 10000);
             }
         }
         if (callback) callback(err, obj);

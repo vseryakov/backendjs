@@ -307,15 +307,15 @@ api.init = function(callback)
     self.app.use(function(req, res, next) {
         self.metrics.api.Meter('rate').mark();
         self.metrics.api.Histogram('queue').update(self.metrics.api.Counter('count').inc());
-        req.m1 = self.metrics.api.Timer('response').start();
-        req.m2 = self.metrics.urls.Timer(req.path).start();
+        req.metric1 = self.metrics.api.Timer('response').start();
+        req.metric2 = self.metrics.urls.Timer(req.path).start();
         var end = res.end;
         res.end = function(chunk, encoding) {
             res.end = end;
             res.end(chunk, encoding);
             self.metrics.api.Counter('count').dec();
-            req.m1.end();
-            req.m2.end();
+            req.metric1.end();
+            req.metric2.end();
         }
         next();
     });
@@ -376,6 +376,15 @@ api.init = function(callback)
     // Assign custom middleware just after the security handler
     self.initMiddleware.call(self);
 
+    // Custom routes
+    self.app.use(self.app.router);
+
+    // No API routes matched, cleanup stats
+    self.app.use(function(req, res, next) {
+        if (!res.headersSent) delete self.metrics.urls.metrics[req.path];
+        next();
+    });
+
     // Templating engine setup
     if (!self.noTemplating) {
         self.app.engine('html', consolidate[self.templating || 'ejs']);
@@ -389,8 +398,6 @@ api.init = function(callback)
         self.app.use(serveStatic(core.path.web));
         self.app.use(serveStatic(__dirname + "/web"));
     }
-
-    self.app.use(self.app.router);
 
     // Default error handler to show errors in the log
     self.app.use(function(err, req, res, next) {

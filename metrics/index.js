@@ -22,7 +22,7 @@ Metrics.prototype.toJSON = function()
 {
     var json = {};
     for (var p in this) {
-        if (p != "metrics" && this[p]) json[p] = this[p];
+        if (p != "metrics" && typeof this[p] != "undefined" && typeof this[p] != null) json[p] = this[p];
     }
     for (var metric in this.metrics) {
         json[metric] = this.metrics[metric].toJSON();

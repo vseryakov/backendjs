@@ -574,10 +574,10 @@ db.query = function(req, options, callback)
                     if (!options.noprocessrows) rows = self.processRows(pool, table, rows, options);
 
                     // Custom filter to return the final result set
-                    if (options.filter) rows = rows.filter(function(row) { return options.filter(row, options); })
+                    if (options.filter && rows.length) rows = rows.filter(function(row) { return options.filter(row, options); })
 
                     // Async filter, can perform I/O for filtering
-                    if (options.async_filter) {
+                    if (options.async_filter && rows.length) {
                         options.async_filter(rows, options, function(err, rows) {
                             onEnd(err, client, rows, info);
                         });
@@ -872,7 +872,7 @@ db.list = function(table, query, options, callback)
 	default:
 		return callback ? callback(new Error("invalid list"), []) : null;
 	}
-    if (!query.length) return callback ? callback(new Error("empty list"), []) : null;
+    if (!query.length) return callback ? callback(null, []) : null;
     this.select(table, query, options, callback);
 }
 
