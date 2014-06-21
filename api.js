@@ -353,7 +353,7 @@ api.init = function(callback)
                            (now - req._startTime) + " ms - " +
                            (req.headers['user-agent'] || "-") + " " +
                            (req.headers['version'] || "-") + " " +
-                           (req.account ? req.account.login : "-") + "\n";
+                           (req.account.login || "-") + "\n";
                 self.accesslog.write(line);
             }
             next();
@@ -687,6 +687,7 @@ api.checkRequest = function(req, res, callback)
 
     // Request options that the API routes will merge with, can be used by pre process hooks
     req.options = {};
+    req.account = {};
 
     self.checkAccess(req, function(rc1) {
         // Status is given, return an error or proceed to the next module
@@ -1426,9 +1427,7 @@ api.initTables = function(callback)
 // distinguish control parameters from query parameters.
 api.getOptions = function(req)
 {
-    var options = { ops: {},
-                    check_public: req.account ? req.account.id : null,
-                    account: req.account ? { id: req.account.id, login: req.account.login } : { id: null, login: null } };
+    var options = { ops: {}, check_public: req.account.id, account: { id: req.account.id, login: req.account.login } };
     ["details", "consistent", "desc", "total"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") options[x] = core.toBool(req.query["_" + x]);
     });
@@ -2260,10 +2259,9 @@ api.getLocation = function(req, options, callback)
     var self = this;
     var db = core.context.db;
     var table = options.table || "bk_location";
-    var secret = req.account ? req.account.secret : "";
 
     // Continue pagination using the search token
-    var token = core.base64ToJson(req.query._token, secret);
+    var token = core.base64ToJson(req.query._token, req.account.secret);
     if (token && token.geohash && token.latitude && token.longitude) {
         options = token;
         req.query.latitude = options.latitude;
@@ -2281,7 +2279,7 @@ api.getLocation = function(req, options, callback)
     if (typeof options.round == "undefined") options.round = core.minDistance;
 
     db.getLocations(table, req.query, options, function(err, rows, info) {
-        var next_token = info.more ? core.jsonToBase64(info, secret) : null;
+        var next_token = info.more ? core.jsonToBase64(info, req.account.secret) : null;
         // Ignore current account, db still retrieves it but in the API we skip it
         rows = rows.filter(function(row) { return row.id != req.account.id });
         // Return accounts with locations
@@ -2294,6 +2292,8 @@ api.getLocation = function(req, options, callback)
                 list[row.id] = row;
                 return row;
             });
+            logger.debug("getLocations:", req.account.id, 'GEO:', info.latitude, info.longitude, info.distance, info.geohash, 'NEXT:', info.start ||'', 'ROWS:', ids.length);
+
             db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 // Merge locations and accounts
@@ -2604,7 +2604,7 @@ api.addAccount = function(req, options, callback)
     self.clearQuery(req, options, "bk_account", "hidden");
 
     // Only admin can add accounts with admin properties
-    if (req.account && req.account.type != "admin") {
+    if (req.account.type != "admin") {
         self.clearQuery(req, options, "bk_auth", "admin");
         self.clearQuery(req, options, "bk_account", "admin");
     }
@@ -2612,7 +2612,7 @@ api.addAccount = function(req, options, callback)
         if (err) return callback(err);
 
         db.add("bk_account", req.query, function(err) {
-            if (err) return db.del("bk_auth", auth, function() { callback(err); });
+            if (err) return db.del("bk_auth", req.query, function() { callback(err); });
 
             self.metrics.accounts.Meter('add').mark();
 
@@ -2638,7 +2638,7 @@ api.updateAccount = function(req, options, callback)
     self.clearQuery(req, options, "bk_account", "hidden");
 
     // Skip admin properties if any
-    if (req.account && req.account.type != "admin") {
+    if (req.account.type != "admin") {
         self.clearQuery(req, options, "bk_auth", "admin");
         self.clearQuery(req, options, "bk_account", "admin");
     }

@@ -102,12 +102,8 @@ var core = {
     logwatcherMax: 1000000,
     logwatcherInterval: 60,
     logwatcherIgnore: ["NOTICE: ", "DEBUG: ", "DEV: "],
-    logwatcherMatch: ['\[[0-9]+\]: (ERROR|WARNING): ',
-                      'message":"ERROR:',
-                      'queryAWS:.+Errors:'],
-    logwatcherFiles: [ { file: "/var/log/messages" },
-                       { name: "logFile" },
-                       { name: "errFile", match: /.+/, } ],
+    logwatcherMatch: ['\[[0-9]+\]: (ERROR|WARNING): ', 'message":"ERROR:'],
+    logwatcherFiles: [ { file: "/var/log/messages" }, { name: "logFile" }, { name: "errFile", match: /.+/, } ],
 
     // User agent
     userAgent: [],
@@ -1783,7 +1779,7 @@ core.encrypt = function(key, data, algorithm)
         b64 += encrypt.final('base64');
     } catch(e) {
         b64 = '';
-        logger.debug('encrypt:', e, data);
+        logger.debug('encrypt:', e.stack, data);
     }
     return b64;
 }
@@ -1798,7 +1794,7 @@ core.decrypt = function(key, data, algorithm)
         msg += decrypt.final('utf8');
     } catch(e) {
         msg = '';
-        logger.debug('decrypt:', e, data);
+        logger.debug('decrypt:', e.stack, data);
     };
     return msg;
 }
@@ -1809,7 +1805,7 @@ core.sign = function (key, data, algorithm, encode)
     try {
         return crypto.createHmac(algorithm || "sha1", String(key)).update(String(data), "utf8").digest(encode || "base64");
     } catch(e) {
-        logger.error('sing:', e);
+        logger.error('sing:', algorithm, encode, e.stack);
         return "";
     }
 }
@@ -1820,7 +1816,7 @@ core.hash = function (data, algorithm, encode)
     try {
         return crypto.createHash(algorithm || "sha1").update(String(data), "utf8").digest(encode || "base64");
     } catch(e) {
-        logger.error('hash:', e);
+        logger.error('hash:', algorithm, encode, e.stack);
         return "";
     }
 }
