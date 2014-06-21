@@ -117,7 +117,7 @@ aws.querySign = function(service, host, method, path, body, headers)
     headers['Host'] = host;
     headers['X-Amz-Date'] = date;
     if (body && !headers['content-type']) headers['content-type'] = 'application/x-www-form-urlencoded; charset=utf-8';
-    if (body && !headers['content-length']) headers['content-length'] = body.length;
+    if (body && !headers['content-length']) headers['content-length'] = Buffer.byteLength(body, 'utf8');
     if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
 
     function trimAll(header) { return header.toString().trim().replace(/\s+/g, ' '); }

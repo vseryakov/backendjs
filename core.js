@@ -1024,11 +1024,12 @@ core.httpGet = function(uri, params, callback)
         case "object":
             params.postdata = JSON.stringify(params.postdata);
             options.headers['content-type'] = "application/json";
+            options.headers['content-length'] = Buffer.byteLength(params.postdata, 'utf8');
             break;
         default:
             params.postdata = String(params.postdata);
         }
-        options.headers['content-length'] = params.postdata.length;
+        if (!options.headers['content-length']) options.headers['content-length'] = Buffer.byteLength(params.postdata, 'utf8');
     } else
     if (params.postfile) {
         if (options.method == "GET") options.method = "POST";
