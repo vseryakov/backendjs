@@ -161,6 +161,7 @@ var api = {
                      freemem: { type: "json" },
                      totalmem: { type: "json" },
                      util: { type: "json" },
+                     cache: { type: "json" },
                      data: { type: "json" }},
 
     }, // tables
@@ -2767,6 +2768,7 @@ api.initStatistics = function()
 // Returns an object with collected db and api statstics and metrics
 api.getStatistics = function()
 {
+    var self = this;
     var pool = core.context.db.getPool();
     pool.metrics.stats = pool.stats();
     this.metrics.pool = pool.metrics;
@@ -2776,6 +2778,7 @@ api.getStatistics = function()
 // Metrics about the process
 api.collectStatistics = function()
 {
+    var self = this;
     var cpus = os.cpus();
     var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
     var avg = os.loadavg();
@@ -2793,4 +2796,5 @@ api.collectStatistics = function()
     this.metrics.Histogram('freemem').update(os.freemem());
     this.metrics.Histogram('totalmem').update(os.totalmem());
     this.metrics.Histogram("util").update(util * 100 / cpus.length);
+    ipc.stats(function(data) { self.metrics.cache = data });
 }

@@ -311,13 +311,19 @@ aws.runInstances = function(options, callback)
                     tags["Tag." + (i+1) + ".Key"] = 'Name';
                     tags["Tag." + (i+1) + ".Value"] = options.name;
                 });
-                setTimeout(function() { self.queryEC2("CreateTags", tags);  }, 15000);
+                setTimeout(function() { self.queryEC2("CreateTags", tags);  }, 10000);
             }
             // Add to the ELB
             if (options.elbName) {
                 var params = { LoadBalancerName: options.elbName };
                 items.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
-                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, 10000);
+                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, 15000);
+            }
+            // Elastic IP
+            if (options.elasticIp) {
+                var params = { PublicIp: options.elasticIp, InstanceId: items[0].instanceId };
+                if (options.subnetId || options["NetworkInterface.0.SubnetId"]) params.AllowReassociation = true;
+                setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, 20000);
             }
         }
         if (callback) callback(err, obj);

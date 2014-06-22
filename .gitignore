@@ -17,11 +17,13 @@
 .project
 node_modules
 build
-docs
 deps
 etc
 bin
 var
 tmp
+images
+files
+log
 pages
 

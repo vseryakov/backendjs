@@ -17,7 +17,6 @@ case "$PLATFORM" in
     [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
     # In multi-OS environment have to sync by OS type due to different dependencies in each distro
-    [ "$BACKEND_OS_TYPE" != "" -a "$BACKEND_HOST" != "" ] && BACKEND_HOST=$OS_TYPE-$BACKEND_HOST
     [ "$PG_PREFIX" = "" -a -d /usr/pgsql-9.3 ] && PG_PREFIX=/usr/pgsql-9.3
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
     KILLALL="killall -qr"
@@ -27,6 +26,7 @@ case "$PLATFORM" in
 
   Darwin)
     OS_TYPE=macosx
+    [ "$BACKEND_HOME" = "" ] && export BACKEND_HOME=~/.backend
     [ "$BACKEND_PREFIX" = "" ] && export BACKEND_PREFIX=/opt/local
     [ "$PG_PREFIX" = "" ] && export PG_PREFIX=$BACKEND_PREFIX/lib/postgresql93 && PG_LIBDIR=$PG_PREFIX
     [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=$BACKEND_PREFIX/lib/mysql56
@@ -71,7 +71,7 @@ while [ $# -gt 1 ]; do
     esac
 done
 
-# Home must be specified or use the default
+# Home must be specified for the script to work properly
 [ "$BACKEND_HOME" = "" ] && export BACKEND_HOME=$(sh -c "echo ~$BACKEND_USER")
 [ -f $BACKEND_HOME/etc/profile ] && . $BACKEND_HOME/etc/profile
 
