@@ -25,6 +25,7 @@ var aws = {
             { name: "ddb-read-capacity", type: "int", min: 1, descr: "Default DynamoDB read capacity for all tables" },
             { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
             { name: "key-name", descr: "AWS instance keypair name for remote job instances" },
+            { name: "iam-profile", descr: "IAM instance profile name" },
             { name: "image-id", descr: "AWS image id to be used for instances" },
             { name: "subnet-id", descr: "AWS subnet id to be used for instances" },
             { name: "instance-type", descr: "AWS instance type for remote jobs launched on demand" } ],
@@ -270,7 +271,7 @@ aws.runInstances = function(options, callback)
                 UserData: options.UserData ? new Buffer(options.UserData).toString("base64") : "" };
 
     if (!options["SubnetId"] && this.subnetId) options["SubnetId"] = this.subnetId;
-    if (!options["IamInstanceProfile.Name"] && this.iamProfile) optionsoptions["IamInstanceProfile.Name"] = this.iamProfile;
+    if (!options["IamInstanceProfile.Name"] && this.iamProfile) options["IamInstanceProfile.Name"] = this.iamProfile;
     if (!options["Placement.AvailabilityZone"] && this.availZone) options["Placement.AvailabilityZone"] = this.availZone;
 
     if (options.ip) {
@@ -303,12 +304,12 @@ aws.runInstances = function(options, callback)
         var items = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
         if (items) {
             // Update tags with delay to allow instances appear in the system
-            if (options.instanceName) {
+            if (options.name) {
                 var tags = {};
                 items.forEach(function(x, i) {
                     tags["ResourceId." + (i+1)] = x.instanceId;
                     tags["Tag." + (i+1) + ".Key"] = 'Name';
-                    tags["Tag." + (i+1) + ".Value"] = options.instanceName;
+                    tags["Tag." + (i+1) + ".Value"] = options.name;
                 });
                 setTimeout(function() { self.queryEC2("CreateTags", tags);  }, 15000);
             }

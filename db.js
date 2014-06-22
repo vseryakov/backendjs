@@ -475,7 +475,7 @@ db.createPool = function(options)
 db.showResult = function(err, rows, info)
 {
     if (err) return console.log(err);
-    console.log(rows, util.inspect(info, { depth: 5 }));
+    console.log(util.inspect(rows, { depth: 5 }), info);
 }
 
 // Execute query using native database driver, the query is passed directly to the driver.
