@@ -475,7 +475,7 @@ db.createPool = function(options)
 db.showResult = function(err, rows, info)
 {
     if (err) return console.log(err);
-    console.log(rows, info);
+    console.log(rows, util.inspect(info, { depth: 5 }));
 }
 
 // Execute query using native database driver, the query is passed directly to the driver.
@@ -1843,8 +1843,9 @@ db.sqlInitPool = function(options)
     }
     // Execute a query or if req.text is an Array then run all queries in sequence
     pool.query = function(client, req, opts, callback) {
-        if (!req.values) req.values = [];
+        if (!req || typeof req.text == "undefined") return callback(null, []);
 
+        if (!req.values) req.values = [];
         if (!Array.isArray(req.text)) {
             client.query(req.text, req.values, opts, callback);
         }  else {

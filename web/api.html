@@ -272,6 +272,7 @@ $(function() {
      $('#url').inputHistory({
          enter: function() { Backend.doRun() }
      });
+     document.title += ": " + window.location.hostname.split(".").shift();
      ko.applyBindings(Backend);
      Backend.doLogin();
      Backend.initHistory();

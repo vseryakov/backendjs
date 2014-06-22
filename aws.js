@@ -24,7 +24,7 @@ var aws = {
             { name: "region", descr: "AWS region" },
             { name: "ddb-read-capacity", type: "int", min: 1, descr: "Default DynamoDB read capacity for all tables" },
             { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
-            { name: "keypair", descr: "AWS instance keypair name for remote job instances" },
+            { name: "key-name", descr: "AWS instance keypair name for remote job instances" },
             { name: "image-id", descr: "AWS image id to be used for instances" },
             { name: "subnet-id", descr: "AWS subnet id to be used for instances" },
             { name: "instance-type", descr: "AWS instance type for remote jobs launched on demand" } ],
@@ -90,7 +90,7 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
         if (err || !params.data) return callback ? callback(err) : null;
         try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
         if (params.status != 200) {
-            logger[options.ignore_error ? "debug" : "error"]('queryAWS:', query, err || params.data);
+            logger.error('queryAWS:', query, err || params.data);
             return callback ? callback(err, params.obj) : null;
         }
         logger.debug('queryAWS:', query, params.obj);
@@ -273,9 +273,20 @@ aws.runInstances = function(options, callback)
     if (!options["IamInstanceProfile.Name"] && this.iamProfile) optionsoptions["IamInstanceProfile.Name"] = this.iamProfile;
     if (!options["Placement.AvailabilityZone"] && this.availZone) options["Placement.AvailabilityZone"] = this.availZone;
 
-    options["NetworkInterface.0.DeviceIndex"] = 0;
-    if (options.ip) options["NetworkInterface.0.PrivateIpAddress"] = options.ip;
-    if (optios.publicIp) options["NetworkInterface.0.AssociatePublicIpAddress"] = true;
+    if (options.ip) {
+        if (options.SubnetId) {
+            options["NetworkInterface.0.DeviceIndex"] = 0;
+            options["NetworkInterface.0.SubnetId"] = options.SubnetId;
+            options["NetworkInterface.0.PrivateIpAddress"] = options.ip;
+            delete options.SubnetId;
+        } else {
+            options["PrivateIpAddress"] = ip;
+        }
+    }
+    if (options.publicIp) {
+        options["NetworkInterface.0.DeviceIndex"] = 0;
+        options["NetworkInterface.0.AssociatePublicIpAddress"] = true;
+    }
 
     if (options.file) options.UserData = core.readFileSync(options.file).toString("base64");
 
