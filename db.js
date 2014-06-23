@@ -455,7 +455,7 @@ db.createPool = function(options)
     pool.dbkeys = {};
     pool.dbindexes = {};
     pool.dbcache = {};
-    pool.metrics = new metrics('name', pool.name);
+    pool.metrics = new metrics.Metrics('name', pool.name);
     // Some require properties can be initialized with options
     if (!pool.dboptions) pool.dboptions = {};
     [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });

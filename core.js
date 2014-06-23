@@ -1837,6 +1837,18 @@ core.random = function(size)
     return this.sign(crypto.randomBytes(64), crypto.randomBytes(size || 256), 'sha256').replace(/[=+%]/g, '');
 }
 
+// Return random number between 0 and USHORT_MAX
+core.randomShort = function()
+{
+    return crypto.randomBytes(2).readUInt16LE(0);
+}
+
+// Return rando number between 0 and UINT_MAX
+core.randomLong = function()
+{
+    return crypto.randomBytes(4).readUInt32LE(0);
+}
+
 // Return random integer between min and max inclusive
 core.randomInt = function(min, max)
 {

@@ -214,8 +214,12 @@ var api = {
     iconLimit: {},
 
     // Metrics and stats
-    metrics: new metrics('host', '', 'pid', process.pid, 'ip', '', 'instance', '', 'latency', 0, 'cpus', 0, 'ctime', 0, 'mtime', Date.now(),
-                         'api', new metrics(), 'urls', new metrics(), 'accounts', new metrics(), 'messages', new metrics(), 'connections', new metrics()),
+    metrics: new metrics.Metrics('host', '', 'pid', process.pid, 'ip', '', 'instance', '', 'latency', 0, 'cpus', 0, 'ctime', 0, 'mtime', Date.now(),
+                                 'api', new metrics.Metrics(),
+                                 'urls', new metrics.Metrics(),
+                                 'accounts', new metrics.Metrics(),
+                                 'messages', new metrics.Metrics(),
+                                 'connections', new metrics.Metrics()),
 
     // Default endpoints
     endpoints: { "account": 'initAccountAPI',
@@ -2753,12 +2757,14 @@ api.deleteAccount = function(id, options, callback)
 api.initStatistics = function()
 {
     var self = this;
-    this.collectStatistics();
+    // Add some delay to make all workers collect not at the same time
+    var delay = core.randomShort() + (cluster.isWorker ? cluster.worker.id * 1000 : 0);
 
-    setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);
+    setTimeout(function() { self.collectStatistics(); }, delay);
+    setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000 + delay);
 
-    if (cluster.isWorker && core.collectHost) {
-        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000);
+    if (core.collectHost) {
+        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000 + delay);
     }
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
