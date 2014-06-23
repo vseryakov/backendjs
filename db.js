@@ -518,7 +518,6 @@ db.query = function(req, options, callback)
     var t1 = Date.now();
     var m1 = pool.metrics.Timer('response').start();
     pool.metrics.Histogram('queue').update(pool.metrics.Counter('count').inc());
-    pool.metrics.Meter('rate').mark();
 
     function onEnd(err, client, rows, info) {
         if (client) pool.free(client);

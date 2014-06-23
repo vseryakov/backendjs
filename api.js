@@ -302,7 +302,7 @@ api.init = function(callback)
 
     // Allow cross site requests
     self.app.use(function(req, res, next) {
-        res.header('Server', core.name + '/' + core.version);
+        res.header('Server', core.name + '/' + core.version + " " + core.appVersion);
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Allow-Headers', 'bk-signature');
         next();
@@ -310,7 +310,6 @@ api.init = function(callback)
 
     // Metrics starts early
     self.app.use(function(req, res, next) {
-        self.metrics.api.Meter('rate').mark();
         self.metrics.api.Histogram('queue').update(self.metrics.api.Counter('count').inc());
         req.metric1 = self.metrics.api.Timer('response').start();
         req.metric2 = self.metrics.urls.Timer(req.path).start();

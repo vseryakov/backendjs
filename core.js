@@ -30,6 +30,9 @@ var core = {
     // Protocol version
     version: '2014.06.15',
 
+    // Application version
+    appVersion: "",
+
     // Process and config parameters
     argv: {},
 
@@ -279,6 +282,10 @@ core.init = function(options, callback)
     self.domain = self.domainName(self.hostname);
     // Default config file
     self.confFile = path.resolve(self.confFile || path.join(self.path.etc, "config"));
+
+    // Application version from the package.json
+    var pkg = self.jsonParse(self.readFileSync("package.json"));
+    if (pkg) self.appVersion = pkg.name + "/" + pkg.version;
 
     // Serialize initialization procedure, run each function one after another
     async.series([
@@ -989,6 +996,9 @@ core.httpGet = function(uri, params, callback)
     // Make sure required headers are set
     if (!options.headers['user-agent'] && this.userAgent.length) {
         options.headers['user-agent'] = this.userAgent[this.randomInt(0, this.userAgent.length-1)];
+    }
+    if (!options.headers['user-agent']) {
+        options.headers['user-agent'] = this.name + "/" + this.version + " " + this.appVersion;
     }
     if (options.method == "POST" && !options.headers["content-type"]) {
         options.headers["content-type"] = "application/x-www-form-urlencoded";
