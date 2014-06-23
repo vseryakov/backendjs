@@ -142,10 +142,10 @@ var api = {
                      like1: { type: "counter", value: 0, autoincr: 1 }},       // reversed, who liked me
 
        // Collected stats
-       bk_collect: { ip: { primary: 1 },
+       bk_collect: { id: { primary: 1 },
                      mtime: { type: "bigint", primary: 1 },
                      ctime: { type: "bigint" },
-                     host: {},
+                     ip: {},
                      instance: {},
                      latency: { type: "int" },
                      cpus: { type: "int" },
@@ -2760,14 +2760,16 @@ api.initStatistics = function()
     var delay = core.randomShort() + (cluster.isWorker ? cluster.worker.id * 1000 : 0);
 
     setTimeout(function() { self.collectStatistics(); }, delay);
-    setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000 + delay);
+    setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000 - delay);
 
     if (core.collectHost) {
-        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000 + delay);
+        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000 - delay);
     }
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
     if (this.busyLatency) toobusy.maxLag(this.busyLatency); else toobusy.shutdown();
+
+    logger.debug("initStatistics:", "delay:",  delay, "interval:", core.collectInterval, core.collectSendInterval);
 }
 
 // Returns an object with collected db and api statstics and metrics
@@ -2788,7 +2790,7 @@ api.collectStatistics = function()
     var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
     var avg = os.loadavg();
     var mem = process.memoryUsage();
-    this.metrics.host = core.hostname;
+    this.metrics.id = core.ipaddr + process.pid;
     this.metrics.ip = core.ipaddr;
     this.metrics.ctime = core.ctime;
     this.metrics.cpus = core.maxCPUs;

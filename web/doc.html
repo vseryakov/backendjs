@@ -63,6 +63,7 @@
 <li><a href="#module-db">db</a></li>
 <li><a href="#module-ipc">ipc</a></li>
 <li><a href="#module-logger">logger</a></li>
+<li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-server">server</a></li>
 </ul>
 </li>
@@ -1562,6 +1563,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <ul>
 <li><code>help</code> - Print help and exit</li>
 <li><code>debug</code> - Enable debugging messages, short of -log debug</li>
+<li><code>debug-label</code> - Enable debugging labels, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug</li>
 <li><code>debug-run-segv</code> - On SEGV crash keep the process spinning so attaching with gdb is possible</li>
 <li><code>debug-set-segv</code> - Set default SEGV handler which shows backtrace of calls if debug info is available</li>
 <li><code>debug-set-backtrace</code> - Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well</li>
@@ -1640,7 +1642,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
 <li><code>logwatcher-ignore</code> - Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns. Default: NOTICE: ,DEBUG: ,DEV: </li>
-<li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns. Default: [[0-9]+]: (ERROR|WARNING): ,message&quot;:&quot;ERROR:,queryAWS:.+Errors:</li>
+<li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns. Default: [[0-9]+]: (ERROR|WARNING): ,message&quot;:&quot;ERROR:</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes. Default: 60</li>
 <li><code>logwatcher-file</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers. Default: </li>
@@ -1701,8 +1703,10 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>aws-region</code> - AWS region. Default: us-east-1</li>
 <li><code>aws-ddb-read-capacity</code> - Default DynamoDB read capacity for all tables</li>
 <li><code>aws-ddb-write-capacity</code> - Default DynamoDB write capacity for all tables</li>
-<li><code>aws-keypair</code> - AWS instance keypair name for remote job instances</li>
-<li><code>aws-image-id</code> - AWS image id to be used for remote job instances</li>
+<li><code>aws-key-name</code> - AWS instance keypair name for remote job instances</li>
+<li><code>aws-iam-profile</code> - IAM instance profile name</li>
+<li><code>aws-image-id</code> - AWS image id to be used for instances</li>
+<li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
 <li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand. Default: t1.micro</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s)</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store images</li>
@@ -1759,11 +1763,11 @@ the worker processes if they die and restart them automatically. How many proces
                  id: {},                                  // Auto generated UUID
                  alias: {},                               // Account alias
                  secret: {},                              // Account password
-                 type: {},                                // Account type: admin, ....
                  status: {},                              // Status of the account
-                 acl_deny: {},                            // Deny access to matched url
-                 acl_allow: {},                           // Only grant access if matched this regexp
-                 expires: { type: &quot;bigint&quot; },             // Deny access to the account if this value is before current date, milliseconds
+                 type: { admin: 1 },                      // Account type: admin, ....
+                 acl_deny: { admin: 1 },                  // Deny access to matched url
+                 acl_allow: { admin: 1 },                 // Only grant access if matched this regexp
+                 expires: { type: &quot;bigint&quot;, admin: 1 },   // Deny access to the account if this value is before current date, milliseconds
                  mtime: { type: &quot;bigint&quot;, now: 1 } },
 
       // Basic account information
@@ -1782,11 +1786,11 @@ the worker processes if they die and restart them automatically. How many proces
                     state: {},
                     zipcode: {},
                     country: {},
-                    geohash: { noadd: 1 },
-                    location: { noadd: 1 },
-                    latitude: { type: &quot;real&quot;, noadd: 1 },
-                    longitude: { type: &quot;real&quot;, noadd: 1 },
-                    ltime: { type: &quot;bigint&quot;, noadd: 1 },    // Last location updte time
+                    geohash: { hidden: 1 },
+                    location: { hidden: 1 },
+                    latitude: { type: &quot;real&quot;, hidden: 1 },
+                    longitude: { type: &quot;real&quot;, hidden: 1 },
+                    ltime: { type: &quot;bigint&quot;, hidden: 1 },    // Last location updte time
                     ctime: { type: &quot;bigint&quot; },              // Create time
                     mtime: { type: &quot;bigint&quot;, now: 1 } },    // Last update time
 
@@ -1854,10 +1858,10 @@ the worker processes if they die and restart them automatically. How many proces
                    like1: { type: &quot;counter&quot;, value: 0, autoincr: 1 }},       // reversed, who liked me
 
      // Collected stats
-     bk_collect: { ip: { primary: 1 },
+     bk_collect: { id: { primary: 1 },
                    mtime: { type: &quot;bigint&quot;, primary: 1 },
                    ctime: { type: &quot;bigint&quot; },
-                   host: {},
+                   ip: {},
                    instance: {},
                    latency: { type: &quot;int&quot; },
                    cpus: { type: &quot;int&quot; },
@@ -1873,6 +1877,7 @@ the worker processes if they die and restart them automatically. How many proces
                    freemem: { type: &quot;json&quot; },
                    totalmem: { type: &quot;json&quot; },
                    util: { type: &quot;json&quot; },
+                   cache: { type: &quot;json&quot; },
                    data: { type: &quot;json&quot; }},
 </code></pre></li>
 </ul>
@@ -2471,14 +2476,14 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
-<li><p><code>api.setAccountSecret(req, options, callback)</code></p>
-<p> Change account secret, used in /account/put/secret API call</p>
+<li><p><code>api.updateAccount(req, options, callback)</code></p>
+<p> Update existing account, used in /account/update API call</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.updateAccount(req, options, callback)</code></p>
-<p> Update existing account, used in /account/update API call</p>
+<li><p><code>api.setAccountSecret(req, options, callback)</code></p>
+<p> Change account secret, used in /account/put/secret API call</p>
 </li>
 </ul>
 
@@ -2528,6 +2533,12 @@ delete an account but keep all messages and location: keep: { message: 1, locati
 </ul>
 
 <ul>
+<li><p><code>aws.queryELB(action, obj, callback)</code></p>
+<p> AWS ELB API parameters</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.querySign(service, host, method, path, body, headers)</code></p>
 <p> Build version 4 signature headers</p>
 </li>
@@ -2562,7 +2573,7 @@ Options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>aws.runInstances(count, args, options, callback)</code></p>
+<li><p><code>aws.runInstances(options, callback)</code></p>
 <p> Run AWS instances with given arguments in user-data</p>
 </li>
 </ul>
@@ -3236,6 +3247,18 @@ options may contain the following properties:</p>
 <ul>
 <li><p><code>core.random(size)</code></p>
 <p> Generate random key, size if specified defines how many random bits to generate</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.randomShort()</code></p>
+<p> Return random number between 0 and USHORT_MAX</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.randomLong()</code></p>
+<p> Return rando number between 0 and UINT_MAX</p>
 </li>
 </ul>
 
@@ -4420,7 +4443,7 @@ special empty pool which provides same interface but returns errors instesd of r
 
 <ul>
 <li><p><code>db.getColumns(table, options)</code></p>
-<p> Return cached columns for a table or null, columns is an object with column names and objects for definition</p>
+<p> Return columns for a table or null, columns is an object with column names and objects for definition</p>
 </li>
 </ul>
 
@@ -4480,7 +4503,7 @@ will be returned in the query object</p>
 </ul>
 
 <ul>
-<li><p><code>db.getQueryForKeys(keys, obj)</code></p>
+<li><p><code>db.getQueryForKeys(keys, obj, options)</code></p>
 <p> Returns an object based on the list of keys, basically returns a subset of properties</p>
 </li>
 </ul>
@@ -4984,6 +5007,12 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 </ul>
 
 <ul>
+<li><p><code>logger.setDebugLabel(str)</code></p>
+<p> Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>logger.setChannel(name)</code></p>
 <p> Assign output channel to system logger, default is stdout</p>
 </li>
@@ -4998,18 +5027,6 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 <ul>
 <li><p><code>logger.debug()</code></p>
 <p> Make it one line to preserve space, syslog cannot output very long lines</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>logger.edebug()</code></p>
-<p> Display error if first argument is an Error object or debug</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>logger.elog()</code></p>
-<p> Display error if first argument is an Error object or log</p>
 </li>
 </ul>
 
@@ -5031,6 +5048,7 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 </li>
 </ul>
 
+<h2 id="module-metrics">Module: METRICS</h2>
 <h2 id="module-server">Module: SERVER</h2>
 <ul>
 <li><p><code>server</code></p>
@@ -5148,8 +5166,7 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 
 <ul>
 <li><p><code>server.runJob(job)</code></p>
-<p> Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process
-terminates.</p>
+<p> Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.</p>
 </li>
 </ul>
 
