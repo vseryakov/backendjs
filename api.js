@@ -320,6 +320,8 @@ api.init = function(callback)
             self.metrics.api.Counter('count').dec();
             req.metric1.end();
             req.metric2.end();
+            // Ignore not allowed
+            if (req._noEndpoint || req._noSignature) delete self.metrics.urls.metrics[req.path];
         }
         next();
     });
@@ -385,7 +387,7 @@ api.init = function(callback)
 
     // No API routes matched, cleanup stats
     self.app.use(function(req, res, next) {
-        if (!res.headersSent) delete self.metrics.urls.metrics[req.path];
+        req._noEndpoint = 1;
         next();
     });
 
@@ -889,6 +891,7 @@ api.checkSignature = function(req, callback)
 
     // Sanity checks, required headers must be present and not empty
     if (!sig.login || !sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
+        req._noSignature = 1;
         return callback({ status: 400, message: "Invalid request: " + (!sig.login ? "no login provided" :
                                                                        !sig.method ? "no method provided" :
                                                                        !sig.host ? "no host provided" :
@@ -2772,13 +2775,13 @@ api.initStatistics = function()
 {
     var self = this;
     // Add some delay to make all workers collect not at the same time
-    var delay = core.randomShort() + (cluster.isWorker ? cluster.worker.id * 1000 : 0);
+    var delay = core.randomShort();
 
     setTimeout(function() { self.collectStatistics(); }, delay);
-    setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000 - delay);
+    setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);
 
     if (core.collectHost) {
-        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000 - delay);
+        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, Math.max(60000, core.collectSendInterval * 1000 - delay));
     }
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
