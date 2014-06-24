@@ -697,7 +697,7 @@ db.updateAll = function(table, query, obj, options, callback)
     if (pool.updateAll && !options.process) return pool.updateAll(table, query, obj, options, callback);
 
     // Options without ops for update
-    var opts = core.cloneObj(options, { ops: 1 });
+    var opts = core.cloneObj(options, { ops: 1 }, 'noprocessrows', 1, "ops", {});
     self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
@@ -1279,14 +1279,14 @@ db.getCached = function(op, table, query, options, callback)
     options = this.getOptions(table, options);
     var pool = this.getPool(table, options);
     var m = pool.metrics.Timer('cache').start();
-    this.getCache(table, query, options, function(rc, err) {
+    this.getCache(table, query, options, function(rc) {
         m.end();
         // Cached value retrieved
         if (rc) rc = core.jsonParse(rc);
         // Parse errors treated as miss
         if (rc) {
             pool.metrics.Counter("hits").inc();
-            return callback ? callback(err, rc, {}) : null;
+            return callback ? callback(null, rc, {}) : null;
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function

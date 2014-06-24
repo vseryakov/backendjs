@@ -946,11 +946,10 @@ default is is open for access to all users but same security considerations appl
     - response - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
     - queue - stats about db requests at any given moment queued for the execution
     - cache - db cache response time and metrics
-    - rate - req/sec rates
   - api - Web requests metrics, same structure as for the db pool metrics
 
   Individual sub-objects:
-  - rate or meter - Things that are measured as events / interval.
+  - meter - Things that are measured as events / interval.
      - mean: The average rate since the meter was started.
      - count: The total of all values added to the meter.
      - currentRate: The rate of the meter since the last toJSON() call.
@@ -992,14 +991,6 @@ default is is open for access to all users but same security considerations appl
                     "p999": 1
                 },
                 "count": 0,
-                "rate": {
-                    "mean": 0.0011948946746301802,
-                    "count": 65,
-                    "currentRate": 0.0011948946746301802,
-                    "1MinuteRate": 2.413646785930864e-158,
-                    "5MinuteRate": 1.2021442332952544e-33,
-                    "15MinuteRate": 7.127940837162242e-13
-                },
                 "response": {
                     "meter": {
                         "mean": 0.0011948947405274121,
@@ -1027,8 +1018,7 @@ default is is open for access to all users but same security considerations appl
                 "misses": 3,
                 "hits": 50
             },
-            "api": {
-             "rss": {
+            "rss": {
                 "min": 77926400,
                 "max": 145408000,
                 "sum": 23414882304,
@@ -1070,68 +1060,6 @@ default is is open for access to all users but same security considerations appl
                 "p99": 0.13803710937499994,
                 "p999": 0.14208984375
             },
-            "freemem": {
-                "min": 1731198976,
-                "max": 1815724032,
-                "sum": 319208222720,
-                "variance": 335910913486664.44,
-                "mean": 1753891333.6263735,
-                "stddev": 18327872.584854588,
-                "count": 182,
-                "median": 1757151232,
-                "p75": 1763340288,
-                "p95": 1785729638.4,
-                "p99": 1798348267.5199997,
-                "p999": 1815724032
-            },
-            "rate": {
-                "mean": 0.005091340673514894,
-                "count": 277,
-                "currentRate": 0.005091340673514894,
-                "1MinuteRate": 0.014712537947741827,
-                "5MinuteRate": 0.003251074139103506,
-                "15MinuteRate": 0.0011131541240945431
-            },
-            "response": {
-                "meter": {
-                    "mean": 0.005072961780912493,
-                    "count": 276,
-                    "currentRate": 0.005072961780912493,
-                    "1MinuteRate": 0.014712537947741827,
-                    "5MinuteRate": 0.003251074139103506,
-                    "15MinuteRate": 0.0011131541240946244
-                },
-                "histogram": {
-                    "min": 1,
-                    "max": 11847,
-                    "sum": 13614,
-                    "variance": 508182.2787351782,
-                    "mean": 49.32608695652174,
-                    "stddev": 712.8690473959282,
-                    "count": 276,
-                    "median": 2,
-                    "p75": 5.75,
-                    "p95": 27.149999999999977,
-                    "p99": 122.99000000000024,
-                    "p999": 11847
-                }
-            },
-            "queue": {
-                "min": 1,
-                "max": 2,
-                "sum": 286,
-                "variance": 0.03154920734578558,
-                "mean": 1.032490974729242,
-                "stddev": 0.17762096538918368,
-                "count": 277,
-                "median": 1,
-                "p75": 1,
-                "p95": 1,
-                "p99": 2,
-                "p999": 2
-            },
-            "count": 1
-            }
         }
 
 

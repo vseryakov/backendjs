@@ -514,14 +514,18 @@ static Handle<Value> lruKeys(const Arguments& args)
 {
     HandleScope scope;
 
+    OPTIONAL_ARGUMENT_AS_STRING(0, str);
     Local<Array> keys = Array::New();
-    int i = 0;
+    char *key = *str;
+    int i = 0, n = strlen(key);
     list<string>::iterator it = _lru.lru.begin();
     while (it != _lru.lru.end()) {
-    	Local<String> str = String::New(it->c_str());
-    	keys->Set(Integer::New(i), str);
-    	it++;
-    	i++;
+        if (!*key || !strncmp(it->c_str(), key, n)) {
+            Local<String> str = String::New(it->c_str());
+            keys->Set(Integer::New(i), str);
+            i++;
+        }
+        it++;
     }
     return scope.Close(keys);
 }

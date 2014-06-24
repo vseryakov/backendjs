@@ -1777,8 +1777,8 @@ api.handleIconRequest = function(req, res, options, callback)
 
     async.series([
        function(next) {
-           var opts = { ops: { type: "begins_with" }, account: req.account };
-           db.select("bk_icon", { id: req.account.id, type: options.prefix + ":" }, opts, function(err, rows) {
+           options.ops = { type: "begins_with" };
+           db.select("bk_icon", { id: req.account.id, type: options.prefix + ":" }, options, function(err, rows) {
                if (err) return next(err);
                switch (op) {
                case "put":
@@ -1794,20 +1794,21 @@ api.handleIconRequest = function(req, res, options, callback)
        },
 
        function(next) {
+           options.ops = {};
            req.query.id = req.account.id;
            req.query.type = options.prefix + ":" + options.type;
            if (options.ext) req.query.ext = options.ext;
            if (req.query.latitude && req.query.longitude) req.query.geohash = core.geoHash(req.query.latitude, req.query.longitude);
 
-           db[op]("bk_icon", req.query, function(err, rows) {
+           db[op]("bk_icon", req.query, options, function(err, rows) {
                if (err) return next(err);
 
                switch (op) {
                case "put":
                    self.putIcon(req, req.account.id, options, function(err, icon) {
-                       if (err || !icon) return db.del('bk_icon', req.query, function() { next(err || { status: 500, message: "Upload error" }); });
+                       if (err || !icon) return db.del('bk_icon', req.query, options, function() { next(err || { status: 500, message: "Upload error" }); });
                        // Add new icons to the list which will be returned back to the client
-                       icons.push(self.formatIcon(req.query))
+                       if (!icons.some(function(x) { return x.type == options.type })) icons.push(self.formatIcon(req.query))
                        next();
                    });
                    break;
@@ -1836,7 +1837,7 @@ api.formatIcon = function(row, account)
     row.prefix = type[0];
 
     // Provide public url if allowed
-    if (row.allow && row.allow == "all" && this.allow && ("/image/" + row.prefix + "/").match(this.allow)) {
+    if ((!row.acl_allow || row.acl_allow == "all") && this.allow.rx && ("/image/" + row.prefix + "/").match(this.allow.rx)) {
         row.url = this.imagesUrl + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
     } else {
         if (row.prefix == "account") {
@@ -1853,15 +1854,14 @@ api.formatIcon = function(row, account)
 // Verify icon permissions and format for the result, used in setProcessrow for the bk_icon table
 api.checkIcon = function(row, options, cols)
 {
-    var acl = row.acl_allow || "";
     var id = options.account ? options.account.id : "";
 
-    if (acl != "all") {
-        if (acl == "auth") {
+    if (row.acl_allow && row.acl_allow != "all") {
+        if (row.acl_allow == "auth") {
             if (!id) return true;
         } else
         if (acl) {
-            if (!acl.split(",").some(function(x) { return x == id })) return true;
+            if (!row.acl_allow.split(",").some(function(x) { return x == id })) return true;
         } else
         if (row.id != id) return true;
     }
@@ -1888,7 +1888,7 @@ api.getIcon = function(req, res, id, options)
 
     db.get("bk_icon", { id: id, type: req.query.prefix + ":" + req.query.type }, options, function(err, row) {
         if (err) return self.sendReply(res, err);
-        if (!row) return self.sendReply(res, 404, "Not found");
+        if (!row) return self.sendReply(res, 404, "Not found or not allowed");
         if (row.ext) options.ext = row.ext;
         options.prefix = req.query.prefix;
         options.type = req.query.type;
@@ -2774,13 +2774,14 @@ api.deleteAccount = function(id, options, callback)
 api.initStatistics = function()
 {
     var self = this;
+    var delay = core.randomShort();
 
     self.collectStatistics();
     setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);
 
     // Add some delay to make all workers collect not at the same time
     if (core.collectHost) {
-        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000 - core.randomShort());
+        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000 - delay);
     }
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long

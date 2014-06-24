@@ -153,20 +153,20 @@ __attribute__((noinline)) void walk_stack_frames(unsigned skip, void (*cb)(const
     } while ((frame = frame->frame_pointer) != NULL && frame < stack_top);
 }
 
-static void jsbacktrace(void)
+static void jsBacktrace(void)
 {
     walk_stack_frames(1, print_stack_frame);
     free_code();
 }
 
-static void sigbacktrace(int)
+static void sigBacktrace(int)
 {
-    jsbacktrace();
+    jsBacktrace();
     while (run_segv) sleep(1);
     raise(SIGABRT);
 }
 
-static void sigsegv(int)
+static void sigSEGV(int)
 {
     void *array[50];
     int size;
@@ -187,37 +187,47 @@ static void install_handler(sig_t func)
     sigaction(SIGBUS, &sa, NULL);
 }
 
-static Handle<Value> runsegv(const Arguments& args)
+static Handle<Value> runSEGV(const Arguments& args)
 {
     OPTIONAL_ARGUMENT_INT(0, on);
     run_segv = on;
     return Undefined();
 }
 
-static Handle<Value> setsegv(const Arguments& args)
+static Handle<Value> setSEGV(const Arguments& args)
 {
-    install_handler(sigsegv);
+    install_handler(sigSEGV);
     return Undefined();
 }
 
-static Handle<Value> setbacktrace(const Arguments& args)
+static Handle<Value> setBacktrace(const Arguments& args)
 {
-    install_handler(sigbacktrace);
+    install_handler(sigBacktrace);
     walk_stack_frames(0, find_stack_top);
     return Undefined();
 }
 
 Handle<Value> backtrace(const Arguments&)
 {
-    jsbacktrace();
+    jsBacktrace();
     return Undefined();
 }
 
-static Handle<Value> rungc(const Arguments& args)
+static Handle<Value> runGC(const Arguments& args)
 {
     HandleScope scope;
 
     while (!V8::IdleNotification()) ;
+    return scope.Close(Undefined());
+}
+
+static Handle<Value> cpuProfiler(const Arguments& args)
+{
+    HandleScope scope;
+
+    OPTIONAL_ARGUMENT_INT(0, start);
+    if (start) V8::ResumeProfiler(); else V8::PauseProfiler();
+
     return scope.Close(Undefined());
 }
 
@@ -243,13 +253,14 @@ void DebugInit(Handle<Object> target)
 {
     HandleScope scope;
 
-    NODE_SET_METHOD(target, "rungc", rungc);
-    NODE_SET_METHOD(target, "setsegv", setsegv);
-    NODE_SET_METHOD(target, "runsegv", runsegv);
-    NODE_SET_METHOD(target, "setbacktrace", setbacktrace);
+    NODE_SET_METHOD(target, "runGC", runGC);
+    NODE_SET_METHOD(target, "setSEGV", setSEGV);
+    NODE_SET_METHOD(target, "runSEGV", runSEGV);
+    NODE_SET_METHOD(target, "setBacktrace", setBacktrace);
     NODE_SET_METHOD(target, "backtrace", backtrace);
     NODE_SET_METHOD(target, "heapSnapshot", heapSnapshot);
+    NODE_SET_METHOD(target, "cpuProfiler", cpuProfiler);
 
-    install_handler(sigsegv);
+    install_handler(sigSEGV);
 }
 

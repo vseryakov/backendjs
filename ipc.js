@@ -69,6 +69,10 @@ ipc.initClient = function()
                 core.loadDbConfig();
                 break;
 
+            case "profiler":
+                backend.cpuProfiler(msg.value ? 1 : 0);
+                break;
+
             case "heapsnapshot":
                 backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
                 break;
