@@ -357,7 +357,7 @@ api.init = function(callback)
                            (now - req._startTime) + " ms - " +
                            (req.headers['user-agent'] || "-") + " " +
                            (req.headers['version'] || "-") + " " +
-                           (req.account.login || "-") + "\n";
+                           (req.account.id || "-") + "\n";
                 self.accesslog.write(line);
             }
             next();
@@ -1020,7 +1020,9 @@ api.initAccountAPI = function()
             options.op = req.params[0].substr(0, 3);
             req.query.prefix = 'account';
             if (!req.query.type) req.query.type = '0';
-            self.handleIconRequest(req, res, options);
+            self.handleIconRequest(req, res, options, function(err, rows) {
+                self.sendJSON(req, err, rows);
+            });
             break;
 
         default:
@@ -1098,7 +1100,9 @@ api.initIconAPI = function()
         case "del":
         case "put":
             options.op = req.params[0];
-            self.handleIconRequest(req, res, options);
+            self.handleIconRequest(req, res, options, function(err, rows) {
+                self.sendJSON(req, err, rows);
+            });
             break;
 
         default:
@@ -1755,7 +1759,7 @@ api.sendEvent = function(req, key, data)
 
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 // Verify icon limits before adding new icons
-api.handleIconRequest = function(req, res, options)
+api.handleIconRequest = function(req, res, options, callback)
 {
     var self = this;
     var db = core.context.db;
@@ -1766,18 +1770,22 @@ api.handleIconRequest = function(req, res, options)
     options.type = req.query.type || "";
     // Max number of allowed icons per type or globally
     var limit = self.iconLimit[options.type] || self.iconLimit['*'];
+    var icons = [];
 
     async.series([
        function(next) {
-           if (op != "put" || !limit) return next();
-
            var opts = { ops: { type: "begins_with" }, account: req.account };
            db.select("bk_icon", { id: req.account.id, type: options.prefix + ":" }, opts, function(err, rows) {
                if (err) return next(err);
-               // We can override existing icon but not add a new one
-               if (rows.length >= limit && !rows.some(function(x) { return x.type == options.type })) {
-                   return next({ status: 400, message: "No more icons allowed" });
+               switch (op) {
+               case "put":
+                   // We can override existing icon but not add a new one
+                   if (limit > 0 && rows.length >= limit && !rows.some(function(x) { return x.type == options.type })) {
+                       return next({ status: 400, message: "No more icons allowed" });
+                   }
+                   break;
                }
+               icons = rows;
                next();
            });
        },
@@ -1794,20 +1802,26 @@ api.handleIconRequest = function(req, res, options)
                switch (op) {
                case "put":
                    self.putIcon(req, req.account.id, options, function(err, icon) {
-                       if (err || !icon) db.del('bk_icon', req.query);
-                       next(err);
+                       if (err || !icon) return db.del('bk_icon', req.query, function() { next(err || { status: 500, message: "Upload error" }); });
+                       // Add new icons to the list which will be returned back to the client
+                       icons.push(self.formatIcon(req.query))
+                       next();
                    });
                    break;
 
                case "del":
-                   self.delIcon(req.account.id, options, function(err) {
-                       next(err);
+                   self.delIcon(req.account.id, options, function() {
+                       icons = icons.filter(function(x) { return x.type != options.type });
+                       next();
                    });
                    break;
+
+               default:
+                   next({ status: 500, message: "invalid op" });
                }
            });
        }], function(err) {
-            self.sendReply(res, err);
+            if (callback) callback(err, icons);
     });
 }
 
@@ -1830,6 +1844,7 @@ api.formatIcon = function(row, account)
         }
         if (account && row.id != account.id) row.url += "&id=" + row.id;
     }
+    return row;
 }
 
 // Verify icon permissions and format for the result, used in setProcessrow for the bk_icon table

@@ -967,6 +967,7 @@ server.launchJob = function(job, options, callback)
         args.push(p, options[p])
     }
     options.UserData = args.map(function(x) { return String(x).replace(/ /g, '%20') }).join(" ");
+    // Update tag name with current job
     var d = args.match(/\-jobname ([^ ]+)/i);
     if (d) options.instanceName = d[1];
     if (typeof options.InstanceInitiatedShutdownBehavior == "undefined") options.InstanceInitiatedShutdownBehavior = "terminate";

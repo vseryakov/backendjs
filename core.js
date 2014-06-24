@@ -2933,16 +2933,17 @@ core.watchLogs = function(callback)
 //          }
 core.checkTest = function()
 {
-    var next = arguments[0];
+    var next = arguments[0], err = null;
     if (this.test.forever) return next();
 
     if (arguments[1] || arguments[2]) {
-        var args = [ arguments[1] ? arguments[1] : new Error("failed condition") ];
+        var args = [ arguments[1] || new Error("failed condition") ];
         for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
         logger.error(args);
-        return next(args[0]);
+        err = args[0];
     }
-    next();
+    if (this.test.timeout) return setTimeout(function() { next(err) }, this.test.timeout);
+    next(err);
 }
 
 // Run the test function which is defined in the object, all arguments will be taken from the command line.
@@ -2950,6 +2951,7 @@ core.checkTest = function()
 // - -test-cmd - name of the function to run
 // - -test-workers - number of workers to run the test at the same time
 // - -test-delay - number of milliseconds before starting worker processes, default is 500ms
+// - -test-timeout - number of milliseconds between test steps, i.e. between invokations of the checkTest
 // - -test-iterations - how many times to run this test function, default is 1
 // - -test-forever - run forever without reporting any errors, for performance testing
 //
@@ -2982,6 +2984,7 @@ core.runTest = function(obj, options, callback)
     this.test.delay = options.delay || this.getArgInt("-test-delay", 500);
     this.test.countdown = options.iterations || this.getArgInt("-test-iterations", 1);
     this.test.forever = options.forever || this.getArgInt("-test-forever", 0);
+    this.test.timeout = options.forever || this.getArgInt("-test-timeout", 0);
     this.test.keepmaster = options.keepmaster || this.getArgInt("-test-keepmaster", 0);
     self.test.workers = options.workers || self.getArgInt("-test-workers", 0);
     this.test.cmd = options.cmd || this.getArg("-test-cmd");

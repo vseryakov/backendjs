@@ -54,6 +54,7 @@ tests.account = function(callback)
     var latitude = core.randomNum(this.bbox[0], this.bbox[2]);
     var longitude = core.randomNum(this.bbox[1], this.bbox[3]);
     var name = core.toTitle(gender == 'm' ? males[core.randomInt(0, males.length - 1)] : females[core.randomInt(0, females.length - 1)]);
+    var email = "test@test.com"
     var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
     var msgs = null, icons = [];
 
@@ -78,7 +79,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var query = { login: login, secret: secret, name: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
+            var query = { login: login, secret: secret, name: name, gender: gender, email: email, birthday: core.strftime(bday, "%Y-%m-%d") }
             for (var i = 1; i < process.argv.length - 1; i++) {
                 var d = process.argv[i].match(/^\-account\-(.+)$/);
                 if (!d) continue;

@@ -34,6 +34,15 @@ publish:
 	npm publish `ls backendjs-*tgz`
 	rm -rf backendjs*tgz
 
+servers:
+	bkjs run-pgsql
+	bkjs run-dynamodb
+	bkjs run-mongodb
+	bkjs run-cassandra
+	bkjs run-mysql
+	redis-server /opt/local/etc/redis.conf
+	memcached -d -L
+
 doc:
 	node doc.js > web/doc.html
 	-git commit -a -m "Updated docs, minor bugfixes" && git push
