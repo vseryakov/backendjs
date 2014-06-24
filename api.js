@@ -2774,14 +2774,13 @@ api.deleteAccount = function(id, options, callback)
 api.initStatistics = function()
 {
     var self = this;
-    // Add some delay to make all workers collect not at the same time
-    var delay = core.randomShort();
 
-    setTimeout(function() { self.collectStatistics(); }, delay);
+    self.collectStatistics();
     setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);
 
+    // Add some delay to make all workers collect not at the same time
     if (core.collectHost) {
-        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, Math.max(60000, core.collectSendInterval * 1000 - delay));
+        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000 - core.randomShort());
     }
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long

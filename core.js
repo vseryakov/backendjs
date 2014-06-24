@@ -1848,13 +1848,19 @@ core.random = function(size)
 }
 
 // Return random number between 0 and USHORT_MAX
-core.randomShort = function()
+core.randomUShort = function()
 {
     return crypto.randomBytes(2).readUInt16LE(0);
 }
 
+// Return random number between 0 and SHORT_MAX
+core.randomShort = function()
+{
+    return Math.abs(crypto.randomBytes(2).readInt16LE(0));
+}
+
 // Return rando number between 0 and UINT_MAX
-core.randomLong = function()
+core.randomUInt = function()
 {
     return crypto.randomBytes(4).readUInt32LE(0);
 }
