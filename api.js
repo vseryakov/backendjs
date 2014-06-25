@@ -341,7 +341,7 @@ api.init = function(callback)
     }
 
     self.app.use(function(req, res, next) {
-        if (self.noAccessLog || req._accessLog) return;
+        if (self.noAccessLog || req._accessLog) return next();
         req._accessLog = true;
         req._startTime = new Date;
         var end = res.end;

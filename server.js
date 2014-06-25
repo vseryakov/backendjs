@@ -308,6 +308,7 @@ server.startWeb = function(callback)
             // Exit when all workers are terminated
             if (self.exiting && !Object.keys(cluster.workers).length) process.exit(0);
         });
+
         // Graceful shutdown if the server needs restart
         self.onkill = function() {
             self.exiting = true;
