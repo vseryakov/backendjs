@@ -250,6 +250,7 @@ var api = {
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-connection", type: "list", array: 1, descr: "List of connection types that are allowed only, this limits types of connections to be used for all accounts" },
            { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
+           { name: "icon-redirect", type: "bool", descr: "Return icons url as full path to the images-url endpoint concatenated with icon path" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", type: "regexpmap", key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
@@ -327,44 +328,42 @@ api.init = function(callback)
     });
 
     // Access log via file or syslog
-    if (!self.noAccessLog) {
-        if (logger.syslog) {
-            self.accesslog = new stream.Stream();
-            self.accesslog.writable = true;
-            self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; };
-        } else
-        if (self.accessLog) {
-            self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
-            self.accesslog.on('error', function(err) { logger.error('accesslog:', err); self.accesslog = logger; })
-        } else {
-            self.accesslog = logger;
-        }
-
-        self.app.use(function(req, res, next) {
-            if (req._accessLog) return;
-            req._accessLog = true;
-            req._startTime = new Date;
-            var end = res.end;
-            res.end = function(chunk, encoding) {
-                res.end = end;
-                res.end(chunk, encoding);
-                var now = new Date();
-                var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
-                           (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
-                           req.method + " " +
-                           (req.logUrl || req.originalUrl || req.url) + " " +
-                           (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
-                           res.statusCode + " " +
-                           (res.get("Content-Length") || '-') + " - " +
-                           (now - req._startTime) + " ms - " +
-                           (req.headers['user-agent'] || "-") + " " +
-                           (req.headers['version'] || "-") + " " +
-                           (req.account.id || "-") + "\n";
-                self.accesslog.write(line);
-            }
-            next();
-        });
+    if (logger.syslog) {
+        self.accesslog = new stream.Stream();
+        self.accesslog.writable = true;
+        self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; };
+    } else
+    if (self.accessLog) {
+        self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
+        self.accesslog.on('error', function(err) { logger.error('accesslog:', err); self.accesslog = logger; })
+    } else {
+        self.accesslog = logger;
     }
+
+    self.app.use(function(req, res, next) {
+        if (self.noAccessLog || req._accessLog) return;
+        req._accessLog = true;
+        req._startTime = new Date;
+        var end = res.end;
+        res.end = function(chunk, encoding) {
+            res.end = end;
+            res.end(chunk, encoding);
+            var now = new Date();
+            var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
+                       (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
+                       req.method + " " +
+                       (req.logUrl || req.originalUrl || req.url) + " " +
+                       (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
+                       res.statusCode + " " +
+                       (res.get("Content-Length") || '-') + " - " +
+                       (now - req._startTime) + " ms - " +
+                       (req.headers['user-agent'] || "-") + " " +
+                       (req.headers['version'] || "-") + " " +
+                       (req.account.id || "-") + "\n";
+            self.accesslog.write(line);
+        }
+        next();
+    });
 
     // Request parsers
     self.app.use(cookieParser());
@@ -764,7 +763,7 @@ api.checkQuery = function(req, res, next)
             }
             switch (type) {
             case 'application/json':
-                req.body = JSON.parse(buf);
+                req.body = core.jsonParse(buf, { obj: 1, logging: 1 });
                 break;
 
             case 'application/x-www-form-urlencoded':
@@ -949,7 +948,8 @@ api.initAccountAPI = function()
     var self = this;
     var db = core.context.db;
 
-    db.setProcessRow("bk_icon", self.checkIcon);
+    // If icons API is disabled we set it here
+    if (this.disable.indexOf('icon') > -1) db.setProcessRow("bk_icon", self.checkIcon);
 
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
 
@@ -1081,6 +1081,8 @@ api.initIconAPI = function()
 {
     var self = this;
     var db = core.context.db;
+
+    db.setProcessRow("bk_icon", self.checkIcon);
 
     this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9\.\_\-]+)\/?([a-z0-9\.\_\-])?$/, function(req, res) {
         if (req.method == "POST") req.query = req.body;
@@ -1837,6 +1839,9 @@ api.formatIcon = function(row, account)
     row.prefix = type[0];
 
     // Provide public url if allowed
+    if (this.iconRedirect) {
+        row.url = this.imagesUrl + core.iconPath(row.id, row);
+    } else
     if ((!row.acl_allow || row.acl_allow == "all") && this.allow.rx && ("/image/" + row.prefix + "/").match(this.allow.rx)) {
         row.url = this.imagesUrl + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
     } else {
@@ -1851,7 +1856,7 @@ api.formatIcon = function(row, account)
     return row;
 }
 
-// Verify icon permissions and format for the result, used in setProcessrow for the bk_icon table
+// Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table
 api.checkIcon = function(row, options, cols)
 {
     var id = options.account ? options.account.id : "";

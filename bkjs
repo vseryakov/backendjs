@@ -195,11 +195,10 @@ case "$ARG" in
        echo "alias blog=\"tail -100 $BACKEND_HOME/log/backend.log\"" >> $BHOME/.bashrc
        echo "alias elog=\"tail -100 $BACKEND_HOME/log/error.log\"" >> $BHOME/.bashrc
        echo "alias alog=\"tail -100 $BACKEND_HOME/log/access.log\"" >> $BHOME/.bashrc
-       echo 'alias bcp="socat readline,history=.socat tcp4:localhost:2080"' >> $BHOME/.bashrc
-       echo 'alias bcp1="socat readline,history=.socat tcp4:localhost:2081"' >> $BHOME/.bashrc
        echo 'alias ps="ps augx"' >> $BHOME/.bashrc
        echo 'alias mc="mc -b"' >> $BHOME/.bashrc
        echo 'alias df="df -h"' >> $BHOME/.bashrc
+       echo 'bcp() { socat readline,history=~/.socat tcp4:localhost:208${1-0} }' >> $BHOME/.bashrc
     fi
     ;;
 
@@ -480,7 +479,7 @@ case "$ARG" in
        [ "$mod" = "$BKJS" ] && BACKEND_PATH=node_modules/$BKJS
     fi
     [ "$BACKEND_HOST" = "" ] && echo "Remote host required, specify with -host or BACKEND_HOST" && exit
-    for f in bin etc build deps images files log pages tmp var; do
+    for f in bin etc build deps images files log pages tmp var '*.log'; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
     [ "$BACKEND_USER" != "$(whoami)" ] && BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS -l $BACKEND_USER"

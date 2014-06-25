@@ -113,7 +113,7 @@ var core = {
 
     // Config parameters
     args: [ { name: "help", type: "callback", value: function() { core.showHelp() }, descr: "Print help and exit" },
-            { name: "debug", type: "callback", value: function() { logger.setDebug('debug'); }, descr: "Enable debugging messages, short of -log debug", pass: 1 },
+            { name: "debug", type: "callback", value: function(v) { logger.setDebug(v == "0" ? 'log' : 'debug'); }, descr: "Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable", pass: 1 },
             { name: "debug-label", type: "callback", value: function(v) { logger.setDebugLabel(v); }, descr: "Enable debugging labels, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
             { name: "debug-run-segv", type: "callback", value: function(v) { if(v) backend.runSEGV(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
             { name: "debug-set-segv", type: "callback", value: function(v) { if(v) backend.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
@@ -164,7 +164,7 @@ var core = {
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
-            { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server process" },
+            { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1" },
             { name: "repl-bind-web", descr: "Web server REPL listen address" },
             { name: "repl-port", type: "number", min: 1001, descr: "Port for REPL interface in the master, if specified it initializes REPL in the master server process" },
             { name: "repl-bind", descr: "Listen only on specified address for REPL server in the master process" },
