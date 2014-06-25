@@ -152,7 +152,7 @@ tests.account = function(callback)
         function(next) {
             var options = { url: "/connection/add", login: login, secret: secret, query: { id: id, type: "like" }  }
             core.sendRequest(options, function(err, params) {
-                options = { url: "/connection/add", login: login, secret: secret, query: { id: core.random(), type: "like" }  }
+                options = { url: "/connection/add", login: login, secret: secret, query: { id: otherid, type: "like" }  }
                 core.sendRequest(options, function(err, params) {
                     next(err);
                 });
@@ -178,6 +178,12 @@ tests.account = function(callback)
         },
         function(next) {
             var options = { url: "/connection/get", login: login, secret: secret, query: { type: "like" } }
+            core.sendRequest(options, function(err, params) {
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err5:" , params.obj);
+            });
+        },
+        function(next) {
+            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "like", _details: 1 } }
             core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err5:" , params.obj);
             });

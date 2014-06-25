@@ -162,6 +162,13 @@ server.startMaster = function()
             setInterval(function() { self.execJob("core.watchLogs"); }, core.logwatcherInterval * 60000);
         }
 
+        // Primary cron jobs
+        if (self.jobsInterval > 0) setInterval(function() { self.processJobs() }, self.jobsInterval * 1000);
+
+        // Watch temp files
+        setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
+        setInterval(function() { core.watchTmp("log", { seconds: 86400*7 }) }, 86400000);
+
         // Pending requests from local queue
         core.processRequestQueue();
         setInterval(function() { core.processRequestQueue() }, core.requestQueueInterval || 300000);
@@ -177,9 +184,6 @@ server.startMaster = function()
                 self.shutdown();
             }
         }, 30000);
-
-        // Primary jobs
-        if (self.jobsInterval > 0) setInterval(function() { self.processJobs() }, self.jobsInterval * 1000);
 
         // API related initialization
         core.context.api.initMasterServer();

@@ -405,7 +405,7 @@ case "$ARG" in
   init-devel)
     # Install development packages for compiling node and modules
     yum -y -q install git svn gdb gcc-c++ make cmake autoconf automake libtool
-    yum -y -q install libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel
+    yum -y -q install libuuid-devel openssl-devel bzip2-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel
     yum -y -q install mysql-devel
 
     # Linux distro specific actions

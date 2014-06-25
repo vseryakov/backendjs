@@ -225,10 +225,11 @@ static Handle<Value> cpuProfiler(const Arguments& args)
 {
     HandleScope scope;
 
-    OPTIONAL_ARGUMENT_INT(0, start);
-    if (start) V8::ResumeProfiler(); else V8::PauseProfiler();
+    if (args.Length() > 0) {
+        if (args[0]->Int32Value()) V8::ResumeProfiler(); else V8::PauseProfiler();
+    }
 
-    return scope.Close(Undefined());
+    return scope.Close(Local<Integer>::New(Integer::New(V8::IsProfilerPaused())));
 }
 
 Handle<Value> heapSnapshot(const Arguments& args)

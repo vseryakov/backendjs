@@ -447,7 +447,7 @@ core.parseArgs = function(argv)
 
     // Convert spaces if passed via command line
     argv = argv.map(function(x) { return x.replace(/%20/g, ' ') });
-    logger.debug('parseArgs:', argv.join(' '));
+    logger.dev('parseArgs:', argv.join(' '));
 
    // Core parameters
     self.processArgs("core", self, argv);
@@ -1364,9 +1364,9 @@ core.processRequestQueue = function(callback)
             if (self.typeName(row.data) != "object") return next();
             for (var p in row) if (p != "data") row.data[p] = row[p];
             self.sendRequest(row.data, function(err2) { next(); });
-        }, function(err3) {
+        }, function(err) {
             if (rows.length) logger.log('processQueue:', 'sent', rows.length);
-            if (callback) callback();
+            if (callback) callback(err);
         });
     });
 }
@@ -2793,22 +2793,33 @@ core.createRepl = function(options)
     return r;
 }
 // Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
-// This function is not async-safe, it uses sync calls
-core.watchTmp = function(dirs, secs, pattern)
+core.watchTmp = function(dir, options, callback)
 {
     var self = this;
-    var now = core.now();
-    (dirs || []).forEach(function(dir) {
-        self.findFileSync(dir, function(f, s) {
-            if (pattern && !f.match(patern)) return false;
-            if (!s.mtime || now - s.mtime < secs || s.isDirectory()) return false;
-            logger.log('watchTmp: delete', dir, f, (now - s.mtime)/60, 'mins old');
-            return true;
-        }).forEach(function(file) {
-            fs.unlink(file, function(err) {
-                if (err) logger.error('watchTmp:', file, err);
+    if (typeof options == "callback") callback = options, options = {};
+    if (!options) options = {};
+    if (!options.seconds) options.seconds = 86400;
+
+    var now = Date.now();
+    fs.readdir(dir, function(err, files) {
+        if (err) return callback ? callback(err) : null;
+
+        async.forEachSeries(files, function(file, next) {
+            if (file == "." || file == "..") return next();
+            if (options.pattern && !file.match(options.patern)) return next();
+
+            file = path.join(dir, file);
+            fs.stat(file, function(err, st) {
+                if (err) return next();
+                if (st.isDirectory()) return next();
+                if (now - st.mtime < options.seconds*1000) return next();
+                logger.log('watchTmp: delete', dir, file, (now - st.mtime)/1000, 'sec old');
+                fs.unlink(file, function(err) {
+                    if (err) logger.error('watchTmp:', file, err);
+                    next();
+                });
             });
-        });
+        }, callback);
     });
 }
 

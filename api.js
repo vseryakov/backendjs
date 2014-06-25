@@ -1247,6 +1247,14 @@ api.initConnectionAPI = function()
     var self = this;
     var db = core.context.db;
 
+    function onConnectionRow(row, options, cols) {
+        var type = row.type.split(":");
+        row.type = type[0];
+        row.id = type[1];
+    }
+    db.setProcessRow("bk_connection", onConnectionRow);
+    db.setProcessRow("bk_reference", onConnectionRow);
+
     this.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
 
         if (req.method == "POST") req.query = req.body;
@@ -1344,9 +1352,17 @@ api.initSystemAPI = function()
             break;
 
         case "collect":
-            db.put("bk_collect", req.query, options, function(err) {
-                res.json({});
-            });
+            // Receive system log from the client
+            if (req.type == "application/json") {
+                db.put("bk_collect", req.query, options, function(err) {
+                    res.json({});
+                });
+            } else {
+                self.putFile(req, "data", { name: req.ip + "/" + core.strftime(Date.now(), "%Y-%m-%d-%H:%M"), ext: ".log" }, function(err) {
+                    if (err) logger.error("log:", err);
+                    res.json({});
+                });
+            }
             break;
 
         case "cache":
@@ -2024,15 +2040,20 @@ api.putFile = function(req, name, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
+    var btype = core.typeName(req.body);
     var outfile = (options.name || name) + (options.ext || "");
     if (req.files && req.files[name]) {
         if (!options.ext || options.extkeep) outfile += path.extname(req.files[name].name || req.files[name].path);
         self.storeFile(req.files[name].path, outfile, options, callback);
     } else
     // JSON object submitted with .name property with the icon contents
-    if (typeof req.body == "object" && req.body[name]) {
+    if (btype == "object" && req.body[name]) {
         var data = new Buffer(req.body[name], options.encoding || "base64");
         self.storeFile(data, outfile, options, callback);
+    } else
+    // Save a buffer as is
+    if (btype == "buffer") {
+        self.storeFile(req.body, outfile, options, callback);
     } else
     // Query base64 encoded parameter
     if (req.query[name]) {
@@ -2141,27 +2162,28 @@ api.getConnection = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
-    if (req.query.type) req.query.type += ":" + (req.query.id || "");
     req.query.id = req.account.id;
+    if (req.query.type) req.query.type += ":" + (req.query.id || "");
+
     if (!options.ops) options.ops = {};
     options.ops.type = "begins_with";
+    options.check_public = null;
+
     db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
 
         var next_token = info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "";
-        // Split type and reference id
-        rows.forEach(function(row) {
-            var d = row.type.split(":");
-            row.type = d[0];
-            row.id = d[1];
-        });
+
         // Just return connections
         if (!core.toNumber(options.details)) return callback(null, { count: rows.length, data: rows, next_token: next_token });
 
-        // Get all account records for the id list
-        db.list("bk_account", rows, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
-            if (err) return callback(err, []);
+        var types = {};
+        rows.forEach(function(row) { types[row.id] = row; });
 
+        // Get all account records for the id list
+        db.list("bk_account", rows.map(function(x) { return { id: x.id } }), { select: options.select, check_public: req.account.id }, function(err, rows) {
+            if (err) return callback(err, []);
+            rows.forEach(function(x) { for (var p in types[x.id]) x[p] = types[x.id][p] });
             callback(null, { count: rows.length, data: rows, next_token: next_token });
         });
     });
@@ -2262,10 +2284,9 @@ api.delConnection = function(req, options, callback)
         if (err) return callback(err, []);
 
         async.forEachSeries(rows, function(row, next) {
-            var t = row.type.split(":");
-            if (req.query.id && t[1] != req.query.id) return next();
-            if (req.query.type && t[0] != req.query.type) return next();
-            del(t[0], t[1], next);
+            if (req.query.id && row.id != req.query.id) return next();
+            if (req.query.type && row.type != req.query.type) return next();
+            del(row.type, row.id, next);
         }, function(err) {
             callback(err, []);
         });
@@ -2731,9 +2752,8 @@ api.deleteAccount = function(id, options, callback)
                db.select("bk_connection", { id: obj.id }, options, function(err, rows) {
                    if (err) return next(err)
                    async.forEachSeries(rows, function(row, next2) {
-                       var type = row.type.split(":");
-                       db.del("bk_reference", { id: type[1], type: type[0] + ":" + obj.id }, options, function(err) {
-                           db.del("bk_connection", row, options, next2);
+                       db.del("bk_reference", { id: row.id, type: row.type + ":" + obj.id }, options, function(err) {
+                           db.del("bk_connection", { id: obj.id, type: row.type + ":" + row.id }, options, next2);
                        });
                    }, function() { next() });
                });
@@ -2787,7 +2807,20 @@ api.initStatistics = function()
 
     // Add some delay to make all workers collect not at the same time
     if (core.collectHost) {
-        setInterval(function() { core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() }); }, core.collectSendInterval * 1000 - delay);
+        setInterval(function() {
+            core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() });
+
+            // Sent profiler log to the master
+            if (backend.cpuProfiler()) {
+                var logfile = "tmp/v8." + process.pid + ".log";
+                fs.readFile(logfile, function(err, data) {
+                    if (err || !data || !data.length) return;
+                    core.sendRequest({ url: core.collectHost, postdata: data, headers: { 'content-type': "binary/data" } }, function(err) {
+                        if (!err) fs.unlink(logfile, function() {});
+                    });
+                });
+            }
+        }, core.collectSendInterval * 1000 - delay);
     }
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
