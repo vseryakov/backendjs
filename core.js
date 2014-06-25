@@ -447,7 +447,7 @@ core.parseArgs = function(argv)
 
     // Convert spaces if passed via command line
     argv = argv.map(function(x) { return x.replace(/%20/g, ' ') });
-    logger.dev('parseArgs:', argv.join(' '));
+    logger.debug('parseArgs:', argv.join(' '));
 
    // Core parameters
     self.processArgs("core", self, argv);
@@ -552,7 +552,7 @@ core.processArgs = function(name, ctx, argv, pass)
             // Append all processed arguments into internal list when we processing all arguments, not in a pass
             self.argv[cname.substr(1)] = val || true;
         } catch(e) {
-            logger.error('proessArgs:', e, x);
+            logger.error('processArgs:', e, x);
         }
     });
 }

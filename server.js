@@ -62,6 +62,10 @@ var server = {
     maxProcesses: 1,
     maxJobs: 1,
 
+    // Options for v8
+    nodeArgs: [],
+    nodeWorkerArgs: [],
+
     // How long to be in idle state and shutdown, for use in instances
     idleTime: 120,
 
@@ -75,9 +79,8 @@ var server = {
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
            { name: "max-jobs", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue only" },
-           { name: "node-args-master", type: "list", descr: "Node arguments for master process, for passing v8 options" },
-           { name: "node-args-web", type: "list", descr: "Node arguments for Web server process, for passing v8 options" },
-           { name: "node-args-worker", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
+           { name: "node-args", type: "list", descr: "Node arguments for spawned processes, for passing v8 options" },
+           { name: "node-worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
            { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs" } ],
 };
 
@@ -280,6 +283,8 @@ server.startWeb = function(callback)
             self.getWorkerEnv = function() { return null; }
             self.clusterFork = function() { return cluster.fork(); }
         }
+        // Arguments passed to the v8 engine
+        process.execArgv = self.nodeWorkerArgs;
 
         // Create tables and spawn Web workers
         api.initTables(function(err) {
@@ -784,7 +789,7 @@ server.spawnProcess = function(args, skip, opts)
     skip.push("-watch");
     skip.push("-monitor");
     // Remove arguments we should not pass to the process
-    var argv = process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; });
+    var argv = this.nodeArgs.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
     if (Array.isArray(args)) argv = argv.concat(args);
     logger.debug('spawnProcess:', argv, 'skip:', skip);
     return spawn(process.argv[0], argv, opts);
@@ -905,6 +910,9 @@ server.execJob = function(job)
         logger.error('execJob:', e, job);
         return false;
     }
+
+    // Setup node args passed for each worker
+    process.execArrgv = self.nodeWorkerArgs;
 
     self.jobTime = core.now();
     logger.debug('execJob:', 'workers:', workers.length, 'job:', job);
