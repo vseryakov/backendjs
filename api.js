@@ -2646,7 +2646,8 @@ api.addAccount = function(req, options, callback)
         if (err) return callback(err);
 
         db.add("bk_account", req.query, function(err) {
-            if (err) return db.del("bk_auth", req.query, function() { callback(err); });
+            // Remove the record by login to make sure we can recreate it later
+            if (err) return db.del("bk_auth", { login: req.query.login }, function() { callback(err); });
 
             self.metrics.accounts.Meter('add').mark();
 
