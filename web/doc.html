@@ -902,14 +902,13 @@ Database pool statistics and other diagnostics</p>
 <li>response - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client</li>
 <li>queue - stats about db requests at any given moment queued for the execution</li>
 <li>cache - db cache response time and metrics</li>
-<li>rate - req/sec rates</li>
 </ul>
 </li>
 <li>api - Web requests metrics, same structure as for the db pool metrics</li>
 </ul>
 <p>Individual sub-objects:</p>
 <ul>
-<li>rate or meter - Things that are measured as events / interval.<ul>
+<li>meter - Things that are measured as events / interval.<ul>
 <li>mean: The average rate since the meter was started.</li>
 <li>count: The total of all values added to the meter.</li>
 <li>currentRate: The rate of the meter since the last toJSON() call.</li>
@@ -954,14 +953,6 @@ Database pool statistics and other diagnostics</p>
               &quot;p999&quot;: 1
           },
           &quot;count&quot;: 0,
-          &quot;rate&quot;: {
-              &quot;mean&quot;: 0.0011948946746301802,
-              &quot;count&quot;: 65,
-              &quot;currentRate&quot;: 0.0011948946746301802,
-              &quot;1MinuteRate&quot;: 2.413646785930864e-158,
-              &quot;5MinuteRate&quot;: 1.2021442332952544e-33,
-              &quot;15MinuteRate&quot;: 7.127940837162242e-13
-          },
           &quot;response&quot;: {
               &quot;meter&quot;: {
                   &quot;mean&quot;: 0.0011948947405274121,
@@ -989,8 +980,7 @@ Database pool statistics and other diagnostics</p>
           &quot;misses&quot;: 3,
           &quot;hits&quot;: 50
       },
-      &quot;api&quot;: {
-       &quot;rss&quot;: {
+      &quot;rss&quot;: {
           &quot;min&quot;: 77926400,
           &quot;max&quot;: 145408000,
           &quot;sum&quot;: 23414882304,
@@ -1032,68 +1022,6 @@ Database pool statistics and other diagnostics</p>
           &quot;p99&quot;: 0.13803710937499994,
           &quot;p999&quot;: 0.14208984375
       },
-      &quot;freemem&quot;: {
-          &quot;min&quot;: 1731198976,
-          &quot;max&quot;: 1815724032,
-          &quot;sum&quot;: 319208222720,
-          &quot;variance&quot;: 335910913486664.44,
-          &quot;mean&quot;: 1753891333.6263735,
-          &quot;stddev&quot;: 18327872.584854588,
-          &quot;count&quot;: 182,
-          &quot;median&quot;: 1757151232,
-          &quot;p75&quot;: 1763340288,
-          &quot;p95&quot;: 1785729638.4,
-          &quot;p99&quot;: 1798348267.5199997,
-          &quot;p999&quot;: 1815724032
-      },
-      &quot;rate&quot;: {
-          &quot;mean&quot;: 0.005091340673514894,
-          &quot;count&quot;: 277,
-          &quot;currentRate&quot;: 0.005091340673514894,
-          &quot;1MinuteRate&quot;: 0.014712537947741827,
-          &quot;5MinuteRate&quot;: 0.003251074139103506,
-          &quot;15MinuteRate&quot;: 0.0011131541240945431
-      },
-      &quot;response&quot;: {
-          &quot;meter&quot;: {
-              &quot;mean&quot;: 0.005072961780912493,
-              &quot;count&quot;: 276,
-              &quot;currentRate&quot;: 0.005072961780912493,
-              &quot;1MinuteRate&quot;: 0.014712537947741827,
-              &quot;5MinuteRate&quot;: 0.003251074139103506,
-              &quot;15MinuteRate&quot;: 0.0011131541240946244
-          },
-          &quot;histogram&quot;: {
-              &quot;min&quot;: 1,
-              &quot;max&quot;: 11847,
-              &quot;sum&quot;: 13614,
-              &quot;variance&quot;: 508182.2787351782,
-              &quot;mean&quot;: 49.32608695652174,
-              &quot;stddev&quot;: 712.8690473959282,
-              &quot;count&quot;: 276,
-              &quot;median&quot;: 2,
-              &quot;p75&quot;: 5.75,
-              &quot;p95&quot;: 27.149999999999977,
-              &quot;p99&quot;: 122.99000000000024,
-              &quot;p999&quot;: 11847
-          }
-      },
-      &quot;queue&quot;: {
-          &quot;min&quot;: 1,
-          &quot;max&quot;: 2,
-          &quot;sum&quot;: 286,
-          &quot;variance&quot;: 0.03154920734578558,
-          &quot;mean&quot;: 1.032490974729242,
-          &quot;stddev&quot;: 0.17762096538918368,
-          &quot;count&quot;: 277,
-          &quot;median&quot;: 1,
-          &quot;p75&quot;: 1,
-          &quot;p95&quot;: 1,
-          &quot;p99&quot;: 2,
-          &quot;p999&quot;: 2
-      },
-      &quot;count&quot;: 1
-      }
   }
 </code></pre></li>
 </ul>
@@ -1562,7 +1490,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <h2 id="configuration-parameters">Configuration parameters</h2>
 <ul>
 <li><code>help</code> - Print help and exit</li>
-<li><code>debug</code> - Enable debugging messages, short of -log debug</li>
+<li><code>debug</code> - Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable</li>
 <li><code>debug-label</code> - Enable debugging labels, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug</li>
 <li><code>debug-run-segv</code> - On SEGV crash keep the process spinning so attaching with gdb is possible</li>
 <li><code>debug-set-segv</code> - Set default SEGV handler which shows backtrace of calls if debug info is available</li>
@@ -1612,7 +1540,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests </li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default</li>
 <li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
-<li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server process</li>
+<li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1</li>
 <li><code>repl-bind-web</code> - Web server REPL listen address. Default: 127.0.0.1</li>
 <li><code>repl-port</code> - Port for REPL interface in the master, if specified it initializes REPL in the master server process</li>
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process. Default: 127.0.0.1</li>
@@ -1725,6 +1653,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: [object Object]</li>
 <li><code>api-allow-connection</code> - List of connection types that are allowed only, this limits types of connections to be used for all accounts. Default: </li>
 <li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints. Default: [object Object]</li>
+<li><code>api-icon-redirect</code> - Return icons url as full path to the images-url endpoint concatenated with icon path</li>
 <li><code>api-icon-limit</code> - Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type. Default: [object Object]</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: [object Object]</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
@@ -1745,6 +1674,8 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>server-job</code> - Job specification, JSON encoded as base64 of the job object</li>
 <li><code>server-jobs-tag</code> - This server executes jobs that match this tag, cannot be empty, default is current hostname. Default: Vlad-Macbook</li>
 <li><code>server-max-jobs</code> - How many jobs to execute at any iteration, this relates to the bk_jobs queue only. Default: 1</li>
+<li><code>server-node-args</code> - Node arguments for spawned processes, for passing v8 options. Default: </li>
+<li><code>server-node-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options. Default: </li>
 <li><code>server-jobs-interval</code> - Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs</li>
 </ul>
 <h2 id="module-api">Module: API</h2>
@@ -2274,7 +2205,7 @@ events using account id as a key.</p>
 </ul>
 
 <ul>
-<li><p><code>api.handleIconRequest(req, res, options)</code></p>
+<li><p><code>api.handleIconRequest(req, res, options, callback)</code></p>
 <p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 Verify icon limits before adding new icons</p>
 </li>
@@ -2288,7 +2219,7 @@ Verify icon limits before adding new icons</p>
 
 <ul>
 <li><p><code>api.checkIcon(row, options, cols)</code></p>
-<p> Verify icon permissions and format for the result, used in setProcessrow for the bk_icon table</p>
+<p> Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table</p>
 </li>
 </ul>
 
@@ -3251,13 +3182,19 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>core.randomShort()</code></p>
+<li><p><code>core.randomUShort()</code></p>
 <p> Return random number between 0 and USHORT_MAX</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.randomLong()</code></p>
+<li><p><code>core.randomShort()</code></p>
+<p> Return random number between 0 and SHORT_MAX</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.randomUInt()</code></p>
 <p> Return rando number between 0 and UINT_MAX</p>
 </li>
 </ul>
@@ -3722,6 +3659,7 @@ The common command line arguments that supported:</p>
 <li>-test-cmd - name of the function to run</li>
 <li>-test-workers - number of workers to run the test at the same time</li>
 <li>-test-delay - number of milliseconds before starting worker processes, default is 500ms</li>
+<li>-test-timeout - number of milliseconds between test steps, i.e. between invokations of the checkTest</li>
 <li>-test-iterations - how many times to run this test function, default is 1</li>
 <li>-test-forever - run forever without reporting any errors, for performance testing</li>
 </ul>
