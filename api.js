@@ -2162,8 +2162,8 @@ api.getConnection = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
-    req.query.id = req.account.id;
     if (req.query.type) req.query.type += ":" + (req.query.id || "");
+    req.query.id = req.account.id;
 
     if (!options.ops) options.ops = {};
     options.ops.type = "begins_with";
@@ -2279,7 +2279,8 @@ api.delConnection = function(req, options, callback)
     // Single deletion
     if (req.query.id && req.query.type) return del(req.query.type, req.query.id, callback);
 
-    // Delete by query
+    // Delete by query, my records
+    options.check_public = null;
     db.select("bk_connection", { id: req.account.id, type: req.query.type ? (req.query.type + ":" + (req.query.id || "")) : "" }, options, function(err, rows) {
         if (err) return callback(err, []);
 

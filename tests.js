@@ -46,9 +46,8 @@ var tests = {
 tests.account = function(callback)
 {
     var myid, otherid;
-    var id = core.random();
-    var login = id;
-	var secret = id;
+    var login = core.random();
+	var secret = login;
     var gender = ['m','f'][core.randomInt(0,1)];
     var bday = new Date(core.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
     var latitude = core.randomNum(this.bbox[0], this.bbox[2]);
@@ -150,9 +149,9 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/connection/add", login: login, secret: secret, query: { id: id, type: "like" }  }
+            var options = { url: "/connection/add", login: login, secret: secret, query: { id: otherid, type: "like" }  }
             core.sendRequest(options, function(err, params) {
-                options = { url: "/connection/add", login: login, secret: secret, query: { id: otherid, type: "like" }  }
+                options = { url: "/connection/add", login: login, secret: secret, query: { id: otherid, type: "match" }  }
                 core.sendRequest(options, function(err, params) {
                     next(err);
                 });
@@ -161,49 +160,49 @@ tests.account = function(callback)
         function(next) {
             var options = { url: "/connection/get", login: login, secret: secret, query: { type: "like" } }
             core.sendRequest(options, function(err, params) {
-                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=2, "err3:", params.obj.count, params.obj.data);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err3:", params.obj.count, params.obj.data);
             });
         },
         function(next) {
             var options = { url: "/counter/get", login: login, secret: secret }
             core.sendRequest(options, function(err, params) {
-                core.checkTest(next, err, !params.obj || params.obj.like0!=2, "err4:", params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.like0!=1 || params.obj.match0!=1, "err4:", params.obj);
             });
         },
         function(next) {
-            var options = { url: "/connection/del", login: login, secret: secret, query: { id: id, type: "like" }  }
+            var options = { url: "/connection/del", login: login, secret: secret, query: { id: otherid, type: "like" }  }
             core.sendRequest(options, function(err, params) {
                 next(err);
             });
         },
         function(next) {
-            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "like" } }
+            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "match" } }
             core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err5:" , params.obj);
             });
         },
         function(next) {
-            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "like", _details: 1 } }
+            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "match", _details: 1 } }
             core.sendRequest(options, function(err, params) {
-                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err5:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err5-1:" , params.obj);
             });
         },
         function(next) {
             var options = { url: "/counter/get", login: login, secret: secret }
             core.sendRequest(options, function(err, params) {
-                core.checkTest(next, err, !params.obj || params.obj.like0!=1 || params.obj.ping!=0, "err5-1:" , params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.match0!=1 || params.obj.ping!=0, "err5-2:" , params.obj);
             });
         },
         function(next) {
             var options = { url: "/connection/del", login: login, secret: secret, query: {} }
             core.sendRequest(options, function(err, params) {
-                next(err, "err5-2:" , params.obj);
+                next(err, "err5-3:" , params.obj);
             });
         },
         function(next) {
             var options = { url: "/connection/get", login: login, secret: secret, query: { } }
             core.sendRequest(options, function(err, params) {
-                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err5-3:" , params.obj);
+                core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err5-4:" , params.obj);
             });
         },
         function(next) {
