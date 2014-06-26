@@ -28,7 +28,7 @@ var core = {
     name: 'backend',
 
     // Protocol version
-    version: '2014.06.15',
+    version: '2014.07.01',
 
     // Application version
     appVersion: "",
@@ -2793,6 +2793,10 @@ core.createRepl = function(options)
     return r;
 }
 // Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
+// Options properties:
+// - match - a regexp that specifies only files to be watched
+// - ignore - a regexp of files to be ignored
+// - seconds - number of seconds a file to be older to be deleted
 core.watchTmp = function(dir, options, callback)
 {
     var self = this;
@@ -2806,7 +2810,8 @@ core.watchTmp = function(dir, options, callback)
 
         async.forEachSeries(files, function(file, next) {
             if (file == "." || file == "..") return next();
-            if (options.pattern && !file.match(options.patern)) return next();
+            if (options.match && !file.match(options.match)) return next();
+            if (options.ignore && file.match(options.ignore)) return next();
 
             file = path.join(dir, file);
             fs.stat(file, function(err, st) {
@@ -2826,6 +2831,7 @@ core.watchTmp = function(dir, options, callback)
 // Watch files in a dir for changes and call the callback
 core.watchFiles = function(dir, pattern, callback)
 {
+    var self = this;
     logger.debug('watchFiles:', dir, pattern);
     fs.readdir(dir, function(err, list) {
         if (err) return callback(err);
@@ -2833,12 +2839,12 @@ core.watchFiles = function(dir, pattern, callback)
             return file.match(pattern);
         }).map(function(file) {
             file = path.join(dir, file);
-            return ({ name: file, stat: core.statSync(file) });
+            return ({ name: file, stat: self.statSync(file) });
         }).forEach(function(file) {
             logger.debug('watchFiles:', file.name, file.stat.size);
             fs.watch(file.name, function(event, filename) {
                 // Check stat if no file name, Mac OS X does not provide it
-                if (!filename && core.statSync(file.name).size == file.stat.size) return;
+                if (!filename && self.statSync(file.name).size == file.stat.size) return;
                 logger.log('watchFiles:', event, filename || file.name);
                 callback(file);
             });

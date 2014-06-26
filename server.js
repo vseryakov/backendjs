@@ -167,7 +167,7 @@ server.startMaster = function()
 
         // Watch temp files
         setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
-        setInterval(function() { core.watchTmp("log", { seconds: 86400*7 }) }, 86400000);
+        setInterval(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }) }, 86400000);
 
         // Pending requests from local queue
         core.processRequestQueue();
