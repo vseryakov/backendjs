@@ -1799,9 +1799,11 @@ db.setProcessRow = function(table, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!table || !callback) return;
-    var pool = this.getPool(table, options);
-    if (!pool.processRow[table]) pool.processRow[table] = [];
-    pool.processRow[table].push(callback);
+    for (var p in this.dbpool) {
+        var pool = this.dbpool[p];
+        if (!pool.processRow[table]) pool.processRow[table] = [];
+        pool.processRow[table].push(callback);
+    }
 }
 
 // Create a database pool for SQL like databases
@@ -3053,26 +3055,40 @@ db.dynamodbInitPool = function(options)
 
         case "list":
             var req = {};
-            req[table] = { keys: obj, select: self.getSelectedColumns(table, opts), consistent: opts.consistent };
-            aws.ddbBatchGetItem(req, opts, function(err, item) {
-                if (err) return callback(err, []);
-                // Keep retrieving items until we get all items
-                var moreKeys = item.UnprocessedKeys || null;
-                var items = item.Responses[table] || [];
-                async.until(
-                    function() {
-                        return moreKeys;
-                    },
-                    function(next) {
-                        opts.RequestItems = moreKeys;
-                        aws.ddbBatchGetItem({}, opts, function(err, item) {
-                            items.push.apply(items, item.Responses[table] || []);
-                            next(err);
-                        });
-                }, function(err) {
-                	callback(err, items);
-                });
-            });
+            var rows = [];
+            // Keep retrieving items until we reach the end or our limit
+            async.doUntil(
+               function(next) {
+                   var list = obj.slice(0, 100);
+                   obj = obj.slice(100);
+                   if (!list.length) return next();
+                   req[table] = { keys: list, select: self.getSelectedColumns(table, opts), consistent: opts.consistent };
+                   aws.ddbBatchGetItem(req, opts, function(err, item) {
+                       if (err) return callback(err, []);
+                       // Keep retrieving items until we get all items
+                       var moreKeys = item.UnprocessedKeys || null;
+                       rows.push.apply(rows, item.Responses[table] || []);
+                       async.until(
+                           function() {
+                               return moreKeys;
+                           },
+                           function(next2) {
+                               opts.RequestItems = moreKeys;
+                               aws.ddbBatchGetItem({}, opts, function(err, item) {
+                                   rows.push.apply(rows, item.Responses[table] || []);
+                                   next2(err);
+                               });
+                       }, function(err) {
+                           next(err);
+                       });
+                   });
+               },
+               function() {
+                   return obj.length == 0;
+               },
+               function(err) {
+                   callback(err, rows);
+               });
             break;
 
         case "add":

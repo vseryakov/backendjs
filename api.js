@@ -948,9 +948,6 @@ api.initAccountAPI = function()
     var self = this;
     var db = core.context.db;
 
-    // If icons API is disabled we set it here
-    if (this.disable.indexOf('icon') > -1) db.setProcessRow("bk_icon", self.checkIcon);
-
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
 
         if (req.method == "POST") req.query = req.body;
@@ -1082,8 +1079,6 @@ api.initIconAPI = function()
     var self = this;
     var db = core.context.db;
 
-    db.setProcessRow("bk_icon", self.checkIcon);
-
     this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9\.\_\-]+)\/?([a-z0-9\.\_\-])?$/, function(req, res) {
         if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
@@ -1121,22 +1116,6 @@ api.initMessageAPI = function()
 {
     var self = this;
     var db = core.context.db;
-
-    function onMessageRow(row, options, cols) {
-        var mtime = row.mtime.split(":");
-        row.mtime = core.toNumber(mtime[0]);
-        row.sender = mtime[1];
-        if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
-    }
-    db.setProcessRow("bk_message", onMessageRow);
-    db.setProcessRow("bk_archive", onMessageRow);
-
-    db.setProcessRow("bk_sent", function(row, options, cols) {
-        var mtime = row.mtime.split(":");
-        row.mtime = core.toNumber(mtime[0]);
-        row.recipient = mtime[1];
-        if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
-    });
 
     this.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
 
@@ -1246,14 +1225,6 @@ api.initConnectionAPI = function()
 {
     var self = this;
     var db = core.context.db;
-
-    function onConnectionRow(row, options, cols) {
-        var type = row.type.split(":");
-        row.type = type[0];
-        row.id = type[1];
-    }
-    db.setProcessRow("bk_connection", onConnectionRow);
-    db.setProcessRow("bk_reference", onConnectionRow);
 
     this.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
 
@@ -1454,9 +1425,43 @@ api.initDataAPI = function()
 }
 
 // Called in the master process to create/upgrade API related tables
-api.initTables = function(callback)
+api.initTables = function(options, callback)
 {
-    core.context.db.initTables(this.tables, callback);
+    var self = this;
+    var db = core.context.db;
+
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+
+    db.initTables(this.tables, options, function(err) {
+
+        function onMessageRow(row, options, cols) {
+            var mtime = row.mtime.split(":");
+            row.mtime = core.toNumber(mtime[0]);
+            row.sender = mtime[1];
+            if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+        }
+        db.setProcessRow("bk_message", options, onMessageRow);
+        db.setProcessRow("bk_archive", options, onMessageRow);
+
+        db.setProcessRow("bk_sent", options, function(row, options, cols) {
+            var mtime = row.mtime.split(":");
+            row.mtime = core.toNumber(mtime[0]);
+            row.recipient = mtime[1];
+            if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+        });
+
+        function onConnectionRow(row, options, cols) {
+            var type = row.type.split(":");
+            row.type = type[0];
+            row.id = type[1];
+        }
+        db.setProcessRow("bk_connection", options, onConnectionRow);
+        db.setProcessRow("bk_reference", options, onConnectionRow);
+        db.setProcessRow("bk_icon", options, self.checkIcon);
+
+        if (callback) callback(err);
+    });
 }
 
 // Convert query options into database options, most options are the same as for `db.select` but prepended with underscore to

@@ -355,7 +355,7 @@ server.startWeb = function(callback)
             }
 
             process.on("uncaughtException", function(err) {
-                logger.error('fatal:', err.stack);
+                logger.error('fatal:', err, err.stack);
                 self.onkill();
             });
         });
