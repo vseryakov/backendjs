@@ -317,13 +317,21 @@ aws.runInstances = function(options, callback)
             if (options.elbName) {
                 var params = { LoadBalancerName: options.elbName };
                 items.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
-                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, 15000);
+                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, 30000);
             }
             // Elastic IP
             if (options.elasticIp) {
-                var params = { PublicIp: options.elasticIp, InstanceId: items[0].instanceId };
-                if (options.subnetId || options["NetworkInterface.0.SubnetId"]) params.AllowReassociation = true;
-                setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, 20000);
+                if (options.subnetId || options["NetworkInterface.0.SubnetId"]) {
+                    var params = { InstanceId: items[0].instanceId, AllowReassociation: true };
+                    self.queryEC2("DescribeAddresses", { 'PublicIp.1': options.elastcIp }, function(err, addr) {
+                        params.AllocationId = core.objGet(addr, "DescribeAddressesResponse.AddressesSet.item.allocationId");
+                        if (!params.AllocationId) return;
+                        setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, 20000);
+                    });
+                } else {
+                    var params = { PublicIp: options.elasticIp, InstanceId: items[0].instanceId };
+                    setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, 20000);
+                }
             }
         }
         if (callback) callback(err, obj);
