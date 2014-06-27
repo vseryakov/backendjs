@@ -1436,32 +1436,34 @@ api.initTables = function(options, callback)
     if (!options) options = {};
 
     db.initTables(this.tables, options, function(err) {
+        // Make sure we only assign callbacks once because this can be called multiple times
+        if (!self._processRow) {
+            self._processRow = true;
+            function onMessageRow(row, options, cols) {
+                var mtime = row.mtime.split(":");
+                row.mtime = core.toNumber(mtime[0]);
+                row.sender = mtime[1];
+                if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+            }
+            db.setProcessRow("bk_message", options, onMessageRow);
+            db.setProcessRow("bk_archive", options, onMessageRow);
 
-        function onMessageRow(row, options, cols) {
-            var mtime = row.mtime.split(":");
-            row.mtime = core.toNumber(mtime[0]);
-            row.sender = mtime[1];
-            if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+            db.setProcessRow("bk_sent", options, function(row, options, cols) {
+                var mtime = row.mtime.split(":");
+                row.mtime = core.toNumber(mtime[0]);
+                row.recipient = mtime[1];
+                if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+            });
+
+            function onConnectionRow(row, options, cols) {
+                var type = row.type.split(":");
+                row.type = type[0];
+                row.id = type[1];
+            }
+            db.setProcessRow("bk_connection", options, onConnectionRow);
+            db.setProcessRow("bk_reference", options, onConnectionRow);
+            db.setProcessRow("bk_icon", options, self.checkIcon);
         }
-        db.setProcessRow("bk_message", options, onMessageRow);
-        db.setProcessRow("bk_archive", options, onMessageRow);
-
-        db.setProcessRow("bk_sent", options, function(row, options, cols) {
-            var mtime = row.mtime.split(":");
-            row.mtime = core.toNumber(mtime[0]);
-            row.recipient = mtime[1];
-            if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
-        });
-
-        function onConnectionRow(row, options, cols) {
-            var type = row.type.split(":");
-            row.type = type[0];
-            row.id = type[1];
-        }
-        db.setProcessRow("bk_connection", options, onConnectionRow);
-        db.setProcessRow("bk_reference", options, onConnectionRow);
-        db.setProcessRow("bk_icon", options, self.checkIcon);
-
         if (callback) callback(err);
     });
 }
@@ -1494,6 +1496,7 @@ api.getOptions = function(req)
         if (this.unsecure.indexOf(ep) > -1) {
             delete options.check_public;
             if (req.query._pool) options.pool = req.query._pool;
+            if (req.query._noprocessrows) options.noprocessrows = core.toBool(req.query._noprocessrows);
         }
     }
     // Override with options provided in the hooks
@@ -2326,7 +2329,7 @@ api.getLocation = function(req, options, callback)
     // Continue pagination using the search token
     var token = core.base64ToJson(req.query._token, req.account.secret);
     if (token && token.geohash && token.latitude && token.longitude) {
-        options = token;
+        for (var p in token) options[p] = token[p];
         req.query.latitude = options.latitude;
         req.query.longitude = options.longitude;
         req.query.distance = options.distance;

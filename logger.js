@@ -153,7 +153,9 @@ logger.setDebugLabel = function(str)
         x = x.trim();
         switch (x[0]) {
         case '-':
-            if (self.labels) delete self.labels[x.substr(1)];
+            if (x == "-") self.labels = null;
+            if (!self.labels) break;
+            delete self.labels[x.substr(1)];
             if (!Object.keys(self.labels).length) self.labels = null;
             break;
         case '+':
