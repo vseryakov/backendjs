@@ -48,7 +48,7 @@ aws.configure = function(options, callback)
 {
     if (typeof options == "callback") callback = options, options = null;
     // Do not retrieve metadata if not running inside important process
-    if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master"].indexOf(core.role) == -1 || this.key) return callback();
+    if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master"].indexOf(core.role) == -1) return callback();
     this.getInstanceInfo(callback);
 }
 
@@ -398,6 +398,7 @@ aws.getInstanceInfo = function(callback)
             });
         },
         function(next) {
+            if (self.key) return next();
             self.getInstanceCredentials(next);
         },
         ], function(err) {
