@@ -70,11 +70,11 @@ ipc.initClient = function()
                 break;
 
             case "profiler":
-                backend.cpuProfiler(msg.value ? 1 : 0);
+                core.profiler("cpu", msg.value ? "start" : "stop");
                 break;
 
             case "heapsnapshot":
-                backend.heapSnapshot("tmp/" + process.pid + ".heapsnapshot");
+                core.profiler("heap", "save");
                 break;
             }
             self.onMessage(msg);

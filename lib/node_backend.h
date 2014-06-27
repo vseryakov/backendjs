@@ -59,6 +59,7 @@ using namespace std;
 #define DEFINE_CONSTANT_STRING(target, constant, name) (target)->Set(String::NewSymbol(#name),String::NewSymbol(constant),static_cast<PropertyAttribute>(ReadOnly | DontDelete));
 
 #define TRY_CATCH_CALL(context, callback, argc, argv) { TryCatch try_catch; (callback)->Call((context), (argc), (argv)); if (try_catch.HasCaught()) FatalException(try_catch); }
+#define TRY_CATCH_CALL_RETURN(context, callback, argc, argv, rc) { TryCatch try_catch; (callback)->Call((context), (argc), (argv)); if (try_catch.HasCaught()) { FatalException(try_catch); return rc; }}
 
 void SQLiteInit(Handle<Object> target);
 void SyslogInit(Handle<Object> target);

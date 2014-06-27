@@ -507,7 +507,7 @@ api.init = function(callback)
             }
 
             // Notify the master about new worker server
-            ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port } });
+            ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true } });
 
             if (callback) callback.call(self, err);
         });
@@ -2815,15 +2815,10 @@ api.initStatistics = function()
     if (core.collectHost) {
         setInterval(function() {
             core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() });
-
-            // Sent profiler log to the master
-            if (backend.cpuProfiler()) {
-                var logfile = "tmp/v8." + process.pid + ".log";
-                fs.readFile(logfile, function(err, data) {
-                    if (err || !data || !data.length) return;
-                    core.sendRequest({ url: core.collectHost, postdata: data, headers: { 'content-type': "binary/data" } }, function(err) {
-                        if (!err) fs.unlink(logfile, function() {});
-                    });
+            // Sent profiler data to the master
+            if (core.cpuProfile) {
+                core.sendRequest({ url: core.collectHost, postdata: core.stringify(core.cpuProfile), headers: { 'content-type': "text/plain" } }, function(err) {
+                    if (!err) core.profiler("cpu", "clear");
                 });
             }
         }, core.collectSendInterval * 1000 - delay);

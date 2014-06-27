@@ -2652,7 +2652,7 @@ core.stringify = function(obj, filter)
         filter = [];
         for (var p in obj) if (typeof obj[p] != "undefined" && obj[p] !== null && obj[p] !== "") filter.push(p);
     }
-    return JSON.stringify(obj, filter);
+    try { return JSON.stringify(obj, filter); } catch(e) { logger.error("stringify:", e); return "" }
 }
 
 // Silent JSON parse, returns null on error, no exceptions raised.
@@ -2752,6 +2752,40 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
     }, function() {
         if (callback) callback();
     });
+}
+
+// Start/stop CPU V8 profiler, on stop, core.cpuProfile will contain the profiler nodes
+core.profiler = function(type, cmd)
+{
+    switch(type + "." + cmd) {
+    case "cpu.start":
+        backend.startProfiling();
+        break;
+
+    case "cpu.stop":
+        this.cpuProfile = backend.stopProfiling();
+        break;
+
+    case "cpu.clear":
+        this.cpuProfile = null;
+        backend.deleteAllProfiles();
+        break;
+
+    case "heap.save":
+        var snapshot = backend.takeSnapshot();
+        snapshot.save("tmp/" + process.pid + ".heapsnapshot");
+        backend.deleteAllSnapshots();
+        break;
+
+    case "heap.take":
+        this.heapSnapshot = backend.takeSnapshot();
+        break;
+
+    case "heap.clear":
+        this.heapSnapshot = null;
+        backend.deleteAllSnapshots();
+        break;
+    }
 }
 
 // Adds reference to the objects in the core for further access, specify module name, module reference pairs

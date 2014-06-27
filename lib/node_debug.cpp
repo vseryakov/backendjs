@@ -5,6 +5,11 @@
 //  Backtrace
 //  Copyright (c) 2013, Ben Noordhuis <info@bnoordhuis.nl>
 //  https://github.com/bnoordhuis/node-backtrace
+//
+//  V8 profiler
+//  Copyright (c) 2011, Danny Coates
+//  All rights reserved.
+//
 
 #include "node_backend.h"
 #include <cxxabi.h>
@@ -28,13 +33,279 @@ struct Code {
 
 struct FileOutputStream: public OutputStream {
     FILE *out;
-    FileOutputStream(FILE *fp): out(fp)    {}
+    FileOutputStream(FILE *fp): out(fp) {}
     void EndOfStream() { fflush(out); }
+    int GetChunkSize() { return 32*1024; }
     OutputStream::WriteResult WriteAsciiChunk(char *data, int size) {
         write(fileno(out), data, size);
-        return (OutputStream::kContinue);
+        return kContinue;
     }
 };
+
+struct SerializeOutputStream : public OutputStream {
+public:
+    SerializeOutputStream(Handle<Function> onData, Handle<Function> onEnd) {
+        onEndFunction = onEnd;
+        onDataFunction = onData;
+    }
+    void EndOfStream() { TRY_CATCH_CALL(Context::GetCurrent()->Global(), onEndFunction, 0, NULL); }
+    int GetChunkSize() { return 10*1024; }
+    WriteResult WriteAsciiChunk(char* data, int size) {
+        HandleScope scope;
+        Handle<Value> argv[2] = { Buffer::New(data, size)->handle_, Integer::New(size) };
+        TRY_CATCH_CALL_RETURN(Context::GetCurrent()->Global(), onDataFunction, 2, argv, kAbort);
+        return kContinue;
+    }
+
+private:
+    Handle<Function> onEndFunction;
+    Handle<Function> onDataFunction;
+};
+
+class ProfileNode {
+ public:
+   static Handle<Value> New(const CpuProfileNode* node) {
+       HandleScope scope;
+       if (node_template_.IsEmpty()) ProfileNode::Initialize();
+       if (!node) return Undefined();
+       Local<Object> obj = node_template_->NewInstance();
+       obj->SetPointerInInternalField(0, const_cast<CpuProfileNode*>(node));
+       return scope.Close(obj);
+     }
+
+ private:
+   static Handle<Value> GetFunctionName(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       Handle<String> fname = static_cast<CpuProfileNode*>(ptr)->GetFunctionName();
+       return scope.Close(fname);
+   }
+   static Handle<Value> GetScriptName(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       Handle<String> sname = static_cast<CpuProfileNode*>(ptr)->GetScriptResourceName();
+       return scope.Close(sname);
+   }
+   static Handle<Value> GetLineNumber(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       int32_t ln = static_cast<CpuProfileNode*>(ptr)->GetLineNumber();
+       return scope.Close(Integer::New(ln));
+   }
+   static Handle<Value> GetTotalTime(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       double ttime = static_cast<CpuProfileNode*>(ptr)->GetTotalTime();
+       return scope.Close(Number::New(ttime));
+   }
+   static Handle<Value> GetSelfTime(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       double stime = static_cast<CpuProfileNode*>(ptr)->GetSelfTime();
+       return scope.Close(Number::New(stime));
+   }
+   static Handle<Value> GetTotalSamplesCount(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       double samples = static_cast<CpuProfileNode*>(ptr)->GetTotalSamplesCount();
+       return scope.Close(Number::New(samples));
+   }
+   static Handle<Value> GetSelfSamplesCount(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       double samples = static_cast<CpuProfileNode*>(ptr)->GetSelfSamplesCount();
+       return scope.Close(Number::New(samples));
+   }
+   static Handle<Value> GetCallUid(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       uint32_t uid = static_cast<CpuProfileNode*>(ptr)->GetCallUid();
+       return scope.Close(Integer::NewFromUnsigned(uid));
+   }
+   static Handle<Value> GetChildrenCount(Local<String> property, const AccessorInfo& info) {
+       HandleScope scope;
+       Local<Object> self = info.Holder();
+       void* ptr = self->GetPointerFromInternalField(0);
+       int32_t count = static_cast<CpuProfileNode*>(ptr)->GetChildrenCount();
+       return scope.Close(Integer::New(count));
+   }
+   static Handle<Value> GetChild(const Arguments& args) {
+       HandleScope scope;
+       if (args.Length() < 1) {
+         return ThrowException(Exception::Error(String::New("No index specified")));
+       } else
+       if (!args[0]->IsInt32()) {
+         return ThrowException(Exception::Error(String::New("Argument must be integer")));
+       }
+       int32_t index = args[0]->Int32Value();
+       Handle<Object> self = args.This();
+       void* ptr = self->GetPointerFromInternalField(0);
+       const CpuProfileNode* node = static_cast<CpuProfileNode*>(ptr)->GetChild(index);
+       return scope.Close(ProfileNode::New(node));
+   }
+   static void Initialize() {
+       node_template_ = Persistent<ObjectTemplate>::New(ObjectTemplate::New());
+       node_template_->SetInternalFieldCount(1);
+       node_template_->SetAccessor(String::New("functionName"), ProfileNode::GetFunctionName);
+       node_template_->SetAccessor(String::New("scriptName"), ProfileNode::GetScriptName);
+       node_template_->SetAccessor(String::New("lineNumber"), ProfileNode::GetLineNumber);
+       node_template_->SetAccessor(String::New("totalTime"), ProfileNode::GetTotalTime);
+       node_template_->SetAccessor(String::New("selfTime"), ProfileNode::GetSelfTime);
+       node_template_->SetAccessor(String::New("totalSamplesCount"), ProfileNode::GetTotalSamplesCount);
+       node_template_->SetAccessor(String::New("selfSamplesCount"), ProfileNode::GetSelfSamplesCount);
+       node_template_->SetAccessor(String::New("callUid"), ProfileNode::GetCallUid);
+       node_template_->SetAccessor(String::New("childrenCount"), ProfileNode::GetChildrenCount);
+       node_template_->Set(String::New("getChild"), FunctionTemplate::New(ProfileNode::GetChild));
+   }
+   static Persistent<ObjectTemplate> node_template_;
+};
+
+class Profile {
+public:
+    static Handle<Value> New(const CpuProfile* profile) {
+        HandleScope scope;
+        if (profile_template_.IsEmpty()) Profile::Initialize();
+        if (!profile) return Undefined();
+        Local<Object> obj = profile_template_->NewInstance();
+        obj->SetPointerInInternalField(0, const_cast<CpuProfile*>(profile));
+        return scope.Close(obj);
+    }
+
+private:
+    static Handle<Value> GetUid(Local<String> property, const AccessorInfo& info) {
+        HandleScope scope;
+        Local<Object> self = info.Holder();
+        void* ptr = self->GetPointerFromInternalField(0);
+        uint32_t uid = static_cast<CpuProfile*>(ptr)->GetUid();
+        return scope.Close(Integer::NewFromUnsigned(uid));
+    }
+    static Handle<Value> GetTitle(Local<String> property, const AccessorInfo& info) {
+        HandleScope scope;
+        Local<Object> self = info.Holder();
+        void* ptr = self->GetPointerFromInternalField(0);
+        Handle<String> title = static_cast<CpuProfile*>(ptr)->GetTitle();
+        return scope.Close(title);
+    }
+    static Handle<Value> GetTopRoot(Local<String> property, const AccessorInfo& info) {
+        HandleScope scope;
+        Local<Object> self = info.Holder();
+        void* ptr = self->GetPointerFromInternalField(0);
+        const CpuProfileNode* node = static_cast<CpuProfile*>(ptr)->GetTopDownRoot();
+        return scope.Close(ProfileNode::New(node));
+    }
+    static Handle<Value> GetBottomRoot(Local<String> property, const AccessorInfo& info) {
+        HandleScope scope;
+        Local<Object> self = info.Holder();
+        void* ptr = self->GetPointerFromInternalField(0);
+        const CpuProfileNode* node = static_cast<CpuProfile*>(ptr)->GetBottomUpRoot();
+        return scope.Close(ProfileNode::New(node));
+    }
+    static Handle<Value> Delete(const Arguments& args) {
+        HandleScope scope;
+        Handle<Object> self = args.This();
+        void* ptr = self->GetPointerFromInternalField(0);
+        static_cast<CpuProfile*>(ptr)->Delete();
+        return Undefined();
+    }
+    static void Initialize() {
+        profile_template_ = Persistent<ObjectTemplate>::New(ObjectTemplate::New());
+        profile_template_->SetInternalFieldCount(1);
+        profile_template_->SetAccessor(String::New("title"), Profile::GetTitle);
+        profile_template_->SetAccessor(String::New("uid"), Profile::GetUid);
+        profile_template_->SetAccessor(String::New("topRoot"), Profile::GetTopRoot);
+        profile_template_->SetAccessor(String::New("bottomRoot"), Profile::GetBottomRoot);
+        profile_template_->Set(String::New("delete"), FunctionTemplate::New(Profile::Delete));
+    }
+    static Persistent<ObjectTemplate> profile_template_;
+};
+
+class Snapshot {
+public:
+    static Handle<Value> New(const HeapSnapshot* snapshot) {
+        HandleScope scope;
+        if (snapshot_template_.IsEmpty()) Snapshot::Initialize();
+        if (!snapshot) return Undefined();
+        Local<Object> obj = snapshot_template_->NewInstance();
+        obj->SetPointerInInternalField(0, const_cast<HeapSnapshot*>(snapshot));
+        return scope.Close(obj);
+    }
+
+private:
+    static Handle<Value> GetTitle(Local<String> property, const AccessorInfo& info) {
+        HandleScope scope;
+        Local<Object> self = info.Holder();
+        void* ptr = self->GetPointerFromInternalField(0);
+        Handle<String> title = static_cast<HeapSnapshot*>(ptr)->GetTitle();
+        return scope.Close(title);
+    }
+    static Handle<Value> GetUid(Local<String> property, const AccessorInfo& info) {
+        HandleScope scope;
+        Local<Object> self = info.Holder();
+        void* ptr = self->GetPointerFromInternalField(0);
+        uint32_t uid = static_cast<HeapSnapshot*>(ptr)->GetUid();
+        return scope.Close(Integer::NewFromUnsigned(uid));
+    }
+    static Handle<Value> GetType(Local<String> property, const AccessorInfo& info) {
+        HandleScope scope;
+        Local<Object> self = info.Holder();
+        void* ptr = self->GetPointerFromInternalField(0);
+        HeapSnapshot::Type type = static_cast<HeapSnapshot*>(ptr)->GetType();
+        Local<String> t = String::New(type == HeapSnapshot::kFull ? "Full" : "Unknown");
+        return scope.Close(t);
+    }
+    static Handle<Value> Delete(const Arguments& args) {
+        HandleScope scope;
+        Handle<Object> self = args.This();
+        void* ptr = self->GetPointerFromInternalField(0);
+        static_cast<HeapSnapshot*>(ptr)->Delete();
+        return Undefined();
+    }
+    static Handle<Value> Serialize(const Arguments& args) {
+        HandleScope scope;
+        Handle<Object> self = args.This();
+        REQUIRE_ARGUMENT_FUNCTION(0, onData);
+        REQUIRE_ARGUMENT_FUNCTION(1, onEnd);
+        SerializeOutputStream *stream = new SerializeOutputStream(onData, onEnd);
+        void* ptr = self->GetPointerFromInternalField(0);
+        static_cast<HeapSnapshot*>(ptr)->Serialize(stream, HeapSnapshot::kJSON);
+        return Undefined();
+    }
+    static Handle<Value> Save(const Arguments& args) {
+        HandleScope scope;
+        Handle<Object> self = args.This();
+        REQUIRE_ARGUMENT_STRING(0, name);
+        FILE *fp = fopen(*name, "w");
+        if (!fp) return ThrowException(Exception::Error(String::New("Cannot create file")));
+        FileOutputStream *stream = new FileOutputStream(fp);
+        void* ptr = self->GetPointerFromInternalField(0);
+        static_cast<HeapSnapshot*>(ptr)->Serialize(stream, HeapSnapshot::kJSON);
+        fclose(fp);
+        return scope.Close(Undefined());
+    }
+    static void Initialize() {
+        snapshot_template_ = Persistent<ObjectTemplate>::New(ObjectTemplate::New());
+        snapshot_template_->SetInternalFieldCount(1);
+        snapshot_template_->SetAccessor(String::New("title"), Snapshot::GetTitle);
+        snapshot_template_->SetAccessor(String::New("uid"), Snapshot::GetUid);
+        snapshot_template_->SetAccessor(String::New("type"), Snapshot::GetType);
+        snapshot_template_->Set(String::New("delete"), FunctionTemplate::New(Snapshot::Delete));
+        snapshot_template_->Set(String::New("serialize"), FunctionTemplate::New(Snapshot::Serialize));
+        snapshot_template_->Set(String::New("save"), FunctionTemplate::New(Snapshot::Save));
+    }
+    static Persistent<ObjectTemplate> snapshot_template_;
+};
+
+Persistent<ObjectTemplate> Snapshot::snapshot_template_;
+Persistent<ObjectTemplate> Profile::profile_template_;
+Persistent<ObjectTemplate> ProfileNode::node_template_;
 
 static bool run_segv = 0;
 static struct Code* code_head = NULL;
@@ -221,33 +492,84 @@ static Handle<Value> runGC(const Arguments& args)
     return scope.Close(Undefined());
 }
 
-static Handle<Value> cpuProfiler(const Arguments& args)
+static Handle<Value> GetSnapshotsCount(const Arguments& args)
 {
     HandleScope scope;
-
-    if (args.Length() > 0) {
-        if (args[0]->Int32Value()) V8::ResumeProfiler(); else V8::PauseProfiler();
-    }
-
-    return scope.Close(Local<Integer>::New(Integer::New(V8::IsProfilerPaused())));
+    return scope.Close(Integer::New(v8::HeapProfiler::GetSnapshotsCount()));
 }
 
-Handle<Value> heapSnapshot(const Arguments& args)
+static Handle<Value> GetSnapshot(const Arguments& args)
 {
     HandleScope scope;
-    FileOutputStream *out;
-    const HeapSnapshot *hsp;
+    REQUIRE_ARGUMENT_INT(0, index);
+    const v8::HeapSnapshot* snapshot = v8::HeapProfiler::GetSnapshot(index);
+    return scope.Close(Snapshot::New(snapshot));
+}
 
-    REQUIRE_ARGUMENT_STRING(0, name);
-    FILE *fp = fopen(*name, "w");
-    if (!fp) return ThrowException(Exception::Error(String::New("Cannot create file")));
+static Handle<Value> FindSnapshot(const Arguments& args)
+{
+    HandleScope scope;
+    REQUIRE_ARGUMENT_INT(0, uid);
+    const v8::HeapSnapshot* snapshot = v8::HeapProfiler::FindSnapshot(uid);
+    return scope.Close(Snapshot::New(snapshot));
+}
 
-    out = new FileOutputStream(fp);
-    hsp = HeapProfiler::TakeSnapshot(String::New(vFmtStr("snapshot:%d", getpid()).c_str()));
-    hsp->Serialize(out, HeapSnapshot::kJSON);
-    HeapProfiler::DeleteAllSnapshots();
-    fclose(fp);
-    return scope.Close(Undefined());
+static Handle<Value> TakeSnapshot(const Arguments& args)
+{
+    HandleScope scope;
+    const v8::HeapSnapshot* snapshot = v8::HeapProfiler::TakeSnapshot(args.Length() > 0 ? args[0]->ToString() : Local<String>::New(String::New("")));
+    return scope.Close(Snapshot::New(snapshot));
+}
+
+static Handle<Value> DeleteAllSnapshots(const Arguments& args)
+{
+    HandleScope scope;
+    v8::HeapProfiler::DeleteAllSnapshots();
+    return Undefined();
+}
+
+static Handle<Value> GetProfilesCount(const Arguments& args)
+{
+    HandleScope scope;
+    return scope.Close(Integer::New(v8::CpuProfiler::GetProfilesCount()));
+}
+
+static Handle<Value> GetProfile(const Arguments& args)
+{
+    HandleScope scope;
+    REQUIRE_ARGUMENT_INT(0, index);
+    const CpuProfile* profile = v8::CpuProfiler::GetProfile(index);
+    return scope.Close(Profile::New(profile));
+}
+
+static Handle<Value> FindProfile(const Arguments& args)
+{
+    HandleScope scope;
+    REQUIRE_ARGUMENT_INT(0, uid);
+    const CpuProfile* profile = v8::CpuProfiler::FindProfile(uid);
+    return scope.Close(Profile::New(profile));
+}
+
+static Handle<Value> StartProfiling(const Arguments& args)
+{
+    HandleScope scope;
+    Local<String> title = args.Length() > 0 ? args[0]->ToString() : String::New("");
+    v8::CpuProfiler::StartProfiling(title);
+    return Undefined();
+}
+
+static Handle<Value> StopProfiling(const Arguments& args)
+{
+    HandleScope scope;
+    Local<String> title = args.Length() > 0 ? args[0]->ToString() : String::New("");
+    const CpuProfile* profile = v8::CpuProfiler::StopProfiling(title);
+    return scope.Close(Profile::New(profile));
+}
+
+static Handle<Value> DeleteAllProfiles(const Arguments& args)
+{
+    v8::CpuProfiler::DeleteAllProfiles();
+    return Undefined();
 }
 
 void DebugInit(Handle<Object> target)
@@ -259,8 +581,19 @@ void DebugInit(Handle<Object> target)
     NODE_SET_METHOD(target, "runSEGV", runSEGV);
     NODE_SET_METHOD(target, "setBacktrace", setBacktrace);
     NODE_SET_METHOD(target, "backtrace", backtrace);
-    NODE_SET_METHOD(target, "heapSnapshot", heapSnapshot);
-    NODE_SET_METHOD(target, "cpuProfiler", cpuProfiler);
+
+    NODE_SET_METHOD(target, "takeSnapshot", TakeSnapshot);
+    NODE_SET_METHOD(target, "getSnapshot", GetSnapshot);
+    NODE_SET_METHOD(target, "findSnapshot", FindSnapshot);
+    NODE_SET_METHOD(target, "getSnapshotsCount", GetSnapshotsCount);
+    NODE_SET_METHOD(target, "deleteAllSnapshots", DeleteAllSnapshots);
+
+    NODE_SET_METHOD(target, "getProfilesCount", GetProfilesCount);
+    NODE_SET_METHOD(target, "getProfile", GetProfile);
+    NODE_SET_METHOD(target, "findProfile", FindProfile);
+    NODE_SET_METHOD(target, "startProfiling", StartProfiling);
+    NODE_SET_METHOD(target, "stopProfiling", StopProfiling);
+    NODE_SET_METHOD(target, "deleteAllProfiles", DeleteAllProfiles);
 
     install_handler(sigSEGV);
 }

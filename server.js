@@ -251,9 +251,14 @@ server.startWeb = function(callback)
                 return ports.length ? ports[ports.length-1] + 1 : core.proxy.port;
             }
             self.getProxyTarget = function() {
-                var target = self.proxyTargets.shift();
-                if (target) self.proxyTargets.push(target);
-                return { target: { host: core.proxy.bind, port: target ? target.port : core.proxy.port } };
+                for (var i = 0; i < self.proxyTargets.length; i++) {
+                    var target = self.proxyTargets.shift();
+                    if (!target) break;
+                    self.proxyTargets.push(target);
+                    if (!target.ready) continue;
+                    return { target: { host: core.proxy.bind, port: target.port } };
+                }
+                return null;
             }
             self.clusterFork = function() {
                 var port = self.getProxyPort();
@@ -277,18 +282,40 @@ server.startWeb = function(callback)
             }
             self.proxyServer = proxy.createServer({ xfwd : true });
             self.proxyServer.on("error", function(err) { logger.error("proxy:", err.stack) })
-            self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, self.getProxyTarget()); });
-            if (core.proxy.ssl) self.sslServer = core.createServer({ ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) { self.proxyServer.web(req, res, self.getProxyTarget()); });
+            self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
+                var target = self.getProxyTarget();
+                if (target) return self.proxyServer.web(req, res, target);
+                res.writeHead(500, "Not ready yet");
+                res.end();
+            });
+            if (core.proxy.ssl) {
+                self.sslServer = core.createServer({ ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
+                    var target = self.getProxyTarget();
+                    if (target) return self.proxyServer.web(req, res, target);
+                    res.writeHead(500, "Not ready yet");
+                    res.end();
+                });
+            }
             if (core.ws.port) {
-                self.server.on('upgrade', function(req, socket, head) {  self.proxyServer.ws(req, socket, head, self.getProxyTarget()); });
-                if (self.sslServer) self.sslServer.on('upgrade', function(req, socket, head) {  self.proxyServer.ws(req, socket, head, self.getProxyTarget()); });
+                self.server.on('upgrade', function(req, socket, head) {
+                    var target = self.getProxyTarget();
+                    if (target) return self.proxyServer.ws(req, socket, head, target);
+                    req.close();
+                });
+                if (self.sslServer) {
+                    self.sslServer.on('upgrade', function(req, socket, head) {
+                        var target = self.getProxyTarget();
+                        if (target) return self.proxyServer.ws(req, socket, head, target);
+                        req.close();
+                    });
+                }
             }
         } else {
             self.getWorkerEnv = function() { return null; }
             self.clusterFork = function() { return cluster.fork(); }
         }
         // Arguments passed to the v8 engine
-        process.execArgv = self.nodeWorkerArgs;
+        if (self.nodeWorkerArgs.length) process.execArgv = self.nodeWorkerArgs;
 
         // Create tables and spawn Web workers
         api.initTables(function(err) {
@@ -794,7 +821,8 @@ server.spawnProcess = function(args, skip, opts)
     skip.push("-watch");
     skip.push("-monitor");
     // Remove arguments we should not pass to the process
-    var argv = this.nodeArgs.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
+    var argv = this.nodeArgs.length ? this.nodeArgs : [];
+    argv = argv.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
     if (Array.isArray(args)) argv = argv.concat(args);
     logger.debug('spawnProcess:', argv, 'skip:', skip);
     return spawn(process.argv[0], argv, opts);
