@@ -141,4 +141,13 @@ void jsonPrint(jsonValue *obj, int ident = 0);
 string jsonStringify(jsonValue *value, string rc = string());
 void jsonFree(jsonValue *obj);
 
+// Compress/decompres using zlib
+int vDeflateInit(z_stream *strm, int level);
+int vDeflate(z_stream *strm, const char *inbuf, int inlen, string *outbuf);
+int vDeflateEnd(z_stream *strm, string *outbuf);
+
+int vInflateInit(z_stream *strm);
+int vInflate(z_stream *strm, const char* inbuf, int inlen, string *outbuf);
+void vInflateEnd(z_stream *strm);
+
 #endif

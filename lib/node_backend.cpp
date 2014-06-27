@@ -390,6 +390,35 @@ static Handle<Value> snappyUncompress(const Arguments& args)
    return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
 }
 
+static Handle<Value> zlibCompress(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, str);
+   OPTIONAL_ARGUMENT_INT(1, level);
+
+   string out;
+   z_stream strm;
+   vDeflateInit(&strm, level ? level : Z_BEST_SPEED);
+   vDeflate(&strm, *str, str.length(), &out);
+   vDeflateEnd(&strm, &out);
+   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+}
+
+static Handle<Value> zlibUncompress(const Arguments& args)
+{
+   HandleScope scope;
+
+   REQUIRE_ARGUMENT_STRING(0, str);
+
+   string out;
+   z_stream strm;
+   vInflateInit(&strm);
+   vInflate(&strm, *str, str.length(), &out);
+   vInflateEnd(&strm);
+   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+}
+
 static Handle<Value> unzipFile(const Arguments& args)
 {
    HandleScope scope;
@@ -453,6 +482,9 @@ void backend_init(Handle<Object> target)
 
     NODE_SET_METHOD(target, "snappyCompress", snappyCompress);
     NODE_SET_METHOD(target, "snappyUncompress", snappyUncompress);
+
+    NODE_SET_METHOD(target, "zlibCompress", zlibCompress);
+    NODE_SET_METHOD(target, "zlibUncompress", zlibUncompress);
 
     NODE_SET_METHOD(target, "geoDistance", geoDistance);
     NODE_SET_METHOD(target, "geoBoundingBox", geoBoundingBox);
