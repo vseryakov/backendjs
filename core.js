@@ -2831,6 +2831,7 @@ core.createRepl = function(options)
 // - match - a regexp that specifies only files to be watched
 // - ignore - a regexp of files to be ignored
 // - seconds - number of seconds a file to be older to be deleted
+// - nodirs - if 1 skip deleting directories
 core.watchTmp = function(dir, options, callback)
 {
     var self = this;
@@ -2850,13 +2851,20 @@ core.watchTmp = function(dir, options, callback)
             file = path.join(dir, file);
             fs.stat(file, function(err, st) {
                 if (err) return next();
-                if (st.isDirectory()) return next();
+                if (options.nodirs && st.isDirectory()) return next();
                 if (now - st.mtime < options.seconds*1000) return next();
                 logger.log('watchTmp: delete', dir, file, (now - st.mtime)/1000, 'sec old');
-                fs.unlink(file, function(err) {
-                    if (err) logger.error('watchTmp:', file, err);
-                    next();
-                });
+                if (st.isDirectory()) {
+                    self.unlinkPath(file, function(err) {
+                        if (err) logger.error('watchTmp:', file, err);
+                        next();
+                    });
+                } else {
+                    fs.unlink(file, function(err) {
+                        if (err) logger.error('watchTmp:', file, err);
+                        next();
+                    });
+                }
             });
         }, callback);
     });
