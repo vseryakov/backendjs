@@ -10,6 +10,9 @@
 //  Copyright (c) 2011, Danny Coates
 //  All rights reserved.
 //
+//  toobusy
+//  Lloyd Hilaiel, lloyd@hilaiel.com
+//
 
 #include "node_backend.h"
 #include <cxxabi.h>
@@ -307,6 +310,26 @@ Persistent<ObjectTemplate> Snapshot::snapshot_template_;
 Persistent<ObjectTemplate> Profile::profile_template_;
 Persistent<ObjectTemplate> ProfileNode::node_template_;
 
+static const unsigned int POLL_PERIOD_MS = 500;
+static unsigned int HIGH_WATER_MARK_MS = 70;
+static const unsigned int AVG_DECAY_FACTOR = 3;
+static uv_timer_t _busyTimer;
+static uint32_t _currentLag;
+static uint64_t _lastMark;
+
+static void busy_timer(uv_timer_t* handle, int status)
+{
+    uint64_t now = uv_hrtime();
+
+    if (_lastMark > 0) {
+        // keep track of (dampened) average lag.
+        uint32_t lag = (uint32_t) ((now - _lastMark) / 1000000);
+        lag = (lag < POLL_PERIOD_MS) ? 0 : lag - POLL_PERIOD_MS;
+        _currentLag = (lag + (_currentLag * (AVG_DECAY_FACTOR-1))) / AVG_DECAY_FACTOR;
+    }
+    _lastMark = now;
+}
+
 static bool run_segv = 0;
 static struct Code* code_head = NULL;
 static int stack_trace_index = 0;
@@ -572,9 +595,43 @@ static Handle<Value> DeleteAllProfiles(const Arguments& args)
     return Undefined();
 }
 
+static Handle<Value> initBusy(const Arguments& args)
+{
+    HandleScope scope;
+    OPTIONAL_ARGUMENT_INT(0, ms);
+
+    if (ms > 10) HIGH_WATER_MARK_MS = ms;
+
+    if (!_busyTimer.data) {
+        uv_timer_init(uv_default_loop(), &_busyTimer);
+        uv_timer_start(&_busyTimer, busy_timer, POLL_PERIOD_MS, POLL_PERIOD_MS);
+        _busyTimer.data = (void*)1;
+    }
+    return scope.Close(Number::New(HIGH_WATER_MARK_MS));
+}
+
+static Handle<Value> isBusy(const Arguments& args)
+{
+    bool block = false;
+    if (_currentLag > HIGH_WATER_MARK_MS) {
+        // probabilistically block requests proportional to how far behind we are.
+        double pctToBlock = ((_currentLag - HIGH_WATER_MARK_MS) / (double) HIGH_WATER_MARK_MS) * 100.0;
+        double r = (rand() / (double) RAND_MAX) * 100.0;
+        if (r < pctToBlock) block = true;
+    }
+    return block ? True() : False();
+}
+
+static Handle<Value> getBusy(const Arguments& args)
+{
+    HandleScope scope;
+    return scope.Close(Integer::New(_currentLag));
+}
+
 void DebugInit(Handle<Object> target)
 {
     HandleScope scope;
+    _busyTimer.data = NULL;
 
     NODE_SET_METHOD(target, "runGC", runGC);
     NODE_SET_METHOD(target, "setSEGV", setSEGV);
@@ -594,6 +651,10 @@ void DebugInit(Handle<Object> target)
     NODE_SET_METHOD(target, "startProfiling", StartProfiling);
     NODE_SET_METHOD(target, "stopProfiling", StopProfiling);
     NODE_SET_METHOD(target, "deleteAllProfiles", DeleteAllProfiles);
+
+    NODE_SET_METHOD(target, "isBusy", isBusy);
+    NODE_SET_METHOD(target, "initBusy", initBusy);
+    NODE_SET_METHOD(target, "getBusy", getBusy);
 
     install_handler(sigSEGV);
 }

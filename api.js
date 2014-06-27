@@ -14,7 +14,6 @@ var https = require('https');
 var cluster = require('cluster');
 var url = require('url');
 var qs = require('qs');
-var toobusy = require('toobusy');
 var crypto = require('crypto');
 var async = require('async');
 var express = require('express');
@@ -236,7 +235,7 @@ var api = {
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
            { name: "images-s3", descr: "S3 bucket name where to store images" },
            { name: "files-s3", descr: "S3 bucket name where to store files" },
-           { name: "busy-latency", type: "number", descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
+           { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
@@ -292,9 +291,12 @@ api.init = function(callback)
 
     self.app = express();
 
+    // Setup toobusy timer to detect when our requests waiting in the queue for too long
+    if (this.busyLatency) backend.initBusy(this.busyLatency);
+
     // Latency watcher
     self.app.use(function(req, res, next) {
-        if (self.busyLatency && toobusy()) {
+        if (self.busyLatency && backend.isBusy()) {
             self.metrics.api.Counter('busy').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
@@ -2824,9 +2826,6 @@ api.initStatistics = function()
         }, core.collectSendInterval * 1000 - delay);
     }
 
-    // Setup toobusy timer to detect when our requests waiting in the queue for too long
-    if (this.busyLatency) toobusy.maxLag(this.busyLatency); else toobusy.shutdown();
-
     logger.debug("initStatistics:", "delay:",  delay, "interval:", core.collectInterval, core.collectSendInterval);
 }
 
@@ -2853,7 +2852,7 @@ api.collectStatistics = function()
     this.metrics.ctime = core.ctime;
     this.metrics.cpus = core.maxCPUs;
     this.metrics.instance = core.instanceId;
-    this.metrics.latency = toobusy.lag();
+    this.metrics.latency = backend.getBusy();
     this.metrics.mtime = Date.now();
     this.metrics.Histogram('rss').update(mem.rss);
     this.metrics.Histogram('heap').update(mem.heapUsed);
