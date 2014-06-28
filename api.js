@@ -234,6 +234,7 @@ var api = {
     // Config parameters
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
            { name: "images-s3", descr: "S3 bucket name where to store images" },
+           { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
            { name: "files-s3", descr: "S3 bucket name where to store files" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
@@ -249,7 +250,6 @@ var api = {
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-connection", type: "list", array: 1, descr: "List of connection types that are allowed only, this limits types of connections to be used for all accounts" },
            { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
-           { name: "icon-redirect", type: "bool", descr: "Return icons url as full path to the images-url endpoint concatenated with icon path" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", type: "regexpmap", key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
@@ -1864,9 +1864,9 @@ api.formatIcon = function(row, account)
     row.type = type.slice(1).join(":");
     row.prefix = type[0];
 
-    // Provide public url if allowed
-    if (this.iconRedirect) {
-        row.url = this.imagesUrl + core.iconPath(row.id, row);
+    if (this.imagesS3 && this.imagesS3Options) {
+        this.imagesS3Options.url = true;
+        row.url = this.signS3("GET", this.imagesS3, core.iconPath(row.id, row), this.imagesS3Options);
     } else
     if ((!row.acl_allow || row.acl_allow == "all") && this.allow.rx && ("/image/" + row.prefix + "/").match(this.allow.rx)) {
         row.url = this.imagesUrl + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
@@ -1937,9 +1937,9 @@ api.sendIcon = function(req, res, id, options)
     logger.debug('sendIcon:', icon, id, options);
 
     if (options.imagesS3 || self.imagesS3) {
-        var headers = {};
-        var params = url.parse(aws.signS3("GET", options.imagesS3 || self.imagesS3, icon, {}, headers));
-        params.headers = headers;
+        var opts = {};
+        var params = url.parse(aws.signS3("GET", options.imagesS3 || self.imagesS3, icon, opts));
+        params.headers = opts.headers;
         var s3req = http.request(params, function(s3res) {
             s3res.pipe(res, { end: true });
         });

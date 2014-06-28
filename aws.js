@@ -186,23 +186,26 @@ aws.queryDDB = function (action, obj, options, callback)
 }
 
 // Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well
-aws.signS3 = function(method, bucket, key, query, headers, expires)
+aws.signS3 = function(method, bucket, key, options)
 {
     var self = this;
+    if (!options) options = {};
+    if (!options.headers) options.headers = {};
+
     var curTime = new Date().toUTCString();
-    if (!headers["x-amz-date"]) headers["x-amz-date"] = curTime;
-    if (!headers["content-type"]) headers["content-type"] = "binary/octet-stream; charset=utf-8";
-    if (headers["content-type"] && headers["content-type"].indexOf("charset=") == -1) headers["content-type"] += "; charset=utf-8";
-    if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
+    if (!options.headers["x-amz-date"]) options.headers["x-amz-date"] = curTime;
+    if (!options.headers["content-type"]) options.headers["content-type"] = "binary/octet-stream; charset=utf-8";
+    if (options.headers["content-type"] && options.headers["content-type"].indexOf("charset=") == -1) options.headers["content-type"] += "; charset=utf-8";
+    if (options.securityToken || this.securityToken) options.headers["x-amz-security-token"] = options.securityToken || this.securityToken;
 
     // Construct the string to sign and query string
-    var strSign = (method || "GET") + "\n" + (headers['content-md5']  || "") + "\n" + (headers['content-type'] || "") + "\n" + (expires || "") + "\n";
+    var strSign = (method || "GET") + "\n" + (options.headers['content-md5']  || "") + "\n" + (options.headers['content-type'] || "") + "\n" + (options.expires || "") + "\n";
 
     // Amazon canonical headers
     var hdrs = [];
-    for (var p in headers) {
+    for (var p in options.headers) {
         if (/X-AMZ-/i.test(p)) {
-            var value = headers[p];
+            var value = options.headers[p];
             if (value instanceof Array) value = value.join(',');
             hdrs.push(p.toString().toLowerCase() + ':' + value);
         }
@@ -215,21 +218,22 @@ aws.signS3 = function(method, bucket, key, query, headers, expires)
                      "response-content-type", "response-content-language", "response-expires",
                      "response-cache-control", "response-content-disposition", "response-content-encoding" ];
     var rc = [];
-    for (p in query) {
+    for (p in options.query) {
         p = p.toLowerCase();
-        if (resources.indexOf(p) != -1) rc.push(p + (query[p] == null ? "" : "=" + query[p]));
+        if (resources.indexOf(p) != -1) rc.push(p + (options.query[p] == null ? "" : "=" + options.query[p]));
     }
     strSign += (bucket ? "/" + bucket : "").toLowerCase() + (key[0] != "/" ? "/" : "") + encodeURI(key) + (rc.length ? "?" : "") + rc.sort().join("&");
-    var signature = core.sign(this.secret, strSign);
-    headers["authorization"] = "AWS " + this.key + ":" + signature;
+    var signature = core.sign(options.secret || this.secret, strSign);
+    options.headers["authorization"] = "AWS " + (options.key || this.key) + ":" + signature;
 
-    var uri = 'http://' + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + url.format({ query: query });
-    // Build REST url if expires is given, no need to send headers
-    if (expires) {
-        uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Expires=" + expires + "&Signature=" + encodeURIComponent(signature);
-        if (this.securityToken) uri += "&SecurityToken=" + this.securityToken;
+    var uri = 'http://' + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + url.format({ query: options.query });
+    // Build REST url
+    if (options.url) {
+        uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Signature=" + encodeURIComponent(signature);
+        if (options.expires) uri += "&Expires=" + options.expires;
+        if (options.securityToken || this.securityToken) uri += "&SecurityToken=" + (options.securityToken || this.securityToken);
     }
-    logger.debug('signS3:', uri, headers);
+    logger.debug('signS3:', uri, options);
     return uri;
 }
 
@@ -247,8 +251,7 @@ aws.queryS3 = function(bucket, key, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    if (!options.headers) options.headers = {};
-    var uri = this.signS3(options.method, bucket, key, options.query, options.headers, options.expires);
+    var uri = this.signS3(options.method, bucket, key, options);
     core.httpGet(uri, options, function(err, params) {
         if (callback) callback(err, params);
     });
