@@ -612,14 +612,13 @@ static Handle<Value> initBusy(const Arguments& args)
 
 static Handle<Value> isBusy(const Arguments& args)
 {
-    bool block = false;
     if (_currentLag > HIGH_WATER_MARK_MS) {
         // probabilistically block requests proportional to how far behind we are.
         double pctToBlock = ((_currentLag - HIGH_WATER_MARK_MS) / (double) HIGH_WATER_MARK_MS) * 100.0;
         double r = (rand() / (double) RAND_MAX) * 100.0;
-        if (r < pctToBlock) block = true;
+        if (r < pctToBlock) return True();
     }
-    return block ? True() : False();
+    return False();
 }
 
 static Handle<Value> getBusy(const Arguments& args)

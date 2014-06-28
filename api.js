@@ -144,6 +144,7 @@ var api = {
        bk_collect: { id: { primary: 1 },
                      mtime: { type: "bigint", primary: 1 },
                      ctime: { type: "bigint" },
+                     type: {},
                      ip: {},
                      instance: {},
                      latency: { type: "int" },
@@ -1325,17 +1326,16 @@ api.initSystemAPI = function()
             break;
 
         case "collect":
-            // Receive system log from the client
-            if (req.type == "application/json") {
-                db.put("bk_collect", req.query, options, function(err) {
-                    res.json({});
-                });
-            } else {
-                self.putFile(req, "data", { name: req.ip + "/" + core.strftime(Date.now(), "%Y-%m-%d-%H:%M"), ext: ".log" }, function(err) {
-                    if (err) logger.error("log:", err);
-                    res.json({});
-                });
-            }
+            db.put("bk_collect", req.query, options, function(err) {
+                res.json({});
+            });
+            break;
+
+        case "log":
+            self.putFile(req, "data", { name: req.ip + "/" + core.strftime(Date.now(), "%Y-%m-%d-%H:%M"), ext: ".log" }, function(err) {
+                if (err) logger.error("log:", err);
+                res.json({});
+            });
             break;
 
         case "cache":
@@ -1537,12 +1537,15 @@ api.describeTables = function(tables)
 //
 // The options can have a property in the form `keep_{name}` which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
 // this functionality without clearing table column definitions.
-api.clearQuery = function(req, options, table, name)
+api.clearQuery = function(query, options, table, name)
 {
-    if (options && options['keep_' + name]) return;
-    var cols = core.context.db.getColumns(table, options);
-    for (var p in cols) {
-        if (cols[p][name]) delete req.query[p];
+    for (var i = 3; i < arguments.length; i++) {
+        var name = arguments[i];
+        if (options && options['keep_' + name]) continue;
+        var cols = core.context.db.getColumns(table, options);
+        for (var p in cols) {
+            if (cols[p][name]) delete query[p];
+        }
     }
 }
 
@@ -2666,15 +2669,19 @@ api.addAccount = function(req, options, callback)
     req.query.id = core.uuid();
     req.query.mtime = req.query.ctime = Date.now();
 
-    // Skip location related properties
-    self.clearQuery(req, options, "bk_account", "hidden");
+    // Copy for the auth table in case we have different properties that needs to be cleared
+    var query = core.cloneObj(req.query);
+
+    // Skip private properties
+    self.clearQuery(query, options, "bk_auth", "hidden");
+    self.clearQuery(req.query, options, "bk_account", "hidden");
 
     // Only admin can add accounts with admin properties
     if (req.account.type != "admin") {
-        self.clearQuery(req, options, "bk_auth", "admin");
-        self.clearQuery(req, options, "bk_account", "admin");
+        self.clearQuery(query, options, "bk_auth", "admin");
+        self.clearQuery(req.query, options, "bk_account", "admin");
     }
-    db.add("bk_auth", req.query, options, function(err) {
+    db.add("bk_auth", query, options, function(err) {
         if (err) return callback(err);
 
         db.add("bk_account", req.query, function(err) {
@@ -2701,21 +2708,27 @@ api.updateAccount = function(req, options, callback)
     var db = core.context.db;
     req.query.mtime = Date.now();
     req.query.id = req.account.id;
-    // Skip location related properties
-    self.clearQuery(req, options, "bk_account", "hidden");
+
+    // Copy for the auth table in case we have different properties that needs to be cleared
+    var query = core.cloneObj(req.query);
+
+    // Skip private and read only properties
+    self.clearQuery(query, options, "bk_auth", "hidden", "readonly");
+    self.clearQuery(req.query, options, "bk_account", "hidden", "readonly");
 
     // Skip admin properties if any
     if (req.account.type != "admin") {
-        self.clearQuery(req, options, "bk_auth", "admin");
-        self.clearQuery(req, options, "bk_account", "admin");
+        self.clearQuery(query, options, "bk_auth", "admin");
+        self.clearQuery(req.query, options, "bk_account", "admin");
     }
     db.update("bk_account", req.query, function(err, rows, info) {
         if (err) return callback(err);
+
         // Avoid updating bk_auth and flushing cache if nothing to update
-        req.query.login = req.account.login;
-        var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), req.query, { all_columns: 1, skip_columns: ["id","login","mtime"] });
+        query.login = req.account.login;
+        var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { all_columns: 1, skip_columns: ["id","login","mtime"] });
         if (!Object.keys(obj).length) return callback(err, rows, info);
-        db.update("bk_auth", req.query, callback);
+        db.update("bk_auth", query, callback);
     });
 }
 
@@ -2819,13 +2832,14 @@ api.initStatistics = function()
     // Add some delay to make all workers collect not at the same time
     if (core.collectHost) {
         setInterval(function() {
-            core.sendRequest({ url: core.collectHost, postdata: self.getStatistics() });
+            var metrics = self.getStatistics();
             // Sent profiler data to the master
             if (core.cpuProfile) {
-                core.sendRequest({ url: core.collectHost, postdata: core.stringify(core.cpuProfile), headers: { 'content-type': "text/plain" } }, function(err) {
-                    if (!err) core.profiler("cpu", "clear");
-                });
+                metrics.type = "cpu";
+                metrics.data = core.cpuProfile;
+                core.cpuProfile = null;
             }
+            core.sendRequest({ url: core.collectHost, postdata: metrics });
         }, core.collectSendInterval * 1000 - delay);
     }
 
@@ -2850,6 +2864,8 @@ api.collectStatistics = function()
     var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
     var avg = os.loadavg();
     var mem = process.memoryUsage();
+    this.metrics.data = null;
+    this.metrics.type = "metrics";
     this.metrics.id = core.ipaddr + process.pid;
     this.metrics.ip = core.ipaddr;
     this.metrics.ctime = core.ctime;

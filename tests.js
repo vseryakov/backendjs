@@ -20,7 +20,7 @@ db = backend.db;
 aws = backend.aws;
 server = backend.server;
 logger = backend.logger;
-bn = backend.backend;
+bk = backend.backend;
 
 var females = [ "mary", "patricia", "linda", "barbara", "elizabeth", "jennifer", "maria", "susan",
                 "carol", "ruth", "sharon", "michelle", "laura", "sarah", "kimberly", "deborah", "jessica",
@@ -769,6 +769,23 @@ tests.cookie = function(callback)
     });
 }
 
+tests.busy = function(callback)
+{
+    var work = 524288;
+    function worky() {
+      var howBusy = bk.isBusy();
+      if (howBusy) {
+        work /= 4;
+        console.log("I can't work! I'm too busy:", howBusy + "ms behind");
+      }
+      work *= 2;
+      for (var i = 0; i < work;) i++;
+      console.log("worked:",  work);
+    };
+    bk.initBusy(core.getArgInt("-busy", 100));
+    var interval = setInterval(worky, 100);
+}
+
 tests.msg = function(callback)
 {
     if (!self.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");
@@ -776,7 +793,7 @@ tests.msg = function(callback)
     if (cluster.isMaster) {
         var count = 0;
         var addr = "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235";
-        var sock = new bn.NNSocket(bn.AF_SP, bn.NN_SUB);
+        var sock = new bk.NNSocket(bk.AF_SP, bk.NN_SUB);
         sock.connect(addr);
         sock.subscribe("");
         sock.setCallback(function(err, data) {
@@ -786,7 +803,7 @@ tests.msg = function(callback)
     } else {
         var count = core.getArgInt("-count", 10);
         var addr = "tcp://127.0.0.1:" + (cluster.worker.id % 2 == 0 ? 1234 : 1235);
-        var sock = new bn.NNSocket(bn.AF_SP, bn.NN_PUB);
+        var sock = new bk.NNSocket(bk.AF_SP, bk.NN_PUB);
         sock.bind(addr);
 
         async.whilst(

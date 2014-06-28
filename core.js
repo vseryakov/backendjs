@@ -1035,7 +1035,7 @@ core.httpGet = function(uri, params, callback)
             if (!options.headers['content-length']) options.headers['content-length'] = params.postdata.length;
             break;
         case "object":
-            params.postdata = JSON.stringify(params.postdata);
+            params.postdata = this.stringify(params.postdata);
             options.headers['content-type'] = "application/json";
             options.headers['content-length'] = Buffer.byteLength(params.postdata, 'utf8');
             break;
