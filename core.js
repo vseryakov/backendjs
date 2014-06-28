@@ -2940,10 +2940,8 @@ core.watchLogs = function(callback)
                    var buf = new Buffer(self.logwatcherMax);
                    fs.read(fd, buf, 0, buf.length, Math.max(0, pos), function(err4, nread, buffer) {
                        fs.close(fd, function() {});
-                       if (err4 || !nread) {
-                           fs.close(fd, function() {});
-                           return next();
-                       }
+                       if (err4 || !nread) return next();
+
                        var lines = buffer.slice(0, nread).toString().split("\n");
                        for (var i in lines) {
                            // Skip global ignore list first
@@ -2958,7 +2956,6 @@ core.watchLogs = function(callback)
                        // Save current size to start next time from
                        db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, { pool: db.local }, function(e) {
                            if (e) logger.error('watchLogs:', file, e);
-                           fs.close(fd, function() {});
                            next();
                        });
                    });

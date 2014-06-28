@@ -157,26 +157,29 @@ server.startMaster = function()
         // Setup background tasks
         this.loadSchedules();
 
+        var d = domain.create();
+        d.on('error', function(err) { logger.error('master:', err, err.stack); });
+
         // Log watcher job
         if (core.logwatcherEmail || core.logwatcherUrl) {
-            setInterval(function() { self.execJob("core.watchLogs"); }, core.logwatcherInterval * 60000);
+            setInterval(function() { d.run(function() { core.watchLogs(); }); }, core.logwatcherInterval * 60000);
         }
 
         // Primary cron jobs
-        if (self.jobsInterval > 0) setInterval(function() { self.processJobs() }, self.jobsInterval * 1000);
+        if (self.jobsInterval > 0) setInterval(function() { d.run(function() { self.processJobs(); }); }, self.jobsInterval * 1000);
 
         // Watch temp files
-        setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
-        setInterval(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }) }, 86400000);
+        setInterval(function() { d.run(function() { core.watchTmp("tmp", { seconds: 86400 }) }); }, 43200000);
+        setInterval(function() { d.run(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }); }, 86400000);
 
         // Pending requests from local queue
         core.processRequestQueue();
-        setInterval(function() { core.processRequestQueue() }, core.requestQueueInterval || 300000);
+        setInterval(function() { d.run(function() { core.processRequestQueue(); }) }, core.requestQueueInterval || 300000);
 
         // Maintenance tasks
         setInterval(function() {
             // Submit pending jobs
-            self.execQueue();
+            self.execJobQueue();
 
             // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
             if (core.instance && self.idleTime > 0 && !Object.keys(cluster.workers).length && core.now() - self.jobTime > self.idleTime) {
@@ -821,8 +824,7 @@ server.spawnProcess = function(args, skip, opts)
     skip.push("-watch");
     skip.push("-monitor");
     // Remove arguments we should not pass to the process
-    var argv = this.nodeArgs.length ? this.nodeArgs : [];
-    argv = argv.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
+    var argv = this.nodeArgs.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
     if (Array.isArray(args)) argv = argv.concat(args);
     logger.debug('spawnProcess:', argv, 'skip:', skip);
     return spawn(process.argv[0], argv, opts);
@@ -834,40 +836,46 @@ server.runJob = function(job)
     var self = this;
 
     for (var name in job) {
-        var args = [];
         // Skip special objects
         if (job[name] instanceof domain.Domain) continue;
 
+        // Make report about unknown job, leading $ are used for same method miltiple times in the same job because property names are unique in the objects
+        var spec = name.replace(/^[\$]+/g, "").split('.');
+        var obj = spec[0] == "core" ? core : core.context[spec[0]];
+        if (!obj || !obj[spec[1]]) {
+            logger.error('runJob:', "unknown method", name, 'job:', job);
+            continue;
+        }
+
         // Pass as first argument the options object, then callback
-        if (core.typeName(job[name]) == "object" && Object.keys(job[name]).length) args.push(job[name]);
+        var args = [ core.typeName(job[name]) == "object" ? job[name] : {} ];
 
         // The callback to finalize job execution
         (function (jname) {
-            args.push(function() {
+            args.push(function(err) {
                 self.jobTime = core.now();
                 // Update process title with current job list
                 var idx = self.jobs.indexOf(jname);
                 if (idx > -1) self.jobs.splice(idx, 1);
                 if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
 
-                logger.debug('runJob:', 'finished', jname);
+                logger.debug('runJob:', 'finished', jname, err || "");
                 if (!self.jobs.length && cluster.isWorker) process.exit(0);
             });
         })(name);
-        // Make report about unknown job, leading $ are used for same method miltiple times in the same job because property names are unique in the objects
-        var spec = name.replace(/^[\$]+/g, "").split('.');
-        var obj = spec[0] == "core" ? core : core.context[spec[0]];
-        if (!obj || !obj[spec[1]]) {
-            logger.error('runJob:', name, "unknown method in", job);
-            if (core.role == "worker") process.exit(1);
-            continue;
-        }
-        self.jobTime = core.now();
-        self.jobs.push(name);
-        if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
-        logger.debug('runJob:', 'started', name, job[name] || "");
-        obj[spec[1]].apply(obj, args);
+
+        var d = domain.create();
+        d.on("error", args[1]);
+        d.run(function() {
+            obj[spec[1]].apply(obj, args);
+            self.jobTime = core.now();
+            self.jobs.push(name);
+            if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
+            logger.debug('runJob:', 'started', name, job[name] || "");
+        });
     }
+    // No jobs started or errors, just exit
+    if (!self.jobs.length && cluster.isWorker) process.exit(0);
 }
 
 // Execute job in the background by one of the workers, object must be known exported module
@@ -945,7 +953,7 @@ server.execJob = function(job)
     }
 
     // Setup node args passed for each worker
-    process.execArrgv = self.nodeWorkerArgs;
+    if (self.nodeWorkerArgs) process.execArrgv = self.nodeWorkerArgs;
 
     self.jobTime = core.now();
     logger.debug('execJob:', 'workers:', workers.length, 'job:', job);
@@ -984,15 +992,8 @@ server.launchJob = function(job, options, callback)
 
     if (typeof job == "string") job = core.newObj(job, null);
     if (!Object.keys(job).length) return logger.error('launchJob:', 'no valid jobs:', job);
+
     job = core.cloneObj(job);
-
-    // Default btime flag for all jobs
-    var btime = core.sqlTime();
-    for (var p in job) {
-        if (!job[p]) job[p] = {};
-        if (typeof job[p].btime == "undefined") job[p].btime = btime;
-    }
-
     self.jobTime = core.now();
     logger.log('launchJob:', job, 'options:', options);
 
@@ -1043,7 +1044,7 @@ server.queueJob = function(job)
 }
 
 // Process pending jobs, submit to idle workers
-server.execQueue = function()
+server.execJobQueue = function()
 {
     if (!this.queue.length) return;
     var job = this.queue.shift();
