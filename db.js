@@ -1456,7 +1456,7 @@ db.prepare = function(op, table, obj, options)
         for (var p in obj) {
             var v = obj[p];
             if (this.skipColumn(p, v, options, cols)) continue;
-            if (v == null || v === "" && options.skipNull[op]) continue;
+            if ((v == null || v === "") && options.skipNull[op]) continue;
             o[p] = v;
         }
         obj = o;
@@ -2915,7 +2915,7 @@ db.dynamodbInitPool = function(options)
         switch (op) {
         case "add":
             if (err.message == "Attribute found when none expected.") return core.newError("Record already exists", "", 409);
-            if (err.message == "The conditional check failed") return core.newError("Record already exists", "", 409);
+            if (err.code == "ConditionalCheckFailedException") return core.newError("Record already exists", "", 409);
             break;
         case "put":
         case "incr":
