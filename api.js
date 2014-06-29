@@ -2753,6 +2753,7 @@ api.deleteAccount = function(id, options, callback)
     var db = core.context.db;
     if (!options.keep) options.keep = {};
     options.count = 1000000;
+    options.check_public = null;
 
     db.get("bk_account", { id: id }, options, function(err, obj) {
         if (err) return callback(err);

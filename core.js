@@ -984,7 +984,7 @@ core.httpGet = function(uri, params, callback)
         break;
 
     default:
-        return callback ? callback(new Error("invalid url: " + uri)) : null;
+        return typeof callback == "function" ? callback(new Error("invalid url: " + uri)) : null;
     }
 
     var options = url.parse(uri);
@@ -1144,7 +1144,7 @@ core.httpGet = function(uri, params, callback)
           }
           logger.debug("httpGet: done", options.method, "url:", uri, "size:", params.size, "status:", res.statusCode, 'type:', params.type, 'location:', res.headers.location || '');
 
-          if (callback) callback(params.err, params, res);
+          if (typeof callback == "function") callback(params.err, params, res);
       });
 
     }).on('error', function(err) {
@@ -1155,7 +1155,7 @@ core.httpGet = function(uri, params, callback)
             setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout || 500);
             return;
         }
-        if (callback) callback(err, params, {});
+        if (typeof callback == "function") callback(err, params, {});
     });
     if (params.httpTimeout) {
         req.setTimeout(params.httpTimeout, function() {
@@ -1349,7 +1349,7 @@ core.sendRequest = function(options, callback)
         }
         if (params.status != 200 && !err && !options.anystatus) err = self.newError(util.format("ResponseError: %d: %j", params.status, params.obj), "HTTP", params.status);
         if (!params.obj) params.obj = {};
-        if (callback) callback(err, params, res);
+        if (typeof callback == "function") callback(err, params, res);
     });
 }
 
@@ -1642,7 +1642,7 @@ core.sendmail = function(from, to, subject, text, callback)
         var server = emailjs.server.connect();
         server.send({ text: text || '', from: from, to: to + ",", subject: subject || ''}, function(err, message) {
             if (err) logger.error('sendmail:', err);
-            if (callback) callback(err);
+            if (typeof callback == "function") callback(err);
         });
     } catch(e) {
         logger.error('sendmail:', e);
@@ -2895,9 +2895,11 @@ core.watchFiles = function(dir, pattern, callback)
 }
 
 // Watch log files for errors and report via email or POST url
-core.watchLogs = function(callback)
+core.watchLogs = function(options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
     var db = self.context.db;
 
     // Check interval
@@ -2971,7 +2973,7 @@ core.watchLogs = function(callback)
                     self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, callback);
                 }
             } else {
-                if (callback) callback();
+                if (typeof callback == "function") callback();
             }
         });
     });
