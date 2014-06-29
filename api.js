@@ -233,8 +233,9 @@ var api = {
                  "data": 'initDataAPI' },
 
     // Config parameters
-    args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s)" },
-           { name: "images-s3", descr: "S3 bucket name where to store images" },
+    args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end" },
+           { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
+           { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
            { name: "files-s3", descr: "S3 bucket name where to store files" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
@@ -1839,7 +1840,7 @@ api.handleIconRequest = function(req, res, options, callback)
                    self.putIcon(req, req.account.id, options, function(err, icon) {
                        if (err || !icon) return db.del('bk_icon', req.query, options, function() { next(err || { status: 500, message: "Upload error" }); });
                        // Add new icons to the list which will be returned back to the client
-                       if (!icons.some(function(x) { return x.type == options.type })) icons.push(self.formatIcon(req.query))
+                       if (!icons.some(function(x) { return x.type == options.type })) icons.push(self.formatIcon(req.query, options))
                        next();
                    });
                    break;
@@ -1861,26 +1862,30 @@ api.handleIconRequest = function(req, res, options, callback)
 }
 
 // Return formatted icon URL for the given account, verify permissions
-api.formatIcon = function(row, account)
+api.formatIcon = function(row, options)
 {
+    if (!options) options = row;
     var type = row.type.split(":");
     row.type = type.slice(1).join(":");
     row.prefix = type[0];
 
-    if (this.imagesS3 && this.imagesS3Options) {
+    if ((this.imagesUrl || options.imagesUrl) && (this.imagesRaw || options.imagesRaw)) {
+        row.url = (options.imagesUrl || this.imagesUrl) + core.iconPath(row.id, row);
+    } else
+    if ((this.imagesS3 || options.imagesS3) && (this.imagesS3Options || options.imagesS3Options)) {
         this.imagesS3Options.url = true;
-        row.url = this.signS3("GET", this.imagesS3, core.iconPath(row.id, row), this.imagesS3Options);
+        row.url = core.context.aws.signS3("GET", options.imagesS3 || this.imagesS3, core.iconPath(row.id, row), options.imagesS3Options || this.imagesS3Options);
     } else
     if ((!row.acl_allow || row.acl_allow == "all") && this.allow.rx && ("/image/" + row.prefix + "/").match(this.allow.rx)) {
-        row.url = this.imagesUrl + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
+        row.url = (options.imagesUrl || this.imagesUrl) + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
     } else {
         if (row.prefix == "account") {
-            row.url = this.imagesUrl + '/account/get/icon?';
+            row.url = (options.imagesUrl || this.imagesUrl) + '/account/get/icon?';
             if (row.type != '0') row.url += 'type=' + row.type;
         } else {
-            row.url = this.imagesUrl + '/icon/get/' + row.prefix + "/" + row.type + "?";
+            row.url = (options.imagesUrl || this.imagesUrl) + '/icon/get/' + row.prefix + "/" + row.type + "?";
         }
-        if (account && row.id != account.id) row.url += "&id=" + row.id;
+        if (options && options.account && row.id != options.account.id) row.url += "&id=" + row.id;
     }
     return row;
 }
@@ -1899,7 +1904,7 @@ api.checkIcon = function(row, options, cols)
         } else
         if (row.id != id) return true;
     }
-    api.formatIcon(row, options.account);
+    api.formatIcon(row, options);
 }
 
 // Return list of icons for the account, used in /icon/get API call
