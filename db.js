@@ -495,7 +495,7 @@ db.showResult = function(err, rows, info)
 //     - async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(rows, options, callback),
 //          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
 //          filtering based on the ata in the other table for example.
-//     - ignore_error - do not report about the error and treat error condition as normal reply
+//     - silence_error - do not report about the error in the log, still the error is retirned to the caller
 // - callback(err, rows, info) where
 //    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
 //    - rows is always returned as a list, even in case of error it is an empty list
@@ -524,7 +524,8 @@ db.query = function(req, options, callback)
 
         m1.end();
         pool.metrics.Counter('count').dec();
-        if (err && !options.ignore_error) {
+
+        if (err && !options.silence_error) {
             pool.metrics.Counter("errors").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
         } else {
@@ -2916,13 +2917,12 @@ db.dynamodbInitPool = function(options)
     pool.convertError = function(table, op, err, opts) {
         switch (op) {
         case "add":
-            if (err.message == "Attribute found when none expected.") return core.newError("Record already exists", "", 409);
-            if (err.code == "ConditionalCheckFailedException") return core.newError("Record already exists", "", 409);
-            break;
         case "put":
+            if (err.code == "ConditionalCheckFailedException") return core.newError("Record already exists", "ExpectedCondition", 409);
+            break;
         case "incr":
         case "update":
-            if (err.code == "ConditionalCheckFailedException") return core.newError("Not updated", "", "ExpectedCondition", 406);
+            if (err.code == "ConditionalCheckFailedException") return core.newError("Record not found", "", "ExpectedCondition", 406);
             break;
         }
         return err;

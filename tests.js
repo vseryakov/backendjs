@@ -230,7 +230,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/message/add", login: login, secret: secret, query: { id: myid, msg: "test000" }  }
+            var options = { url: "/message/add", login: login, secret: secret, method: "POST", postdata: { id: myid, msg: "test000" }  }
             core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj, "err8-1:" , params.obj);
             });
@@ -364,7 +364,7 @@ tests.location = function(callback)
         		    obj.id = String(good);
         		    obj.rank = good;
                     ghash = obj.geohash;
-        		    db.add("geo", obj, { ignore_error: 1 }, function(err) {
+        		    db.add("geo", obj, { silence_error: 1 }, function(err) {
         		        if (!err) {
       	                    // Keep track of all records by area for top search by rank
         		            if (!top[obj.geohash]) top[obj.geohash] = [];
@@ -396,7 +396,7 @@ tests.location = function(callback)
                     obj.id = String(bad);
                     obj.rank = bad;
                     obj.status = "bad";
-                    db.add("geo", obj, { ignore_error: 1 }, function(err) {
+                    db.add("geo", obj, { silence_error: 1 }, function(err) {
                         if (err) {
                             bad--;
                             if (error++ < 10) err = null;

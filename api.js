@@ -103,13 +103,13 @@ var api = {
        // All connections between accounts: like,dislike,friend...
        bk_connection: { id: { primary: 1 },                    // my account_id
                         type: { primary: 1 },                  // type:connection_id
-                        state: {},
-                        mtime: { type: "bigint", now: 1 }},
+                        status: {},
+                        mtime: { type: "bigint", now: 1, pub: 1 }},
 
        // References from other accounts, likes,dislikes...
        bk_reference: { id: { primary: 1 },                    // connection_id
                        type: { primary: 1 },                  // type:account_id
-                       state: {},
+                       status: {},
                        mtime: { type: "bigint", now: 1 }},
 
        // New messages
@@ -211,6 +211,7 @@ var api = {
 
     // API related limts
     allowConnection: [],
+    allowConnectionDel: [],
     iconLimit: {},
 
     // Metrics and stats
@@ -250,7 +251,8 @@ var api = {
            { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
-           { name: "allow-connection", type: "list", array: 1, descr: "List of connection types that are allowed only, this limits types of connections to be used for all accounts" },
+           { name: "allow-connection", type: "list", array: 1, descr: "List of the only connection types that are allowed to be created, this limits types of connections to be used for all accounts" },
+           { name: "allow-connection-del", type: "list", array: 1, descr: "List of connection types that are allowed to be deleted by the user directly using the API call" },
            { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
@@ -275,10 +277,6 @@ module.exports = api;
 // The backend.js uses its own request parser that places query parameters into `req.query` or `req.body` depending on the method.
 //
 // For GET method, `req.query` contains all url-encoded parameters, for POST method `req.body` contains url-encoded parameters or parsed JSON payload or multipart payload.
-//
-// The simple way of dealing transparently with this is to check for method in the route handler like this:
-//
-//      if (req.method == "POST") req.query = req.body;
 //
 // The reason not to do this by default is that this may not be the alwayse wanted case and distinguishing data coming in the request or in the body may be desirable,
 // also, this will needed only for Express handlers `.all`, when registering handler by method like `.get` or `.post` then the handler needs to deal with only either source of the request data.
@@ -768,10 +766,12 @@ api.checkQuery = function(req, res, next)
             switch (type) {
             case 'application/json':
                 req.body = core.jsonParse(buf, { obj: 1, logging: 1 });
+                if (req.method == "POST" && !Object.keys(req.query).length) req.query = req.body;
                 break;
 
             case 'application/x-www-form-urlencoded':
                 req.body = buf.length ? qs.parse(buf) : {};
+                if (req.method == "POST" && !Object.keys(req.query).length) req.query = req.body;
                 // Keep the parametrs in the body so we can distinguish GET and POST requests but use them in signature verification
                 sig.query = buf;
                 break;
@@ -954,7 +954,6 @@ api.initAccountAPI = function()
 
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
 
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "get":
@@ -1043,7 +1042,6 @@ api.initStatusAPI = function()
 
     this.app.all(/^\/status\/([a-z\/]+)$/, function(req, res) {
 
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
 
         switch (req.params[0]) {
@@ -1084,7 +1082,6 @@ api.initIconAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9\.\_\-]+)\/?([a-z0-9\.\_\-])?$/, function(req, res) {
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
 
         if (!req.query.id) req.query.id = req.account.id;
@@ -1123,7 +1120,6 @@ api.initMessageAPI = function()
 
     this.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
 
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         var now = Date.now();
 
@@ -1195,7 +1191,6 @@ api.initCounterAPI = function()
 
     this.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
 
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         var now = Date.now();
 
@@ -1232,7 +1227,6 @@ api.initConnectionAPI = function()
 
     this.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
 
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         var now = Date.now();
 
@@ -1273,7 +1267,6 @@ api.initLocationAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "put":
@@ -1302,7 +1295,6 @@ api.initSystemAPI = function()
 
     // Return current statistics
     this.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
         switch (req.params[0]) {
         case "restart":
@@ -1410,7 +1402,6 @@ api.initDataAPI = function()
         var dbcols = db.getColumns(req.params[1]);
         if (!dbcols) return self.sendReply(res, "Unknown table");
 
-        if (req.method == "POST") req.query = req.body;
         var options = self.getOptions(req);
 
         db[req.params[0]](req.params[1], req.query, options, function(err, rows, info) {
@@ -1474,7 +1465,7 @@ api.initTables = function(options, callback)
 api.getOptions = function(req)
 {
     var options = { ops: {}, check_public: req.account.id, account: { id: req.account.id, login: req.account.login } };
-    ["details", "consistent", "desc", "total"].forEach(function(x) {
+    ["details", "consistent", "desc", "total", "connected"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") options[x] = core.toBool(req.query["_" + x]);
     });
     if (req.query._select) options.select = req.query._select;
@@ -2249,12 +2240,10 @@ api.putConnection = function(req, options, callback)
                 self.incrAutoCounter(id, type + '1', 1, options, function(err) {
 
                     // We need to know if the other side is connected too, this will save one extra API call later
-                    if (!req.query._connected) return callback(null, {});
+                    if (!options.connected) return callback(null, {});
 
                     // req.query already setup as a reference for us and as a connection for the other account
-                    db.get("bk_connection", req.query, { select: ['id'] }, function(err, row) {
-                        callback(null, { connected: row ? 1 : 0 });
-                    });
+                    db.get("bk_connection", req.query, options, callback);
                 });
             });
         });
@@ -2294,6 +2283,11 @@ api.delConnection = function(req, options, callback)
         });
     }
 
+    // Check for allowed connection types
+    if (req.query.type) {
+        if (self.allowConnectionDel.length && self.allowConnectionDel.indexOf(req.query.type) == -1) return callback({ status: 400, message: "cannot delete connection"});
+    }
+
     // Single deletion
     if (req.query.id && req.query.type) return del(req.query.type, req.query.id, callback);
 
@@ -2305,6 +2299,8 @@ api.delConnection = function(req, options, callback)
         async.forEachSeries(rows, function(row, next) {
             if (req.query.id && row.id != req.query.id) return next();
             if (req.query.type && row.type != req.query.type) return next();
+            // Silently skip connections we cannot delete
+            if (self.allowConnectionDel.length && self.allowConnectionDel.indexOf(row.type) == -1) return next();
             del(row.type, row.id, next);
         }, function(err) {
             callback(err, []);

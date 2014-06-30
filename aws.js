@@ -164,13 +164,14 @@ aws.queryDDB = function (action, obj, options, callback)
     this.querySign("dynamodb", req.hostname, "POST", req.path, json, headers);
     core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
         if (err) return callback ? callback(err, {}) : null;
+
         // Reply is always JSON but we dont take any chances
         try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
         if (params.status != 200) {
-            logger[options.ignore_error ? "debug" : "error"]('queryDDB:', action, obj, err || params.data);
             // Try several times
             if (options.retries > 0 && (params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/))) {
                 options.retries--;
+                logger.error('queryDDB:', action, obj, err || params.data);
                 return setTimeout(function() { self.queryDDB(action, obj, options, callback); }, options.timeout);
             }
             // Report about the error
@@ -178,6 +179,7 @@ aws.queryDDB = function (action, obj, options, callback)
                 err = new Error(params.json.message || params.json.Message || (action + " Error"));
                 err.code = (params.json.__type || params.json.code).split('#').pop();
             }
+            logger[options.silence_error || err.code == "ConditionalCheckFailedException" ? "debug" : "error"]('queryDDB:', action, obj, err || params.data);
             return callback ? callback(err, {}) : null;
         }
         logger.debug('queryDDB:', action, 'finished:', Date.now() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', params.json.ConsumedCapacity || "");

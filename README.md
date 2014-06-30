@@ -593,7 +593,7 @@ a connection with it. No direct operations on bk_reference is allowed.
   Create or replace a connection between two accounts, required parameters are:
     - `id` - id of account to connect to
     - `type` - type of connection, like,dislike,....
-    - _connected - the reply will contain a property `connected` set to 1 if the other side of our connection is connected to us as well
+    - _connected - the reply will contain a connection record if the other side of our connection is connected to us as well
 
   This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
   ''who is connected to me'' and auto-increment like0, like1 counters for both accounts in the bk_counter table.
