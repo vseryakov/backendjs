@@ -1082,6 +1082,7 @@ db.search = function(table, query, options, callback)
 //
 db.getLocations = function(table, query, options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
     var cols = db.getColumns(table, options);
@@ -1095,7 +1096,6 @@ db.getLocations = function(table, query, options, callback)
         options.geokey = lcols[0] = options.geokey && cols[options.geokey] ? options.geokey : 'geohash';
         options.distance = core.toNumber(query.distance, 0, core.minDistance, 0, 999);
         options.start = null;
-        options.semipub = 1;
         // Have to maintain sorting order for pagination
         if (!options.sort && keys.length > 1) options.sort = keys[1];
         var geo = core.geoHash(query.latitude, query.longitude, { distance: options.distance });
@@ -1107,6 +1107,7 @@ db.getLocations = function(table, query, options, callback)
         query = options.gquery;
     }
     if (options.top) options.count = options.top;
+    options.semipub = 1;
 
     logger.debug('getLocations:', table, 'OBJ:', query, 'GEO:', options.geokey, options.geohash, options.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'NEIGHBORS:', options.neighbors);
 
@@ -1157,6 +1158,7 @@ db.getLocations = function(table, query, options, callback)
           // Keep original query and count for pagination
           options.gquery = query;
           options.count = options.gcount;
+          options.semipub = 0;
           if (callback) callback(err, rows, options);
     });
 }

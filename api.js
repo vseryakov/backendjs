@@ -2370,6 +2370,7 @@ api.getLocation = function(req, options, callback)
 
             db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
+
                 // Merge locations and accounts
                 rows.forEach(function(row) {
                     var item = list[row.id];
