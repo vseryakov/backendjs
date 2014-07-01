@@ -533,9 +533,6 @@ db.query = function(req, options, callback)
         }
         if (typeof callback != "function")  return;
         try {
-            // Prepare a record for returning to the client, cleanup all not public columns using table definition or cached table info
-            self.checkPublicColumns(table, rows, options);
-
             // Auto convert the error according to the rules
             if (err && pool.convertError) err = pool.convertError(table, req.op || "", err, options);
 
@@ -1108,7 +1105,6 @@ db.getLocations = function(table, query, options, callback)
         query = options.gquery;
     }
     if (options.top) options.count = options.top;
-    options.semipub = 1;
 
     logger.debug('getLocations:', table, 'OBJ:', query, 'GEO:', options.geokey, options.geohash, options.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'NEIGHBORS:', options.neighbors);
 
@@ -1121,7 +1117,7 @@ db.getLocations = function(table, query, options, callback)
               // Next page if any or go to the next neighbor
               options.start = info.next_token;
 
-              // If no coordinates but only geohash decode it, it must be at least semipub as well
+              // If no coordinates but only geohash decode it
               items.forEach(function(row) {
                   row.distance = core.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
                   if (row.distance == null) return;
@@ -1129,10 +1125,6 @@ db.getLocations = function(table, query, options, callback)
                   if (options.round > 0 && row.distance - options.distance > options.round) return;
                   // Limit by exact distance
                   if (row.distance > options.distance) return;
-                  // Have to deal with public columns here if we have lat/long semipub for distance
-                  if (options.check_public && row.id != options.check_public) {
-                      lcols.forEach(function(x) { if (!cols[x] || !cols[x].pub) delete row[x]; });
-                  }
                   // If we have selected columns list then clear the columns we dont want
                   if (options.select) Object.keys(row).forEach(function(p) { if (options.select.indexOf(p) == -1) delete row[p]; });
                   rows.push(row);
@@ -1159,7 +1151,6 @@ db.getLocations = function(table, query, options, callback)
           // Keep original query and count for pagination
           options.gquery = query;
           options.count = options.gcount;
-          options.semipub = 0;
           if (callback) callback(err, rows, options);
     });
 }
@@ -1177,9 +1168,6 @@ db.getLocations = function(table, query, options, callback)
 //    - count - how many records to return
 //    - sort - sort by this column. _NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
 //         `select` property might be used to get all required properties._
-//    - check_public - value to be used to filter non-public columns (marked by .pub property), compared to primary key column
-//    - semipub - if true, semipub columns will be returned regardless of the check_public condition, it is responsibility of the caller now to cleanup the records before
-//         returning to the client
 //    - desc - if sorting, do in descending order
 //    - page - starting page number for pagination, uses count to find actual record to start
 //    - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
@@ -1344,7 +1332,10 @@ db.getCacheKey = function(table, query, options)
 // - pub - columns is public, *this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
 //    credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
 //    so by default only a few columns are marked as public in the bk_account table*
-// - semipub - column is not public but still retrieved to support other public columns, must be deleted after use
+// - hidden - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
+//    it can contain pub property to be returned to the client
+// - readonly - only add/put operations will use the value, incr/update will not affect the value
+// - writeonly - only incr/update can chnage this value, add/put will ignore it
 // - now - means on every add/put/update set this column with current time as Date.now()
 // - autoincr - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name
 //
@@ -1458,6 +1449,11 @@ db.prepare = function(op, table, obj, options)
         var o = {};
         for (var p in obj) {
             var v = obj[p];
+            if (cols[p]) {
+                if (cols[p].hidden) continue;
+                if (cols[p].readonly && (op == "incr" || op == "update")) continue;
+                if (cols[p].writeonly && (op == "add" || op == "put")) continue;
+            }
             if (this.skipColumn(p, v, options, cols)) continue;
             if ((v == null || v === "") && options.skipNull[op]) continue;
             o[p] = v;
@@ -1698,44 +1694,6 @@ db.mergeColumns = function(pool)
 	}
 }
 
-// Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
-//  - pub property means public column
-//  - semipub means not allowed but must be returned for calculations in the select to produce another public column
-//
-// options may be used to define the following properties:
-// - columns - list of public columns to be returned, overrides the public columns in the definition list
-db.getPublicColumns = function(table, options)
-{
-    if (options && Array.isArray(options.columns)) {
-        return options.columns.filter(function(x) { return x.pub || x.semipub }).map(function(x) { return x.name });
-    }
-    var cols = this.getColumns(table, options);
-    return Object.keys(cols).filter(function(x) { return cols[x].pub || cols[x].semipub });
-}
-
-// Process records and keep only public properties as defined in the table columns, all semipub columns will be removed as well. This
-// method is supposed to be used in the post process callbacks after all records have been procersses and are ready to be returned to the client,
-// the last step woul dbe to cleanup all non public columns if necessary.
-// - options must have `check_public` property set to the current account id or other primary key value to be skipped and checked other records,
-//   setting it to non existent primary key value will clean all records.
-// - options may have `semipub` set to 1 to keep semipub columns to the end for post hooks, it will be their responsibility
-db.checkPublicColumns = function(table, rows, options)
-{
-    if (!options || !options.check_public) return;
-    var keys = this.getKeys(table, options);
-    var cols = this.getColumns(table, options);
-    var key = keys ? keys[0] : "";
-    if (!Array.isArray(rows)) rows = [ rows ];
-    rows.forEach(function(row) {
-        if (row[key] == options.check_public) return;
-        for (var p in row) {
-            if (!cols[p]) continue;
-            if (cols[p].semipub && options.semipub) continue;
-            if (!cols[p].pub) delete row[p];
-        }
-    });
-}
-
 // Custom row handler that is called for every row in the result, this assumes that pool.processRow callback has been assigned previously by db.setProcessRow.
 // This function is called automatically by the db.query but can be called manually for rows that are not received from the database, for example on
 // adding new records and returning them back to the client. In such case, the `pool` argument can be passed as null, it will be found by the table name.
@@ -1781,10 +1739,6 @@ db.processRows = function(pool, table, rows, options)
 //   where - row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
 //
 // **If the callback returns true, row will be filtered out and not included in the final result set.**
-//
-// NOTE: This callback will be called before checking for public or semipublic columns, in the case when these columns are needed
-// by the post hooks, options can be set with `options.semipub=1`, in this case when query ends it will not delete semipub columns and
-// the post process hooks will be responsible for this.
 //
 //
 //  Example
@@ -2478,6 +2432,9 @@ db.sqlSelect = function(table, query, options)
     var where = this.sqlWhere(table, query, keys, options);
     if (where) where = " WHERE " + where;
 
+    // No full scans allowed
+    if (!where && options.noscan) return {};
+
     var req = { text: "SELECT " + select + " FROM " + table + where + this.sqlLimit(options) };
     return req;
 }
@@ -3023,7 +2980,10 @@ db.dynamodbInitPool = function(options)
             keys = self.getSearchQuery(table, obj, { keys: keys });
             // Operation depends on the primary keys in the query, for Scan we can let the DB to do all the filtering
             var op = typeof keys[dbkeys[0]] != "undefined" ? 'ddbQueryTable' : 'ddbScanTable';
-            logger.debug('select:', 'dynamodb', op, keys, dbkeys, opts.sort, opts.count);
+            logger.debug('select:', 'dynamodb', op, keys, dbkeys, opts.sort, opts.count, opts.noscan);
+
+            // Scans explicitely disabled
+            if (op == 'ddbScanTable' && opts.noscan) return callback(null, []);
 
             opts.keys = dbkeys;
             // IN is not supported for key condition, move it in the query

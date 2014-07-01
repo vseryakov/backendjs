@@ -69,11 +69,11 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
-                      geohash: { hidden: 1 },
-                      location: { hidden: 1 },
-                      latitude: { type: "real", hidden: 1 },
-                      longitude: { type: "real", hidden: 1 },
-                      ltime: { type: "bigint", hidden: 1 },    // Last location updte time
+                      geohash: {},
+                      location: {},
+                      latitude: { type: "real" },
+                      longitude: { type: "real"},
+                      ltime: { type: "bigint", readonly: 1 }, // Last location update time
                       ctime: { type: "bigint" },              // Create time
                       mtime: { type: "bigint", now: 1 } },    // Last update time
 
@@ -83,7 +83,7 @@ var api = {
                     mtime: { type: "bigint", now: 1 }},               // last status change time
 
        // Keep track of icons uploaded
-       bk_icon: { id: { primary: 1, pub: 1 },                 // Account id
+       bk_icon: { id: { primary: 1 },                         // Account id
                   type: { primary: 1, pub: 1 },               // prefix:type
                   acl_allow: {},                              // Who can see it: all, auth, id:id...
                   ext: {},                                    // saved image extension
@@ -96,21 +96,21 @@ var api = {
        // Locations for all accounts to support distance searches
        bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
                       id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
-                      latitude: { type: "real", semipub: 1 },     // for distance must be semipub or no distance and no coordinates
-                      longitude: { type: "real", semipub: 1 },
+                      latitude: { type: "real" },                 // for distance must be semipub or no distance and no coordinates
+                      longitude: { type: "real" },                // will be calculated
                       mtime: { type: "bigint", now: 1 }},
 
        // All connections between accounts: like,dislike,friend...
-       bk_connection: { id: { primary: 1 },                    // my account_id
-                        type: { primary: 1 },                  // type:connection_id
+       bk_connection: { id: { primary: 1, pub: 1 },                    // my account_id
+                        type: { primary: 1, pub: 1 },                  // type:connection_id
                         status: {},
                         mtime: { type: "bigint", now: 1, pub: 1 }},
 
        // References from other accounts, likes,dislikes...
-       bk_reference: { id: { primary: 1 },                    // connection_id
-                       type: { primary: 1 },                  // type:account_id
+       bk_reference: { id: { primary: 1, pub: 1 },                    // connection_id
+                       type: { primary: 1, pub: 1 },                  // type:account_id
                        status: {},
-                       mtime: { type: "bigint", now: 1 }},
+                       mtime: { type: "bigint", now: 1, pub: 1 }},
 
        // New messages
        bk_message: { id: { primary: 1 },                         // my account_id
@@ -137,8 +137,10 @@ var api = {
        // All accumulated counters for accounts
        bk_counter: { id: { primary: 1, pub: 1 },                               // account id
                      ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy with notification
-                     like0: { type: "counter", value: 0, autoincr: 1 },        // who i liked
-                     like1: { type: "counter", value: 0, autoincr: 1 }},       // reversed, who liked me
+                     like0: { type: "counter", value: 0, autoincr: 1 },        // who i like
+                     like1: { type: "counter", value: 0, autoincr: 1 },        // reversed, who likes me
+                     follow0: { type: "counter", value: 0, autoincr: 1 },      // who i follow
+                     follow1: { type: "counter", value: 0, autoincr: 1 }},     // reversed, who follows me
 
        // Collected stats
        bk_collect: { id: { primary: 1 },
@@ -1464,7 +1466,7 @@ api.initTables = function(options, callback)
 // distinguish control parameters from query parameters.
 api.getOptions = function(req)
 {
-    var options = { ops: {}, check_public: req.account.id, account: { id: req.account.id, login: req.account.login } };
+    var options = { ops: {}, noscan: 1, account: { id: req.account.id, login: req.account.login } };
     ["details", "consistent", "desc", "total", "connected"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") options[x] = core.toBool(req.query["_" + x]);
     });
@@ -1486,7 +1488,7 @@ api.getOptions = function(req)
     var ep = req.path.substr(1).split("/").shift();
     if (ep) {
         if (this.unsecure.indexOf(ep) > -1) {
-            delete options.check_public;
+            delete options.noscan;
             if (req.query._pool) options.pool = req.query._pool;
             if (req.query._noprocessrows) options.noprocessrows = core.toBool(req.query._noprocessrows);
         }
@@ -1494,6 +1496,53 @@ api.getOptions = function(req)
     // Override with options provided in the hooks
     for (var p in req.options) options[p] = req.options[p];
     return options;
+}
+
+// Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
+//  - pub property means public column
+//  - semipub means not allowed but must be returned for calculations in the select to produce another public column
+//
+// options may be used to define the following properties:
+// - columns - list of public columns to be returned, overrides the public columns in the definition list
+api.getPublicColumns = function(table, options)
+{
+    if (options && Array.isArray(options.columns)) {
+        return options.columns.filter(function(x) { return x.pub }).map(function(x) { return x.name });
+    }
+    var cols = this.getColumns(table, options);
+    return Object.keys(cols).filter(function(x) { return cols[x].pub });
+}
+
+// Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process
+// callbacks after all records have been procersses and are ready to be returned to the client, the last step would be to cleanup all non public columns if necessary.
+//
+// In the request in the `req.options` object there should be `tables` property which is a list of tables from which data is about to be returned. If no such property
+// is defined, the request path endpoint plus bk_ prefix will be used as a table name.
+api.checkPublicColumns = function(req, rows, options)
+{
+    if (!req || !rows || !rows.length) return;
+    var tables = "";
+    if (req.options) tables = req.options.tables;
+    if (!tables && req.path) tables = "bk_" + req.path.split("/")[1];
+    if (!tables) return;
+
+    var db = core.context.db;
+    var cols = {};
+    core.strSplit(tables).forEach(function(table) {
+        var c = db.getColumns(table, options);
+        for (var p in c) {
+            if (!cols[p]) cols[p] = {};
+            if (c[p].pub) cols[p].pub = 1;
+        }
+    });
+    if (!Array.isArray(rows)) rows = [ rows ];
+    rows.forEach(function(row) {
+        if (req.account && row.id == req.account.id) return;
+        for (var p in row) {
+            if (!cols[p]) continue;
+            if (!cols[p].pub) delete row[p];
+        }
+    });
 }
 
 // Define new tables or extned/customize existing tables. Table definitions are used with every database operation,
@@ -1651,7 +1700,10 @@ api.sendJSON = function(req, err, rows)
     if (err) return this.sendReply(req.res, err);
 
     var hooks = this.findHook('post', req.method, req.path);
-    if (!hooks.length) return req.res.json(rows);
+    if (!hooks.length) {
+        self.checkPublicColumns(req, rows.count && rows.data ? rows.data : rows);
+        return req.res.json(rows);
+    }
     var sent = 0;
 
     async.forEachSeries(hooks, function(hook, next) {
@@ -1659,7 +1711,9 @@ api.sendJSON = function(req, err, rows)
         logger.debug('sendJSON:', req.method, req.path, hook.path, 'sent:', sent || req.res.headersSent);
         next(sent || req.res.headersSent);
     }, function(err) {
-        if (!sent && !req.res.headersSent) req.res.json(rows);
+        if (sent || req.res.headersSent) return;
+        self.checkPublicColumns(req, rows.count && rows.data ? rows.data : rows);
+        req.res.json(rows);
     });
 }
 
@@ -2136,7 +2190,7 @@ api.incrCounter = function(req, options, callback)
     // Remove non public columns when updating other account
     if (req.query.id && req.query.id != req.account.id) {
         var obj = { id: req.query.id };
-        db.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[x]) obj[x] = req.query[x]; });
+        this.getPublicColumns("bk_counter").forEach(function(x) { if (req.query[x]) obj[x] = req.query[x]; });
     } else {
         var obj = req.query;
         obj.id = req.account.id;
@@ -2176,7 +2230,6 @@ api.getConnection = function(req, options, callback)
 
     if (!options.ops) options.ops = {};
     options.ops.type = "begins_with";
-    options.check_public = null;
 
     db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
@@ -2190,7 +2243,7 @@ api.getConnection = function(req, options, callback)
         rows.forEach(function(row) { types[row.id] = row; });
 
         // Get all account records for the id list
-        db.list("bk_account", rows.map(function(x) { return { id: x.id } }), { select: options.select, check_public: req.account.id }, function(err, rows) {
+        db.list("bk_account", rows.map(function(x) { return { id: x.id } }), { select: options.select }, function(err, rows) {
             if (err) return callback(err, []);
             rows.forEach(function(x) { for (var p in types[x.id]) x[p] = types[x.id][p] });
             callback(null, { count: rows.length, data: rows, next_token: next_token });
@@ -2292,7 +2345,6 @@ api.delConnection = function(req, options, callback)
     if (req.query.id && req.query.type) return del(req.query.type, req.query.id, callback);
 
     // Delete by query, my records
-    options.check_public = null;
     db.select("bk_connection", { id: req.account.id, type: req.query.type ? (req.query.type + ":" + (req.query.id || "")) : "" }, options, function(err, rows) {
         if (err) return callback(err, []);
 
@@ -2352,6 +2404,9 @@ api.getLocation = function(req, options, callback)
         var next_token = info.more ? core.jsonToBase64(info, req.account.secret) : null;
         // Ignore current account, db still retrieves it but in the API we skip it
         rows = rows.filter(function(row) { return row.id != req.account.id });
+        // For check public columns filter
+        req.options.tables = [ table ];
+
         // Return accounts with locations
         if (core.toNumber(options.details) && rows.length) {
             var list = {}, ids = [];
@@ -2362,9 +2417,11 @@ api.getLocation = function(req, options, callback)
                 list[row.id] = row;
                 return row;
             });
+            req.options.tables.push("bk_account");
+
             logger.debug("getLocations:", req.account.id, 'GEO:', info.latitude, info.longitude, info.distance, info.geohash, 'NEXT:', info.start ||'', 'ROWS:', ids.length);
 
-            db.list("bk_account", ids, { select: req.query._select, check_public: req.account.id }, function(err, rows) {
+            db.list("bk_account", ids, { select: req.query._select }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
 
                 // Merge locations and accounts
@@ -2437,6 +2494,7 @@ api.getArchiveMessage = function(req, options, callback)
 {
     var db = core.context.db;
 
+    req.options.tables = "bk_archive";
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
@@ -2449,11 +2507,11 @@ api.getSentMessage = function(req, options, callback)
 {
     var db = core.context.db;
 
+    req.options.tables = "bk_sent";
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
 
-    options.check_public = null;
     db.select("bk_sent", req.query, options, callback);
 }
 
@@ -2674,10 +2732,6 @@ api.addAccount = function(req, options, callback)
     // Copy for the auth table in case we have different properties that needs to be cleared
     var query = core.cloneObj(req.query);
 
-    // Skip private properties
-    self.clearQuery(query, options, "bk_auth", "hidden");
-    self.clearQuery(req.query, options, "bk_account", "hidden");
-
     // Only admin can add accounts with admin properties
     if (req.account.type != "admin") {
         self.clearQuery(query, options, "bk_auth", "admin");
@@ -2713,10 +2767,6 @@ api.updateAccount = function(req, options, callback)
 
     // Copy for the auth table in case we have different properties that needs to be cleared
     var query = core.cloneObj(req.query);
-
-    // Skip private and read only properties
-    self.clearQuery(query, options, "bk_auth", "hidden", "readonly");
-    self.clearQuery(req.query, options, "bk_account", "hidden", "readonly");
 
     // Skip admin properties if any
     if (req.account.type != "admin") {
@@ -2755,7 +2805,6 @@ api.deleteAccount = function(id, options, callback)
     var db = core.context.db;
     if (!options.keep) options.keep = {};
     options.count = 1000000;
-    options.check_public = null;
 
     db.get("bk_account", { id: id }, options, function(err, obj) {
         if (err) return callback(err);
