@@ -263,13 +263,17 @@ same `api.describeTables` method can modify columns in the default table and add
 
 For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
 done in the `api.initApplication` method. It will extend the bk_account table and the application can use new columns the same way as the already existing columns.
-Making the birthday semipub will make 'age' property automatically calculated and visible in the result, this is done by the internal method `api.processAccountRow` which
-is registered as post process callback for the bk_account table.
+Using the birthday column we make 'age' property automatically calculated and visible in the result, this is done by the internal method `api.processAccountRow` which
+is registered as post process callback for the bk_account table. The computed property `age` will be returned because it is not present in the table definition
+and all properties not defined and configured are passed as is.
+
+The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when redy to send data back to the client. If any postprocess
+hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.
 
             api.describeTables({
                     bk_account: {
                            gender: { pub: 1 },
-                           birthday: { semipub: 1 },
+                           birthday: {},
                            ssn: {},
                            salary: { type: "int" },
                            occupation: {},

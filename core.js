@@ -515,7 +515,7 @@ core.processArgs = function(name, ctx, argv, pass)
                 put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
                 break;
             case "map":
-                put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = y[1]; return x }, {}), x);
+                put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
                 break;
             case "intmap":
                 put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = self.toNumber(y[1]); return x }, {}), x);
@@ -2663,7 +2663,7 @@ core.stringify = function(obj, filter)
 core.jsonParse = function(obj, options)
 {
     try {
-        return JSON.parse(obj);
+        return obj ? JSON.parse(obj) : null;
     } catch(e) {
         if (options) {
             if (options.logging) logger.error('jsonParse:', e, obj);

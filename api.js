@@ -96,8 +96,8 @@ var api = {
        // Locations for all accounts to support distance searches
        bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
                       id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
-                      latitude: { type: "real" },                 // for distance must be semipub or no distance and no coordinates
-                      longitude: { type: "real" },                // will be calculated
+                      latitude: { type: "real" },
+                      longitude: { type: "real" },
                       mtime: { type: "bigint", now: 1 }},
 
        // All connections between accounts: like,dislike,friend...
@@ -212,8 +212,7 @@ var api = {
     busyLatency: 1000,
 
     // API related limts
-    allowConnection: [],
-    allowConnectionDel: [],
+    allowConnection: {},
     iconLimit: {},
 
     // Metrics and stats
@@ -253,8 +252,7 @@ var api = {
            { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
-           { name: "allow-connection", type: "list", array: 1, descr: "List of the only connection types that are allowed to be created, this limits types of connections to be used for all accounts" },
-           { name: "allow-connection-del", type: "list", array: 1, descr: "List of connection types that are allowed to be deleted by the user directly using the API call" },
+           { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
            { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
@@ -1500,7 +1498,6 @@ api.getOptions = function(req)
 
 // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
 //  - pub property means public column
-//  - semipub means not allowed but must be returned for calculations in the select to produce another public column
 //
 // options may be used to define the following properties:
 // - columns - list of public columns to be returned, overrides the public columns in the definition list
@@ -2264,7 +2261,7 @@ api.putConnection = function(req, options, callback)
     if (id == req.account.id) return callback({ status: 400, message: "cannot connect to itself"});
 
     // Check for allowed connection types
-    if (self.allowConnection.length && self.allowConnection.indexOf(type) == -1) return callback({ status: 400, message: "invalid connection"});
+    if (self.allowConnection[type] && !self.allowConnection[type][op]) return callback({ status: 400, message: "invalid connection type"});
 
     // Override primary key properties, the rest of the properties will be added as is
     req.query.id = req.account.id;
@@ -2338,7 +2335,7 @@ api.delConnection = function(req, options, callback)
 
     // Check for allowed connection types
     if (req.query.type) {
-        if (self.allowConnectionDel.length && self.allowConnectionDel.indexOf(req.query.type) == -1) return callback({ status: 400, message: "cannot delete connection"});
+        if (self.allowConnection[type] && !self.allowConnection[type]['del']) return callback({ status: 400, message: "cannot delete connection"});
     }
 
     // Single deletion
@@ -2674,7 +2671,7 @@ api.delSentMessage = function(req, options, callback)
 }
 
 // Return an account, used in /account/get API call
-api.getAccount  = function(req, options, callback)
+api.getAccount = function(req, options, callback)
 {
     var self = this;
     var db = core.context.db;
