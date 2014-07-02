@@ -2541,7 +2541,7 @@ api.getSentMessage = function(req, options, callback)
     db.select("bk_sent", req.query, options, callback);
 }
 
-// Return new/unread messages, used in /message/get/unread API call
+// Return new/unread messages, used in /message/get API call
 api.getMessage = function(req, options, callback)
 {
     var self = this;
@@ -2558,6 +2558,22 @@ api.getMessage = function(req, options, callback)
         }, next);
     }
 
+    // Return account details if requested or raw messages
+    function details(msgs, info, next) {
+        if (!core.toNumber(options.details)) return next(null, msgs, info);
+        var map = {};
+        msgs.forEach(function(x) { if (!map[x.sender]) map[x.sender] = []; map[x.sender].push(x); });
+        db.list("bk_account", Object.keys(map).map(function(x) { return { id: x } }), { select: options.select }, function(err, rows) {
+            if (err) return next(err, []);
+            rows.forEach(function(x) {
+                map[x.id].forEach(function(y) {
+                    for (var p in x) if (!y[p]) y[p] = x[p];
+                });
+            });
+            next(null, msgs, info);
+        });
+    }
+
     db.select("bk_message", req.query, options, function(err, rows, info) {
         if (err) return self.sendReply(res, err);
 
@@ -2572,7 +2588,7 @@ api.getMessage = function(req, options, callback)
                 // Delete from the new after we archived it
                 del(rows, function() {
                     db.processRows(null, "bk_message", rows, options);
-                    callback(err, rows, info);
+                    details(rows, info, callback);
                 });
             });
         } else
@@ -2581,11 +2597,11 @@ api.getMessage = function(req, options, callback)
         if (core.toBool(req.query._delete)) {
             del(rows, function() {
                 db.processRows(null, "bk_message", rows, options);
-                callback(err, rows, info);
+                details(rows, info, callback);
             });
         } else {
             db.processRows(null, "bk_message", rows, options);
-            callback(err, rows, info);
+            details(rows, info, callback);
         }
     });
 }

@@ -628,6 +628,8 @@ a connection with it. No direct operations on bk_reference is allowed.
   Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned. Supports special
   query parameters `_select,_ops,_desc`, see docs about `db.select` for more info. All `db.select` options can be passed in the query with prepended underscore.
 
+  By default only connection columns will be returned, specifying `_details=1` will return public account columns as well.
+
   Example:
 
         # Return all accounts who i invited
@@ -699,7 +701,7 @@ When request comes for all matches for the location for example 37.7, -122.4, th
   point. If there are more matched records than specified by the `_count`, the `next_token` property is set with the token to be used in the subsequent call,
   it must be passed as is as `_token=` parameter with all original query parameters.
 
-  By default only locations with account ids will be returned, specifying `_details=1` will return public account columns like name as well.
+  By default only locations with account ids will be returned, specifying `_details=1` will return public account columns as well.
 
   Note: The current account will not be present in the results  even if it is within the range, to know my own location use `/account/get` call.
 
@@ -735,6 +737,7 @@ may keep messages there as new, delete or archive them. Archiving means transfer
   Parameters:
    - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
    - `_delete` - if set to 1, all returned messages will be deleted, not archived
+   - `_details` - if set to 1, return associated account details for the sender
 
   Example:
 
