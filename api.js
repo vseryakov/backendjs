@@ -69,10 +69,10 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
-                      geohash: {},
-                      location: {},
-                      latitude: { type: "real" },
-                      longitude: { type: "real"},
+                      geohash: { location: 1 },
+                      location: { location: 1 },
+                      latitude: { type: "real", location: 1 },
+                      longitude: { type: "real", location: 1 },
                       ltime: { type: "bigint", readonly: 1 }, // Last location update time
                       ctime: { type: "bigint" },              // Create time
                       mtime: { type: "bigint", now: 1 } },    // Last update time
@@ -1464,12 +1464,12 @@ api.initTables = function(options, callback)
 // distinguish control parameters from query parameters.
 api.getOptions = function(req)
 {
-    var options = { ops: {}, noscan: 1, account: { id: req.account.id, login: req.account.login } };
+    var options = { ops: {}, noscan: 1, account: { id: req.account.id, login: req.account.login, alias: req.account.alias } };
     ["details", "consistent", "desc", "total", "connected"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") options[x] = core.toBool(req.query["_" + x]);
     });
     if (req.query._select) options.select = req.query._select;
-    if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50);
+    if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50, 0, 100);
     if (req.query._start) options.start = core.base64ToJson(req.query._start, req.query.secret);
     if (req.query._sort) options.sort = req.query._sort;
     if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
@@ -1698,7 +1698,7 @@ api.sendJSON = function(req, err, rows)
 
     var hooks = this.findHook('post', req.method, req.path);
     if (!hooks.length) {
-        self.checkPublicColumns(req, rows.count && rows.data ? rows.data : rows);
+        self.checkPublicColumns(req, rows && rows.count && rows.data ? rows.data : rows);
         return req.res.json(rows);
     }
     var sent = 0;
@@ -1709,7 +1709,7 @@ api.sendJSON = function(req, err, rows)
         next(sent || req.res.headersSent);
     }, function(err) {
         if (sent || req.res.headersSent) return;
-        self.checkPublicColumns(req, rows.count && rows.data ? rows.data : rows);
+        self.checkPublicColumns(req, rows && rows.count && rows.data ? rows.data : rows);
         req.res.json(rows);
     });
 }
@@ -2198,7 +2198,7 @@ api.incrCounter = function(req, options, callback)
 
         // Notify only the other account
         if (obj.id != req.account.id) {
-            self.publish(obj.id, { path: req.path, mtime: now, alias: req.account.alias, type: Object.keys(obj).join(",") }, options);
+            self.publish(obj.id, { path: req.path, mtime: now, alias: (options.account ||{}).alias, type: Object.keys(obj).join(",") }, options);
         }
 
         callback(null, rows);
@@ -2252,105 +2252,134 @@ api.getConnection = function(req, options, callback)
 api.putConnection = function(req, options, callback)
 {
     var self = this;
+    var op = options.op || 'put';
+
+    if (!req.query.id || !req.query.type) return callback({ status: 400, message: "id and type are required"});
+    if (req.query.id == req.account.id) return callback({ status: 400, message: "cannot connect to itself"});
+
+    // Check for allowed connection types
+    if (self.allowConnection[req.query.type] && !self.allowConnection[req.query.type][op]) return callback({ status: 400, message: "invalid connection type"});
+
+    this.makeConnection(req.account.id, req.query, options, callback)
+}
+
+// Low level connection create with all counters support, can be used outside of the current account scope for
+// any two accounts and arbitrary properties, id is the primary account id, obj contains id and type for other account
+// with other properties to be added. obj is left untouched.
+api.makeConnection = function(id, obj, options, callback)
+{
+    var self = this;
     var db = core.context.db;
     var now = Date.now();
     var op = options.op || 'put';
+    var query = core.cloneObj(obj);
+    var result = {};
 
-    var id = req.query.id, type = req.query.type;
-    if (!id || !type) return callback({ status: 400, message: "id and type are required"});
-    if (id == req.account.id) return callback({ status: 400, message: "cannot connect to itself"});
-
-    // Check for allowed connection types
-    if (self.allowConnection[type] && !self.allowConnection[type][op]) return callback({ status: 400, message: "invalid connection type"});
-
-    // Override primary key properties, the rest of the properties will be added as is
-    req.query.id = req.account.id;
-    req.query.type = type + ":" + id;
-    req.query.mtime = now;
-    db[op]("bk_connection", req.query, options, function(err) {
-        if (err) return callback(err);
-
-        self.metrics.connections.Meter(op + ":" + type).mark();
-
-        // Reverse reference to the same connection
-        req.query.id = id;
-        req.query.type = type + ":"+ req.account.id;
-        db[op]("bk_reference", req.query, options, function(err) {
-            // Remove on error
-            if (err) return db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, function() { callback(err); });
-
-            // Notify about connection change
-            self.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type }, options);
-
-            // Update operation does not change the state of connections between the accounts
-            if (op == 'update') return callback(null, {});
-
-            // Keep track of all connections counters
-            self.incrAutoCounter(req.account.id, type + '0', 1, options, function(err) {
-                self.incrAutoCounter(id, type + '1', 1, options, function(err) {
-
-                    // We need to know if the other side is connected too, this will save one extra API call later
-                    if (!options.connected) return callback(null, {});
-
-                    // req.query already setup as a reference for us and as a connection for the other account
-                    db.get("bk_connection", req.query, options, callback);
-                });
+    async.series([
+        function(next) {
+            query.id = id;
+            query.type = obj.type + ":" + obj.id;
+            query.mtime = now;
+            db[op]("bk_connection", query, options, function(err) {
+                if (err) return next(err);
+                self.metrics.connections.Meter(op + ":" + obj.type).mark();
+                next();
             });
-        });
+        },
+        function(next) {
+            // Reverse reference to the same connection
+            if (options.noreference) return next();
+            query.id = obj.id;
+            query.type = obj.type + ":"+ id;
+            db[op]("bk_reference", query, options, function(err) {
+                // Remove on error
+                if (err) return db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function() { next(err); });
+                next();
+            });
+        },
+        function(next) {
+            // Notify about connection change
+            if (!options.nopublish) self.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: (options.account || {}).alias, type: obj.type }, options);
+            next();
+        },
+        function(next) {
+            if (op == 'update') return next();
+            // Keep track of all connections counters
+            self.incrAutoCounter(id, obj.type + '0', 1, options, function(err) {
+                if (options.noreference) return next();
+                self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
+            });
+        },
+        function(next) {
+            // We need to know if the other side is connected too, this will save one extra API call later
+            if (!options.connected) return next();
+
+            // query already setup as a reference for us and as a connection for the other account
+            db.get("bk_connection", query, options, function(err, row) {
+                if (row) result = row;
+                next(err);
+            });
+        },
+        ], function(err) {
+            callback(err, result);
     });
 }
 
 // Delete a connection, this function is called by the `/connection/del` API call
 api.delConnection = function(req, options, callback)
 {
+    this.deleteConnection(req.account.id, req.query, options, callback);
+}
+
+// Delete a connection,for given account id, the other id and type is in the obj, performs deletion of all
+// connections if any of obj.id and obj.type are not specified by selecting matched connectons.
+api.deleteConnection = function(id, obj, options, callback)
+{
     var self = this;
     var db = core.context.db;
     var now = Date.now();
 
-    function del(type, id, cb) {
-        self.metrics.connections.Meter('del:' + type).mark();
+    function del(row, cb) {
+        self.metrics.connections.Meter('del:' + row.type).mark();
 
         async.series([
            function(next) {
-               db.del("bk_connection", { id: req.account.id, type: type + ":" + id }, options, next);
+               db.del("bk_connection", { id: id, type: row.type + ":" + row.id }, options, next);
            },
            function(next) {
-               self.incrAutoCounter(req.account.id, type + '0', -1, options, function() { next(); });
+               self.incrAutoCounter(id, row.type + '0', -1, options, function() { next(); });
            },
            function(next) {
-               db.del("bk_reference", { id: id, type: type + ":" + req.account.id }, options, next);
+               if (options.noreference) return next();
+               db.del("bk_reference", { id: row.id, type: row.type + ":" + id }, options, next);
            },
            function(next) {
-               self.incrAutoCounter(id, type + '1', -1, options, function() { next() });
-           },
-           function(next) {
-               // Notify about connection change
-               self.publish(id, { path: req.path, mtime: now, alias: req.account.alias, type: type }, options);
-               next();
-           }],
-           function(err) {
+               if (options.noreference) return next();
+               self.incrAutoCounter(row.id, row.type + '1', -1, options, function() { next() });
+           }
+           ], function(err) {
                cb(err, []);
         });
     }
 
     // Check for allowed connection types
-    if (req.query.type) {
-        if (self.allowConnection[type] && !self.allowConnection[type]['del']) return callback({ status: 400, message: "cannot delete connection"});
+    if (obj.type) {
+        if (self.allowConnection[obj.type] && !self.allowConnection[obj.type]['del']) return callback({ status: 400, message: "cannot delete connection"});
     }
 
     // Single deletion
-    if (req.query.id && req.query.type) return del(req.query.type, req.query.id, callback);
+    if (obj.id && obj.type) return del(obj, callback);
 
     // Delete by query, my records
-    db.select("bk_connection", { id: req.account.id, type: req.query.type ? (req.query.type + ":" + (req.query.id || "")) : "" }, options, function(err, rows) {
+    db.select("bk_connection", { id: id, type: obj.type ? (obj.type + ":" + (obj.id || "")) : "" }, options, function(err, rows) {
         if (err) return callback(err, []);
 
         async.forEachSeries(rows, function(row, next) {
-            if (req.query.id && row.id != req.query.id) return next();
-            if (req.query.type && row.type != req.query.type) return next();
+            if (obj.id && row.id != obj.id) return next();
+            if (obj.type && row.type != obj.type) return next();
             // Silently skip connections we cannot delete
-            if (self.allowConnectionDel.length && self.allowConnectionDel.indexOf(row.type) == -1) return next();
-            del(row.type, row.id, next);
+            if (self.allowConnection[row.type] && !self.allowConnection[row.type]['del']) return next();
+            del(row, next);
         }, function(err) {
             callback(err, []);
         });
@@ -2613,7 +2642,7 @@ api.addMessage = function(req, options, callback)
                 if (err) return db.del("bk_message", req.query, function() { callback(err); });
 
                 if (req.query.id != req.account.id) {
-                    self.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) }, options);
+                    self.publish(req.query.id, { path: req.path, mtime: now, alias: (options.account || {}).alias, msg: (req.query.msg || "").substr(0, 128) }, options);
                 }
                 self.metrics.messages.Meter('add').mark();
 
@@ -2728,6 +2757,7 @@ api.addAccount = function(req, options, callback)
 
     // Copy for the auth table in case we have different properties that needs to be cleared
     var query = core.cloneObj(req.query);
+    self.clearQuery(req.query, options, "bk_account", "location");
 
     // Only admin can add accounts with admin properties
     if (req.account.type != "admin") {
@@ -2764,6 +2794,7 @@ api.updateAccount = function(req, options, callback)
 
     // Copy for the auth table in case we have different properties that needs to be cleared
     var query = core.cloneObj(req.query);
+    self.clearQuery(req.query, options, "bk_account", "location");
 
     // Skip admin properties if any
     if (req.account.type != "admin") {
