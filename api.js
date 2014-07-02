@@ -700,7 +700,8 @@ api.checkRequest = function(req, res, callback)
     var self = this;
 
     // Request options that the API routes will merge with, can be used by pre process hooks
-    req.options = {};
+    var path = req.path.split("/");
+    req.options = { ops: {}, noscan: 1, path: [ path[1] || "", path[2] || "", path[3] || "" ], cleanup: "bk_" + path[1] };
     req.account = {};
 
     self.checkAccess(req, function(rc1) {
@@ -941,6 +942,7 @@ api.checkSignature = function(req, callback)
         // Save account and signature in the request, it will be used later
         req.signature = sig;
         req.account = account;
+        req.options.account = { id: req.account.id, login: req.account.login, alias: req.account.alias };
         logger.debug(req.path, req.account, req.query);
         return callback({ status: 200, message: "Ok" });
     });
@@ -953,8 +955,8 @@ api.initAccountAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
-
         var options = self.getOptions(req);
+
         switch (req.params[0]) {
         case "get":
             self.getAccount(req, options, function(err, data, info) {
@@ -1041,7 +1043,6 @@ api.initStatusAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/status\/([a-z\/]+)$/, function(req, res) {
-
         var options = self.getOptions(req);
 
         switch (req.params[0]) {
@@ -1119,9 +1120,7 @@ api.initMessageAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
-
         var options = self.getOptions(req);
-        var now = Date.now();
 
         switch (req.params[0]) {
         case "image":
@@ -1148,8 +1147,8 @@ api.initMessageAPI = function()
             break;
 
         case "archive":
-            self.archiveMessage(req, options, function(err, rows) {
-                self.sendReply(res, err);
+            self.archiveMessage(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
             });
             break;
 
@@ -1190,9 +1189,7 @@ api.initCounterAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
-
         var options = self.getOptions(req);
-        var now = Date.now();
 
         switch (req.params[0]) {
         case "put":
@@ -1226,9 +1223,7 @@ api.initConnectionAPI = function()
     var db = core.context.db;
 
     this.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
-
         var options = self.getOptions(req);
-        var now = Date.now();
 
         switch (req.params[1]) {
         case "add":
@@ -1268,6 +1263,7 @@ api.initLocationAPI = function()
 
     this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
         var options = self.getOptions(req);
+
         switch (req.params[0]) {
         case "put":
             self.putLocation(req, options, function(err, data) {
@@ -1464,36 +1460,33 @@ api.initTables = function(options, callback)
 // distinguish control parameters from query parameters.
 api.getOptions = function(req)
 {
-    var options = { ops: {}, noscan: 1, account: { id: req.account.id, login: req.account.login, alias: req.account.alias } };
+    // Boolean parameters that can be passed with 0 or 1
     ["details", "consistent", "desc", "total", "connected"].forEach(function(x) {
-        if (typeof req.query["_" + x] != "undefined") options[x] = core.toBool(req.query["_" + x]);
+        if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x]);
     });
-    if (req.query._select) options.select = req.query._select;
-    if (req.query._count) options.count = core.toNumber(req.query._count, 0, 50, 0, 100);
-    if (req.query._start) options.start = core.base64ToJson(req.query._start, req.query.secret);
-    if (req.query._sort) options.sort = req.query._sort;
-    if (req.query._page) options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
-    if (req.query._width) options.width = core.toNumber(req.query._width);
-    if (req.query._height) options.height = core.toNumber(req.query._height);
-    if (req.query._ext) options.ext = req.query._ext;
-    if (req.query._quality) options.quality = core.toNumber(req.query._quality);
-    if (req.query._round) options.round = core.toNumber(req.query._round);
+    if (req.query._select) req.options.select = req.query._select;
+    if (req.query._count) req.options.count = core.toNumber(req.query._count, 0, 50, 0, 100);
+    if (req.query._start) req.options.start = core.base64ToJson(req.query._start, req.query.secret);
+    if (req.query._sort) req.options.sort = req.query._sort;
+    if (req.query._page) req.options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
+    if (req.query._width) req.options.width = core.toNumber(req.query._width);
+    if (req.query._height) req.options.height = core.toNumber(req.query._height);
+    if (req.query._ext) req.options.ext = req.query._ext;
+    if (req.query._quality) req.options.quality = core.toNumber(req.query._quality);
+    if (req.query._round) req.options.round = core.toNumber(req.query._round);
     if (req.query._ops) {
         var ops = core.strSplit(req.query._ops);
-        for (var i = 0; i < ops.length -1; i+= 2) options.ops[ops[i]] = ops[i+1];
+        for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
     }
     // Disable check public verification and allow any pool to be used
-    var ep = req.path.substr(1).split("/").shift();
-    if (ep) {
-        if (this.unsecure.indexOf(ep) > -1) {
-            delete options.noscan;
-            if (req.query._pool) options.pool = req.query._pool;
-            if (req.query._noprocessrows) options.noprocessrows = core.toBool(req.query._noprocessrows);
-        }
+    if (this.unsecure.indexOf(req.options.path[0]) > -1) {
+        ["pool", "cleanup"].forEach(function(x) {
+            if (typeof req.query['_' + x] != "undefined") req.options[x] = req.query['_' + x];;
+        });
+        req.options.noscan = core.toBool(req.query._noscan, req.options.noscan);
+        req.options.noprocessrows = core.toBool(req.query._noprocessrows, req.options.noprocessrows);
     }
-    // Override with options provided in the hooks
-    for (var p in req.options) options[p] = req.options[p];
-    return options;
+    return req.options;
 }
 
 // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
@@ -1513,31 +1506,33 @@ api.getPublicColumns = function(table, options)
 // Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process
 // callbacks after all records have been procersses and are ready to be returned to the client, the last step would be to cleanup all non public columns if necessary.
 //
-// In the request in the `req.options` object there should be `tables` property which is a list of tables from which data is about to be returned. If no such property
-// is defined, the request path endpoint plus bk_ prefix will be used as a table name.
-api.checkPublicColumns = function(req, rows, options)
+// `table` can be a single table name or a list of table names which combined public columns need to be kept in the rows. List of request tables
+// is kept in the `req.options.cleanup` which is by default is table name of the API endpoint, for example for /account/get it will contain bk_account, for
+// /connection/get - bk_connection.
+//
+// In the `options` account object can be present to detect account own records which will not be cleaned and all properties will be returned, by default `id`
+// property is used to detect current account but can be specified by the `options.key` property.
+//
+// By default primary keys are not kept and must be marked with `pub` property in the table definition to be returned.
+//
+api.checkPublicColumns = function(table, rows, options)
 {
-    if (!req || !rows || !rows.length) return;
-    var tables = "";
-    if (req.options) tables = req.options.tables;
-    if (!tables && req.path) tables = "bk_" + req.path.split("/")[1];
-    if (!tables) return;
-
+    if (!table || !rows || !rows.length) return;
+    if (!options) options = {};
     var db = core.context.db;
     var cols = {};
-    core.strSplit(tables).forEach(function(table) {
-        var c = db.getColumns(table, options);
-        for (var p in c) {
-            if (!cols[p]) cols[p] = {};
-            if (c[p].pub) cols[p].pub = 1;
-        }
+    core.strSplit(table).forEach(function(x) {
+        var c = db.getColumns(x, options);
+        for (var p in c) cols[p] = c[p].pub || 0;
     });
     if (!Array.isArray(rows)) rows = [ rows ];
+    logger.debug("checkPublicColumns:", table, cols, rows.length, options);
     rows.forEach(function(row) {
-        if (req.account && row.id == req.account.id) return;
+        // Skip personal account records, all data is returned
+        if (options.account && options.account.id == row[options.key || 'id']) return;
         for (var p in row) {
-            if (!cols[p]) continue;
-            if (!cols[p].pub) delete row[p];
+            if (typeof cols[p] == "undefined") continue;
+            if (!cols[p]) delete row[p];
         }
     });
 }
@@ -1696,20 +1691,18 @@ api.sendJSON = function(req, err, rows)
     var self = this;
     if (err) return this.sendReply(req.res, err);
 
-    var hooks = this.findHook('post', req.method, req.path);
-    if (!hooks.length) {
-        self.checkPublicColumns(req, rows && rows.count && rows.data ? rows.data : rows);
-        return req.res.json(rows);
-    }
     var sent = 0;
-
+    var hooks = this.findHook('post', req.method, req.path);
     async.forEachSeries(hooks, function(hook, next) {
         try { sent = hook.callbacks.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.path, e.stack); }
-        logger.debug('sendJSON:', req.method, req.path, hook.path, 'sent:', sent || req.res.headersSent);
+        logger.debug('sendJSON:', req.method, req.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
         next(sent || req.res.headersSent);
     }, function(err) {
         if (sent || req.res.headersSent) return;
-        self.checkPublicColumns(req, rows && rows.count && rows.data ? rows.data : rows);
+        // Keep only public columns for the combination of all tables specified
+        if (req.options.cleanup) {
+            self.checkPublicColumns(req.options.cleanup, rows && rows.count && rows.data ? rows.data : rows, req.options);
+        }
         req.res.json(rows);
     });
 }
@@ -2236,13 +2229,8 @@ api.getConnection = function(req, options, callback)
         // Just return connections
         if (!core.toNumber(options.details)) return callback(null, { count: rows.length, data: rows, next_token: next_token });
 
-        var types = {};
-        rows.forEach(function(row) { types[row.id] = row; });
-
         // Get all account records for the id list
-        db.list("bk_account", rows.map(function(x) { return { id: x.id } }), { select: options.select }, function(err, rows) {
-            if (err) return callback(err, []);
-            rows.forEach(function(x) { for (var p in types[x.id]) x[p] = types[x.id][p] });
+        self.listAccount(rows, options, function(err, rows) {
             callback(null, { count: rows.length, data: rows, next_token: next_token });
         });
     });
@@ -2426,31 +2414,13 @@ api.getLocation = function(req, options, callback)
         var next_token = info.more ? core.jsonToBase64(info, req.account.secret) : null;
         // Ignore current account, db still retrieves it but in the API we skip it
         rows = rows.filter(function(row) { return row.id != req.account.id });
-        // For check public columns filter
-        req.options.tables = [ table ];
+        logger.debug("getLocations:", req.account.id, 'GEO:', info.latitude, info.longitude, info.distance, info.geohash, 'NEXT:', info.start ||'', 'ROWS:', rows.length);
 
         // Return accounts with locations
         if (core.toNumber(options.details) && rows.length) {
-            var list = {}, ids = [];
-            rows = rows.map(function(row) {
-                // Skip duplicates
-                if (list[row.id]) return row;
-                ids.push({ id: row.id });
-                list[row.id] = row;
-                return row;
-            });
-            req.options.tables.push("bk_account");
 
-            logger.debug("getLocations:", req.account.id, 'GEO:', info.latitude, info.longitude, info.distance, info.geohash, 'NEXT:', info.start ||'', 'ROWS:', ids.length);
-
-            db.list("bk_account", ids, { select: req.query._select }, function(err, rows) {
+            self.listAccount(rows, { select: req.query._select }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
-
-                // Merge locations and accounts
-                rows.forEach(function(row) {
-                    var item = list[row.id];
-                    for (var p in item) row[p] = item[p];
-                });
                 callback(null, { count: rows.length, data: rows, next_token: next_token });
             });
         } else {
@@ -2516,7 +2486,7 @@ api.getArchiveMessage = function(req, options, callback)
 {
     var db = core.context.db;
 
-    req.options.tables = "bk_archive";
+    req.options.nocleanup = 1;
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
@@ -2529,7 +2499,7 @@ api.getSentMessage = function(req, options, callback)
 {
     var db = core.context.db;
 
-    req.options.tables = "bk_sent";
+    req.options.nocleanup = 1;
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
@@ -2543,6 +2513,7 @@ api.getMessage = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
+    req.options.nocleanup = 1;
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
@@ -2554,20 +2525,9 @@ api.getMessage = function(req, options, callback)
         }, next);
     }
 
-    // Return account details if requested or raw messages
-    function details(msgs, info, next) {
-        if (!core.toNumber(options.details)) return next(null, msgs, info);
-        var map = {};
-        msgs.forEach(function(x) { if (!map[x.sender]) map[x.sender] = []; map[x.sender].push(x); });
-        db.list("bk_account", Object.keys(map).map(function(x) { return { id: x } }), { select: options.select }, function(err, rows) {
-            if (err) return next(err, []);
-            rows.forEach(function(x) {
-                map[x.id].forEach(function(y) {
-                    for (var p in x) if (!y[p]) y[p] = x[p];
-                });
-            });
-            next(null, msgs, info);
-        });
+    function details(rows, info, next) {
+        if (!core.toNumber(options.details)) return next(null, rows, info);
+        self.listAccount(rows, { key: 'sender', select: options.select }, function(err, rows) { next(err, rows, info); });
     }
 
     db.select("bk_message", req.query, options, function(err, rows, info) {
@@ -2751,6 +2711,27 @@ api.getAccount = function(req, options, callback)
     } else {
         db.list("bk_account", req.query.id, options, callback);
     }
+}
+
+// Return account details for the list of rows, options.key specified the column to use for the account id in the `rows`, or `id` will be used.
+// The result accounts are cleaned for public columns, all original properties from the `rows` are kept as is.
+api.listAccount = function(rows, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    var key = options.key || "id";
+    var map = {};
+    rows.forEach(function(x) { if (!map[x[key]]) map[x[key]] = []; map[x[key]].push(x); });
+    db.list("bk_account", Object.keys(map).map(function(x) { return { id: x } }), { select: options.select }, function(err, list) {
+        if (err) return callback(err, []);
+        self.checkPublicColumns("bk_account", list, options);
+        list.forEach(function(x) {
+            map[x.id].forEach(function(row) {
+                for (var p in x) if (!row[p]) row[p] = x[p];
+            });
+        });
+        callback(null, rows);
+    });
 }
 
 // Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint

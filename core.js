@@ -729,13 +729,14 @@ core.toNumber = function(str, decimals, dflt, min, max)
 }
 
 // Return true if value represents true condition
-core.toBool = function(val)
+core.toBool = function(val, dflt)
 {
+    if (typeof val == "undefined") val = dflt;
     return !val || val == "false" || val == "FALSE" || val == "f" || val == "F" || val == "0" ? false : true;
 }
 
 // Return Date object for given text or numeric date representation, for invalid date returns 1969
-core.toDate = function(val)
+core.toDate = function(val, dflt)
 {
     var d = null;
     // String that looks like a number
@@ -743,7 +744,7 @@ core.toDate = function(val)
     // Assume it is seconds which we use for most mtime columns, convert to milliseconds
     if (typeof val == "number" && val < 2147483647) val *= 1000;
     try { d = new Date(val); } catch(e) {}
-    return !isNaN(d) ? d : new Date(0);
+    return !isNaN(d) ? d : new Date(dflt || 0);
 }
 
 // Convert value to the proper type
