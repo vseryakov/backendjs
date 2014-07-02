@@ -2215,6 +2215,7 @@ api.getConnection = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
+    req.options.cleanup = "";
     if (req.query.type) req.query.type += ":" + (req.query.id || "");
     req.query.id = req.account.id;
 
@@ -2486,7 +2487,7 @@ api.getArchiveMessage = function(req, options, callback)
 {
     var db = core.context.db;
 
-    req.options.nocleanup = 1;
+    req.options.cleanup = "";
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
@@ -2499,7 +2500,7 @@ api.getSentMessage = function(req, options, callback)
 {
     var db = core.context.db;
 
-    req.options.nocleanup = 1;
+    req.options.cleanup = "";
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
@@ -2513,7 +2514,7 @@ api.getMessage = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
-    req.options.nocleanup = 1;
+    req.options.cleanup = "";
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
