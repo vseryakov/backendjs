@@ -501,7 +501,7 @@ aws.queryFilter = function(obj, options)
 {
     var self = this;
     var filter = {};
-    var ops = ["between","null","not null","in","contains","not contains","ne","eq","le","lt","ge","gt"];
+    var ops = ["between","null","not_null", "not null","in","contains","not_contains", "not contains","ne","eq","le","lt","ge","gt"];
 
     for (var name in obj) {
         var val = obj[name];
@@ -517,27 +517,25 @@ aws.queryFilter = function(obj, options)
             }
         }
 
-        var cond = { AttributeValueList: [], ComparisonOperator: op.toUpperCase().replace(' ', '_') }
+        var cond = { ComparisonOperator: op.toUpperCase().replace(' ', '_') }
         switch (cond.ComparisonOperator) {
         case 'BETWEEN':
             if (val.length < 2) continue;
-            cond.AttributeValueList.push(this.toDynamoDB(val[0]));
-            cond.AttributeValueList.push(this.toDynamoDB(val[1]));
+            cond.AttributeValueList = [ this.toDynamoDB(val[0]), this.toDynamoDB(val[1]) ];
             break;
 
         case 'NULL':
-            cond = { Exists: false };
             break;
 
         case 'NOT_NULL':
-            cond = { Exists: true };
             break;
 
         case 'IN':
             if (Array.isArray(val)) {
+                cond.AttributeValueList = [];
                 val.forEach(function(x) { cond.AttributeValueList.push(self.toDynamoDB(x));});
             } else {
-                cond.AttributeValueList.push(this.toDynamoDB(val));
+                cond.AttributeValueList = [ this.toDynamoDB(val) ];
             }
             break;
 
@@ -551,7 +549,7 @@ aws.queryFilter = function(obj, options)
         case 'GT':
         case 'BEGINS_WITH':
             if (!val && ["string","object","undefined"].indexOf(typeof val) > -1) continue;
-            cond.AttributeValueList.push(this.toDynamoDB(val));
+            cond.AttributeValueList = [ this.toDynamoDB(val) ];
             break;
         }
         filter[name] = cond;

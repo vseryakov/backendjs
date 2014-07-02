@@ -2282,8 +2282,10 @@ api.makeConnection = function(id, obj, options, callback)
             query.mtime = now;
             db[op]("bk_connection", query, options, function(err) {
                 if (err) return next(err);
+                if (op == 'update') return next();
                 self.metrics.connections.Meter(op + ":" + obj.type).mark();
-                next();
+                // Keep track of all connection counters
+                self.incrAutoCounter(id, obj.type + '0', 1, options, function(err) { next() });
             });
         },
         function(next) {
@@ -2294,21 +2296,15 @@ api.makeConnection = function(id, obj, options, callback)
             db[op]("bk_reference", query, options, function(err) {
                 // Remove on error
                 if (err) return db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function() { next(err); });
-                next();
+                if (op == 'update') return next();
+             // Keep track of all reference counters
+                self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
             });
         },
         function(next) {
             // Notify about connection change
             if (!options.nopublish) self.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: (options.account || {}).alias, type: obj.type }, options);
             next();
-        },
-        function(next) {
-            if (op == 'update') return next();
-            // Keep track of all connections counters
-            self.incrAutoCounter(id, obj.type + '0', 1, options, function(err) {
-                if (options.noreference) return next();
-                self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
-            });
         },
         function(next) {
             // We need to know if the other side is connected too, this will save one extra API call later
@@ -2637,34 +2633,46 @@ api.addMessage = function(req, options, callback)
     var self = this;
     var db = core.context.db;
     var now = Date.now();
+    var info = {};
 
     if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
 
-    req.query.sender = req.account.id;
-    req.query.mtime = now + ":" + req.query.sender;
-    self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
-        if (err) return callback(err);
-
-        req.query.icon = icon ? 1 : 0;
-        db.add("bk_message", req.query, options, function(err, rows, info) {
-            if (err) return callback(err);
-
+    async.series([
+        function(next) {
+            req.query.sender = req.account.id;
+            req.query.mtime = now + ":" + req.query.sender;
+            self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
+                req.query.icon = icon ? 1 : 0;
+                next(err);
+            });
+        },
+        function(next) {
+            db.add("bk_message", req.query, options, function(err, rows, info2) {
+                info = info2;
+                next(err);
+            });
+        },
+        function(next) {
+            if (options.nosent) return next();
             var sent = core.cloneObj(req.query);
             sent.id = req.account.id;
             sent.recipient = req.query.id;
             sent.mtime = now + ':' + sent.recipient;
-            db.add("bk_sent", sent, options, function(err, rows, info) {
-                if (err) return db.del("bk_message", req.query, function() { callback(err); });
-
-                if (req.query.id != req.account.id) {
-                    self.publish(req.query.id, { path: req.path, mtime: now, alias: (options.account || {}).alias, msg: (req.query.msg || "").substr(0, 128) }, options);
-                }
-                self.metrics.messages.Meter('add').mark();
-
-                callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
+            db.add("bk_sent", sent, options, function(err, rows) {
+                if (err) return db.del("bk_message", req.query, function() { next(err); });
+                next();
             });
-        });
+        },
+        function(next) {
+            if (options.nopublish || req.query.id == req.account.id) return next();
+            self.publish(req.query.id, { path: req.path, mtime: now, alias: (options.account || {}).alias, msg: (req.query.msg || "").substr(0, 128) }, options);
+            next();
+        },
+        ], function(err) {
+            if (err) return callback(err);
+            self.metrics.messages.Meter('add').mark();
+            callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
     });
 }
 

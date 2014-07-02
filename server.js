@@ -527,8 +527,8 @@ server.startShell = function()
     }
     function getQuery() {
         var query = {};
-        for (var i = 1; i < process.argv.length; i++) {
-            if (process.argv[i][0] != "-" && i + 1 < process.argv.length) query[process.argv[i]] = process.argv[++i];
+        for (var i = process.argv.length - 1; i > 1; i -= 2) {
+            if (process.argv[i - 1][0] != '-' && process.argv[i][0] != '-') query[process.argv[i - 1]] = process.argv[i];
         }
         return query;
     }
