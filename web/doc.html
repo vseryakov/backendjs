@@ -2352,7 +2352,14 @@ Output file name is built according to the following options properties:</li>
 <li><p><code>api.makeConnection(id, obj, options, callback)</code></p>
 <p> Lower level connection creation with all counters support, can be used outside of the current account scope for
 any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id and type for other account
-with other properties to be added. <code>obj</code> is left untouched.</p>
+with other properties to be added. <code>obj</code> is left untouched.
+The following properties can alter the actions:</p>
+<ul>
+<li>nopublish - do not send notification via pub/sub system if present</li>
+<li>nocounter - do not update auto increment counters</li>
+<li>noreference - do not create reference part of the connection</li>
+<li>connected - return existing connection record for the same type from the other account</li>
+</ul>
 </li>
 </ul>
 
