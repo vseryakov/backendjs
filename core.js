@@ -2827,6 +2827,7 @@ core.createRepl = function(options)
     }
     return r;
 }
+
 // Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
 // Options properties:
 // - match - a regexp that specifies only files to be watched

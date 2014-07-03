@@ -532,11 +532,11 @@ tests.db = function(callback)
             });
         },
         function(next) {
-            db.list("test1", String([id,id2]),  { check_public: id }, function(err, rows) {
+            db.list("test1", String([id,id2]),  {}, function(err, rows) {
                 var isok = rows.every(function(x) { return x.id==id || x.id==id2});
                 var row1 = rows.filter(function(x) { return x.id==id}).pop();
                 var row2 = rows.filter(function(x) { return x.id==id2}).pop();
-                core.checkTest(next, err, rows.length!=2 || !isok || !row1.email || row2.email, "err3:", rows.length, isok, rows);
+                core.checkTest(next, err, rows.length!=2 || !isok, "err3:", rows.length, isok, rows);
             });
         },
 	    function(next) {

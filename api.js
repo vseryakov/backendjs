@@ -2255,6 +2255,11 @@ api.putConnection = function(req, options, callback)
 // Lower level connection creation with all counters support, can be used outside of the current account scope for
 // any two accounts and arbitrary properties, `id` is the primary account id, `obj` contains id and type for other account
 // with other properties to be added. `obj` is left untouched.
+// The following properties can alter the actions:
+// - nopublish - do not send notification via pub/sub system if present
+// - nocounter - do not update auto increment counters
+// - noreference - do not create reference part of the connection
+// - connected - return existing connection record for the same type from the other account
 api.makeConnection = function(id, obj, options, callback)
 {
     var self = this;
@@ -2270,11 +2275,11 @@ api.makeConnection = function(id, obj, options, callback)
             query.type = obj.type + ":" + obj.id;
             query.mtime = now;
             db[op]("bk_connection", query, options, function(err) {
-                if (err) return next(err);
-                if (op == 'update') return next();
+                if (err || op == 'update') return next(err);
                 self.metrics.connections.Meter(op + ":" + obj.type).mark();
                 // Keep track of all connection counters
-                self.incrAutoCounter(id, obj.type + '0', 1, options, function(err) { next() });
+                if (!options.nocounter) return self.incrAutoCounter(id, obj.type + '0', 1, options, function(err) { next() });
+                next();
             });
         },
         function(next) {
@@ -2283,11 +2288,12 @@ api.makeConnection = function(id, obj, options, callback)
             query.id = obj.id;
             query.type = obj.type + ":"+ id;
             db[op]("bk_reference", query, options, function(err) {
+                if (err || op == 'update') return next(err);
                 // Remove on error
                 if (err) return db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function() { next(err); });
-                if (op == 'update') return next();
-             // Keep track of all reference counters
-                self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
+                // Keep track of all reference counters
+                if (!options.nocounter) return self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
+                next();
             });
         },
         function(next) {
@@ -2298,8 +2304,7 @@ api.makeConnection = function(id, obj, options, callback)
         function(next) {
             // We need to know if the other side is connected too, this will save one extra API call later
             if (!options.connected) return next();
-
-            // query already setup as a reference for us and as a connection for the other account
+            // Query already setup as a reference for us and as a connection for the other account
             db.get("bk_connection", query, options, function(err, row) {
                 if (row) result = row;
                 next(err);
