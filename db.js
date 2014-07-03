@@ -59,14 +59,14 @@ var metrics = require(__dirname + "/metrics");
 //          });
 //
 // Most database pools can be configured with options `min` and `max` for number of connections to be maintained, so no overload will happen and keep warm connection for
-// faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an errors but
-// put extra requests into the wating queue and execute after some requests finished.
+// faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an error but
+// put extra requests into the waiting queue and execute once some requests finished.
 //
 // Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using `db-pool-tables` parameters
 // thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 // database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.
 //
-// The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis.
+// The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB
 //
 // All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
 // due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the

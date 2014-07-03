@@ -925,11 +925,18 @@ who can access it.*
   Perform database operation on the given TABLE, all options for the `db` functiobns are passed as query parametrrs prepended with underscore,
   regular parameters are the table columns.
 
+  By default the API does not allow table scans without a condition to avoid expensive and long queries, to enable a scan pass `_noscan=0`.
+  For this to work the Data API must be configured as unsecure in the config file using the parameter `api-unsecure=data`.
+
+  Some tables like messages and connections perform data convertion before returning the results, mostly splitting combined columns like type into
+  separate fields. To return raw data pass the parameter `_noprocessrows=1`.
+
   Example:
 
         /data/get/bk_account?id=12345
         /data/put/bk_counter?id=12345&like0=1
         /data/select/bk_account?name=john&_ops=name,gt&_select=name,alias,email
+        /data/select/bk_connection?_noscan=0&_noprocessrows=1
 
 ## System API
 The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By

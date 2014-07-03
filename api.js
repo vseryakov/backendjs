@@ -2190,7 +2190,7 @@ api.incrCounter = function(req, options, callback)
         if (err) return callback(err);
 
         // Notify only the other account
-        if (obj.id != req.account.id) {
+        if (obj.id != req.account.id && !options.nopublish) {
             self.publish(obj.id, { path: req.path, mtime: now, alias: (options.account ||{}).alias, type: Object.keys(obj).join(",") }, options);
         }
 
@@ -2237,7 +2237,7 @@ api.getConnection = function(req, options, callback)
     });
 }
 
-// Create a connection between 2 accounts, this function is called by the `/connection/add` API call.
+// Create a connection between 2 accounts, this function is called by the `/connection/add` API call with query parameters coming from the Express request.
 api.putConnection = function(req, options, callback)
 {
     var self = this;
@@ -2252,9 +2252,9 @@ api.putConnection = function(req, options, callback)
     this.makeConnection(req.account.id, req.query, options, callback)
 }
 
-// Low level connection create with all counters support, can be used outside of the current account scope for
-// any two accounts and arbitrary properties, id is the primary account id, obj contains id and type for other account
-// with other properties to be added. obj is left untouched.
+// Lower level connection creation with all counters support, can be used outside of the current account scope for
+// any two accounts and arbitrary properties, `id` is the primary account id, `obj` contains id and type for other account
+// with other properties to be added. `obj` is left untouched.
 api.makeConnection = function(id, obj, options, callback)
 {
     var self = this;
@@ -2316,8 +2316,8 @@ api.delConnection = function(req, options, callback)
     this.deleteConnection(req.account.id, req.query, options, callback);
 }
 
-// Delete a connection,for given account id, the other id and type is in the obj, performs deletion of all
-// connections if any of obj.id and obj.type are not specified by selecting matched connectons.
+// Lower level connection deletion, for given account `id`, the other id and type is in the `obj`, performs deletion of all
+// connections. If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.
 api.deleteConnection = function(id, obj, options, callback)
 {
     var self = this;

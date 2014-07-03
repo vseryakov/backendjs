@@ -878,10 +878,15 @@ Return primary keys for the given TABLE</p>
 <li><p><code>/data/(select|search|list|get|add|put|update|del|incr|replace)/TABLE</code>
 Perform database operation on the given TABLE, all options for the <code>db</code> functiobns are passed as query parametrrs prepended with underscore,
 regular parameters are the table columns.</p>
+<p>By default the API does not allow table scans without a condition to avoid expensive and long queries, to enable a scan pass <code>_noscan=0</code>.
+For this to work the Data API must be configured as unsecure in the config file using the parameter <code>api-unsecure=data</code>.</p>
+<p>Some tables like messages and connections perform data convertion before returning the results, mostly splitting combined columns like type into
+separate fields. To return raw data pass the parameter <code>_noprocessrows=1</code>.</p>
 <p>Example:</p>
 <pre><code>  /data/get/bk_account?id=12345
   /data/put/bk_counter?id=12345&amp;like0=1
   /data/select/bk_account?name=john&amp;_ops=name,gt&amp;_select=name,alias,email
+  /data/select/bk_connection?_noscan=0&amp;_noprocessrows=1
 </code></pre></li>
 </ul>
 <h2 id="system-api">System API</h2>
@@ -2050,11 +2055,15 @@ distinguish control parameters from query parameters.</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkPublicColumns(req, rows, options)</code></p>
+<li><p><code>api.checkPublicColumns(table, rows, options)</code></p>
 <p> Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process
 callbacks after all records have been procersses and are ready to be returned to the client, the last step would be to cleanup all non public columns if necessary.</p>
-<p>In the request in the <code>req.options</code> object there should be <code>tables</code> property which is a list of tables from which data is about to be returned. If no such property
-is defined, the request path endpoint plus bk_ prefix will be used as a table name.</p>
+<p><code>table</code> can be a single table name or a list of table names which combined public columns need to be kept in the rows. List of request tables
+is kept in the <code>req.options.cleanup</code> which is by default is table name of the API endpoint, for example for /account/get it will contain bk_account, for
+/connection/get - bk_connection.</p>
+<p>In the <code>options</code> account object can be present to detect account own records which will not be cleaned and all properties will be returned, by default <code>id</code>
+property is used to detect current account but can be specified by the <code>options.key</code> property.</p>
+<p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
 </li>
 </ul>
 
@@ -2335,15 +2344,15 @@ Output file name is built according to the following options properties:</li>
 
 <ul>
 <li><p><code>api.putConnection(req, options, callback)</code></p>
-<p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call.</p>
+<p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call with query parameters coming from the Express request.</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>api.makeConnection(id, obj, options, callback)</code></p>
-<p> Low level connection create with all counters support, can be used outside of the current account scope for
-any two accounts and arbitrary properties, id is the primary account id, obj contains id and type for other account
-with other properties to be added. obj is left untouched.</p>
+<p> Lower level connection creation with all counters support, can be used outside of the current account scope for
+any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id and type for other account
+with other properties to be added. <code>obj</code> is left untouched.</p>
 </li>
 </ul>
 
@@ -2355,8 +2364,8 @@ with other properties to be added. obj is left untouched.</p>
 
 <ul>
 <li><p><code>api.deleteConnection(id, obj, options, callback)</code></p>
-<p> Delete a connection,for given account id, the other id and type is in the obj, performs deletion of all
-connections if any of obj.id and obj.type are not specified by selecting matched connectons.</p>
+<p> Lower level connection deletion, for given account <code>id</code>, the other id and type is in the <code>obj</code>, performs deletion of all
+connections. If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.</p>
 </li>
 </ul>
 
@@ -2435,6 +2444,13 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>api.getAccount(req, options, callback)</code></p>
 <p> Return an account, used in /account/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.listAccount(rows, options, callback)</code></p>
+<p> Return account details for the list of rows, options.key specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
+The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.</p>
 </li>
 </ul>
 
@@ -2940,13 +2956,13 @@ making it usable for repeating environments or storage solutions.</p>
 </ul>
 
 <ul>
-<li><p><code>core.toBool(val)</code></p>
+<li><p><code>core.toBool(val, dflt)</code></p>
 <p> Return true if value represents true condition</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.toDate(val)</code></p>
+<li><p><code>core.toDate(val, dflt)</code></p>
 <p> Return Date object for given text or numeric date representation, for invalid date returns 1969</p>
 </li>
 </ul>
@@ -3768,12 +3784,12 @@ then default db pool is used, sqlite is default if no -db-pool config parameter 
         if (row) db.update(&quot;bk_account&quot;, row);
     });
 </code></pre><p>Most database pools can be configured with options <code>min</code> and <code>max</code> for number of connections to be maintained, so no overload will happen and keep warm connection for
-faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an errors but
-put extra requests into the wating queue and execute after some requests finished.</p>
+faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an error but
+put extra requests into the waiting queue and execute once some requests finished.</p>
 <p>Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-pool-tables</code> parameters
 thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.</p>
-<p>The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis.</p>
+<p>The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB</p>
 <p>All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
 due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
 opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
