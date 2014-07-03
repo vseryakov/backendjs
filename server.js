@@ -284,7 +284,7 @@ server.startWeb = function(callback)
                 }
             }
             self.proxyServer = proxy.createServer({ xfwd : true });
-            self.proxyServer.on("error", function(err) { logger.error("proxy:", err.stack) })
+            self.proxyServer.on("error", function(err) { if (err.code != "ECONNRESET") logger.error("proxy:", err.code, err.stack) })
             self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
                 var target = self.getProxyTarget();
                 if (target) return self.proxyServer.web(req, res, target);

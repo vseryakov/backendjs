@@ -2663,17 +2663,18 @@ core.stringify = function(obj, filter)
 // - str - return empty string
 core.jsonParse = function(obj, options)
 {
-    try {
-        return obj ? JSON.parse(obj) : null;
-    } catch(e) {
+    function onerror(e) {
         if (options) {
-            if (options.logging) logger.error('jsonParse:', e, obj);
+            if (options.error) logger.error('jsonParse:', e, obj);
+            if (options.debug) logger.debug('jsonParse:', e, obj);
             if (options.obj) return {};
             if (options.list) return [];
             if (options.str) return "";
         }
         return null;
     }
+    if (!obj) return onerror("empty");
+    try { return JSON.parse(obj); } catch(e) { return onerror(e); }
 }
 
 // Return cookies that match given domain

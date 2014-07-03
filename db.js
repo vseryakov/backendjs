@@ -567,18 +567,21 @@ db.query = function(req, options, callback)
                     // Make sure no duplicates
                     if (options.unique) items = core.arrayUnique(items, options.unique);
 
-                    // Convert values if we have custom column callback
-                    if (!options.noprocessrows) rows = self.processRows(pool, table, rows, options);
+                    // With total we only have one property 'count'
+                    if (!options.total) {
+                        // Convert values if we have custom column callback
+                        if (!options.noprocessrows) rows = self.processRows(pool, table, rows, options);
 
-                    // Custom filter to return the final result set
-                    if (options.filter && rows.length) rows = rows.filter(function(row) { return options.filter(row, options); })
+                        // Custom filter to return the final result set
+                        if (options.filter && rows.length) rows = rows.filter(function(row) { return options.filter(row, options); })
 
-                    // Async filter, can perform I/O for filtering
-                    if (options.async_filter && rows.length) {
-                        options.async_filter(rows, options, function(err, rows) {
-                            onEnd(err, client, rows, info);
-                        });
-                        return;
+                        // Async filter, can perform I/O for filtering
+                        if (options.async_filter && rows.length) {
+                            options.async_filter(rows, options, function(err, rows) {
+                                onEnd(err, client, rows, info);
+                            });
+                            return;
+                        }
                     }
                 } catch(e) {
                     err = e;

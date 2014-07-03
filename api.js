@@ -733,6 +733,7 @@ api.checkQuery = function(req, res, next)
     var self = this;
     if (req._body) return next();
     req.body = req.body || {};
+    req.query = req.query || {};
 
     var type = (req.get("content-type") || "").split(";")[0];
     switch (type) {
@@ -766,7 +767,7 @@ api.checkQuery = function(req, res, next)
             }
             switch (type) {
             case 'application/json':
-                req.body = core.jsonParse(buf, { obj: 1, logging: 1 });
+                req.body = core.jsonParse(buf, { obj: 1, debug: 1 });
                 if (req.method == "POST" && !Object.keys(req.query).length) req.query = req.body;
                 break;
 
@@ -1461,7 +1462,7 @@ api.initTables = function(options, callback)
 api.getOptions = function(req)
 {
     // Boolean parameters that can be passed with 0 or 1
-    ["details", "consistent", "desc", "total", "connected"].forEach(function(x) {
+    ["details", "consistent", "desc", "total", "connected", "noreference", "nocounter", "nopublish"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x]);
     });
     if (req.query._select) req.options.select = req.query._select;
@@ -1483,8 +1484,9 @@ api.getOptions = function(req)
         ["pool", "cleanup"].forEach(function(x) {
             if (typeof req.query['_' + x] != "undefined") req.options[x] = req.query['_' + x];;
         });
-        req.options.noscan = core.toBool(req.query._noscan, req.options.noscan);
-        req.options.noprocessrows = core.toBool(req.query._noprocessrows, req.options.noprocessrows);
+        ["noscan", "noprocessrows"].forEach(function(x) {
+            if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x], req.options[x]);
+        });
     }
     return req.options;
 }
@@ -2271,6 +2273,8 @@ api.makeConnection = function(id, obj, options, callback)
 
     async.series([
         function(next) {
+            // Primary connection
+            if (options.noconnection) return next();
             query.id = id;
             query.type = obj.type + ":" + obj.id;
             query.mtime = now;
@@ -2283,7 +2287,7 @@ api.makeConnection = function(id, obj, options, callback)
             });
         },
         function(next) {
-            // Reverse reference to the same connection
+            // Reverse connection, a reference
             if (options.noreference) return next();
             query.id = obj.id;
             query.type = obj.type + ":"+ id;
@@ -2304,8 +2308,7 @@ api.makeConnection = function(id, obj, options, callback)
         function(next) {
             // We need to know if the other side is connected too, this will save one extra API call later
             if (!options.connected) return next();
-            // Query already setup as a reference for us and as a connection for the other account
-            db.get("bk_connection", query, options, function(err, row) {
+            db.get("bk_connection", { id: obj.id, type: obj.type + ":" + id }, options, function(err, row) {
                 if (row) result = row;
                 next(err);
             });
