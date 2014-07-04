@@ -848,15 +848,15 @@ api.describeTables({
     },
     // Extend accounts table
     bk_account: {
-        status: { semipub: 1, value: "active" },
+        status: { value: "active" },
     },
     // Extend locations table, keep account status for filtering
     bk_location: {
-        status: { semipub: 1 },
+        status: { pub: 1 },
     },
     // Add out custom counters updated on connections of type 'test'
     bk_counter: {
-        test0: { type: "counter", value: 0, pub: 1, incr: 1 },
+        test0: { type: "counter", value: 0, pub: 1, autoincr: 1 },
         test1: { type: "counter", value: 0 },
     },
 });
@@ -870,10 +870,6 @@ api.processTestRow = function(row, options, cols)
 
 api.initMiddleware = function()
 {
-    // Allow special URL without signature
-    this.allow.push('/free/access');
-    // Allow only admins for this URL
-    this.allowAdmin.push('/admin/area');
 }
 
 api.initApplication = function(callback)
@@ -904,8 +900,7 @@ api.initApplication = function(callback)
     callback()
 };
 
-api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows)
-{
+api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows) {
     var self = this;
     switch (req.params[0]) {
     case 'add':
@@ -916,11 +911,10 @@ api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows)
        db.del('test', { id: req.account.id });
        break;
     }
-    res.json(rows);
 });
 
 // Redirect on unauthorized access to the files
-api.registerAuthCheck('', /^\/test\/list$/, function(req, status, callback) {
+api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) {
     if (status.status != 200) {
         status.status = 302;
         status.url = '/public/index.html';
