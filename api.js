@@ -1432,7 +1432,8 @@ api.initTables = function(options, callback)
                 var mtime = row.mtime.split(":");
                 row.mtime = core.toNumber(mtime[0]);
                 row.sender = mtime[1];
-                if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+                delete row.recipient;
+                if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
             }
             db.setProcessRow("bk_message", options, onMessageRow);
             db.setProcessRow("bk_archive", options, onMessageRow);
@@ -1441,7 +1442,8 @@ api.initTables = function(options, callback)
                 var mtime = row.mtime.split(":");
                 row.mtime = core.toNumber(mtime[0]);
                 row.recipient = mtime[1];
-                if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime;
+                delete row.sender;
+                if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
             });
 
             function onConnectionRow(row, options, cols) {
@@ -2641,7 +2643,8 @@ api.addMessage = function(req, options, callback)
         ], function(err) {
             if (err) return callback(err);
             self.metrics.messages.Meter('add').mark();
-            callback(null, { id: req.query.id, mtime: now, sender: req.account.id, icon: req.query.icon }, info);
+            db.processRows("", "bk_sent", req.query, options);
+            callback(null, req.query, info);
     });
 }
 
