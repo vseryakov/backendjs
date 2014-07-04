@@ -232,7 +232,6 @@ tests.account = function(callback)
         function(next) {
             var options = { url: "/message/add", login: login, secret: secret, query: { id: myid, icon: icon }  }
             core.sendRequest(options, function(err, params) {
-                console.log(params.obj)
                 core.checkTest(next, err, !params.obj, "err8:" , params.obj);
             });
         },
