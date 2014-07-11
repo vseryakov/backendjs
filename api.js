@@ -836,8 +836,7 @@ api.checkSignature = function(req, callback)
     // Extract all signature components from the request
     var sig = core.parseSignature(req);
 
-    // Show request in the log on demand for diagnostics
-    if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
+    logger.debug('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
     // Sanity checks, required headers must be present and not empty
     if (!sig.login || !sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
@@ -881,7 +880,7 @@ api.checkSignature = function(req, callback)
 
         // Verify the signature with account secret
         if (!core.checkSignature(sig, account)) {
-            if (logger.level >= 1 || req.query._debug) logger.log('checkSignature:', 'failed', sig, account);
+            logger.debug('checkSignature:', 'failed', sig, account);
             return callback({ status: 401, message: "Not authenticated" });
         }
 
@@ -1411,12 +1410,14 @@ api.initTables = function(options, callback)
 api.getOptions = function(req)
 {
     // Boolean parameters that can be passed with 0 or 1
-    ["details", "consistent", "desc", "total", "connected", "noreference", "nocounter", "nopublish"].forEach(function(x) {
+    ["details", "consistent", "desc", "total", "connected", "noreference", "nocounter", "nopublish", "archive", "trash"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x]);
     });
+    if (req.query._session) req.options.session = core.toNumber(req.query._session);
     if (req.query._select) req.options.select = req.query._select;
     if (req.query._count) req.options.count = core.toNumber(req.query._count, 0, 50, 0, 100);
-    if (req.query._start) req.options.start = core.base64ToJson(req.query._start, req.query.secret);
+    if (req.query._start) req.options.start = core.base64ToJson(req.query._start, req.account.secret);
+    if (req.query._token) req.options.token = core.base64ToJson(req.query._token, req.account.secret);
     if (req.query._sort) req.options.sort = req.query._sort;
     if (req.query._page) req.options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
     if (req.query._width) req.options.width = core.toNumber(req.query._width);
@@ -2376,8 +2377,9 @@ api.getLocation = function(req, options, callback)
     var table = options.table || "bk_location";
 
     // Continue pagination using the search token
-    var token = core.base64ToJson(req.query._token, req.account.secret);
-    if (token && token.geohash && token.latitude && token.longitude) {
+    if (options.token && options.token.geohash && options.token.latitude && options.token.longitude) {
+        var token = options.token;
+        delete options.token;
         for (var p in token) options[p] = token[p];
         req.query.latitude = options.latitude;
         req.query.longitude = options.longitude;
@@ -2402,7 +2404,7 @@ api.getLocation = function(req, options, callback)
         // Return accounts with locations
         if (core.toNumber(options.details) && rows.length) {
 
-            self.listAccount(rows, { select: req.query._select }, function(err, rows) {
+            self.listAccount(rows, { select: options.select }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
                 callback(null, { count: rows.length, data: rows, next_token: next_token });
             });
@@ -2518,7 +2520,7 @@ api.getMessage = function(req, options, callback)
 
         options.ops = null;
         // Move to archive
-        if (core.toBool(req.query._archive)) {
+        if (core.toBool(options.archive)) {
             async.forEachSeries(rows, function(row, next) {
                 db.put("bk_archive", row, options, next);
             }, function(err) {
@@ -2533,7 +2535,7 @@ api.getMessage = function(req, options, callback)
         } else
 
         // Delete after read, if we crash now new messages will never be delivered
-        if (core.toBool(req.query._delete)) {
+        if (core.toBool(options.trash)) {
             del(rows, function() {
                 db.processRows(null, "bk_message", rows, options);
                 details(rows, info, callback);
@@ -2677,8 +2679,8 @@ api.getAccount = function(req, options, callback)
             if (!row) return callback({ status: 404, message: "not found" });
 
             // Setup session cookies for automatic authentication without signing
-            if (req.query._session && req.session) {
-                switch (req.query._session) {
+            if (req.options.session && req.session) {
+                switch (options.session) {
                 case "1":
                     var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
                     req.session["bk-signature"] = sig["bk-signature"];

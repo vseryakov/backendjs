@@ -738,7 +738,7 @@ may keep messages there as new, delete or archive them. Archiving means transfer
 
   Parameters:
    - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
-   - `_delete` - if set to 1, all returned messages will be deleted, not archived
+   - `_trash` - if set to 1, all returned messages will be deleted, not archived
    - `_details` - if set to 1, return associated account details for the sender
 
   Example:
