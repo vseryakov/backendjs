@@ -68,13 +68,13 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
-                      geohash: { location: 1 },
-                      location: { location: 1 },
-                      latitude: { type: "real", location: 1 },
+                      geohash: { location: 1 },                         // To prevent regular account updates
+                      latitude: { type: "real", location: 1 },          // overriding location columns
                       longitude: { type: "real", location: 1 },
-                      ltime: { type: "bigint", readonly: 1 }, // Last location update time
-                      ctime: { type: "bigint", readonly: 1, now: 1 },  // Create time
-                      mtime: { type: "bigint", now: 1 } },    // Last update time
+                      location: { location: 1 },
+                      ltime: { type: "bigint" },                        // Last location update time
+                      ctime: { type: "bigint", readonly: 1, now: 1 },   // Create time
+                      mtime: { type: "bigint", now: 1 } },              // Last update time
 
        // Status/presence support
        bk_status: { id: { primary: 1 },                               // account id
@@ -97,6 +97,7 @@ var api = {
                       id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
                       latitude: { type: "real" },
                       longitude: { type: "real" },
+                      alias: { pub: 1 },
                       mtime: { type: "bigint", now: 1 }},
 
        // All connections between accounts: like,dislike,friend...
@@ -1076,19 +1077,19 @@ api.initMessageAPI = function()
 
         case "get":
             self.getMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "" });
+                self.sendJSON(req, err, self.getResultPage(req, rows, info));
             });
             break;
 
         case "get/sent":
             self.getSentMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "" });
+                self.sendJSON(req, err, self.getResultPage(req, rows, info));
             });
             break;
 
         case "get/archive":
             self.getArchiveMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "" });
+                self.sendJSON(req, err, self.getResultPage(req, rows, info));
             });
             break;
 
@@ -1439,6 +1440,14 @@ api.getOptions = function(req)
         });
     }
     return req.options;
+}
+
+// Return an object to be returned to the client as a page of result data with possibly next token
+// if present in the info. This result object can be used for pagination responses.
+api.getResultPage = function(req, rows, info)
+{
+    var next_token = info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "";
+    return { count: rows.length, data: rows, next_token: next_token };
 }
 
 // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
@@ -2155,6 +2164,7 @@ api.incrCounter = function(req, options, callback)
 // Update auto counter for account and type
 api.incrAutoCounter = function(id, type, num, options, callback)
 {
+    var self = this;
     var db = core.context.db;
 
     if (!id || !type || !num) return callback(null, []);
@@ -2179,14 +2189,12 @@ api.selectConnection = function(req, options, callback)
     db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
 
-        var next_token = info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "";
-
         // Just return connections
-        if (!core.toNumber(options.details)) return callback(null, { count: rows.length, data: rows, next_token: next_token });
+        if (!core.toNumber(options.details)) return callback(null, self.getResultPage(req, rows, info));
 
         // Get all account records for the id list
         self.listAccount(rows, options, function(err, rows) {
-            callback(null, { count: rows.length, data: rows, next_token: next_token });
+            callback(null, self.getResultPage(req, rows, info));
         });
     });
 }
@@ -2209,7 +2217,8 @@ api.putConnection = function(req, options, callback)
 // Delete a connection, this function is called by the `/connection/del` API call
 api.delConnection = function(req, options, callback)
 {
-    this.deleteConnection(req.account.id, req.query, options, callback);
+    var self = this;
+    self.deleteConnection(req.account.id, req.query, options, callback);
 }
 
 // Lower level connection creation with all counters support, can be used outside of the current account scope for
@@ -2396,13 +2405,14 @@ api.getLocation = function(req, options, callback)
     if (typeof options.round == "undefined") options.round = core.minDistance;
 
     db.getLocations(table, req.query, options, function(err, rows, info) {
-        var next_token = info.more ? core.jsonToBase64(info, req.account.secret) : null;
         // Ignore current account, db still retrieves it but in the API we skip it
         rows = rows.filter(function(row) { return row.id != req.account.id });
         logger.debug("getLocations:", req.account.id, 'GEO:', info.latitude, info.longitude, info.distance, info.geohash, 'NEXT:', info.start ||'', 'ROWS:', rows.length);
+        // Next token is the whole options as oppose to regular tokens in non location requests to maintain the whole state
+        var next_token = info.more ? core.jsonToBase64(info, req.account.secret) : null;
 
         // Return accounts with locations
-        if (core.toNumber(options.details) && rows.length) {
+        if (core.toNumber(options.details) && rows.length && table != "bk_account") {
 
             self.listAccount(rows, { select: options.select }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
@@ -2414,12 +2424,13 @@ api.getLocation = function(req, options, callback)
     });
 }
 
-// Save locstion coordinates for current account, this function is called by the `/location/put` API call
+// Save location coordinates for current account, this function is called by the `/location/put` API call
 api.putLocation = function(req, options, callback)
 {
     var self = this;
     var db = core.context.db;
     var now = Date.now();
+    var table = options.table || "bk_location";
 
     var latitude = req.query.latitude, longitude = req.query.longitude;
     if (!latitude || !longitude) return callback({ status: 400, message: "latitude/longitude are required" });
@@ -2441,20 +2452,25 @@ api.putLocation = function(req, options, callback)
 
         req.query.id = req.account.id;
         req.query.geohash = geo.geohash;
-        var cols = db.getColumns("bk_location", options);
-        // Update all account columns in the location, they are very tightly connected and custom filters can
-        // be used for filtering locations based on other account properties like gender.
-        for (var p in cols) if (old[p] && !req.query[p]) req.query[p] = old[p];
+        // Return new and old coordinates
+        req.query.old = { geohash: old.geohash, latitude: old.latitude, longitude: old.longtiude };
 
         var obj = { id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
         db.update("bk_account", obj, function(err) {
             if (err) return callback(err);
 
+            // Just keep accounts with locations or if we use accounts as the location storage
+            if (options.nolocation || table == "bk_account") return callback(null, req.query);
+
+            // Update all account columns in the location, they are very tightly connected and custom filters can
+            // be used for filtering locations based on other account properties like gender.
+            var cols = db.getColumns("bk_location", options);
+            for (var p in cols) if (old[p] && !req.query[p]) req.query[p] = old[p];
+
             db.put("bk_location", req.query, function(err) {
                 if (err) return callback(err);
 
-                // Return new location record with the old coordinates
-                req.query.old = old;
+                // Never been updated yet, nothing to delete
                 if (!old.geohash || old.geohash == geo.geohash) return callback(null, req.query);
 
                 // Delete the old location, ignore the error but still log it
@@ -2469,6 +2485,7 @@ api.putLocation = function(req, options, callback)
 // Return archived messages, used in /message/get API call
 api.getArchiveMessage = function(req, options, callback)
 {
+    var self = this;
     var db = core.context.db;
 
     req.options.cleanup = "";
@@ -2482,6 +2499,7 @@ api.getArchiveMessage = function(req, options, callback)
 // Return sent messages to the specified account, used in /message/get/sent API call
 api.getSentMessage = function(req, options, callback)
 {
+    var self = this;
     var db = core.context.db;
 
     req.options.cleanup = "";
@@ -2655,6 +2673,7 @@ api.delMessage = function(req, options, callback)
 // Delete the messages in the archive, used in /message/del/archive` API call
 api.delArchiveMessage = function(req, options, callback)
 {
+    var self = this;
     options.table = "bk_archive";
     options.sender = "sender";
     this.delMessage(req, options, callback);
@@ -2663,6 +2682,7 @@ api.delArchiveMessage = function(req, options, callback)
 // Delete the messages i sent, used in /message/del/sent` API call
 api.delSentMessage = function(req, options, callback)
 {
+    var self = this;
     options.table = "bk_sent";
     options.sender = "recipient";
     this.delMessage(req, options, callback);
@@ -2731,8 +2751,7 @@ api.selectAccount = function(req, options, callback)
     var db = core.context.db;
     db.select("bk_account", req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
-        var next_token = info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "";
-        callback(err, { count: rows.length, data: rows, next_token: next_token });
+        callback(err, self.getResultPage(req, rows, info));
     });
 }
 

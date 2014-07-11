@@ -42,7 +42,6 @@
 <li><a href="#secure-web-site-backend-verification"> Secure Web site, backend verification</a></li>
 </ul>
 </li>
-<li><a href="#socket-io-connections"> socket.io connections</a></li>
 <li><a href="#websockets-connections"> WebSockets connections</a></li>
 <li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a><ul>
@@ -84,7 +83,7 @@ easily extendable to support any kind of database, provides a database driver on
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Local jobs are executed by spawned processes</li>
-<li>Supports socket.io/WebSockets connections and process them with the same Express routes as HTTP requests</li>
+<li>Supports WebSockets connections and process them with the same Express routes as HTTP requests</li>
 <li>Supports several cache modes(Redis, memcached, LRU) for the database operations.</li>
 <li>Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
@@ -533,19 +532,22 @@ a special mapping between prefix/type and album titles for example needs to be c
 by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
 then retrieving all icons for an album would be only query with album1: prefix.</p>
 <ul>
-<li><code>/icon/get/prefix</code></li>
-<li><p><code>/icon/get/prefix/type</code></p>
+<li><p><code>/icon/get</code></p>
 <p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
  configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
- separate from other accounts. <code>type</code> is used to specify unique icon created with such type which can be any string.</p>
+ separate from other accounts.</p>
+<p>The following parameters can be used:</p>
+<ul>
+<li><code>prefix</code> - must be specified, this defines the icons namespace</li>
+<li><code>type</code> is used to specify unique icon created with such type which can be any string.</li>
+</ul>
 </li>
-<li><p><code>/icon/put/prefix</code></p>
-</li>
-<li><p><code>/icon/put/prefix/type</code></p>
+<li><p><code>/icon/put</code></p>
 <p>Upload new icon for the given account in the folder prefix, if type is specified it creates an icons for this type to separate
 multiple icons for the same prefix. <code>type</code> can be any string consisting from alpha and digits characters.</p>
 <p>The following parameters can be used:</p>
 <ul>
+<li>prefix - prefix for the icons, requried</li>
 <li>descr - optional description of the icon</li>
 <li>latitude, longitude - optional coordinates for the icon</li>
 <li>acl_allow - allow access permissions, see <code>/account/put/icon</code> for the format and usage</li>
@@ -554,24 +556,20 @@ multiple icons for the same prefix. <code>type</code> can be any string consisti
 <li>_ext - image file format, default is jpg, supports: gif, png, jpg</li>
 </ul>
 </li>
-<li><p><code>/icon/del/prefix</code></p>
-</li>
-<li><p><code>/icon/del/prefix/type</code></p>
+<li><p><code>/icon/del</code></p>
 <p> Delete the default icon for the current account in the folder prefix or by type</p>
 </li>
-<li><p><code>/icon/select/prefix</code></p>
-</li>
-<li><p><code>/icon/select/prefix/type</code>
-Return list of available icons for the given prefix adn type, all icons starting with prefix/type will be returned,
+<li><p><code>/icon/select</code></p>
+<p>Return list of available icons for the given prefix adn type, all icons starting with prefix/type will be returned,
 the <code>url</code> property will provide full URL to retrieve the icon contents</p>
 <p>Example:</p>
-<pre><code>  /icon/select/album/me
-  /icon/select/album/12345
+<pre><code>  /icon/select?prefix=album&amp;type=me
+  /icon/select?prefix=album&amp;type=12345
 </code></pre><p>Responses:</p>
-<pre><code>  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-1&#39;, icon: &#39;/icon/get/album/me1&#39; },
-    { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-2&#39;, icon: &#39;/icon/get/album/me2&#39; } ]
+<pre><code>  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-1&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me1&#39; },
+    { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-2&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me2&#39; } ]
 
-  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;12345-f0deaa81a&#39;, icon: &#39;/icon/get/album/12345-f0deaa81a&#39; } ]
+  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;12345-f0deaa81a&#39;, icon: &#39;/icon/get?prefix=album&amp;type=12345-f0deaa81a&#39; } ]
 </code></pre></li>
 </ul>
 <h2 id="connections">Connections</h2>
@@ -702,7 +700,7 @@ Read all new messages, i.e. the messages that never been read or issued <code>/m
 <p>Parameters:</p>
 <ul>
 <li><code>_archive</code> - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed</li>
-<li><code>_delete</code> - if set to 1, all returned messages will be deleted, not archived</li>
+<li><code>_trash</code> - if set to 1, all returned messages will be deleted, not archived</li>
 <li><code>_details</code> - if set to 1, return associated account details for the sender</li>
 </ul>
 <p>Example:</p>
@@ -1283,25 +1281,9 @@ will never end up in this callback because it is called after the signature chec
         }
         callback(status);
     });
-</code></pre><h1 id="socket-io-connections">socket.io connections</h1>
-<p>The backend can be configured to accept socket.io connections and process requests with the same HTTP routes registered by Express server.</p>
-<p>To start listening for socket.io, the port must be set, the config parameter <code>socketio-port</code>, via command line or config file.</p>
-<p>After that on the client side socket.io.js file is available from the backend via HTTP port or /socket.io/socket.io.js via socket port.</p>
-<p>Example on the server side:</p>
-<pre><code>    ./app.js -socketio-port 8001
-</code></pre><p>Example on the client side in the browser, connect to the <a href="http://localhost:8000">http://localhost:8000</a> to get a html file:</p>
-<pre><code>    &lt;script src=&quot;/js/crypto.js&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;/js/backend.js&quot;&gt;&lt;/scropt&gt;
-    &lt;script src=&quot;socket.io.js&quot;&gt;&lt;/script&gt;
-    &lt;script&gt;
-       Backend.ioConnect(&quot;http://localhost:8001&quot;, function(obj) {
-          console.log(obj)
-       });
-       Backend.ioSend(socket, &quot;/account/get&quot;);
-    &lt;/script&gt;
 </code></pre><h1 id="websockets-connections">WebSockets connections</h1>
 <p>The simplest way is to configure <code>ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
-As with socket.io connections, all requests must be properly signed or not Web requests with all parameters encoded as for GET requests.</p>
+All requests must be properly signed with all parameters encoded as for GET requests.</p>
 <p>Example:</p>
 <pre><code>    wscat --connect ws://localhost:8000
     connected (press CTRL+C to quit)
@@ -1526,8 +1508,6 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>port</code> - port to listen for the HTTP server, this is global default. Default: 8000</li>
 <li><code>bind</code> - Bind to this address only, if not specified listen on all interfaces. Default: 0.0.0.0</li>
 <li><code>backlog</code> - The maximum length of the queue of pending connections, used by HTTP server in listen.. Default: 511</li>
-<li><code>socketio-port</code> - port to listen for sockets.io server</li>
-<li><code>socketio-bind</code> - Bind to this address only for sockets.io server, if not specified listen on all interfaces</li>
 <li><code>ws-port</code> - port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers</li>
 <li><code>ws-bind</code> - Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports</li>
 <li><code>ssl-port</code> - port to listen for HTTPS server, this is global default</li>
@@ -1728,13 +1708,13 @@ the worker processes if they die and restart them automatically. How many proces
                     state: {},
                     zipcode: {},
                     country: {},
-                    geohash: { location: 1 },
-                    location: { location: 1 },
-                    latitude: { type: &quot;real&quot;, location: 1 },
+                    geohash: { location: 1 },                         // To prevent regular account updates
+                    latitude: { type: &quot;real&quot;, location: 1 },          // overriding location columns
                     longitude: { type: &quot;real&quot;, location: 1 },
-                    ltime: { type: &quot;bigint&quot;, readonly: 1 }, // Last location update time
-                    ctime: { type: &quot;bigint&quot; },              // Create time
-                    mtime: { type: &quot;bigint&quot;, now: 1 } },    // Last update time
+                    location: { location: 1 },
+                    ltime: { type: &quot;bigint&quot; },                        // Last location update time
+                    ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // Create time
+                    mtime: { type: &quot;bigint&quot;, now: 1 } },              // Last update time
 
      // Status/presence support
      bk_status: { id: { primary: 1 },                               // account id
@@ -1745,11 +1725,11 @@ the worker processes if they die and restart them automatically. How many proces
      bk_icon: { id: { primary: 1 },                         // Account id
                 type: { primary: 1, pub: 1 },               // prefix:type
                 acl_allow: {},                              // Who can see it: all, auth, id:id...
-                ext: {},                                    // saved image extension
+                ext: {},                                    // Saved image extension
                 descr: {},
+                geohash: {},                                // Location associated with the icon
                 latitude: { type: &quot;real&quot; },
                 longitude: { type: &quot;real&quot; },
-                geohash: {},
                 mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
 
      // Locations for all accounts to support distance searches
@@ -1757,6 +1737,7 @@ the worker processes if they die and restart them automatically. How many proces
                     id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
                     latitude: { type: &quot;real&quot; },
                     longitude: { type: &quot;real&quot; },
+                    alias: { pub: 1 },
                     mtime: { type: &quot;bigint&quot;, now: 1 }},
 
      // All connections between accounts: like,dislike,friend...
@@ -1860,18 +1841,6 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 <ul>
 <li><p><code>api.cleanupSocketConnection(socket)</code></p>
 <p> Called when a socket connections is closed to cleanup all additional resources associated with it</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkSocketIORequest(data, callback)</code></p>
-<p> Called before allowing the socket.io connection to be authorized</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.handleSocketIOConnect(socket)</code></p>
-<p> Wrap external socket.io connection into the Express routing, respond on backend command</p>
 </li>
 </ul>
 
@@ -2038,6 +2007,13 @@ Check access permissions, calls the callback with the following argument:</p>
 <li><p><code>api.getOptions(req)</code></p>
 <p> Convert query options into database options, most options are the same as for <code>db.select</code> but prepended with underscore to
 distinguish control parameters from query parameters.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getResultPage(req, rows, info)</code></p>
+<p> Return an object to be returned to the client as a page of result data with possibly next token
+if present in the info. This result object can be used for pagination responses.</p>
 </li>
 </ul>
 
@@ -2226,7 +2202,7 @@ events using account id as a key.</p>
 
 <ul>
 <li><p><code>api.unsubscribe(req, options)</code></p>
-<p> Disconnect from subscription service. This forces disconnect even for persistent connections like socket.io or websockets.</p>
+<p> Disconnect from subscription service. This forces disconnect even for persistent connections like websockets.</p>
 </li>
 </ul>
 
@@ -2337,7 +2313,7 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <ul>
-<li><p><code>api.getConnection(req, options, callback)</code></p>
+<li><p><code>api.selectConnection(req, options, callback)</code></p>
 <p> Return all connections for the current account, this function is called by the <code>/connection/get</code> API call.</p>
 </li>
 </ul>
@@ -2345,6 +2321,12 @@ Output file name is built according to the following options properties:</li>
 <ul>
 <li><p><code>api.putConnection(req, options, callback)</code></p>
 <p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call with query parameters coming from the Express request.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delConnection(req, options, callback)</code></p>
+<p> Delete a connection, this function is called by the <code>/connection/del</code> API call</p>
 </li>
 </ul>
 
@@ -2364,8 +2346,9 @@ The following properties can alter the actions:</p>
 </ul>
 
 <ul>
-<li><p><code>api.delConnection(req, options, callback)</code></p>
-<p> Delete a connection, this function is called by the <code>/connection/del</code> API call</p>
+<li><p><code>api.readConnection(id, obj, options, callback)</code></p>
+<p> Return one connection for given id, obj must have .id and .type properties defined,
+if options.details is 1 then combine with account record.</p>
 </li>
 </ul>
 
@@ -2396,7 +2379,7 @@ is used in <code>/location/get</code> request. It can be used in the application
 
 <ul>
 <li><p><code>api.putLocation(req, options, callback)</code></p>
-<p> Save locstion coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
+<p> Save location coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
 </li>
 </ul>
 
@@ -2457,7 +2440,8 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>api.listAccount(rows, options, callback)</code></p>
 <p> Return account details for the list of rows, options.key specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
-The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.</p>
+The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.
+If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted</p>
 </li>
 </ul>
 

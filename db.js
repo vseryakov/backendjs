@@ -1553,13 +1553,14 @@ db.getColumn = function(table, name, options)
 db.getSelectedColumns = function(table, options)
 {
     var self = this;
-    var cols = this.getColumns(table, options);
     var select = [];
     if (options.select && options.select.length) {
+        var cols = this.getColumns(table, options);
         options.select = core.strSplitUnique(options.select);
         select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols) && options.select.indexOf(x) > -1; });
     } else
     if (options.skip_columns) {
+        var cols = this.getColumns(table, options);
         select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols); });
     }
     return select.length ? select : null;
@@ -2911,9 +2912,11 @@ db.dynamodbInitPool = function(options)
                 var idx = Object.keys(obj).filter(function(x, i) { return obj[x]["index" + n]; }).sort(function(a,b) { return obj[a]["index" + n] - obj[b]["index" + n] });
                 if (!idx.length) return;
                 var name = idx.join("_");
+                // Index starts with the same hash, local
                 if (idx.length == 2 && idx[0] == hash) {
                     local[name] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
                 } else
+                // Global if does not start with the primary hash
                 if (idx.length == 2) {
                     global[name] = core.newObj(idx[0], 'HASH', idx[1], 'RANGE');
                 } else {
@@ -2963,14 +2966,15 @@ db.dynamodbInitPool = function(options)
         case "search":
             // Save the original values of the options
             var old = pool.saveOptions(opts, 'sort', 'keys', 'select', 'start', 'count');
-            // Sorting by the range key
+            // Sorting by the default range key is default
             if (opts.sort && opts.sort == dbkeys[1]) opts.sort = null;
             // Use primary keys from the secondary index
             if (opts.sort) {
-                // Use index by name
+                // Use index by name, mostly global indexes
                 if (pool.dbindexes[table][opts.sort]) {
                     dbkeys = pool.dbindexes[table][opts.sort];
                 } else {
+                    // Local sorting order by range key
                     for (var p in pool.dbindexes[table]) {
                         var idx = pool.dbindexes[table][p];
                         if (idx && idx.length == 2 && idx[1] == opts.sort) {
