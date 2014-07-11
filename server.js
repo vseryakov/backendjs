@@ -362,7 +362,6 @@ server.startWeb = function(callback)
             core.port = core.toNumber(process.env.BACKEND_PORT || core.proxy.port);
             if (core.ssl.port) core.ssl.port = core.port + 100;
             if (core.ws.port) core.ws.port = core.port + 200;
-            if (core.socketio.port) core.socketio.port = core.port + 300;
         }
 
         // REPL command prompt over TCP

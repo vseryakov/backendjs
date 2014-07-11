@@ -21,7 +21,6 @@ var cookieParser = require('cookie-parser');
 var session = require('cookie-session');
 var serveStatic = require('serve-static');
 var formidable = require('formidable');
-var socketio = require("socket.io");
 var ws = require("ws");
 var redis = require('redis');
 var mime = require('mime');
@@ -74,7 +73,7 @@ var api = {
                       latitude: { type: "real", location: 1 },
                       longitude: { type: "real", location: 1 },
                       ltime: { type: "bigint", readonly: 1 }, // Last location update time
-                      ctime: { type: "bigint" },              // Create time
+                      ctime: { type: "bigint", readonly: 1, now: 1 },  // Create time
                       mtime: { type: "bigint", now: 1 } },    // Last update time
 
        // Status/presence support
@@ -86,11 +85,11 @@ var api = {
        bk_icon: { id: { primary: 1 },                         // Account id
                   type: { primary: 1, pub: 1 },               // prefix:type
                   acl_allow: {},                              // Who can see it: all, auth, id:id...
-                  ext: {},                                    // saved image extension
+                  ext: {},                                    // Saved image extension
                   descr: {},
+                  geohash: {},                                // Location associated with the icon
                   latitude: { type: "real" },
                   longitude: { type: "real" },
-                  geohash: {},
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
@@ -488,26 +487,6 @@ api.init = function(callback)
                 }
             }
 
-            // Sockets server(s), pass messages into the Express routing by wrapping into req/res objects socket.io server
-            if (core.socketio.port) {
-                // We must have Redis due to master/worker runtime
-                try { self.socketioServer = socketio.listen(core.socketio.port, core.socketio.options); } catch(e) { logger.error('api: init: socket.io:', core.socketio, e); }
-                if (self.socketioServer) {
-                    var p = core.socketio.options.redisPort || core.redisPort;
-                    var h = core.socketio.options.redisHost || core.redisHost;
-                    var o = core.socketio.options.redisOptions || core.redisOptions;
-                    self.socketioServer.serverName = "socket.io";
-                    self.socketioServer.serverPort = core.socketio.port;
-                    self.socketioServer.set('store', new socketio.RedisStore({ redisPub: redis.createClient(p, h, o), redisSub: redis.createClient(p, h, o), redisClient: redis.createClient(p, h, o) }));
-                    self.socketioServer.set('authorization', function(data, callback) { self.checkSocketIORequest(data, callback); });
-                    self.socketioServer.sockets.on('connection', function(socket) { self.handleSocketIOConnect(socket); });
-                    // Expose socket.io.js client library for browsers
-                    module.children.forEach(function(x) {
-                        if (x.id.match(/node_modules\/socket.io\/index.js/)) { self.app.use(serveStatic(path.dirname(x.id) + "/node_modules/socket.io-client/dist")); }
-                    });
-                }
-            }
-
             // Notify the master about new worker server
             ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true } });
 
@@ -530,10 +509,6 @@ api.shutdown = function(callback)
         function(next) {
             if (!self.wsServer) return next();
             try { self.wsServer.close(); next(); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
-        },
-        function(next) {
-            if (!self.socketioServer) return next();
-            try { self.socketioServer.server.close(function() { next() }); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
         },
         function(next) {
             if (!self.sslServer) return next();
@@ -575,37 +550,6 @@ api.setupSocketConnection = function(socket) {}
 
 // Called when a socket connections is closed to cleanup all additional resources associated with it
 api.cleanupSocketConnection = function(socket) {}
-
-// Called before allowing the socket.io connection to be authorized
-api.checkSocketIORequest = function(data, callback) { callback(null, true); }
-
-// Wrap external socket.io connection into the Express routing, respond on backend command
-api.handleSocketIOConnect = function(socket)
-{
-    var self = this;
-
-    this.setupSocketConnection(socket);
-
-    socket.on("error", function(err) {
-        logger.error("socket:", err);
-    });
-
-    socket.on("disconnect", function() {
-        self.closeWebSocketRequest(this);
-        self.cleanupSocketConnection(this);
-    });
-
-    socket.on("message", function(url, callback) {
-        var req = self.createWebSocketRequest(this, url, function(data) { if (callback) return callback(data); if (data) this.emit("message", data); });
-        req.httpProtocol = "IO";
-        if (this.handshake) {
-            if (this.handshake.headers) req.headers = this.handshake.headers;
-            if (this.handshake.address) req.socket.ip = this.handshake.address.address;
-        }
-        req = null;
-        self.handleServerRequest(this._requests[0], this._requests[0].res);
-    });
-}
 
 // Called before allowing the WebSocket connection to be authorized
 api.checkWebSocketRequest = function(data, callback) { callback(true); }
@@ -823,6 +767,7 @@ api.checkBody = function(req, res, next)
         try {
             req.body = qs.parse(data);
             req.files = qs.parse(files);
+            if (req.method == "POST" && !Object.keys(req.query).length) req.query = req.body;
             next();
         } catch (err) {
             err.status = 400;
@@ -1025,6 +970,7 @@ api.initAccountAPI = function()
         case "del/icon":
             options.op = req.params[0].substr(0, 3);
             req.query.prefix = 'account';
+            req.query.id = req.account.id;
             if (!req.query.type) req.query.type = '0';
             self.handleIconRequest(req, res, options, function(err, rows) {
                 self.sendJSON(req, err, rows);
@@ -1083,12 +1029,12 @@ api.initIconAPI = function()
     var self = this;
     var db = core.context.db;
 
-    this.app.all(/^\/icon\/([a-z]+)\/([a-z0-9\.\_\-]+)\/?([a-z0-9\.\_\-])?$/, function(req, res) {
+    this.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
         var options = self.getOptions(req);
 
+        if (!req.query.prefix) return self.sendReply(res, 400, "prefix is required");
         if (!req.query.id) req.query.id = req.account.id;
-        req.query.prefix = req.params[1];
-        req.query.type = req.params[2] || "";
+        if (!req.query.type) req.query.type = "";
         switch (req.params[0]) {
         case "get":
             self.getIcon(req, res, req.query.id, options);
@@ -1243,8 +1189,9 @@ api.initConnectionAPI = function()
             break;
 
         case "get":
+        case "select":
             options.op = req.params[0];
-            self.getConnection(req, options, function(err, data) {
+            self.selectConnection(req, options, function(err, data) {
                 self.sendJSON(req, err, data);
             });
             break;
@@ -1431,7 +1378,7 @@ api.initTables = function(options, callback)
             function onMessageRow(row, options, cols) {
                 var mtime = row.mtime.split(":");
                 row.mtime = core.toNumber(mtime[0]);
-                row.sender = mtime[1];
+                row.id = row.sender = mtime[1];
                 delete row.recipient;
                 if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
             }
@@ -1441,7 +1388,7 @@ api.initTables = function(options, callback)
             db.setProcessRow("bk_sent", options, function(row, options, cols) {
                 var mtime = row.mtime.split(":");
                 row.mtime = core.toNumber(mtime[0]);
-                row.recipient = mtime[1];
+                row.id = row.recipient = mtime[1];
                 delete row.sender;
                 if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
             });
@@ -1695,6 +1642,7 @@ api.sendJSON = function(req, err, rows)
     var self = this;
     if (err) return this.sendReply(req.res, err);
 
+    if (!rows) rows = [];
     var sent = 0;
     var hooks = this.findHook('post', req.method, req.path);
     async.forEachSeries(hooks, function(hook, next) {
@@ -1795,7 +1743,7 @@ api.subscribe = function(req, options)
     logger.debug('subscribe:', 'start', req.msgKey);
 }
 
-// Disconnect from subscription service. This forces disconnect even for persistent connections like socket.io or websockets.
+// Disconnect from subscription service. This forces disconnect even for persistent connections like websockets.
 api.unsubscribe = function(req, options)
 {
     if (req && req.msgKey) ipc.unsubscribe(req.msgKey);
@@ -1840,8 +1788,10 @@ api.handleIconRequest = function(req, res, options, callback)
     var op = options.op || "put";
 
     options.force = true;
-    options.prefix = req.query.prefix || "account";
     options.type = req.query.type || "";
+    options.prefix = req.query.prefix || "account";
+    if (!req.query.id) req.query.id = req.account.id;
+
     // Max number of allowed icons per type or globally
     var limit = self.iconLimit[options.type] || self.iconLimit['*'];
     var icons = [];
@@ -1849,7 +1799,7 @@ api.handleIconRequest = function(req, res, options, callback)
     async.series([
        function(next) {
            options.ops = { type: "begins_with" };
-           db.select("bk_icon", { id: req.account.id, type: options.prefix + ":" }, options, function(err, rows) {
+           db.select("bk_icon", { id: req.query.id, type: options.prefix + ":" }, options, function(err, rows) {
                if (err) return next(err);
                switch (op) {
                case "put":
@@ -1866,7 +1816,6 @@ api.handleIconRequest = function(req, res, options, callback)
 
        function(next) {
            options.ops = {};
-           req.query.id = req.account.id;
            req.query.type = options.prefix + ":" + options.type;
            if (options.ext) req.query.ext = options.ext;
            if (req.query.latitude && req.query.longitude) req.query.geohash = core.geoHash(req.query.latitude, req.query.longitude);
@@ -1876,7 +1825,7 @@ api.handleIconRequest = function(req, res, options, callback)
 
                switch (op) {
                case "put":
-                   self.putIcon(req, req.account.id, options, function(err, icon) {
+                   self.putIcon(req, req.query.id, options, function(err, icon) {
                        if (err || !icon) return db.del('bk_icon', req.query, options, function() { next(err || { status: 500, message: "Upload error" }); });
                        // Add new icons to the list which will be returned back to the client
                        if (!icons.some(function(x) { return x.type == options.type })) icons.push(self.formatIcon(req.query, options))
@@ -1885,7 +1834,7 @@ api.handleIconRequest = function(req, res, options, callback)
                    break;
 
                case "del":
-                   self.delIcon(req.account.id, options, function() {
+                   self.delIcon(req.query.id, options, function() {
                        icons = icons.filter(function(x) { return x.type != options.type });
                        next();
                    });
@@ -1922,7 +1871,7 @@ api.formatIcon = function(row, options)
             row.url = (options.imagesUrl || this.imagesUrl) + '/account/get/icon?';
             if (row.type != '0') row.url += 'type=' + row.type;
         } else {
-            row.url = (options.imagesUrl || this.imagesUrl) + '/icon/get/' + row.prefix + "/" + row.type + "?";
+            row.url = (options.imagesUrl || this.imagesUrl) + '/icon/get?prefix=' + row.prefix + "&type=" + row.type;
         }
         if (options && options.account && row.id != options.account.id) row.url += "&id=" + row.id;
     }
@@ -2214,7 +2163,7 @@ api.incrAutoCounter = function(id, type, num, options, callback)
 }
 
 // Return all connections for the current account, this function is called by the `/connection/get` API call.
-api.getConnection = function(req, options, callback)
+api.selectConnection = function(req, options, callback)
 {
     var self = this;
     var db = core.context.db;
@@ -2254,6 +2203,12 @@ api.putConnection = function(req, options, callback)
     if (self.allowConnection[req.query.type] && !self.allowConnection[req.query.type][op]) return callback({ status: 400, message: "invalid connection type"});
 
     this.makeConnection(req.account.id, req.query, options, callback)
+}
+
+// Delete a connection, this function is called by the `/connection/del` API call
+api.delConnection = function(req, options, callback)
+{
+    this.deleteConnection(req.account.id, req.query, options, callback);
 }
 
 // Lower level connection creation with all counters support, can be used outside of the current account scope for
@@ -2320,10 +2275,27 @@ api.makeConnection = function(id, obj, options, callback)
     });
 }
 
-// Delete a connection, this function is called by the `/connection/del` API call
-api.delConnection = function(req, options, callback)
+// Return one connection for given id, obj must have .id and .type properties defined,
+// if options.details is 1 then combine with account record.
+api.readConnection = function(id, obj, options, callback)
 {
-    this.deleteConnection(req.account.id, req.query, options, callback);
+    var self = this;
+    var db = core.context.db;
+
+    var query = { id: id, type: obj.type + ":" + obj.id };
+    for (var p in obj) if (p != "id" && p != "type") query[p] = obj[p];
+
+    db.get("bk_connection", query, options, function(err, row) {
+        if (err || !row) return callback(err, row);
+
+        // Just return connections
+        if (!core.toNumber(options.details)) return callback(err, row);
+
+        // Get all account records for the id list
+        self.listAccount([ row ], options, function(err, rows) {
+            callback(null, row);
+        });
+    });
 }
 
 // Lower level connection deletion, for given account `id`, the other id and type is in the `obj`, performs deletion of all
@@ -2604,7 +2576,7 @@ api.addMessage = function(req, options, callback)
     var self = this;
     var db = core.context.db;
     var now = Date.now();
-    var info = {};
+    var info = {}, sent = core.cloneObj(req.query);
 
     if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
@@ -2626,7 +2598,6 @@ api.addMessage = function(req, options, callback)
         },
         function(next) {
             if (options.nosent) return next();
-            var sent = core.cloneObj(req.query);
             sent.id = req.account.id;
             sent.recipient = req.query.id;
             sent.mtime = now + ':' + sent.recipient;
@@ -2643,8 +2614,8 @@ api.addMessage = function(req, options, callback)
         ], function(err) {
             if (err) return callback(err);
             self.metrics.messages.Meter('add').mark();
-            db.processRows("", "bk_sent", req.query, options);
-            callback(null, req.query, info);
+            db.processRows("", "bk_sent", sent, options);
+            callback(null, sent, info);
     });
 }
 
@@ -2727,6 +2698,7 @@ api.getAccount = function(req, options, callback)
 
 // Return account details for the list of rows, options.key specified the column to use for the account id in the `rows`, or `id` will be used.
 // The result accounts are cleaned for public columns, all original properties from the `rows` are kept as is.
+// If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted
 api.listAccount = function(rows, options, callback)
 {
     var self = this;
@@ -2736,12 +2708,16 @@ api.listAccount = function(rows, options, callback)
     rows.forEach(function(x) { if (!map[x[key]]) map[x[key]] = []; map[x[key]].push(x); });
     db.list("bk_account", Object.keys(map).map(function(x) { return { id: x } }), { select: options.select }, function(err, list) {
         if (err) return callback(err, []);
+
         self.checkPublicColumns("bk_account", list, options);
         list.forEach(function(x) {
             map[x.id].forEach(function(row) {
                 for (var p in x) if (!row[p]) row[p] = x[p];
+                if (options.existing) row._id = 1;
             });
         });
+        // Remove rows without account info
+        if (options.existing) rows = rows.filter(function(x) { return x._id; }).map(function(x) { delete x._id; return x; });
         callback(null, rows);
     });
 }
@@ -2765,39 +2741,43 @@ api.addAccount = function(req, options, callback)
     var db = core.context.db;
 
     // Verify required fields
-    if (!req.query.secret) return callback({ status: 400, message: "secret is required"});
     if (!req.query.name) return callback({ status: 400, message: "name is required"});
-    if (!req.query.login) return callback({ status: 400, message: "login is required"});
     if (!req.query.alias) req.query.alias = req.query.name;
     req.query.id = core.uuid();
     req.query.mtime = req.query.ctime = Date.now();
 
-    // Copy for the auth table in case we have different properties that needs to be cleared
-    var query = core.cloneObj(req.query);
-    self.clearQuery(req.query, options, "bk_account", "location");
+    async.series([
+       function(next) {
+           if (options.noauth) return next();
+           if (!req.query.secret) return next({ status: 400, message: "secret is required"});
+           if (!req.query.login) return next({ status: 400, message: "login is required"});
+           // Copy for the auth table in case we have different properties that needs to be cleared
+           var query = core.cloneObj(req.query);
+           if (req.account.type != "admin") self.clearQuery(query, options, "bk_auth", "admin");
 
-    // Only admin can add accounts with admin properties
-    if (req.account.type != "admin") {
-        self.clearQuery(query, options, "bk_auth", "admin");
-        self.clearQuery(req.query, options, "bk_account", "admin");
-    }
-    db.add("bk_auth", query, options, function(err) {
-        if (err) return callback(err);
+           db.add("bk_auth", query, options, next);
+       },
+       function(next) {
+           // Only admin can add accounts with admin properties
+           if (req.account.type != "admin") self.clearQuery(req.query, options, "bk_account", "admin");
+           self.clearQuery(req.query, options, "bk_account", "location");
 
-        db.add("bk_account", req.query, function(err) {
-            // Remove the record by login to make sure we can recreate it later
-            if (err) return db.del("bk_auth", { login: req.query.login }, function() { callback(err); });
-
-            self.metrics.accounts.Meter('add').mark();
-
-            db.processRows(null, "bk_account", req.query, options);
-            // Link account record for other middleware
-            req.account = req.query;
-            // Some dbs require the record to exist, just make one with default values
-            db.put("bk_counter", req.query, function() {
-                callback(err, req.query);
-            });
-        });
+           db.add("bk_account", req.query, function(err) {
+               // Remove the record by login to make sure we can recreate it later
+               if (err && !options.noauth) return db.del("bk_auth", { login: req.query.login }, function() { next(err); });
+               next(err);
+           });
+       },
+       function(next) {
+           self.metrics.accounts.Meter('add').mark();
+           db.processRows(null, "bk_account", req.query, options);
+           // Link account record for other middleware
+           req.account = req.query;
+           // Some dbs require the record to exist, just make one with default values
+           db.put("bk_counter", req.query, function() { next(); });
+       },
+       ], function(err) {
+            callback(err, req.query);
     });
 }
 
@@ -2809,23 +2789,28 @@ api.updateAccount = function(req, options, callback)
     req.query.mtime = Date.now();
     req.query.id = req.account.id;
 
-    // Copy for the auth table in case we have different properties that needs to be cleared
-    var query = core.cloneObj(req.query);
-    self.clearQuery(req.query, options, "bk_account", "location");
+    async.series([
+       function(next) {
+           if (options.noauth) return next();
+           // Copy for the auth table in case we have different properties that needs to be cleared
+           var query = core.cloneObj(req.query);
+           // Skip admin properties if any
+           if (req.account.type != "admin") self.clearQuery(query, options, "bk_auth", "admin");
+           query.login = req.account.login;
+           // Avoid updating bk_auth and flushing cache if nothing to update
+           var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { all_columns: 1, skip_columns: ["id","login","mtime"] });
+           if (!Object.keys(obj).length) return callback(err, rows, info);
+           db.update("bk_auth", query, next);
+       },
+       function(next) {
+           self.clearQuery(req.query, options, "bk_account", "location");
 
-    // Skip admin properties if any
-    if (req.account.type != "admin") {
-        self.clearQuery(query, options, "bk_auth", "admin");
-        self.clearQuery(req.query, options, "bk_account", "admin");
-    }
-    db.update("bk_account", req.query, function(err, rows, info) {
-        if (err) return callback(err);
-
-        // Avoid updating bk_auth and flushing cache if nothing to update
-        query.login = req.account.login;
-        var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { all_columns: 1, skip_columns: ["id","login","mtime"] });
-        if (!Object.keys(obj).length) return callback(err, rows, info);
-        db.update("bk_auth", query, callback);
+           // Skip admin properties if any
+           if (req.account.type != "admin") self.clearQuery(req.query, options, "bk_account", "admin");
+           db.update("bk_account", req.query, next);
+       },
+       ], function(err) {
+            callback(err, []);
     });
 }
 
@@ -2857,7 +2842,7 @@ api.deleteAccount = function(id, options, callback)
 
         async.series([
            function(next) {
-               if (options.keep.auth) return next();
+               if (options.keep.auth || !obj.login) return next();
                db.del("bk_auth", { login: obj.login }, options, next);
            },
            function(next) {

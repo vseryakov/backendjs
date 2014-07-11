@@ -190,7 +190,7 @@ case "$ARG" in
     if [ "$(grep '#Backend' $BHOME/.bashrc)" = "" ]; then
        echo '#Backend' >> $BHOME/.bashrc
        echo "umask 022" >> $BHOME/.bashrc
-       echo 'export PATH=$PATH:$BHOME/bin:$BHOME/node_modules/.bin' >> $BHOME/.bashrc
+       echo "export PATH=\$PATH:$BHOME/bin:$BHOME/node_modules/.bin" >> $BHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $BHOME/.bashrc
        echo "alias blog=\"tail -100 $BACKEND_HOME/log/backend.log\"" >> $BHOME/.bashrc
        echo "alias elog=\"tail -100 $BACKEND_HOME/log/error.log\"" >> $BHOME/.bashrc
@@ -198,7 +198,7 @@ case "$ARG" in
        echo 'alias ps="ps augx"' >> $BHOME/.bashrc
        echo 'alias mc="mc -b"' >> $BHOME/.bashrc
        echo 'alias df="df -h"' >> $BHOME/.bashrc
-       echo 'bcp() { socat readline,history=~/.socat tcp4:localhost:208${1-0} }' >> $BHOME/.bashrc
+       echo 'bcp() { socat readline,history=~/.socat tcp4:localhost:208${1-0}; }' >> $BHOME/.bashrc
     fi
     ;;
 
@@ -795,7 +795,7 @@ $(whoami)
 @@@
     fi
 
-    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $NODE_BIN $NAME.js -watch -web -debug -etc-dir \`pwd\`/etc -web-dir \`pwd\`/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $NODE_BIN $NAME.js -watch \`pwd\` -web -debug -etc-dir \`pwd\`/etc -web-dir \`pwd\`/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
     [ ! -e .gitignore ] && $ECHO "*~\n.*\nbin/\ndocs/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
 
     if [ ! -e etc/config ]; then
@@ -924,7 +924,7 @@ api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) {
 
 backend.server.start();
 @@@
-      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"app\",\n \"main\": \"app.js\",\n \"dependencies\": { \"$BKJS\": \">=0.9.0\" },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
+      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"The backend\",\n \"main\": \"app.js\",\n \"dependencies\": { \"$BKJS\": \">=0.9.0\" },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
     fi
     ;;
 

@@ -66,7 +66,7 @@ Backend.dialogLogin = function(action, callback, errmsg)
             <p class="ui-title">Please provide your account login and password.</p>\
             <p class="ui-error"></p>\
             <form id=backend-login-form>\
-            <fieldset style="padding:0;border:0;margin-top:25px;">\
+            <fieldset style="padding:10px;border:0;margin-top:25px;">\
             <label for="backend-login" style="display:block">Login</label>\
             <input type="text" id="backend-login" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
             <label for="backend-secret" style="display:block">Password</label>\

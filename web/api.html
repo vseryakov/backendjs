@@ -17,7 +17,6 @@
 
  <script src="js/backend.js" type="text/javascript"></script>
  <script src="js/backend-jquery-ui.js" type="text/javascript"></script>
- <script src="socket.io.js" type="text/javascript"></script>
 
  <style>
 
@@ -304,7 +303,6 @@ $(function() {
           <td colspan=2></td>
           <td><input type="checkbox" data-bind="checked: apiEscape" title="Encode url query, it is in the human readable form"/> Encode URL</td>
           <td><input type="checkbox" data-bind="checked: apiWS" title="Use WebSockets connection instead of HTTP"/> WebSockets</td>
-          <td><input type="checkbox" data-bind="checked: apiSocket" title="Use socket.io connection instead of HTTP"/> Socket.io</td>
           <td><input type="checkbox" data-bind="checked: apiSession" title="Create a web session, it is needed to use file uploads from the console"/> Session</td>
           <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/> Tabular</td>
           <td><img id="loading" src="img/loading.gif"></td>

@@ -2967,12 +2967,17 @@ db.dynamodbInitPool = function(options)
             if (opts.sort && opts.sort == dbkeys[1]) opts.sort = null;
             // Use primary keys from the secondary index
             if (opts.sort) {
-                for (var p in pool.dbindexes[table]) {
-                    var idx = pool.dbindexes[table][p];
-                    if (idx && idx.length == 2 && idx[1] == opts.sort) {
-                        dbkeys = pool.dbindexes[table][p];
-                        opts.sort = p;
-                        break;
+                // Use index by name
+                if (pool.dbindexes[table][opts.sort]) {
+                    dbkeys = pool.dbindexes[table][opts.sort];
+                } else {
+                    for (var p in pool.dbindexes[table]) {
+                        var idx = pool.dbindexes[table][p];
+                        if (idx && idx.length == 2 && idx[1] == opts.sort) {
+                            opts.sort = p;
+                            dbkeys = pool.dbindexes[table][p];
+                            break;
+                        }
                     }
                 }
             }
@@ -3072,6 +3077,7 @@ db.dynamodbInitPool = function(options)
         case "update":
             var keys = self.getSearchQuery(table, obj);
             if (!options.expected && !options.Expected) opts.expected = keys;
+            if (opts.counter) opts.counter.forEach(function(x) { opts.ops[x] = 'ADD'; });
             aws.ddbUpdateItem(table, keys, obj, opts, function(err, rc) {
                 callback(err, [], rc);
             });
@@ -3315,25 +3321,19 @@ db.mongodbInitPool = function(options)
         case "put":
             opts.upsert = true;
 
+        case "incr":
         case "update":
             var collection = client.collection(table);
             var keys = self.getSearchQuery(table, obj, opts);
-            collection.update(keys, { "$set": obj }, opts, function(err, rc) {
-                callback(err, []);
+            var o = obj, i = {}, q = {};
+            (opts.counter || []).forEach(function(x) {
+                if (keys[x]) return;
+                i[x] = core.toNumber(obj[x]);
+                delete o[x];
             });
-            break;
-
-        case "incr":
-            var collection = client.collection(table);
-            var keys = self.getSearchQuery(table, obj, opts);
-            var o = { '$inc': {} };
-            if (opts.counter) {
-                opts.counter.forEach(function(x) {
-                    if (!keys[x]) o['$inc'][x] = core.toNumber(obj[x]);
-                    delete o[x];
-                });
-            }
-            collection.update(keys, o, opts, function(err, rc) {
+            if (Object.keys(o).length) q["$set"] = o;
+            if (Object.keys(i).length) q["$inc"] = i;
+            collection.update(keys, q, opts, function(err, rc) {
                 callback(err, []);
             });
             break;

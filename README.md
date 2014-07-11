@@ -16,7 +16,7 @@ Features:
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
-* Supports socket.io/WebSockets connections and process them with the same Express routes as HTTP requests
+* Supports WebSockets connections and process them with the same Express routes as HTTP requests
 * Supports several cache modes(Redis, memcached, LRU) for the database operations.
 * Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
@@ -544,20 +544,23 @@ by prefix or exactly by icon type. For example album id can be prefixed first, t
 then retrieving all icons for an album would be only query with album1: prefix.
 
 
-- `/icon/get/prefix`
-- `/icon/get/prefix/type`
+- `/icon/get`
 
    Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
    configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
-   separate from other accounts. `type` is used to specify unique icon created with such type which can be any string.
+   separate from other accounts.
 
-- `/icon/put/prefix`
-- `/icon/put/prefix/type`
+  The following parameters can be used:
+  - `prefix` - must be specified, this defines the icons namespace
+  - `type` is used to specify unique icon created with such type which can be any string.
+
+- `/icon/put`
 
   Upload new icon for the given account in the folder prefix, if type is specified it creates an icons for this type to separate
   multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters.
 
   The following parameters can be used:
+    - prefix - prefix for the icons, requried
     - descr - optional description of the icon
     - latitude, longitude - optional coordinates for the icon
     - acl_allow - allow access permissions, see `/account/put/icon` for the format and usage
@@ -565,27 +568,26 @@ then retrieving all icons for an album would be only query with album1: prefix.
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg
 
-- `/icon/del/prefix`
-- `/icon/del/prefix/type`
+- `/icon/del`
 
    Delete the default icon for the current account in the folder prefix or by type
 
-- `/icon/select/prefix`
-- `/icon/select/prefix/type`
+- `/icon/select`
+
   Return list of available icons for the given prefix adn type, all icons starting with prefix/type will be returned,
   the `url` property will provide full URL to retrieve the icon contents
 
   Example:
 
-        /icon/select/album/me
-        /icon/select/album/12345
+        /icon/select?prefix=album&type=me
+        /icon/select?prefix=album&type=12345
 
   Responses:
 
-        [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me-1', icon: '/icon/get/album/me1' },
-          { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me-2', icon: '/icon/get/album/me2' } ]
+        [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me-1', icon: '/icon/get?prefix=album&type=me1' },
+          { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me-2', icon: '/icon/get?prefix=album&type=me2' } ]
 
-        [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: '12345-f0deaa81a', icon: '/icon/get/album/12345-f0deaa81a' } ]
+        [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: '12345-f0deaa81a', icon: '/icon/get?prefix=album&type=12345-f0deaa81a' } ]
 
 ## Connections
 The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
@@ -1343,34 +1345,10 @@ will never end up in this callback because it is called after the signature chec
             callback(status);
         });
 
-# socket.io connections
-
-The backend can be configured to accept socket.io connections and process requests with the same HTTP routes registered by Express server.
-
-To start listening for socket.io, the port must be set, the config parameter `socketio-port`, via command line or config file.
-
-After that on the client side socket.io.js file is available from the backend via HTTP port or /socket.io/socket.io.js via socket port.
-
-Example on the server side:
-
-        ./app.js -socketio-port 8001
-
-Example on the client side in the browser, connect to the http://localhost:8000 to get a html file:
-
-        <script src="/js/crypto.js"></script>
-        <script src="/js/backend.js"></scropt>
-        <script src="socket.io.js"></script>
-        <script>
-           Backend.ioConnect("http://localhost:8001", function(obj) {
-              console.log(obj)
-           });
-           Backend.ioSend(socket, "/account/get");
-        </script>
-
 # WebSockets connections
 
 The simplest way is to configure `ws-port` to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
-As with socket.io connections, all requests must be properly signed or not Web requests with all parameters encoded as for GET requests.
+All requests must be properly signed with all parameters encoded as for GET requests.
 
 Example:
 

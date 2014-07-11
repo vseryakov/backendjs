@@ -6,14 +6,17 @@
 // Core backend support
 var Backend = {
 
+    // True if current credentials are good
+    loggedIn: false,
+
     // Support sessions
     session: false,
 
     // Scramble real login and secret
     scramble: false,
 
-    // Socket.io config
-    ioconf: { host: null, port: 8001, errors: 0 },
+    // Current account
+    account: null,
 
     // Websockets
     wsconf: { host: null, port: 8000, errors: 0 },
@@ -41,8 +44,11 @@ var Backend = {
     getAccount: function(callback) {
         var self = this;
         self.send("/account/get?" + (this.session ? "_session=1" : "_session=0"), function(data) {
+            self.loggedIn = true;
+            self.account = data;
             if (callback) callback(null, data);
         }, function(err) {
+            self.loggedIn = false;
             self.setCredentials();
             if (callback) callback(err);
         });
@@ -58,8 +64,11 @@ var Backend = {
         obj.login = creds.login;
         obj.secret = creds.secret;
         self.send({ type: "POST", url: "/account/add", data: jQuery.param(obj), nosignature: 1 }, function(data) {
+            self.loggedIn = true;
             if (callback) callback(null, data);
         }, function(err) {
+            self.loggedIn = false;
+            self.setCredentials();
             if (callback) callback(err);
         });
     },
@@ -79,6 +88,7 @@ var Backend = {
 
     // Logout and clear all local credentials
     logout: function() {
+        self.loggedIn = false;
         this.setCredentials();
     },
 
@@ -99,11 +109,12 @@ var Backend = {
         if (!expires || typeof expires != "number") expires = now + 30000;
         if (expires < now) expires += now;
         var ctype = options.contentType || "";
-        if (!ctype && method == "POST") type = "application/x-www-form-urlencoded; charset=UTF-8";
+        if (!ctype && method == "POST") ctype = "application/x-www-form-urlencoded; charset=UTF-8";
         var q = String(url || "/").split("?");
         url = q[0];
         if (!query) query = q[1] || "";
         if (query instanceof FormData) query = "";
+        if (typeof query == "object") query = jQuery.param(query);
         query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
         var str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
         switch (creds.sigversion) {
@@ -182,41 +193,6 @@ var Backend = {
         }
         $('#loading').show(), state.count++;
         $.ajax(options);
-    },
-
-    // Connect to socket.io host and register callback on message receive
-    ioConnect: function(url, options, onmessage, onerror) {
-        var self = this;
-        if (typeof options == "function") onmessage = options, onerror = onmessage, options = {};
-        if (!url) url = "http://" + (this.ioconf.host || window.location.hostname) + ":" + this.ioconf.port;
-        this.ioconf.errors = 0;
-        this.io = io.connect(url, options);
-        this.io.on("connect", function() {
-            self.io.on("message", onmessage || function(data) { console.log('socket.io:', data) });
-        });
-        this.io.on("error", function(err) {
-            console.log('socket.io:', self.ioconf.errors, err);
-            // Well, as 0.9.16 storm of reconnects can kill the server, we have to stop it
-            if (++self.ioconf.errors > 10) return self.ioClose();
-            onerror && onerror(err);
-        });
-        return this.io;
-    },
-
-    // Destroy the socket completely
-    ioClose: function() {
-        if (!this.io) return;
-        this.io.removeAllListeners();
-        this.io.socket.options.reconnect = false;
-        this.io.disconnect();
-        this.io.socket.transport.close();
-        for (var p in io.sockets) if (io.sockets[p] == this.io.socket) delete io.sockets[p];
-        this.io = null;
-    },
-
-    // Send request with the socket.io connection, url must be url-encoded, only GET requests are supported
-    ioSend: function(url, callback) {
-        if (this.io) this.io.emit("message", Backend.signUrl(url), callback);
     },
 
     // WebSokets helper functions
