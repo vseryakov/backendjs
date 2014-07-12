@@ -2971,7 +2971,7 @@ db.dynamodbInitPool = function(options)
             // Use primary keys from the secondary index
             if (opts.sort) {
                 // Use index by name, mostly global indexes
-                if (pool.dbindexes[table][opts.sort]) {
+                if (pool.dbindexes[table] && pool.dbindexes[table][opts.sort]) {
                     dbkeys = pool.dbindexes[table][opts.sort];
                 } else {
                     // Local sorting order by range key

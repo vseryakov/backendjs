@@ -116,6 +116,7 @@ var api = {
        bk_message: { id: { primary: 1 },                         // my account_id
                      mtime: { primary: 1 },                      // mtime:sender
                      sender: { index: 1 },                       // Sender id
+                     alias: {},                                  // Sender alias
                      acl_allow: {},                              // Who has access: all, auth, id:id...
                      msg: {},                                    // Text of the message
                      icon: { type: "int" }},                     // 1 - icon present, 0 - no icon
@@ -124,6 +125,7 @@ var api = {
        bk_archive: { id: { primary: 1, index: 1 },               // my account_id
                      mtime: { primary: 1 },                      // mtime:sender
                      sender: { index: 1 },                       // Sender id
+                     alias: {},                                  // Sender alias
                      msg: {},                                    // Text of the message
                      icon: { type: "int" }},                     // 1 - icon present, 0 - no icon
 
@@ -131,6 +133,7 @@ var api = {
        bk_sent: { id: { primary: 1, index: 1 },                // my account
                   mtime: { primary: 1 },                       // mtime:recipient
                   recipient: { index: 1 },                     // Recipient id
+                  alias: {},                                   // Recipient alias
                   msg: {},                                     // Text of the message
                   icon: { type: "int" }},                      // 1 - icon present, 0 - no icon
 
@@ -2604,6 +2607,7 @@ api.addMessage = function(req, options, callback)
     async.series([
         function(next) {
             req.query.sender = req.account.id;
+            req.query.alias = req.account.alias;
             req.query.mtime = now + ":" + req.query.sender;
             self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
                 req.query.icon = icon ? 1 : 0;
@@ -2617,10 +2621,18 @@ api.addMessage = function(req, options, callback)
             });
         },
         function(next) {
-            if (options.nosent) return next();
+            if (options.nocounter) return next();
+            self.incrAutoCounter(req.account.id, 'msg0', 1, options, function() { next(); });
+        },
+        function(next) {
+            if (options.nocounter) return next();
+            self.incrAutoCounter(req.query.id, 'msg1', 1, options, function() { next(); });
+        },
+        function(next) {
             sent.id = req.account.id;
             sent.recipient = req.query.id;
             sent.mtime = now + ':' + sent.recipient;
+            if (options.nosent) return next();
             db.add("bk_sent", sent, options, function(err, rows) {
                 if (err) return db.del("bk_message", req.query, function() { next(err); });
                 next();

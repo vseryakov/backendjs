@@ -14,7 +14,7 @@ Backend.getButton = function(dialog, name)
         if ($(this).text() == name || $(this).parent().attr('id') == name) button = $(this);
     });
     return button;
-},
+}
 
 // Enable or hide the button by name
 Backend.enableButton = function(dialog, name, enable)
@@ -26,7 +26,7 @@ Backend.enableButton = function(dialog, name, enable)
     } else {
         button.hide();
     }
-},
+}
 
 // Set or clear error message for the dialog
 Backend.setError = function(dialog, msg)
@@ -36,11 +36,10 @@ Backend.setError = function(dialog, msg)
     } else {
         $(dialog).find('.ui-error').text("").removeClass("ui-state-highlight");
     }
-},
+}
 
 // Verify if credentials are valid and if not raise popup dialog
-Backend.login = function(callback)
-{
+Backend.login = function(callback) {
     var self = this;
     this.getAccount(function(err, data) {
         if (!err) {
@@ -52,7 +51,7 @@ Backend.login = function(callback)
             self.dialogLogin("open", callback, err);
         }
     });
-},
+}
 
 // Login UI control
 Backend.dialogLogin = function(action, callback, errmsg)
@@ -120,7 +119,7 @@ Backend.dialogLogin = function(action, callback, errmsg)
 
     div.dialog("option", "callback", callback || null).dialog("option", "msg", errmsg || "");
     return div.dialog(action);
-},
+}
 
 // Show alert popup with optional timeout for autoclose
 Backend.dialogAlert = function(msg, timeout)
@@ -181,7 +180,7 @@ Backend.dialogConfirm = function(msg, onok, oncancel)
     div.dialog('option', 'onok', onok);
     div.dialog('option', 'oncancel', oncancel);
     return div.dialog('open');
-},
+}
 
 // Show confirm dialog with optional select box
 Backend.dialogChoices = function(msg, list, onok, oncancel)

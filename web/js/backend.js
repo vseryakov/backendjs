@@ -46,11 +46,11 @@ var Backend = {
         self.send("/account/get?" + (this.session ? "_session=1" : "_session=0"), function(data) {
             self.loggedIn = true;
             self.account = data;
-            if (callback) callback(null, data);
+            if (typeof callback == "function") callback(null, data);
         }, function(err) {
             self.loggedIn = false;
             self.setCredentials();
-            if (callback) callback(err);
+            if (typeof callback == "function") callback(err);
         });
     },
 
@@ -65,11 +65,11 @@ var Backend = {
         obj.secret = creds.secret;
         self.send({ type: "POST", url: "/account/add", data: jQuery.param(obj), nosignature: 1 }, function(data) {
             self.loggedIn = true;
-            if (callback) callback(null, data);
+            if (typeof callback == "function") callback(null, data);
         }, function(err) {
             self.loggedIn = false;
             self.setCredentials();
-            if (callback) callback(err);
+            if (typeof callback == "function") callback(err);
         });
     },
 
@@ -90,6 +90,13 @@ var Backend = {
     logout: function() {
         self.loggedIn = false;
         this.setCredentials();
+    },
+
+    // Try to login with the supplied credentials
+    login: function(login, secret, callback) {
+        if (typeof login == "function") callback = login, login = secret = null;
+        if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
+        this.getAccount(callback);
     },
 
     // Sign request with key and secret
