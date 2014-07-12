@@ -763,14 +763,15 @@ db.delAll = function(table, query, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
+    options.noprocessrows = 1;
 
     // Custom handler for the operation
     var pool = this.getPool(table, options);
     if (pool.delAll && !options.process) return pool.delAll(table, query, options, callback);
 
     // Options without ops for delete
-    var opts = core.cloneObj(options, { ops: 1 }, 'noprocessrows', 1, 'ops', {});
-    self.select(table, query, opts, function(err, rows) {
+    var opts = core.cloneObj(options, { ops: 1 }, 'ops', {});
+    self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
         async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
@@ -933,6 +934,7 @@ db.scan = function(table, query, options, rowCallback, callback)
     options = this.getOptions(table, options);
     if (!options.count) options.count = 100;
     options.start = "";
+    options.noprocessrows = 1;
 
     async.whilst(
       function() {
@@ -2930,9 +2932,7 @@ db.dynamodbInitPool = function(options)
             // All native properties for options from the key columns
             Object.keys(attrs).forEach(function(x) {
                 attrs[x] = ["int","bigint","double","real","counter"].indexOf(obj[x].type || "text") > -1 ? "N" : "S";
-                for (var p in obj[x].dynamodb) {
-                    opts[p] = core.mergeObj(opts[p], obj[x].dynamodb[p]);
-                }
+                for (var p in obj[x].dynamodb) opts[p] = obj[x].dynamodb[p];
             });
 
             opts.local = local;

@@ -72,7 +72,7 @@ var api = {
                       latitude: { type: "real", location: 1 },          // overriding location columns
                       longitude: { type: "real", location: 1 },
                       location: { location: 1 },
-                      ltime: { type: "bigint" },                        // Last location update time
+                      ltime: { type: "bigint", location: 1 },           // Last location update time
                       ctime: { type: "bigint", readonly: 1, now: 1 },   // Create time
                       mtime: { type: "bigint", now: 1 } },              // Last update time
 

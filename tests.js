@@ -127,7 +127,7 @@ tests.account = function(callback)
         function(next) {
             var options = { url: "/account/get", login: login, secret: secret }
             core.sendRequest(options, function(err, params) {
-                core.checkTest(next,err, !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude || params.obj.type || params.obj.ltime, "err1:",params.obj);
+                core.checkTest(next,err, !params.obj || params.obj.name != name || params.obj.alias != "test" + name || params.obj.latitude != latitude || params.obj.type, "err2:",params.obj);
             });
         },
         function(next) {
@@ -145,7 +145,7 @@ tests.account = function(callback)
         function(next) {
             var options = { url: "/account/select/icon", login: login, secret: secret, query: { _consistent: 1 } }
             core.sendRequest(options, function(err, params) {
-                core.checkTest(next, err, !params.obj || params.obj.length!=2+icons.length || !params.obj[0].acl_allow || !params.obj[0].prefix, "err2:", params.obj);
+                core.checkTest(next, err, !params.obj || params.obj.length!=2+icons.length || !params.obj[0].acl_allow || !params.obj[0].prefix, "err2-1:", params.obj);
             });
         },
         function(next) {
