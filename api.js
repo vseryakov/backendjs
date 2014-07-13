@@ -432,11 +432,6 @@ api.init = function(callback)
         if (self.disable.indexOf(p) == -1) self[self.endpoints[p]].call(this);
     }
 
-    // Remove default API tables for disabled endpoints
-    self.disable.forEach(function(x) { delete self.tables['bk_' + x] });
-    if (!self.tables.bk_account) delete self.tables.bk_auth;
-    if (!self.tables.bk_connection) delete self.tables.bk_reference;
-
     // Disable access to endpoints if session exists, meaning Web app
     if (self.disableSession.rx) {
         self.registerPreProcess('', self.disableSession.rx, function(req, status, cb) {
@@ -2251,8 +2246,6 @@ api.makeConnection = function(id, obj, options, callback)
             db[op]("bk_connection", query, options, function(err) {
                 if (err || op == 'update') return next(err);
                 self.metrics.connections.Meter(op + ":" + obj.type).mark();
-                // Keep track of all connection counters
-                if (!options.nocounter) return self.incrAutoCounter(id, obj.type + '0', 1, options, function(err) { next() });
                 next();
             });
         },
@@ -2265,14 +2258,22 @@ api.makeConnection = function(id, obj, options, callback)
                 if (err || op == 'update') return next(err);
                 // Remove on error
                 if (err) return db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function() { next(err); });
-                // Keep track of all reference counters
-                if (!options.nocounter) return self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
                 next();
             });
         },
         function(next) {
+            // Keep track of all connection counters
+            if (options.nocounter) return next();
+            self.incrAutoCounter(id, obj.type + '0', 1, options, function(err) { next() });
+        },
+        function(next) {
+            if (options.nocounter) return next();
+            self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
+        },
+        function(next) {
             // Notify about connection change
-            if (!options.nopublish) self.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: (options.account || {}).alias, type: obj.type }, options);
+            if (options.nopublish) return next();
+            self.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: (options.account || {}).alias, type: obj.type }, options);
             next();
         },
         function(next) {
@@ -2327,6 +2328,7 @@ api.deleteConnection = function(id, obj, options, callback)
                db.del("bk_connection", { id: id, type: row.type + ":" + row.id }, options, next);
            },
            function(next) {
+               if (options.nocounter) return next();
                self.incrAutoCounter(id, row.type + '0', -1, options, function() { next(); });
            },
            function(next) {
@@ -2335,6 +2337,7 @@ api.deleteConnection = function(id, obj, options, callback)
            },
            function(next) {
                if (options.noreference) return next();
+               if (options.nocounter) return next();
                self.incrAutoCounter(row.id, row.type + '1', -1, options, function() { next() });
            }
            ], function(err) {
@@ -2791,11 +2794,12 @@ api.addAccount = function(req, options, callback)
            db.add("bk_auth", query, options, next);
        },
        function(next) {
+           var query = core.cloneObj(req.query);
            // Only admin can add accounts with admin properties
-           if (req.account.type != "admin") self.clearQuery(req.query, options, "bk_account", "admin");
-           self.clearQuery(req.query, options, "bk_account", "location");
+           if (req.account.type != "admin") self.clearQuery(query, options, "bk_account", "admin");
+           self.clearQuery(query, options, "bk_account", "location");
 
-           db.add("bk_account", req.query, function(err) {
+           db.add("bk_account", query, function(err) {
                // Remove the record by login to make sure we can recreate it later
                if (err && !options.noauth) return db.del("bk_auth", { login: req.query.login }, function() { next(err); });
                next(err);

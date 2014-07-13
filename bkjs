@@ -441,7 +441,7 @@ case "$ARG" in
         ;;
 
      run-shell|bksh)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME -shell $@
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BACKEND_HOME -shell -log log $@
         ;;
 
      *)

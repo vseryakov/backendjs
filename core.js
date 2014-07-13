@@ -482,7 +482,7 @@ core.processArgs = function(name, ctx, argv, pass)
             if (!x.name) return;
             // Core sets global parameters, all others by module
             var cname = (name == "core" ? "" : "-" + name) + '-' + x.name;
-            if (argv.indexOf(cname) == -1) return;
+            if (argv.lastIndexOf(cname) == -1) return;
             var kname = x.key || x.name;
             // Place inside the object
             if (x.obj) {
@@ -492,7 +492,7 @@ core.processArgs = function(name, ctx, argv, pass)
                 kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
             }
             var key = self.toCamel(kname);
-            var idx = argv.indexOf(cname);
+            var idx = argv.lastIndexOf(cname);
             var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : null;
             if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") return;
             // Ignore the value if it is a parameter

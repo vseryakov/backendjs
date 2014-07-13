@@ -1498,6 +1498,10 @@ db.prepare = function(op, table, obj, options)
             }
         }
         break;
+
+    case "upgrade":
+        if (options.noUpgrade) return {};
+        break;
     }
     return pool.prepare(op, table, obj, options);
 }
@@ -2830,7 +2834,7 @@ db.dynamodbInitPool = function(options)
     options.type = "dynamodb";
     options.pooling = options.max > 0 && options.max != Infinity;
     options.max = options.max || 500;
-    options.dboptions = { noJson: 1, strictTypes: 1, skipNull: { add: 1, put: 1 } };
+    options.dboptions = { noUpgrade: 1, noJson: 1, strictTypes: 1, skipNull: { add: 1, put: 1 } };
     var pool = this.createPool(options);
 
     pool.cacheColumns = function(opts, callback) {
@@ -2839,8 +2843,8 @@ db.dynamodbInitPool = function(options)
 
         aws.ddbListTables(options, function(err, rc) {
             if (err) return callback ? callback(err) : null;
-            pool.dbcolumns = {};
             pool.dbkeys = {};
+            pool.dbcolumns = {};
             pool.dbindexes = {};
             async.forEachSeries(rc.TableNames, function(table, next) {
                 aws.ddbDescribeTable(table, options, function(err, rc) {
@@ -2870,9 +2874,7 @@ db.dynamodbInitPool = function(options)
                     });
                     next();
                 });
-        }, function(err2) {
-                callback(err2);
-            });
+            }, callback);
         });
     }
 
