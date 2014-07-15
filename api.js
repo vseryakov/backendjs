@@ -2411,8 +2411,6 @@ api.getLocation = function(req, options, callback)
     if (typeof options.round == "undefined") options.round = core.minDistance;
 
     db.getLocations(table, req.query, options, function(err, rows, info) {
-        // Ignore current account, db still retrieves it but in the API we skip it
-        rows = rows.filter(function(row) { return row.id != req.account.id });
         logger.debug("getLocations:", req.account.id, 'GEO:', info.latitude, info.longitude, info.distance, info.geohash, 'NEXT:', info.start ||'', 'ROWS:', rows.length);
         // Next token is the whole options as oppose to regular tokens in non location requests to maintain the whole state
         var next_token = info.more ? core.jsonToBase64(info, req.account.secret) : null;
@@ -2711,7 +2709,7 @@ api.getAccount = function(req, options, callback)
     if (!req.query.id) {
         db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
             if (err) return callback(err);
-            if (!row) return callback({ status: 404, message: "not found" });
+            if (!row) return callback({ status: 404, message: "account not found" });
 
             // Setup session cookies for automatic authentication without signing
             if (req.options.session && req.session) {
