@@ -1454,13 +1454,16 @@ db.prepare = function(op, table, obj, options)
         var o = {};
         for (var p in obj) {
             var v = obj[p];
-            if (cols[p]) {
-                if (cols[p].hidden) continue;
-                if (cols[p].readonly && (op == "incr" || op == "update")) continue;
-                if (cols[p].writeonly && (op == "add" || op == "put")) continue;
+            var col = cols[p];
+            if (col) {
+                if (col.hidden) continue;
+                if (col.readonly && (op == "incr" || op == "update")) continue;
+                if (col.writeonly && (op == "add" || op == "put")) continue;
             }
             if (this.skipColumn(p, v, options, cols)) continue;
             if ((v == null || v === "") && options.skipNull[op]) continue;
+            // The field is combined from several values contatenated for complex primary keys
+            if (col.join) v = col.join.map(function(x) { return obj[x] || "" }).join("|");
             o[p] = v;
         }
         obj = o;

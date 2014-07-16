@@ -718,7 +718,7 @@ api.checkQuery = function(req, res, next)
                 req.body = buf.length ? qs.parse(buf) : {};
                 if (req.method == "POST" && !Object.keys(req.query).length) req.query = req.body;
                 // Keep the parametrs in the body so we can distinguish GET and POST requests but use them in signature verification
-                sig.query = buf;
+                if (buf.length) sig.query = buf;
                 break;
 
             default:
@@ -2454,6 +2454,7 @@ api.putLocation = function(req, options, callback)
             }
         }
 
+        req.query.ltime = now;
         req.query.id = req.account.id;
         req.query.geohash = geo.geohash;
         // Return new and old coordinates
