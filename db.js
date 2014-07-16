@@ -1427,6 +1427,7 @@ db.prepare = function(op, table, obj, options)
     // Process special columns
     var keys = pool.dbkeys[table.toLowerCase()] || [];
     var cols = pool.dbcolumns[table.toLowerCase()] || {};
+    var now = Date.now();
     switch (op) {
     case "add":
     case "put":
@@ -1442,9 +1443,8 @@ db.prepare = function(op, table, obj, options)
         }
 
     case "update":
-        for (var p in cols) {
-            if (cols[p].now) obj[p] = Date.now();
-        }
+        // Up to date timestamps
+        for (var p in cols) if (cols[p].now) obj[p] = now;
 
         // Keep only columns from the table definition if we have it
         // Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
@@ -1732,8 +1732,8 @@ db.processRows = function(pool, table, rows, options)
 	        }
 	        // Extract joined values and place into separate columns
 	        if (col.join && typeof row[p] == "string" && row[p]) {
-	            var r = row[p].split("|");
-	            col.join.forEach(function(x, i) { row[x] = r[i]; });
+	            var v = row[p].split("|");
+	            if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
 	        }
 	    }
 	    // Stop of the first hook returning true to remove this row from the list

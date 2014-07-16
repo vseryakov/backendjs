@@ -211,6 +211,9 @@ var api = {
     // Sessions
     sessionAge: 86400 * 14 * 1000,
 
+    // Intervals between updating presence status table
+    statusInterval: 1800000,
+
     // Default busy latency 1 sec
     busyLatency: 1000,
 
@@ -266,6 +269,7 @@ var api = {
            { name: "deny-path", type: "regexpmap", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
+           { name: "status-interval", type: "number", descr: "Number of seconds between status record updates" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
@@ -992,26 +996,21 @@ api.initStatusAPI = function()
 
         switch (req.params[0]) {
         case "get":
-            if (!req.query.id) {
-                db.get("bk_status", { id: req.account.id }, options, function(err, row) {
-                    self.sendJSON(req, err, row);
-                });
-            } else {
-                db.list("bk_status", req.query.id, options, function(err, rows) {
-                    self.sendJSON(req, err, rows);
-                });
-            }
+            self.getStatus(!req.query.id ? req.account.id : core.strSplit(req.query.id), options, function(err, rows) {
+                self.sendJSON(req, err, rows);
+            });
             break;
 
         case "put":
-            db.put("bk_status", { id: req.account.id, status: req.query.status }, options, function(err, row) {
-                self.sendReply(res, err);
+            req.query.id = req.account.id;
+            self.putStatus(req.query, options, function(err, rows) {
+                self.sendJSON(req, err, rows);
             });
             break;
 
         case "del":
-            db.del("bk_status", { id: req.account.id }, options, function(err, row) {
-                self.sendReply(res, err);
+            db.del("bk_status", { id: req.account.id }, options, function(err, rows) {
+                self.sendJSON(req, err, rows);
             });
             break;
 
@@ -1409,7 +1408,7 @@ api.initTables = function(options, callback)
 api.getOptions = function(req)
 {
     // Boolean parameters that can be passed with 0 or 1
-    ["details", "consistent", "desc", "total", "connected", "noreference", "nocounter", "nopublish", "archive", "trash"].forEach(function(x) {
+    ["details", "consistent", "desc", "total", "connected", "check", "noreference", "nocounter", "nopublish", "archive", "trash"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x]);
     });
     if (req.query._session) req.options.session = core.toNumber(req.query._session);
@@ -2128,6 +2127,53 @@ api.delFile = function(file, options, callback)
             if (callback) callback(err, outfile);
         })
     }
+}
+
+// Returns status record for given account, used in /status/get API call.
+// if no options.check is set then just return the status record otherwise if the last status update is older than
+// the status-interval seconds ago then the row returned is null.
+// If id is an array, then return all status records for specified list of account ids, if options.check is set then only
+// return status records witch last status update ocured less than status-interval seconds ago.
+api.getStatus = function(id, options, callback)
+{
+    var self = this;
+    var now = Date.now();
+    var db = core.context.db;
+
+    if (Array.isArray(id)) {
+        db.list("bk_status", id, options, function(err, rows) {
+            if (!err && options.check) rows = rows.filter(function(x) { return now - row.mtime <= self.statusInterval * 1000 });
+            callback(err, rows);
+        });
+    } else {
+        db.get("bk_status", { id: id }, options, function(err, row) {
+            if (!err && options.check) {
+                if (now - row.mtime > self.statusInterval * 1000) row = null;
+            }
+            callback(err, row);
+        });
+    }
+}
+
+// Maintain online status , update every status-interval seconds, if options.check is given only update if last update happened
+// longer than status-interval seconds ago
+api.putStatus = function(obj, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    obj.mtime = Date.now();
+
+    // Just update uncoditionally
+    if (!options.check) return db.put("bk_status", obj, function(err) { callback(err, obj); });
+
+    this.getStatus(obj.id, options, function(err, row) {
+        if (!err && !row) {
+            db.put("bk_status", obj, function(err) { callback(err, obj); });
+        } else {
+            callback(err, row);
+        }
+    });
 }
 
 // Increase a counter, used in /counter/incr API call, options.op can be set to 'put'
@@ -2929,7 +2975,7 @@ api.deleteAccount = function(id, options, callback)
            },
            function(next) {
                if (options.keep.location || !obj.geohash) return next();
-               db.del("bk_location", { geohash: obj.geohash, id: obj.id }, options, function() { next() });
+               db.del("bk_location", obj, options, function() { next() });
            }],
            function(err) {
                 if (!err) self.metrics.accounts.Meter('del').mark();
