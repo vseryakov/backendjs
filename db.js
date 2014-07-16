@@ -1442,15 +1442,13 @@ db.prepare = function(op, table, obj, options)
         }
 
     case "update":
-        if (options.strictTypes) this.prepareDataTypes(obj, cols);
-
         for (var p in cols) {
             if (cols[p].now) obj[p] = Date.now();
-            // Handle json separately in sync with processRows
-            if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") obj[p] = JSON.stringify(obj[p]);
         }
 
         // Keep only columns from the table definition if we have it
+        // Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
+        // this is for those databases which are very sensitive on the types like DynamoDB. This function updates the object in-place.
         var o = {};
         for (var p in obj) {
             var v = obj[p];
@@ -1459,18 +1457,33 @@ db.prepare = function(op, table, obj, options)
                 if (col.hidden) continue;
                 if (col.readonly && (op == "incr" || op == "update")) continue;
                 if (col.writeonly && (op == "add" || op == "put")) continue;
+                // Handle json separately in sync with processRows
+                if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
+                // Convert into native data type
+                if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = core.toValue(v, col.type);
+                // The field is combined from several values contatenated for complex primary keys
+                if (col.join) v = col.join.map(function(x) { return obj[x] || "" }).join("|");
             }
             if (this.skipColumn(p, v, options, cols)) continue;
             if ((v == null || v === "") && options.skipNull[op]) continue;
-            // The field is combined from several values contatenated for complex primary keys
-            if (col.join) v = col.join.map(function(x) { return obj[x] || "" }).join("|");
             o[p] = v;
         }
         obj = o;
         break;
 
     case "del":
-        if (options.strictTypes) this.prepareDataTypes(obj, cols);
+        var o = {};
+        for (var p in obj) {
+            var v = obj[p];
+            var col = cols[p];
+            if (!col) continue;
+            // Convert into native data type
+            if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = core.toValue(v, col.type);
+            // The field is combined from several values contatenated for complex primary keys
+            if (col.join && typeof obj[p] != "undefined") v = col.join.map(function(x) { return obj[x] || "" }).join("|");
+            o[p] = v;
+        }
+        obj = o;
         break;
 
     case "select":
@@ -1488,9 +1501,8 @@ db.prepare = function(op, table, obj, options)
             }
         }
 
-        // Convert simple types into the native according to the table definition, we dont use
-        // prepareDataTypes here because query parameters are not that strict and can be more arrays which we should not
-        // convert due to options.ops
+        // Convert simple types into the native according to the table definition, some query parameters are not
+        // that strict and can be more arrays which we should not convert due to options.ops
         if (options.strictTypes) {
             for (var p in cols) {
                 if (core.isNumeric(cols[p].type)) {
@@ -1507,18 +1519,6 @@ db.prepare = function(op, table, obj, options)
         break;
     }
     return pool.prepare(op, table, obj, options);
-}
-
-// Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
-// this is for those databases which are very sensitive on the types like DynamoDB. This function updates the object in-place.
-db.prepareDataTypes = function(obj, columns)
-{
-    if (!columns) return obj;
-    for (var p in obj) {
-        var col = columns[p];
-        if (col && (col.primary || col.type) && typeof obj[p] != "undefined") obj[p] = core.toValue(obj[p], col.type);
-    }
-    return obj;
 }
 
 // Return database pool by table name or default pool, options may contain { pool: name } to return
@@ -1716,15 +1716,24 @@ db.processRows = function(pool, table, rows, options)
     var self = this;
     if (!pool) pool = this.getPool(table, options);
     var hooks = pool.processRow[table];
-	if ((!hooks || !hooks.length) && !options.noJson) return rows;
-	var cols = pool.dbcolumns[(table || "").toLowerCase()] || {};
+    var cols = pool.dbcolumns[(table || "").toLowerCase()] || {};
+	if ((!hooks || !hooks.length) && !options.noJson) {
+	    // Skip running loops for each row if we dont have joined columns
+	    if (!Object.keys(cols).some(function(x) { return cols[x].join })) return rows;
+	    return rows;
+	}
 
 	function processRow(row) {
-	    if (options.noJson) {
-	        for (var p in cols) {
-	            if (cols[p].type == "json" && typeof row[p] == "string" && row[p]) {
-	                row[p] = core.jsonParse(row[p], { logging : 1 });
-	            }
+	    for (var p in cols) {
+	        var col = cols[p];
+	        // Convert from JSON type
+	        if (options.noJson && col.type == "json" && typeof row[p] == "string" && row[p]) {
+	            row[p] = core.jsonParse(row[p], { logging : 1 });
+	        }
+	        // Extract joined values and place into separate columns
+	        if (col.join && typeof row[p] == "string" && row[p]) {
+	            var r = row[p].split("|");
+	            col.join.forEach(function(x, i) { row[x] = r[i]; });
 	        }
 	    }
 	    // Stop of the first hook returning true to remove this row from the list

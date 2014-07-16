@@ -814,7 +814,7 @@ $(whoami)
 #aws-secret=XXXXX
 #api-images-s3=S3BucketName
 #server-max-processes=2
-#api-data-endpoint-unsecure=1
+#api-unsecure=data
 #max-distance=160
 #logwatcher-interval=3600
 #logwatcher-email=logwatcher@dot.com

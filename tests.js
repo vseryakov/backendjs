@@ -474,6 +474,7 @@ tests.db = function(callback)
 	        test1: { id: { primary: 1, pub: 1 },
 	                 num: { type: "int" },
 	                 num2: {},
+	                 num3: { join: ["id","num"] },
 	                 email: {} },
 			test2: { id: { primary: 1, pub: 1, index: 1 },
 			         id2: { primary: 1, projection: 1 },
@@ -517,7 +518,7 @@ tests.db = function(callback)
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                core.checkTest(next, err, !row || row.id != id, "err1:", row);
+                core.checkTest(next, err, !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num, "err1:", row);
             });
         },
         function(next) {
