@@ -212,7 +212,7 @@ var api = {
     sessionAge: 86400 * 14 * 1000,
 
     // Intervals between updating presence status table
-    statusInterval: 1800000,
+    statusInterval: 900000,
 
     // Default busy latency 1 sec
     busyLatency: 1000,
@@ -2147,7 +2147,7 @@ api.getStatus = function(id, options, callback)
         });
     } else {
         db.get("bk_status", { id: id }, options, function(err, row) {
-            if (!err && options.check) {
+            if (!err && row && options.check) {
                 if (now - row.mtime > self.statusInterval * 1000) row = null;
             }
             callback(err, row);
