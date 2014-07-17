@@ -451,7 +451,7 @@ static Handle<Value> strSplit(const Arguments& args)
 {
    HandleScope scope;
 
-   REQUIRE_ARGUMENT_AS_STRING(0, str);
+   OPTIONAL_ARGUMENT_STRING(0, str);
    OPTIONAL_ARGUMENT_STRING(1, delim);
    OPTIONAL_ARGUMENT_STRING(2, quotes);
 

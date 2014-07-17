@@ -1290,6 +1290,7 @@ core.signRequest = function(login, secret, method, host, uri, options)
 // - id - unique record id to be used in case of queue management
 // - checksum - calculate checksum from the data
 // - anystatus - keep any HTTP status, dont treat as error if not 200
+// - obj - return just result object, not the whole params
 core.sendRequest = function(options, callback)
 {
     var self = this;
@@ -1345,7 +1346,7 @@ core.sendRequest = function(options, callback)
         }
         if (params.status != 200 && !err && !options.anystatus) err = self.newError(util.format("ResponseError: %d: %j", params.status, params.obj), "HTTP", params.status);
         if (!params.obj) params.obj = {};
-        if (typeof callback == "function") callback(err, params, res);
+        if (typeof callback == "function") callback(err, options.obj ? params.obj : params, options.obj ? null : res);
     });
 }
 

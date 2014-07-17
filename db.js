@@ -565,24 +565,53 @@ db.query = function(req, options, callback)
                     }
 
                     // Make sure no duplicates
-                    if (options.unique) items = core.arrayUnique(items, options.unique);
+                    if (options.unique) {
+                        items = core.arrayUnique(items, options.unique);
+                    }
 
                     // With total we only have one property 'count'
-                    if (!options.total) {
-                        // Convert values if we have custom column callback
-                        if (!options.noprocessrows) rows = self.processRows(pool, table, rows, options);
+                    if (options.total) {
+                        return onEnd(err, client, rows, info);
+                    }
 
-                        // Custom filter to return the final result set
-                        if (options.filter && rows.length) rows = rows.filter(function(row) { return options.filter(row, options); })
-
-                        // Async filter, can perform I/O for filtering
-                        if (options.async_filter && rows.length) {
-                            options.async_filter(rows, options, function(err, rows) {
-                                onEnd(err, client, rows, info);
-                            });
-                            return;
+                    // Convert from db types into javascript, deal with json and joined columns
+                    if (rows.length) {
+                        var cols = pool.dbcolumns[table.toLowerCase()] || {};
+                        for (var p in cols) {
+                            var col = cols[p];
+                            // Convert from JSON type
+                            if (options.noJson && col.type == "json") {
+                                rows.forEach(function(row) {
+                                    if (typeof row[p] == "string" && row[p]) row[p] = core.jsonParse(row[p], { logging : 1 });
+                                });
+                            }
+                            // Extract joined values and place into separate columns
+                            if (col.join) {
+                                rows.forEach(function(row) {
+                                    if (typeof row[p] == "string" && row[p]) {
+                                        var v = row[p].split("|");
+                                        if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
+                                    }
+                                });
+                            }
                         }
                     }
+
+                    // Convert values if we have custom column callback
+                    if (!options.noprocessrows) {
+                        rows = self.processRows(pool, table, rows, options);
+                    }
+
+                    // Custom filter to return the final result set
+                    if (options.filter && rows.length) {
+                        rows = rows.filter(function(row) { return options.filter(row, options); })
+                    }
+
+                    // Async filter, can perform I/O for filtering
+                    if (options.async_filter && rows.length) {
+                        return options.async_filter(rows, options, function(err, rows) { onEnd(err, client, rows, info); });
+                    }
+
                 } catch(e) {
                     err = e;
                     rows = [];
@@ -966,6 +995,7 @@ db.migrate = function(table, options, callback)
     if (!options) options = {};
     if (!options.preprocess) options.preprocess = function(row, options, next) { next() }
     if (!options.postprocess) options.postprocess = function(row, options, next) { next() }
+    if (!options.delay) options.delay = 1000;
     var pool = db.getPool(table, options);
     var cols = db.getColumns(table, options);
     var tmptable = table + "_tmp";
@@ -973,41 +1003,48 @@ db.migrate = function(table, options, callback)
 
     async.series([
         function(next) {
+            if (!pool.dbcolumns[tmptable]) return next();
             db.drop(tmptable, { pool: options.tmppool }, next);
         },
         function(next) {
+            setTimeout(next, options.delay || 0);
+        },
+        function(next) {
+            pool.dbcolumns[tmptable] = obj;
             db.create(tmptable, obj, { pool: options.tmppool }, next);
         },
         function(next) {
-            db.cacheColumns({ pool: options.tmppool }, next);
+            setTimeout(next, options.delay || 0);
         },
         function(next) {
-            db.scan(table, {}, options, function(rows, next) {
-                async.forEachSeries(rows, function(row, next2) {
-                    options.preprocess(row, options, function(err) {
-                        if (err) return next2(err);
-                        db.add(tmptable, row, { pool: options.tmppool }, next2);
-                    });
-                }, next);
+            db.scan(table, {}, options, function(row, next2) {
+                options.preprocess(row, options, function(err) {
+                    if (err) return next2(err);
+                    db.add(tmptable, row, { pool: options.tmppool }, next2);
+                });
             }, next);
         },
         function(next) {
             db.drop(table, options, next);
         },
         function(next) {
+            setTimeout(next, options.delay || 0);
+        },
+        function(next) {
             db.create(table, obj, options, next);
+        },
+        function(next) {
+            setTimeout(next, options.delay || 0);
         },
         function(next) {
             db.cacheColumns(options, next);
         },
         function(next) {
-            db.scan(tmptable, {}, { pool: options.tmppool }, function(rows, next) {
-                async.forEachSeries(rows, function(row, next2) {
-                    options.postprocess(row, options, function(err) {
-                        if (err) return next2(err);
-                        db.add(table, row, options, next2);
-                    });
-                }, next);
+            db.scan(tmptable, {}, { pool: options.tmppool }, function(row, next2) {
+                options.postprocess(row, options, function(err) {
+                    if (err) return next2(err);
+                    db.add(table, row, options, next2);
+                });
             }, next);
         },
         function(next) {
@@ -1716,31 +1753,13 @@ db.processRows = function(pool, table, rows, options)
     var self = this;
     if (!pool) pool = this.getPool(table, options);
     var hooks = pool.processRow[table];
-    var cols = pool.dbcolumns[(table || "").toLowerCase()] || {};
-	if ((!hooks || !hooks.length) && !options.noJson) {
-	    // Skip running loops for each row if we dont have joined columns
-	    if (!Object.keys(cols).some(function(x) { return cols[x].join })) return rows;
-	    return rows;
-	}
+	if (!Array.isArray(hooks) || !hooks.length) return rows;
+	var cols = this.getColumns(table, options);
 
+    // Stop of the first hook returning true to remove this row from the list
 	function processRow(row) {
-	    for (var p in cols) {
-	        var col = cols[p];
-	        // Convert from JSON type
-	        if (options.noJson && col.type == "json" && typeof row[p] == "string" && row[p]) {
-	            row[p] = core.jsonParse(row[p], { logging : 1 });
-	        }
-	        // Extract joined values and place into separate columns
-	        if (col.join && typeof row[p] == "string" && row[p]) {
-	            var v = row[p].split("|");
-	            if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
-	        }
-	    }
-	    // Stop of the first hook returning true to remove this row from the list
-	    if (Array.isArray(hooks)) {
-	        for (var i = 0; i < hooks.length; i++) {
-	            if (hooks[i].call(pool, row, options, cols) === true) return false;
-	        }
+	    for (var i = 0; i < hooks.length; i++) {
+	        if (hooks[i].call(pool, row, options, cols) === true) return false;
 	    }
 	    return true;
 	}
