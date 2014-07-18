@@ -641,6 +641,9 @@ api.initMasterServer = function() {}
 // interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.
 api.initWebServer = function() {}
 
+// This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job
+api.initWorker = function(callback) { callback() }
+
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)
 {

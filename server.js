@@ -50,6 +50,8 @@ var server = {
     jobs: [],
     // Time of the last update on jobs and workers
     jobTime: 0,
+    // Max number of seconds since the jobTime before killing the job instance, for long running jobs it must update jobTime periodically
+    jobMaxTime: 3600,
     // Interval between jobs scheduler
     jobsInterval: 0,
     // Schedules cron jobs
@@ -73,6 +75,7 @@ var server = {
     args: [{ name: "max-processes", type: "callback", value: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
+           { name: "job-max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed, for instance mode only" },
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
@@ -212,14 +215,25 @@ server.startWorker = function()
 
     // Maintenance tasks
     setInterval(function() {
+        var now = Date.now()
         // Check idle time, exit worker if no jobs submitted
-        if (self.idleTime > 0 && !self.jobs.length && core.now() - self.jobTime > self.idleTime) {
-            logger.log('startWorker:', 'idle:', self.idleTime);
+        if (self.idleTime > 0 && !self.jobs.length && now - self.jobTime > self.idleTime) {
+            logger.log('startWorker:', 'idle: no more jobs to run', self.idleTime);
+            process.exit(0);
+        }
+        // Check how long we run and force kill if exceeded
+        if (now - self.jobTime > self.jobMaxTime*1000) {
+            logger.log('startWorker:', 'time: exceeded max run time', self.jobMaxTime);
             process.exit(0);
         }
     }, 30000);
 
-    process.send('ready');
+    // At least API tables are needed for normal operations
+    api.initTables(function(err) {
+        core.context.api.initWorker(function() {;
+            process.send('ready');
+        });
+    });
 
     logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
 }
