@@ -84,6 +84,7 @@ var api = {
        // Keep track of icons uploaded
        bk_icon: { id: { primary: 1 },                         // Account id
                   type: { primary: 1, pub: 1 },               // prefix:type
+                  prefix: {},                                 // icon prefix/namespace
                   acl_allow: {},                              // Who can see it: all, auth, id:id...
                   ext: {},                                    // Saved image extension
                   descr: {},
@@ -102,13 +103,15 @@ var api = {
 
        // All connections between accounts: like,dislike,friend...
        bk_connection: { id: { primary: 1, pub: 1 },                    // my account_id
-                        type: { primary: 1, pub: 1 },                  // type:connection_id
+                        type: { primary: 1, pub: 1 },                  // type:connection
+                        connection: {},                                // other id of the connection
                         status: {},
                         mtime: { type: "bigint", now: 1, pub: 1 }},
 
        // References from other accounts, likes,dislikes...
-       bk_reference: { id: { primary: 1, pub: 1 },                    // connection_id
-                       type: { primary: 1, pub: 1 },                  // type:account_id
+       bk_reference: { id: { primary: 1, pub: 1 },                    // account_id
+                       type: { primary: 1, pub: 1 },                  // type:connection
+                       connection: {},                                // other id of the connection
                        status: {},
                        mtime: { type: "bigint", now: 1, pub: 1 }},
 
@@ -212,7 +215,7 @@ var api = {
     sessionAge: 86400 * 14 * 1000,
 
     // Intervals between updating presence status table
-    statusInterval: 900000,
+    statusInterval: 900,
 
     // Default busy latency 1 sec
     busyLatency: 1000,
@@ -717,15 +720,16 @@ api.checkQuery = function(req, res, next)
             }
             switch (type) {
             case 'application/json':
+                if (req.method != "POST") break;
                 req.body = core.jsonParse(buf, { obj: 1, debug: 1 });
-                if (req.method == "POST" && !Object.keys(req.query).length) req.query = req.body;
+                req.query = req.body;
                 break;
 
             case 'application/x-www-form-urlencoded':
+                if (req.method != "POST") break;
                 req.body = buf.length ? qs.parse(buf) : {};
-                if (req.method == "POST" && !Object.keys(req.query).length) req.query = req.body;
-                // Keep the parametrs in the body so we can distinguish GET and POST requests but use them in signature verification
-                if (buf.length) sig.query = buf;
+                req.query = req.body;
+                sig.query = buf;
                 break;
 
             default:
@@ -1352,7 +1356,9 @@ api.initDataAPI = function()
             switch (req.params[0]) {
             case "select":
             case "search":
-                self.sendJSON(req, err, { count: rows.length, data: rows, next_token: info.next_token });
+                var token = { count: rows.length, data: rows };
+                if (info.next_token) token.next_token = info.next_token;
+                self.sendJSON(req, err, token);
                 break;
             default:
                 self.sendJSON(req, err, rows);
@@ -1446,8 +1452,9 @@ api.getOptions = function(req)
 // if present in the info. This result object can be used for pagination responses.
 api.getResultPage = function(req, rows, info)
 {
-    var next_token = info && info.next_token ? core.jsonToBase64(info.next_token, req.account.secret) : "";
-    return { count: rows.length, data: rows, next_token: next_token };
+    var token = { count: rows.length, data: rows };
+    if (info && info.next_token) token.next_token = core.jsonToBase64(info.next_token, req.account.secret);
+    return token;
 }
 
 // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
@@ -2462,17 +2469,20 @@ api.getLocation = function(req, options, callback)
     db.getLocations(table, req.query, options, function(err, rows, info) {
         logger.debug("getLocations:", req.account.id, 'GEO:', info.latitude, info.longitude, info.distance, info.geohash, 'NEXT:', info.start ||'', 'ROWS:', rows.length);
         // Next token is the whole options as oppose to regular tokens in non location requests to maintain the whole state
-        var next_token = info.more ? core.jsonToBase64(info, req.account.secret) : null;
+        var token = { count: rows.length, data: rows };
+        if (info.more) token.next_token = core.jsonToBase64(info, req.account.secret);
 
         // Return accounts with locations
         if (core.toNumber(options.details) && rows.length && table != "bk_account") {
 
             self.listAccount(rows, { select: options.select }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
-                callback(null, { count: rows.length, data: rows, next_token: next_token });
+                token.count = rows.length;
+                token.data = rows;
+                callback(null, token);
             });
         } else {
-            callback(null, { count: rows.length, data: rows, next_token: next_token });
+            callback(null, token);
         }
     });
 }

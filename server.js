@@ -229,8 +229,8 @@ server.startWorker = function()
     }, 30000);
 
     // At least API tables are needed for normal operations
-    api.initTables(function(err) {
-        core.context.api.initWorker(function() {;
+    core.context.api.initTables(function(err) {
+        core.context.api.initWorker(function() {
             process.send('ready');
         });
     });

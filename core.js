@@ -28,7 +28,7 @@ var core = {
     name: 'backend',
 
     // Protocol version
-    version: '2014.07.15',
+    version: '2014.07.20',
 
     // Application version
     appVersion: "",
