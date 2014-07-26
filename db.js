@@ -756,7 +756,8 @@ db.incr = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
-    options.counter = Object.keys(obj);
+    var cols = this.getColumns(table, options);
+    if (!options.counter) options.counter = Object.keys(cols).filter(function(x) { return cols[x].type == "counter" });
 
     var req = this.prepare("incr", table, obj, options);
     this.query(req, options, callback);
@@ -963,7 +964,7 @@ db.scan = function(table, query, options, rowCallback, callback)
     options = this.getOptions(table, options);
     if (!options.count) options.count = 100;
     options.start = "";
-    options.noprocessrows = 1;
+    if (typeof options.noprocessrows == "undefined") options.noprocessrows = 1;
 
     async.whilst(
       function() {
@@ -1471,6 +1472,8 @@ db.prepare = function(op, table, obj, options)
         // Set all default values if any
         for (var p in cols) {
             if (typeof cols[p].value != "undefined" && !obj[p]) obj[p] = cols[p].value;
+            // Counters must have default value or use 0 is implied
+            if (typeof obj[p] == "undefined" && cols[p].type == "counter") obj[p] = 0;
         }
 
     case "incr":

@@ -623,6 +623,11 @@ core.loadDbConfig = function(options, callback)
 
     // Request configs by network
     var type = self.subnet ? [ self.subnet, self.network ] : undefined;
+    // Host specific
+    if (self.ipaddr) {
+        if (!type) type = [];
+        type.push(self.ipaddr);
+    }
     // Custom config type
     if (db.configType) {
         if (!type) type = [];

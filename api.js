@@ -1381,6 +1381,11 @@ api.initTables = function(options, callback)
         // Make sure we only assign callbacks once because this can be called multiple times
         if (!self._processRow) {
             self._processRow = true;
+
+            db.setProcessRow("bk_account", function(row, options, cols) {
+                if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+            });
+
             function onMessageRow(row, options, cols) {
                 var mtime = row.mtime.split(":");
                 row.mtime = core.toNumber(mtime[0]);
@@ -1683,6 +1688,7 @@ api.sendReply = function(res, status, msg)
         msg = status.message || "Error occured";
         status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
     }
+    if (typeof status != "number") msg = status, status = 500;
     if (!status) status = 200, msg = "";
     return this.sendStatus(res, { status: status, message: String(msg || "") });
 }
@@ -2774,12 +2780,12 @@ api.getAccount = function(req, options, callback)
             // Setup session cookies for automatic authentication without signing
             if (req.options.session && req.session) {
                 switch (options.session) {
-                case "1":
+                case 1:
                     var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
                     req.session["bk-signature"] = sig["bk-signature"];
                     break;
 
-                case "0":
+                case 0:
                     delete req.session["bk-signature"];
                     break;
                 }
