@@ -600,6 +600,9 @@ a connection with it. No direct operations on bk_reference is allowed.
     - `id` - id of account to connect to
     - `type` - type of connection, like,dislike,....
     - _connected - the reply will contain a connection record if the other side of our connection is connected to us as well
+    - _publish - notify another account about this via pub/sub messaging system if it is active
+    - _noreference - do not create the reference record for this connection
+    - _nocounter - do not auto increment any counters
 
   This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
   ''who is connected to me'' and auto-increment like0, like1 counters for both accounts in the bk_counter table.
@@ -612,6 +615,7 @@ a connection with it. No direct operations on bk_reference is allowed.
         /connection/add?id=12345&type=invite&state=sent
 
 - `/connection/update`
+- `/connection/incr`
   Update other properties of the existing connection, for connections that may take more than i step or if a connection has other data associated with it beside
   the type of the connection.
 
@@ -627,6 +631,27 @@ a connection with it. No direct operations on bk_reference is allowed.
         /connection/del?type=invite&id=12345
 
 - `/connection/get`
+  Return a single connection for given id
+
+  Parameters:
+  - id - account id of the connection, required
+  - type - connection type, required
+
+  Example:
+
+        /connection/get?id=12345&type=like
+
+  Response:
+
+        { "id": "12345",
+          "type: "like",
+          "mtime": "2434343543543" }
+
+- `/reference/get`
+  Return a single reference record for given account id, works the same way as `/connection/get`
+
+
+- `/connection/select`
   Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned. Supports special
   query parameters `_select,_ops,_desc`, see docs about `db.select` for more info. All `db.select` options can be passed in the query with prepended underscore.
 
@@ -635,13 +660,13 @@ a connection with it. No direct operations on bk_reference is allowed.
   Example:
 
         # Return all accounts who i invited
-        /connection/get?type=invite
+        /connection/select?type=invite
         # Return connection for specific type and account id
-        /connection/get?type=invite&id=12345
+        /connection/select?type=invite&id=12345
         # Return accounts who i invited me after specified mtime
-        /connection/get?type=invite&_ops=mtime,gt&mtime=12334312543
+        /connection/select?type=invite&_ops=mtime,gt&mtime=12334312543
         # Return accounts who i invited before specified mtime
-        /connection/get?type=invite&_ops=mtime,le&_desc=1&mtime=12334312543
+        /connection/select?type=invite&_ops=mtime,le&_desc=1&mtime=12334312543
 
   Response:
 
@@ -653,15 +678,15 @@ a connection with it. No direct operations on bk_reference is allowed.
           "next_token": ""
         }
 
-- `/reference/get`
+- `/reference/select`
   Receive all references that connected with my account, i.e. connections made by somebody else with me, works the same way as for connection query call
 
   Example:
 
         # Return all accounts who invited me
-        /reference/get?type=invite
+        /reference/select?type=invite
         # Return accounts who invited me after specified mtime
-        /reference/get?type=invite&_ops=mtime,gt&mtime=12334312543
+        /reference/select?type=invite&_ops=mtime,gt&mtime=12334312543
 
   Response:
 
@@ -815,6 +840,7 @@ may keep messages there as new, delete or archive them. Archiving means transfer
     - `icon` - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
       can be a multipart file upload if submitted via browser, can be omitted if `msg/connection/get?type=invite&id=12345` property exists.
     - _nosent - do not save this message in my sent messages
+    - _publish - notify another account about this via pub/sub messaging system if it is active
 
   Example:
 

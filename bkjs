@@ -646,6 +646,7 @@ case "$ARG" in
   init-cassandra)
     ($0 get-cassandra)
     ($0 run-cassandra)
+    sleep 3
     echo "CREATE KEYSPACE BACKEND WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
     $CASSANDRA_PREFIX/bin/cqlsh -f /tmp/cql
     ;;

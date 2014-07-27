@@ -371,7 +371,7 @@ api.init = function(callback)
                        (now - req._startTime) + " ms - " +
                        (req.headers['user-agent'] || "-") + " " +
                        (req.headers['version'] || "-") + " " +
-                       (req.account.id || "-") + "\n";
+                       (req.account ? (req.account.id || "-") : "-") + "\n";
             self.accesslog.write(line);
         }
         next();
@@ -1179,6 +1179,7 @@ api.initConnectionAPI = function()
         switch (req.params[1]) {
         case "add":
         case "put":
+        case "incr":
         case "update":
             options.op = req.params[1];
             self.putConnection(req, options, function(err, data) {
@@ -1193,6 +1194,12 @@ api.initConnectionAPI = function()
             break;
 
         case "get":
+            options.op = req.params[0];
+            self.getConnection(req, options, function(err, data) {
+                self.sendJSON(req, err, data);
+            });
+            break;
+
         case "select":
             options.op = req.params[0];
             self.selectConnection(req, options, function(err, data) {
@@ -1204,7 +1211,6 @@ api.initConnectionAPI = function()
             self.sendReply(res, 400, "Invalid command");
         }
     });
-
 }
 
 // Geo locations management
@@ -1422,7 +1428,7 @@ api.initTables = function(options, callback)
 api.getOptions = function(req)
 {
     // Boolean parameters that can be passed with 0 or 1
-    ["details", "consistent", "desc", "total", "connected", "check", "noreference", "nocounter", "nopublish", "archive", "trash"].forEach(function(x) {
+    ["details", "consistent", "desc", "total", "connected", "check", "noreference", "nocounter", "publish", "archive", "trash"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x]);
     });
     if (req.query._session) req.options.session = core.toNumber(req.query._session);
@@ -2213,7 +2219,7 @@ api.incrCounter = function(req, options, callback)
         if (err) return callback(err);
 
         // Notify only the other account
-        if (obj.id != req.account.id && !options.nopublish) {
+        if (obj.id != req.account.id && options.publish) {
             self.publish(obj.id, { path: req.path, mtime: now, alias: (options.account ||{}).alias, type: Object.keys(obj).join(",") }, options);
         }
 
@@ -2234,29 +2240,18 @@ api.incrAutoCounter = function(id, type, num, options, callback)
 }
 
 // Return all connections for the current account, this function is called by the `/connection/get` API call.
+api.getConnection = function(req, options, callback)
+{
+    var self = this;
+    if (!req.query.id || !req.query.type) return callback({ status: 400, message: "id and type are required"});
+    this.readConnection(req.account.id, req.query, options, callback);
+}
+
+// Return all connections for the current account, this function is called by the `/connection/select` API call.
 api.selectConnection = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
-
-    req.options.cleanup = "";
-    if (req.query.type) req.query.type += ":" + (req.query.id || "");
-    req.query.id = req.account.id;
-
-    if (!options.ops) options.ops = {};
-    options.ops.type = "begins_with";
-
-    db.select("bk_" + (options.op || "connection"), req.query, options, function(err, rows, info) {
-        if (err) return callback(err, []);
-
-        // Just return connections
-        if (!core.toNumber(options.details)) return callback(null, self.getResultPage(req, rows, info));
-
-        // Get all account records for the id list
-        self.listAccount(rows, options, function(err, rows) {
-            callback(null, self.getResultPage(req, rows, info));
-        });
-    });
+    this.queryConnection(req.account.id, req.query, options, callback);
 }
 
 // Create a connection between 2 accounts, this function is called by the `/connection/add` API call with query parameters coming from the Express request.
@@ -2281,11 +2276,59 @@ api.delConnection = function(req, options, callback)
     self.deleteConnection(req.account.id, req.query, options, callback);
 }
 
+// Return all connections for the account with optional query properties
+api.queryConnection = function(id, obj, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    var query = { id: id, type: obj.type ? (obj.type + ":" + (obj.id || "")) : "" };
+    for (var p in obj) if (p != "id" && p != "type") query[p] = obj[p];
+
+    if (!options.ops) options.ops = {};
+    if (!options.ops.type) options.ops.type = "begins_with";
+
+    db.select("bk_" + (options.op || "connection"), query, options, function(err, rows, info) {
+        if (err) return callback(err, []);
+
+        // Just return connections
+        if (!core.toNumber(options.details)) return callback(null, self.getResultPage(req, rows, info));
+
+        // Get all account records for the id list
+        self.listAccount(rows, options, function(err, rows) {
+            callback(null, self.getResultPage(req, rows, info));
+        });
+    });
+}
+
+// Return one connection for given id, obj must have .id and .type properties defined,
+// if options.details is 1 then combine with account record.
+api.readConnection = function(id, obj, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    var query = { id: id, type: obj.type + ":" + obj.id };
+    for (var p in obj) if (p != "id" && p != "type") query[p] = obj[p];
+
+    db.get("bk_" + (options.op || "connection"), query, options, function(err, row) {
+        if (err || !row) return callback(err, row);
+
+        // Just return connections
+        if (!core.toNumber(options.details)) return callback(err, row);
+
+        // Get account details for connection
+        self.listAccount([ row ], options, function(err, rows) {
+            callback(null, row);
+        });
+    });
+}
+
 // Lower level connection creation with all counters support, can be used outside of the current account scope for
 // any two accounts and arbitrary properties, `id` is the primary account id, `obj` contains id and type for other account
 // with other properties to be added. `obj` is left untouched.
 // The following properties can alter the actions:
-// - nopublish - do not send notification via pub/sub system if present
+// - publish - send notification via pub/sub system if present
 // - nocounter - do not update auto increment counters
 // - noreference - do not create reference part of the connection
 // - connected - return existing connection record for the same type from the other account
@@ -2306,7 +2349,7 @@ api.makeConnection = function(id, obj, options, callback)
             query.type = obj.type + ":" + obj.id;
             query.mtime = now;
             db[op]("bk_connection", query, options, function(err) {
-                if (err || op == 'update') return next(err);
+                if (err) return next(err);
                 self.metrics.connections.Meter(op + ":" + obj.type).mark();
                 next();
             });
@@ -2317,25 +2360,24 @@ api.makeConnection = function(id, obj, options, callback)
             query.id = obj.id;
             query.type = obj.type + ":"+ id;
             db[op]("bk_reference", query, options, function(err) {
-                if (err || op == 'update') return next(err);
                 // Remove on error
-                if (err) return db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function() { next(err); });
-                next();
+                if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function() { next(err); });
+                next(err);
             });
         },
         function(next) {
             // Keep track of all connection counters
-            if (options.nocounter) return next();
+            if (options.nocounter || (op != "add" && op != "put")) return next();
             self.incrAutoCounter(id, obj.type + '0', 1, options, function(err) { next() });
         },
         function(next) {
-            if (options.nocounter) return next();
+            if (options.nocounter || (op != "add" && op != "put")) return next();
             self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
         },
         function(next) {
             // Notify about connection change
-            if (options.nopublish) return next();
-            self.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: (options.account || {}).alias, type: obj.type }, options);
+            if (!options.publish) return next();
+            self.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: options.account ? options.account.alias : "", type: obj.type }, options);
             next();
         },
         function(next) {
@@ -2348,29 +2390,6 @@ api.makeConnection = function(id, obj, options, callback)
         },
         ], function(err) {
             callback(err, result);
-    });
-}
-
-// Return one connection for given id, obj must have .id and .type properties defined,
-// if options.details is 1 then combine with account record.
-api.readConnection = function(id, obj, options, callback)
-{
-    var self = this;
-    var db = core.context.db;
-
-    var query = { id: id, type: obj.type + ":" + obj.id };
-    for (var p in obj) if (p != "id" && p != "type") query[p] = obj[p];
-
-    db.get("bk_connection", query, options, function(err, row) {
-        if (err || !row) return callback(err, row);
-
-        // Just return connections
-        if (!core.toNumber(options.details)) return callback(err, row);
-
-        // Get all account records for the id list
-        self.listAccount([ row ], options, function(err, rows) {
-            callback(null, row);
-        });
     });
 }
 
@@ -2706,7 +2725,7 @@ api.addMessage = function(req, options, callback)
             });
         },
         function(next) {
-            if (options.nopublish || req.query.id == req.account.id) return next();
+            if (!options.publish || req.query.id == req.account.id) return next();
             self.publish(req.query.id, { path: req.path, mtime: now, alias: (options.account || {}).alias, msg: (req.query.msg || "").substr(0, 128) }, options);
             next();
         },

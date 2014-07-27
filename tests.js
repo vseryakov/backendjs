@@ -164,7 +164,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "like" } }
+            var options = { url: "/connection/select", login: login, secret: secret, query: { type: "like" } }
             core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err4:", params.obj.count, params.obj.data);
             });
@@ -182,13 +182,13 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "follow" } }
+            var options = { url: "/connection/select", login: login, secret: secret, query: { type: "follow" } }
             core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err6:" , params.obj);
             });
         },
         function(next) {
-            var options = { url: "/connection/get", login: login, secret: secret, query: { type: "follow", _details: 1 } }
+            var options = { url: "/connection/select", login: login, secret: secret, query: { type: "follow", _details: 1 } }
             core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err7:" , params.obj);
             });
@@ -206,7 +206,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/connection/get", login: login, secret: secret, query: { } }
+            var options = { url: "/connection/select", login: login, secret: secret, query: { } }
             core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=0, "err9:" , params.obj);
             });

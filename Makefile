@@ -34,14 +34,23 @@ publish:
 	npm publish `ls backendjs-*tgz`
 	rm -rf backendjs*tgz
 
-servers:
-	bkjs run-pgsql
-	bkjs run-dynamodb
-	bkjs run-mongodb
-	bkjs run-cassandra
-	bkjs run-mysql
-	redis-server /opt/local/etc/redis.conf
-	memcached -d -L
+start-servers:
+	-bkjs run-pgsql
+	-bkjs run-dynamodb
+	-bkjs run-mongodb
+	-bkjs run-cassandra
+	-bkjs run-mysql
+	-redis-server /opt/local/etc/redis.conf
+	-memcached -d -L
+
+stop-servers:
+	-bkjs stop-pgsql
+	-bkjs stop-dynamodb
+	-bkjs stop-mongodb
+	-bkjs stop-cassandra
+	-bkjs stop-mysql
+	killall redis-server
+	killall memcached
 
 doc:
 	node doc.js > web/doc.html
