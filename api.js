@@ -1446,7 +1446,7 @@ api.getOptions = function(req)
         ["pool", "cleanup"].forEach(function(x) {
             if (typeof req.query['_' + x] != "undefined") req.options[x] = req.query['_' + x];;
         });
-        ["noscan", "noprocessrows"].forEach(function(x) {
+        ["noscan", "noprocessrows", "noconvertrows"].forEach(function(x) {
             if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x], req.options[x]);
         });
     }
@@ -1688,7 +1688,7 @@ api.sendReply = function(res, status, msg)
         msg = status.message || "Error occured";
         status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
     }
-    if (typeof status != "number") msg = status, status = 500;
+    if (typeof status == "string") msg = status, status = 500;
     if (!status) status = 200, msg = "";
     return this.sendStatus(res, { status: status, message: String(msg || "") });
 }
@@ -2779,15 +2779,11 @@ api.getAccount = function(req, options, callback)
 
             // Setup session cookies for automatic authentication without signing
             if (req.options.session && req.session) {
-                switch (options.session) {
-                case 1:
+                if (options.session) {
                     var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
                     req.session["bk-signature"] = sig["bk-signature"];
-                    break;
-
-                case 0:
+                } else {
                     delete req.session["bk-signature"];
-                    break;
                 }
             }
             callback(null, row, info);

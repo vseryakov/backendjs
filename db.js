@@ -575,7 +575,7 @@ db.query = function(req, options, callback)
                     }
 
                     // Convert from db types into javascript, deal with json and joined columns
-                    if (rows.length) {
+                    if (rows.length && !options.noconvertrows) {
                         var cols = pool.dbcolumns[table.toLowerCase()] || {};
                         for (var p in cols) {
                             var col = cols[p];
