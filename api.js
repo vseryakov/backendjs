@@ -2251,7 +2251,9 @@ api.getConnection = function(req, options, callback)
 api.selectConnection = function(req, options, callback)
 {
     var self = this;
-    this.queryConnection(req.account.id, req.query, options, callback);
+    this.queryConnection(req.account.id, req.query, options, function(err, rows, info) {
+        callback(null, self.getResultPage(req, rows, info));
+    });
 }
 
 // Create a connection between 2 accounts, this function is called by the `/connection/add` API call with query parameters coming from the Express request.
@@ -2292,12 +2294,10 @@ api.queryConnection = function(id, obj, options, callback)
         if (err) return callback(err, []);
 
         // Just return connections
-        if (!core.toNumber(options.details)) return callback(null, self.getResultPage(req, rows, info));
+        if (!core.toNumber(options.details)) return callback(null, rows, info);
 
         // Get all account records for the id list
-        self.listAccount(rows, options, function(err, rows) {
-            callback(null, self.getResultPage(req, rows, info));
-        });
+        self.listAccount(rows, options, callback);
     });
 }
 
@@ -2822,7 +2822,7 @@ api.listAccount = function(rows, options, callback)
     var key = options.key || "id";
     var map = {};
     rows.forEach(function(x) { if (!map[x[key]]) map[x[key]] = []; map[x[key]].push(x); });
-    db.list("bk_account", Object.keys(map).map(function(x) { return { id: x } }), { select: options.select }, function(err, list) {
+    db.list("bk_account", Object.keys(map).map(function(x) { return { id: x } }), { select: options.select }, function(err, list, info) {
         if (err) return callback(err, []);
 
         self.checkPublicColumns("bk_account", list, options);
@@ -2834,7 +2834,7 @@ api.listAccount = function(rows, options, callback)
         });
         // Remove rows without account info
         if (options.existing) rows = rows.filter(function(x) { return x._id; }).map(function(x) { delete x._id; return x; });
-        callback(null, rows);
+        callback(null, rows, info);
     });
 }
 
