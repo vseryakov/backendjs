@@ -1654,11 +1654,13 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds. Default: 1800000</li>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds. Default: 3000</li>
+<li><code>api-status-interval</code> - Number of seconds between status record updates. Default: 900</li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing. Default: </li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes. Default: 10485760</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2. Default: 1</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch for jobs. Default: 1</li>
 <li><code>server-idle-time</code> - If set and no jobs are submitted the backend will be shutdown, for instance mode only. Default: 120</li>
+<li><code>server-job-max-time</code> - Max number of seconds a job can run before being killed, for instance mode only. Default: 3600</li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process. Default: 30000</li>
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes. Default: 1000</li>
 <li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
@@ -1712,7 +1714,7 @@ the worker processes if they die and restart them automatically. How many proces
                     latitude: { type: &quot;real&quot;, location: 1 },          // overriding location columns
                     longitude: { type: &quot;real&quot;, location: 1 },
                     location: { location: 1 },
-                    ltime: { type: &quot;bigint&quot; },                        // Last location update time
+                    ltime: { type: &quot;bigint&quot;, location: 1 },           // Last location update time
                     ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // Create time
                     mtime: { type: &quot;bigint&quot;, now: 1 } },              // Last update time
 
@@ -1724,6 +1726,7 @@ the worker processes if they die and restart them automatically. How many proces
      // Keep track of icons uploaded
      bk_icon: { id: { primary: 1 },                         // Account id
                 type: { primary: 1, pub: 1 },               // prefix:type
+                prefix: {},                                 // icon prefix/namespace
                 acl_allow: {},                              // Who can see it: all, auth, id:id...
                 ext: {},                                    // Saved image extension
                 descr: {},
@@ -1742,13 +1745,15 @@ the worker processes if they die and restart them automatically. How many proces
 
      // All connections between accounts: like,dislike,friend...
      bk_connection: { id: { primary: 1, pub: 1 },                    // my account_id
-                      type: { primary: 1, pub: 1 },                  // type:connection_id
+                      type: { primary: 1, pub: 1 },                  // type:connection
+                      connection: {},                                // other id of the connection
                       status: {},
                       mtime: { type: &quot;bigint&quot;, now: 1, pub: 1 }},
 
      // References from other accounts, likes,dislikes...
-     bk_reference: { id: { primary: 1, pub: 1 },                    // connection_id
-                     type: { primary: 1, pub: 1 },                  // type:account_id
+     bk_reference: { id: { primary: 1, pub: 1 },                    // account_id
+                     type: { primary: 1, pub: 1 },                  // type:connection
+                     connection: {},                                // other id of the connection
                      status: {},
                      mtime: { type: &quot;bigint&quot;, now: 1, pub: 1 }},
 
@@ -1756,6 +1761,7 @@ the worker processes if they die and restart them automatically. How many proces
      bk_message: { id: { primary: 1 },                         // my account_id
                    mtime: { primary: 1 },                      // mtime:sender
                    sender: { index: 1 },                       // Sender id
+                   alias: {},                                  // Sender alias
                    acl_allow: {},                              // Who has access: all, auth, id:id...
                    msg: {},                                    // Text of the message
                    icon: { type: &quot;int&quot; }},                     // 1 - icon present, 0 - no icon
@@ -1764,6 +1770,7 @@ the worker processes if they die and restart them automatically. How many proces
      bk_archive: { id: { primary: 1, index: 1 },               // my account_id
                    mtime: { primary: 1 },                      // mtime:sender
                    sender: { index: 1 },                       // Sender id
+                   alias: {},                                  // Sender alias
                    msg: {},                                    // Text of the message
                    icon: { type: &quot;int&quot; }},                     // 1 - icon present, 0 - no icon
 
@@ -1771,6 +1778,7 @@ the worker processes if they die and restart them automatically. How many proces
      bk_sent: { id: { primary: 1, index: 1 },                // my account
                 mtime: { primary: 1 },                       // mtime:recipient
                 recipient: { index: 1 },                     // Recipient id
+                alias: {},                                   // Recipient alias
                 msg: {},                                     // Text of the message
                 icon: { type: &quot;int&quot; }},                      // 1 - icon present, 0 - no icon
 
@@ -1892,6 +1900,12 @@ this.app refers to the Express instance.</p>
 <li><p><code>api.initWebServer()</code></p>
 <p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
 interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.initWorker(callback)</code></p>
+<p> This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job</p>
 </li>
 </ul>
 
@@ -2297,6 +2311,23 @@ Output file name is built according to the following options properties:</li>
 <ul>
 <li><p><code>api.delFile(file, options, callback)</code></p>
 <p> Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getStatus(id, options, callback)</code></p>
+<p> Returns status record for given account, used in /status/get API call.
+if no options.check is set then just return the status record otherwise if the last status update is older than
+the status-interval seconds ago then the row returned is null.
+If id is an array, then return all status records for specified list of account ids, if options.check is set then only
+return status records witch last status update ocured less than status-interval seconds ago.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putStatus(obj, options, callback)</code></p>
+<p> Maintain online status , update every status-interval seconds, if options.check is given only update if last update happened
+longer than status-interval seconds ago</p>
 </li>
 </ul>
 
@@ -3084,6 +3115,7 @@ Special parameters for options:</p>
 <li>id - unique record id to be used in case of queue management</li>
 <li>checksum - calculate checksum from the data</li>
 <li>anystatus - keep any HTTP status, dont treat as error if not 200</li>
+<li>obj - return just result object, not the whole params</li>
 </ul>
 </li>
 </ul>
@@ -4412,13 +4444,6 @@ created on id,title.</p>
 <p> Prepare for execution for the given operation: add, del, put, update,...
 Returns prepared object to be passed to the driver&#39;s .query method. This method is a part of the driver
 helpers and is not used directly in the applications.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.prepareDataTypes(obj, columns)</code></p>
-<p> Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
-this is for those databases which are very sensitive on the types like DynamoDB. This function updates the object in-place.</p>
 </li>
 </ul>
 
