@@ -2178,7 +2178,7 @@ api.getStatus = function(id, options, callback)
     } else {
         db.get("bk_status", { id: id }, options, function(err, row) {
             if (!err && row && options.check) {
-                if (now - row.mtime > self.statusInterval * 1000) row = null;
+                if (now - row.mtime > self.statusInterval * 1000 || row.status == "offline") row = null;
             }
             callback(err, row);
         });
@@ -2480,7 +2480,7 @@ api.getLocation = function(req, options, callback)
     var db = core.context.db;
     var table = options.table || "bk_location";
 
-    // Continue pagination using the search token
+    // Continue pagination using the search token, it carries all query and pagination info
     if (options.token && options.token.geohash && options.token.latitude && options.token.longitude) {
         var token = options.token;
         delete options.token;
@@ -2509,7 +2509,6 @@ api.getLocation = function(req, options, callback)
                 callback(null, self.getResultPage(req, rows, info));
             });
         } else {
-            // Next token is the whole options as oppose to regular tokens in non location requests to maintain the whole state
             callback(null, self.getResultPage(req, rows, info));
         }
     });

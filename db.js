@@ -1108,7 +1108,7 @@ db.search = function(table, query, options, callback)
 // On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 // the next_token returned by the previous call and query will be ignored
 //
-// On return, the callback's third argument contains the object that must be provided for subsequent searches until rows array is empty.
+// On return, the callback's third argument contains the object with next_token that must be provided for subsequent searches until rows array is empty.
 //
 //  Example
 //
@@ -1116,7 +1116,7 @@ db.search = function(table, query, options, callback)
 //          db.getLocations("bk_location", query, { round: 5 }, function(err, rows, info) {
 //              ...
 //              // Get next page using previous info object
-//              db.getLocations("bk_location", query, info, function(err, rows, info) {
+//              db.getLocations("bk_location", query, info.next_token, function(err, rows, info) {
 //                  ...
 //              });
 //          });
