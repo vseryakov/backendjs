@@ -1124,7 +1124,7 @@ db.search = function(table, query, options, callback)
 db.getLocations = function(table, query, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options,options = null;
+    if (typeof options == "function") callback = options, options = null;
     options = this.getOptions(table, options);
     var cols = db.getColumns(table, options);
     var keys = db.getKeys(table, options);
@@ -1142,6 +1142,7 @@ db.getLocations = function(table, query, options, callback)
         var geo = core.geoHash(query.latitude, query.longitude, { distance: options.distance });
         for (var p in geo) options[p] = geo[p];
     	query[options.geokey] = geo.geohash;
+    	options.gquery = query;
     	['latitude', 'longitude', 'distance' ].forEach(function(x) { delete query[x]; });
     } else {
         // Original query
@@ -1189,12 +1190,17 @@ db.getLocations = function(table, query, options, callback)
           return false;
       },
       function(err) {
-          // Indicates that there could be more rows still even if we reached our count
-          options.more = options.start || options.neighbors.length > 0 ? true : false;
-          // Keep original query and count for pagination
-          options.gquery = query;
-          options.count = options.gcount;
-          if (callback) callback(err, rows, options);
+          // Build next token if we have more rows to search
+          var info = {};
+          if (options.start || options.neighbors.length > 0) {
+              // Restore the original count
+              options.count = options.gcount;
+              info.next_token = {};
+              ["count","top","geohash","geokey","distance","latitude","longitude","start","neighbors","gquery","gcount"].forEach(function(x) {
+                  if (typeof options[x] != "undefined") info.next_token[x] = options[x];
+              });
+          }
+          if (callback) callback(err, rows, info);
     });
 }
 

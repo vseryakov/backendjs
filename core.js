@@ -1979,9 +1979,11 @@ core.base64ToJson = function(data, secret)
 	        rc = this.toNumber(data);
 	    } else {
 	        if (!secret) data = new Buffer(data, "base64").toString();
-	        rc = JSON.parse(data);
+	        if (data) rc = JSON.parse(data);
 	    }
-	} catch(e) {}
+	} catch(e) {
+	    logger.debug("base64ToJson:", e.stack, data);
+	}
 	return rc;
 }
 

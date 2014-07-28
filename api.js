@@ -258,6 +258,7 @@ var api = {
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
+           { name: "token-secret", descr: "Name of the property to be used for encrypting tokens, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
            { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
@@ -1434,8 +1435,8 @@ api.getOptions = function(req)
     if (req.query._session) req.options.session = core.toNumber(req.query._session);
     if (req.query._select) req.options.select = req.query._select;
     if (req.query._count) req.options.count = core.toNumber(req.query._count, 0, 50, 0, 100);
-    if (req.query._start) req.options.start = core.base64ToJson(req.query._start, req.account.secret);
-    if (req.query._token) req.options.token = core.base64ToJson(req.query._token, req.account.secret);
+    if (req.query._start) req.options.start = core.base64ToJson(req.query._start, this.getTokenSecret(req));
+    if (req.query._token) req.options.token = core.base64ToJson(req.query._token, this.getTokenSecret(req));
     if (req.query._sort) req.options.sort = req.query._sort;
     if (req.query._page) req.options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
     if (req.query._width) req.options.width = core.toNumber(req.query._width);
@@ -1459,12 +1460,19 @@ api.getOptions = function(req)
     return req.options;
 }
 
+// Return a secret to be used for enrypting tokens
+api.getTokenSecret = function(req)
+{
+    if (!this.tokenSecret) return "";
+    return req.account[this.tokenSecret] || this.tokenSecret;
+}
+
 // Return an object to be returned to the client as a page of result data with possibly next token
 // if present in the info. This result object can be used for pagination responses.
 api.getResultPage = function(req, rows, info)
 {
     var token = { count: rows.length, data: rows };
-    if (info && info.next_token) token.next_token = core.jsonToBase64(info.next_token, req.account.secret);
+    if (info && info.next_token) token.next_token = core.jsonToBase64(info.next_token, this.getTokenSecret(req));
     return token;
 }
 
@@ -2492,22 +2500,17 @@ api.getLocation = function(req, options, callback)
     if (typeof options.round == "undefined") options.round = core.minDistance;
 
     db.getLocations(table, req.query, options, function(err, rows, info) {
-        logger.debug("getLocations:", req.account.id, 'GEO:', info.latitude, info.longitude, info.distance, info.geohash, 'NEXT:', info.start ||'', 'ROWS:', rows.length);
-        // Next token is the whole options as oppose to regular tokens in non location requests to maintain the whole state
-        var token = { count: rows.length, data: rows };
-        if (info.more) token.next_token = core.jsonToBase64(info, req.account.secret);
-
+        logger.debug("getLocations:", req.account.id, 'GEO:', req.query.latitude, req.query.longitude, req.query.distance, options.geohash || "", 'NEXT:', info || '', 'ROWS:', rows.length);
         // Return accounts with locations
         if (core.toNumber(options.details) && rows.length && table != "bk_account") {
 
             self.listAccount(rows, { select: options.select }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
-                token.count = rows.length;
-                token.data = rows;
-                callback(null, token);
+                callback(null, self.getResultPage(req, rows, info));
             });
         } else {
-            callback(null, token);
+            // Next token is the whole options as oppose to regular tokens in non location requests to maintain the whole state
+            callback(null, self.getResultPage(req, rows, info));
         }
     });
 }

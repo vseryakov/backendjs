@@ -421,12 +421,12 @@ tests.location = function(callback)
             async.doUntil(
                 function(next2) {
                     db.getLocations("geo", query, options, function(err, rows, info) {
-                        options = info;
+                        options = info.next_token;
                         rows.forEach(function(x) { rc.push({ id: x.geohash + ":" + x.id, status: x.status }) })
                         next2();
                     });
                 },
-                function() { return !options.more },
+                function() { return !options },
                 function(err) {
                     var ids = {};
                     var isok = rc.every(function(x) { ids[x.id] = 1; return x.status == 'good' })
