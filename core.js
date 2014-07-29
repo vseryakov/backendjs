@@ -375,6 +375,9 @@ core.init = function(options, callback)
     });
 }
 
+// Empty function to be used when callback was no provided
+core.noop = function() {}
+
 // Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized
 core.preInit = function(callback) { callback() }
 

@@ -2340,6 +2340,8 @@ api.readConnection = function(id, obj, options, callback)
 // - nocounter - do not update auto increment counters
 // - noreference - do not create reference part of the connection
 // - connected - return existing connection record for the same type from the other account
+// - account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
+//   be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.
 api.makeConnection = function(id, obj, options, callback)
 {
     var self = this;
@@ -2367,6 +2369,8 @@ api.makeConnection = function(id, obj, options, callback)
             if (options.noreference) return next();
             query.id = obj.id;
             query.type = obj.type + ":"+ id;
+            // Alias for the reference must be alias of the account who is making the connection
+            if (options.account && options.account.alias) query.alias = options.account.alias;
             db[op]("bk_reference", query, options, function(err) {
                 // Remove on error
                 if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function() { next(err); });
@@ -2812,6 +2816,43 @@ api.getAccount = function(req, options, callback)
     } else {
         db.list("bk_account", req.query.id, options, callback);
     }
+}
+
+// Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
+// as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
+// "offline" according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
+// The options may contain the following:
+//  - msg - message stext to send
+//  - badge - a badge number to be sent
+//  - prefix - prepend the message with this prefix
+//  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle
+//  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled
+//  - handler - a function(device_id, options, callback) for actual delivery, it is called in the API context.
+api.notifyAccount = function(id, options, callback)
+{
+    var self = this;
+    var db = core.context.db;
+    if (!id || !options || !options.handler) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" });
+
+    this.getStatus(id, { check: options.check }, function(err, row) {
+        if (err || (options.check && row)) return callback(err, row);
+
+        db.get("bk_account", { id: id }, function(err, rec) {
+            if (err || !rec) return callback(err || { status: 404, message: "account not found" });
+
+            if (!options.allow || rec[options.allow]) {
+                if (!rec.device_id) return callback({ status: 404, message: "device not found" });
+                if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
+
+                return options.handler.call(self, rec.device_id, options, function(err) {
+                    row.device_id = rec.device_id;
+                    row.sent = true;
+                    callback(err, row);
+                });
+            }
+            callback(err, row);
+        });
+    });
 }
 
 // Return account details for the list of rows, options.key specified the column to use for the account id in the `rows`, or `id` will be used.
