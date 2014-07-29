@@ -2827,30 +2827,32 @@ api.getAccount = function(req, options, callback)
 //  - prefix - prepend the message with this prefix
 //  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle
 //  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled
-//  - handler - a function(device_id, options, callback) for actual delivery, it is called in the API context.
+//  - handler - a function(device_id, options, callback) for actual delivery, it is called in the API context. When called the options contain 2 more
+//    properties - account: and status: for account details and status details.
 api.notifyAccount = function(id, options, callback)
 {
     var self = this;
     var db = core.context.db;
     if (!id || !options || !options.handler) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" });
 
-    this.getStatus(id, { check: options.check }, function(err, row) {
-        if (err || (options.check && row)) return callback(err, row);
+    this.getStatus(id, { check: options.check }, function(err, status) {
+        if (err || (options.check && status)) return callback(err, status);
 
-        db.get("bk_account", { id: id }, function(err, rec) {
-            if (err || !rec) return callback(err || { status: 404, message: "account not found" });
+        db.get("bk_account", { id: id }, function(err, account) {
+            if (err || !account) return callback(err || { status: 404, message: "account not found" });
 
-            if (!options.allow || rec[options.allow]) {
-                if (!rec.device_id) return callback({ status: 404, message: "device not found" });
+            if (!options.allow || account[options.allow]) {
+                if (!account.device_id) return callback({ status: 404, message: "device not found" });
                 if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
-
-                return options.handler.call(self, rec.device_id, options, function(err) {
-                    row.device_id = rec.device_id;
-                    row.sent = true;
-                    callback(err, row);
+                options.account = account;
+                options.status = status;
+                return options.handler.call(self, account.device_id, options, function(err) {
+                    status.device_id = account.device_id;
+                    status.sent = true;
+                    callback(err, status);
                 });
             }
-            callback(err, row);
+            callback(err, status);
         });
     });
 }

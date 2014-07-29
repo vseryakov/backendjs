@@ -1665,6 +1665,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication. Default: 1209600000</li>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
+<li><code>api-token-secret</code> - Name of the property to be used for encrypting tokens, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
 <li><code>api-unsecure</code> - Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution. Default: </li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: </li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: [object Object]</li>
@@ -2050,6 +2051,12 @@ distinguish control parameters from query parameters.</p>
 </ul>
 
 <ul>
+<li><p><code>api.getTokenSecret(req)</code></p>
+<p> Return a secret to be used for enrypting tokens</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.getResultPage(req, rows, info)</code></p>
 <p> Return an object to be returned to the client as a page of result data with possibly next token
 if present in the info. This result object can be used for pagination responses.</p>
@@ -2416,6 +2423,8 @@ The following properties can alter the actions:</p>
 <li>nocounter - do not update auto increment counters</li>
 <li>noreference - do not create reference part of the connection</li>
 <li>connected - return existing connection record for the same type from the other account</li>
+<li>account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
+be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.</li>
 </ul>
 </li>
 </ul>
@@ -2502,6 +2511,24 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>api.getAccount(req, options, callback)</code></p>
 <p> Return an account, used in /account/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.notifyAccount(id, options, callback)</code></p>
+<p> Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
+as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
+&quot;offline&quot; according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
+The options may contain the following:</p>
+<ul>
+<li>msg - message stext to send</li>
+<li>badge - a badge number to be sent</li>
+<li>prefix - prepend the message with this prefix</li>
+<li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
+<li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled</li>
+<li>handler - a function(device_id, options, callback) for actual delivery, it is called in the API context. When called the options contain 2 more
+properties - account: and status: for account details and status details.</li>
+</ul>
 </li>
 </ul>
 
@@ -2882,6 +2909,12 @@ If options are given they may contain the following properties:</p>
 <li>noPools - if true do not initialize database pools except default sqlite</li>
 <li>noDns - do not retrieve config from DNS</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.noop()</code></p>
+<p> Empty function to be used when callback was no provided</p>
 </li>
 </ul>
 
@@ -4286,13 +4319,13 @@ in case of SQL this is the second part of the primary key</li>
 </ul>
 <p>On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 the next_token returned by the previous call and query will be ignored</p>
-<p>On return, the callback&#39;s third argument contains the object that must be provided for subsequent searches until rows array is empty.</p>
+<p>On return, the callback&#39;s third argument contains the object with next_token that must be provided for subsequent searches until rows array is empty.</p>
 <p>Example</p>
 <pre><code>    var query = { latitude: -118, longitude: 30, distance: 10 };
     db.getLocations(&quot;bk_location&quot;, query, { round: 5 }, function(err, rows, info) {
         ...
         // Get next page using previous info object
-        db.getLocations(&quot;bk_location&quot;, query, info, function(err, rows, info) {
+        db.getLocations(&quot;bk_location&quot;, query, info.next_token, function(err, rows, info) {
             ...
         });
     });
