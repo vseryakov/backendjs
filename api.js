@@ -79,6 +79,7 @@ var api = {
        // Status/presence support
        bk_status: { id: { primary: 1 },                               // account id
                     status: { value: "online" },                      // status, online, offline, away
+                    alias: {},
                     mtime: { type: "bigint", now: 1 }},               // last status change time
 
        // Keep track of icons uploaded
@@ -658,6 +659,13 @@ api.checkRequest = function(req, res, callback)
     req.options = { ops: {}, noscan: 1, path: [ path[1] || "", path[2] || "", path[3] || "" ], cleanup: "bk_" + path[1] };
     req.account = {};
 
+    // Parse user agent application version, extract first product and version only
+    var d = (req.headers['user-agent'] || "").match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/);
+    if (d) {
+        req.options.appName = d[1];
+        req.options.appVersion = d[2];
+    }
+
     self.checkAccess(req, function(rc1) {
         // Status is given, return an error or proceed to the next module
         if (rc1) {
@@ -1011,6 +1019,7 @@ api.initStatusAPI = function()
 
         case "put":
             req.query.id = req.account.id;
+            req.query.alias = req.account.alias;
             self.putStatus(req.query, options, function(err, rows) {
                 self.sendJSON(req, err, rows);
             });
@@ -2160,10 +2169,9 @@ api.delFile = function(file, options, callback)
 }
 
 // Returns status record for given account, used in /status/get API call.
-// if no options.check is set then just return the status record otherwise if the last status update is older than
-// the status-interval seconds ago then the row returned is null.
-// If id is an array, then return all status records for specified list of account ids, if options.check is set then only
-// return status records witch last status update ocured less than status-interval seconds ago.
+// It always returns status object even if it was never set before, on return the record contains
+// a property `online` set to true of false according to the idle period and actual status.
+// If id is an array, then return all status records for specified list of account ids
 api.getStatus = function(id, options, callback)
 {
     var self = this;
@@ -2172,20 +2180,23 @@ api.getStatus = function(id, options, callback)
 
     if (Array.isArray(id)) {
         db.list("bk_status", id, options, function(err, rows) {
-            if (!err && options.check) rows = rows.filter(function(x) { return now - row.mtime <= self.statusInterval * 1000 });
+            if (err) return callback(err);
+            rows = rows.filter(function(x) {
+                row.online = now - row.mtime < self.statusInterval * 1000 && row.status != "offline" ? true : false;
+            });
             callback(err, rows);
         });
     } else {
         db.get("bk_status", { id: id }, options, function(err, row) {
-            if (!err && row && options.check) {
-                if (now - row.mtime > self.statusInterval * 1000 || row.status == "offline") row = null;
-            }
+            if (err) return callback(err);
+            if (!row) row = { id: id, status: "offline", online: false, mtime: 0 };
+            row.online = now - row.mtime < self.statusInterval * 1000 && row.status != "offline" ? true : false;
             callback(err, row);
         });
     }
 }
 
-// Maintain online status , update every status-interval seconds, if options.check is given only update if last update happened
+// Maintain online status, update every status-interval seconds, if options.check is given only update if last update happened
 // longer than status-interval seconds ago
 api.putStatus = function(obj, options, callback)
 {
@@ -2194,15 +2205,12 @@ api.putStatus = function(obj, options, callback)
 
     obj.mtime = Date.now();
 
-    // Just update uncoditionally
-    if (!options.check) return db.put("bk_status", obj, function(err) { callback(err, obj); });
-
-    this.getStatus(obj.id, options, function(err, row) {
-        if (!err && !row) {
-            db.put("bk_status", obj, function(err) { callback(err, obj); });
-        } else {
-            callback(err, row);
-        }
+    // Read the current record, check is handled differently in put
+    self.getStatus(obj.id, options, function(err, row) {
+        if (err) return callback(err);
+        if (options.check && row.online) return callback(err, row);
+        for (var p in obj) row[p] = obj[p];
+        db.put("bk_status", row, function(err) { callback(err, row); });
     });
 }
 
@@ -2835,8 +2843,8 @@ api.notifyAccount = function(id, options, callback)
     var db = core.context.db;
     if (!id || !options || !options.handler) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" });
 
-    this.getStatus(id, { check: options.check }, function(err, status) {
-        if (err || (options.check && status)) return callback(err, status);
+    this.getStatus(id, {}, function(err, status) {
+        if (err || (options.check && status.online)) return callback(err, status);
 
         db.get("bk_account", { id: id }, function(err, account) {
             if (err || !account) return callback(err || { status: 404, message: "account not found" });
