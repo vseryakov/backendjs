@@ -28,6 +28,7 @@ api.initApplication = function(callback)
     this.app.all('/taxi/get', function(req, res) {
         var options = api.getOptions(req);
         options.sort = "id";
+        options.noscan = 0;
         db.select('taxi', req.query, options, function(err, rows) {
            res.json(rows);
         });

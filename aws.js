@@ -48,7 +48,7 @@ aws.configure = function(options, callback)
 {
     if (typeof options == "callback") callback = options, options = null;
     // Do not retrieve metadata if not running inside important process
-    if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master"].indexOf(core.role) == -1) return callback();
+    if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master","worker"].indexOf(core.role) == -1) return callback();
     this.getInstanceInfo(callback);
 }
 
@@ -369,10 +369,9 @@ aws.getInstanceCredentials = function(callback)
                 self.tokenExpiration = core.toDate(obj.Expiration).getTime();
             }
         }
-        var now = Date.now();
-        if (self.tokenExpiration > now) {
-            clearTimeout(self.tokenTimer);
-            self.tokenTimer = setTimeout(function() { self.getInstanceCredentials() }, Math.max(self.tokenExpiration - now - 120000, 5000));
+        // Poll every ~5mins
+        if (!self.tokenTimer) {
+            self.tokenTimer = setInterval(function() { self.getInstanceCredentials() }, 298 * 1000);
         }
         if (callback) callback(err);
     });

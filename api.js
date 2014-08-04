@@ -68,6 +68,7 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
+                      device_id: {},
                       geohash: { location: 1 },                         // To prevent regular account updates
                       latitude: { type: "real", location: 1 },          // overriding location columns
                       longitude: { type: "real", location: 1 },
@@ -1987,7 +1988,7 @@ api.sendIcon = function(req, res, id, options)
         });
         s3req.on("error", function(err) {
             logger.error('sendIcon:', err);
-            req.abort();
+            s3req.abort();
         });
         s3req.end();
 
