@@ -1736,6 +1736,7 @@ the worker processes if they die and restart them automatically. How many proces
                     state: {},
                     zipcode: {},
                     country: {},
+                    device_id: {},
                     geohash: { location: 1 },                         // To prevent regular account updates
                     latitude: { type: &quot;real&quot;, location: 1 },          // overriding location columns
                     longitude: { type: &quot;real&quot;, location: 1 },
@@ -1747,6 +1748,7 @@ the worker processes if they die and restart them automatically. How many proces
      // Status/presence support
      bk_status: { id: { primary: 1 },                               // account id
                   status: { value: &quot;online&quot; },                      // status, online, offline, away
+                  alias: {},
                   mtime: { type: &quot;bigint&quot;, now: 1 }},               // last status change time
 
      // Keep track of icons uploaded
@@ -2349,16 +2351,15 @@ Output file name is built according to the following options properties:</li>
 <ul>
 <li><p><code>api.getStatus(id, options, callback)</code></p>
 <p> Returns status record for given account, used in /status/get API call.
-if no options.check is set then just return the status record otherwise if the last status update is older than
-the status-interval seconds ago then the row returned is null.
-If id is an array, then return all status records for specified list of account ids, if options.check is set then only
-return status records witch last status update ocured less than status-interval seconds ago.</p>
+It always returns status object even if it was never set before, on return the record contains
+a property <code>online</code> set to true of false according to the idle period and actual status.
+If id is an array, then return all status records for specified list of account ids</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>api.putStatus(obj, options, callback)</code></p>
-<p> Maintain online status , update every status-interval seconds, if options.check is given only update if last update happened
+<p> Maintain online status, update every status-interval seconds, if options.check is given only update if last update happened
 longer than status-interval seconds ago</p>
 </li>
 </ul>
