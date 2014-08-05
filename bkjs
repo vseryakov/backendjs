@@ -66,6 +66,7 @@ while [ $# -gt 1 ]; do
      -path) export BACKEND_PATH=$2;shift;shift;;
      -ssh) export BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS $2";shift;shift;;
      -exclude) export BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $2";shift;shift;;
+     -include) export BACKEND_EXCLUDE="$BACKEND_EXCLUDE --include $2";shift;shift;;
      -delete) export BACKEND_EXCLUDE="$BACKEND_EXCLUDE --delete-after";shift;;
      *) break;;
     esac
@@ -479,7 +480,7 @@ case "$ARG" in
        [ "$mod" = "$BKJS" ] && BACKEND_PATH=node_modules/$BKJS
     fi
     [ "$BACKEND_HOST" = "" ] && echo "Remote host required, specify with -host or BACKEND_HOST" && exit
-    for f in bin etc build deps images files log pages tmp var '*.log'; do
+    for f in bin etc build deps images files log pages tmp var '*.log' '*.sh'; do
         BACKEND_EXCLUDE="$BACKEND_EXCLUDE --exclude $f"
     done
     [ "$BACKEND_USER" != "$(whoami)" ] && BACKEND_SSH_ARGS="$BACKEND_SSH_ARGS -l $BACKEND_USER"

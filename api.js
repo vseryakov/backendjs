@@ -2700,23 +2700,25 @@ api.addMessage = function(req, options, callback)
     var self = this;
     var db = core.context.db;
     var now = Date.now();
-    var info = {}, sent = core.cloneObj(req.query);
+    var info = {};
+    var sent = core.cloneObj(req.query);
+    var msg = core.cloneObj(req.query);
 
     if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
 
     async.series([
         function(next) {
-            req.query.sender = req.account.id;
-            req.query.alias = req.account.alias;
-            req.query.mtime = now + ":" + req.query.sender;
-            self.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime }, function(err, icon) {
-                req.query.icon = icon ? 1 : 0;
+            msg.sender = req.account.id;
+            msg.alias = req.account.alias;
+            msg.mtime = now + ":" + msg.sender;
+            self.putIcon(req, msg.id, { prefix: 'message', type: msg.mtime }, function(err, icon) {
+                msg.icon = icon ? 1 : 0;
                 next(err);
             });
         },
         function(next) {
-            db.add("bk_message", req.query, options, function(err, rows, info2) {
+            db.add("bk_message", msg, options, function(err, rows, info2) {
                 info = info2;
                 next(err);
             });
@@ -2741,14 +2743,19 @@ api.addMessage = function(req, options, callback)
         },
         function(next) {
             if (!options.publish || req.query.id == req.account.id) return next();
-            self.publish(req.query.id, { path: req.path, mtime: now, alias: (options.account || {}).alias, msg: (req.query.msg || "").substr(0, 128) }, options);
+            self.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) }, options);
             next();
         },
         ], function(err) {
             if (err) return callback(err);
             self.metrics.messages.Meter('add').mark();
-            db.processRows("", "bk_sent", sent, options);
-            callback(null, sent, info);
+            if (options.nosent) {
+                db.processRows("", "bk_message", msg, options);
+                callback(null, msg, info);
+            } else {
+                db.processRows("", "bk_sent", sent, options);
+                callback(null, sent, info);
+            }
     });
 }
 
