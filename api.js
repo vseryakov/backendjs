@@ -1093,18 +1093,21 @@ api.initMessageAPI = function()
             break;
 
         case "get":
+            options.cleanup = "";
             self.getMessage(req, options, function(err, rows, info) {
                 self.sendJSON(req, err, self.getResultPage(req, rows, info));
             });
             break;
 
         case "get/sent":
+            options.cleanup = "";
             self.getSentMessage(req, options, function(err, rows, info) {
                 self.sendJSON(req, err, self.getResultPage(req, rows, info));
             });
             break;
 
         case "get/archive":
+            options.cleanup = "";
             self.getArchiveMessage(req, options, function(err, rows, info) {
                 self.sendJSON(req, err, self.getResultPage(req, rows, info));
             });
@@ -1208,6 +1211,7 @@ api.initConnectionAPI = function()
 
         case "get":
             options.op = req.params[0];
+            options.cleanup = "";
             self.getConnection(req, options, function(err, data) {
                 self.sendJSON(req, err, data);
             });
@@ -1215,6 +1219,7 @@ api.initConnectionAPI = function()
 
         case "select":
             options.op = req.params[0];
+            options.cleanup = "";
             self.selectConnection(req, options, function(err, data) {
                 self.sendJSON(req, err, data);
             });
@@ -2598,7 +2603,6 @@ api.getArchiveMessage = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
-    req.options.cleanup = "";
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
@@ -2612,7 +2616,6 @@ api.getSentMessage = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
-    req.options.cleanup = "";
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
@@ -2626,7 +2629,6 @@ api.getMessage = function(req, options, callback)
     var self = this;
     var db = core.context.db;
 
-    req.options.cleanup = "";
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
     if (!options.ops.mtime) options.ops.mtime = "gt";
