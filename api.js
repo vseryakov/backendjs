@@ -106,14 +106,16 @@ var api = {
        // All connections between accounts: like,dislike,friend...
        bk_connection: { id: { primary: 1, pub: 1 },                    // my account_id
                         type: { primary: 1, pub: 1 },                  // type:connection
-                        connection: {},                                // other id of the connection
+                        connection: { pub: 1 },                        // other id of the connection
+                        alias: { pub: 1 },
                         status: {},
                         mtime: { type: "bigint", now: 1, pub: 1 }},
 
        // References from other accounts, likes,dislikes...
        bk_reference: { id: { primary: 1, pub: 1 },                    // account_id
                        type: { primary: 1, pub: 1 },                  // type:connection
-                       connection: {},                                // other id of the connection
+                       connection: { pub: 1 },                        // other id of the connection
+                       alias: { pub: 1 },
                        status: {},
                        mtime: { type: "bigint", now: 1, pub: 1 }},
 
@@ -2344,6 +2346,9 @@ api.readConnection = function(id, obj, options, callback)
 // Lower level connection creation with all counters support, can be used outside of the current account scope for
 // any two accounts and arbitrary properties, `id` is the primary account id, `obj` contains id and type for other account
 // with other properties to be added. `obj` is left untouched.
+//
+// To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias or options.account.alias for bk_reference.
+//
 // The following properties can alter the actions:
 // - publish - send notification via pub/sub system if present
 // - nocounter - do not update auto increment counters
@@ -2379,6 +2384,7 @@ api.makeConnection = function(id, obj, options, callback)
             query.id = obj.id;
             query.type = obj.type + ":"+ id;
             // Alias for the reference must be alias of the account who is making the connection
+            if (options.alias) query.alias = options.alias; else
             if (options.account && options.account.alias) query.alias = options.account.alias;
             db[op]("bk_reference", query, options, function(err) {
                 // Remove on error
@@ -2638,7 +2644,7 @@ api.getMessage = function(req, options, callback)
     }
 
     db.select("bk_message", req.query, options, function(err, rows, info) {
-        if (err) return self.sendReply(res, err);
+        if (err) return callback(err, []);
 
         options.ops = null;
         // Move to archive
