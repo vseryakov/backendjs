@@ -802,7 +802,7 @@ api.checkBody = function(req, res, next)
 // Perform URL based access checks
 // Check access permissions, calls the callback with the following argument:
 // - nothing if checkSignature needs to be called
-// - an object with status: 200 to skip authorization and proceed with the next module
+// - an object with status: 200 to skip authorization and proceed with routes processing
 // - an object with status: 0 means response has been sent, just stop
 // - an object with status other than 0 or 200 to return the status and stop request processing
 api.checkAccess = function(req, callback)
@@ -816,10 +816,7 @@ api.checkAccess = function(req, callback)
     if (hooks.length) {
         async.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAccess:', req.method, req.path, hook.path);
-            hook.callbacks.call(self, req, function(err) {
-                if (err && err.status != 200) return next(err);
-                next();
-            });
+            hook.callbacks.call(self, req, next);
         }, callback);
         return;
     }
