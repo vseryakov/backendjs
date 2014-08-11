@@ -2333,7 +2333,8 @@ api.readConnection = function(id, obj, options, callback)
     for (var p in obj) if (p != "id" && p != "type") query[p] = obj[p];
 
     db.get("bk_" + (options.op || "connection"), query, options, function(err, row) {
-        if (err || !row) return callback(err, row);
+        if (err) return callback(err, {});
+        if (!row) return callback({ status: 404, message: "no connection" }, {});
 
         // Just return connections
         if (!core.toNumber(options.details)) return callback(err, row);
@@ -3117,6 +3118,7 @@ api.getStatistics = function()
     var pool = core.context.db.getPool();
     pool.metrics.stats = pool.stats();
     this.metrics.pool = pool.metrics;
+    this.metrics.mtime = Date.now();
     return this.metrics;
 }
 
