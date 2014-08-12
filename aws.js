@@ -163,7 +163,10 @@ aws.queryDDB = function (action, obj, options, callback)
 
     this.querySign("dynamodb", req.hostname, "POST", req.path, json, headers);
     core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
-        if (err) return callback ? callback(err, {}) : null;
+        if (err) {
+            logger.error("queryDDB:", self.key, action, obj, err);
+            return callback ? callback(err, {}) : null;
+        }
 
         // Reply is always JSON but we dont take any chances
         try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
@@ -371,7 +374,7 @@ aws.getInstanceCredentials = function(callback)
         }
         // Poll every ~5mins
         if (!self.tokenTimer) {
-            self.tokenTimer = setInterval(function() { self.getInstanceCredentials() }, 298 * 1000);
+            self.tokenTimer = setInterval(function() { self.getInstanceCredentials() }, 258 * 1000);
         }
         if (callback) callback(err);
     });
@@ -402,7 +405,6 @@ aws.getInstanceInfo = function(callback)
             });
         },
         function(next) {
-            if (self.key) return next();
             self.getInstanceCredentials(next);
         },
         ], function(err) {

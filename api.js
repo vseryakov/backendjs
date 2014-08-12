@@ -68,7 +68,7 @@ var api = {
                       state: {},
                       zipcode: {},
                       country: {},
-                      device_id: {},
+                      device_id: {},                                    // Device for notifications
                       geohash: { location: 1 },                         // To prevent regular account updates
                       latitude: { type: "real", location: 1 },          // overriding location columns
                       longitude: { type: "real", location: 1 },
@@ -1458,6 +1458,7 @@ api.getOptions = function(req)
     if (req.query._ext) req.options.ext = req.query._ext;
     if (req.query._quality) req.options.quality = core.toNumber(req.query._quality);
     if (req.query._round) req.options.round = core.toNumber(req.query._round);
+    if (req.query._alias) req.options.alias = req.query._alias;
     if (req.query._ops) {
         var ops = core.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
@@ -2350,7 +2351,7 @@ api.readConnection = function(id, obj, options, callback)
 // any two accounts and arbitrary properties, `id` is the primary account id, `obj` contains id and type for other account
 // with other properties to be added. `obj` is left untouched.
 //
-// To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias or options.account.alias for bk_reference.
+// To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.
 //
 // The following properties can alter the actions:
 // - publish - send notification via pub/sub system if present
@@ -2386,9 +2387,7 @@ api.makeConnection = function(id, obj, options, callback)
             if (options.noreference) return next();
             query.id = obj.id;
             query.type = obj.type + ":"+ id;
-            // Alias for the reference must be alias of the account who is making the connection
-            if (options.alias) query.alias = options.alias; else
-            if (options.account && options.account.alias) query.alias = options.account.alias;
+            if (options.alias) query.alias = options.alias;
             db[op]("bk_reference", query, options, function(err) {
                 // Remove on error
                 if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: id, type: obj.type + ":" + obj.id }, function() { next(err); });
@@ -2405,9 +2404,9 @@ api.makeConnection = function(id, obj, options, callback)
             self.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
         },
         function(next) {
-            // Notify about connection change
+            // Notify about connection the other side
             if (!options.publish) return next();
-            self.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: options.account ? options.account.alias : "", type: obj.type }, options);
+            self.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: options.alias || obj.alias, type: obj.type }, options);
             next();
         },
         function(next) {
