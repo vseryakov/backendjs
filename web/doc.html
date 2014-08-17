@@ -1724,6 +1724,8 @@ the worker processes if they die and restart them automatically. How many proces
       bk_account: { id: { primary: 1, pub: 1 },
                     login: {},
                     name: {},
+                    first_name: {},
+                    last_name: {},
                     alias: { pub: 1 },
                     status: {},
                     email: {},
@@ -1736,7 +1738,7 @@ the worker processes if they die and restart them automatically. How many proces
                     state: {},
                     zipcode: {},
                     country: {},
-                    device_id: {},
+                    device_id: {},                                    // Device for notifications
                     geohash: { location: 1 },                         // To prevent regular account updates
                     latitude: { type: &quot;real&quot;, location: 1 },          // overriding location columns
                     longitude: { type: &quot;real&quot;, location: 1 },
@@ -2420,7 +2422,7 @@ if options.details is 1 then combine with account record.</p>
 <p> Lower level connection creation with all counters support, can be used outside of the current account scope for
 any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id and type for other account
 with other properties to be added. <code>obj</code> is left untouched.</p>
-<p>To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias or options.account.alias for bk_reference.</p>
+<p>To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.</p>
 <p>The following properties can alter the actions:</p>
 <ul>
 <li>publish - send notification via pub/sub system if present</li>
@@ -3541,11 +3543,12 @@ for this function to work and it is called by the root only</p>
 </ul>
 
 <ul>
-<li><p><code>core.getIcon(uri, id, options, callback)</code></p>
+<li><p><code>core.getIcon(uri, options, callback)</code></p>
 <p> Download image and convert into JPG, store under core.path.images
 Options may be controlled using the properties:</p>
 <ul>
 <li>force - force rescaling for all types even if already exists</li>
+<li>id - id for the icon</li>
 <li>type - type for the icon, prepended to the icon id</li>
 <li>prefix - where to store all scaled icons</li>
 <li>verify - check if the original icon is the same as at the source</li>
