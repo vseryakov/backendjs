@@ -405,6 +405,8 @@ aws.getInstanceInfo = function(callback)
             });
         },
         function(next) {
+            // If access key is configured then skip profile meta
+            if (self.key) return next();
             self.getInstanceCredentials(next);
         },
         ], function(err) {

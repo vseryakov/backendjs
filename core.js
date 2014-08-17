@@ -2293,10 +2293,11 @@ core.iconPath = function(id, options)
 // Download image and convert into JPG, store under core.path.images
 // Options may be controlled using the properties:
 // - force - force rescaling for all types even if already exists
+// - id - id for the icon
 // - type - type for the icon, prepended to the icon id
 // - prefix - where to store all scaled icons
 // - verify - check if the original icon is the same as at the source
-core.getIcon = function(uri, id, options, callback)
+core.getIcon = function(uri, options, callback)
 {
     var self = this;
 
@@ -2304,7 +2305,8 @@ core.getIcon = function(uri, id, options, callback)
     if (!options) options = {};
     logger.debug('getIcon:', uri, options);
 
-    if (!uri || !id) return (callback ? callback(new Error("wrong args")) : null);
+    if (!uri || (!options.id && !options.type)) return (callback ? callback(new Error("wrong args")) : null);
+    var id = options.id || "";
 
     // Verify image size and skip download if the same
     if (options.verify) {

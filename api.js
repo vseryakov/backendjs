@@ -56,6 +56,8 @@ var api = {
         bk_account: { id: { primary: 1, pub: 1 },
                       login: {},
                       name: {},
+                      first_name: {},
+                      last_name: {},
                       alias: { pub: 1 },
                       status: {},
                       email: {},
@@ -2935,13 +2937,14 @@ api.addAccount = function(req, options, callback)
            // Copy for the auth table in case we have different properties that needs to be cleared
            var query = core.cloneObj(req.query);
            if (req.account.type != "admin") self.clearQuery(query, options, "bk_auth", "admin");
-
+           self.clearQuery(query, options, "bk_auth", "priv");
            db.add("bk_auth", query, options, next);
        },
        function(next) {
            var query = core.cloneObj(req.query);
            // Only admin can add accounts with admin properties
            if (req.account.type != "admin") self.clearQuery(query, options, "bk_account", "admin");
+           self.clearQuery(query, options, "bk_account", "priv");
            self.clearQuery(query, options, "bk_account", "location");
 
            db.add("bk_account", query, function(err) {
@@ -2978,6 +2981,7 @@ api.updateAccount = function(req, options, callback)
            var query = core.cloneObj(req.query);
            // Skip admin properties if any
            if (req.account.type != "admin") self.clearQuery(query, options, "bk_auth", "admin");
+           self.clearQuery(query, options, "bk_auth", "priv");
            query.login = req.account.login;
            // Avoid updating bk_auth and flushing cache if nothing to update
            var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { all_columns: 1, skip_columns: ["id","login","mtime"] });
@@ -2985,6 +2989,7 @@ api.updateAccount = function(req, options, callback)
            db.update("bk_auth", query, next);
        },
        function(next) {
+           self.clearQuery(req.query, options, "bk_account", "priv");
            self.clearQuery(req.query, options, "bk_account", "location");
 
            // Skip admin properties if any
