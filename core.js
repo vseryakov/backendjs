@@ -1911,6 +1911,7 @@ core.strftime = function(date, fmt, utc)
         d: function(t) { return zeropad(utc ? t.getUTCDate() : t.getDate()) },
         H: function(t) { return zeropad(utc ? t.getUTCHours() : t.getHours()) },
         I: function(t) { return zeropad(((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) },
+        L: function(t) { return zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds()) },
         m: function(t) { return zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1) }, // month-1
         M: function(t) { return zeropad(utc ? t.getUTCMinutes() : t.getMinutes()) },
         p: function(t) { return this.H(t) < 12 ? 'AM' : 'PM'; },

@@ -245,6 +245,7 @@ var api = {
                  "location": 'initLocationAPI',
                  "counter": 'initCounterAPI',
                  "icon": 'initIconAPI',
+                 "file": 'initFileAPI',
                  "message": 'initMessageAPI',
                  "system": "initSystemAPI",
                  "data": 'initDataAPI' },
@@ -1076,6 +1077,44 @@ api.initIconAPI = function()
     });
 }
 
+// Generic file management
+api.initFileAPI = function()
+{
+    var self = this;
+    var db = core.context.db;
+
+    this.app.all(/^\/file\/([a-z]+)$/, function(req, res) {
+        var options = self.getOptions(req);
+
+        if (!req.query.prefix) return self.sendReply(res, 400, "prefix is required");
+        if (!req.query.name) return self.sendReply(res, 400, "name is required");
+        var file = req.query.prefix.replace("/", "") + "/" + req.query.name.replace("/", "");
+        if (options.tm) file += options.tm;
+
+        switch (req.params[0]) {
+        case "get":
+            self.getFile(req, res, file, options);
+            break;
+
+        case "put":
+            options.name = file;
+            self.putFile(req, req.query._name || "data", options, function(err) {
+                self.sendReply(res, err);
+            });
+            break;
+
+        case "del":
+            self.delFile(file, options, function(err) {
+                self.sendReply(res, err);
+            });
+            break;
+
+        default:
+            self.sendReply(res, 400, "Invalid command");
+        }
+    });
+}
+
 // Messaging management
 api.initMessageAPI = function()
 {
@@ -1458,9 +1497,11 @@ api.getOptions = function(req)
     if (req.query._width) req.options.width = core.toNumber(req.query._width);
     if (req.query._height) req.options.height = core.toNumber(req.query._height);
     if (req.query._ext) req.options.ext = req.query._ext;
+    if (req.query._tm) req.options.tm = core.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
     if (req.query._quality) req.options.quality = core.toNumber(req.query._quality);
     if (req.query._round) req.options.round = core.toNumber(req.query._round);
     if (req.query._alias) req.options.alias = req.query._alias;
+    if (req.query._name) req.options.name = req.query._name;
     if (req.query._ops) {
         var ops = core.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
@@ -2086,6 +2127,32 @@ api.delIcon = function(id, options, callback)
     }
 }
 
+// Send a file to the client
+api.getFile = function(req, res, file, options)
+{
+    var self = this;
+    if (!options) options = {};
+    var aws = core.context.aws;
+    logger.debug('sendFile:', file, options);
+
+    if (options.imagesS3 || self.imagesS3) {
+        var opts = {};
+        var params = url.parse(aws.signS3("GET", options.filesS3 || self.filesS3, file, opts));
+        params.headers = opts.headers;
+        var s3req = http.request(params, function(s3res) {
+            s3res.pipe(res, { end: true });
+        });
+        s3req.on("error", function(err) {
+            logger.error('sendFile:', err);
+            s3req.abort();
+        });
+        s3req.end();
+
+    } else {
+        self.sendFile(req, res, file);
+    }
+}
+
 // Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name
 // - name is the name property to look for in the multipart body or in the request body or query
 // - callback will be called with err and actual filename saved
@@ -2102,6 +2169,9 @@ api.putFile = function(req, name, options, callback)
 
     var btype = core.typeName(req.body);
     var outfile = (options.name || name) + (options.ext || "");
+
+    logger.debug("putFile:", name, outfile, options);
+
     if (req.files && req.files[name]) {
         if (!options.ext || options.extkeep) outfile += path.extname(req.files[name].name || req.files[name].path);
         self.storeFile(req.files[name].path, outfile, options, callback);
@@ -2129,6 +2199,8 @@ api.storeFile = function(tmpfile, outfile, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
+
+    logger.debug("storeFile:", outfile);
 
     if (this.filesS3 || options.filesS3) {
         var aws = core.context.aws;
@@ -2160,6 +2232,7 @@ api.storeFile = function(tmpfile, outfile, options, callback)
 // Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects
 api.delFile = function(file, options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
