@@ -910,7 +910,6 @@ api.checkSignature = function(req, callback)
         req.signature = sig;
         req.account = account;
         req.options.account = { id: req.account.id, login: req.account.login, alias: req.account.alias };
-        logger.debug(req.path, req.account, req.query);
         return callback({ status: 200, message: "Ok" });
     });
 }
@@ -1133,21 +1132,21 @@ api.initMessageAPI = function()
         case "get":
             options.cleanup = "";
             self.getMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, self.getResultPage(req, rows, info));
+                self.sendJSON(req, err, self.getResultPage(req, options, rows, info));
             });
             break;
 
         case "get/sent":
             options.cleanup = "";
             self.getSentMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, self.getResultPage(req, rows, info));
+                self.sendJSON(req, err, self.getResultPage(req, options, rows, info));
             });
             break;
 
         case "get/archive":
             options.cleanup = "";
             self.getArchiveMessage(req, options, function(err, rows, info) {
-                self.sendJSON(req, err, self.getResultPage(req, rows, info));
+                self.sendJSON(req, err, self.getResultPage(req, options, rows, info));
             });
             break;
 
@@ -1418,9 +1417,7 @@ api.initDataAPI = function()
             switch (req.params[0]) {
             case "select":
             case "search":
-                var token = { count: rows.length, data: rows };
-                if (info.next_token) token.next_token = info.next_token;
-                self.sendJSON(req, err, token);
+                self.sendJSON(req, err, self.getResultPage(req, options, rows, info));
                 break;
             default:
                 self.sendJSON(req, err, rows);
@@ -1444,33 +1441,44 @@ api.initTables = function(options, callback)
         if (!self._processRow) {
             self._processRow = true;
 
-            db.setProcessRow("bk_account", function(row, options, cols) {
-                if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-            });
-
             function onMessageRow(row, options, cols) {
-                var mtime = row.mtime.split(":");
-                row.mtime = core.toNumber(mtime[0]);
-                row.id = row.sender = mtime[1];
                 delete row.recipient;
+                if (row.mtime) {
+                    var mtime = row.mtime.split(":");
+                    row.mtime = core.toNumber(mtime[0]);
+                    row.id = row.sender = mtime[1];
+                }
                 if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
             }
-            db.setProcessRow("bk_message", options, onMessageRow);
-            db.setProcessRow("bk_archive", options, onMessageRow);
 
-            db.setProcessRow("bk_sent", options, function(row, options, cols) {
-                var mtime = row.mtime.split(":");
-                row.mtime = core.toNumber(mtime[0]);
-                row.id = row.recipient = mtime[1];
+            function onSentRow(row, options, cols) {
                 delete row.sender;
+                if (row.mtime) {
+                    var mtime = row.mtime.split(":");
+                    row.mtime = core.toNumber(mtime[0]);
+                    row.id = row.recipient = mtime[1];
+                }
                 if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
-            });
+            }
 
             function onConnectionRow(row, options, cols) {
-                var type = row.type.split(":");
-                row.type = type[0];
-                row.id = type[1];
+                if (row.type) {
+                    var type = row.type.split(":");
+                    row.type = type[0];
+                    row.id = type[1];
+                }
             }
+
+            function onAccountRow(row, options, cols) {
+                if (row.birthday) {
+                    row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+                }
+            }
+
+            db.setProcessRow("bk_account", options, onAccountRow);
+            db.setProcessRow("bk_sent", options, onSentRow);
+            db.setProcessRow("bk_message", options, onMessageRow);
+            db.setProcessRow("bk_archive", options, onMessageRow);
             db.setProcessRow("bk_connection", options, onConnectionRow);
             db.setProcessRow("bk_reference", options, onConnectionRow);
             db.setProcessRow("bk_icon", options, self.checkIcon);
@@ -1527,8 +1535,9 @@ api.getTokenSecret = function(req)
 
 // Return an object to be returned to the client as a page of result data with possibly next token
 // if present in the info. This result object can be used for pagination responses.
-api.getResultPage = function(req, rows, info)
+api.getResultPage = function(req, options, rows, info)
 {
+    if (options.total) return { count: rows.length && rows[0].count ? rows[0].count : 0 };
     var token = { count: rows.length, data: rows };
     if (info && info.next_token) token.next_token = core.jsonToBase64(info.next_token, this.getTokenSecret(req));
     return token;
@@ -2349,7 +2358,7 @@ api.selectConnection = function(req, options, callback)
 {
     var self = this;
     this.queryConnection(req.account.id, req.query, options, function(err, rows, info) {
-        callback(null, self.getResultPage(req, rows, info));
+        callback(null, self.getResultPage(req, options, rows, info));
     });
 }
 
@@ -2602,10 +2611,10 @@ api.getLocation = function(req, options, callback)
 
             self.listAccount(rows, { select: options.select }, function(err, rows) {
                 if (err) return self.sendReply(res, err);
-                callback(null, self.getResultPage(req, rows, info));
+                callback(null, self.getResultPage(req, options, rows, info));
             });
         } else {
-            callback(null, self.getResultPage(req, rows, info));
+            callback(null, self.getResultPage(req, options, rows, info));
         }
     });
 }
@@ -2706,6 +2715,11 @@ api.getMessage = function(req, options, callback)
     if (!options.ops.mtime) options.ops.mtime = "gt";
     options.noprocessrows = 1;
 
+    // If asked for a total with _archive/_trash we have to retrieve all messages but return only the count
+    var total = core.toBool(options.total);
+    if (total && core.toBool(options.archive) || core.toBool(options.trash)) {
+        options.total = 0;
+    }
     function del(rows, next) {
         async.forEachLimit(rows, options.concurrency || 1, function(row, next2) {
             db.del("bk_message", row, options, function() { next2() });
@@ -2713,6 +2727,8 @@ api.getMessage = function(req, options, callback)
     }
 
     function details(rows, info, next) {
+        if (options.total) return next(null, rows, info);
+        if (total) return next(null, [{ count: rows.count }], info);
         if (!core.toNumber(options.details)) return next(null, rows, info);
         self.listAccount(rows, { key: 'sender', select: options.select }, function(err, rows) { next(err, rows, info); });
     }
@@ -2730,7 +2746,7 @@ api.getMessage = function(req, options, callback)
 
                 // Delete from the new after we archived it
                 del(rows, function() {
-                    db.processRows(null, "bk_message", rows, options);
+                    if (!options.noprocessrows) db.processRows(null, "bk_message", rows, options);
                     details(rows, info, callback);
                 });
             });
@@ -2986,7 +3002,7 @@ api.selectAccount = function(req, options, callback)
     var db = core.context.db;
     db.select("bk_account", req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
-        callback(err, self.getResultPage(req, rows, info));
+        callback(err, self.getResultPage(req, options, rows, info));
     });
 }
 
