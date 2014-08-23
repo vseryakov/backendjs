@@ -589,6 +589,33 @@ then retrieving all icons for an album would be only query with album1: prefix.
 
         [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: '12345-f0deaa81a', icon: '/icon/get?prefix=album&type=12345-f0deaa81a' } ]
 
+## File API
+
+The file API provides ability to store and retrieve files. The operations are similar to the Icon API.
+
+- `/file/get`
+
+    Return a file with given prefix and name, the contents are returned in the response body.
+
+    The following parameters can be used:
+    - `prefix` - must be provided, defines the namescape where the file is stored
+    - `name` - name of the file, required
+
+- `/file/put`
+
+    Store a file on the backend, the file can be sent using form multipart upload or as JSON
+
+    The following parameters can be used:
+    - `prefix` - must be provided, defines the namescape where the file is stored
+    - `name` - name of the file, required
+    - `_name` - name of the property that contaibs the file contents, for use with JSON or defines the name of the file attribute for multipart upload
+    - `_tm` - append the current timestamp to the file name
+    - `_ext` - extention to be assign to the file, otherwise the actual extension from the file name is used
+
+- `/file/del`
+
+    Delete file, prefix and name must be given
+
 ## Connections
 The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made

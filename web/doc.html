@@ -13,6 +13,7 @@
 <li><a href="#accounts"> Accounts</a></li>
 <li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
 <li><a href="#icons"> Icons</a></li>
+<li><a href="#file-api"> File API</a></li>
 <li><a href="#connections"> Connections</a></li>
 <li><a href="#locations"> Locations</a></li>
 <li><a href="#messages"> Messages</a></li>
@@ -571,6 +572,32 @@ the <code>url</code> property will provide full URL to retrieve the icon content
 
   [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;12345-f0deaa81a&#39;, icon: &#39;/icon/get?prefix=album&amp;type=12345-f0deaa81a&#39; } ]
 </code></pre></li>
+</ul>
+<h2 id="file-api">File API</h2>
+<p>The file API provides ability to store and retrieve files. The operations are similar to the Icon API.</p>
+<ul>
+<li><p><code>/file/get</code></p>
+<p>  Return a file with given prefix and name, the contents are returned in the response body.</p>
+<p>  The following parameters can be used:</p>
+<ul>
+<li><code>prefix</code> - must be provided, defines the namescape where the file is stored</li>
+<li><code>name</code> - name of the file, required</li>
+</ul>
+</li>
+<li><p><code>/file/put</code></p>
+<p>  Store a file on the backend, the file can be sent using form multipart upload or as JSON</p>
+<p>  The following parameters can be used:</p>
+<ul>
+<li><code>prefix</code> - must be provided, defines the namescape where the file is stored</li>
+<li><code>name</code> - name of the file, required</li>
+<li><code>_name</code> - name of the property that contaibs the file contents, for use with JSON or defines the name of the file attribute for multipart upload</li>
+<li><code>_tm</code> - append the current timestamp to the file name</li>
+<li><code>_ext</code> - extention to be assign to the file, otherwise the actual extension from the file name is used</li>
+</ul>
+</li>
+<li><p><code>/file/del</code></p>
+<p>  Delete file, prefix and name must be given</p>
+</li>
 </ul>
 <h2 id="connections">Connections</h2>
 <p>The connections API maintains two tables <code>bk_connection</code> and <code>bk_reference</code> for links between accounts of any type. bk_connection table maintains my
@@ -2008,6 +2035,12 @@ Check access permissions, calls the callback with the following argument:</p>
 </ul>
 
 <ul>
+<li><p><code>api.initFileAPI()</code></p>
+<p> Generic file management</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.initMessageAPI()</code></p>
 <p> Messaging management</p>
 </li>
@@ -2063,7 +2096,7 @@ distinguish control parameters from query parameters.</p>
 </ul>
 
 <ul>
-<li><p><code>api.getResultPage(req, rows, info)</code></p>
+<li><p><code>api.getResultPage(req, options, rows, info)</code></p>
 <p> Return an object to be returned to the client as a page of result data with possibly next token
 if present in the info. This result object can be used for pagination responses.</p>
 </li>
@@ -2322,6 +2355,12 @@ Verify icon limits before adding new icons</p>
 <ul>
 <li><p><code>api.delIcon(id, options, callback)</code></p>
 <p> Delete an icon for account, .type defines icon prefix</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getFile(req, res, file, options)</code></p>
+<p> Send a file to the client</p>
 </li>
 </ul>
 
