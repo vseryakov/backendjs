@@ -149,6 +149,8 @@ var core = {
             { name: "ssl-ciphers", obj: 'ssl', descr: "A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
             { name: "ssl-request-cert", type: "bool", obj: 'ssl', descr: "If true the server will request a certificate from clients that connect and attempt to verify that certificate. " },
             { name: "ssl-reject-unauthorized", type: "bool", obj: 'ssl', decr: "If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true" },
+            { name: "apn-cert", type: "path", descr: "Certificate for APN service, pfx format, .p12 ext" },
+            { name: "apn-prod", type: "bool", descr: "Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode" },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
@@ -531,6 +533,13 @@ core.processArgs = function(name, ctx, argv, pass)
                 put(obj, key, JSON.parse(val), x);
                 break;
             case "path":
+                // Check if it starts with local path, use the actual path not the current dir for such cases
+                for (var p in self.path) {
+                    if (val.substr(0, p.length + 1) == p + "/") {
+                        val = self.path[p] + val.substr(p.length);
+                        break;
+                    }
+                }
                 put(obj, key, path.resolve(val), x);
                 break;
             case "file":

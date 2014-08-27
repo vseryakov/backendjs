@@ -1505,6 +1505,7 @@ api.getOptions = function(req)
     if (req.query._width) req.options.width = core.toNumber(req.query._width);
     if (req.query._height) req.options.height = core.toNumber(req.query._height);
     if (req.query._ext) req.options.ext = req.query._ext;
+    if (req.query._encoding) req.options.encoding = req.query._encoding;
     if (req.query._tm) req.options.tm = core.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
     if (req.query._quality) req.options.quality = core.toNumber(req.query._quality);
     if (req.query._round) req.options.round = core.toNumber(req.query._round);
@@ -2934,18 +2935,21 @@ api.getAccount = function(req, options, callback)
 // as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
 // "offline" according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
 // The options may contain the following:
-//  - msg - message stext to send
+//  - msg - message text to send
 //  - badge - a badge number to be sent
 //  - prefix - prepend the message with this prefix
 //  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle
-//  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled
-//  - handler - a function(device_id, options, callback) for actual delivery, it is called in the API context. When called the options contain 2 more
-//    properties - account: and status: for account details and status details.
+//  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled, if it is an Array then
+//      all properties in the array are checked and all must allow notifications
+//  - handler - a function(device_id, options, callback) for actual delivery, it is called in the IPC context. When called the options contain 2 more
+//      properties - account: and status: for account details and status details.
+//  - service - name of the standard delivery service supportted by the backend, can be used instead of custom handler, one of the following: apple, google
 api.notifyAccount = function(id, options, callback)
 {
     var self = this;
     var db = core.context.db;
-    if (!id || !options || !options.handler) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" });
+    var ipc = core.context.ipc;
+    if (!id || !options) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" });
 
     this.getStatus(id, {}, function(err, status) {
         if (err || (options.check && status.online)) return callback(err, status);
@@ -2953,12 +2957,16 @@ api.notifyAccount = function(id, options, callback)
         db.get("bk_account", { id: id }, function(err, account) {
             if (err || !account) return callback(err || { status: 404, message: "account not found" });
 
-            if (!options.allow || account[options.allow]) {
+            if (!options.allow || (Array.isArray(options.allow) ? options.allow.every(function(x) { return account[x] }) : account[options.allow])) {
                 if (!account.device_id) return callback({ status: 404, message: "device not found" });
+                logger.debug("notifyAccout:", id, options);
+
                 if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
                 options.account = account;
                 options.status = status;
-                return options.handler.call(self, account.device_id, options, function(err) {
+                var handler = options.handler || (options.service == "apple" ? ipc.sendAPN : options.service == "google" ? ipc.sendGCM : null) || ipc.sendAPN;
+                handler.call(ipc, account.device_id, options, function(err) {
+                    if (err) logger.error("notifyAccount:", id, account.device_id, err);
                     status.device_id = account.device_id;
                     status.sent = true;
                     callback(err, status);

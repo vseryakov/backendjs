@@ -15,6 +15,8 @@ var async = require('async');
 var memcached = require('memcached');
 var redis = require("redis");
 var amqp = require('amqp');
+var apnagent = require("apnagent");
+var gcmagent = require('node-gcm');
 
 // IPC communications between processes and support for caching and messaging
 var ipc = {
@@ -758,5 +760,73 @@ ipc.publish = function(key, data, callback)
     } catch(e) {
         logger.error('ipc.publish:', e, key);
     }
+}
+
+// Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
+// not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
+// connection to APN gateway.
+ipc.initAPN = function()
+{
+    var self = this;
+
+    logger.log("initAPN:", "cert:", core.apnCert);
+
+    this.apnAgent = new apnagent.Agent();
+    this.apnAgent.set('pfx file', core.apnCert);
+    this.apnAgent.enable(core.apnProd || core.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
+    this.apnAgent.on('message:error', function(err) { if (err && err.code != 10) logger.error('apn:', err) });
+    this.apnAgent.on('gateway:error', function(err) { if (err && err.code != 10) logger.error('apn:', err) });
+    this.apnAgent.connect(function(err) { if (err && err.code != 10) logger.error('apn:', err); });
+
+    this.apnFeedback = new apnagent.Feedback();
+    this.apnFeedback.set('interval', '1h');
+    this.apnFeedback.set('pfx file', core.apnCert);
+    this.apnFeedback.connect(function(err) { if (err && err.code != 10) logger.error('apn: feedback:', err);  });
+    this.apnFeedback.use(function(device, timestamp, next) {
+        logger.log('apn: feedback:', device, timestamp);
+        next();
+    });
+}
+
+// Send push notification to an Apple device, returns true if the message has been queued.
+//
+// The options may contain the following properties:
+//  - msg - message text
+//  - badge - badge number
+//  - type - set type of the packet
+//  - id - send id in the user properties
+ipc.sendAPN = function(device_id, options, callback)
+{
+    var self = this;
+
+    if (!this.apnAgent) return callback ? callback("APN is not initialized") : false;
+    var pkt = this.apnAgent.createMessage().device(device_id);
+    if (options.msg) pkt.alert(options.msg);
+    if (options.badge) pkt.badge(options.badge);
+    if (options.type) pkt.set("type", options.type);
+    if (options.id) pkt.set("id", options.id);
+    pkt.send();
+    if (callback) callback();
+    return true;
+}
+
+// Initialize Google Cloud Messaginh servie to send push notifications to mobile devices
+ipc.initGCM = function()
+{
+
+}
+
+// Send push notification to an Android device, return true if queued.
+ipc.sendGCM = function(device_id, options, callback)
+{
+    if (!core.gcmKey) return callback ? callback("GCM is not initialized") : false;
+
+    var pkt = new gcm.Message();
+    var sender = new gcm.Sender(core.gcmKey);
+    if (options.msg) pkt.addData('msg', options.msg);
+    if (options.id) pkt.addData('id', options.id);
+    if (options.badge) pkt.addData('badge', options.badge);
+    sender.send(pkg, core.gcmRegistrationIds, 2, callback);
+    return true;
 }
 

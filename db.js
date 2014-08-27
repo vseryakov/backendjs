@@ -946,8 +946,10 @@ db.batch = function(table, op, objs, options, callback)
 // Parameters:
 //  - table - table to scan
 //  - query - an object with query conditions, same as in `db.select`
-//  - options - same as in `db.select`, the only required property is `count` to specify size of every batch, default is 100
-//  - batch - if true rowCallback will be called with all rows from the batch, not every row individually
+//  - options - same as in `db.select`, with the following additions:
+//    - count - size of every batch, default is 100
+//    - batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property
+//    - noprocessrows - default is 1 to pass raw records for processing, to work with normal records pass 0 to disable default behaviour
 //  - rowCallback - process records when called like this `callback(rows, next)
 //  - endCallback - end of scan when called like this: `callback(err)
 //
