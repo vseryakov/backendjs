@@ -827,7 +827,7 @@ ipc.sendGCM = function(device_id, options, callback)
     if (options.msg) pkt.addData('msg', options.msg);
     if (options.id) pkt.addData('id', options.id);
     if (options.badge) pkt.addData('badge', options.badge);
-    sender.send(pkg, core.gcmRegistrationIds, 2, callback);
+    sender.send(pkg, [device_id], 2, callback);
     return true;
 }
 
