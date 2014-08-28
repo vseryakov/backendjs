@@ -773,7 +773,7 @@ ipc.initAPN = function()
 
     this.apnAgent = new apnagent.Agent();
     this.apnAgent.set('pfx file', core.apnCert);
-    this.apnAgent.enable(core.apnProd || core.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
+    this.apnAgent.enable(core.apnProduction || core.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
     this.apnAgent.on('message:error', function(err) { if (err && err.code != 10) logger.error('apn:', err) });
     this.apnAgent.on('gateway:error', function(err) { if (err && err.code != 10) logger.error('apn:', err) });
     this.apnAgent.connect(function(err) { if (err && err.code != 10) logger.error('apn:', err); });
@@ -798,8 +798,8 @@ ipc.initAPN = function()
 ipc.sendAPN = function(device_id, options, callback)
 {
     var self = this;
-
     if (!this.apnAgent) return callback ? callback("APN is not initialized") : false;
+
     var pkt = this.apnAgent.createMessage().device(device_id);
     if (options.msg) pkt.alert(options.msg);
     if (options.badge) pkt.badge(options.badge);
@@ -813,12 +813,13 @@ ipc.sendAPN = function(device_id, options, callback)
 // Initialize Google Cloud Messaginh servie to send push notifications to mobile devices
 ipc.initGCM = function()
 {
-
+    var self = this;
 }
 
 // Send push notification to an Android device, return true if queued.
 ipc.sendGCM = function(device_id, options, callback)
 {
+    var self = this;
     if (!core.gcmKey) return callback ? callback("GCM is not initialized") : false;
 
     var pkt = new gcm.Message();

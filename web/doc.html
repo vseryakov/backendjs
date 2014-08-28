@@ -1572,6 +1572,10 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>ssl-crl</code> - Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)</li>
 <li><code>ssl-ciphers</code> - A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format</li>
 <li><code>ssl-request-cert</code> - If true the server will request a certificate from clients that connect and attempt to verify that certificate. </li>
+<li><code>apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
+<li><code>apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
+<li><code>gcm-key</code> - Google Cloud Messaging API key</li>
+<li><code>gcm-registration-ids</code> - Google Cloud Messaging registration id(s)</li>
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks. Default: 2</li>
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
@@ -2566,13 +2570,15 @@ as handler: property which accepts the same arguments as this function. The deli
 &quot;offline&quot; according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
 The options may contain the following:</p>
 <ul>
-<li>msg - message stext to send</li>
+<li>msg - message text to send</li>
 <li>badge - a badge number to be sent</li>
 <li>prefix - prepend the message with this prefix</li>
 <li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
-<li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled</li>
-<li>handler - a function(device_id, options, callback) for actual delivery, it is called in the API context. When called the options contain 2 more
-properties - account: and status: for account details and status details.</li>
+<li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
+  all properties in the array are checked and all must allow notifications</li>
+<li>handler - a function(device_id, options, callback) for actual delivery, it is called in the IPC context. When called the options contain 2 more
+  properties - account: and status: for account details and status details.</li>
+<li>service - name of the standard delivery service supportted by the backend, can be used instead of custom handler, one of the following: apple, google</li>
 </ul>
 </li>
 </ul>
@@ -4289,8 +4295,12 @@ Basically, db.scan is the same as db.select but can be used to retrieve large nu
 <ul>
 <li>table - table to scan</li>
 <li>query - an object with query conditions, same as in <code>db.select</code></li>
-<li>options - same as in <code>db.select</code>, the only required property is <code>count</code> to specify size of every batch, default is 100</li>
-<li>batch - if true rowCallback will be called with all rows from the batch, not every row individually</li>
+<li>options - same as in <code>db.select</code>, with the following additions:<ul>
+<li>count - size of every batch, default is 100</li>
+<li>batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property</li>
+<li>noprocessrows - default is 1 to pass raw records for processing, to work with normal records pass 0 to disable default behaviour</li>
+</ul>
+</li>
 <li>rowCallback - process records when called like this `callback(rows, next)</li>
 <li>endCallback - end of scan when called like this: `callback(err)</li>
 </ul>
@@ -5096,6 +5106,39 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 <ul>
 <li><p><code>ipc.publish(key, data, callback)</code></p>
 <p> Publish an event to be sent to the subscribed clients</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initAPN()</code></p>
+<p> Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
+not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
+connection to APN gateway.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.sendAPN(device_id, options, callback)</code></p>
+<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>type - set type of the packet</li>
+<li>id - send id in the user properties</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initGCM()</code></p>
+<p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.sendGCM(device_id, options, callback)</code></p>
+<p> Send push notification to an Android device, return true if queued.</p>
 </li>
 </ul>
 
