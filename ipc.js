@@ -16,7 +16,7 @@ var memcached = require('memcached');
 var redis = require("redis");
 var amqp = require('amqp');
 var apnagent = require("apnagent");
-var gcmagent = require('node-gcm');
+var gcm = require('node-gcm');
 
 // IPC communications between processes and support for caching and messaging
 var ipc = {
@@ -762,6 +762,66 @@ ipc.publish = function(key, data, callback)
     }
 }
 
+// Initialize supported notification services
+ipc.initNotifications = function(callback)
+{
+    this.initAPN();
+    this.initGCM();
+    if (callback) callback();
+}
+
+// Shutdown notification services, wait till all pending messages are sent before calling the callback
+ipc.closeNotifications = function(callback)
+{
+    var self = this;
+
+    async.parallel([
+       function(next) {
+           if (!self.apnAgent) return next();
+           self.apnFeedback.close();
+           self.apnAgent.close(next);
+       },
+       function(next) {
+           if (!self.gcmAgent || !self.gcmQueue) return next();
+           var n = 0;
+           function check() {
+               if (!self.gcmQueue || ++n > 30) return next();
+               setTimeout(check, 1000);
+           }
+           check();
+       },
+       ], function() {
+            self.apnAgent = self.apnFeedback = null;
+            self.gcmAgent = null;
+            if (callback) callback();
+    });
+}
+
+// Deliver a notification using the specified service, apple is default.
+// Options may contain the following properties:
+//  - service - which service to use for delivery: apple, google
+//  - msg - text message to send
+//  - badge - badge number to show if supported by the service
+//  - type - set type of the message, service specific
+//  - id - send id with the notification, this is application specific data, sent as is
+ipc.sendNotification = function(device_id, options, callback)
+{
+    if (!device_id || !options) return callback ? callback("invalid device or options") : null;
+
+    var service = options.service || "";
+    var d = String(device_id).match(/^([^:]+)\:\/\/(.+)$/);
+    if (d) {
+        service = d[1];
+        device_id = d[2];
+    }
+    switch (service) {
+    case "google":
+        return this.sendGCM(device_id, options, callback);
+    default:
+        return this.sendAPN(device_id, options, callback);
+    }
+}
+
 // Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
 // not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
 // connection to APN gateway.
@@ -769,14 +829,14 @@ ipc.initAPN = function()
 {
     var self = this;
 
-    logger.log("initAPN:", "cert:", core.apnCert);
-
+    if (!core.apnCert) return;
     this.apnAgent = new apnagent.Agent();
     this.apnAgent.set('pfx file', core.apnCert);
     this.apnAgent.enable(core.apnProduction || core.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
     this.apnAgent.on('message:error', function(err) { if (err && err.code != 10) logger.error('apn:', err) });
     this.apnAgent.on('gateway:error', function(err) { if (err && err.code != 10) logger.error('apn:', err) });
     this.apnAgent.connect(function(err) { if (err && err.code != 10) logger.error('apn:', err); });
+    logger.debug("initAPN:", this.apnAgent.settings);
 
     this.apnFeedback = new apnagent.Feedback();
     this.apnFeedback.set('interval', '1h');
@@ -814,20 +874,27 @@ ipc.sendAPN = function(device_id, options, callback)
 ipc.initGCM = function()
 {
     var self = this;
+    if (!core.gcmKey) return;
+    this.gcmAgent = new gcm.Sender(core.gcmKey);
+    this.gcmQueue = 0;
 }
 
 // Send push notification to an Android device, return true if queued.
 ipc.sendGCM = function(device_id, options, callback)
 {
     var self = this;
-    if (!core.gcmKey) return callback ? callback("GCM is not initialized") : false;
+    if (!this.gcmAgent) return callback ? callback("GCM is not initialized") : false;
 
+    this.gcmQueue++;
     var pkt = new gcm.Message();
-    var sender = new gcm.Sender(core.gcmKey);
     if (options.msg) pkt.addData('msg', options.msg);
     if (options.id) pkt.addData('id', options.id);
+    if (options.type) pkt.addData("type", options.type);
     if (options.badge) pkt.addData('badge', options.badge);
-    sender.send(pkg, [device_id], 2, callback);
+    this.gcmAgent.send(pkg, [device_id], 2, function() {
+        self.gcmQueue--;
+        if (callback) callback();
+    });
     return true;
 }
 

@@ -2947,7 +2947,10 @@ api.getAccount = function(req, options, callback)
 //      all properties in the array are checked and all must allow notifications
 //  - handler - a function(device_id, options, callback) for actual delivery, it is called in the IPC context. When called the options contain 2 more
 //      properties - account: and status: for account details and status details.
-//  - service - name of the standard delivery service supportted by the backend, can be used instead of custom handler, one of the following: apple, google
+//  - service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
+//
+// In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
+// system will pick the right delivery service depending on the device id, the default service is apple.
 api.notifyAccount = function(id, options, callback)
 {
     var self = this;
@@ -2963,13 +2966,12 @@ api.notifyAccount = function(id, options, callback)
 
             if (!options.allow || (Array.isArray(options.allow) ? options.allow.every(function(x) { return account[x] }) : account[options.allow])) {
                 if (!account.device_id) return callback({ status: 404, message: "device not found" });
-                logger.debug("notifyAccout:", id, options);
+                logger.debug("notifyAccout:", id, account.device_id, options);
 
                 if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
                 options.account = account;
                 options.status = status;
-                var handler = options.handler || (options.service == "apple" ? ipc.sendAPN : options.service == "google" ? ipc.sendGCM : null) || ipc.sendAPN;
-                handler.call(ipc, account.device_id, options, function(err) {
+                (options.handler || ipc.sendNotification).call(ipc, account.device_id, options, function(err) {
                     if (err) logger.error("notifyAccount:", id, account.device_id, err);
                     status.device_id = account.device_id;
                     status.sent = true;
