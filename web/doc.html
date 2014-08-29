@@ -1575,7 +1575,6 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
 <li><code>apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
 <li><code>gcm-key</code> - Google Cloud Messaging API key</li>
-<li><code>gcm-registration-ids</code> - Google Cloud Messaging registration id(s)</li>
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks. Default: 2</li>
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
@@ -4331,6 +4330,16 @@ The following options can be used:</p>
 in case of global text index. Options takes same properties as in the select method. Without full text support
 this works the same way as the <code>select</code> method. NOT IMPLEMENTED YET.</p>
 </li>
+</ul>
+
+<ul>
+<li><p><code>db.join(table, rows, options, callback)</code></p>
+<p> Join the given list of records with the records from other table by primary key.
+The properties from the joined table will be merged with the original rows preserving the existing properties
+If options.existing is 1 then return only joined records.</p>
+<p>Example:</p>
+<pre><code>    db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], db.showResult)
+</code></pre></li>
 </ul>
 
 <ul>
