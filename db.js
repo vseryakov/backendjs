@@ -1070,6 +1070,46 @@ db.search = function(table, query, options, callback)
     this.query(req, options, callback);
 }
 
+// Join the given list of records with the records from other table by primary key.
+// The properties from the joined table will be merged with the original rows preserving the existing properties
+// If options.existing is 1 then return only joined records.
+//
+// Example:
+//
+//          db.join("bk_account", [{id:"123",key1:1},{id:"234",key1:2}], db.showResult)
+//
+db.join = function(table, rows, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    options = this.getOptions(table, options);
+
+    var map = {}, ids = [];
+    var keys = self.getKeys(table, options);
+    rows.forEach(function(x) {
+        var key = self.getQueryForKeys(keys, x);
+        var k = Object.keys(key).map(function(y) { return key[y]}).join("|");
+        if (!map[k]) map[k] = [];
+        map[k].push(x);
+        ids.push(key);
+    });
+    db.list(table, ids, options, function(err, list, info) {
+        if (err) return callback(err, []);
+
+        list.forEach(function(x) {
+            var key = self.getQueryForKeys(keys, x);
+            var k = Object.keys(key).map(function(y) { return key[y]}).join("|");
+            map[k].forEach(function(row) {
+                for (var p in x) if (!row[p]) row[p] = x[p];
+                if (options.existing) row._id = 1;
+            });
+        });
+        // Remove not joined rows
+        if (options.existing) rows = rows.filter(function(x) { return x._id; }).map(function(x) { delete x._id; return x; });
+        callback(null, rows, info);
+    });
+}
+
 // Geo locations search, paginate all results until the end.
 // table must be defined with the following required columns:
 //  - geohash - location as primary key hash column
