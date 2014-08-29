@@ -1972,6 +1972,13 @@ interacts with the Web workers via IPC sockets between processes and relaunches 
 </ul>
 
 <ul>
+<li><p><code>api.exitWorker(callback)</code></p>
+<p> Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
+This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.checkRequest(req, res, callback)</code></p>
 <p> Perform authorization of the incoming request for access and permissions</p>
 </li>
@@ -4335,8 +4342,11 @@ this works the same way as the <code>select</code> method. NOT IMPLEMENTED YET.<
 <ul>
 <li><p><code>db.join(table, rows, options, callback)</code></p>
 <p> Join the given list of records with the records from other table by primary key.
-The properties from the joined table will be merged with the original rows preserving the existing properties
-If options.existing is 1 then return only joined records.</p>
+The properties from the joined table will be merged with the original rows preserving the existing properties</p>
+<ul>
+<li>options.keys defines custom primary key to use instead of table&#39;s primary key</li>
+<li>options.existing is 1 then return only joined records.</li>
+</ul>
 <p>Example:</p>
 <pre><code>    db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], db.showResult)
 </code></pre></li>
