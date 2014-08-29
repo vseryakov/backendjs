@@ -873,7 +873,9 @@ server.runJob = function(job)
                 if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
 
                 logger.debug('runJob:', 'finished', jname, err || "");
-                if (!self.jobs.length && cluster.isWorker) process.exit(0);
+                if (!self.jobs.length && cluster.isWorker) {
+                    core.context.api.exitWorker(function() { process.exit(0); });
+                }
             });
         })(name);
 

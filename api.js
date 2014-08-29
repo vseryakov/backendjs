@@ -655,6 +655,10 @@ api.initWebServer = function() {}
 // This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job
 api.initWorker = function(callback) { callback() }
 
+// Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
+// This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.
+api.exitWorker = function(callback) { callback() }
+
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)
 {
