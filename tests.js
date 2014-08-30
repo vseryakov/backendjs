@@ -490,7 +490,7 @@ tests.db = function(callback)
 			test4: { id: { primary: 1, pub: 1 },
 	                 type: { pub: 1 } },
 	};
-	var now = core.now();
+	var now = Date.now();
 	var id = core.random(64);
 	var id2 = core.random(128);
     var num2 = core.randomNum(this.bbox[0], this.bbox[2]);
@@ -632,7 +632,7 @@ tests.db = function(callback)
 	    	});
 	    },
 	    function(next) {
-	    	now = core.now();
+	    	now = Date.now();
 	    	db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, num2: 9, json: { a: 1, b: 2 }, mtime: now }, { check_data: 1 }, next);
 	    },
 	    function(next) {

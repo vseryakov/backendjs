@@ -2944,7 +2944,7 @@ api.getAccount = function(req, options, callback)
 //  - prefix - prepend the message with this prefix
 //  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle
 //  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled, if it is an Array then
-//      all properties in the array are checked and all must allow notifications
+//      all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.
 //  - handler - a function(device_id, options, callback) for actual delivery, it is called in the IPC context. When called the options contain 2 more
 //      properties - account: and status: for account details and status details.
 //  - service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
@@ -2962,23 +2962,32 @@ api.notifyAccount = function(id, options, callback)
         if (err || (options.check && status.online)) return callback(err, status);
 
         db.get("bk_account", { id: id }, function(err, account) {
-            if (err || !account) return callback(err || { status: 404, message: "account not found" });
+            if (err || !account) return callback(err || { status: 404, message: "account not found" }, status);
+            if (!account.device_id) return callback({ status: 404, message: "device not found" }, status);
+            switch (core.typeName(options.allow)) {
+            case "array":
+                if (options.allow.some(function(x) { return !account[x] })) return callback({ status: 400, message: "not allowed" }, status);
+                break;
 
-            if (!options.allow || (Array.isArray(options.allow) ? options.allow.every(function(x) { return account[x] }) : account[options.allow])) {
-                if (!account.device_id) return callback({ status: 404, message: "device not found" });
-                logger.debug("notifyAccout:", id, account.device_id, options);
+            case "object":
+                for (var p in options.allow) if (!options.allow[x]) return callback({ status: 400, message: "not allowed" }, status);
+                break;
 
-                if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
-                options.account = account;
-                options.status = status;
-                (options.handler || ipc.sendNotification).call(ipc, account.device_id, options, function(err) {
-                    if (err) logger.error("notifyAccount:", id, account.device_id, err);
-                    status.device_id = account.device_id;
-                    status.sent = true;
-                    callback(err, status);
-                });
+            case "string":
+                if (!account[options.allow]) return callback({ status: 400, message: "not allowed" }, status);
+                break;
             }
-            callback(err, status);
+
+            // Ready to send now, set additional properties, if if the options will be reused we overwrite the same properties for each account
+            options.account = account;
+            options.status = status;
+            if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
+            (options.handler || ipc.sendNotification).call(ipc, account.device_id, options, function(err) {
+                logger[err ? "error" : "debug"]("notifyAccount:", id, account.alias, account.device_id, options, err || "");
+                status.device_id = account.device_id;
+                status.sent = true;
+                callback(err, status);
+            });
         });
     });
 }

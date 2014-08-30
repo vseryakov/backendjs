@@ -778,23 +778,30 @@ ipc.closeNotifications = function(callback)
     async.parallel([
        function(next) {
            if (!self.apnAgent) return next();
-           self.apnFeedback.close();
-           self.apnAgent.close(next);
+           self.apnAgent.close(function() {
+               self.apnFeedback.close();
+               self.apnAgent = self.apnFeedback = null;
+               next();
+           });
        },
        function(next) {
            if (!self.gcmAgent || !self.gcmQueue) return next();
            var n = 0;
            function check() {
-               if (!self.gcmQueue || ++n > 30) return next();
-               setTimeout(check, 1000);
+               if (!self.gcmQueue || ++n > 30) {
+                   self.gcmAgent = null;
+                   next();
+               } else {
+                   setTimeout(check, 1000);
+               }
            }
            check();
        },
-       ], function() {
-            self.apnAgent = self.apnFeedback = null;
-            self.gcmAgent = null;
-            if (callback) callback();
-    });
+       function(next) {
+           // Wait a little just in case for some left over tasks
+           setTimeout(next, 5000);
+       },
+       ], callback);
 }
 
 // Deliver a notification using the specified service, apple is default.

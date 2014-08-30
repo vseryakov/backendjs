@@ -69,7 +69,7 @@ var server = {
     nodeWorkerArgs: [],
 
     // How long to be in idle state and shutdown, for use in instances
-    idleTime: 120,
+    idleTime: 120000,
 
     // Config parameters
     args: [{ name: "max-processes", type: "callback", value: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
@@ -95,7 +95,7 @@ server.start = function()
     var self = this;
 
     // Mark the time we started for calculating idle times properly
-    self.jobTime = core.now();
+    self.jobTime = Date.now();
     process.title = core.name + ": process";
     logger.debug("server: start", process.argv);
 
@@ -152,7 +152,7 @@ server.startMaster = function()
         process.title = core.name + ': master';
 
         // Start other master processes
-        if (!core.noWeb) this.startWebProcess();
+        if (!Date.noweb) this.startWebProcess();
 
         // REPL command prompt over TCP
         if (core.replPort) self.startRepl(core.replPort, core.replBind);
@@ -185,7 +185,7 @@ server.startMaster = function()
             self.execJobQueue();
 
             // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
-            if (core.instance && self.idleTime > 0 && !Object.keys(cluster.workers).length && core.now() - self.jobTime > self.idleTime) {
+            if (core.instance && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - self.jobTime > self.idleTime) {
                 logger.log('startMaster:', 'idle:', self.idleTime);
                 self.shutdown();
             }
@@ -866,7 +866,7 @@ server.runJob = function(job)
         // The callback to finalize job execution
         (function (jname) {
             args.push(function(err) {
-                self.jobTime = core.now();
+                self.jobTime = Date.now();
                 // Update process title with current job list
                 var idx = self.jobs.indexOf(jname);
                 if (idx > -1) self.jobs.splice(idx, 1);
@@ -874,7 +874,10 @@ server.runJob = function(job)
 
                 logger.debug('runJob:', 'finished', jname, err || "");
                 if (!self.jobs.length && cluster.isWorker) {
-                    core.context.api.exitWorker(function() { process.exit(0); });
+                    core.context.api.exitWorker(function() {
+                        logger.debug('runJob:', 'exit', jname, err || "");
+                        process.exit(0);
+                    });
                 }
             });
         })(name);
@@ -883,7 +886,7 @@ server.runJob = function(job)
         d.on("error", args[1]);
         d.run(function() {
             obj[spec[1]].apply(obj, args);
-            self.jobTime = core.now();
+            self.jobTime = Date.now();
             self.jobs.push(name);
             if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
             logger.debug('runJob:', 'started', name, job[name] || "");
@@ -970,7 +973,7 @@ server.execJob = function(job)
     // Setup node args passed for each worker
     if (self.nodeWorkerArgs) process.execArrgv = self.nodeWorkerArgs;
 
-    self.jobTime = core.now();
+    self.jobTime = Date.now();
     logger.debug('execJob:', 'workers:', workers.length, 'job:', job);
 
     // Start a worker, send the job and wait when it finished
@@ -1009,7 +1012,7 @@ server.launchJob = function(job, options, callback)
     if (!Object.keys(job).length) return logger.error('launchJob:', 'no valid jobs:', job);
 
     job = core.cloneObj(job);
-    self.jobTime = core.now();
+    self.jobTime = Date.now();
     logger.log('launchJob:', job, 'options:', options);
 
     // Common arguments for remote workers
