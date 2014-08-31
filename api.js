@@ -59,7 +59,7 @@ var api = {
                       first_name: {},
                       last_name: {},
                       alias: { pub: 1 },
-                      status: {},
+                      status: { value: "ok" },
                       email: {},
                       phone: {},
                       website: {},
@@ -436,10 +436,11 @@ api.init = function(callback)
     });
 
     // Return images by prefix, id and possibly type
-    self.app.all(/^\/image\/([a-z]+)\/([a-z0-9-]+)\/?([0-9])?$/, function(req, res) {
-        req.query.prefix = req.params[0];
-        req.query.type = req.params[2];
-        self.getIcon(req, res, req.params[1], {});
+    self.app.all(/^\/image\/([a-zA-Z0-9_\.\:-]+)\/([^\/ ]+)\/?([^\/ ]+)?$/, function(req, res) {
+        var options = self.getOptions(req);
+        options.prefix = req.params[0];
+        options.type = req.params[2] || "";
+        self.sendIcon(req, res, req.params[1], options);
     });
 
     // Managing accounts, basic functionality

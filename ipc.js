@@ -840,15 +840,15 @@ ipc.initAPN = function()
     this.apnAgent = new apnagent.Agent();
     this.apnAgent.set('pfx file', core.apnCert);
     this.apnAgent.enable(core.apnProduction || core.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
-    this.apnAgent.on('message:error', function(err) { if (err && err.code != 10) logger.error('apn:', err) });
-    this.apnAgent.on('gateway:error', function(err) { if (err && err.code != 10) logger.error('apn:', err) });
-    this.apnAgent.connect(function(err) { if (err && err.code != 10) logger.error('apn:', err); });
+    this.apnAgent.on('message:error', function(err) { logger.error('apn:', err) });
+    this.apnAgent.on('gateway:error', function(err) { if (err && err.code != 10 && err.code != 8) logger.error('apn:', err) });
+    this.apnAgent.connect(function(err) { logger.error('apn:', err); });
     logger.debug("initAPN:", this.apnAgent.settings);
 
     this.apnFeedback = new apnagent.Feedback();
     this.apnFeedback.set('interval', '1h');
     this.apnFeedback.set('pfx file', core.apnCert);
-    this.apnFeedback.connect(function(err) { if (err && err.code != 10) logger.error('apn: feedback:', err);  });
+    this.apnFeedback.connect(function(err) { logger.error('apn: feedback:', err);  });
     this.apnFeedback.use(function(device, timestamp, next) {
         logger.log('apn: feedback:', device, timestamp);
         next();

@@ -979,7 +979,7 @@ db.scan = function(table, query, options, rowCallback, callback)
               if (options.batch) {
                   rowCallback(rows, next);
               } else {
-                  async.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next)
+                  async.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next);
               }
           });
       }, function(err) {
