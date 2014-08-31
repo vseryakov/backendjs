@@ -1715,7 +1715,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-upload-limit</code> - Max size for uploads, bytes. Default: 10485760</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2. Default: 1</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch for jobs. Default: 1</li>
-<li><code>server-idle-time</code> - If set and no jobs are submitted the backend will be shutdown, for instance mode only. Default: 120</li>
+<li><code>server-idle-time</code> - If set and no jobs are submitted the backend will be shutdown, for instance mode only. Default: 120000</li>
 <li><code>server-job-max-time</code> - Max number of seconds a job can run before being killed, for instance mode only. Default: 3600</li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process. Default: 30000</li>
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes. Default: 1000</li>
@@ -1757,7 +1757,7 @@ the worker processes if they die and restart them automatically. How many proces
                     first_name: {},
                     last_name: {},
                     alias: { pub: 1 },
-                    status: {},
+                    status: { value: &quot;ok&quot; },
                     email: {},
                     phone: {},
                     website: {},
@@ -2581,11 +2581,13 @@ The options may contain the following:</p>
 <li>prefix - prepend the message with this prefix</li>
 <li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
 <li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
-  all properties in the array are checked and all must allow notifications</li>
+  all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
 <li>handler - a function(device_id, options, callback) for actual delivery, it is called in the IPC context. When called the options contain 2 more
   properties - account: and status: for account details and status details.</li>
-<li>service - name of the standard delivery service supportted by the backend, can be used instead of custom handler, one of the following: apple, google</li>
+<li>service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
 </ul>
+<p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
+system will pick the right delivery service depending on the device id, the default service is apple.</p>
 </li>
 </ul>
 
@@ -5125,6 +5127,32 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 <ul>
 <li><p><code>ipc.publish(key, data, callback)</code></p>
 <p> Publish an event to be sent to the subscribed clients</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initNotifications(callback)</code></p>
+<p> Initialize supported notification services</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.closeNotifications(callback)</code></p>
+<p> Shutdown notification services, wait till all pending messages are sent before calling the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.sendNotification(device_id, options, callback)</code></p>
+<p> Deliver a notification using the specified service, apple is default.
+Options may contain the following properties:</p>
+<ul>
+<li>service - which service to use for delivery: apple, google</li>
+<li>msg - text message to send</li>
+<li>badge - badge number to show if supported by the service</li>
+<li>type - set type of the message, service specific</li>
+<li>id - send id with the notification, this is application specific data, sent as is</li>
+</ul>
 </li>
 </ul>
 
