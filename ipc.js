@@ -765,6 +765,22 @@ ipc.publish = function(key, data, callback)
 // Initialize supported notification services
 ipc.initNotifications = function(callback)
 {
+    var self = this;
+
+    // Connect to notification gateways only on the hosts configured to be the notification servers
+    if (core.notificationHost) {
+        var queue = "bk:NotificationQueue";
+        if (!core.strSplit(core.notificationHost).some(function(x) { return core.hostname == x || core.ipaddrs.indexOf(x) > -1 })) {
+            this.notificationQueue = queue;
+            return;
+        }
+        // Listen for published messages and forward them to the notification gateways
+        this.subscribe(queue, function(arg, key, data) {
+            self.sendNotification(core.stringify(data));
+        });
+    }
+
+    // Direct access to the gateways
     this.initAPN();
     this.initGCM();
     if (callback) callback();
@@ -806,17 +822,24 @@ ipc.closeNotifications = function(callback)
 
 // Deliver a notification using the specified service, apple is default.
 // Options may contain the following properties:
+//  - device_id - device where to send the message to
 //  - service - which service to use for delivery: apple, google
 //  - msg - text message to send
 //  - badge - badge number to show if supported by the service
 //  - type - set type of the message, service specific
 //  - id - send id with the notification, this is application specific data, sent as is
-ipc.sendNotification = function(device_id, options, callback)
+ipc.sendNotification = function(options, callback)
 {
-    if (!device_id || !options) return callback ? callback("invalid device or options") : null;
+    var self = this;
+    if (!options || !options.device_id) return callback ? callback("invalid device or options") : null;
+
+    // Queue to the publish server
+    if (this.notificationQueue) {
+        return this.publish(this.notificationQueue, options);
+    }
 
     var service = options.service || "";
-    var d = String(device_id).match(/^([^:]+)\:\/\/(.+)$/);
+    var d = String(options.device_id).match(/^([^:]+)\:\/\/(.+)$/);
     if (d) {
         service = d[1];
         device_id = d[2];
@@ -842,13 +865,13 @@ ipc.initAPN = function()
     this.apnAgent.enable(core.apnProduction || core.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
     this.apnAgent.on('message:error', function(err) { logger.error('apn:', err) });
     this.apnAgent.on('gateway:error', function(err) { if (err && err.code != 10 && err.code != 8) logger.error('apn:', err) });
-    this.apnAgent.connect(function(err) { logger.error('apn:', err); });
+    this.apnAgent.connect(function(err) { if (err) logger.error('apn:', err); });
     logger.debug("initAPN:", this.apnAgent.settings);
 
     this.apnFeedback = new apnagent.Feedback();
     this.apnFeedback.set('interval', '1h');
     this.apnFeedback.set('pfx file', core.apnCert);
-    this.apnFeedback.connect(function(err) { logger.error('apn: feedback:', err);  });
+    this.apnFeedback.connect(function(err) { if (err) logger.error('apn: feedback:', err);  });
     this.apnFeedback.use(function(device, timestamp, next) {
         logger.log('apn: feedback:', device, timestamp);
         next();

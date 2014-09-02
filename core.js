@@ -152,6 +152,7 @@ var core = {
             { name: "apn-cert", type: "path", descr: "Certificate for APN service, pfx format, .p12 ext" },
             { name: "apn-production", type: "bool", descr: "Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode" },
             { name: "gcm-key", descr: "Google Cloud Messaging API key" },
+            { name: "notification-host", dns: 1, descr: "List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers" },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
@@ -276,7 +277,7 @@ core.init = function(options, callback)
     self.network = self.ipaddr.split(".").slice(0, 2).join(".");
 
     // Default domain from local host name
-    self.hostname = os.hostname();
+    self.hostname = os.hostname().toLowerCase();
     self.domain = self.domainName(self.hostname);
     // Default config file
     self.confFile = path.resolve(self.confFile || path.join(self.path.etc, "config"));

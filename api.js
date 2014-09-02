@@ -2946,9 +2946,8 @@ api.getAccount = function(req, options, callback)
 //  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle
 //  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled, if it is an Array then
 //      all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.
-//  - handler - a function(device_id, options, callback) for actual delivery, it is called in the IPC context. When called the options contain 2 more
-//      properties - account: and status: for account details and status details.
 //  - service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
+//  - device_id - the device to send the message to instesd of the device_id property fro the account record
 //
 // In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
 // system will pick the right delivery service depending on the device id, the default service is apple.
@@ -2964,7 +2963,8 @@ api.notifyAccount = function(id, options, callback)
 
         db.get("bk_account", { id: id }, function(err, account) {
             if (err || !account) return callback(err || { status: 404, message: "account not found" }, status);
-            if (!account.device_id) return callback({ status: 404, message: "device not found" }, status);
+            if (!account.device_id && !options.device_id) return callback({ status: 404, message: "device not found" }, status);
+
             switch (core.typeName(options.allow)) {
             case "array":
                 if (options.allow.some(function(x) { return !account[x] })) return callback({ status: 400, message: "not allowed" }, status);
@@ -2982,8 +2982,9 @@ api.notifyAccount = function(id, options, callback)
             // Ready to send now, set additional properties, if if the options will be reused we overwrite the same properties for each account
             options.account = account;
             options.status = status;
+            if (!options.device_id) options.device_id = account.device_id;
             if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
-            (options.handler || ipc.sendNotification).call(ipc, account.device_id, options, function(err) {
+            ipc.sendNotification(options, function(err) {
                 logger[err ? "error" : "debug"]("notifyAccount:", id, account.alias, account.device_id, options, err || "");
                 status.device_id = account.device_id;
                 status.sent = true;
