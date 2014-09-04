@@ -775,6 +775,7 @@ ipc.initNotifications = function(callback)
             return;
         }
         // Listen for published messages and forward them to the notification gateways
+        this.notificationQueue = null;
         this.subscribe(queue, function(arg, key, data) {
             self.sendNotification(core.stringify(data));
         });

@@ -758,6 +758,7 @@ api.checkQuery = function(req, res, next)
             next();
         } catch (err) {
             err.status = 400;
+            err.title = "checkQuery";
             next(err);
         }
     });
@@ -801,6 +802,7 @@ api.checkBody = function(req, res, next)
             next();
         } catch (err) {
             err.status = 400;
+            err.title = "checkBody";
             next(err);
         }
     });
