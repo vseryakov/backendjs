@@ -1575,6 +1575,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
 <li><code>apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
 <li><code>gcm-key</code> - Google Cloud Messaging API key</li>
+<li><code>notification-host</code> - List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers. DNS TXT configurable.</li>
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks. Default: 2</li>
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
@@ -2582,9 +2583,8 @@ The options may contain the following:</p>
 <li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
 <li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
   all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
-<li>handler - a function(device_id, options, callback) for actual delivery, it is called in the IPC context. When called the options contain 2 more
-  properties - account: and status: for account details and status details.</li>
 <li>service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
+<li>device_id - the device to send the message to instesd of the device_id property fro the account record</li>
 </ul>
 <p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
 system will pick the right delivery service depending on the device id, the default service is apple.</p>
@@ -5143,10 +5143,11 @@ Returns a non-zero handle which must be unsubscribed when not needed. If no pubs
 </ul>
 
 <ul>
-<li><p><code>ipc.sendNotification(device_id, options, callback)</code></p>
+<li><p><code>ipc.sendNotification(options, callback)</code></p>
 <p> Deliver a notification using the specified service, apple is default.
 Options may contain the following properties:</p>
 <ul>
+<li>device_id - device where to send the message to</li>
 <li>service - which service to use for delivery: apple, google</li>
 <li>msg - text message to send</li>
 <li>badge - badge number to show if supported by the service</li>
