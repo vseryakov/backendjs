@@ -840,7 +840,8 @@ ipc.sendNotification = function(options, callback)
     }
 
     var service = options.service || "";
-    var d = String(options.device_id).match(/^([^:]+)\:\/\/(.+)$/);
+    var device_id = String(options.device_id);
+    var d = device_id.match(/^([^:]+)\:\/\/(.+)$/);
     if (d) {
         service = d[1];
         device_id = d[2];

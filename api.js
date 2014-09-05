@@ -3089,6 +3089,8 @@ api.updateAccount = function(req, options, callback)
     var db = core.context.db;
     req.query.mtime = Date.now();
     req.query.id = req.account.id;
+    // Cannot reset account alias
+    if (!req.query.alias) delete req.query.alias;
 
     async.series([
        function(next) {
