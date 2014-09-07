@@ -3074,6 +3074,9 @@ api.addAccount = function(req, options, callback)
            db.processRows(null, "bk_account", req.query, options);
            // Link account record for other middleware
            req.account = req.query;
+           // Set all default values because we return in-memory record, not from the database
+           var cols = db.getColumns("bk_account", options);
+           for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
            // Some dbs require the record to exist, just make one with default values
            db.put("bk_counter", req.query, function() { next(); });
        },
