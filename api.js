@@ -255,6 +255,7 @@ var api = {
            { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
            { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
+           { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by API, if not matched the requests will be served by the other middleware configured" },
            { name: "files-s3", descr: "S3 bucket name where to store files" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
@@ -395,14 +396,22 @@ api.init = function(callback)
         self.app.use(session({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
     }
 
-    // Check the signature
-    self.app.use(function(req, res, next) { return self.checkRequest(req, res, next); });
+    // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sistes on the same server
+    self.app.use(function(req, res, next) {
+        if (!self.domain || req.host.match(self.domain)) return self.checkRequest(req, res, next);
+        req._noBackend = 1;
+        next();
+    });
 
     // Assign custom middleware just after the security handler
     self.initMiddleware.call(self);
 
-    // Custom routes
-    self.app.use(self.app.router);
+    // Custom routes, if host defined only server API calls for matched domains
+    var router = self.app.router;
+    self.app.use(function(req, res, next) {
+        if (req._noBackend) return next();
+        return router(req, res, next);
+    });
 
     // No API routes matched, cleanup stats
     self.app.use(function(req, res, next) {
