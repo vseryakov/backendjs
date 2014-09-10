@@ -714,6 +714,7 @@ ipc.subscribe = function(key, callback, data)
 // Close subscription
 ipc.unsubscribe = function(key)
 {
+    var self = this;
     try {
         delete this.subCallbacks[key];
         switch (core.msgType) {
@@ -738,8 +739,9 @@ ipc.unsubscribe = function(key)
 }
 
 // Publish an event to be sent to the subscribed clients
-ipc.publish = function(key, data, callback)
+ipc.publish = function(key, data)
 {
+    var self = this;
     try {
         switch (core.msgType) {
         case "redis":
@@ -836,6 +838,7 @@ ipc.sendNotification = function(options, callback)
 
     // Queue to the publish server
     if (this.notificationQueue) {
+        if (callback) setImmediate(callback);
         return this.publish(this.notificationQueue, options);
     }
 
@@ -849,6 +852,7 @@ ipc.sendNotification = function(options, callback)
     switch (service) {
     case "google":
         return this.sendGCM(device_id, options, callback);
+
     default:
         return this.sendAPN(device_id, options, callback);
     }
@@ -898,7 +902,7 @@ ipc.sendAPN = function(device_id, options, callback)
     if (options.type) pkt.set("type", options.type);
     if (options.id) pkt.set("id", options.id);
     pkt.send();
-    if (callback) callback();
+    if (callback) setImmediate(callback);
     return true;
 }
 
@@ -925,7 +929,7 @@ ipc.sendGCM = function(device_id, options, callback)
     if (options.badge) pkt.addData('badge', options.badge);
     this.gcmAgent.send(pkg, [device_id], 2, function() {
         self.gcmQueue--;
-        if (callback) callback();
+        if (callback) setImmediate(callback);
     });
     return true;
 }

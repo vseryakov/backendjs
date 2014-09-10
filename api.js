@@ -2957,6 +2957,7 @@ api.getAccount = function(req, options, callback)
 //  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle
 //  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled, if it is an Array then
 //      all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.
+//  - skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options
 //  - service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
 //  - device_id - the device to send the message to instesd of the device_id property fro the account record
 //
@@ -2968,6 +2969,16 @@ api.notifyAccount = function(id, options, callback)
     var db = core.context.db;
     var ipc = core.context.ipc;
     if (!id || !options) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" });
+
+    // Skip this account
+    switch (core.typeName(options.skip)) {
+    case "array":
+        if (options.skip.indexOf(id) > -1) return callback({ status: 400, message: "skipped" }, {});
+        break;
+    case "object":
+        if (options.skip[id]) return callback({ status: 400, message: "skipped" }, {});
+        break;
+    }
 
     this.getStatus(id, {}, function(err, status) {
         if (err || (options.check && status.online)) return callback(err, status);
