@@ -238,6 +238,9 @@ var api = {
                                  'messages', new metrics.Metrics(),
                                  'connections', new metrics.Metrics()),
 
+    // URL metrics, which endpoint to collect and how long the path should be
+    urlMetrics: {},
+
     // Default endpoints
     endpoints: { "account": 'initAccountAPI',
                  "status": "initStatusAPI",
@@ -332,9 +335,11 @@ api.init = function(callback)
 
     // Metrics starts early
     self.app.use(function(req, res, next) {
+        var paths = req.path.substr(1).split("/");
+        var path = "/" + paths.slice(0, self.urlMetrics[paths[0]] || 2).join("/");
         self.metrics.api.Histogram('queue').update(self.metrics.api.Counter('count').inc());
         req.metric1 = self.metrics.api.Timer('response').start();
-        req.metric2 = self.metrics.urls.Timer(req.path).start();
+        req.metric2 = self.metrics.urls.Timer(path).start();
         var end = res.end;
         res.end = function(chunk, encoding) {
             res.end = end;
@@ -342,8 +347,8 @@ api.init = function(callback)
             self.metrics.api.Counter('count').dec();
             req.metric1.end();
             req.metric2.end();
-            // Ignore not allowed
-            if (req._noEndpoint || req._noSignature) delete self.metrics.urls.metrics[req.path];
+            // Ignore external or not handled urls
+            if (req._noEndpoint || req._noSignature) delete self.metrics.urls.metrics[path];
         }
         next();
     });
