@@ -1239,6 +1239,8 @@ db.getLocations = function(table, query, options, callback)
           if (options.start || options.neighbors.length > 0) {
               // Restore the original count
               options.count = options.gcount;
+              // Set most recent query for the next round
+              options.gquery = query;
               info.next_token = {};
               ["count","top","geohash","geokey","distance","latitude","longitude","start","neighbors","gquery","gcount"].forEach(function(x) {
                   if (typeof options[x] != "undefined") info.next_token[x] = options[x];
@@ -1551,6 +1553,8 @@ db.prepare = function(op, table, obj, options)
                 if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
                 // Convert into native data type
                 if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = core.toValue(v, col.type);
+                // Verify against allowed values
+                if (Array.isArray(col.values) && col.values.indexOf(String(v)) == -1) continue;
                 // The field is combined from several values contatenated for complex primary keys
                 if (col.join) v = col.join.map(function(x) { return obj[x] || "" }).join("|");
             }
