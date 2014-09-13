@@ -1237,6 +1237,9 @@ db.getLocations = function(table, query, options, callback)
           // Build next token if we have more rows to search
           var info = {};
           if (options.start || options.neighbors.length > 0) {
+              // If we have no start it means this geo box is empty so we need to advance to the next geohash
+              // for the next round in order to avoid endless loop
+              if (!options.start) query[options.geokey] = options.neighbors.shift();
               // Restore the original count
               options.count = options.gcount;
               // Set most recent query for the next round
