@@ -2471,50 +2471,29 @@ core.exists = function(obj, name)
 }
 
 // A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object
-// - first argument is the object to clone
-// - second argument can be an object that acts as a filter to skip properties:
-//     - _skip_null - to skip all null properties
-//     - _empty_to_null - convert empty strings into null objects
-//     - _skip_cb - a callback that returns true to skip a property, arguments are property name and value
-//     - name - a property name to skip
-//   if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object
+// - first argument is the object to clone, can be null
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 // Example:
-//          core.cloneObj({ 1: 2 }, { 1: 1 }, "3", 3, "4", 4)
-//          core.cloneObj({ 1 : 2 }, "3", 3, "4", 4)
+//          core.cloneObj({ 1: 2 }, "3", 3, "4", 4)
 core.cloneObj = function()
 {
     var obj = arguments[0];
-    var filter = {}, idx = 1;
-    if (this.typeName(arguments[1]) == "object") {
-        idx = 2;
-        filter = arguments[1];
-    }
     var rc = {};
-    switch (this.typeName(obj)) {
-    case "object":
-        break;
-    case "array":
-        rc = [];
-        break;
-    case "buffer":
-        return new Buffer(this);
-    case "date":
-        return new Date(obj.getTime());
-    case "regex":
-        return new Regexp(this);
-    case "string":
-        if (filter._empty_to_null && obj === "") return null;
-    default:
-        return obj;
-    }
     for (var p in obj) {
-        if (filter[p]) continue;
-        if (filter._skip_null && (obj[p] == null || typeof obj[p] == "undefined")) continue;
-        if (filter._skip_cb && filter._skip_cb(p, obj[p])) continue;
-        rc[p] = obj[p];
+        switch (this.typeName(obj[p])) {
+        case "object":
+            rc[p] = {};
+            for (var k in obj[p]) rc[p][k] = obj[p][k];
+            break;
+        case "array":
+            rc[p] = [];
+            for (var k in obj[p]) rc[p][k] = obj[p][k];
+            break;
+        default:
+            rc[p] = obj[p];
+        }
     }
-    for (var i = idx; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
+    for (var i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;
 }
 

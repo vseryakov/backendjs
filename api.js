@@ -2406,7 +2406,7 @@ api.delConnection = function(req, options, callback)
     self.deleteConnection(req.account.id, req.query, options, callback);
 }
 
-// Return all connections for the account with optional query properties
+// Return all connections for the account id with optional query properties, obj.type should not include :
 api.queryConnection = function(id, obj, options, callback)
 {
     var self = this;
@@ -2464,6 +2464,7 @@ api.readConnection = function(id, obj, options, callback)
 // - nocounter - do not update auto increment counters
 // - noreference - do not create reference part of the connection
 // - connected - return existing connection record for the same type from the other account
+// - alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.
 // - account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
 //   be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.
 api.makeConnection = function(id, obj, options, callback)

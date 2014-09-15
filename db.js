@@ -727,7 +727,7 @@ db.updateAll = function(table, query, obj, options, callback)
     if (pool.updateAll && !options.process) return pool.updateAll(table, query, obj, options, callback);
 
     // Options without ops for update
-    var opts = core.cloneObj(options, { ops: 1 }, 'noprocessrows', 1, "ops", {});
+    var opts = core.cloneObj(options, 'noprocessrows', 1, "ops", {});
     self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
@@ -800,7 +800,7 @@ db.delAll = function(table, query, options, callback)
     if (pool.delAll && !options.process) return pool.delAll(table, query, options, callback);
 
     // Options without ops for delete
-    var opts = core.cloneObj(options, { ops: 1 }, 'ops', {});
+    var opts = core.cloneObj(options, 'ops', {});
     self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
@@ -913,6 +913,12 @@ db.list = function(table, query, options, callback)
 // - options can have the follwoing:
 //   - concurrency - number of how many operations to run at the same time, 1 means sequential
 //   - ignore_error - will run all operations without stopping on error, the callback will have third argument which is an array of arrays with failed operations
+//
+//  Example:
+//
+//          db.batch("bc_counter", "add", [{id:1",like0:1}, {id:"2",like0:2}], db.showResult)
+//
+//
 db.batch = function(table, op, objs, options, callback)
 {
     var self = this;
@@ -2501,7 +2507,7 @@ db.sqlCreate = function(table, obj, options)
 db.sqlUpgrade = function(table, obj, options)
 {
     var self = this;
-    return this.sqlCreate(table, obj, core.cloneObj(options || {}, "upgrade", 1));
+    return this.sqlCreate(table, obj, core.cloneObj(options, "upgrade", 1));
 }
 
 // Create SQL DROP TABLE statement
