@@ -1575,6 +1575,8 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
 <li><code>apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
 <li><code>gcm-key</code> - Google Cloud Messaging API key</li>
+<li><code>notification-server</code> - Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem</li>
+<li><code>notification-client</code> - Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes</li>
 <li><code>notification-host</code> - List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers. DNS TXT configurable.</li>
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks. Default: 2</li>
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
@@ -2457,7 +2459,7 @@ longer than status-interval seconds ago</p>
 
 <ul>
 <li><p><code>api.queryConnection(id, obj, options, callback)</code></p>
-<p> Return all connections for the account with optional query properties</p>
+<p> Return all connections for the account id with optional query properties, obj.type should not include :</p>
 </li>
 </ul>
 
@@ -2480,6 +2482,7 @@ with other properties to be added. <code>obj</code> is left untouched.</p>
 <li>nocounter - do not update auto increment counters</li>
 <li>noreference - do not create reference part of the connection</li>
 <li>connected - return existing connection record for the same type from the other account</li>
+<li>alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.</li>
 <li>account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
 be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.</li>
 </ul>
@@ -3690,18 +3693,9 @@ Valid properties in the options:</p>
 <li><p><code>core.cloneObj()</code></p>
 <p> A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object</p>
 <ul>
-<li>first argument is the object to clone</li>
-<li>second argument can be an object that acts as a filter to skip properties:<ul>
-<li>_skip_null - to skip all null properties</li>
-<li>_empty_to_null - convert empty strings into null objects</li>
-<li>_skip_cb - a callback that returns true to skip a property, arguments are property name and value</li>
-<li>name - a property name to skip
-if the second arg is not an object then it is assumed that filter is not given and the arguments are treated as additional property to be added to the cloned object</li>
-</ul>
-</li>
+<li>first argument is the object to clone, can be null</li>
 <li>all additional arguments are treated as name value pairs and added to the cloned object as additional properties
-Example:<pre><code>  core.cloneObj({ 1: 2 }, { 1: 1 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
-  core.cloneObj({ 1 : 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
+Example:<pre><code>  core.cloneObj({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 </code></pre></li>
 </ul>
 </li>
@@ -4291,7 +4285,9 @@ db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { conso
 </ul>
 </li>
 </ul>
-</li>
+<p>Example:</p>
+<pre><code>    db.batch(&quot;bc_counter&quot;, &quot;add&quot;, [{id:1&quot;,like0:1}, {id:&quot;2&quot;,like0:2}], db.showResult)
+</code></pre></li>
 </ul>
 
 <ul>
