@@ -152,6 +152,8 @@ var core = {
             { name: "apn-cert", type: "path", descr: "Certificate for APN service, pfx format, .p12 ext" },
             { name: "apn-production", type: "bool", descr: "Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode" },
             { name: "gcm-key", descr: "Google Cloud Messaging API key" },
+            { name: "notification-server", descr: "Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem" },
+            { name: "notification-client", descr: "Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes" },
             { name: "notification-host", dns: 1, descr: "List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers" },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },

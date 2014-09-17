@@ -769,15 +769,29 @@ ipc.initNotifications = function(callback)
 {
     var self = this;
 
+    this.notificationQueue = null;
+
+    // Explicitly configured notification client queue, send all messages there
+    if (core.notificationClient) {
+        this.notificationQueue = core.notificationClient;
+        return callback ? callback() : null;
+    } else
+
+    // Explcitly configured notification server queue
+    if (core.notificationServer) {
+        this.subscribe(core.notificationServer, function(arg, key, data) {
+            self.sendNotification(core.stringify(data));
+        });
+    } else
+
     // Connect to notification gateways only on the hosts configured to be the notification servers
     if (core.notificationHost) {
         var queue = "bk:NotificationQueue";
         if (!core.strSplit(core.notificationHost).some(function(x) { return core.hostname == x || core.ipaddrs.indexOf(x) > -1 })) {
             this.notificationQueue = queue;
-            return;
+            return callback ? callback() : null;
         }
         // Listen for published messages and forward them to the notification gateways
-        this.notificationQueue = null;
         this.subscribe(queue, function(arg, key, data) {
             self.sendNotification(core.stringify(data));
         });
