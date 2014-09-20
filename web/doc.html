@@ -1689,7 +1689,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
 <li><code>api-images-s3-options</code> - S3 options to sign images urls, may have expires:, key:, secret: properties</li>
 <li><code>api-domain</code> - Regexp of the domains or hostnames to be served by API, if not matched the requests will be served by the other middleware configured</li>
-<li><code>api-files-s3</code> - S3 bucket name where to store files</li>
+<li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error. Default: 1000</li>
 <li><code>api-access-log</code> - File for access logging</li>
 <li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
@@ -5111,9 +5111,14 @@ publish socket by the receiving end. Can be called anytime to reconfigure if the
 
 <ul>
 <li><p><code>ipc.subscribe(key, callback, data)</code></p>
-<p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
-Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.</p>
-</li>
+<p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the data
+is passed to the callback as first argument, if not specified then &quot;undefined&quot; will still be passed, the actual key will be passed as the second
+argument, the mesages received as the third argument</p>
+<p>Example:</p>
+<pre><code>    ipc.subscribe(&quot;alert:&quot;, function(req, key, data) {
+        req.res.json(data);
+    }, req);
+</code></pre></li>
 </ul>
 
 <ul>
