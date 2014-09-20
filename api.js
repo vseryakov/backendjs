@@ -259,7 +259,7 @@ var api = {
            { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
            { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by API, if not matched the requests will be served by the other middleware configured" },
-           { name: "files-s3", descr: "S3 bucket name where to store files" },
+           { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
@@ -1355,11 +1355,8 @@ api.initSystemAPI = function()
             break;
 
         case "log":
-            self.putFile(req, "data", { name: req.ip + "/" + core.strftime(Date.now(), "%Y-%m-%d-%H:%M"), ext: ".log" }, function(err) {
-                if (err) logger.error("log:", err);
-                res.json({});
-            });
-            break;
+            logger.log(req.query);
+            res.json({});
 
         case "cache":
             switch (req.params[1]) {

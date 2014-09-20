@@ -681,8 +681,16 @@ ipc.incr = function(key, val, options)
     }
 }
 
-// Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received
-// Returns a non-zero handle which must be unsubscribed when not needed. If no pubsub system is available or error occurred returns 0.
+// Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the data
+// is passed to the callback as first argument, if not specified then "undefined" will still be passed, the actual key will be passed as the second
+// argument, the mesages received as the third argument
+//
+//  Example:
+//
+//          ipc.subscribe("alert:", function(req, key, data) {
+//              req.res.json(data);
+//          }, req);
+//
 ipc.subscribe = function(key, callback, data)
 {
     var self = this;
@@ -691,7 +699,7 @@ ipc.subscribe = function(key, callback, data)
         case "redis":
             if (!this.redis.sub) break;
             this.subCallbacks[key] = [ callback, data ];
-            sock = this.redis.sub.psubscribe(key);
+            this.redis.sub.psubscribe(key);
             break;
 
         case "amqp":

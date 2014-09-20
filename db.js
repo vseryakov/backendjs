@@ -889,6 +889,8 @@ db.replace = function(table, obj, options, callback)
 //
 db.list = function(table, query, options, callback)
 {
+    if (typeof options == "function") callback = options,options = null;
+
 	switch (core.typeName(query)) {
 	case "string":
 	case "array":
