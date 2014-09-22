@@ -1102,6 +1102,7 @@ db.search = function(table, query, options, callback)
 //
 // - options.keys defines custom primary key to use instead of table's primary key
 // - options.existing is 1 then return only joined records.
+// - options.override - joined table properties will replace existing ones
 //
 // Example:
 //
@@ -1129,12 +1130,12 @@ db.join = function(table, rows, options, callback)
             var key = self.getQueryForKeys(keys, x);
             var k = Object.keys(key).map(function(y) { return key[y]}).join("|");
             map[k].forEach(function(row) {
-                for (var p in x) if (!row[p]) row[p] = x[p];
-                if (options.existing) row._id = 1;
+                for (var p in x) if (options.override || !row[p]) row[p] = x[p];
+                if (options.existing) row.__1 = 1;
             });
         });
         // Remove not joined rows
-        if (options.existing) rows = rows.filter(function(x) { return x._id; }).map(function(x) { delete x._id; return x; });
+        if (options.existing) rows = rows.filter(function(x) { return x.__1; }).map(function(x) { delete x.__1; return x; });
         callback(null, rows, info);
     });
 }

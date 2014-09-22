@@ -996,12 +996,14 @@ api.initAccountAPI = function()
             if (!req.query.id) req.query.id = req.account.id;
             if (!req.query.type) req.query.type = '0';
             req.query.prefix = 'account';
+            options.cleanup = "bk_icon";
             self.getIcon(req, res, req.query.id, options);
             break;
 
         case "select/icon":
             if (!req.query.id) req.query.id = req.account.id;
             req.query.prefix = "account";
+            options.cleanup = "bk_icon";
             self.selectIcon(req, options, function(err, rows) {
                 self.sendJSON(req, err, rows);
             });
