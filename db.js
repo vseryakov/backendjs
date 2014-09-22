@@ -72,6 +72,14 @@ var metrics = require(__dirname + "/metrics");
 // due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
 // opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
 // other database will not require any application code changes.
+//
+// Multiple connections of the same tipy can be opened, just add -n suffix to all database config parameters where n is 1 to `count` property in the config descriptor.
+//
+// Example:
+//
+//          db-postgresql-pool = postgresql://locahost/backend
+//          db-postgresql-pool-1 = postgresql://localhost/billing
+//
 var db = {
     name: 'db',
 
@@ -102,43 +110,43 @@ var db = {
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
            { name: "config-type", descr: "Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded" },
-           { name: "sqlite-pool", descr: "SQLite pool db name, absolute path or just a name" },
-           { name: "sqlite-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool" },
-           { name: "sqlite-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "sqlite-tables", type: "list", array: 1, descr: "Sqlite tables, list of tables that belong to this pool only" },
-           { name: "pgsql-pool", descr: "PostgreSQL pool access url or options string" },
-           { name: "pgsql-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
-           { name: "pgsql-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
-           { name: "pgsql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "pgsql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
-           { name: "mysql-pool", descr: "MySQL pool access url in the format: mysql://user:pass@host/db" },
-           { name: "mysql-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
-           { name: "mysql-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
-           { name: "mysql-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "mysql-tables", type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
-           { name: "dynamodb-pool", descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
-           { name: "dynamodb-max", type: "number", min: 1, max: Infinity, descr: "Max number of open connection for the pool"  },
-           { name: "dynamodb-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
-           { name: "mongodb-pool", descr: "MongoDB endpoint url" },
-           { name: "mongodb-options", type: "json", descr: "MongoDB driver native options" },
-           { name: "mongodb-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
-           { name: "mongodb-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
-           { name: "mongodb-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "mongodb-tables", type: "list", array: 1, descr: "MongoDB tables, list of tables that belong to this pool only" },
-           { name: "cassandra-pool", descr: "Casandra endpoint url" },
-           { name: "cassandra-min", type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
-           { name: "cassandra-max", type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
-           { name: "cassandra-idle", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "cassandra-tables", type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
-           { name: "lmdb-pool", descr: "Path to the local LMDB database" },
-           { name: "lmdb-options", type: "json", descr: "Options for the lmdm pool" },
-           { name: "lmdb-tables", type: "list", array: 1, descr: "LMDB tables, list of tables that belong to this pool only" },
-           { name: "leveldb-pool", descr: "Path to the local LevelDB database" },
-           { name: "leveldb-options", type: "json", descr: "Options for the levedb" },
-           { name: "leveldb-tables", type: "list", array: 1, descr: "LevelDB tables, list of tables that belong to this pool only" },
-           { name: "redis-pool", descr: "Redis host" },
-           { name: "redis-options", type: "json", descr: "Redis driver native options" },
-           { name: "redis-tables", type: "list", array: 1, descr: "Redis tables, list of tables that belong to this pool only" },
+           { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name" },
+           { name: "sqlite-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool" },
+           { name: "sqlite-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "sqlite-tables", count: 3, type: "list", array: 1, descr: "Sqlite tables, list of tables that belong to this pool only" },
+           { name: "pgsql-pool", count: 3, descr: "PostgreSQL pool access url or options string" },
+           { name: "pgsql-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
+           { name: "pgsql-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
+           { name: "pgsql-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "pgsql-tables", count: 3, type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
+           { name: "mysql-pool", count: 3, descr: "MySQL pool access url in the format: mysql://user:pass@host/db" },
+           { name: "mysql-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
+           { name: "mysql-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
+           { name: "mysql-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "mysql-tables", count: 3, type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
+           { name: "dynamodb-pool", count: 3, descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
+           { name: "dynamodb-max", count: 3, type: "number", min: 1, max: Infinity, descr: "Max number of open connection for the pool"  },
+           { name: "dynamodb-tables", count: 3, type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
+           { name: "mongodb-pool", count: 3, descr: "MongoDB endpoint url" },
+           { name: "mongodb-options", count: 3, type: "json", descr: "MongoDB driver native options" },
+           { name: "mongodb-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
+           { name: "mongodb-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
+           { name: "mongodb-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "mongodb-tables", count: 3, type: "list", array: 1, descr: "MongoDB tables, list of tables that belong to this pool only" },
+           { name: "cassandra-pool", count: 3, descr: "Casandra endpoint url" },
+           { name: "cassandra-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
+           { name: "cassandra-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
+           { name: "cassandra-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
+           { name: "cassandra-tables", count: 3, type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
+           { name: "lmdb-pool", count: 3, descr: "Path to the local LMDB database" },
+           { name: "lmdb-options", count: 3, type: "json", descr: "Options for the lmdm pool" },
+           { name: "lmdb-tables", count: 3, type: "list", array: 1, descr: "LMDB tables, list of tables that belong to this pool only" },
+           { name: "leveldb-pool", count: 3, descr: "Path to the local LevelDB database" },
+           { name: "leveldb-options", count: 3, type: "json", descr: "Options for the levedb" },
+           { name: "leveldb-tables", count: 3, type: "list", array: 1, descr: "LevelDB tables, list of tables that belong to this pool only" },
+           { name: "redis-pool", count: 3, descr: "Redis host" },
+           { name: "redis-options", count: 3, type: "json", descr: "Redis driver native options" },
+           { name: "redis-tables", count: 3, type: "list", array: 1, descr: "Redis tables, list of tables that belong to this pool only" },
     ],
 
     // Default tables
@@ -198,16 +206,27 @@ db.init = function(options, callback)
 	if (!options) options = {};
 
 	// Configured pools for supported databases
-	self.args.filter(function(x) { return x.name.match(/\-pool$/) }).map(function(x) { return x.name.replace('-pool', '') }).forEach(function(pool) {
-	    var name = self[pool + 'Pool'];
-	    if (!name || self.dbpool[name]) return;
-	    if (options.noPools || self.noPools) {
-	        // local pool must be always initialized
-	        if (pool != self.local && pool != self.pool) return;
+	self.args.filter(function(x) { return x.name.match(/\-pool$/) }).forEach(function(x) {
+	    var pool = x.name.replace('-pool', '');
+	    // Several drivers can be defined
+	    for (var i = 0; i < (x.count || 1); i++) {
+	        var n = i > 0 ? i : "";
+	        var name = pool + n;
+	        var db = self[pool + 'Pool' + n];
+	        if (!db || self.dbpool[name]) continue;
+            // local pool must be always initialized
+	        if (options.noPools || self.noPools) {
+	            if (name != self.local && name != self.pool) continue;
+	        }
+	        var opts = { pool: name, db: db,
+	                     min: self[pool + 'Min' + n],
+	                     max: self[pool + 'Max' + n],
+	                     idle: self[pool + 'Idle' + n],
+	                     dbparams: self[pool + 'Options' + n] };
+	        self[pool + 'InitPool'](opts);
+	        // Pool specific tables
+	        (self[pool + 'Tables' + n] || []).forEach(function(y) { self.tblpool[y] = pool; });
 	    }
-        var opts = { pool: pool, db: self[pool + 'Pool'], min: self[pool + 'Min'], max: self[pool + 'Max'], idle: self[pool + 'Idle'], dbparams: self[pool + 'Options'] };
-	    self[pool + 'InitPool'](opts);
-	    (self[pool + 'Tables'] || []).forEach(function(y) { self.tblpool[y] = pool; });
 	});
 
 	// Initialize all pools with common tables

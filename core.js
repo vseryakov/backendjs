@@ -489,79 +489,82 @@ core.processArgs = function(name, ctx, argv, pass)
             if (pass && x.pass != pass) return;
             if (typeof x == "string") x = { name: x };
             if (!x.name) return;
-            // Core sets global parameters, all others by module
-            var cname = (name == "core" ? "" : "-" + name) + '-' + x.name;
-            if (argv.lastIndexOf(cname) == -1) return;
-            var kname = x.key || x.name;
-            // Place inside the object
-            if (x.obj) {
-                if (!ctx[x.obj]) ctx[x.obj] = {};
-                obj = ctx[x.obj];
-                // Strip the prefix if starts with the same name
-                kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
-            }
-            var key = self.toCamel(kname);
-            var idx = argv.lastIndexOf(cname);
-            var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : null;
-            if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") return;
-            // Ignore the value if it is a parameter
-            if (val && val[0] == '-') val = "";
-            logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, "=", val);
-            switch ((x.type || "").trim()) {
-            case "none":
-                break;
-            case "bool":
-                put(obj, key, !val ? true : self.toBool(val), x);
-                break;
-            case "int":
-            case "real":
-            case "number":
-                put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
-                break;
-            case "map":
-                put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
-                break;
-            case "intmap":
-                put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = self.toNumber(y[1]); return x }, {}), x);
-                break;
-            case "list":
-                put(obj, key, self.strSplitUnique(val, x.separator), x);
-                break;
-            case "regexp":
-                put(obj, key, new RegExp(val), x);
-                break;
-            case "regexpmap":
-                obj[key] = self.toRegexpMap(x.set ? null : obj[key], val, x.del);
-                break;
-            case "json":
-                put(obj, key, JSON.parse(val), x);
-                break;
-            case "path":
-                // Check if it starts with local path, use the actual path not the current dir for such cases
-                for (var p in self.path) {
-                    if (val.substr(0, p.length + 1) == p + "/") {
-                        val = self.path[p] + val.substr(p.length);
-                        break;
+            // Support for multiple arguments with numeric suffix, name-1...n
+            for (var i = 0; i < (x.count || 1); i++) {
+                // Core sets global parameters, all others by module
+                var cname = (name == "core" ? "" : "-" + name) + '-' + x.name + (i > 0 ? "-" + i : "");
+                var idx = argv.lastIndexOf(cname);
+                if (idx == -1) continue;
+                var kname = (x.key || x.name) + (i > 0 ? i : "");
+                // Place inside the object
+                if (x.obj) {
+                    if (!ctx[x.obj]) ctx[x.obj] = {};
+                    obj = ctx[x.obj];
+                    // Strip the prefix if starts with the same name
+                    kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
+                }
+                var key = self.toCamel(kname);
+                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : null;
+                if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
+                // Ignore the value if it is a parameter
+                if (val && val[0] == '-') val = "";
+                logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, "=", val);
+                switch ((x.type || "").trim()) {
+                case "none":
+                    break;
+                case "bool":
+                    put(obj, key, !val ? true : self.toBool(val), x);
+                    break;
+                case "int":
+                case "real":
+                case "number":
+                    put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
+                    break;
+                case "map":
+                    put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
+                    break;
+                case "intmap":
+                    put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = self.toNumber(y[1]); return x }, {}), x);
+                    break;
+                case "list":
+                    put(obj, key, self.strSplitUnique(val, x.separator), x);
+                    break;
+                case "regexp":
+                    put(obj, key, new RegExp(val), x);
+                    break;
+                case "regexpmap":
+                    obj[key] = self.toRegexpMap(x.set ? null : obj[key], val, x.del);
+                    break;
+                case "json":
+                    put(obj, key, JSON.parse(val), x);
+                    break;
+                case "path":
+                    // Check if it starts with local path, use the actual path not the current dir for such cases
+                    for (var p in self.path) {
+                        if (val.substr(0, p.length + 1) == p + "/") {
+                            val = self.path[p] + val.substr(p.length);
+                            break;
+                        }
                     }
+                    put(obj, key, path.resolve(val), x);
+                    break;
+                case "file":
+                    try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', key, val, e); }
+                    break;
+                case "callback":
+                    if (typeof x.value == "string") {
+                        obj[x.value](val);
+                    } else
+                        if (typeof x.value == "function") {
+                            x.value.call(obj, val);
+                        }
+                    break;
+                default:
+                    put(obj, key, val, x);
                 }
-                put(obj, key, path.resolve(val), x);
-                break;
-            case "file":
-                try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', key, val, e); }
-                break;
-            case "callback":
-                if (typeof x.value == "string") {
-                    obj[x.value](val);
-                } else
-                if (typeof x.value == "function") {
-                    x.value.call(obj, val);
-                }
-                break;
-            default:
-                put(obj, key, val, x);
+                // Append all processed arguments into internal list when we processing all arguments, not in a pass
+                self.argv[cname.substr(1)] = val || true;
             }
-            // Append all processed arguments into internal list when we processing all arguments, not in a pass
-            self.argv[cname.substr(1)] = val || true;
         } catch(e) {
             logger.error('processArgs:', e, x);
         }
