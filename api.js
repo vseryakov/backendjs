@@ -83,7 +83,8 @@ var api = {
        bk_status: { id: { primary: 1 },                               // account id
                     status: { value: "online" },                      // status, online, offline, away
                     alias: {},
-                    mtime: { type: "bigint", now: 1 }},               // last status change time
+                    atime: { type: "bigint", now: 1 },                // last access time
+                    mtime: { type: "bigint" }},                       // last status save to db time
 
        // Keep track of icons uploaded
        bk_icon: { id: { primary: 1 },                         // Account id
@@ -221,7 +222,7 @@ var api = {
     sessionAge: 86400 * 14 * 1000,
 
     // Intervals between updating presence status table
-    statusInterval: 900,
+    statusInterval: 900000,
 
     // Default busy latency 1 sec
     busyLatency: 1000,
@@ -284,7 +285,7 @@ var api = {
            { name: "deny-path", type: "regexpmap", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
-           { name: "status-interval", type: "number", descr: "Number of seconds between status record updates" },
+           { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
@@ -2282,7 +2283,12 @@ api.delFile = function(file, options, callback)
 // Returns status record for given account, used in /status/get API call.
 // It always returns status object even if it was never set before, on return the record contains
 // a property `online` set to true of false according to the idle period and actual status.
-// If id is an array, then return all status records for specified list of account ids
+//
+// If id is an array, then return all status records for specified list of account ids.
+//
+// If status was explicitely set to `offline` then it is considered offline until changed to to other value,
+// for other cases `status` property is not used, it is supposed for the application extention.
+//
 api.getStatus = function(id, options, callback)
 {
     var self = this;
@@ -2293,35 +2299,44 @@ api.getStatus = function(id, options, callback)
         db.list("bk_status", id, options, function(err, rows) {
             if (err) return callback(err);
             rows = rows.filter(function(x) {
-                row.online = now - row.mtime < self.statusInterval * 1000 && row.status != "offline" ? true : false;
+                row.online = now - row.atime < self.statusInterval && row.status != "offline" ? true : false;
             });
             callback(err, rows);
         });
     } else {
         db.get("bk_status", { id: id }, options, function(err, row) {
             if (err) return callback(err);
-            if (!row) row = { id: id, status: "offline", online: false, mtime: 0 };
-            row.online = now - row.mtime < self.statusInterval * 1000 && row.status != "offline" ? true : false;
+            if (!row) row = { id: id, status: "", online: false, mtime: 0 };
+            row.online = now - row.atime < self.statusInterval && row.status != "offline" ? true : false;
             callback(err, row);
         });
     }
 }
 
-// Maintain online status, update every status-interval seconds, if options.check is given only update if last update happened
-// longer than status-interval seconds ago
+// Maintain online status, update to db every status-interval seconds, if options.check is given only update db if last update happened
+// longer than status-interval seconds ago, keep atime up-to-date in the cache on every status update.
+// On return the row will have a property `saved` if it was flushed to db.
 api.putStatus = function(obj, options, callback)
 {
     var self = this;
+    var now = Date.now();
     var db = core.context.db;
-
-    obj.mtime = Date.now();
 
     // Read the current record, check is handled differently in put
     self.getStatus(obj.id, options, function(err, row) {
         if (err) return callback(err);
-        if (options.check && row.online) return callback(err, row);
+        // Force db flush if last update was long time ago, otherwise just update the cache with the latest access time
+        if (options.check && row.online && now - row.mtime < self.statusInterval * 1.5) {
+            row.atime = now;
+            db.putCache("bk_status", row, options);
+            return callback(err, row);
+        }
         for (var p in obj) row[p] = obj[p];
-        db.put("bk_status", row, function(err) { callback(err, row); });
+        row.atime = row.mtime = now;
+        row.saved = true;
+        db.put("bk_status", row, function(err) {
+            callback(err, row);
+        });
     });
 }
 
