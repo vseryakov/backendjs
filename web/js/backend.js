@@ -73,6 +73,18 @@ var Backend = {
         });
     },
 
+    // Set new account secret
+    saveSecret: function(secret, callback) {
+        var self = this;
+        self.send({ url: '/account/put/secret', data: { secret: secret }, type: "POST", jsonType: "obj" }, function(data) {
+            self.setCredentials(self.getCredentials().login, secret);
+            if (typeof callback == "function") callback(null, data);
+        }, function(err) {
+            self.setCredentials();
+            if (typeof callback == "function") callback(err);
+        });
+    },
+
     // Wait for events and call the callback, this runs until Backend.unsubscribe is set to true
     subscribeAccount: function(callback) {
         var self = this;

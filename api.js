@@ -192,6 +192,7 @@ var api = {
     allowAdmin: {},
     // Allow only HTTPS requests
     allowSsl: {},
+    redirectSsl: {},
     // Refuse access to these urls
     deny: {},
 
@@ -206,6 +207,7 @@ var api = {
     caching: [],
     unsecure: [],
     templating: "ejs",
+    expressEnable: [],
 
     // All listening servers
     servers: [],
@@ -277,10 +279,12 @@ var api = {
            { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
            { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
+           { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
            { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", type: "regexpmap", key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "disallow-path", type: "regexpmap", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
-           { name: "allow-ssl", type: "regexpmap", descr: "Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused" },
+           { name: "allow-ssl", type: "regexpmap", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
+           { name: "redirect-ssl", type: "regexpmap", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy cases Express 'trust proxy' option should be enabled" },
            { name: "deny", type:" regexpmap", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
            { name: "deny-path", type: "regexpmap", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
@@ -392,6 +396,14 @@ api.init = function(callback)
         next();
     });
 
+    // Auto redirect to SSL
+    if (self.redirectSsl.rx) {
+        self.app.use(function(req, res, next) {
+            if (req.path.match(self.redirectSsl.rx) && !req.secure) return res.redirect("https://" + req.headers.host + req.url);
+            next();
+        });
+    }
+
     // Request parsers
     self.app.use(cookieParser());
     self.app.use(function(req, res, next) { return self.checkQuery(req, res, next); });
@@ -407,6 +419,13 @@ api.init = function(callback)
         if (!self.domain || req.host.match(self.domain)) return self.checkRequest(req, res, next);
         req._noBackend = 1;
         next();
+    });
+
+    // Config options
+    self.expressEnable.forEach(function(x) {
+        x = x.split("=");
+        if (x.length == 1) self.app.enable(x);
+        if (x.length == 2 ) self.app.set(x[0], x[1]);
     });
 
     // Assign custom middleware just after the security handler
@@ -447,7 +466,11 @@ api.init = function(callback)
 
     // For health checks
     self.app.all("/ping", function(req, res) {
-        res.send(200);
+        if (!req.query.file) return res.json({});
+        fs.stat(core.path.web + "/public/" + req.query.file, function(err, stats) {
+            if (err) return res.send(404);
+            res.json({ size: stats.size, mtime: stats.mtime.getTime(), atime: stats.atime.getTime(), ctime: stats.ctime.getTime() });
+        });
     });
 
     // Return images by prefix, id and possibly type
@@ -706,7 +729,7 @@ api.checkRequest = function(req, res, callback)
             res.header("pragma", "no-cache");
 
             // Determine what to do with the request even if the status is not success, a hook may deal with it differently,
-            // the most obvous case is for a Web app to perform redirection on authentication failure
+            // the most obvious case is for a Web app to perform redirection on authentication failure
             self.checkAuthorization(req, rc2, function(rc3) {
                 if (rc3 && rc3.status != 200) return self.sendStatus(res, rc3);
                 callback();

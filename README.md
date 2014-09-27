@@ -509,6 +509,11 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
         /account/icon/del?type=1
 
+### Status enquiry
+When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
+purpose there is an API endpoint `/ping` that just responds with status 200. It is not open by default, the `allow-path` or other way to allow non-authenticted access
+needs to be configured. This is to be able to control how pinging can be perform in the apps in cae it is not simple open access.
+
 ## Public Images endpoint
 This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signagture
 will be needed once it is confgiured which prefix can be public using `api-allow` or `api-allow-path` config parameters.
