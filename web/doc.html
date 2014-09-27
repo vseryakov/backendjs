@@ -11,6 +11,7 @@
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#accounts"> Accounts</a></li>
+<li><a href="#status-enquiry"> Status enquiry</a></li>
 <li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
 <li><a href="#icons"> Icons</a></li>
 <li><a href="#file-api"> File API</a></li>
@@ -504,6 +505,10 @@ for JSON the Content-Type HTTP headers must be set to <code>application/json</co
 <pre><code>  /account/icon/del?type=1
 </code></pre></li>
 </ul>
+<h3 id="status-enquiry">Status enquiry</h3>
+<p>When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
+purpose there is an API endpoint <code>/ping</code> that just responds with status 200. It is not open by default, the <code>allow-path</code> or other way to allow non-authenticted access
+needs to be configured. This is to be able to control how pinging can be perform in the apps in cae it is not simple open access.</p>
 <h2 id="public-images-endpoint">Public Images endpoint</h2>
 <p>This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signagture
 will be needed once it is confgiured which prefix can be public using <code>api-allow</code> or <code>api-allow-path</code> config parameters.</p>
@@ -1706,15 +1711,17 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-allow-connection</code> - Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op.... Default: [object Object]</li>
 <li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints. Default: [object Object]</li>
 <li><code>api-icon-limit</code> - Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type. Default: [object Object]</li>
+<li><code>api-express-enable</code> - Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,..... Default: </li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: [object Object]</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
-<li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTRPs only, plain HTTP requetss to these urls will be refused. Default: [object Object]</li>
+<li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused. Default: [object Object]</li>
+<li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy cases Express &#39;trust proxy&#39; option should be enabled. Default: [object Object]</li>
 <li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list. Default: [object Object]</li>
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds. Default: 1800000</li>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds. Default: 3000</li>
-<li><code>api-status-interval</code> - Number of seconds between status record updates. Default: 900</li>
+<li><code>api-status-interval</code> - Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago. Default: 900000</li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing. Default: </li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes. Default: 10485760</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2. Default: 1</li>
@@ -1785,7 +1792,8 @@ the worker processes if they die and restart them automatically. How many proces
      bk_status: { id: { primary: 1 },                               // account id
                   status: { value: &quot;online&quot; },                      // status, online, offline, away
                   alias: {},
-                  mtime: { type: &quot;bigint&quot;, now: 1 }},               // last status change time
+                  atime: { type: &quot;bigint&quot;, now: 1 },                // last access time
+                  mtime: { type: &quot;bigint&quot; }},                       // last status save to db time
 
      // Keep track of icons uploaded
      bk_icon: { id: { primary: 1 },                         // Account id
@@ -2409,15 +2417,18 @@ Output file name is built according to the following options properties:</li>
 <li><p><code>api.getStatus(id, options, callback)</code></p>
 <p> Returns status record for given account, used in /status/get API call.
 It always returns status object even if it was never set before, on return the record contains
-a property <code>online</code> set to true of false according to the idle period and actual status.
-If id is an array, then return all status records for specified list of account ids</p>
+a property <code>online</code> set to true of false according to the idle period and actual status.</p>
+<p>If id is an array, then return all status records for specified list of account ids.</p>
+<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to to other value,
+for other cases <code>status</code> property is not used, it is supposed for the application extention.</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>api.putStatus(obj, options, callback)</code></p>
-<p> Maintain online status, update every status-interval seconds, if options.check is given only update if last update happened
-longer than status-interval seconds ago</p>
+<p> Maintain online status, update to db every status-interval seconds, if options.check is given only update db if last update happened
+longer than status-interval seconds ago, keep atime up-to-date in the cache on every status update.
+On return the row will have a property <code>saved</code> if it was flushed to db.</p>
 </li>
 </ul>
 
@@ -4350,6 +4361,7 @@ The properties from the joined table will be merged with the original rows prese
 <ul>
 <li>options.keys defines custom primary key to use instead of table&#39;s primary key</li>
 <li>options.existing is 1 then return only joined records.</li>
+<li>options.override - joined table properties will replace existing ones</li>
 </ul>
 <p>Example:</p>
 <pre><code>    db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], db.showResult)
