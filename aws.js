@@ -618,7 +618,7 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
     var params = { TableName: name,
                    AttributeDefinitions: [],
                    KeySchema: [],
-                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || 5,
+                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || 10,
                                             WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || 5 }};
 
     if (Array.isArray(attrs) && attrs.length) {

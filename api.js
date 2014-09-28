@@ -2930,7 +2930,10 @@ api.delMessage = function(req, options, callback)
 
     // Single deletion
     if (req.query.mtime && req.query[sender]) {
-        return db.del(table, { id: req.account.id, mtime: req.query.mtime + ":" + req.query[sender] }, options, callback);
+        return db.del(table, { id: req.account.id, mtime: req.query.mtime + ":" + req.query[sender] }, options, function(err) {
+            if (err || !req.query.icon) return callback(err, []);
+            self.delIcon(req.account.id, { prefix: "message", type: req.query.mtime + ":" + req.query[sender] }, callback);
+        });
     }
 
     // Delete by query
@@ -2941,7 +2944,10 @@ api.delMessage = function(req, options, callback)
         async.forEachSeries(rows, function(row, next) {
             if (req.query[sender] && row[sender] != req.query[sender]) return next();
             row.mtime += ":" + row[sender];
-            db.del(table, row, next);
+            db.del(table, row, function(err) {
+                if (err || !row.icon) return next(err);
+                self.delIcon(req.account.id, { prefix: "message", type: row.mtime }, next);
+            });
         }, callback);
     });
 }

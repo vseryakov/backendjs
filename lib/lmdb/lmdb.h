@@ -194,7 +194,7 @@ typedef int mdb_filehandle_t;
 	MDB_VERINT(MDB_VERSION_MAJOR,MDB_VERSION_MINOR,MDB_VERSION_PATCH)
 
 /** The release date of this library version */
-#define MDB_VERSION_DATE	"June 20, 2014"
+#define MDB_VERSION_DATE	"September 20, 2014"
 
 /** A stringifier for the version info */
 #define MDB_VERSTR(a,b,c,d)	"LMDB " #a "." #b "." #c ": (" d ")"
@@ -333,6 +333,15 @@ typedef void (MDB_rel_func)(MDB_val *item, void *oldptr, void *newptr, void *rel
 #define MDB_MULTIPLE	0x80000
 /*	@} */
 
+/**	@defgroup mdb_copy	Copy Flags
+ *	@{
+ */
+/** Compacting copy: Omit free space from copy, and renumber all
+ * pages sequentially.
+ */
+#define MDB_CP_COMPACT	0x01
+/*	@} */
+
 /** @brief Cursor Get operations.
  *
  *	This is the set of all operations for retrieving data
@@ -412,7 +421,10 @@ typedef enum MDB_cursor_op {
 #define MDB_BAD_TXN			(-30782)
 	/** Unsupported size of key/DB name/data, or wrong DUPFIXED size */
 #define MDB_BAD_VALSIZE		(-30781)
-#define MDB_LAST_ERRCODE	MDB_BAD_VALSIZE
+	/** The specified DBI was changed unexpectedly */
+#define MDB_BAD_DBI		(-30780)
+	/** The last defined error code */
+#define MDB_LAST_ERRCODE	MDB_BAD_DBI
 /** @} */
 
 /** @brief Statistics for a database in the environment */
@@ -622,6 +634,49 @@ int  mdb_env_copy(MDB_env *env, const char *path);
 	 */
 int  mdb_env_copyfd(MDB_env *env, mdb_filehandle_t fd);
 
+	/** @brief Copy an LMDB environment to the specified path, with options.
+	 *
+	 * This function may be used to make a backup of an existing environment.
+	 * No lockfile is created, since it gets recreated at need.
+	 * @note This call can trigger significant file size growth if run in
+	 * parallel with write transactions, because it employs a read-only
+	 * transaction. See long-lived transactions under @ref caveats_sec.
+	 * @param[in] env An environment handle returned by #mdb_env_create(). It
+	 * must have already been opened successfully.
+	 * @param[in] path The directory in which the copy will reside. This
+	 * directory must already exist and be writable but must otherwise be
+	 * empty.
+	 * @param[in] flags Special options for this operation. This parameter
+	 * must be set to 0 or by bitwise OR'ing together one or more of the
+	 * values described here.
+	 * <ul>
+	 *	<li>#MDB_CP_COMPACT - Perform compaction while copying: omit free
+	 *		pages and sequentially renumber all pages in output. This option
+	 *		consumes more CPU and runs more slowly than the default.
+	 * </ul>
+	 * @return A non-zero error value on failure and 0 on success.
+	 */
+int  mdb_env_copy2(MDB_env *env, const char *path, unsigned int flags);
+
+	/** @brief Copy an LMDB environment to the specified file descriptor,
+	 *	with options.
+	 *
+	 * This function may be used to make a backup of an existing environment.
+	 * No lockfile is created, since it gets recreated at need. See
+	 * #mdb_env_copy2() for further details.
+	 * @note This call can trigger significant file size growth if run in
+	 * parallel with write transactions, because it employs a read-only
+	 * transaction. See long-lived transactions under @ref caveats_sec.
+	 * @param[in] env An environment handle returned by #mdb_env_create(). It
+	 * must have already been opened successfully.
+	 * @param[in] fd The filedescriptor to write the copy to. It must
+	 * have already been opened for Write access.
+	 * @param[in] flags Special options for this operation.
+	 * See #mdb_env_copy2() for options.
+	 * @return A non-zero error value on failure and 0 on success.
+	 */
+int  mdb_env_copyfd2(MDB_env *env, mdb_filehandle_t fd, unsigned int flags);
+
 	/** @brief Return statistics about the LMDB environment.
 	 *
 	 * @param[in] env An environment handle returned by #mdb_env_create()
@@ -732,7 +787,13 @@ int  mdb_env_get_fd(MDB_env *env, mdb_filehandle_t *fd);
 	 * this process. Note that the library does not check for this condition,
 	 * the caller must ensure it explicitly.
 	 *
-	 * If the mapsize is changed by another process, #mdb_txn_begin() will
+	 * The new size takes effect immediately for the current process but
+	 * will not be persisted to any others until a write transaction has been
+	 * committed by the current process. Also, only mapsize increases are
+	 * persisted into the environment.
+	 *
+	 * If the mapsize is increased by another process, and data has grown
+	 * beyond the range of the current mapsize, #mdb_txn_begin() will
 	 * return #MDB_MAP_RESIZED. This function may be called with a size
 	 * of zero to adopt the new size.
 	 *
@@ -1349,7 +1410,10 @@ int  mdb_cursor_get(MDB_cursor *cursor, MDB_val *key, MDB_val *data,
 	 * <ul>
 	 *	<li>#MDB_CURRENT - replace the item at the current cursor position.
 	 *		The \b key parameter must still be provided, and must match it.
-	 *		So must \b data if using sorted duplicates (#MDB_DUPSORT).
+	 *		If using sorted duplicates (#MDB_DUPSORT) the data item must still
+	 *		sort into the same place. This is intended to be used when the
+	 *		new data is the same size as the old. Otherwise it will simply
+	 *		perform a delete of the old record followed by an insert.
 	 *	<li>#MDB_NODUPDATA - enter the new key/data pair only if it does not
 	 *		already appear in the database. This flag may only be specified
 	 *		if the database was opened with #MDB_DUPSORT. The function will
