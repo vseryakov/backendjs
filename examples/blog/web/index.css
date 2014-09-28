@@ -1,0 +1,57 @@
+body {
+    padding-top: 50px;
+    background-color: #ffffff;
+}
+
+#logo {
+    height: 22px;
+}
+
+#blog #header {
+    border-bottom: 1px solid gray;
+}
+
+#blog .container {
+  padding-bottom: 20px;
+}
+
+#blog .tags {
+    background-color: #2F9888;
+    color: white;
+    padding: 3px;
+}
+
+#blog-content b {
+    font-size: 1.1em;
+}
+
+#blog-content .row {
+    padding-bottom: 10px;
+}
+
+.form-error {
+    color: red;
+}
+
+.img-avatar {
+    width: 32px;
+    height: 32px;
+    border: 0;
+}
+
+.img-post {
+    max-height: 100px;
+    border: 0;
+}
+
+.blog-preview {
+    padding: 5px;
+    width: 50px;
+    height: 50px;
+}
+
+.blog-content {
+    overflow-y: auto;
+    max-height: 1200px;
+}
+

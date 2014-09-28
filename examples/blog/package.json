@@ -1,0 +1,10 @@
+{
+ "version": "0.1.0",
+ "author": "vlad",
+ "name": "blog",
+ "description": "simple blog example",
+ "main": "app.js",
+ "dependencies": { "backendjs": ">=0.9.0" },
+ "engines": { "node": ">= 0.10" },
+ "scripts": { "start": "node app.js" },
+ "license": "BSD-3-Clause" }

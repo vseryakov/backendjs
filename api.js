@@ -2251,6 +2251,7 @@ api.putFile = function(req, name, options, callback)
 // Place the uploaded tmpfile to the destination pointed by outfile
 api.storeFile = function(tmpfile, outfile, options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
@@ -2857,6 +2858,7 @@ api.addMessage = function(req, options, callback)
     var db = core.context.db;
     var now = Date.now();
     var info = {};
+    var op = options.op || "add";
     var sent = core.cloneObj(req.query);
     var msg = core.cloneObj(req.query);
 
@@ -2874,7 +2876,7 @@ api.addMessage = function(req, options, callback)
             });
         },
         function(next) {
-            db.add("bk_message", msg, options, function(err, rows, info2) {
+            db[op]("bk_message", msg, options, function(err, rows, info2) {
                 info = info2;
                 next(err);
             });
@@ -2892,7 +2894,7 @@ api.addMessage = function(req, options, callback)
             sent.recipient = req.query.id;
             sent.mtime = now + ':' + sent.recipient;
             if (options.nosent) return next();
-            db.add("bk_sent", sent, options, function(err, rows) {
+            db[op]("bk_sent", sent, options, function(err, rows) {
                 if (err) return db.del("bk_message", req.query, function() { next(err); });
                 next();
             });
