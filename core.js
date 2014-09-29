@@ -1085,7 +1085,8 @@ core.httpGet = function(uri, params, callback)
     if (!params.redirects) params.redirects = 0;
     if (!params.httpTimeout) params.httpTimeout = 300000;
     if (!params.ignoreredirect) params.ignoreredirect = {};
-    params.size = 0, params.err = null, params.fd = 0, params.status = 0, params.data = '', params.poststream = null;
+    params.data = params.binary ? new Buffer(0) : '';
+    params.size = 0, params.err = null, params.fd = 0, params.status = 0, params.poststream = null;
     params.href = options.href, params.pathname = options.pathname, params.hostname = options.hostname;
     var req = null;
     var mod = uri.indexOf("https://") == 0 ? https : http;
@@ -1118,6 +1119,9 @@ core.httpGet = function(uri, params, callback)
                   params.err = e;
                   req.abort();
               }
+          } else
+          if (params.binary) {
+              params.data = Buffer.concat([params.data, chunk]);
           } else {
               params.data += chunk.toString();
           }
