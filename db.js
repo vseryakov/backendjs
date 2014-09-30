@@ -1037,6 +1037,7 @@ db.migrate = function(table, options, callback)
             db.drop(tmptable, { pool: options.tmppool }, next);
         },
         function(next) {
+            if (!pool.dbcolumns[tmptable]) return next();
             setTimeout(next, options.delay || 0);
         },
         function(next) {

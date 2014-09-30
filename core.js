@@ -2425,7 +2425,7 @@ core.scaleIcon = function(infile, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     backend.resizeImage(infile, options, function(err, data) {
-        if (err) logger.error('scaleIcon:', typeof infile == "object" ? infile.length : infile, options, err);
+        if (err) logger.error('scaleIcon:', Buffer.isBuffer(infile) ? "Buffer:" + infile.length : infile, options, err);
         if (callback) callback(err, data);
     });
 }
