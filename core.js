@@ -1231,9 +1231,9 @@ core.parseSignature = function(req)
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
     rc.sigversion = this.toNumber(d[1]);
-    rc.sigdata = d[2];
-    rc.login = d[3];
-    rc.signature = d[4];
+    if (d[2]) rc.sigdata = d[2];
+    if (d[3]) rc.login = d[3].trim();
+    if (d[4]) rc.signature = d[4];
     rc.expires = this.toNumber(d[5]);
     rc.checksum = d[6] || "";
     req.signature = rc;
