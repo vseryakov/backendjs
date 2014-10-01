@@ -28,7 +28,7 @@ var core = {
     name: 'backend',
 
     // Protocol version
-    version: '2014.07.20',
+    version: '2014.09.20',
 
     // Application version
     appVersion: "",
@@ -69,7 +69,7 @@ var core = {
     ws: { port: 0, bind: "0.0.0.0", },
 
     // Proxy config
-    proxy: { port: 0, bind: "127.0.0.1", ssl: false },
+    proxy: { port: 3000, bind: "127.0.0.1", ssl: false },
 
     // Number of parallel tasks running at the same time, can be used by various modules
     concurrency: 2,
