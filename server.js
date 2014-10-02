@@ -71,6 +71,11 @@ var server = {
     // How long to be in idle state and shutdown, for use in instances
     idleTime: 120000,
 
+    // Proxy target
+    proxyUrl: {},
+    proxyHost: null,
+    proxyPort: 80,
+
     // Config parameters
     args: [{ name: "max-processes", type: "callback", value: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
@@ -82,6 +87,9 @@ var server = {
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
            { name: "max-jobs", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue only" },
+           { name: "proxy-url", type: "regexpmap", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
+           { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
+           { name: "proxy-host", type: "callback", value: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "node-args", type: "list", descr: "Node arguments for spawned processes, for passing v8 options" },
            { name: "node-worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
            { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs" } ],
@@ -267,7 +275,13 @@ server.startWeb = function(callback)
                 }
                 return ports.length ? ports[ports.length-1] + 1 : core.proxy.port;
             }
-            self.getProxyTarget = function() {
+            self.getProxyTarget = function(req) {
+                // Proxy to the global Web server running behind us
+                if (self.proxyHost && self.proxyUrl.rx) {
+                    var d = req.url.match(self.proxyUrl.rx);
+                    if ((self.proxyReverse && !d) || (!self.proxyReverse && d)) return { target: { host: self.proxyHost, port: self.proxyPort } };
+                }
+                // Forward api requests to the workers
                 for (var i = 0; i < self.proxyTargets.length; i++) {
                     var target = self.proxyTargets.shift();
                     if (!target) break;
@@ -300,14 +314,14 @@ server.startWeb = function(callback)
             self.proxyServer = proxy.createServer({ xfwd : true });
             self.proxyServer.on("error", function(err) { if (err.code != "ECONNRESET") logger.error("proxy:", err.code, err.stack) })
             self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
-                var target = self.getProxyTarget();
+                var target = self.getProxyTarget(req);
                 if (target) return self.proxyServer.web(req, res, target);
                 res.writeHead(500, "Not ready yet");
                 res.end();
             });
             if (core.proxy.ssl) {
                 self.sslServer = core.createServer({ ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
-                    var target = self.getProxyTarget();
+                    var target = self.getProxyTarget(req);
                     if (target) return self.proxyServer.web(req, res, target);
                     res.writeHead(500, "Not ready yet");
                     res.end();
@@ -315,13 +329,13 @@ server.startWeb = function(callback)
             }
             if (core.ws.port) {
                 self.server.on('upgrade', function(req, socket, head) {
-                    var target = self.getProxyTarget();
+                    var target = self.getProxyTarget(req);
                     if (target) return self.proxyServer.ws(req, socket, head, target);
                     req.close();
                 });
                 if (self.sslServer) {
                     self.sslServer.on('upgrade', function(req, socket, head) {
-                        var target = self.getProxyTarget();
+                        var target = self.getProxyTarget(req);
                         if (target) return self.proxyServer.ws(req, socket, head, target);
                         req.close();
                     });
