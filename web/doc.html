@@ -2845,7 +2845,7 @@ Options must provide the following properties:</p>
 <li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
 <li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or<pre><code>any other exact value to be checked against which corresponds to { Exists: true, Value: value }
 </code></pre></li>
-<li>conditionExpr - condition expression</li>
+<li>expr - condition expression</li>
 <li>values - an object with values map to be used for in the update and/or condition expressions, to be used<pre><code>for ExpressionAttributeValues parameters
 </code></pre></li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used<pre><code>for ExpressionAttributeNames parameter
@@ -2870,7 +2870,7 @@ Options must provide the following properties:</p>
 </li>
 <li>item can be a string with Update expression</li>
 <li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
-<li>conditionExpr - condition expression</li>
+<li>expr - condition expression</li>
 <li>values - an object with values map to be used for in the update and/or condition expressions, to be used
   for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
@@ -2895,7 +2895,7 @@ Options must provide the following properties:</p>
 <ul>
 <li>keys is an object with name: value for hash/range attributes</li>
 <li>options may contain any valid native property if it starts with capital letter and the following special options:<ul>
-<li>conditionExpr - condition expression</li>
+<li>expr - condition expression</li>
 <li>values - an object with values map to be used for in the update and/or condition expressions, to be used
   for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
@@ -2974,7 +2974,7 @@ Example:</p>
   for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
   for ExpressionAttributeNames parameter</li>
-<li>filterExpr - filtering expression</li>
+<li>expr - filtering expression</li>
 </ul>
 </li>
 </ul>
@@ -2989,7 +2989,7 @@ Example:</p>
 <li><p><code>aws.ddbScanTable(name, condition, options, callback)</code></p>
 <p> Scan a table for all matching items</p>
 <ul>
-<li>condition is an object with name: value pairs</li>
+<li>condition is an object with name: value pairs or a string with FilterExpression</li>
 <li>options may contain any valid native property if it starts with capital letter or special property:<ul>
 <li>start - defines starting primary key</li>
 <li>ops - an object with operators to be used for properties if other than EQ.</li>
@@ -2998,7 +2998,6 @@ Example:</p>
   for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
   for ExpressionAttributeNames parameter</li>
-<li>filterExpr - filtering expression</li>
 </ul>
 </li>
 </ul>

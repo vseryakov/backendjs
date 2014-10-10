@@ -730,7 +730,7 @@ aws.ddbUpdateTable = function(options, callback)
 // - options may contain any valid native property if it starts with capital letter or special properties:
 //    - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 //          any other exact value to be checked against which corresponds to { Exists: true, Value: value }
-//    - conditionExpr - condition expression
+//    - expr - condition expression
 //    - values - an object with values map to be used for in the update and/or condition expressions, to be used
 //          for ExpressionAttributeValues parameters
 //    - names - an object with a map to be used for attribute names in condition and update expressions, to be used
@@ -757,8 +757,8 @@ aws.ddbPutItem = function(name, item, options, callback)
             params.Expected[p] = { Value: self.toDynamoDB(options.expected[p]) };
         }
     }
-    if (options.conditionExpr) {
-        params.ConditionExpression = options.conditionExpr;
+    if (options.expr) {
+        params.ConditionExpression = options.expr;
     }
     if (options.names) {
         params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
@@ -779,7 +779,7 @@ aws.ddbPutItem = function(name, item, options, callback)
 //      - null/empty string - action DELETE
 // - item can be a string with Update expression
 // - options may contain any valid native property if it starts with capital letter or special properties:
-//      - conditionExpr - condition expression
+//      - expr - condition expression
 //      - values - an object with values map to be used for in the update and/or condition expressions, to be used
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
@@ -811,8 +811,8 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
     if (options.expected) {
         params.Expected = this.queryFilter(options.expected, options);
     }
-    if (options.conditionExpr) {
-        params.ConditionExpression = options.conditionExpr;
+    if (options.expr) {
+        params.ConditionExpression = options.expr;
     }
     if (options.names) {
         params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
@@ -861,7 +861,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
 // Delete an item from a table
 // - keys is an object with name: value for hash/range attributes
 // - options may contain any valid native property if it starts with capital letter and the following special options:
-//      - conditionExpr - condition expression
+//      - expr - condition expression
 //      - values - an object with values map to be used for in the update and/or condition expressions, to be used
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
@@ -882,8 +882,8 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
     for (var p in keys) {
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
-    if (options.conditionExpr) {
-        params.ConditionExpression = options.conditionExpr;
+    if (options.expr) {
+        params.ConditionExpression = options.expr;
     }
     if (options.names) {
         params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
@@ -1021,7 +1021,7 @@ aws.ddbGetItem = function(name, keys, options, callback)
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
-//      - filterExpr - filtering expression
+//      - expr - filtering expression
 //
 // Example:
 //
@@ -1046,8 +1046,8 @@ aws.ddbQueryTable = function(name, condition, options, callback)
     if (options.projection) {
         params.ProjectionExpression = options.projection;
     }
-    if (options.filterExpr) {
-        params.FilterExpression = options.filterExpr;
+    if (options.expr) {
+        params.FilterExpression = options.expr;
     }
     if (options.consistent) {
         params.ConsistentRead = true;
@@ -1086,7 +1086,7 @@ aws.ddbQueryTable = function(name, condition, options, callback)
 }
 
 // Scan a table for all matching items
-// - condition is an object with name: value pairs
+// - condition is an object with name: value pairs or a string with FilterExpression
 // - options may contain any valid native property if it starts with capital letter or special property:
 //      - start - defines starting primary key
 //      - ops - an object with operators to be used for properties if other than EQ.
@@ -1095,7 +1095,6 @@ aws.ddbQueryTable = function(name, condition, options, callback)
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
-//      - filterExpr - filtering expression
 //
 // Example:
 //
@@ -1111,9 +1110,6 @@ aws.ddbScanTable = function(name, condition, options, callback)
     }
     if (options.projection) {
         params.ProjectionExpression = options.projection;
-    }
-    if (options.filterExpr) {
-        params.FilterExpression = options.filterExpr;
     }
     if (options.names) {
         params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
@@ -1136,7 +1132,11 @@ aws.ddbScanTable = function(name, condition, options, callback)
     if (options.total) {
         params.Select = "COUNT";
     }
-    params.ScanFilter = this.queryFilter(condition, options)
+    if (typeof condition == "string") {
+        params.FilterExpression = options.filterExpr;
+    } else {
+        params.ScanFilter = this.queryFilter(condition, options)
+    }
 
     this.queryDDB('Scan', params, options, function(err, rc) {
         rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];

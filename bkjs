@@ -619,7 +619,7 @@ case "$ARG" in
   get-dynamodb)
     if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
-       curl -L -o ddb.tar.gz https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_2014-04-24.tar.gz
+       curl -L -o ddb.tar.gz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_2014-10-07.tar.gz
        tar -C $DYNAMODB_PREFIX -xzf ddb.tar.gz
        rm -rf ddb.tar.gz
     fi
