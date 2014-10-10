@@ -2978,6 +2978,8 @@ db.dynamodbInitPool = function(options)
                         if (!pool.dbkeys[table]) pool.dbkeys[table] = [];
                         pool.dbkeys[table].push(x.AttributeName);
                         pool.dbcolumns[table][x.AttributeName].primary = 1;
+                        pool.dbcolumns[table][x.AttributeName].readCapacity =  rc.Table.ProvisionedThroughput.ReadCapacityUnits || 0;
+                        pool.dbcolumns[table][x.AttributeName].writeCapacity = rc.Table.ProvisionedThroughput.WriteCapacityUnits || 0;
                     });
                     (rc.Table.LocalSecondaryIndexes || []).forEach(function(x) {
                         x.KeySchema.forEach(function(y) {
