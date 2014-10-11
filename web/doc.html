@@ -2979,9 +2979,9 @@ Example:</p>
 </li>
 </ul>
 <p>Example:</p>
-<pre><code>    ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39;, ops: { name: &#39;gt&#39; } })
-
-    ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot;, status: &quot;ok&quot; }, { keys: [&quot;id&quot;], select: &#39;id,name&#39;, ops: { name: &#39;gt&#39; } })
+<pre><code>    aws.ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39;, ops: { name: &#39;gt&#39; } })
+    aws.ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot;, status: &quot;ok&quot; }, { keys: [&quot;id&quot;], select: &#39;id,name&#39;, ops: { name: &#39;gt&#39; } })
+    aws.ddbQueryTable(&quot;users&quot;, { id: 1 }, { expr: &quot;status=:s&quot;, values: { s: &quot;status&quot; } })
 </code></pre></li>
 </ul>
 
@@ -3002,7 +3002,8 @@ Example:</p>
 </li>
 </ul>
 <p>Example:</p>
-<pre><code>    ddbScanTable(&quot;users&quot;, { id: 1, name: &#39;a&#39; }, { ops: { name: &#39;gt&#39; }})
+<pre><code>    aws.ddbScanTable(&quot;users&quot;, { id: 1, name: &#39;a&#39; }, { ops: { name: &#39;gt&#39; }})
+    aws.ddbScanTable(&quot;users&quot;, &quot;id=:id AND name=:name&quot;, { values: { id: 1, name: &#39;a&#39; } });
 </code></pre></li>
 </ul>
 

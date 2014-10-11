@@ -436,7 +436,7 @@ aws.toDynamoDB = function(value, level)
         return { "N": Math.round(value.getTime()/1000) };
 
     case 'array':
-        var types = {};
+        var types = { number: 0, string: 0 };
         for (var i = 0; i < value.length; i++) types[typeof value[i]]++;
         if (types["number"] == value.length) return { "NS": value };
         if (types["string"] == value.length) return { "SS": value };
@@ -445,9 +445,7 @@ aws.toDynamoDB = function(value, level)
     case 'object':
         if (level) return { "M" : value };
         var obj = {};
-        for (var p in value) {
-            obj[p] = self.toDynamoDB(value[p]);
-        }
+        for (var p in value) obj[p] = self.toDynamoDB(value[p], 1);
         return obj;
 
     default:
