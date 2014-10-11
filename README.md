@@ -4,7 +4,7 @@ General purpose backend framework. The primary goal is to have a scalable platfo
 servers for Web services implementation. This framework only covers the lower portion of the Web services system:
 node.js processes, HTTP servers, basic API functinality, database access, caching, messaging between processes,
 metrics and monitoring, a library of tools for developing node.js servers.
-For the UI and presentation layer there is no restrictions what to use as long as it can run on top of the Express server.
+For the UI and presentation layer there are no restrictions what to use as long as it can run on top of the Express server.
 
 Features:
 
@@ -33,7 +33,7 @@ Check out the [Documentation](http://backendjs.io) for more details.
 
 # Requirements and dependencies
 
-The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
+The module supports several databases and includes ImageMagick interface. In order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
 
 The optional packages that the backendjs uses if available(resolving packages is done with *pkg-config*):
@@ -48,7 +48,7 @@ Installing dependencies on CentOS:
 
 Installing dependencies on Mac OS X using macports:
 
-        port install libpng jpeg tiff mysql56 postgresql93
+        port install libpng jpeg mysql56 postgresql93
 
 # Installation
 

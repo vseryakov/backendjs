@@ -74,7 +74,7 @@
 servers for Web services implementation. This framework only covers the lower portion of the Web services system:
 node.js processes, HTTP servers, basic API functinality, database access, caching, messaging between processes,
 metrics and monitoring, a library of tools for developing node.js servers.
-For the UI and presentation layer there is no restrictions what to use as long as it can run on top of the Express server.</p>
+For the UI and presentation layer there are no restrictions what to use as long as it can run on top of the Express server.</p>
 <p>Features:</p>
 <ul>
 <li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
@@ -100,7 +100,7 @@ server in front of them instead of relying on the OS scheduling between procsses
 </ul>
 <p>Check out the <a href="http://backendjs.io">Documentation</a> for more details.</p>
 <h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
-<p>The module supports several databases and includes ImageMagick interface so in order for such interfaces to be compiled the software must be installed
+<p>The module supports several databases and includes ImageMagick interface. In order for such interfaces to be compiled the software must be installed
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.</p>
 <p>The optional packages that the backendjs uses if available(resolving packages is done with <em>pkg-config</em>):</p>
 <ul>
@@ -112,7 +112,7 @@ on the system before installing the backendjs. Not everything is required, if no
 <p>Installing dependencies on CentOS:</p>
 <pre><code>    yum -y install libpng-devel libjpeg-turbo-devel postgresql-devel mysql-devel
 </code></pre><p>Installing dependencies on Mac OS X using macports:</p>
-<pre><code>    port install libpng jpeg tiff mysql56 postgresql93
+<pre><code>    port install libpng jpeg mysql56 postgresql93
 </code></pre><h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
 <p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(PostgreSQL, MySQL) and nanomsg.</p>
