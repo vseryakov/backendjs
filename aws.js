@@ -420,33 +420,33 @@ aws.toDynamoDB = function(value, level)
 {
     var self = this;
     switch (core.typeName(value)) {
+    case 'null':
+        return { "NULL": 'true' };
+
+    case 'boolean':
+        return { "BOOL": value.toString() };
+
     case 'number':
         return { "N": value.toString() };
 
     case 'buffer':
         return { "B": value.toString("base64") };
 
-    case 'array':
-        var obj = {}, arr = [], type = '';
-        for (var i = 0; i < value.length; ++i) {
-            if (!value[i] && typeof value[i] != 'number') continue;
-            if (Array.isArray(value[i]) && !value[i].length) continue;
-            arr[i] = String(value[i]);
-            if (!type) type = core.typeName(value[i]);
-        }
-        obj[type == "number" ? "NS": type == "buffer" ? "BS" : "SS"] = arr;
-        return obj;
-
     case "date":
         return { "N": Math.round(value.getTime()/1000) };
 
+    case 'array':
+        var types = {};
+        for (var i = 0; i < value.length; i++) types[typeof value[i]]++;
+        if (types["number"] == value.length) return { "NS": value };
+        if (types["string"] == value.length) return { "SS": value };
+        return { "L": value };
+
     case 'object':
-        if (level) return { "S" : JSON.stringify(value) };
+        if (level) return { "M" : value };
         var obj = {};
-        for (var i in value) {
-            if (!value[i] && typeof value[i] != 'number') continue;
-            if (Array.isArray(value[i]) && !value[i].length) continue;
-            obj[i] = this.toDynamoDB(value[i], level || 1);
+        for (var p in value) {
+            obj[p] = self.toDynamoDB(value[p]);
         }
         return obj;
 
@@ -467,6 +467,18 @@ aws.fromDynamoDB = function(value)
         var res = {};
         for (var i in value) {
             if (!value.hasOwnProperty(i)) continue;
+            if (value[i]['BOOL'])
+                res[i] = core.toBool(value[i]['BOOL']);
+            else
+            if (value[i]['NULL'])
+                res[i] = null;
+            else
+            if (value[i]['L'])
+                res[i] = value[i]['L'];
+            else
+            if (value[i]['M'])
+                res[i] = value[i]['M'];
+            else
             if (value[i]['S'])
                 res[i] = value[i]['S'];
             else
@@ -761,10 +773,10 @@ aws.ddbPutItem = function(name, item, options, callback)
         params.ConditionExpression = options.expr;
     }
     if (options.names) {
-        params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
+        params.ExpressionAttributeNames = self.toDynamoDB(options.names);
     }
     if (options.values) {
-        params.ExpressionAttributeValues = sel.toDynamoDB(options.values);
+        params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     this.queryDDB('PutItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
@@ -815,10 +827,10 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         params.ConditionExpression = options.expr;
     }
     if (options.names) {
-        params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
+        params.ExpressionAttributeNames = self.toDynamoDB(options.names);
     }
     if (options.values) {
-        params.ExpressionAttributeValues = sel.toDynamoDB(options.values);
+        params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     if (typeof item == "string") {
         params.UpdateExpression = item;
@@ -886,10 +898,10 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
         params.ConditionExpression = options.expr;
     }
     if (options.names) {
-        params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
+        params.ExpressionAttributeNames = self.toDynamoDB(options.names);
     }
     if (options.values) {
-        params.ExpressionAttributeValues = sel.toDynamoDB(options.values);
+        params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     this.queryDDB('DeleteItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
@@ -986,7 +998,7 @@ aws.ddbGetItem = function(name, keys, options, callback)
         params.AttributesToGet = core.strSplit(options.select);
     }
     if (options.names) {
-        params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
+        params.ExpressionAttributeNames = self.toDynamoDB(options.names);
     }
     if (options.projection) {
         params.ProjectionExpression = options.projection;
@@ -1025,9 +1037,10 @@ aws.ddbGetItem = function(name, keys, options, callback)
 //
 // Example:
 //
-//          ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', ops: { name: 'gt' } })
+//          aws.ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', ops: { name: 'gt' } })
+//          aws.ddbQueryTable("users", { id: 1, name: "john", status: "ok" }, { keys: ["id"], select: 'id,name', ops: { name: 'gt' } })
+//          aws.ddbQueryTable("users", { id: 1 }, { expr: "status=:s", values: { s: "status" } })
 //
-//          ddbQueryTable("users", { id: 1, name: "john", status: "ok" }, { keys: ["id"], select: 'id,name', ops: { name: 'gt' } })
 aws.ddbQueryTable = function(name, condition, options, callback)
 {
     var self = this;
@@ -1038,10 +1051,10 @@ aws.ddbQueryTable = function(name, condition, options, callback)
         if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
     }
     if (options.names) {
-        params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
+        params.ExpressionAttributeNames = self.toDynamoDB(options.names);
     }
     if (options.values) {
-        params.ExpressionAttributeValues = sel.toDynamoDB(options.values);
+        params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     if (options.projection) {
         params.ProjectionExpression = options.projection;
@@ -1098,7 +1111,9 @@ aws.ddbQueryTable = function(name, condition, options, callback)
 //
 // Example:
 //
-//          ddbScanTable("users", { id: 1, name: 'a' }, { ops: { name: 'gt' }})
+//          aws.ddbScanTable("users", { id: 1, name: 'a' }, { ops: { name: 'gt' }})
+//          aws.ddbScanTable("users", "id=:id AND name=:name", { values: { id: 1, name: 'a' } });
+//
 aws.ddbScanTable = function(name, condition, options, callback)
 {
     var self = this;
@@ -1112,10 +1127,10 @@ aws.ddbScanTable = function(name, condition, options, callback)
         params.ProjectionExpression = options.projection;
     }
     if (options.names) {
-        params.ExpressionAttributeNames = sel.toDynamoDB(options.names);
+        params.ExpressionAttributeNames = self.toDynamoDB(options.names);
     }
     if (options.values) {
-        params.ExpressionAttributeValues = sel.toDynamoDB(options.values);
+        params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     if (options.consistent) {
         params.ConsistentRead = true;
