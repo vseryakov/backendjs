@@ -445,7 +445,11 @@ aws.toDynamoDB = function(value, level)
     case 'object':
         if (level) return { "M" : value };
         var obj = {};
-        for (var p in value) obj[p] = self.toDynamoDB(value[p], 1);
+        for (var p in value) {
+            if (typeof value[p] == 'undefined') continue;
+            if (Array.isArray(value[p]) && !value[p].length) continue;
+            obj[p] = self.toDynamoDB(value[p], 1);
+        }
         return obj;
 
     default:
