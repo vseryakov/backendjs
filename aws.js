@@ -731,6 +731,8 @@ aws.ddbDeleteTable = function(name, options, callback)
 aws.ddbUpdateTable = function(options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
     var params = { TableName: options.name, ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity, WriteCapacityUnits: options.writeCapacity } };
     this.queryDDB('UpdateTable', params, options, callback);
 }
@@ -749,6 +751,7 @@ aws.ddbUpdateTable = function(options, callback)
 // Example:
 //
 //          ddbPutItem("users", { id: 1, name: "john", mtime: 11233434 }, { expected: { name: null } })
+//
 aws.ddbPutItem = function(name, item, options, callback)
 {
     var self = this;
@@ -880,6 +883,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
 // Example:
 //
 //          ddbDeleteItem("users", { id: 1, name: "john" }, {})
+//
 aws.ddbDeleteItem = function(name, keys, options, callback)
 {
     var self = this;

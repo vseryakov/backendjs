@@ -2524,6 +2524,35 @@ core.newObj = function()
     return obj;
 }
 
+// Merge an object with the options, all properties in the options override existing in the object, returns a new object
+//
+//  Example
+//
+//       var o = core.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
+//       o = { a:1, b:2, c:5, d:1 }
+core.mergeObj = function(obj, options)
+{
+    var rc = {};
+    for (var p in options) rc[p] = options[p];
+    for (var p in obj) {
+        var val = obj[p];
+        switch (core.typeName(val)) {
+        case "object":
+            if (!rc[p]) rc[p] = {};
+            for (var c in val) {
+                if (!rc[p][c]) rc[p][c] = val[c];
+            }
+            break;
+        case "null":
+        case "undefined":
+            break;
+        default:
+            if (!rc[p]) rc[p] = val;
+        }
+    }
+    return rc;
+}
+
 // Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
 core.extendObj = function()
 {
@@ -2627,35 +2656,6 @@ core.objSet = function(obj, name, value, options)
         obj[p] = value;
     }
     return v;
-}
-
-// Merge an object with the options, all properties in the options override existing in the object, returns a new object
-//
-// Example
-//
-//      var o = core.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
-//      o = { a:1, b:2, c:5, d:1 }
-core.mergeObj = function(obj, options)
-{
-    var rc = {};
-    for (var p in options) rc[p] = options[p];
-    for (var p in obj) {
-        var val = obj[p];
-        switch (core.typeName(val)) {
-        case "object":
-            if (!rc[p]) rc[p] = {};
-            for (var c in val) {
-                if (!rc[p][c]) rc[p][c] = val[c];
-            }
-            break;
-        case "null":
-        case "undefined":
-            break;
-        default:
-            if (!rc[p]) rc[p] = val;
-        }
-    }
-    return rc;
 }
 
 // JSON stringify without empty, null or undefined properties if no filter is given

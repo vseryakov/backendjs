@@ -489,11 +489,14 @@ ipc.stats = function(callback)
             if (!this.memcache.client) return callback({});
             this.memcache.client.stats(function(e,v) { callback(v) });
             break;
+
         case "redis":
             if (!this.redis.client) return callback({});
             this.redis.client.info(function(e,v) { callback(v) });
             break;
+
         case "nanomsg":
+        case "local":
             this.send("stats", "", "", callback);
             break;
         }
@@ -531,6 +534,7 @@ ipc.keys = function(callback)
             break;
 
         case "nanomsg":
+        case "local":
             this.send("keys", "", "", callback);
             break;
         }
@@ -588,6 +592,7 @@ ipc.get = function(key, options, callback)
             break;
 
         case "nanomsg":
+        case "local":
             this.send("get", key, "", options, callback);
             break;
         }

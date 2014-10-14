@@ -721,10 +721,10 @@ db.update = function(table, obj, options, callback)
 // The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
 // to finish due to sequential update every record one by one.
 // Special properties that can be in the options for this call:
-// - concurrency - how many update queries to execute at the same time, default is 1, this is done by using async.forEachLimit.
-// - process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
-// in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
-// as `options.process(row, options)`
+//   - concurrency - how many update queries to execute at the same time, default is 1, this is done by using async.forEachLimit.
+//   - process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
+//      in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
+//      as `options.process(row, options)`
 //
 // Example, update birthday format if not null
 //
@@ -745,15 +745,15 @@ db.updateAll = function(table, query, obj, options, callback)
     var pool = this.getPool(table, options);
     if (pool.updateAll && !options.process) return pool.updateAll(table, query, obj, options, callback);
 
-    // Options without ops for update
-    var opts = core.cloneObj(options, 'noprocessrows', 1, "ops", {});
+    options.noprocessrows = 1;
     self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
+        options.ops = {};
         async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             for (var p in obj) row[p] = obj[p];
             if (options && options.process) options.process(row, options);
-            self.update(table, row, opts, next);
+            self.update(table, row, options, next);
         }, function(err) {
             if (callback) callback(err, rows);
         });
@@ -1567,8 +1567,12 @@ db.prepare = function(op, table, obj, options)
         }
 
     case "update":
-        // Up to date timestamps
-        for (var p in cols) if (cols[p].now) obj[p] = now;
+        // Current timestamps, keep primary keys as if non empty
+        for (var p in cols) {
+            if (cols[p].now && (!obj[p] || !cols[p].primary)) {
+                obj[p] = now;
+            }
+        }
 
         // Keep only columns from the table definition if we have it
         // Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
@@ -3204,7 +3208,7 @@ db.dynamodbInitPool = function(options)
 
         case "update":
             var keys = self.getSearchQuery(table, obj);
-            if (!options.expected && !options.Expected) opts.expected = keys;
+            if (!options.expected && !options.Expected && !options.expr && !options.ConditionExpression) opts.expected = keys;
             if (opts.counter) opts.counter.forEach(function(x) { opts.ops[x] = 'ADD'; });
             aws.ddbUpdateItem(table, keys, obj, opts, function(err, rc) {
                 callback(err, [], rc);
