@@ -26,6 +26,10 @@
 #define nn_slow(x) (x)
 #endif
 
+#ifndef nn_geterrno
+#define nn_geterrno(s,e) 0
+#endif
+
 class NNSocket: public ObjectWrap {
 public:
     NNSocket(int d = AF_SP, int t = NN_SUB): sock(-1), err(0), domain(d), type(t), rfd(-1), wfd(-1), peer(-1), dev_err(0), dev_state(0) {
@@ -376,7 +380,10 @@ public:
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
         Local<Object> rc = Local<Object>::New(Object::New());
         for (map<string,int>::iterator it = sock->baddr.begin(); it != sock->baddr.end(); it++) {
-            rc->Set(String::New(it->first.c_str()), Integer::New(it->second));
+            Local<Object> ep = Local<Object>::New(Object::New());
+            ep->Set(String::NewSymbol("ep"), Integer::New(it->second));
+            ep->Set(String::NewSymbol("errno"), Integer::New(nn_geterrno(sock->sock, it->second)));
+            rc->Set(String::New(it->first.c_str()), ep);
         }
         return scope.Close(rc);
     }
@@ -386,7 +393,10 @@ public:
         NNSocket* sock= ObjectWrap::Unwrap < NNSocket > (accessor.This());
         Local<Object> rc = Local<Object>::New(Object::New());
         for (map<string,int>::iterator it = sock->caddr.begin(); it != sock->caddr.end(); it++) {
-            rc->Set(String::New(it->first.c_str()), Integer::New(it->second));
+            Local<Object> ep = Local<Object>::New(Object::New());
+            ep->Set(String::NewSymbol("ep"), Integer::New(it->second));
+            ep->Set(String::NewSymbol("errno"), Integer::New(nn_geterrno(sock->sock, it->second)));
+            rc->Set(String::New(it->first.c_str()), ep);
         }
         return scope.Close(rc);
     }

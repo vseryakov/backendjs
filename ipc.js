@@ -790,7 +790,7 @@ ipc.initNotifications = function(callback)
         return callback ? callback() : null;
     } else
 
-    // Explcitly configured notification server queue
+    // Explicitely configured notification server queue
     if (core.notificationServer) {
         this.subscribe(core.notificationServer, function(arg, key, data) {
             self.sendNotification(core.stringify(data));
