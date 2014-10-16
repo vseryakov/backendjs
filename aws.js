@@ -606,7 +606,7 @@ aws.ddbDescribeTable = function(name, options, callback)
 // - attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS
 // - keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys
 // - options may contain any valid native property if it starts with capital letter and the following:
-//   - wait - number of milliseconds to wait for ACTIVE status
+//   - waitTimeout - number of milliseconds to wait for ACTIVE status
 //   - local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object
 //   - global - an object for global secondary indexes, same format as for local indexes
 //   - projection - an object with index name and list of projected properties to be included in the index or "ALL" for all properties, if omitted then default KEYS_ONLY is assumed
@@ -688,25 +688,11 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
     }
 
     this.queryDDB('CreateTable', params, options, function(err, item) {
-        if (err || !options.wait) return callback(err, item);
+        if (err) return callback(err, item);
 
         // Wait because DynamoDB cannot create multiple tables at once especially with indexes
-        var now = Date.now();
-        var status = item.TableDescription.TableStatus;
-        async.until(
-          function() {
-              return status != "ACTIVE" || Date.now() - now < options.wait;
-          },
-          function(next) {
-              aws.ddbDescribeTable(name, options, function(err, rc) {
-                  if (err) return next(err);
-                  status = rc.Table.TableStatus;
-                  setTimeout(next, 250);
-              });
-          },
-          function(err) {
-              callback(err, item);
-          });
+        options.waitStatus = "CREATING";
+        self.ddbWaitForTable(name, item, options, callback);
     });
 }
 
@@ -715,7 +701,37 @@ aws.ddbDeleteTable = function(name, options, callback)
 {
     var self = this;
     var params = { TableName: name };
-    this.queryDDB('DeleteTable', params, options, callback);
+    this.queryDDB('DeleteTable', params, options, function(err, item) {
+        if (err) return callback(err, item);
+        options.waitStatus = "DELETING";
+        self.ddbWaitForTable(name, item, options, callback);
+    });
+}
+
+// Call the callback after specified period of time or when table status become different from the given waiting status.
+// if options.waitTimeout is not specified calls the callback immediately. options.waitStatus is checked if given and keeps waiting
+// while the status is equal to it. options.waitDelay can be specified how often to request new status, default is 250ms.
+aws.ddbWaitForTable = function(name, item, options, callback)
+{
+    var self = this;
+    if (!options.waitTimeout) return callback(null, item);
+
+    var now = Date.now();
+    var status = item.TableDescription.TableStatus;
+    async.until(
+      function() {
+          return status == options.waitStatus || Date.now() - now < options.waitTimeout;
+      },
+      function(next) {
+          self.ddbDescribeTable(name, options, function(err, rc) {
+              if (err) return next(err);
+              status = rc.Table.TableStatus;
+              setTimeout(next, options.waitDelay || 250);
+          });
+      },
+      function(err) {
+          callback(err, item);
+      });
 }
 
 // Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
