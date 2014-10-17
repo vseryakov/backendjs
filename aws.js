@@ -607,6 +607,7 @@ aws.ddbDescribeTable = function(name, options, callback)
 // - keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys
 // - options may contain any valid native property if it starts with capital letter and the following:
 //   - waitTimeout - number of milliseconds to wait for ACTIVE status
+//   - waitDelay - how often to pool for table status, default is 250ms
 //   - local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object
 //   - global - an object for global secondary indexes, same format as for local indexes
 //   - projection - an object with index name and list of projected properties to be included in the index or "ALL" for all properties, if omitted then default KEYS_ONLY is assumed

@@ -2795,6 +2795,7 @@ Options may contain the following properties:</p>
 <li>keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys</li>
 <li>options may contain any valid native property if it starts with capital letter and the following:<ul>
 <li>waitTimeout - number of milliseconds to wait for ACTIVE status</li>
+<li>waitDelay - how often to pool for table status, default is 250ms</li>
 <li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
 <li>global - an object for global secondary indexes, same format as for local indexes</li>
 <li>projection - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
@@ -4628,13 +4629,15 @@ created on id,title.</p>
                               name: { index: 1 }
                               title: { index1: 1, projection1: 1 } }
                             });
-</code></pre><p>Pass MongoDB options directly:</p>
-<pre><code>  db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
-                            type: { primary: 1, pub: 1 },
-                            name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
-                          });
-</code></pre></li>
+</code></pre><p>When using real DynamoDB creating a table may take some time, for such cases if options.waitTimeout is not specified it defaults to 1min,
+so the callback is called as soon as the table is active or after the timeout whichever comes first.</p>
+</li>
 </ul>
+<p> Pass MongoDB options directly:
+        db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
+                                  type: { primary: 1, pub: 1 },
+                                  name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
+                                });</p>
 
 <ul>
 <li><p><code>db.upgrade(table, columns, options, callback)</code></p>

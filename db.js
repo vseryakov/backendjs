@@ -1491,6 +1491,9 @@ db.getCacheKey = function(table, query, options)
 //                                    name: { index: 1 }
 //                                    title: { index1: 1, projection1: 1 } }
 //                                  });
+//  When using real DynamoDB creating a table may take some time, for such cases if options.waitTimeout is not specified it defaults to 1min,
+//  so the callback is called as soon as the table is active or after the timeout whichever comes first.
+//
 //
 // Pass MongoDB options directly:
 //        db.create("test_table", { id: { primary: 1, type: "int", mongodb: { w: 1, capped: true, max: 100, size: 100 } },
@@ -3066,7 +3069,8 @@ db.dynamodbInitPool = function(options)
             opts.local = local;
             opts.global = global;
             opts.projection = projection;
-            if (typeof opts.wait == "undefined") opts.wait = 3000;
+            // Wait long enough for the table to be active, currently used by DynamoDB only
+            if (typeof opts.waitTimeout == "undefined") opts.waitTimeout = 60000;
             aws.ddbCreateTable(table, attrs, keys, opts, function(err, item) {
                 callback(err, [], item);
             });
