@@ -239,6 +239,13 @@ logger.trace = function()
     this.error(util.format.apply(this, arguments), err.stack);
 }
 
+// A generic logger method, safe, first arg is supposed to be a logging level, if not valid the call is ignored
+logger.logger = function()
+{
+    if (["error","log","warn","debug","test","trace"].indexOf(arguments[0] || "") == -1) return;
+    this[arguments[0]].apply(this, (Array.prototype.slice.apply(arguments).slice(1)));
+}
+
 // Default write handler
 logger.print = function()
 {

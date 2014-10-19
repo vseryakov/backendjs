@@ -3009,6 +3009,7 @@ api.getAccount = function(req, options, callback)
 //  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled, if it is an Array then
 //      all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.
 //  - skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options
+//  - logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number
 //  - service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
 //  - device_id - the device to send the message to instesd of the device_id property fro the account record
 //
@@ -3040,15 +3041,15 @@ api.notifyAccount = function(id, options, callback)
 
             switch (core.typeName(options.allow)) {
             case "array":
-                if (options.allow.some(function(x) { return !account[x] })) return callback({ status: 400, message: "not allowed" }, status);
+                if (options.allow.some(function(x) { return !account[x] })) return callback({ status: 401, message: "not allowed" }, status);
                 break;
 
             case "object":
-                for (var p in options.allow) if (!options.allow[x]) return callback({ status: 400, message: "not allowed" }, status);
+                for (var p in options.allow) if (!options.allow[x]) return callback({ status: 401, message: "not allowed" }, status);
                 break;
 
             case "string":
-                if (!account[options.allow]) return callback({ status: 400, message: "not allowed" }, status);
+                if (!account[options.allow]) return callback({ status: 401, message: "not allowed" }, status);
                 break;
             }
 
@@ -3058,7 +3059,7 @@ api.notifyAccount = function(id, options, callback)
             if (!options.device_id) options.device_id = account.device_id;
             if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
             ipc.sendNotification(options, function(err) {
-                logger[err ? "error" : "debug"]("notifyAccount:", id, account.alias, account.device_id, options, err || "");
+                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", id, account.alias, account.device_id, options, err || "");
                 status.device_id = account.device_id;
                 status.sent = true;
                 callback(err, status);
