@@ -40,7 +40,7 @@
         "defines": [
            "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
            "<!@(if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists libpq; then echo USE_PGSQL; fi)",
-           "<!@(if test -f /usr/include/libpq-fe.h; then echo USE_PGSQL; fi)",
+           "<!@(if test -f /usr/include/libpq-fe.h -o -f /usr/include/pgsql/libpq-fe.h; then echo USE_PGSQL; fi)",
            "<!@(export PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists Wand; then echo USE_WAND; fi)",
            "<!@(export PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists libnanomsg; then echo USE_NANOMSG; fi)",
         ],
@@ -48,6 +48,7 @@
            "-L/opt/local/lib",
            "$(shell mysql_config --libs_r 2>/dev/null)",
            "<!@(if test -f /usr/include/libpq-fe.h; then echo -lpq; fi)",
+           "<!@(if test -f /usr/include/pgsql/libpq-fe.h; then echo -lpq; fi)",
            "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --static --libs libnanomsg)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --static --libs Wand)"
@@ -135,6 +136,7 @@
                 "-g -fPIC -rdynamic",
                 "$(shell mysql_config --cflags)",
                 "$(shell pkg-config --silence-errors --cflags libpq)",
+                "$(shell if test -f /usr/include/pgsql/libpq-fe.h; then echo -I/usr/include/pgsql; fi)",
                 "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --cflags Wand)",
              ]
            }]
