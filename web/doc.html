@@ -4040,11 +4040,11 @@ other database will not require any application code changes.</p>
       },
 
       // Jobs to be executed by the server
-      bk_jobs: { id: { primary: 1 },
-                 tag: { primary: 1 },
+      bk_jobs: { tag: { primary: 1 },
+                 hash: { primary: 1 },
                  type: { value: &quot;local&quot; },
                  job: { type: &quot;json&quot; },
-                 args: {},
+                 args: { type: &quot;json&quot; },
                  mtime: { type: &#39;bigint&#39;, now: 1 }
       },
 </code></pre></li>
@@ -5457,11 +5457,11 @@ connection to APN gateway.</p>
 <p> Execute job in the background by one of the workers, object must be known exported module
 and method must be existing method of the given object. The method function must take options
 object as its first argument and callback as its second argument.
-More than one job can be specified, property of the object defines name for the job to run:
-Example: { &#39;scraper.run&#39;: {}, &#39;server.shutdown&#39;: {} }
-If the same object.method must be executed several times, prepend subsequent jobs with $
-Example: { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } }
-Supported options by the server:</p>
+More than one job can be specified, property of the object defines name for the job to run:</p>
+<p>Example: { &#39;scraper.run&#39;: {}, &#39;server.shutdown&#39;: {} }</p>
+<p>If the same object.method must be executed several times, prepend subsequent jobs with $</p>
+<p>Example: { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } }</p>
+<p>Supported options by the server:</p>
 <ul>
 <li>skipqueue - in case of a duplicate or other condition when this job cannot be executed it is put back to
   the waiting queue, this options if set to 1 makes the job to be ignored on error</li>
@@ -5503,12 +5503,14 @@ All spaces must be are replaced with %20 to be used in command line parameterrs<
 
 <ul>
 <li><p><code>server.scheduleCronjob(spec, obj)</code></p>
-<p> Create a new cron job, for remote jobs additonal property args can be used in the object to define
+<p> Create a new cron job, for remote jobs additional property args can be used in the object to define
 arguments for the instance backend process, properties must start with -</p>
+<p>If a job object contains the <code>tag</code> property, it will be submitted into the bk_jobs queue for execution by that worker</p>
 <p>Example:</p>
 <pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },
     { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;id&quot;: &quot;processQueue&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
     { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
+    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;tag&quot;: &quot;host-12&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },
 </code></pre></li>
 </ul>
 

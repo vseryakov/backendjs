@@ -923,9 +923,13 @@ server.runJob = function(job)
 // and method must be existing method of the given object. The method function must take options
 // object as its first argument and callback as its second argument.
 // More than one job can be specified, property of the object defines name for the job to run:
+//
 // Example: { 'scraper.run': {}, 'server.shutdown': {} }
+//
 // If the same object.method must be executed several times, prepend subsequent jobs with $
+//
 // Example: { 'scraper.run': { "arg": 1 }, '$scraper.run': { "arg": 2 }, '$$scraper.run': { "arg": 3 } }
+//
 // Supported options by the server:
 //  - skipqueue - in case of a duplicate or other condition when this job cannot be executed it is put back to
 //      the waiting queue, this options if set to 1 makes the job to be ignored on error
@@ -1100,21 +1104,32 @@ server.execJobQueue = function()
     this.execJob(job);
 }
 
-// Create a new cron job, for remote jobs additonal property args can be used in the object to define
+// Create a new cron job, for remote jobs additional property args can be used in the object to define
 // arguments for the instance backend process, properties must start with -
+//
+// If a job object contains the `tag` property, it will be submitted into the bk_jobs queue for execution by that worker
 //
 // Example:
 //
 //          { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
 //          { "type": "local", "cron": "0 10 7 * * *", "id": "processQueue", "job": "api.processQueue" }
 //          { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
+//          { "type": "local", "cron": "0 */10 * * * *", "tag": "host-12", "job": "server.processJobs" },
+//
 server.scheduleCronjob = function(spec, obj)
 {
     var self = this;
     var job = self.checkJob('local', obj.job);
     if (!job) return;
     logger.debug('scheduleCronjob:', spec, obj);
-    var cj = new cron.CronJob(spec, function() { self.doJob(this.job.type, this.job.job, this.job.args); }, null, true);
+    var cj = new cron.CronJob(spec, function() {
+        // Submit a job via cron to a worker for execution
+        if (this.job.tag) {
+            self.submitJob({ type: this.job.type, tag: this.job.tag, job: this.job.job });
+        } else {
+            self.doJob(this.job.type, this.job.job, this.job.args);
+        }
+    }, null, true);
     cj.job = { type: obj.type, id: obj.id, tag: obj.tag, args: obj.args, job: job };
     this.crontab.push(cj);
 }
@@ -1230,8 +1245,8 @@ server.submitJob = function(options, callback)
         return callback ? callback("invalid job") : null;
     }
     logger.debug('submitJob:', options);
-    db.put("bk_jobs", { id: options.tag || self.jobsTag,
-                        tag: core.hash(options.job),
+    db.put("bk_jobs", { tag: options.tag || self.jobsTag,
+                        hash: core.hash(options.job),
                         type: options.type,
                         job: options.job,
                         args: options.args }, callback);
@@ -1246,9 +1261,9 @@ server.processJobs = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
 
-    db.select("bk_jobs", { id: self.jobsTag }, { count: self.maxJobs }, function(err, rows) {
+    db.select("bk_jobs", { tag: self.jobsTag }, { count: self.maxJobs }, function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
-            self.doJob(row.type, row.job);
+            self.doJob(row.type, row.job, row.args);
             db.del('bk_jobs', row, function() { next() });
         }, function() {
             if (rows.length) logger.log('processJobs:', rows.length, 'jobs');

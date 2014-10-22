@@ -183,11 +183,11 @@ var db = {
         },
 
         // Jobs to be executed by the server
-        bk_jobs: { id: { primary: 1 },
-                   tag: { primary: 1 },
+        bk_jobs: { tag: { primary: 1 },
+                   hash: { primary: 1 },
                    type: { value: "local" },
                    job: { type: "json" },
-                   args: {},
+                   args: { type: "json" },
                    mtime: { type: 'bigint', now: 1 }
         },
     }, // tables
