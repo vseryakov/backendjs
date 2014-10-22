@@ -1638,12 +1638,13 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>min-distance</code> - Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. Default: 5</li>
 <li><code>instance</code> - Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
-<li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: sqlite</li>
+<li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: sqlite. DNS TXT configurable.</li>
 <li><code>db-no-pools</code> - Do not use other db pools except default local pool</li>
 <li><code>db-caching</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: </li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: sqlite</li>
 <li><code>db-config</code> - Configuration database pool for config parameters, must be defined to use remote db for config parameters</li>
-<li><code>db-config-type</code> - Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded</li>
+<li><code>db-config-type</code> - Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded. DNS TXT configurable.</li>
+<li><code>db-config-interval</code> - Interval between loading configuration from the database condifured with config-type, in seconds, 0 disables refreshing config from the db</li>
 <li><code>db-sqlite-pool</code> - SQLite pool db name, absolute path or just a name. Default: backend</li>
 <li><code>db-sqlite-max</code> - Max number of open connection for the pool</li>
 <li><code>db-sqlite-idle</code> - Number of ms for a connection to be idle before being destroyed. Default: 86400000</li>
@@ -1734,14 +1735,14 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes. Default: 1000</li>
 <li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
 <li><code>server-job</code> - Job specification, JSON encoded as base64 of the job object</li>
-<li><code>server-jobs-tag</code> - This server executes jobs that match this tag, cannot be empty, default is current hostname. Default: Vlad-Macbook</li>
-<li><code>server-max-jobs</code> - How many jobs to execute at any iteration, this relates to the bk_jobs queue only. Default: 1</li>
 <li><code>server-proxy-url</code> - URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests. Default: [object Object]</li>
 <li><code>server-proxy-reverse</code> - Reverse the proxy logic, proxy all that do not match the proxy-url pattern</li>
 <li><code>server-proxy-host</code> - A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port</li>
 <li><code>server-node-args</code> - Node arguments for spawned processes, for passing v8 options. Default: </li>
 <li><code>server-node-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options. Default: </li>
-<li><code>server-jobs-interval</code> - Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs</li>
+<li><code>server-jobs-tag</code> - This server executes jobs that match this tag, cannot be empty, default is current hostname. Default: Vlad-Macbook</li>
+<li><code>server-jobs-count</code> - How many jobs to execute at any iteration, this relates to the bk_jobs queue processing only. Default: 1</li>
+<li><code>server-jobs-interval</code> - Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs</li>
 </ul>
 <h2 id="module-api">Module: API</h2>
 <ul>
@@ -2604,6 +2605,7 @@ The options may contain the following:</p>
 <li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
   all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
 <li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
+<li>logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number</li>
 <li>service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
 <li>device_id - the device to send the message to instesd of the device_id property fro the account record</li>
 </ul>
@@ -3122,12 +3124,6 @@ type can be bool, number, list, json</p>
 </ul>
 
 <ul>
-<li><p><code>core.loadDbConfig(options, callback)</code></p>
-<p> Load configuration from the config database</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.loadDnsConfig(options, callback)</code></p>
 <p> Load configuration from the DNS TXT records</p>
 </li>
@@ -3287,6 +3283,7 @@ options may contains the following:</p>
 <li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
 <li>sigversion a version number defining how the signature will be signed</li>
 <li>type - content-type header, may be omitted</li>
+<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
 <li>checksum - SHA1 digest of the whole content body, may be omitted</li>
 </ul>
 </li>
@@ -4047,7 +4044,6 @@ other database will not require any application code changes.</p>
                  tag: { primary: 1 },
                  type: { value: &quot;local&quot; },
                  job: { type: &quot;json&quot; },
-                 cron: {},
                  args: {},
                  mtime: { type: &#39;bigint&#39;, now: 1 }
       },
@@ -4062,6 +4058,13 @@ Options can have the following properties:</p>
 <li>noPools - disables all other pools except sqlite, similar to <code>-db-no-pools</code> config parameter, id db-local is configured and
  different than sqlite it is initialized always as well</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.initConfig(options, callback)</code></p>
+<p> Load configuration from the config database, must be configured with <code>db-config-type</code> pointong to the database pool where bk_config table contains
+configuration parameters.</p>
 </li>
 </ul>
 
@@ -5310,6 +5313,12 @@ connection to APN gateway.</p>
 </ul>
 
 <ul>
+<li><p><code>logger.logger()</code></p>
+<p> A generic logger method, safe, first arg is supposed to be a logging level, if not valid the call is ignored</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>logger.print()</code></p>
 <p> Default write handler</p>
 </li>
@@ -5454,12 +5463,16 @@ If the same object.method must be executed several times, prepend subsequent job
 Example: { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } }
 Supported options by the server:</p>
 <ul>
+<li>skipqueue - in case of a duplicate or other condition when this job cannot be executed it is put back to
+  the waiting queue, this options if set to 1 makes the job to be ignored on error</li>
 <li>runalways - no checks for existing job wth the same name should be done</li>
+<li>runone - only run the job if there is no same running job, this options serializes similar jobs</li>
 <li>runlast - run when no more pending or running jobs</li>
-<li>runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
+<li><p>runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
 order for this job to start, this implements chaining of jobs to be executed one after another
-but submitted at the same time
-Exampe: submit 3 jobs to run sequentially:<pre><code>        &#39;scraper.import&#39;
+but submitted at the same time</p>
+<p>Exampe: submit 3 jobs to run sequentially:</p>
+<pre><code>        &#39;scraper.import&#39;
         { &#39;scraper.sync&#39;: { runafter: &#39;scraper.import&#39; } }
         { &#39;server.shutdown&#39;: { runafter: &#39;scraper.sync&#39; } }
 </code></pre></li>
@@ -5490,8 +5503,8 @@ All spaces must be are replaced with %20 to be used in command line parameterrs<
 
 <ul>
 <li><p><code>server.scheduleCronjob(spec, obj)</code></p>
-<p> Create a new cron job, for remote jobs additonal property args can be used in the cron object to define
-arguments to the instance backend process, properties must start with -</p>
+<p> Create a new cron job, for remote jobs additonal property args can be used in the object to define
+arguments for the instance backend process, properties must start with -</p>
 <p>Example:</p>
 <pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },
     { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;id&quot;: &quot;processQueue&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
@@ -5537,7 +5550,7 @@ cron jobs manually</p>
 <li>cron - cron time interval spec: &#39;second&#39; &#39;minute&#39; &#39;hour&#39; &#39;dayOfMonth&#39; &#39;month&#39; &#39;dayOfWeek&#39;</li>
 <li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
 </code></pre></li>
-<li>args - additional arguments passwed to the backend in the command line for the remote jobs</li>
+<li>args - additional arguments to be passed to the backend in the command line for the remote jobs</li>
 </ul>
 <p>Example:</p>
 <pre><code>    [ { &quot;type&quot;: &quot;local&quot;, cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
@@ -5546,22 +5559,22 @@ cron jobs manually</p>
 
 <ul>
 <li><p><code>server.submitJob(options, callback)</code></p>
-<p> Submit job for execution, it will be saved in the server queue and the master will pick it up later
-options can specify:</p>
+<p> Submit job for execution, it will be saved in the server queue and the master or matched job server will pick it up later.</p>
+<p>The options can specify:</p>
 <ul>
 <li>tag - job tag for execution, default is current jobTag, this can be used to run on specified servers only</li>
 <li>job - an object with job spec</li>
-<li>type - job type: local, remote, server</li>
+<li>type - job type: local, remote, server, cron</li>
 </ul>
 </li>
 </ul>
 
 <ul>
 <li><p><code>server.processJobs(options, callback)</code></p>
-<p> Run submitted jobs, usually called from the crontab file in case of shared database, requires connection to the PG database
-To run it from crontab add line(to run every 5 mins):</p>
-<pre><code>    { type: &quot;server&quot;, cron: &quot;0 */5 * * * *&quot;, job: &quot;server.processJobs&quot; }
-</code></pre></li>
+<p> Load submitted jobs for execution, it is run by the master process every <code>server-jobs-interval</code> seconds.
+Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
+the higher level management tool must take care when and what to run and in what order.</p>
+</li>
 </ul>
 
 
