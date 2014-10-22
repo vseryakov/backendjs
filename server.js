@@ -145,6 +145,7 @@ server.start = function()
 // Start process monitor, running as root
 server.startMonitor = function()
 {
+    var self = this;
     process.title = core.name + ': monitor';
     core.role = 'monitor';
     this.startProcess();
@@ -424,6 +425,7 @@ server.startWeb = function(callback)
 // Spawn web server from the master as a separate master with web workers, it is used when web and master processes are running on the same server
 server.startWebProcess = function()
 {
+    var self = this;
     var child = this.spawnProcess([ "-web" ], [ "-master", "-proxy" ], { stdio: 'inherit' });
     this.handleChildProcess(child, "web", "startWebProcess");
 }
@@ -534,6 +536,7 @@ server.startDaemon = function()
 // Start REPL shell or execute any subcommand if specified
 server.startShell = function()
 {
+    var self = this;
     var db = core.context.db;
     var api = core.context.api;
 
@@ -621,6 +624,7 @@ server.startShell = function()
 
 server.startTestServer = function(options)
 {
+    var self = this;
     if (!options) options = {};
 
     if (!options.master) {
@@ -800,6 +804,7 @@ server.onkill = function()
 // Sleep and keep a worker busy
 server.sleep = function(options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
     setTimeout(function() {
@@ -811,6 +816,7 @@ server.sleep = function(options, callback)
 // Shutdown the system immediately, mostly to be used in the remote jobs as the last task
 server.shutdown = function(options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
@@ -823,8 +829,8 @@ server.shutdown = function(options, callback)
 // If respawning too fast, delay otherwise schedule new process after short timeout
 server.respawn = function(callback)
 {
-    if (this.exiting) return;
     var self = this;
+    if (this.exiting) return;
     var now = Date.now;
     if (self.crashTime && now - self.crashTime < self.crashInterval*(self.crashCount+1)) {
         if (self.crashCount && this.crashEvents >= this.crashCount) {
@@ -844,6 +850,7 @@ server.respawn = function(callback)
 // Start new process reusing global process arguments, args will be added and args in the skip list will be removed
 server.spawnProcess = function(args, skip, opts)
 {
+    var self = this;
     if (this.exiting) return;
     // Arguments to skip when launchng new process
     if (!skip) skip = [];
@@ -1061,6 +1068,7 @@ server.launchJob = function(job, options, callback)
 // All spaces must be are replaced with %20 to be used in command line parameterrs
 server.queueJob = function(job)
 {
+    var self = this;
     if (!job) return;
     switch (core.typeName(job)) {
     case "object":
@@ -1078,14 +1086,15 @@ server.queueJob = function(job)
 // Process pending jobs, submit to idle workers
 server.execJobQueue = function()
 {
+    var self = this;
     if (!this.queue.length) return;
     var job = this.queue.shift();
     if (!job) return;
     this.execJob(job);
 }
 
-// Create a new cron job, for remote jobs additonal property args can be used in the cron object to define
-// arguments to the instance backend process, properties must start with -
+// Create a new cron job, for remote jobs additonal property args can be used in the object to define
+// arguments for the instance backend process, properties must start with -
 //
 // Example:
 //
@@ -1126,6 +1135,7 @@ server.scheduleCronjob = function(spec, obj)
 //
 server.runCronjob = function(id)
 {
+    var self = this;
     this.crontab.forEach(function(x) {
        if (x.job && x.job.id == id) x._callback();
     });
@@ -1158,6 +1168,7 @@ server.doJob = function(type, job, options)
 // Verify job structure and permissions and return as an object if the job is a string
 server.checkJob = function(type, job)
 {
+    var self = this;
     if (typeof job == "string") job = core.newObj(job, null);
     if (typeof job != "object") return null;
     if (!Object.keys(job).length) return null;
@@ -1208,19 +1219,26 @@ server.loadSchedules = function()
     });
 }
 
-// Submit job for execution, it will be saved in the server queue and the master will pick it up later
-// options can specify:
-// - tag - job tag for execution, default is current jobTag, this can be used to run on specified servers only
-// - job - an object with job spec
-// - type - job type: local, remote, server
+// Submit job for execution, it will be saved in the server queue and the master or matched job server will pick it up later.
+//
+// The options can specify:
+//  - tag - job tag for execution, default is current jobTag, this can be used to run on specified servers only
+//  - job - an object with job spec
+//  - type - job type: local, remote, server, cron
 server.submitJob = function(options, callback)
 {
     var self = this;
-    if (!options || core.typeName(options.job) != "object") return logger.error('submitJob:', 'invalid job spec, must be an object:', options);
+    if (!options || core.typeName(options.job) != "object") {
+        logger.error('submitJob:', 'invalid job spec, must be an object:', options);
+        return callback ? callback("invalid job") : null;
+    }
     logger.debug('submitJob:', options);
-    db.put("bk_jobs", { id: options.tag || self.jobsTag, tag: core.hash(options.job), job: options.job, cron: options.cron, args: options.args, type: options.type }, function() {
-        if (callback) callback();
-    });
+    db.put("bk_jobs", { id: options.tag || self.jobsTag,
+                        tag: core.hash(options.job),
+                        type: options.type,
+                        job: options.job,
+                        cron: options.cron,
+                        args: options.args }, callback);
 }
 
 // Run submitted jobs, usually called from the crontab file in case of shared database, requires connection to the PG database
@@ -1231,10 +1249,10 @@ server.processJobs = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
 
-    db.select("bk_jobs", { id: this.jobsTag }, { count: this.maxJobs }, function(err, rows) {
+    db.select("bk_jobs", { id: self.jobsTag }, { count: self.maxJobs }, function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
             try {
-                if (row.job.cron) {
+                if (row.cron) {
                     self.scheduleCronjob(row.cron, row);
                 } else {
                     self.doJob(row.type, row.job);
@@ -1242,10 +1260,10 @@ server.processJobs = function(options, callback)
             } catch(e) {
                 logger.error('processJobs:', e, row);
             }
-            // Cron jobs will be removed on launch
-            if (!row.job.cron) {
-                db.del('bk_jobs', row, function() { next() });
-            }
+            // Cron jobs will be removed after execution if needed
+            if (row.cron) return next();
+            // One time jobs must be removed immediately
+            db.del('bk_jobs', row, function() { next() });
         }, function() {
             if (rows.length) logger.log('processJobs:', rows.length, 'jobs');
             if (callback) callback();

@@ -104,12 +104,13 @@ var db = {
     dynamodbMax : Infinity,
 
     // Config parameters
-    args: [{ name: "pool", descr: "Default pool to be used for db access without explicit pool specified" },
+    args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type: "bool", descr: "Do not use other db pools except default local pool" },
            { name: "caching", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
-           { name: "config-type", descr: "Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded" },
+           { name: "config-type", dns: 1, descr: "Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded" },
+           { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database condifured with config-type, in seconds, 0 disables refreshing config from the db" },
            { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name" },
            { name: "sqlite-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool" },
            { name: "sqlite-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
@@ -231,6 +232,47 @@ db.init = function(options, callback)
 
 	// Initialize all pools with common tables
 	self.initTables(self.tables, options, callback);
+}
+
+// Load configuration from the config database, must be configured with `db-config-type` pointong to the database pool where bk_config table contains
+// configuration parameters.
+db.initConfig = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null
+    if (!options) options = {};
+
+    if (!self.config || !db.getPoolByName(self.config)) return callback ? callback() : null;
+
+    // Request configs by network
+    var type = core.subnet ? [ core.subnet, core.network ] : undefined;
+    // Host specific
+    if (core.ipaddr) {
+        if (!type) type = [];
+        type.push(core.ipaddr);
+    }
+    // Custom config type
+    if (self.configType) {
+        if (!type) type = [];
+        type.push(self.configType);
+    }
+
+    self.select("bk_config", { type: type }, { select: ['name','value'], ops: { type: "in" }, pool: self.config }, function(err, rows) {
+        var argv = [];
+        // Sort inside to be persistent across databases
+        rows.sort(function(a,b) { return b.type - a.type});
+        rows.forEach(function(x) {
+            if (x.name) argv.push('-' + x.name);
+            if (x.value) argv.push(x.value);
+        });
+        core.parseArgs(argv);
+        if (callback) callback();
+
+        // Refresh from time to time with new or modified parameters, randomize a little to spread across all servers, we run in at the end
+        // in order to pickup any new config parameters that we just loaded
+        clearInterval(self.configTimer);
+        if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + core.randomShort());
+    });
 }
 
 // Create tables in all pools

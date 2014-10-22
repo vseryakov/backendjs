@@ -68,7 +68,7 @@ ipc.initClient = function()
                 break;
 
             case "init:db":
-                core.loadDbConfig();
+                db.initConfig();
                 break;
 
             case "profiler":
@@ -134,7 +134,7 @@ ipc.initServer = function()
                     break;
 
                 case "init:db":
-                    core.loadDbConfig();
+                    db.initConfig();
                     for (var p in cluster.workers) cluster.workers[p].send(msg);
                     break;
 

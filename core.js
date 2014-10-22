@@ -344,7 +344,7 @@ core.init = function(options, callback)
         // Load all available config parameters from the config database for the specified config type
         function(next) {
             if (options.noInit) return next();
-            self.loadDbConfig(options, next);
+            db.initConfig(options, next);
         },
 
         // Make sure spool and db files are owned by regular user, not the root
@@ -627,42 +627,6 @@ core.loadConfig = function(file, callback)
     fs.readFile(file || "", function(err, data) {
         if (!err) self.parseConfig(data);
         if (callback) callback(err);
-    });
-}
-
-// Load configuration from the config database
-core.loadDbConfig = function(options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = null
-    if (!options) options = {};
-    var db = self.context.db;
-
-    if (!db.config || !db.getPoolByName(db.config)) return callback ? callback() : null;
-
-    // Request configs by network
-    var type = self.subnet ? [ self.subnet, self.network ] : undefined;
-    // Host specific
-    if (self.ipaddr) {
-        if (!type) type = [];
-        type.push(self.ipaddr);
-    }
-    // Custom config type
-    if (db.configType) {
-        if (!type) type = [];
-        type.push(db.configType);
-    }
-
-    db.select("bk_config", { type: type }, { select: ['name','value'], ops: { type: "in" }, pool: db.config }, function(err, rows) {
-        var argv = [];
-        // Sort inside to be persistent across databases
-        rows.sort(function(a,b) { return b.type - a.type});
-        rows.forEach(function(x) {
-            if (x.name) argv.push('-' + x.name);
-            if (x.value) argv.push(x.value);
-        });
-        self.parseArgs(argv);
-        if (callback) callback();
     });
 }
 
@@ -1231,7 +1195,7 @@ core.parseSignature = function(req)
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
     rc.sigversion = this.toNumber(d[1]);
-    if (d[2]) rc.sigdata = d[2];
+    if (d[2]) rc.tag = d[2];
     if (d[3]) rc.login = d[3].trim();
     if (d[4]) rc.signature = d[4];
     rc.expires = this.toNumber(d[5]);
@@ -1268,6 +1232,7 @@ core.checkSignature = function(sig, account)
 //  - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
 //  - sigversion a version number defining how the signature will be signed
 //  - type - content-type header, may be omitted
+//  - tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion
 //  - checksum - SHA1 digest of the whole content body, may be omitted
 core.signRequest = function(login, secret, method, host, uri, options)
 {
@@ -1299,7 +1264,7 @@ core.signRequest = function(login, secret, method, host, uri, options)
     default:
         rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
     }
-    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.sigdata || "") + '|' + (login || "") + '|' + this.sign(String(secret), rc.str, shatype) + '|' + expires + '|' + (options.checksum || "") + '|';
+    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.tag || "") + '|' + (login || "") + '|' + this.sign(String(secret), rc.str, shatype) + '|' + expires + '|' + (options.checksum || "") + '|';
     if (logger.level > 1) logger.log('signRequest:', rc);
     return rc;
 }
