@@ -187,7 +187,6 @@ var db = {
                    tag: { primary: 1 },
                    type: { value: "local" },
                    job: { type: "json" },
-                   cron: {},
                    args: {},
                    mtime: { type: 'bigint', now: 1 }
         },

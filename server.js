@@ -40,7 +40,7 @@ var server = {
     // Crash throttling
     crashInterval: 3000,
     crashDelay: 30000,
-    crashCount: 3,
+    crashCount: 5,
     crashTime: null,
     crashEvents: 0,
 
@@ -54,15 +54,17 @@ var server = {
     jobMaxTime: 3600,
     // Interval between jobs scheduler
     jobsInterval: 0,
-    // Schedules cron jobs
-    crontab: [],
+    // Batch size
+    jobsCount: 1,
     // Default jobs host to be executed
     jobsTag: os.hostname().split('.').shift(),
+
+    // Schedules cron jobs
+    crontab: [],
 
     // Number of workers or web servers to launch
     maxWorkers: 1,
     maxProcesses: 1,
-    maxJobs: 1,
 
     // Options for v8
     nodeArgs: [],
@@ -85,14 +87,14 @@ var server = {
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
            { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
-           { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
-           { name: "max-jobs", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue only" },
            { name: "proxy-url", type: "regexpmap", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
            { name: "proxy-host", type: "callback", value: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "node-args", type: "list", descr: "Node arguments for spawned processes, for passing v8 options" },
            { name: "node-worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
-           { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, seconds, min interval is 60 secs" } ],
+           { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
+           { name: "jobs-count", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue processing only" },
+           { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" } ],
 };
 
 module.exports = server;
@@ -832,7 +834,7 @@ server.respawn = function(callback)
     var self = this;
     if (this.exiting) return;
     var now = Date.now;
-    if (self.crashTime && now - self.crashTime < self.crashInterval*(self.crashCount+1)) {
+    if (self.crashTime && now - self.crashTime < self.crashInterval * (self.crashCount + 1)) {
         if (self.crashCount && this.crashEvents >= this.crashCount) {
             logger.log('respawn:', 'throttling for', self.crashDelay, 'after', self.crashEvents, 'crashes in ', now - this.crashTime, 'ms');
             self.crashEvents = 0;
@@ -925,12 +927,17 @@ server.runJob = function(job)
 // If the same object.method must be executed several times, prepend subsequent jobs with $
 // Example: { 'scraper.run': { "arg": 1 }, '$scraper.run': { "arg": 2 }, '$$scraper.run': { "arg": 3 } }
 // Supported options by the server:
-// - runalways - no checks for existing job wth the same name should be done
-// - runlast - run when no more pending or running jobs
-// - runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
-//   order for this job to start, this implements chaining of jobs to be executed one after another
-//   but submitted at the same time
+//  - skipqueue - in case of a duplicate or other condition when this job cannot be executed it is put back to
+//      the waiting queue, this options if set to 1 makes the job to be ignored on error
+//  - runalways - no checks for existing job wth the same name should be done
+//  - runone - only run the job if there is no same running job, this options serializes similar jobs
+//  - runlast - run when no more pending or running jobs
+//  - runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
+//    order for this job to start, this implements chaining of jobs to be executed one after another
+//    but submitted at the same time
+//
 //   Exampe: submit 3 jobs to run sequentially:
+//
 //                'scraper.import'
 //                { 'scraper.sync': { runafter: 'scraper.import' } }
 //                { 'server.shutdown': { runafter: 'scraper.sync' } }
@@ -1107,18 +1114,8 @@ server.scheduleCronjob = function(spec, obj)
     var job = self.checkJob('local', obj.job);
     if (!job) return;
     logger.debug('scheduleCronjob:', spec, obj);
-    var cj = new cron.CronJob(spec, function() {
-        if (this.job.host && !this.job.id && !this.job.tag) {
-            self.submitJob({ type: this.job.type, host: this.job.host, job: this.job.job });
-        } else {
-            self.doJob(this.job.type, this.job.job, this.job.args);
-        }
-        // Remove from the jobs queue on launch
-        if (this.job.id && this.job.tag) {
-            db.del('bk_jobs', this.job, function() { next() });
-        }
-    }, null, true);
-    cj.job = { type: obj.type, host: obj.host, id: obj.id, tag: obj.tag, args: obj.args, job: job };
+    var cj = new cron.CronJob(spec, function() { self.doJob(this.job.type, this.job.job, this.job.args); }, null, true);
+    cj.job = { type: obj.type, id: obj.id, tag: obj.tag, args: obj.args, job: job };
     this.crontab.push(cj);
 }
 
@@ -1183,7 +1180,7 @@ server.checkJob = function(type, job)
 // - cron - cron time interval spec: 'second' 'minute' 'hour' 'dayOfMonth' 'month' 'dayOfWeek'
 // - job - a string as obj.method or an object with job name as property name and the value is an object with
 //         additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
-// - args - additional arguments passwed to the backend in the command line for the remote jobs
+// - args - additional arguments to be passed to the backend in the command line for the remote jobs
 //
 // Example:
 //
@@ -1237,13 +1234,13 @@ server.submitJob = function(options, callback)
                         tag: core.hash(options.job),
                         type: options.type,
                         job: options.job,
-                        cron: options.cron,
                         args: options.args }, callback);
 }
 
-// Run submitted jobs, usually called from the crontab file in case of shared database, requires connection to the PG database
-// To run it from crontab add line(to run every 5 mins):
-//          { type: "server", cron: "0 */5 * * * *", job: "server.processJobs" }
+// Load submitted jobs for execution, it is run by the master process every `server-jobs-interval` seconds.
+// Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
+// the higher level management tool must take care when and what to run and in what order.
+//
 server.processJobs = function(options, callback)
 {
     var self = this;
@@ -1251,18 +1248,7 @@ server.processJobs = function(options, callback)
 
     db.select("bk_jobs", { id: self.jobsTag }, { count: self.maxJobs }, function(err, rows) {
         async.forEachSeries(rows, function(row, next) {
-            try {
-                if (row.cron) {
-                    self.scheduleCronjob(row.cron, row);
-                } else {
-                    self.doJob(row.type, row.job);
-                }
-            } catch(e) {
-                logger.error('processJobs:', e, row);
-            }
-            // Cron jobs will be removed after execution if needed
-            if (row.cron) return next();
-            // One time jobs must be removed immediately
+            self.doJob(row.type, row.job);
             db.del('bk_jobs', row, function() { next() });
         }, function() {
             if (rows.length) logger.log('processJobs:', rows.length, 'jobs');
