@@ -74,7 +74,7 @@ public:
             if (err) {
                 argv[0] = Exception::Error(String::New(msg.c_str()));
             } else {
-                argv[0] = String::New(msg.c_str());
+                argv[0] = Local<Value>::New(Null());
             }
             argv[1] = Array::New(0);
             Persistent<Function> cb = callback[id];

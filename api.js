@@ -1362,10 +1362,6 @@ api.initSystemAPI = function()
             ipc.send('init:' + req.params[1]);
             break;
 
-        case "stats":
-            res.json(self.getStatistics());
-            break;
-
         case "msg":
             switch (req.params[1]) {
             case 'init':
@@ -1374,10 +1370,31 @@ api.initSystemAPI = function()
             }
             break;
 
-        case "collect":
-            db.put("bk_collect", req.query, options, function(err) {
-                res.json({});
-            });
+        case "stats":
+            switch (req.params[1]) {
+            case 'get':
+                res.json(self.getStatistics());
+                break;
+
+            case "send":
+                res.json(self.sendStatistics());
+                break;
+
+            case 'put':
+                self.saveStatistics(self.getStatistics(), function(err) {
+                    self.sendReply(res, err);
+                });
+                break;
+
+            case 'collect':
+                self.saveStatistics(req.query, function(err) {
+                    self.sendReply(res, err);
+                });
+                break;
+
+            default:
+                self.sendReply(res, 400, "Invalid command:" + req.params[1]);
+            }
             break;
 
         case "log":
@@ -1814,7 +1831,7 @@ api.sendReply = function(res, status, msg)
         msg = status.message || "Error occured";
         status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
     }
-    if (typeof status == "string") msg = status, status = 500;
+    if (typeof status == "string" && status) msg = status, status = 500;
     if (!status) status = 200, msg = "";
     return this.sendStatus(res, { status: status, message: String(msg || "") });
 }
@@ -3286,41 +3303,59 @@ api.deleteAccount = function(id, options, callback)
 api.initStatistics = function()
 {
     var self = this;
+    // Add some delay to make all workers collect not at the same time
     var delay = core.randomShort();
 
-    self.collectStatistics();
-    setInterval(function() { self.collectStatistics(); }, core.collectInterval * 1000);
-
-    // Add some delay to make all workers collect not at the same time
-    if (core.collectHost) {
-        setInterval(function() {
-            var metrics = self.getStatistics();
-            // Sent profiler data to the master
-            if (core.cpuProfile) {
-                metrics.type = "cpu";
-                metrics.data = core.cpuProfile;
-                core.cpuProfile = null;
-            }
-            core.sendRequest({ url: core.collectHost, postdata: metrics });
-        }, core.collectSendInterval * 1000 - delay);
-    }
+    self.getStatistics();
+    setInterval(function() { self.getStatistics(); }, core.collectInterval * 1000);
+    setInterval(function() { self.sendStatistics() }, core.collectSendInterval * 1000 - delay);
 
     logger.debug("initStatistics:", "delay:",  delay, "interval:", core.collectInterval, core.collectSendInterval);
 }
 
-// Returns an object with collected db and api statstics and metrics
-api.getStatistics = function()
+// Send collected statistics to the collection server, `backend-host` must be configured and possibly `backend-login` and `backend-secret` in case
+// the system API is secured, the user can be any valid user registered in the bk_auth table.
+api.sendStatistics = function()
 {
     var self = this;
-    var pool = core.context.db.getPool();
-    pool.metrics.stats = pool.stats();
-    this.metrics.pool = pool.metrics;
-    this.metrics.mtime = Date.now();
-    return this.metrics;
+
+    var metrics = this.getStatistics();
+
+    // Sent profiler data to the master
+    if (core.cpuProfile) {
+        metrics.type = "cpu";
+        metrics.data = core.cpuProfile;
+        core.cpuProfile = null;
+    }
+    if (core.collectHost) {
+        core.sendRequest({ url: core.collectHost, postdata: metrics, quiet: core.collectQuiet }, function(err) {
+            logger.debug("sendStatistics:", core.collectHost, core.collectErrors, err || "");
+            if (!err) {
+                core.collectErrors = core.collectQuiet = 0;
+            } else {
+                // Stop reporting about collection errors
+                if (++core.collectErrors > 3) core.collectQuiet = 1;
+            }
+        });
+    }
+    return metrics;
 }
 
-// Metrics about the process
-api.collectStatistics = function()
+// Save collected statistics in the bk_collect table, this can be called via API or directly by the backend
+api.saveStatistics = function(obj, callback)
+{
+    var self = this;
+    var db = core.context.db;
+
+    if (obj.id && obj.pid && typeof obj.mtime == "number" && typeof obj.api == "object" && typeof obj.pool == "object") {
+        db.put("bk_collect", obj, { pool: core.collectPool }, callback);
+    } else {
+        if (callback) callback(core.newError("invalid stats"));
+    }
+}
+
+// Returns an object with collected db and api statstics and metrics
+api.getStatistics = function()
 {
     var self = this;
     var cpus = os.cpus();
@@ -3329,18 +3364,20 @@ api.collectStatistics = function()
     var mem = process.memoryUsage();
     this.metrics.data = null;
     this.metrics.type = "metrics";
+    this.metrics.mtime = Date.now();
     this.metrics.id = core.ipaddr + process.pid;
     this.metrics.ip = core.ipaddr;
     this.metrics.ctime = core.ctime;
     this.metrics.cpus = core.maxCPUs;
     this.metrics.instance = core.instanceId;
     this.metrics.latency = backend.getBusy();
-    this.metrics.mtime = Date.now();
     this.metrics.Histogram('rss').update(mem.rss);
     this.metrics.Histogram('heap').update(mem.heapUsed);
     this.metrics.Histogram('loadavg').update(avg[2]);
     this.metrics.Histogram('freemem').update(os.freemem());
     this.metrics.Histogram('totalmem').update(os.totalmem());
     this.metrics.Histogram("util").update(util * 100 / cpus.length);
+    this.metrics.pool = core.context.db.getPool().metrics;
     ipc.stats(function(data) { self.metrics.cache = data });
+    return this.metrics;
 }

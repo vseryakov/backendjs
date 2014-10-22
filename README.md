@@ -1016,7 +1016,7 @@ default is is open for access to all users but same security considerations appl
 - `/system/msg/(msg)`
     Access to the messaging functions
 
-- `/system/stats`
+- `/system/stats/get`
   Database pool statistics and other diagnostics
   - latency - how long a pending request waits in queue at this moment
   - busy - how many busy error responses have been returned so far

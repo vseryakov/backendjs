@@ -87,6 +87,8 @@ var core = {
     // Collector of statistics, seconds
     collectInterval: 30,
     collectSendInterval: 300,
+    collectErrors: 0,
+    collectQuiet: false,
 
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
     // for manual installations `bkjs int-server` will create a user with this id
@@ -189,6 +191,7 @@ var core = {
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "collect-host", descr: "The backend URL where all collected statistics should be sent" },
+            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
             { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
             { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
@@ -1019,7 +1022,7 @@ core.httpGet = function(uri, params, callback)
             if (!options.headers['content-length']) options.headers['content-length'] = params.postdata.length;
             break;
         case "object":
-            params.postdata = this.stringify(params.postdata);
+            params.postdata = JSON.stringify(params.postdata);
             options.headers['content-type'] = "application/json";
             options.headers['content-length'] = Buffer.byteLength(params.postdata, 'utf8');
             break;
@@ -2623,13 +2626,9 @@ core.objSet = function(obj, name, value, options)
     return v;
 }
 
-// JSON stringify without empty, null or undefined properties if no filter is given
+// JSON stringify without exceptions, on error return empty string
 core.stringify = function(obj, filter)
 {
-    if (!filter && this.typeName(obj) == "object") {
-        filter = [];
-        for (var p in obj) if (typeof obj[p] != "undefined" && obj[p] !== null && obj[p] !== "") filter.push(p);
-    }
     try { return JSON.stringify(obj, filter); } catch(e) { logger.error("stringify:", e); return "" }
 }
 
