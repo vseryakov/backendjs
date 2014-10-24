@@ -779,6 +779,14 @@ case "$ARG" in
     [ "$modules" != "" ] && $NPM_BIN install $modules $@
     ;;
 
+  pack-app)
+    [ ! -f package.json ] && $ECHO "No package.json found" && exit
+    NAME=app
+    [ "$1" != "" -a "${1:0:1}" != "-" ] && NAME=$1 && shift
+    npm install
+    zip -r ../$NAME . -x '.*' -x 'etc/*.local'
+    ;;
+
   init-app)
     [ -f core.js ] && $ECHO "Cannot create new app inside the backend sources, please use some other directory\n" && exit
     NAME=app

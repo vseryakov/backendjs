@@ -1204,24 +1204,22 @@ server.loadSchedules = function()
 {
     var self = this;
 
+    var list = [];
     fs.readFile(core.path.etc + "/crontab", function(err, data) {
-        if (err || !data || !data.length) return;
-        data = data.toString();
-        try {
-            var list = JSON.parse(data);
-            if (Array.isArray(list)) {
-                self.crontab.forEach(function(x) { x.stop(); delete x; });
-                self.crontab = [];
-                list.forEach(function(x) {
-                    if (!x.type || !x.cron || !x.job || x.disabled) return;
-                    self.scheduleCronjob(x.cron, x);
-                });
-            }
-            logger.log("loadSchedules:", self.crontab.length, "schedules");
+        if (data && data.length) list = core.jsonParse(data.toString(), { list: 1 });
 
-        } catch(e) {
-            logger.log('loadSchedules:', e, data);
-        }
+        fs.readFile(core.path.etc + "/crontab.local", function(err, data) {
+            if (data && data.length) list = list.concat(core.jsonParse(data.toString(), { list: 1 }));
+
+            if (!list.length) return;
+            self.crontab.forEach(function(x) { x.stop(); delete x; });
+            self.crontab = [];
+            list.forEach(function(x) {
+                if (!x.type || !x.cron || !x.job || x.disabled) return;
+                self.scheduleCronjob(x.cron, x);
+            });
+            logger.log("loadSchedules:", self.crontab.length, "schedules");
+        });
     });
 
     // Watch config directory for changes

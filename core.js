@@ -294,7 +294,11 @@ core.init = function(options, callback)
     // Serialize initialization procedure, run each function one after another
     async.series([
         function(next) {
-            self.loadConfig(self.confFile, function() { next(); });
+            self.loadConfig(self.confFile, function() {
+                self.loadConfig(self.confFile + ".local", function() {
+                    next();
+                });
+            });
         },
 
         // Load config params from the DNS TXT records, only the ones marked as dns
