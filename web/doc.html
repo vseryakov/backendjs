@@ -4708,6 +4708,20 @@ special empty pool which provides same interface but returns errors instesd of r
 </ul>
 
 <ul>
+<li><p><code>db.getCapacity(table)</code></p>
+<p> Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property
+of all table columns.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.checkCapacity(obj, callback)</code></p>
+<p> Check if number of write requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
+write requests with any database or can be used generically. The <code>obj</code> must be initialized with <code>db.getCapacity</code> call.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.getSelectedColumns(table, options)</code></p>
 <p> Return list of selected or allowed only columns, empty list if no options.select is specified</p>
 </li>
