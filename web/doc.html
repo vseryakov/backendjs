@@ -960,7 +960,7 @@ default is is open for access to all users but same security considerations appl
 <li><p><code>/system/msg/(msg)</code>
   Access to the messaging functions</p>
 </li>
-<li><p><code>/system/stats</code>
+<li><p><code>/system/stats/get</code>
 Database pool statistics and other diagnostics</p>
 <ul>
 <li>latency - how long a pending request waits in queue at this moment</li>
@@ -1108,6 +1108,8 @@ Database pool statistics and other diagnostics</p>
 
   To specify other config file: bkjs run-backend -config-file file
 </code></pre></li>
+<li><p>etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters</p>
+</li>
 <li><p>some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
 All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
 concatenated with the domain and queried for the TXT record, for example: <code>cache-host</code> parameter will be queried for cache-host.domain.name for TXT record type.</p>
@@ -1129,6 +1131,8 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 <pre><code> bkjs run-backend -master -web
 </code></pre></li>
 </ol>
+</li>
+<li><p>etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment</p>
 </li>
 </ul>
 </li>
@@ -1368,6 +1372,7 @@ customize the running environment, these should be regular shell scripts using b
 <li>bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
 <li>bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
 <li>bkjs init-app - create the app skeleton</li>
+<li>bkjs pack-app - archive the app into .zip file including all dependencies and modules, all files starting with dot are excluded, also etc/*.local files are excluded as well</li>
 <li>bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BACKEND_HOST env variable for host if not specified in the command line, this is for developent version of the backend only</li>
 <li>bkjs init-server [-home path] [-user user] [-host name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
  home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user <code>backend</code>.</li>
@@ -1619,6 +1624,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>cache-bind</code> - Listen only on specified address for cache sockets server in the master process</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>collect-host</code> - The backend URL where all collected statistics should be sent</li>
+<li><code>collect-pool</code> - Database pool where to save collected statistics</li>
 <li><code>collect-interval</code> - How often to collect statistics and metrics in seconds. Default: 30</li>
 <li><code>collect-send-interval</code> - How often to send collected statistics to the master server in seconds. Default: 300</li>
 <li><code>logwatcher-url</code> - The backend URL where logwatcher reports should be sent instead of email</li>
@@ -2661,14 +2667,21 @@ delete an account but keep all messages and location: keep: { message: 1, locati
 </ul>
 
 <ul>
-<li><p><code>api.getStatistics()</code></p>
-<p> Returns an object with collected db and api statstics and metrics</p>
+<li><p><code>api.sendStatistics()</code></p>
+<p> Send collected statistics to the collection server, <code>backend-host</code> must be configured and possibly <code>backend-login</code> and <code>backend-secret</code> in case
+the system API is secured, the user can be any valid user registered in the bk_auth table.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.collectStatistics()</code></p>
-<p> Metrics about the process</p>
+<li><p><code>api.saveStatistics(obj, callback)</code></p>
+<p> Save collected statistics in the bk_collect table, this can be called via API or directly by the backend</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getStatistics()</code></p>
+<p> Returns an object with collected db and api statstics and metrics</p>
 </li>
 </ul>
 
@@ -3837,7 +3850,7 @@ objects will be create automatically. The options can have the folowing properti
 
 <ul>
 <li><p><code>core.stringify(obj, filter)</code></p>
-<p> JSON stringify without empty, null or undefined properties if no filter is given</p>
+<p> JSON stringify without exceptions, on error return empty string</p>
 </li>
 </ul>
 

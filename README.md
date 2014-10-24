@@ -1160,6 +1160,7 @@ The backend directory structure is the following:
 
             To specify other config file: bkjs run-backend -config-file file
 
+    * etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters
     * some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
       All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
       concatenated with the domain and queried for the TXT record, for example: `cache-host` parameter will be queried for cache-host.domain.name for TXT record type.
@@ -1183,6 +1184,8 @@ The backend directory structure is the following:
         3. Start the scheduler and the web server at once
 
                 bkjs run-backend -master -web
+
+    * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
 
 * `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
 * `var` - database files created by the server
@@ -1444,6 +1447,7 @@ Most common used commands are:
 - bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
 - bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
 - bkjs init-app - create the app skeleton
+- bkjs pack-app - archive the app into .zip file including all dependencies and modules, all files starting with dot are excluded, also etc/*.local files are excluded as well
 - bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BACKEND_HOST env variable for host if not specified in the command line, this is for developent version of the backend only
 - bkjs init-server [-home path] [-user user] [-host name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
    home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user `backend`.
