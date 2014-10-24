@@ -478,6 +478,10 @@ core.processArgs = function(name, ctx, argv, pass)
     var self = this;
     if (!ctx || !Array.isArray(ctx.args) || !Array.isArray(argv) || !argv.length) return;
     function put(obj, key, val, x) {
+        if (val == "<null>") {
+            if (x.array) obj[key] = []; else delete obj[key];
+            return;
+        }
         if (x.array) {
             if (!Array.isArray(obj[key]) || x.set) obj[key] = [];
             if (Array.isArray(val)) {
@@ -540,6 +544,7 @@ core.processArgs = function(name, ctx, argv, pass)
                     put(obj, key, new RegExp(val), x);
                     break;
                 case "regexpmap":
+                    if (val == "<null>") { obj[key] = {}; break; }
                     obj[key] = self.toRegexpMap(x.set ? null : obj[key], val, x.del);
                     break;
                 case "json":

@@ -1732,6 +1732,33 @@ db.getColumn = function(table, name, options)
     return this.getColumns(table, options)[name];
 }
 
+// Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property
+// of all table columns.
+db.getCapacity = function(table)
+{
+    var obj = { table: table, capacity: 0, count: 0, total: 0, mtime: Date.now(), ctime: Date.now() };
+    var cols = this.getColumns(table);
+    for (var p in cols) {
+        if (cols[p].writeCapacity) obj.capacity = Math.max(cols[p].writeCapacity, obj.capacity);
+    }
+    return obj;
+}
+
+// Check if number of write requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
+// write requests with any database or can be used generically. The `obj` must be initialized with `db.getCapacity` call.
+db.checkCapacity = function(obj, callback)
+{
+    var now = Date.now();
+    obj.total++;
+    if (obj.capacity > 0 && ++obj.count >= obj.capacity && now - obj.mtime < 1000) {
+        setTimeout(callback, 1000 - (now - obj.mtime));
+        obj.count = 0;
+        obj.mtime = now;
+    } else {
+        callback();
+    }
+}
+
 // Return list of selected or allowed only columns, empty list if no options.select is specified
 db.getSelectedColumns = function(table, options)
 {
