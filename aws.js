@@ -99,22 +99,44 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
     });
 }
 
-// AWS EC2 API parameters
-aws.queryEC2 = function(action, obj, callback)
+// AWS EC2 API request
+aws.queryEC2 = function(action, obj, options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2014-05-01' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS('http://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
-// AWS ELB API parameters
-aws.queryELB = function(action, obj, callback)
+// AWS ELB API request
+aws.queryELB = function(action, obj, options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2012-06-01' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS('http://', 'POST', 'elasticloadbalancing.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'elasticloadbalancing.' + this.region + '.amazonaws.com', '/', req, callback);
+}
+
+// AWS SQS API request
+aws.querySQS = function(action, obj, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    var req = { Action: action, Version: '2012-11-05' };
+    for (var p in obj) req[p] = obj[p];
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sqs.' + this.region + '.amazonaws.com', '/', req, callback);
+}
+
+// AWS SNS API request
+aws.querySNS = function(action, obj, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    var req = { Action: action, Version: '2010-03-31' };
+    for (var p in obj) req[p] = obj[p];
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
 // Build version 4 signature headers
@@ -153,7 +175,7 @@ aws.queryDDB = function (action, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     var start = Date.now();
-    var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ('http://dynamodb.' + this.region + '.amazonaws.com/');
+    var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ((self.proto || options.proto || 'http://') + 'dynamodb.' + this.region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
     var req = url.parse(uri);
@@ -231,7 +253,7 @@ aws.signS3 = function(method, bucket, key, options)
     var signature = core.sign(options.secret || this.secret, strSign);
     options.headers["authorization"] = "AWS " + (options.key || this.key) + ":" + signature;
 
-    var uri = 'http://' + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + url.format({ query: options.query });
+    var uri = (self.proto || options.proto || 'http://') + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + url.format({ query: options.query });
     // Build REST url
     if (options.url) {
         uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Signature=" + encodeURIComponent(signature);

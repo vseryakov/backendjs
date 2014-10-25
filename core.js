@@ -478,19 +478,23 @@ core.processArgs = function(name, ctx, argv, pass)
     var self = this;
     if (!ctx || !Array.isArray(ctx.args) || !Array.isArray(argv) || !argv.length) return;
     function put(obj, key, val, x) {
-        if (val == "<null>") {
-            if (x.array) obj[key] = []; else delete obj[key];
-            return;
-        }
         if (x.array) {
-            if (!Array.isArray(obj[key]) || x.set) obj[key] = [];
-            if (Array.isArray(val)) {
-                val.forEach(function(x) { if (obj[key].indexOf(x) == -1) obj[key].push(x); });
+            if (val == "<null>") {
+                obj[key] = [];
             } else {
-                if (obj[key].indexOf(val) == -1) obj[key].push(val);
+                if (!Array.isArray(obj[key]) || x.set) obj[key] = [];
+                if (Array.isArray(val)) {
+                    val.forEach(function(x) { if (obj[key].indexOf(x) == -1) obj[key].push(x); });
+                } else {
+                    if (obj[key].indexOf(val) == -1) obj[key].push(val);
+                }
             }
         } else {
-            obj[key] = val;
+            if (val == "<null>") {
+                delete obj[key];
+            } else {
+                obj[key] = val;
+            }
         }
     }
     ctx.args.forEach(function(x) {
@@ -544,8 +548,11 @@ core.processArgs = function(name, ctx, argv, pass)
                     put(obj, key, new RegExp(val), x);
                     break;
                 case "regexpmap":
-                    if (val == "<null>") { obj[key] = {}; break; }
-                    obj[key] = self.toRegexpMap(x.set ? null : obj[key], val, x.del);
+                    if (val == "<null>") {
+                        obj[key] = {};
+                    } else {
+                        obj[key] = self.toRegexpMap(x.set ? null : obj[key], val, x.del);
+                    }
                     break;
                 case "json":
                     put(obj, key, JSON.parse(val), x);
