@@ -79,7 +79,7 @@ metrics and monitoring, a library of tools for developing node.js servers.</p>
 <p>Features:</p>
 <ul>
 <li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
-<li>Simple database API that supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB,
+<li>Simple database API that supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB, ElasticSearch,
 easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.</li>
 <li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.</li>
 <li>Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.</li>
@@ -1669,7 +1669,8 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-dynamodb-max</code> - Max number of open connection for the pool. Default: Infinity</li>
 <li><code>db-dynamodb-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
 <li><code>db-mongodb-pool</code> - MongoDB endpoint url</li>
-<li><code>db-mongodb-options</code> - MongoDB driver native options</li>
+<li><code>db-mongodb-init</code> - MongoDB driver native options used on connection create only</li>
+<li><code>db-mongodb-options</code> - MongoDB driver native options used with every request</li>
 <li><code>db-mongodb-min</code> - Min number of open connection for the pool</li>
 <li><code>db-mongodb-max</code> - Max number of open connection for the pool</li>
 <li><code>db-mongodb-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
@@ -1680,14 +1681,19 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-cassandra-idle</code> - Number of ms for a connection to be idle before being destroyed</li>
 <li><code>db-cassandra-tables</code> - DynamoDB tables, list of tables that belong to this pool only</li>
 <li><code>db-lmdb-pool</code> - Path to the local LMDB database</li>
-<li><code>db-lmdb-options</code> - Options for the lmdm pool</li>
+<li><code>db-lmdb-init</code> - Options for the lmdb pool passed on DB open</li>
 <li><code>db-lmdb-tables</code> - LMDB tables, list of tables that belong to this pool only</li>
 <li><code>db-leveldb-pool</code> - Path to the local LevelDB database</li>
-<li><code>db-leveldb-options</code> - Options for the levedb</li>
+<li><code>db-leveldb-init</code> - Options for the levedb on creation</li>
 <li><code>db-leveldb-tables</code> - LevelDB tables, list of tables that belong to this pool only</li>
 <li><code>db-redis-pool</code> - Redis host</li>
-<li><code>db-redis-options</code> - Redis driver native options</li>
+<li><code>db-redis-init</code> - Redis driver native options used on connection create only</li>
+<li><code>db-redis-options</code> - Redis driver native options used with every request</li>
 <li><code>db-redis-tables</code> - Redis tables, list of tables that belong to this pool only</li>
+<li><code>db-elasticsearch-pool</code> - ElasticSearch host</li>
+<li><code>db-elasticsearch-init</code> - Options for the ElasticSearch pool, used on connection create only</li>
+<li><code>db-elasticsearch-options</code> - Options for the ElasticSearch pool, used with every request</li>
+<li><code>db-elasticsearch-tables</code> - ElasticSearch tables, list of tables that belong to this pool only</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region. Default: us-east-1</li>
@@ -2699,14 +2705,26 @@ the system API is secured, the user can be any valid user registered in the bk_a
 </ul>
 
 <ul>
-<li><p><code>aws.queryEC2(action, obj, callback)</code></p>
-<p> AWS EC2 API parameters</p>
+<li><p><code>aws.queryEC2(action, obj, options, callback)</code></p>
+<p> AWS EC2 API request</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>aws.queryELB(action, obj, callback)</code></p>
-<p> AWS ELB API parameters</p>
+<li><p><code>aws.queryELB(action, obj, options, callback)</code></p>
+<p> AWS ELB API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.querySQS(action, obj, options, callback)</code></p>
+<p> AWS SQS API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.querySNS(action, obj, options, callback)</code></p>
+<p> AWS SNS API request</p>
 </li>
 </ul>
 
@@ -5110,6 +5128,12 @@ Options can define the following:</p>
 <ul>
 <li><p><code>db.redisInitPool(options)</code></p>
 <p> Redis database pool, uses Hash to store the records</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.elasticsearchInitPool(options)</code></p>
+<p> Create a database pool that works with ElasticSearch server</p>
 </li>
 </ul>
 
