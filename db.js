@@ -130,7 +130,8 @@ var db = {
            { name: "dynamodb-max", count: 3, type: "number", min: 1, max: Infinity, descr: "Max number of open connection for the pool"  },
            { name: "dynamodb-tables", count: 3, type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "mongodb-pool", count: 3, descr: "MongoDB endpoint url" },
-           { name: "mongodb-options", count: 3, type: "json", descr: "MongoDB driver native options passed on connection create" },
+           { name: "mongodb-init", count: 3, type: "json", descr: "MongoDB driver native options used on connection create only" },
+           { name: "mongodb-options", count: 3, type: "json", descr: "MongoDB driver native options used with every request" },
            { name: "mongodb-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
            { name: "mongodb-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
            { name: "mongodb-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
@@ -141,16 +142,18 @@ var db = {
            { name: "cassandra-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "cassandra-tables", count: 3, type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "lmdb-pool", count: 3, descr: "Path to the local LMDB database" },
-           { name: "lmdb-options", count: 3, type: "json", descr: "Options for the lmdb pool passed on DB open" },
+           { name: "lmdb-init", count: 3, type: "json", descr: "Options for the lmdb pool passed on DB open" },
            { name: "lmdb-tables", count: 3, type: "list", array: 1, descr: "LMDB tables, list of tables that belong to this pool only" },
            { name: "leveldb-pool", count: 3, descr: "Path to the local LevelDB database" },
-           { name: "leveldb-options", count: 3, type: "json", descr: "Options for the levedb" },
+           { name: "leveldb-init", count: 3, type: "json", descr: "Options for the levedb on creation" },
            { name: "leveldb-tables", count: 3, type: "list", array: 1, descr: "LevelDB tables, list of tables that belong to this pool only" },
            { name: "redis-pool", count: 3, descr: "Redis host" },
-           { name: "redis-options", count: 3, type: "json", descr: "Redis driver native options passed on connection create" },
+           { name: "redis-init", count: 3, type: "json", descr: "Redis driver native options used on connection create only" },
+           { name: "redis-options", count: 3, type: "json", descr: "Redis driver native options used with every request" },
            { name: "redis-tables", count: 3, type: "list", array: 1, descr: "Redis tables, list of tables that belong to this pool only" },
            { name: "elasticsearch-pool", count: 3, descr: "ElasticSearch host" },
-           { name: "elasticsearch-options", count: 3, type: "json", descr: "Options for the ElasticSearch pool, passed to the client on connection create" },
+           { name: "elasticsearch-init", count: 3, type: "json", descr: "Options for the ElasticSearch pool, used on connection create only" },
+           { name: "elasticsearch-options", count: 3, type: "json", descr: "Options for the ElasticSearch pool, used with every request" },
            { name: "elasticsearch-tables", count: 3, type: "list", array: 1, descr: "ElasticSearch tables, list of tables that belong to this pool only" },
     ],
 
@@ -226,7 +229,8 @@ db.init = function(options, callback)
 	                     min: self[pool + 'Min' + n],
 	                     max: self[pool + 'Max' + n],
 	                     idle: self[pool + 'Idle' + n],
-	                     dbparams: self[pool + 'Options' + n] };
+	                     dbparams: self[pool + 'Init' + n],
+	                     dbopts: self[pool + 'Options' + n] };
 	        self[pool + 'InitPool'](opts);
 	        // Pool specific tables
 	        (self[pool + 'Tables' + n] || []).forEach(function(y) { self.tblpool[y] = pool; });
@@ -405,6 +409,8 @@ db.createPool = function(options)
     var self = this;
     if (!options || !options.pool) throw "Options with pool: must be provided";
 
+    logger.debug('createPool:', options);
+
     if (options.pooling) {
         var pool = core.createPool({
             min: options.min,
@@ -524,6 +530,8 @@ db.createPool = function(options)
     if (!pool.dbparams) pool.dbparams = {};
     // Some required properties can be initialized with options, these options are passed with every request
     if (!pool.dboptions) pool.dboptions = {};
+    for (var p in pool.dbopts) pool.dboptions[p] = pool.dbopts[p];
+    delete pool.dbopts;
     [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
     if (!pool.type) pool.type = "unknown";
     this.dbpool[pool.name] = pool;
@@ -4292,6 +4300,7 @@ db.elasticsearchInitPool = function(options)
     if (!options.pool) options.pool = "elasticsearch";
 
     options.type = "elasticsearch";
+    options.dboptions = { noJson: 1 };
     var pool = this.createPool(options);
 
     pool.get = function(callback) {
@@ -4322,41 +4331,56 @@ db.elasticsearchInitPool = function(options)
         case "get":
             if (!opts.id) opts.id = key;
             if (!opts.type) opts.type = req.table;
-            if (opts.select) opts.fields = String(opts.fields);
+            if (opts.select) opts.fields = String(opts.select);
             client.get(opts, function(err, res) {
                 if (err) return callback(err, []);
-                callback(null, [ res._source ], res);
+                callback(null, [ res._source || res.fields || {} ], res);
             });
             break;
 
         case "select":
         case "search":
             if (opts.count) opts.size = opts.count;
-            if (opts.select) opts.fields = String(opts.fields);
+            if (opts.select) opts.fields = String(opts.select);
             if (typeof req.obj == "string") {
                 opts.q = req.obj;
             } else
             if (req.obj.body) {
                 opts.body = req.obj.body;
             } else {
-                opts.q = Object.keys(req.obj).map(function(x) { return x + ':"' + req.obj[x] + '"' }).join(" AND ");
+                opts.q = Object.keys(req.obj).map(function(x) {
+                    var val = req.obj[x];
+                    var op = opts.ops[x];
+                    switch (op) {
+                    case "in": return x + ':' + (Array.isArray(val) ? '(' + val.map(function(y) { return '"' + y + '"' }).join(" OR ") + ')' : val);
+                    case "ne": return x + ':-"' + val + '"';
+                    case "gt": return x + ':>' + val;
+                    case "lt": return x + ':<' + val;
+                    case "ge": return x + ':>=' + val;
+                    case "le": return x + ':<=' + val;
+                    case "between": return x + ':' + (val.length == 2 ? '["' + val[0] + '" TO "' + val[1] + '"]' : val);
+                    case "begins_with": return x + ':"' + val + '*"';
+                    case "contains": return x + ':"*' + val + '*"';
+                    case "not_contains": return x + ':>' + val;
+                    default: return x + ':"' + val + '"';
+                    }
+                }).join(" AND ");
             }
             client[opts.op || 'search'](opts, function(err, res) {
-                logger.log(opts, err, res)
                 if (err) return callback(err, []);
-                callback(null, res.hits ? res.hits.hits.map(function(x) { return x._source }) : [], res);
+                callback(null, res.hits ? res.hits.hits.map(function(x) { return x._source || x.fields || {} }) : [], res);
             });
             break;
 
         case "list":
             if (opts.count) opts.searchSize = opts.count;
-            if (opts.select) opts.fields = String(opts.fields);
+            if (opts.select) opts.fields = String(opts.select);
             if (!opts.type) opts.type = req.table;
             opts.body = { ids: [] };
             req.obj.forEach(function(x) { opts.body.ids.push(Object.keys(x).map(function(y) { return x[y]}).join("|")); });
             client.mget(opts, function(err, res) {
                 if (err) return callback(err, []);
-                callback(null, res.docs ? res.docs.map(function(x) { return x._source }) : [], res);
+                callback(null, res.docs ? res.docs.map(function(x) { return x._source || x.fields || {} }) : [], res);
             });
             break;
 

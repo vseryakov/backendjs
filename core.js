@@ -555,7 +555,7 @@ core.processArgs = function(name, ctx, argv, pass)
                     }
                     break;
                 case "json":
-                    put(obj, key, JSON.parse(val), x);
+                    put(obj, key, self.jsonParse(val), x);
                     break;
                 case "path":
                     // Check if it starts with local path, use the actual path not the current dir for such cases
@@ -2666,7 +2666,15 @@ core.jsonParse = function(obj, options)
         return null;
     }
     if (!obj) return onerror("empty");
-    try { return JSON.parse(obj); } catch(e) { return onerror(e); }
+    try {
+        obj = JSON.parse(obj);
+        if (options && options.obj && this.typeName(obj) != "object") obj = {};
+        if (options && options.list && this.typeName(obj) != "array") obj = [];
+        if (options && options.str && this.typeName(obj) != "string") obj = "";
+    } catch(e) {
+        obj = onerror(e);
+    }
+    return obj;
 }
 
 // Return cookies that match given domain
