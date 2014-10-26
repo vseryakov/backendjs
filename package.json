@@ -38,6 +38,7 @@
     "path-to-regexp": ">= 0.1.2",
     "cookie-parser": ">= 1.0.1",
     "cookie-session": ">= 1.0.1",
+    "elasticsearch": ">= 2.4.1",
     "serve-static": ">= 1.0.1"
   },
   "keywords": [

@@ -21,6 +21,7 @@ var os = require('os');
 var helenus = require('helenus');
 var mongodb = require('mongodb');
 var redis = require('redis');
+var elasticsearch = require("elasticsearch");
 var metrics = require(__dirname + "/metrics");
 
 // The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
@@ -140,7 +141,7 @@ var db = {
            { name: "cassandra-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
            { name: "cassandra-tables", count: 3, type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "lmdb-pool", count: 3, descr: "Path to the local LMDB database" },
-           { name: "lmdb-options", count: 3, type: "json", descr: "Options for the lmdm pool" },
+           { name: "lmdb-options", count: 3, type: "json", descr: "Options for the lmdb pool" },
            { name: "lmdb-tables", count: 3, type: "list", array: 1, descr: "LMDB tables, list of tables that belong to this pool only" },
            { name: "leveldb-pool", count: 3, descr: "Path to the local LevelDB database" },
            { name: "leveldb-options", count: 3, type: "json", descr: "Options for the levedb" },
@@ -148,6 +149,9 @@ var db = {
            { name: "redis-pool", count: 3, descr: "Redis host" },
            { name: "redis-options", count: 3, type: "json", descr: "Redis driver native options" },
            { name: "redis-tables", count: 3, type: "list", array: 1, descr: "Redis tables, list of tables that belong to this pool only" },
+           { name: "elasticsearch-pool", count: 3, descr: "ElasticSearch host" },
+           { name: "elasticsearch-options", count: 3, type: "json", descr: "Options for the ElasticSearch pool, passed to the client on create" },
+           { name: "elasticsearch-tables", count: 3, type: "list", array: 1, descr: "ElasticSearch tables, list of tables that belong to this pool only" },
     ],
 
     // Default tables
@@ -1589,6 +1593,9 @@ db.prepare = function(op, table, obj, options)
 
     // Check for table name, it can be determined in the real time
     if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
+
+    // Enfore JSON object if required, make a fake object, the error will be returned by a driver
+    if (options.queryJSON && core.typeName(obj) != "object") obj = core.newObj(typeof options.queryJSON == "string" ? options.queryJSON : 'name', obj);
 
     // Process special columns
     var keys = pool.dbkeys[table.toLowerCase()] || [];
@@ -4267,6 +4274,88 @@ db.redisInitPool = function(options)
                 callback(err, []);
             });
             return;
+
+        default:
+            return callback(null, []);
+        }
+    }
+
+    return pool;
+}
+
+// Create a database pool that works with ElasticSearch server
+db.elasticsearchInitPool = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "elasticsearch";
+
+    options.type = "elasticsearch";
+    options.dboptions = { queryJSON: 'id' };
+    var pool = this.createPool(options);
+
+    pool.get = function(callback) {
+        if (!this.client) {
+            if (options.db) this.dbparams.host = options.db;
+            this.client = new elasticsearch.Client(this.dbparams);
+        }
+        callback(null, this.client);
+    }
+
+    pool.close = function(cient, callback) {
+        client.close();
+        if (callback) callback();
+    }
+
+    pool.cacheColumns = function(opts, callback) {
+        for (var p in this.dbcolumns) {
+            this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
+        }
+        callback();
+    }
+
+    pool.query = function(client, req, opts, callback) {
+        opts.index = req.table;
+        var key = self.getKeys(req.table, opts).filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
+
+        switch (req.op) {
+        case "get":
+            if (!opts.id) opts.id = key;
+            if (!opts.type) opts.type = req.table;
+            if (opts.select) opts.fields = String(opts.fields);
+            client.get(opts, function(err, res) {
+                if (err) return callback(err, []);
+                callback(null, [ res._source ], res);
+            });
+            break;
+
+        case "select":
+            if (opts.count) opts.size = opts.count;
+            if (opts.select) opts.fields = String(opts.fields);
+            if (req.obj.body) opts.body = req.obj.body; else opts.q = Object.keys(req.obj).map(function(x) { return x + ':"' + req.obj[x] + '"' }).join(" AND ");
+            client.search(opts, callback);
+            break;
+
+        case "add":
+            if (!opts.id) opts.id = key;
+            if (!opts.type) opts.type = req.table;
+            opts.body = req.obj;
+            client.create(opts, callback);
+            break;
+
+        case "put":
+        case "update":
+            if (!opts.id) opts.id = key;
+            if (!opts.type) opts.type = req.table;
+            opts.body = req.obj;
+            client.index(opts, callback);
+            break;
+
+        case "del":
+            if (!opts.id) opts.id = key;
+            if (!opts.type) opts.type = req.table;
+            client['delete'](opts, callback);
+            break;
 
         default:
             return callback(null, []);
