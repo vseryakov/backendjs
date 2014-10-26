@@ -497,6 +497,7 @@ tests.db = function(callback)
 	var next_token = null;
 
 	db.setProcessRow("test4", function(row, options, cols) {
+	    logger.log(row, options, cols)
 	    var type = row.type.split(":");
 	    row.type = type[0];
 	    row.mtime = type[1];
