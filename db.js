@@ -2489,9 +2489,9 @@ db.sqlLimit = function(options)
     if (orderby) rc += " ORDER BY " + orderby;
 
     // Limit clause
-    var page = core.toNumber(options.page, false, 0, 0, 9999);
-    var count = core.toNumber(options.count, false, 50, 1, 9999);
-    var start = core.toNumber(options.start, false, 0, 0, 9999);
+    var page = core.toNumber(options.page, false, 0, 0);
+    var count = core.toNumber(options.count, false, 50, 0);
+    var start = core.toNumber(options.start, false, 0, 0);
     if (count) {
         rc += " LIMIT " + count;
     }

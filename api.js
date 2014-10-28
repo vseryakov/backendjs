@@ -291,6 +291,7 @@ var api = {
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
+           { name: "select-limit", type: "int", descr: "Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
 
@@ -1392,6 +1393,13 @@ api.initSystemAPI = function()
                 });
                 break;
 
+            case 'show':
+                self.showStatistics(req, options, function(err, data) {
+                    if (err) return self.sendReply(res, err);
+                    res.json(data);
+                });
+                break;
+
             default:
                 self.sendReply(res, 400, "Invalid command:" + req.params[1]);
             }
@@ -1558,11 +1566,11 @@ api.getOptions = function(req)
     });
     if (req.query._session) req.options.session = core.toNumber(req.query._session);
     if (req.query._select) req.options.select = req.query._select;
-    if (req.query._count) req.options.count = core.toNumber(req.query._count, 0, 50, 0, 100);
+    if (req.query._count) req.options.count = core.toNumber(req.query._count, 0, 50, 0, this.selectLimit);
     if (req.query._start) req.options.start = core.base64ToJson(req.query._start, this.getTokenSecret(req));
     if (req.query._token) req.options.token = core.base64ToJson(req.query._token, this.getTokenSecret(req));
     if (req.query._sort) req.options.sort = req.query._sort;
-    if (req.query._page) req.options.page = core.toNumber(req.query._page, 0, 0, 0, 9999);
+    if (req.query._page) req.options.page = core.toNumber(req.query._page, 0, 0, 0);
     if (req.query._width) req.options.width = core.toNumber(req.query._width);
     if (req.query._height) req.options.height = core.toNumber(req.query._height);
     if (req.query._ext) req.options.ext = req.query._ext;
@@ -3381,3 +3389,101 @@ api.getStatistics = function()
     ipc.stats(function(data) { self.metrics.cache = data });
     return this.metrics;
 }
+
+// Show statistics for a period of time
+api.showStatistics = function(req, options, callback)
+{
+    var self = this;
+    if (typeof optinons == "function") callback = options, options = null;
+    if (!options) options = {};
+    var db = core.context.db;
+    var now = Date.now();
+    var type = req.query.type || "util";
+    var start = now - core.toNumber(req.query.start, 0, 1, 1) * 60000;
+    var end = now - core.toNumber(req.query.end, 0, 0, 0) * 60000;
+    var interval = core.toNumber(req.query.interval, 0, 300, 60) * 1000;
+
+    options.ops = { mtime: 'ge' };
+    db.select("bk_collect", { mtime: start }, options, function(err, rows) {
+        var series = {}, last = {};
+        rows.forEach(function(x) {
+            var avg = {}, agg = {};
+            // Extract properties to be shown by type
+            switch (type) {
+            case "response":
+                avg = { api_rate: core.toNumber(x.api && x.api.response && x.api.response.meter ? x.api.response.meter.currentRate : 0),
+                        db_rate:  core.toNumber(x.pool && x.pool.reponse && x.pool.response.meter ? x.pool.response.meter.currentRate : 0),
+                        api_time: core.toNumber(x.api && x.api.response && x.api.response.histogram ? x.api.response.histogram.mean : 0),
+                        db_time:  core.toNumber(x.pool && x.pool.response && x.pool.response.histogrsm ? x.pool.response.histogram.mean : 0) };
+                break;
+
+            case "memory":
+                avg = { rss: core.toNumber(x.rss ? x.rss.mean : 0),
+                        heap: core.toNumber(x.heap ? x.heap.mean : 0) };
+                break;
+
+            case "account":
+                agg = { add: core.toNumber(x.accounts && x.accounts.add ? x.accounts.add.count : 0),
+                        del: core.toNumber(x.accounts && x.accounts.del ? x.accounts.del.count : 0) };
+                break;
+
+            case "connection":
+                for (var p in x.connections) {
+                    agg[p] = core.toNumber(x.connections[p].count);
+                }
+                break;
+
+            case "messages":
+                for (var p in x.messages) {
+                    agg[p] = core.toNumber(x.messages[p].count);
+                }
+                break;
+
+            default:
+                avg = { util: core.toNumber(x.util ? x.util.mean : 0),
+                        latency: core.toNumber(x.latency || 0) };
+            }
+
+            // Aggregate by specified interval
+            var mtime = Math.round(x.mtime/interval)*interval;
+            if (!series[mtime]) {
+                series[mtime] = {};
+                for (var y in avg) {
+                    series[mtime]['_' + y] = 0;
+                    series[mtime][y] = 0;
+                }
+                for (var y in agg) {
+                    series[mtime][y] = 0;
+                }
+            }
+            // Create or update previous readings
+            // For aggregated properties we keep the difference between the previous value and current values because all counters are accumulative,
+            // if the current value is less than the previous it means the server restarted and we take the first value as is
+            if (!last[x.ip] || last[x.ip].ctime != x.ctime) {
+                last[x.ip] = { ctime: x.ctime };
+                for (var y in agg) last[x.ip][y] = agg[y];
+            }
+            for (var y in avg) {
+                series[mtime]['_' + y]++;
+                series[mtime][y] += avg[y];
+            }
+            for (var y in agg) {
+                var v = agg[y] - last[x.ip][y];
+                last[x.ip][y] = agg[y];
+                series[mtime][y] += v;
+            }
+        });
+        rows = [];
+        Object.keys(series).sort().forEach(function(x) {
+            var obj = { mtime: core.toNumber(x) };
+            for (var y in series[x]) {
+                if (y[0] == '_') continue;
+                if (series[x]['_' + y]) series[x][y] /= series[x]['_' + y];
+                obj[y] = series[x][y];
+            }
+            rows.push(obj);
+        });
+        callback(null, rows);
+    });
+}
+

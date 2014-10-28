@@ -89,6 +89,7 @@ done
 [ "$MYSQL_DIR" = "" ] && export MYSQL_DIR=$BACKEND_HOME/mysql
 [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=/usr
 [ "$DYNAMODB_PREFIX" = "" ] && export DYNAMODB_PREFIX=$BACKEND_PREFIX/dynamodb
+[ "$ELASTICSEARCH_PREFIX" = "" ] && export ELASTICSEARCH_PREFIX=$BACKEND_PREFIX/elasticsearch
 [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BACKEND_HOME/mongo
 [ "$BACKEND_IDLETIME" = "" ] && export BACKEND_IDLETIME=900
 [ "$BACKEND_UPTIME" = "" ] && export BACKEND_UPTIME=43200
@@ -663,6 +664,29 @@ case "$ARG" in
     kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
     ;;
 
+  init-elasticsearch)
+    ($0 get-elasticsearch)
+    ($0 run-elasticsearch)
+    ;;
+
+  get-elasticsearch)
+    if [ ! -d $ELASTICSEARCH_PREFIX ]; then
+        file=elasticsearch-1.3.4.tar.gz
+        mkdir -p $ELASTICSEARCH_PREFIX
+        curl -OL https://download.elasticsearch.org/elasticsearch/elasticsearch/$file
+        tar -C $CASSANDRA_PREFIX --strip-components=1 -xzf $file
+        rm -rf $file
+    fi
+    ;;
+
+  run-elasticsearch)
+    $ELASTICSEARCH_PREFIX/bin/elasticsearch >>$BACKEND_HOME/log/backend.log 2>&1
+    ;;
+
+  stop-elasticsearch)
+    kill $(ps agx|grep elasticsearch|grep -v grep|awk '{print $1}')
+    ;;
+
   get-mongodb)
     case "$PLATFORM" in
      Darwin)
@@ -996,6 +1020,10 @@ backend.server.start();
     echo "  init-cassandra - download and initialize Cassandra, create backend keyspace, run the server"
     echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
     echo "  stop-cassandra - stop local Cassandra server"
+    echo "  init-elasticsearch - download and install local ElasticSearch, start the server"
+    echo "  get-elasticsearch - install local ElasticSearch server in $BACKEND_PREFIX/elasticsearch"
+    echo "  run-elasticsearch - run local ElasticSearch server installed in $BACKEND_PREFIX/elasticsearch"
+    echo "  stop-elasticsearch - stop local ElasticSearch server"
     echo "  init-mysql - setup MySQL server for development and create backend database, start the server"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
     echo "  stop-mysql - stop local MySQL server"
