@@ -222,6 +222,7 @@ var api = {
 
     // Sessions
     sessionAge: 86400 * 14 * 1000,
+    signatureAge: 0,
 
     // Intervals between updating presence status table
     statusInterval: 900000,
@@ -291,6 +292,7 @@ var api = {
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
+           { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "select-limit", type: "int", descr: "Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
 }
@@ -897,6 +899,7 @@ api.checkAuthorization = function(req, status, callback)
 // Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers
 api.checkSignature = function(req, callback)
 {
+    var self = this;
     // Make sure we will not crash on wrong object
     if (!req || !req.headers) req = { headers: {} };
     if (!callback) callback = function(x) { return x; }
@@ -918,7 +921,7 @@ api.checkSignature = function(req, callback)
     }
 
     // Make sure it is not expired, it may be milliseconds or ISO date
-    if (sig.expires <= Date.now()) {
+    if (sig.expires <= Date.now() - this.signatureAge) {
         return callback({ status: 406, message: "Expired request" });
     }
 
