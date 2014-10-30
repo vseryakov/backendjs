@@ -1113,6 +1113,16 @@ api.initIconAPI = function()
             });
             break;
 
+        case "upload":
+            options.force = true;
+            options.type = req.query.type;
+            options.prefix = req.query.prefix;
+            self.putIcon(req, req.account.id, options, function(err, icon) {
+                var row = self.formatIcon({ id: req.account.id, type: req.query.prefix + ":" + req.query.type }, options);
+                self.sendJSON(req, err, row);
+            });
+            break;
+
         case "del":
         case "put":
             options.op = req.params[0];
@@ -2029,6 +2039,7 @@ api.handleIconRequest = function(req, res, options, callback)
 // Return formatted icon URL for the given account, verify permissions
 api.formatIcon = function(row, options)
 {
+    var self = this;
     if (!options) options = row;
     var type = row.type.split(":");
     row.type = type.slice(1).join(":");

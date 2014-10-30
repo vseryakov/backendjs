@@ -4492,7 +4492,7 @@ db.couchdb = function(options)
             break;
 
         case "del":
-            client['delete'](key, opts, function(err, res) {
+            client.destroy(key, opts, function(err, res) {
                 callback(err, [], res);
             });
             break;

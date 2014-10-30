@@ -12,7 +12,7 @@ For the UI and presentation layer there are no restrictions what to use as long 
 Features:
 
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
-* Simple database API that supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB, ElasticSearch,
+* Simple database API that supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB, CouchDB, ElasticSearch,
   easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
 * Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.
@@ -556,8 +556,9 @@ then retrieving all icons for an album would be only query with album1: prefix.
 - `/icon/get`
 
    Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
-   configured by -api-images-dir parameter(default is images/ in the backend directory). Current account id is used to keep icons
-   separate from other accounts.
+   configured by `-api-images-dir` parameter(default is images/ in the backend directory). Current account id is used to keep icons
+   separate from other accounts. Icon presense is checked in the bk_icon table before returning it and if any permissions are set in
+   the `acl_allow` column it will be checked if this icon can be returned.
 
   The following parameters can be used:
   - `prefix` - must be specified, this defines the icons namespace
@@ -566,7 +567,8 @@ then retrieving all icons for an album would be only query with album1: prefix.
 - `/icon/put`
 
   Upload new icon for the given account in the folder prefix, if type is specified it creates an icons for this type to separate
-  multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters.
+  multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters. It creates a record in the bk_icon
+  table with all the paramaters passed.
 
   The following parameters can be used:
     - prefix - prefix for the icons, requried
@@ -576,6 +578,12 @@ then retrieving all icons for an album would be only query with album1: prefix.
     - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg
+
+- `/icon/upload`
+
+   Upload a new image and store on the server, no record is created in bk_icon table, just simple image upload,
+   but all the same query parameters as for /icon/put are accepted. Returns an JSON object with url property being the full path
+   to the uploaded image.
 
 - `/icon/del`
 
