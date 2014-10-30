@@ -764,7 +764,7 @@ api.checkQuery = function(req, res, next)
 
     req._body = true;
     var buf = '', size = 0;
-    var sig = core.parseSignature(req);
+    var sig = self.parseSignature(req);
 
     req.on('data', function(chunk) {
         size += chunk.length;
@@ -896,6 +896,63 @@ api.checkAuthorization = function(req, status, callback)
     callback(status);
 }
 
+// Parse incoming request for signature and return all pieces wrapped in an object, this object
+// will be used by verifySignature function for verification against an account
+// signature version:
+//  - 1 regular signature signed with secret for specific requests
+//  - 2 to be sent in cookies and uses wild support for host and path
+// If the signature successfully recognized it is saved in the request for subsequent use as req.signature
+api.parseSignature = function(req)
+{
+    var self = this;
+    if (req.signature) return req.signature;
+    var rc = { sigversion : 1, expires : 0 };
+    // Input parameters, convert to empty string if not present
+    var url = (req.url || req.originalUrl || "/").split("?");
+    rc.path = url[0];
+    rc.query = url[1] || "";
+    rc.method = req.method || "";
+    rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
+    rc.type = (req.headers['content-type'] || "").toLowerCase();
+    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
+    if (!rc.signature) {
+        rc.signature = (req.session || {})['bk-signature'] || "";
+        if (rc.signature) rc.session = true;
+    }
+    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
+    if (!d) return rc;
+    rc.sigversion = core.toNumber(d[1]);
+    if (d[2]) rc.tag = d[2];
+    if (d[3]) rc.login = d[3].trim();
+    if (d[4]) rc.signature = d[4];
+    rc.expires = core.toNumber(d[5]);
+    rc.checksum = d[6] || "";
+    req.signature = rc;
+    return rc;
+}
+
+// Verify signature with given account, signature is an object returned by parseSignature
+api.verifySignature = function(sig, account)
+{
+    var self = this;
+    var shatype = "sha1";
+    var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != "bk-signature"; }).join("&");
+    switch (sig.sigversion) {
+    case 2:
+        if (!sig.session) break;
+        sig.str = "*" + "\n" + core.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
+        break;
+
+    case 3:
+        shatype = "sha256";
+
+    default:
+        sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
+    }
+    sig.hash = core.sign(account.secret, sig.str, shatype);
+    return sig.signature == sig.hash;
+}
+
 // Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers
 api.checkSignature = function(req, callback)
 {
@@ -905,7 +962,7 @@ api.checkSignature = function(req, callback)
     if (!callback) callback = function(x) { return x; }
 
     // Extract all signature components from the request
-    var sig = core.parseSignature(req);
+    var sig = self.parseSignature(req);
 
     logger.debug('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
@@ -950,7 +1007,7 @@ api.checkSignature = function(req, callback)
         }
 
         // Verify the signature with account secret
-        if (!core.checkSignature(sig, account)) {
+        if (!self.verifySignature(sig, account)) {
             logger.debug('checkSignature:', 'failed', sig, account);
             return callback({ status: 401, message: "Not authenticated" });
         }
@@ -1966,6 +2023,136 @@ api.sendEvent = function(req, key, data)
     }
 }
 
+// Full path to the icon, perform necessary hashing and sharding, id can be a number or any string
+api.iconPath = function(id, options)
+{
+    if (!options) options = {};
+    // Convert into string and remove all chars except numbers, this will support UUIDs as well as regular integers
+    var num = String(id).replace(/[^0-9]/g, '');
+    var ext = options.ext || "jpg";
+    var name = (options.type ? options.type + '-' : "") + id + (ext[0] == '.' ? "" : ".") + ext;
+    return path.join(core.path.images, options.prefix || "", num.substr(-2), num.substr(-4, 2), name);
+}
+
+// Download image and convert into JPG, store under core.path.images
+// Options may be controlled using the properties:
+// - force - force rescaling for all types even if already exists
+// - id - id for the icon
+// - type - type for the icon, prepended to the icon id
+// - prefix - where to store all scaled icons
+// - verify - check if the original icon is the same as at the source
+api.downloadIcon = function(uri, options, callback)
+{
+    var self = this;
+
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+    logger.debug('getIcon:', uri, options);
+
+    if (!uri || (!options.id && !options.type)) return (callback ? callback(new Error("wrong args")) : null);
+    var id = options.id || "";
+
+    // Verify image size and skip download if the same
+    if (options.verify) {
+        var imgfile = this.iconPath(id, options);
+        fs.stat(imgfile, function(err, stats) {
+            logger.debug('getIcon:', id, imgfile, 'stats:', stats, err);
+            // No image, get a new one
+            if (err) return self.downloadIcon(uri, id, core.delObj(options, 'verify'), callback);
+
+            core.httpGet(uri, { method: 'HEAD' }, function(err2, params) {
+                if (err) logger.error('getIcon:', id, imgfile, 'size1:', stats.size, 'size2:', params.size, err);
+                // Not the same, get a new one
+                if (params.size !== stats.size) return self.downloadIcon(uri, id, core.delObj(options, 'verify'), callback);
+                // Same, just verify types
+                self.saveIcon(imgfile, id, options, callback);
+            });
+        });
+        return;
+    }
+
+    // Download into temp file, make sure dir exists
+    var opts = url.parse(uri);
+    var tmpfile = path.join(core.path.tmp, core.random().replace(/[\/=]/g,'') + path.extname(opts.pathname));
+    core.httpGet(uri, { file: tmpfile }, function(err, params) {
+        // Error in downloading
+        if (err || params.status != 200) {
+            fs.unlink(tmpfile, function() {});
+            if (err) logger.error('getIcon:', id, uri, 'not found', 'status:', params.status, err);
+            return (callback ? callback(err || new Error('Status ' + params.status)) : null);
+        }
+        // Store in the proper location
+        self.saveIcon(tmpfile, id, options, function(err2) {
+            fs.unlink(tmpfile, function() {});
+            if (callback) callback(err2);
+        });
+    });
+}
+
+// Save original or just downloaded file in the proper location according to the types for given id,
+// this function is used after downloading new image or when moving images from other places. On success
+// the callback will be called with the second argument set to the output file name where the image has been saved.
+// Valid properties in the options:
+// - type - icon type, this will be prepended to the name of the icon
+// - prefix - top level subdirectory under images/
+// - force - to rescale even if it already exists
+// - width, height, filter, ext, quality for backend.resizeImage function
+api.saveIcon = function(file, id, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+    logger.debug('putIcon:', id, file, options);
+
+    options.outfile = self.iconPath(id, options);
+
+    // Filesystem based icon storage, verify local disk
+    fs.exists(options.outfile, function(yes) {
+        // Exists and we do not need to rescale
+        if (yes && !options.force) return callback();
+        // Make new scaled icon
+        self.scaleIcon(file, options, function(err) {
+            if (err) logger.error("putIcon:", id, file, 'path:', options, err);
+            if (callback) callback(err, options.outfile);
+        });
+    });
+}
+
+// Scale image using ImageMagick, return err if failed
+// - infile can be a string with file name or a Buffer with actual image data
+// - options can specify image properties:
+//     - outfile - if not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback as a buffer
+//     - width, height - new image dimensions
+//          - if width or height is negative this means do not perform upscale, keep the original size if smaller than given positive value,
+//          - if any is 0 that means keep the original size
+//     - filter - ImageMagick image filters, default is lanczos
+//     - quality - 0-99 percent, image scaling quality
+//     - ext - image format: png, gif, jpg, jp2
+//     - flip - flip horizontally
+//     - flop - flip vertically
+//     - blue_radius, blur_sigma - perform adaptive blur on the image
+//     - crop_x, crop_y, crop_width, crop_height - perform crop using given dimensions
+//     - sharpen_radius, sharpen_sigma - perform sharpening of the image
+//     - brightness - use thing to change brightness of the image
+//     - contrast - set new contrast of the image
+//     - rotate - rotation angle
+//     - bgcolor - color for the background, used in rotation
+//     - quantized - set number of colors for quantize
+//     - treedepth - set tree depth for quantixe process
+//     - dither - set 0 or 1 for quantixe and posterize processes
+//     - posterize - set number of color levels
+//     - normalize - normalize image
+//     - opacity - set image opacity
+api.scaleIcon = function(infile, options, callback)
+{
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    backend.resizeImage(infile, options, function(err, data) {
+        if (err) logger.error('scaleIcon:', Buffer.isBuffer(infile) ? "Buffer:" + infile.length : infile, options, err);
+        if (callback) callback(err, data);
+    });
+}
+
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 // Verify icon limits before adding new icons
 api.handleIconRequest = function(req, res, options, callback)
@@ -2046,11 +2233,11 @@ api.formatIcon = function(row, options)
     row.prefix = type[0];
 
     if ((this.imagesUrl || options.imagesUrl) && (this.imagesRaw || options.imagesRaw)) {
-        row.url = (options.imagesUrl || this.imagesUrl) + core.iconPath(row.id, row);
+        row.url = (options.imagesUrl || this.imagesUrl) + this.iconPath(row.id, row);
     } else
     if ((this.imagesS3 || options.imagesS3) && (this.imagesS3Options || options.imagesS3Options)) {
         this.imagesS3Options.url = true;
-        row.url = core.context.aws.signS3("GET", options.imagesS3 || this.imagesS3, core.iconPath(row.id, row), options.imagesS3Options || this.imagesS3Options);
+        row.url = core.context.aws.signS3("GET", options.imagesS3 || this.imagesS3, this.iconPath(row.id, row), options.imagesS3Options || this.imagesS3Options);
     } else
     if ((!row.acl_allow || row.acl_allow == "all") && this.allow.rx && ("/image/" + row.prefix + "/").match(this.allow.rx)) {
         row.url = (options.imagesUrl || this.imagesUrl) + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
@@ -2069,6 +2256,7 @@ api.formatIcon = function(row, options)
 // Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table
 api.checkIcon = function(row, options, cols)
 {
+    var self = this;
     var id = options.account ? options.account.id : "";
 
     if (row.acl_allow && row.acl_allow != "all") {
@@ -2080,6 +2268,7 @@ api.checkIcon = function(row, options, cols)
         } else
         if (row.id != id) return true;
     }
+    // Use direct module reference due to usage in the callback without proper context
     api.formatIcon(row, options);
 }
 
@@ -2117,7 +2306,7 @@ api.sendIcon = function(req, res, id, options)
     var self = this;
     if (!options) options = {};
     var aws = core.context.aws;
-    var icon = core.iconPath(id, options);
+    var icon = this.iconPath(id, options);
     logger.debug('sendIcon:', icon, id, options);
 
     if (options.imagesS3 || self.imagesS3) {
@@ -2183,8 +2372,8 @@ api.storeIcon = function(file, id, options, callback)
 
     if (this.imagesS3 || options.imagesS3) {
         var aws = core.context.aws;
-        var icon = core.iconPath(id, options);
-        core.scaleIcon(file, options, function(err, data) {
+        var icon = this.iconPath(id, options);
+        this.scaleIcon(file, options, function(err, data) {
             if (err) return callback ? callback(err) : null;
 
             var headers = { 'content-type': 'image/' + (options.ext || "jpeg") };
@@ -2193,7 +2382,7 @@ api.storeIcon = function(file, id, options, callback)
             });
         });
     } else {
-        core.putIcon(file, id, options, callback);
+        this.saveIcon(file, id, options, callback);
     }
 }
 
@@ -2204,7 +2393,7 @@ api.delIcon = function(id, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    var icon = core.iconPath(id, options);
+    var icon = this.iconPath(id, options);
     logger.debug('delIcon:', id, options);
 
     if (this.imagesS3 || options.imagesS3) {

@@ -187,8 +187,8 @@ server.startMaster = function()
         setInterval(function() { d.run(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }); }, 86400000);
 
         // Pending requests from local queue
-        core.processRequestQueue();
-        setInterval(function() { d.run(function() { core.processRequestQueue(); }) }, core.requestQueueInterval || 300000);
+        self.processRequestQueue();
+        setInterval(function() { d.run(function() { self.processRequestQueue(); }) }, self.requestQueueInterval || 300000);
 
         // Maintenance tasks
         setInterval(function() {
@@ -1248,6 +1248,23 @@ server.submitJob = function(options, callback)
                         type: options.type,
                         job: options.job,
                         args: options.args }, callback);
+}
+
+// Send all pending updates from the queue table
+server.processRequestQueue = function(callback)
+{
+    var self = this;
+
+    db.select("bk_queue", {}, { sort: "mtime", pool: db.local } , function(err, rows) {
+        async.forEachSeries(rows, function(row, next) {
+            if (core.typeName(row.data) != "object") return next();
+            for (var p in row) if (p != "data") row.data[p] = row[p];
+            core.sendRequest(row.data, function(err2) { next(); });
+        }, function(err) {
+            if (rows.length) logger.log('processQueue:', 'sent', rows.length);
+            if (callback) callback(err);
+        });
+    });
 }
 
 // Load submitted jobs for execution, it is run by the master process every `server-jobs-interval` seconds.

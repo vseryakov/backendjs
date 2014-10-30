@@ -754,7 +754,7 @@ tests.s3icon = function(callback)
 {
     var id = core.getArg("-id", "1");
     api.storeIconS3("../web/img/loading.gif", id, { prefix: "account" }, function(err) {
-        var icon = core.iconPath(id, { prefix: "account" });
+        var icon = api.iconPath(id, { prefix: "account" });
         aws.queryS3(api.imagesS3, icon, { file: "tmp/" + path.basename(icon) }, function(err, params) {
             console.log('icon:', core.statSync(params.file));
             callback(err);
