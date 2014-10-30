@@ -2619,8 +2619,8 @@ api.deleteConnection = function(id, obj, options, callback)
                db.del("bk_reference", { id: row.id, type: row.type + ":" + id }, options, next);
            },
            function(next) {
-               if (options.noreference) return next();
                if (options.nocounter) return next();
+               if (options.noreference) return next();
                self.incrAutoCounter(row.id, row.type + '1', -1, options, function() { next() });
            }
            ], function(err) {
@@ -2872,6 +2872,7 @@ api.archiveMessage = function(req, options, callback)
         db.put("bk_archive", row, options, function(err) {
             if (err) return callback(err, []);
 
+            self.metrics.messages.Meter('archive').mark();
             db.del("bk_message", row, options, function(err) {
                 callback(err, row, info);
             });
@@ -2962,6 +2963,7 @@ api.delMessage = function(req, options, callback)
     if (req.query.mtime && req.query[sender]) {
         return db.del(table, { id: req.account.id, mtime: req.query.mtime + ":" + req.query[sender] }, options, function(err) {
             if (err || !req.query.icon) return callback(err, []);
+            self.metrics.messages.Meter('del:' + table).mark();
             self.delIcon(req.account.id, { prefix: "message", type: req.query.mtime + ":" + req.query[sender] }, callback);
         });
     }
@@ -2976,6 +2978,7 @@ api.delMessage = function(req, options, callback)
             row.mtime += ":" + row[sender];
             db.del(table, row, function(err) {
                 if (err || !row.icon) return next(err);
+                self.metrics.messages.Meter('del:' + table).mark();
                 self.delIcon(req.account.id, { prefix: "message", type: row.mtime }, next);
             });
         }, callback);
@@ -3413,11 +3416,14 @@ api.showStatistics = function(req, options, callback)
             var avg = {}, agg = {};
             // Extract properties to be shown by type
             switch (type) {
-            case "response":
+            case "api":
                 avg = { api_rate: core.toNumber(x.api && x.api.response && x.api.response.meter ? x.api.response.meter.currentRate : 0),
-                        db_rate:  core.toNumber(x.pool && x.pool.reponse && x.pool.response.meter ? x.pool.response.meter.currentRate : 0),
-                        api_time: core.toNumber(x.api && x.api.response && x.api.response.histogram ? x.api.response.histogram.mean : 0),
-                        db_time:  core.toNumber(x.pool && x.pool.response && x.pool.response.histogrsm ? x.pool.response.histogram.mean : 0) };
+                        api_time: core.toNumber(x.api && x.api.response && x.api.response.histogram ? x.api.response.histogram.mean : 0), };
+                break;
+
+            case "pool":
+                avg = { db_rate: core.toNumber(x.pool && x.pool.reponse && x.pool.response.meter ? x.pool.response.meter.currentRate : 0),
+                        db_time: core.toNumber(x.pool && x.pool.response && x.pool.response.histogrsm ? x.pool.response.histogram.mean : 0) };
                 break;
 
             case "memory":
@@ -3436,7 +3442,7 @@ api.showStatistics = function(req, options, callback)
                 }
                 break;
 
-            case "messages":
+            case "message":
                 for (var p in x.messages) {
                     agg[p] = core.toNumber(x.messages[p].count);
                 }

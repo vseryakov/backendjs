@@ -21,6 +21,7 @@ var os = require('os');
 var helenus = require('helenus');
 var mongodb = require('mongodb');
 var redis = require('redis');
+var nano = require('nano');
 var elasticsearch = require("elasticsearch");
 var metrics = require(__dirname + "/metrics");
 
@@ -155,6 +156,10 @@ var db = {
            { name: "elasticsearch-init", count: 3, type: "json", descr: "Options for the ElasticSearch pool, used on connection create only" },
            { name: "elasticsearch-options", count: 3, type: "json", descr: "Options for the ElasticSearch pool, used with every request" },
            { name: "elasticsearch-tables", count: 3, type: "list", array: 1, descr: "ElasticSearch tables, list of tables that belong to this pool only" },
+           { name: "couchdb-pool", count: 3, descr: "ElasticSearch host" },
+           { name: "couchdb-init", count: 3, type: "json", descr: "Options for the CouchDB pool, used on connection create only" },
+           { name: "couchdb-options", count: 3, type: "json", descr: "Options for the CouchDB pool, used with every request" },
+           { name: "couchdb-tables", count: 3, type: "list", array: 1, descr: "CouchDB tables, list of tables that belong to this pool only" },
     ],
 
     // Default tables
@@ -4407,6 +4412,87 @@ db.elasticsearchInitPool = function(options)
             if (!opts.id) opts.id = key;
             if (!opts.type) opts.type = req.table;
             client['delete'](opts, function(err, res) {
+                callback(err, [], res);
+            });
+            break;
+
+        default:
+            return callback(null, []);
+        }
+    }
+
+    return pool;
+}
+
+// Create a database pool that works with CouchDB server
+db.couchdb = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "couchdb";
+
+    options.type = "couchdb";
+    var pool = this.createPool(options);
+
+    pool.get = function(callback) {
+        if (!this.client) {
+            if (options.db) this.dbparams.url = options.db;
+            this.client = nano(this.dbparams);
+        }
+        callback(null, this.client);
+    }
+
+    pool.close = function(cient, callback) {
+        client.close();
+        if (callback) callback();
+    }
+
+    pool.cacheColumns = function(opts, callback) {
+        for (var p in this.dbcolumns) {
+            this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
+        }
+        callback();
+    }
+
+    pool.query = function(client, req, opts, callback) {
+        var keys = self.getKeys(req.table, opts);
+        var key = opts.id || keys.filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
+
+        switch (req.op) {
+        case "get":
+            client.get(key, opts, function(err, res, info) {
+                if (err) return callback(err, []);
+                callback(null, [ res ], info);
+            });
+            break;
+
+        case "select":
+            break;
+
+        case "list":
+            var ids = req.obj.map(function(x) { return keys.map(function(y) { return x[y] || "" }).join("|"); });
+            client.fetch(ids, opts, function(err, res, info) {
+                if (err) return callback(err, []);
+                callback(null, res.rows, info);
+            });
+            break;
+
+        case "add":
+            client.insert(req.obj, opts, function(err, res) {
+                callback(err, [], res);
+            });
+            break;
+
+        case "put":
+        case "update":
+            opts.doc_name = key;
+            client.insert(req.obj, opts, function(err, res) {
+                callback(err, [], res);
+            });
+            break;
+
+        case "del":
+            client['delete'](key, opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
