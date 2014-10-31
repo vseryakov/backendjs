@@ -268,7 +268,7 @@ var api = {
            { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
            { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
-           { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by API, if not matched the requests will be served by the other middleware configured" },
+           { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express" },
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
@@ -298,7 +298,7 @@ var api = {
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
-           { name: "collect-host", descr: "The backend URL where all collected statistics should be sent" },
+           { name: "collect-host", descr: "The backend URL where all collected statistics should be sent over, if set to `pool` then each web worker will save metrics directly into the statistics database pool" },
            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
            { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
@@ -363,6 +363,9 @@ api.init = function(callback)
             res.end = end;
             res.end(chunk, encoding);
             self.metrics.api.Counter('count').dec();
+            self.metrics.api.Counter("total").inc();
+            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.api.Counter("bad").inc();
+            if (res.statusCode >= 500) self.metrics.api.Counter("errors").inc();
             req.metric1.end();
             req.metric2.end();
             // Ignore external or not handled urls
@@ -1371,7 +1374,6 @@ api.initLocationAPI = function()
 api.initSystemAPI = function()
 {
     var self = this;
-    var db = core.context.db;
 
     // Return current statistics
     this.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
@@ -1417,7 +1419,7 @@ api.initSystemAPI = function()
                 break;
 
             case 'show':
-                self.showStatistics(req, options, function(err, data) {
+                self.calcStatistics(req, options, function(err, data) {
                     if (err) return self.sendReply(res, err);
                     res.json(data);
                 });
@@ -3495,6 +3497,12 @@ api.sendStatistics = function()
         core.cpuProfile = null;
     }
     if (self.collectHost) {
+        // Using local db connection, this is usefull in case of distributed database where there is no
+        // need for the collection ost in the middle.
+        if (self.collectHost == "pool") return self.saveStatistics(metrics);
+
+        // Send to the collection host for storing in the special databze or due to security restrictions when
+        // only HTTP is open and authentication is required
         core.sendRequest({ url: self.collectHost, postdata: metrics, quiet: self.collectQuiet }, function(err) {
             logger.debug("sendStatistics:", self.collectHost, self.collectErrors, err || "");
             if (!err) {
@@ -3549,8 +3557,8 @@ api.getStatistics = function()
     return this.metrics;
 }
 
-// Show statistics for a period of time
-api.showStatistics = function(req, options, callback)
+// Calculate statistics for a period of time
+api.calcStatistics = function(req, options, callback)
 {
     var self = this;
     if (typeof optinons == "function") callback = options, options = null;
@@ -3562,31 +3570,44 @@ api.showStatistics = function(req, options, callback)
     var end = now - core.toNumber(req.query.end, 0, 0, 0) * 60000;
     var interval = core.toNumber(req.query.interval, 0, 300, 60) * 1000;
 
-    options.ops = { mtime: 'ge' };
-    db.select("bk_collect", { mtime: start }, options, function(err, rows) {
+    options.ops = { mtime: 'between' };
+
+    db.select("bk_collect", { mtime: [start, end] }, options, function(err, rows) {
         var series = {}, last = {};
         rows.forEach(function(x) {
             var avg = {}, agg = {};
             // Extract properties to be shown by type
             switch (type) {
             case "api":
-                avg = { api_rate: core.toNumber(x.api && x.api.response && x.api.response.meter ? x.api.response.meter.currentRate : 0),
-                        api_time: core.toNumber(x.api && x.api.response && x.api.response.histogram ? x.api.response.histogram.mean : 0), };
+                avg = { rate: core.toNumber(x.api && x.api.response && x.api.response.meter ? x.api.response.meter.mean : 0),
+                        response: core.toNumber(x.api && x.api.response && x.api.response.histogram ? x.api.response.histogram.mean : 0),
+                        queue: core.toNumber(x.api && x.api.queue ? x.api.queue.mean : 0),
+                        count: core.toNumber(x.api ? x.api.count : 0),
+                        latency: core.toNumber(x.latency || 0), };
+                agg = { total: core.toNumber(x.api ? x.api.total : 0),
+                        bad: core.toNumber(x.api ? x.api.bad : 0),
+                        errors: core.toNumber(x.api ? x.api.errors : 0), };
                 break;
 
             case "pool":
-                avg = { db_rate: core.toNumber(x.pool && x.pool.reponse && x.pool.response.meter ? x.pool.response.meter.currentRate : 0),
-                        db_time: core.toNumber(x.pool && x.pool.response && x.pool.response.histogrsm ? x.pool.response.histogram.mean : 0) };
+                avg = { rate: core.toNumber(x.pool && x.pool.reponse && x.pool.response.meter ? x.pool.response.meter.mean : 0),
+                        response: core.toNumber(x.pool && x.pool.response && x.pool.response.histogram ? x.pool.response.histogram.mean : 0),
+                        queue: core.toNumber(x.pool && x.pool.queue ? x.pool.queue.mean : 0),
+                        count: core.toNumber(x.pool ? x.pool.count : 0), };
+                agg = { total: core.toNumber(x.pool ? x.pool.total : 0),
+                        errors: core.toNumber(x.pool ? x.pool.errors : 0),};
                 break;
 
             case "memory":
                 avg = { rss: core.toNumber(x.rss ? x.rss.mean : 0),
+                        freemem: core.toNumber(x.freemem ? x.freemem.mean : 0),
                         heap: core.toNumber(x.heap ? x.heap.mean : 0) };
                 break;
 
             case "account":
-                agg = { add: core.toNumber(x.accounts && x.accounts.add ? x.accounts.add.count : 0),
-                        del: core.toNumber(x.accounts && x.accounts.del ? x.accounts.del.count : 0) };
+                for (var p in x.accounts) {
+                    agg[p] = core.toNumber(x.accounts[p].count);
+                }
                 break;
 
             case "connection":
@@ -3603,7 +3624,7 @@ api.showStatistics = function(req, options, callback)
 
             default:
                 avg = { util: core.toNumber(x.util ? x.util.mean : 0),
-                        latency: core.toNumber(x.latency || 0) };
+                        loadavg: core.toNumber(x.loadavg ? x.loadavg.mean : 0), };
             }
 
             // Aggregate by specified interval
