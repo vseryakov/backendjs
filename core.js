@@ -84,12 +84,6 @@ var core = {
     maxCPUs: os.cpus().length,
     ctime: Date.now(),
 
-    // Collector of statistics, seconds
-    collectInterval: 30,
-    collectSendInterval: 300,
-    collectErrors: 0,
-    collectQuiet: false,
-
     // Unix user/group privileges to set after opening port 80 and if running as root, in most cases this is ec2-user on Amazon cloud,
     // for manual installations `bkjs int-server` will create a user with this id
     uid: 0,
@@ -190,10 +184,6 @@ var core = {
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
-            { name: "collect-host", descr: "The backend URL where all collected statistics should be sent" },
-            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
-            { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
-            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
@@ -1187,6 +1177,63 @@ core.httpGet = function(uri, params, callback)
     }
     req.end();
     return req;
+}
+
+// Parse incoming request for signature and return all pieces wrapped in an object, this object
+// will be used by verifySignature function for verification against an account
+// signature version:
+//  - 1 regular signature signed with secret for specific requests
+//  - 2 to be sent in cookies and uses wild support for host and path
+// If the signature successfully recognized it is saved in the request for subsequent use as req.signature
+core.parseSignature = function(req)
+{
+    var self = this;
+    if (req.signature) return req.signature;
+    var rc = { sigversion : 1, expires : 0 };
+    // Input parameters, convert to empty string if not present
+    var url = (req.url || req.originalUrl || "/").split("?");
+    rc.path = url[0];
+    rc.query = url[1] || "";
+    rc.method = req.method || "";
+    rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
+    rc.type = (req.headers['content-type'] || "").toLowerCase();
+    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
+    if (!rc.signature) {
+        rc.signature = (req.session || {})['bk-signature'] || "";
+        if (rc.signature) rc.session = true;
+    }
+    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
+    if (!d) return rc;
+    rc.sigversion = this.toNumber(d[1]);
+    if (d[2]) rc.tag = d[2];
+    if (d[3]) rc.login = d[3].trim();
+    if (d[4]) rc.signature = d[4];
+    rc.expires = this.toNumber(d[5]);
+    rc.checksum = d[6] || "";
+    req.signature = rc;
+    return rc;
+}
+
+// Verify signature with given account, signature is an object returned by parseSignature
+core.verifySignature = function(sig, account)
+{
+    var self = this;
+    var shatype = "sha1";
+    var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != "bk-signature"; }).join("&");
+    switch (sig.sigversion) {
+    case 2:
+        if (!sig.session) break;
+        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
+        break;
+
+    case 3:
+        shatype = "sha256";
+
+    default:
+        sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
+    }
+    sig.hash = this.sign(account.secret, sig.str, shatype);
+    return sig.signature == sig.hash;
 }
 
 // Produce signed URL to be used in embedded cases or with expiration so the url can be passed and be valid for longer time.

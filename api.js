@@ -242,6 +242,12 @@ var api = {
                                  'messages', new metrics.Metrics(),
                                  'connections', new metrics.Metrics()),
 
+    // Collector of statistics, seconds
+    collectInterval: 30,
+    collectSendInterval: 300,
+    collectErrors: 0,
+    collectQuiet: false,
+
     // URL metrics, which endpoint to collect and how long the path should be
     urlMetrics: {},
 
@@ -292,6 +298,10 @@ var api = {
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
+           { name: "collect-host", descr: "The backend URL where all collected statistics should be sent" },
+           { name: "collect-pool", descr: "Database pool where to save collected statistics" },
+           { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
+           { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "select-limit", type: "int", descr: "Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
@@ -764,7 +774,7 @@ api.checkQuery = function(req, res, next)
 
     req._body = true;
     var buf = '', size = 0;
-    var sig = self.parseSignature(req);
+    var sig = core.parseSignature(req);
 
     req.on('data', function(chunk) {
         size += chunk.length;
@@ -896,63 +906,6 @@ api.checkAuthorization = function(req, status, callback)
     callback(status);
 }
 
-// Parse incoming request for signature and return all pieces wrapped in an object, this object
-// will be used by verifySignature function for verification against an account
-// signature version:
-//  - 1 regular signature signed with secret for specific requests
-//  - 2 to be sent in cookies and uses wild support for host and path
-// If the signature successfully recognized it is saved in the request for subsequent use as req.signature
-api.parseSignature = function(req)
-{
-    var self = this;
-    if (req.signature) return req.signature;
-    var rc = { sigversion : 1, expires : 0 };
-    // Input parameters, convert to empty string if not present
-    var url = (req.url || req.originalUrl || "/").split("?");
-    rc.path = url[0];
-    rc.query = url[1] || "";
-    rc.method = req.method || "";
-    rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
-    rc.type = (req.headers['content-type'] || "").toLowerCase();
-    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
-    if (!rc.signature) {
-        rc.signature = (req.session || {})['bk-signature'] || "";
-        if (rc.signature) rc.session = true;
-    }
-    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
-    if (!d) return rc;
-    rc.sigversion = core.toNumber(d[1]);
-    if (d[2]) rc.tag = d[2];
-    if (d[3]) rc.login = d[3].trim();
-    if (d[4]) rc.signature = d[4];
-    rc.expires = core.toNumber(d[5]);
-    rc.checksum = d[6] || "";
-    req.signature = rc;
-    return rc;
-}
-
-// Verify signature with given account, signature is an object returned by parseSignature
-api.verifySignature = function(sig, account)
-{
-    var self = this;
-    var shatype = "sha1";
-    var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != "bk-signature"; }).join("&");
-    switch (sig.sigversion) {
-    case 2:
-        if (!sig.session) break;
-        sig.str = "*" + "\n" + core.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
-        break;
-
-    case 3:
-        shatype = "sha256";
-
-    default:
-        sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
-    }
-    sig.hash = core.sign(account.secret, sig.str, shatype);
-    return sig.signature == sig.hash;
-}
-
 // Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers
 api.checkSignature = function(req, callback)
 {
@@ -962,7 +915,7 @@ api.checkSignature = function(req, callback)
     if (!callback) callback = function(x) { return x; }
 
     // Extract all signature components from the request
-    var sig = self.parseSignature(req);
+    var sig = core.parseSignature(req);
 
     logger.debug('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
@@ -1007,7 +960,7 @@ api.checkSignature = function(req, callback)
         }
 
         // Verify the signature with account secret
-        if (!self.verifySignature(sig, account)) {
+        if (!core.verifySignature(sig, account)) {
             logger.debug('checkSignature:', 'failed', sig, account);
             return callback({ status: 401, message: "Not authenticated" });
         }
@@ -3521,10 +3474,10 @@ api.initStatistics = function()
     var delay = core.randomShort();
 
     self.getStatistics();
-    setInterval(function() { self.getStatistics(); }, core.collectInterval * 1000);
-    setInterval(function() { self.sendStatistics() }, core.collectSendInterval * 1000 - delay);
+    setInterval(function() { self.getStatistics(); }, self.collectInterval * 1000);
+    setInterval(function() { self.sendStatistics() }, self.collectSendInterval * 1000 - delay);
 
-    logger.debug("initStatistics:", "delay:",  delay, "interval:", core.collectInterval, core.collectSendInterval);
+    logger.debug("initStatistics:", "delay:",  delay, "interval:", self.collectInterval, self.collectSendInterval);
 }
 
 // Send collected statistics to the collection server, `backend-host` must be configured and possibly `backend-login` and `backend-secret` in case
@@ -3541,14 +3494,14 @@ api.sendStatistics = function()
         metrics.data = core.cpuProfile;
         core.cpuProfile = null;
     }
-    if (core.collectHost) {
-        core.sendRequest({ url: core.collectHost, postdata: metrics, quiet: core.collectQuiet }, function(err) {
-            logger.debug("sendStatistics:", core.collectHost, core.collectErrors, err || "");
+    if (self.collectHost) {
+        core.sendRequest({ url: self.collectHost, postdata: metrics, quiet: self.collectQuiet }, function(err) {
+            logger.debug("sendStatistics:", self.collectHost, self.collectErrors, err || "");
             if (!err) {
-                core.collectErrors = core.collectQuiet = 0;
+                self.collectErrors = self.collectQuiet = 0;
             } else {
                 // Stop reporting about collection errors
-                if (++core.collectErrors > 3) core.collectQuiet = 1;
+                if (++self.collectErrors > 3) self.collectQuiet = 1;
             }
         });
     }
@@ -3562,7 +3515,7 @@ api.saveStatistics = function(obj, callback)
     var db = core.context.db;
 
     if (obj.id && obj.pid && typeof obj.mtime == "number" && typeof obj.api == "object" && typeof obj.pool == "object") {
-        db.put("bk_collect", obj, { pool: core.collectPool }, callback);
+        db.put("bk_collect", obj, { pool: self.collectPool }, callback);
     } else {
         if (callback) callback(core.newError("invalid stats"));
     }
