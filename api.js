@@ -337,7 +337,7 @@ api.init = function(callback)
     // Latency watcher
     self.app.use(function(req, res, next) {
         if (self.busyLatency && backend.isBusy()) {
-            self.metrics.api.Counter('busy').inc();
+            self.metrics.api.Incremental('busy').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
         next();
@@ -363,9 +363,9 @@ api.init = function(callback)
             res.end = end;
             res.end(chunk, encoding);
             self.metrics.api.Counter('count').dec();
-            self.metrics.api.Counter("total").inc();
-            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.api.Counter("bad").inc();
-            if (res.statusCode >= 500) self.metrics.api.Counter("errors").inc();
+            self.metrics.api.Counter("total").add();
+            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.api.Counter("bad").add();
+            if (res.statusCode >= 500) self.metrics.api.Counter("errors").add();
             req.metric1.end();
             req.metric2.end();
             // Ignore external or not handled urls
@@ -1399,7 +1399,7 @@ api.initSystemAPI = function()
         case "stats":
             switch (req.params[1]) {
             case 'get':
-                res.json(self.getStatistics());
+                res.json(self.getStatistics().toJSON());
                 break;
 
             case "send":
@@ -1407,7 +1407,10 @@ api.initSystemAPI = function()
                 break;
 
             case 'put':
-                self.saveStatistics(self.getStatistics(), function(err) {
+                var metrics = self.getStatistics();
+                var obj = metrics.toJSON();
+                metrics.clear();
+                self.saveStatistics(obj, function(err) {
                     self.sendReply(res, err);
                 });
                 break;
@@ -2706,7 +2709,7 @@ api.makeConnection = function(id, obj, options, callback)
             query.mtime = now;
             db[op]("bk_connection", query, options, function(err) {
                 if (err) return next(err);
-                self.metrics.connections.Meter(op + ":" + obj.type).mark();
+                self.metrics.connections.Counter(op + ":" + obj.type).add();
                 next();
             });
         },
@@ -2759,7 +2762,7 @@ api.deleteConnection = function(id, obj, options, callback)
     var now = Date.now();
 
     function del(row, cb) {
-        self.metrics.connections.Meter('del:' + row.type).mark();
+        self.metrics.connections.Counter('del:' + row.type).add();
 
         async.series([
            function(next) {
@@ -3497,13 +3500,15 @@ api.sendStatistics = function()
         core.cpuProfile = null;
     }
     if (self.collectHost) {
+        var obj = metrics.toJSON();
+        metrics.clear();
         // Using local db connection, this is usefull in case of distributed database where there is no
         // need for the collection ost in the middle.
-        if (self.collectHost == "pool") return self.saveStatistics(metrics);
+        if (self.collectHost == "pool") return self.saveStatistics(obj);
 
         // Send to the collection host for storing in the special databze or due to security restrictions when
         // only HTTP is open and authentication is required
-        core.sendRequest({ url: self.collectHost, postdata: metrics, quiet: self.collectQuiet }, function(err) {
+        core.sendRequest({ url: self.collectHost, postdata: obj, quiet: self.collectQuiet }, function(err) {
             logger.debug("sendStatistics:", self.collectHost, self.collectErrors, err || "");
             if (!err) {
                 self.collectErrors = self.collectQuiet = 0;
@@ -3521,9 +3526,10 @@ api.saveStatistics = function(obj, callback)
 {
     var self = this;
     var db = core.context.db;
-
     if (obj.id && obj.pid && typeof obj.mtime == "number" && typeof obj.api == "object" && typeof obj.pool == "object") {
-        db.put("bk_collect", obj, { pool: self.collectPool }, callback);
+        db.put("bk_collect", obj, { pool: self.collectPool }, function(err) {
+            if (callback) callback(err);
+        });
     } else {
         if (callback) callback(core.newError("invalid stats"));
     }
@@ -3571,9 +3577,10 @@ api.calcStatistics = function(req, options, callback)
     var interval = core.toNumber(req.query.interval, 0, 300, 60) * 1000;
 
     options.ops = { mtime: 'between' };
+    options.noscan = false;
 
     db.select("bk_collect", { mtime: [start, end] }, options, function(err, rows) {
-        var series = {}, last = {};
+        var series = {};
         rows.forEach(function(x) {
             var avg = {}, agg = {};
             // Extract properties to be shown by type
@@ -3639,21 +3646,12 @@ api.calcStatistics = function(req, options, callback)
                     series[mtime][y] = 0;
                 }
             }
-            // Create or update previous readings
-            // For aggregated properties we keep the difference between the previous value and current values because all counters are accumulative,
-            // if the current value is less than the previous it means the server restarted and we take the first value as is
-            if (!last[x.ip] || last[x.ip].ctime != x.ctime) {
-                last[x.ip] = { ctime: x.ctime };
-                for (var y in agg) last[x.ip][y] = agg[y];
-            }
             for (var y in avg) {
                 series[mtime]['_' + y]++;
                 series[mtime][y] += avg[y];
             }
             for (var y in agg) {
-                var v = agg[y] - last[x.ip][y];
-                last[x.ip][y] = agg[y];
-                series[mtime][y] += v;
+                series[mtime][y] += agg[y];
             }
         });
         rows = [];

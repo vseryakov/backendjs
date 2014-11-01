@@ -39,8 +39,9 @@ var server = {
 
     // Crash throttling
     crashInterval: 3000,
+    crashTimeout: 2000,
     crashDelay: 30000,
-    crashCount: 5,
+    crashCount: 4,
     crashTime: null,
     crashEvents: 0,
 
@@ -833,10 +834,11 @@ server.respawn = function(callback)
 {
     var self = this;
     if (this.exiting) return;
-    var now = Date.now;
-    if (self.crashTime && now - self.crashTime < self.crashInterval * (self.crashCount + 1)) {
-        if (self.crashCount && this.crashEvents >= this.crashCount) {
-            logger.log('respawn:', 'throttling for', self.crashDelay, 'after', self.crashEvents, 'crashes in ', now - this.crashTime, 'ms');
+    var now = Date.now();
+    logger.debug('respawn:', 'time:', self.crashTime, now - self.crashTime, 'events:', self.crashEvents, 'interval:', self.crashInterval, 'count:', self.crashCount);
+    if (self.crashTime && now - self.crashTime < self.crashInterval) {
+        if (self.crashCount && self.crashEvents >= self.crashCount) {
+            logger.log('respawn:', 'throttling for', self.crashDelay, 'after', self.crashEvents, 'crashes');
             self.crashEvents = 0;
             self.crashTime = now;
             return setTimeout(callback, self.crashDelay);
@@ -846,7 +848,7 @@ server.respawn = function(callback)
         self.crashEvents = 0;
     }
     self.crashTime = now;
-    setTimeout(callback, self.crashInterval);
+    setTimeout(callback, self.crashTimeout);
 }
 
 // Start new process reusing global process arguments, args will be added and args in the skip list will be removed

@@ -34,6 +34,17 @@ Counter.prototype.reset = function(count)
     this._count = count || 0;
 }
 
+Counter.prototype.add = function(n)
+{
+    if (!this._incremental) this._incremental = true;
+    return this.inc(n);
+}
+
+Counter.prototype.clear = function()
+{
+    if (this._incremental) this._count = 0;
+}
+
 exports.ExponentiallyMovingWeightedAverage = ExponentiallyMovingWeightedAverage;
 function ExponentiallyMovingWeightedAverage(timePeriod, tickInterval)
 {
@@ -51,10 +62,8 @@ ExponentiallyMovingWeightedAverage.prototype.update = function(n)
 
 ExponentiallyMovingWeightedAverage.prototype.tick = function()
 {
-    var instantRate = this._count / this._tickInterval;
     this._count = 0;
-
-    this._rate += (this._alpha * (instantRate - this._rate));
+    this._rate += (this._alpha * ((this._count / this._tickInterval) - this._rate));
 }
 
 ExponentiallyMovingWeightedAverage.prototype.rate = function(timeUnit)
@@ -500,12 +509,23 @@ Metrics.prototype.toJSON = function()
 {
     var json = {};
     for (var p in this) {
-        if (p != "metrics" && typeof this[p] != "undefined" && typeof this[p] != null) json[p] = this[p];
+        if (p == "metrics" || typeof this[p] == "undefined" || typeof this[p] == "function" || this[p] === null) continue;
+        json[p] = this[p].toJSON ? this[p].toJSON() : this[p];
     }
     for (var metric in this.metrics) {
         json[metric] = this.metrics[metric].toJSON();
     }
     return json;
+}
+
+Metrics.prototype.clear = function()
+{
+    for (var p in this) {
+        if (this[p] && typeof this[p].clear == "function") this[p].clear();
+    }
+    for (var p in this.metrics) {
+        if (this.metrics[p] && typeof this.metrics[p].clear == "function") this.metrics[p].clear();
+    }
 }
 
 Metrics.prototype.end = function()
