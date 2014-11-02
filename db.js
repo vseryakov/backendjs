@@ -594,9 +594,9 @@ db.query = function(req, options, callback)
 
     // Metrics collection
     var t1 = Date.now();
-    var m1 = pool.metrics.Timer('response').start();
-    pool.metrics.Histogram('queue').update(pool.metrics.Counter('count').inc());
-    pool.metrics.Gauge('total').inc();
+    var m1 = pool.metrics.Timer('query').start();
+    pool.metrics.Histogram('req').update(pool.metrics.Counter('count').inc());
+    pool.metrics.Counter('total#').inc();
 
     function onEnd(err, client, rows, info) {
         if (client) pool.free(client);
@@ -605,7 +605,7 @@ db.query = function(req, options, callback)
         pool.metrics.Counter('count').dec();
 
         if (err && !options.silence_error) {
-            pool.metrics.Gauge("errors").inc();
+            pool.metrics.Counter("errors#").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
         } else {
             logger.debug("db.query:", pool.name, Date.now() - t1, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
@@ -1148,8 +1148,10 @@ db.migrate = function(table, options, callback)
 }
 
 // Perform full text search on the given table, the database implementation may ignore table name completely
-// in case of global text index. Options takes same properties as in the select method. Without full text support
-// this works the same way as the `select` method. NOT IMPLEMENTED YET.
+// in case of global text index.
+// Query is in general a text string with the format that is supported by the underlying driver, bkjs does not parse the query at all.
+// Options make take the same properties as in the select method. Without full text support
+// this works the same way as the `select` method.
 db.search = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;

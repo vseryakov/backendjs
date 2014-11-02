@@ -34,40 +34,6 @@ Counter.prototype.reset = function(count)
     this._count = count || 0;
 }
 
-exports.Gauge = Gauge;
-function Gauge(properties)
-{
-    properties = properties || {};
-    this._count = properties.count || 0;
-}
-
-Gauge.prototype.toJSON = function()
-{
-    return this._count;
-}
-
-Gauge.prototype.inc = function(n)
-{
-    this._count += (n || 1);
-    return this._count;
-}
-
-Gauge.prototype.dec = function(n)
-{
-    this._count -= (n || 1);
-    return this._count;
-}
-
-Gauge.prototype.reset = function(count)
-{
-    this._count = count || 0;
-}
-
-Gauge.prototype.clear = function()
-{
-    this._count = 0;
-}
-
 exports.ExponentiallyMovingWeightedAverage = ExponentiallyMovingWeightedAverage;
 function ExponentiallyMovingWeightedAverage(timePeriod, tickInterval)
 {
@@ -164,12 +130,12 @@ Meter.prototype.currentRate = function()
 Meter.prototype.toJSON = function()
 {
     return {
-        'count' : this._count,
-        'meanRate' : this.meanRate(),
-        'currentRate' : this.currentRate(),
-        '1MinuteRate' : this._m1Rate.rate(this._rateUnit),
-        '5MinuteRate' : this._m5Rate.rate(this._rateUnit),
-        '15MinuteRate' : this._m15Rate.rate(this._rateUnit),
+        rate: this.currentRate(),
+        rcnt: this._count,
+        rmean: this.meanRate(),
+        r1m: this._m1Rate.rate(this._rateUnit),
+        r5m: this._m5Rate.rate(this._rateUnit),
+        r15m: this._m15Rate.rate(this._rateUnit),
     };
 };
 
@@ -427,18 +393,18 @@ Histogram.prototype.toJSON = function()
 {
     var percentiles = this.percentiles([ 0.5, 0.75, 0.95, 0.99, 0.999 ]);
     return {
-        min: this._min,
-        max: this._max,
-        sum: this._sum,
-        variance: this._calculateVariance(),
-        mean: this._calculateMean(),
-        stddev: this._calculateStddev(),
-        count: this._count,
-        median: percentiles[0.5],
-        p75: percentiles[0.75],
-        p95: percentiles[0.95],
-        p99: percentiles[0.99],
-        p999: percentiles[0.999],
+        hmin: this._min,
+        hmax: this._max,
+        hsum: this._sum,
+        hvar: this._calculateVariance(),
+        hmean: this._calculateMean(),
+        hdev: this._calculateStddev(),
+        hcnt: this._count,
+        hmed: percentiles[0.5],
+        h75p: percentiles[0.75],
+        h95p: percentiles[0.95],
+        h99p: percentiles[0.99],
+        h999p: percentiles[0.999],
     };
 }
 
@@ -517,7 +483,6 @@ Timer.prototype.toJSON = function()
 exports.Metrics = Metrics;
 function Metrics()
 {
-    this.metrics = {};
     for (var i = 0; i < arguments.length - 1; i+= 2) this[arguments[i]] = arguments[i + 1];
 }
 
@@ -525,56 +490,55 @@ Metrics.prototype.toJSON = function()
 {
     var json = {};
     for (var p in this) {
-        if (p == "metrics" || typeof this[p] == "undefined" || typeof this[p] == "function" || this[p] === null) continue;
+        if (typeof this[p] == "undefined" || typeof this[p] == "function" || this[p] === null) continue;
         json[p] = this[p].toJSON ? this[p].toJSON() : this[p];
-    }
-    for (var metric in this.metrics) {
-        json[metric] = this.metrics[metric].toJSON();
     }
     return json;
 }
 
-Metrics.prototype.call = function(name)
+Metrics.prototype.find = function(filter, list)
 {
+    if (!list) list = [];
     for (var p in this) {
-        if (this[p] && typeof this[p][name] == "function") this[p][name]();
+        if (filter.test(p)) list.push(this[p]);
+        if (typeof this[p].find == "function") this[p].find(filter, list);
     }
-    for (var p in this.metrics) {
-        if (this.metrics[p] && typeof this.metrics[p][name] == "function") this.metrics[p][name]();
+    return list;
+}
+
+Metrics.prototype.call = function(name, filter)
+{
+    if (filter instanceof RegExp) {
+        this.find(filter).forEach(function(x) {
+            if (typeof x[name] == "function") x[name]();
+        });
+    } else {
+        for (var p in this) {
+            if (this[p] && typeof this[p][name] == "function") this[p][name]();
+        }
     }
 }
 
-Metrics.prototype.clear = function()
+Metrics.prototype.reset = function(filter)
 {
-    this.call("clear");
+    this.call("reset", filter);
 }
 
-Metrics.prototype.reset = function()
-{
-    this.call("reset");
-}
-
-Metrics.prototype.end = function()
+Metrics.prototype.end = function(filter)
 {
     this.call("end");
 }
 
 Metrics.prototype.Counter = function(name, properties)
 {
-    if (!this.metrics[name]) this.metrics[name] = new Counter(properties);
-    return this.metrics[name];
-}
-
-Metrics.prototype.Gauge = function(name, properties)
-{
-    if (!this.metrics[name]) this.metrics[name] = new Gauge(properties);
-    return this.metrics[name];
+    if (!this[name]) this[name] = new Counter(properties);
+    return this[name];
 }
 
 Metrics.prototype.Timer = function(name, properties)
 {
-    if (!this.metrics[name]) this.metrics[name] = new Timer(properties);
-    return this.metrics[name];
+    if (!this[name]) this[name] = new Timer(properties);
+    return this[name];
 }
 
 Metrics.prototype.Meter = function(name, properties)
@@ -585,7 +549,7 @@ Metrics.prototype.Meter = function(name, properties)
 
 Metrics.prototype.Histogram = function(name, properties)
 {
-    if (!this.metrics[name]) this.metrics[name] = new Histogram(properties);
-    return this.metrics[name];
+    if (!this[name]) this[name] = new Histogram(properties);
+    return this[name];
 }
 

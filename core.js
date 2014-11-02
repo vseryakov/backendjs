@@ -2462,6 +2462,24 @@ core.objGet = function(obj, name, options)
     return obj;
 }
 
+// Flatten a javascript object into a single-depth object
+core.objFlatten = function(ob)
+{
+    var rc = {};
+
+    for (var p in ob) {
+        if (typeof ob[p] == 'object') {
+            var o = this.objFlatten(ob[p]);
+            for (var x in o) {
+                rc[p + '.' + x] = o[x];
+            }
+        } else {
+            rc[p] = ob[p];
+        }
+    }
+    return rc;
+}
+
 // Set a property of the object, name can be an array or a string with property path inside the object, all non existent intermediate
 // objects will be create automatically. The options can have the folowing properties:
 // - incr - if 1 the numeric value will be added to the existing if any
