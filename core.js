@@ -45,6 +45,7 @@ var core = {
     // Instance mode, remote jobs
     instance: false,
     instanceId: process.pid,
+    workerId: '',
 
     // Home directory, current by default, must be absolute path
     home: process.env.BACKEND_HOME || (process.env.HOME + '/.backend'),
@@ -244,6 +245,7 @@ core.init = function(options, callback)
 
     // Process role
     if (options.role) this.role = options.role;
+    if (cluster.worker) this.workerId = cluster.worker.id;
 
     // Random proces id to be used as a prefix in clusters
     self.pid = crypto.randomBytes(4).toString('hex');
@@ -681,11 +683,11 @@ core.encodeURIComponent = function(str)
     return encodeURIComponent(str || "").replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
 }
 
-// Return unique process id based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
+// Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
 // making it usable for repeating environments or storage solutions.
-core.processId = function()
+core.processName = function()
 {
-    return this.role + (cluster.isWorker ? cluster.worker.id : '');
+    return (this.role || this.name) + this.workerId;
 }
 
 // Convert text into capitalized words

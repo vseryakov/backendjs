@@ -158,10 +158,11 @@ var api = {
        // Collected stats
        bk_collect: { id: { primary: 1 },
                      mtime: { type: "bigint", primary: 1 },
-                     ctime: { type: "bigint" },
-                     type: {},
                      ip: {},
+                     type: {},
                      instance: {},
+                     worker: {},
+                     pid: { type: "int" },
                      latency: { type: "int" },
                      cpus: { type: "int" },
                      api: { type: "json" },
@@ -177,7 +178,8 @@ var api = {
                      totalmem: { type: "json" },
                      util: { type: "json" },
                      cache: { type: "json" },
-                     data: { type: "json" }},
+                     data: { type: "json" },
+                     ctime: { type: "bigint" }},
 
     }, // tables
 
@@ -235,7 +237,17 @@ var api = {
     iconLimit: {},
 
     // Metrics and stats
-    metrics: new metrics.Metrics('host', '', 'pid', process.pid, 'ip', '', 'instance', '', 'latency', 0, 'cpus', 0, 'ctime', 0, 'mtime', Date.now(),
+    metrics: new metrics.Metrics('id', '',
+                                 'ip', '',
+                                 'mtime', Date.now(),
+                                 'ctime', 0,
+                                 'type', '',
+                                 'host', '',
+                                 'pid', 0,
+                                 'instance', '',
+                                 'worker', '',
+                                 'latency', 0,
+                                 'cpus', 0,
                                  'api', new metrics.Metrics(),
                                  'urls', new metrics.Metrics(),
                                  'accounts', new metrics.Metrics(),
@@ -363,9 +375,9 @@ api.init = function(callback)
             res.end = end;
             res.end(chunk, encoding);
             self.metrics.api.Counter('count').dec();
-            self.metrics.api.Counter("total").add();
-            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.api.Counter("bad").add();
-            if (res.statusCode >= 500) self.metrics.api.Counter("errors").add();
+            self.metrics.api.Gauge("total").inc();
+            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.api.Gauge("bad").inc();
+            if (res.statusCode >= 500) self.metrics.api.Gauge("errors").inc();
             req.metric1.end();
             req.metric2.end();
             // Ignore external or not handled urls
@@ -2709,7 +2721,7 @@ api.makeConnection = function(id, obj, options, callback)
             query.mtime = now;
             db[op]("bk_connection", query, options, function(err) {
                 if (err) return next(err);
-                self.metrics.connections.Counter(op + ":" + obj.type).add();
+                self.metrics.connections.Gauge(op + ":" + obj.type).inc();
                 next();
             });
         },
@@ -2762,7 +2774,7 @@ api.deleteConnection = function(id, obj, options, callback)
     var now = Date.now();
 
     function del(row, cb) {
-        self.metrics.connections.Counter('del:' + row.type).add();
+        self.metrics.connections.Gauge('del:' + row.type).inc();
 
         async.series([
            function(next) {
@@ -3093,7 +3105,7 @@ api.addMessage = function(req, options, callback)
         },
         ], function(err) {
             if (err) return callback(err);
-            self.metrics.messages.Meter('add').mark();
+            self.metrics.messages.Gauge('add').inc();
             if (options.nosent) {
                 db.processRows("", "bk_message", msg, options);
                 callback(null, msg, info);
@@ -3121,7 +3133,7 @@ api.delMessage = function(req, options, callback)
     if (req.query.mtime && req.query[sender]) {
         return db.del(table, { id: req.account.id, mtime: req.query.mtime + ":" + req.query[sender] }, options, function(err) {
             if (err || !req.query.icon) return callback(err, []);
-            self.metrics.messages.Meter('del:' + table).mark();
+            self.metrics.messages.Gauge('del:' + table).inc();
             self.delIcon(req.account.id, { prefix: "message", type: req.query.mtime + ":" + req.query[sender] }, callback);
         });
     }
@@ -3136,7 +3148,7 @@ api.delMessage = function(req, options, callback)
             row.mtime += ":" + row[sender];
             db.del(table, row, function(err) {
                 if (err || !row.icon) return next(err);
-                self.metrics.messages.Meter('del:' + table).mark();
+                self.metrics.messages.Gauge('del:' + table).inc();
                 self.delIcon(req.account.id, { prefix: "message", type: row.mtime }, next);
             });
         }, callback);
@@ -3331,7 +3343,7 @@ api.addAccount = function(req, options, callback)
            });
        },
        function(next) {
-           self.metrics.accounts.Meter('add').mark();
+           self.metrics.accounts.Gauge('add').inc();
            db.processRows(null, "bk_account", req.query, options);
            // Link account record for other middleware
            req.account = req.query;
@@ -3465,7 +3477,7 @@ api.deleteAccount = function(id, options, callback)
                db.del("bk_location", obj, options, function() { next() });
            }],
            function(err) {
-                if (!err) self.metrics.accounts.Meter('del').mark();
+                if (!err) self.metrics.accounts.Gauge('del').inc();
                 callback(err, obj);
         });
     });
@@ -3502,6 +3514,7 @@ api.sendStatistics = function()
     if (self.collectHost) {
         var obj = metrics.toJSON();
         metrics.clear();
+
         // Using local db connection, this is usefull in case of distributed database where there is no
         // need for the collection ost in the middle.
         if (self.collectHost == "pool") return self.saveStatistics(obj);
@@ -3526,6 +3539,7 @@ api.saveStatistics = function(obj, callback)
 {
     var self = this;
     var db = core.context.db;
+
     if (obj.id && obj.pid && typeof obj.mtime == "number" && typeof obj.api == "object" && typeof obj.pool == "object") {
         db.put("bk_collect", obj, { pool: self.collectPool }, function(err) {
             if (callback) callback(err);
@@ -3539,18 +3553,21 @@ api.saveStatistics = function(obj, callback)
 api.getStatistics = function()
 {
     var self = this;
+    var now = Date.now();
     var cpus = os.cpus();
     var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
     var avg = os.loadavg();
     var mem = process.memoryUsage();
     this.metrics.data = null;
     this.metrics.type = "metrics";
-    this.metrics.mtime = Date.now();
-    this.metrics.id = core.ipaddr + process.pid;
+    this.metrics.mtime = now;
     this.metrics.ip = core.ipaddr;
+    this.metrics.pid = process.pid;
     this.metrics.ctime = core.ctime;
     this.metrics.cpus = core.maxCPUs;
     this.metrics.instance = core.instanceId;
+    this.metrics.worker = core.workerId || '0';
+    this.metrics.id = core.ipaddr + '-' + this.metrics.worker;
     this.metrics.latency = backend.getBusy();
     this.metrics.Histogram('rss').update(mem.rss);
     this.metrics.Histogram('heap').update(mem.heapUsed);
@@ -3572,7 +3589,7 @@ api.calcStatistics = function(req, options, callback)
     var db = core.context.db;
     var now = Date.now();
     var type = req.query.type || "util";
-    var start = now - core.toNumber(req.query.start, 0, 1, 1) * 60000;
+    var start = now - core.toNumber(req.query.start, 0, 5, 1) * 60000;
     var end = now - core.toNumber(req.query.end, 0, 0, 0) * 60000;
     var interval = core.toNumber(req.query.interval, 0, 300, 60) * 1000;
 
@@ -3586,8 +3603,8 @@ api.calcStatistics = function(req, options, callback)
             // Extract properties to be shown by type
             switch (type) {
             case "api":
-                avg = { rate: core.toNumber(x.api && x.api.response && x.api.response.meter ? x.api.response.meter.mean : 0),
-                        response: core.toNumber(x.api && x.api.response && x.api.response.histogram ? x.api.response.histogram.mean : 0),
+                avg = { rate: core.toNumber(x.api && x.api.response ? x.api.response.meanRate : 0),
+                        response: core.toNumber(x.api && x.api.response ? api.response.mean : 0),
                         queue: core.toNumber(x.api && x.api.queue ? x.api.queue.mean : 0),
                         count: core.toNumber(x.api ? x.api.count : 0),
                         latency: core.toNumber(x.latency || 0), };
@@ -3597,8 +3614,8 @@ api.calcStatistics = function(req, options, callback)
                 break;
 
             case "pool":
-                avg = { rate: core.toNumber(x.pool && x.pool.reponse && x.pool.response.meter ? x.pool.response.meter.mean : 0),
-                        response: core.toNumber(x.pool && x.pool.response && x.pool.response.histogram ? x.pool.response.histogram.mean : 0),
+                avg = { rate: core.toNumber(x.pool && x.pool.reponse ? x.pool.response.meanRate : 0),
+                        response: core.toNumber(x.pool && x.pool.response ? x.pool.response.mean : 0),
                         queue: core.toNumber(x.pool && x.pool.queue ? x.pool.queue.mean : 0),
                         count: core.toNumber(x.pool ? x.pool.count : 0), };
                 agg = { total: core.toNumber(x.pool ? x.pool.total : 0),

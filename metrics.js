@@ -34,15 +34,38 @@ Counter.prototype.reset = function(count)
     this._count = count || 0;
 }
 
-Counter.prototype.add = function(n)
+exports.Gauge = Gauge;
+function Gauge(properties)
 {
-    if (!this._incremental) this._incremental = true;
-    return this.inc(n);
+    properties = properties || {};
+    this._count = properties.count || 0;
 }
 
-Counter.prototype.clear = function()
+Gauge.prototype.toJSON = function()
 {
-    if (this._incremental) this._count = 0;
+    return this._count;
+}
+
+Gauge.prototype.inc = function(n)
+{
+    this._count += (n || 1);
+    return this._count;
+}
+
+Gauge.prototype.dec = function(n)
+{
+    this._count -= (n || 1);
+    return this._count;
+}
+
+Gauge.prototype.reset = function(count)
+{
+    this._count = count || 0;
+}
+
+Gauge.prototype.clear = function()
+{
+    this._count = 0;
 }
 
 exports.ExponentiallyMovingWeightedAverage = ExponentiallyMovingWeightedAverage;
@@ -82,7 +105,7 @@ function Meter(properties)
     this._m15Rate = new ExponentiallyMovingWeightedAverage(15 * 60000, this._tickInterval);
     this._count = 0;
     this._currentSum = 0;
-    this._lastToJSON = null
+    this._lastToJSON = null;
     this._interval = null;
     this._startTime = null;
 }
@@ -125,16 +148,14 @@ Meter.prototype.reset = function()
 Meter.prototype.meanRate = function()
 {
     if (this._count === 0) return 0;
-    var elapsed = Date.now() - this._startTime;
-    return this._count / elapsed * this._rateUnit;
+    return this._count / (Date.now() - this._startTime) * this._rateUnit;
 }
 
 Meter.prototype.currentRate = function()
 {
     var now = Date.now();
-    var currentSum = this._currentSum;
     var duration = now - this._lastToJSON;
-    var currentRate = duration ? (currentSum / duration * this._rateUnit) : 0;
+    var currentRate = duration ? (this._currentSum / duration * this._rateUnit) : 0;
     this._currentSum = 0;
     this._lastToJSON = now;
     return currentRate;
@@ -143,8 +164,8 @@ Meter.prototype.currentRate = function()
 Meter.prototype.toJSON = function()
 {
     return {
-        'mean' : this.meanRate(),
         'count' : this._count,
+        'meanRate' : this.meanRate(),
         'currentRate' : this.currentRate(),
         '1MinuteRate' : this._m1Rate.rate(this._rateUnit),
         '5MinuteRate' : this._m5Rate.rate(this._rateUnit),
@@ -487,14 +508,9 @@ Timer.prototype.end = function()
 
 Timer.prototype.toJSON = function()
 {
-    var self = this;
-    var result = {};
-
-    ['meter', 'histogram'].forEach(function(metric) {
-        var json = self['_' + metric].toJSON();
-        result[metric] = {};
-        for (var key in json) result[metric][key] = json[key];
-    });
+    var result = this._meter.toJSON();
+    var json = this._histogram.toJSON();
+    for (var key in json) result[key] = json[key];
     return result;
 }
 
@@ -518,28 +534,40 @@ Metrics.prototype.toJSON = function()
     return json;
 }
 
-Metrics.prototype.clear = function()
+Metrics.prototype.call = function(name)
 {
     for (var p in this) {
-        if (this[p] && typeof this[p].clear == "function") this[p].clear();
+        if (this[p] && typeof this[p][name] == "function") this[p][name]();
     }
     for (var p in this.metrics) {
-        if (this.metrics[p] && typeof this.metrics[p].clear == "function") this.metrics[p].clear();
+        if (this.metrics[p] && typeof this.metrics[p][name] == "function") this.metrics[p][name]();
     }
+}
+
+Metrics.prototype.clear = function()
+{
+    this.call("clear");
+}
+
+Metrics.prototype.reset = function()
+{
+    this.call("reset");
 }
 
 Metrics.prototype.end = function()
 {
-    var metrics = this.metrics;
-    Object.keys(metrics).forEach(function(name) {
-        var metric = metrics[name];
-        if (metric.end) metric.end();
-    });
+    this.call("end");
 }
 
 Metrics.prototype.Counter = function(name, properties)
 {
     if (!this.metrics[name]) this.metrics[name] = new Counter(properties);
+    return this.metrics[name];
+}
+
+Metrics.prototype.Gauge = function(name, properties)
+{
+    if (!this.metrics[name]) this.metrics[name] = new Gauge(properties);
     return this.metrics[name];
 }
 

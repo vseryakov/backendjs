@@ -596,7 +596,7 @@ db.query = function(req, options, callback)
     var t1 = Date.now();
     var m1 = pool.metrics.Timer('response').start();
     pool.metrics.Histogram('queue').update(pool.metrics.Counter('count').inc());
-    pool.metrics.Counter('total').add();
+    pool.metrics.Gauge('total').inc();
 
     function onEnd(err, client, rows, info) {
         if (client) pool.free(client);
@@ -605,7 +605,7 @@ db.query = function(req, options, callback)
         pool.metrics.Counter('count').dec();
 
         if (err && !options.silence_error) {
-            pool.metrics.Counter("errors").add();
+            pool.metrics.Gauge("errors").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
         } else {
             logger.debug("db.query:", pool.name, Date.now() - t1, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
@@ -3825,7 +3825,7 @@ db.lmdbInitPool = function(options)
         if (this.dbhandle) return callback(null, this.dbhandle);
         try {
             if (!core.exists(this.create_if_missing)) options.create_if_missing = true;
-            var path = core.path.spool + "/" + (options.db || ('ldb_' + core.processId()));
+            var path = core.path.spool + "/" + (options.db || ('ldb_' + core.processName()));
             new backend.LevelDB(path, options, function(err) {
                 pool.dbhandle = this;
                 callback(null, this);
