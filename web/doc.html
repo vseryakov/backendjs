@@ -1630,10 +1630,6 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests. Default: 20100</li>
 <li><code>cache-bind</code> - Listen only on specified address for cache sockets server in the master process</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
-<li><code>collect-host</code> - The backend URL where all collected statistics should be sent</li>
-<li><code>collect-pool</code> - Database pool where to save collected statistics</li>
-<li><code>collect-interval</code> - How often to collect statistics and metrics in seconds. Default: 30</li>
-<li><code>collect-send-interval</code> - How often to send collected statistics to the master server in seconds. Default: 300</li>
 <li><code>logwatcher-url</code> - The backend URL where logwatcher reports should be sent instead of email</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
@@ -1719,7 +1715,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
 <li><code>api-images-s3-options</code> - S3 options to sign images urls, may have expires:, key:, secret: properties</li>
-<li><code>api-domain</code> - Regexp of the domains or hostnames to be served by API, if not matched the requests will be served by the other middleware configured</li>
+<li><code>api-domain</code> - Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express</li>
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error. Default: 1000</li>
 <li><code>api-access-log</code> - File for access logging</li>
@@ -1749,6 +1745,10 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds. Default: 3000</li>
 <li><code>api-status-interval</code> - Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago. Default: 900000</li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing. Default: </li>
+<li><code>api-collect-host</code> - The backend URL where all collected statistics should be sent over, if set to <code>pool</code> then each web worker will save metrics directly into the statistics database pool</li>
+<li><code>api-collect-pool</code> - Database pool where to save collected statistics</li>
+<li><code>api-collect-interval</code> - How often to collect statistics and metrics in seconds. Default: 30</li>
+<li><code>api-collect-send-interval</code> - How often to send collected statistics to the master server in seconds. Default: 300</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
 <li><code>api-select-limit</code> - Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes. Default: 10485760</li>
@@ -1895,29 +1895,82 @@ the worker processes if they die and restart them automatically. How many proces
                    follow0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },      // who i follow
                    follow1: { type: &quot;counter&quot;, value: 0, autoincr: 1 }},     // reversed, who follows me
 
-     // Collected stats
+     // Collected metrics per worker process, basic columns are defined in the table to be collected like
+     // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
+     // Counters ending with _0 are snapshots, i.e. they must be summed up for any given interval.
+     // All other counters are averages.
      bk_collect: { id: { primary: 1 },
                    mtime: { type: &quot;bigint&quot;, primary: 1 },
-                   ctime: { type: &quot;bigint&quot; },
-                   type: {},
                    ip: {},
+                   type: {},
                    instance: {},
+                   worker: {},
+                   pid: { type: &quot;int&quot; },
                    latency: { type: &quot;int&quot; },
                    cpus: { type: &quot;int&quot; },
-                   api: { type: &quot;json&quot; },
-                   pool: { type: &quot;json&quot; },
-                   urls: { type: &quot;json&quot; },
-                   connections: { type: &quot;json&quot; },
-                   accounts: { type: &quot;json&quot; },
-                   messages: { type: &quot;json&quot; },
-                   rss: { type: &quot;json&quot; },
-                   heap: { type: &quot;json&quot; },
-                   loadavg: { type: &quot;json&quot; },
-                   freemem: { type: &quot;json&quot; },
-                   totalmem: { type: &quot;json&quot; },
-                   util: { type: &quot;json&quot; },
-                   cache: { type: &quot;json&quot; },
-                   data: { type: &quot;json&quot; }},
+                   mem: { type: &quot;bigint&quot; },
+                   rss_hmean: { type: &quot;real&quot; },
+                   heap_hmean: { type: &quot;real&quot; },
+                   avg_hmean: { type: &quot;real&quot; },
+                   free_hmean: { type: &quot;real&quot; },
+                   util_hmean: { type: &quot;real&quot; },
+                   api_req_rmean: { type: &quot;real&quot; },
+                   api_req_hmean: { type: &quot;real&quot; },
+                   api_req_0: { type: &quot;real&quot; },
+                   api_errors_0: { type: &quot;real&quot; },
+                   api_bad_0: { type: &quot;real&quot; },
+                   api_que_rmean: { type: &quot;real&quot; },
+                   api_que_hmean: { type: &quot;real&quot; },
+                   pool_req_rmean: { type: &quot;real&quot; },
+                   pool_req_hmean: { type: &quot;real&quot; },
+                   pool_req_hmean: { type: &quot;real&quot; },
+                   pool_req_0: { type: &quot;real&quot; },
+                   pool_errors_0: { type: &quot;real&quot; },
+                   pool_que_rmean: { type: &quot;real&quot; },
+                   pool_que_hmean: { type: &quot;real&quot; },
+                   url_account_get_rmean: { type: &quot;real&quot; },
+                   url_account_get_hmean: { type: &quot;real&quot; },
+                   url_account_get_0: { type: &quot;real&quot; },
+                   url_account_update_rmean: { type: &quot;real&quot; },
+                   url_account_update_hmean: { type: &quot;real&quot; },
+                   url_account_update_0: { type: &quot;real&quot; },
+                   url_message_get_rmean: { type: &quot;real&quot; },
+                   url_message_get_hmean: { type: &quot;real&quot; },
+                   url_message_get_0: { type: &quot;real&quot; },
+                   url_message_add_rmean: { type: &quot;real&quot; },
+                   url_message_add_hmean: { type: &quot;real&quot; },
+                   url_message_add_0: { type: &quot;real&quot; },
+                   url_counter_incr_rmean: { type: &quot;real&quot; },
+                   url_counter_incr_hmean: { type: &quot;real&quot; },
+                   url_counter_incr_0: { type: &quot;real&quot; },
+                   url_connection_get_rmean: { type: &quot;real&quot; },
+                   url_connection_get_hmean: { type: &quot;real&quot; },
+                   url_connection_get_0: { type: &quot;real&quot; },
+                   url_connection_select_rmean: { type: &quot;real&quot; },
+                   url_connection_select_hmean: { type: &quot;real&quot; },
+                   url_connection_select_0: { type: &quot;real&quot; },
+                   url_connection_add_rmean: { type: &quot;real&quot; },
+                   url_connection_add_hmean: { type: &quot;real&quot; },
+                   url_connection_add_0: { type: &quot;real&quot; },
+                   url_connection_incr_rmean: { type: &quot;real&quot; },
+                   url_connection_incr_hmean: { type: &quot;real&quot; },
+                   url_connection_incr_0: { type: &quot;real&quot; },
+                   url_connection_del_rmean: { type: &quot;real&quot; },
+                   url_connection_del_hmean: { type: &quot;real&quot; },
+                   url_connection_del_0: { type: &quot;real&quot; },
+                   url_location_get_rmean: { type: &quot;real&quot; },
+                   url_location_get_hmean: { type: &quot;real&quot; },
+                   url_location_get_0: { type: &quot;real&quot; },
+                   url_location_put_rmean: { type: &quot;real&quot; },
+                   url_location_put_hmean: { type: &quot;real&quot; },
+                   url_location_put_0: { type: &quot;real&quot; },
+                   url_image_account_rmean: { type: &quot;real&quot; },
+                   url_image_account_hmean: { type: &quot;real&quot; },
+                   url_image_account_0: { type: &quot;real&quot; },
+                   url_image_message_rmean: { type: &quot;real&quot; },
+                   url_image_message_hmean: { type: &quot;real&quot; },
+                   url_image_message_0: { type: &quot;real&quot; },
+                   ctime: { type: &quot;bigint&quot; }},
 </code></pre></li>
 </ul>
 
@@ -2060,25 +2113,6 @@ Check access permissions, calls the callback with the following argument:</p>
 <li>status contains the signature verification status, an object with status: and message: properties</li>
 <li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.parseSignature(req)</code></p>
-<p> Parse incoming request for signature and return all pieces wrapped in an object, this object
-will be used by verifySignature function for verification against an account
-signature version:</p>
-<ul>
-<li>1 regular signature signed with secret for specific requests</li>
-<li>2 to be sent in cookies and uses wild support for host and path
-If the signature successfully recognized it is saved in the request for subsequent use as req.signature</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.verifySignature(sig, account)</code></p>
-<p> Verify signature with given account, signature is an object returned by parseSignature</p>
 </li>
 </ul>
 
@@ -2784,19 +2818,25 @@ the system API is secured, the user can be any valid user registered in the bk_a
 
 <ul>
 <li><p><code>api.saveStatistics(obj, callback)</code></p>
-<p> Save collected statistics in the bk_collect table, this can be called via API or directly by the backend</p>
+<p> Save collected statistics in the bk_collect table, this can be called via API or directly by the backend, this wrapper
+is supposed to be overrriden by the application with additional logic how the statistics is saved. Columns in the bk_collect table
+must be defined for any metrics to be saved, use api.describeTable with additional columns from the api.metrics object in additional to the default ones.</p>
+<p>Example, add pool cache stats to the table</p>
+<pre><code>    api.describeTable({ bk_collect: { pool_cache_rmean: { type: &quot;real&quot; },
+                                      pool_cache_hmean: { type: &quot;real&quot; } });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>api.getStatistics(options)</code></p>
+<p> Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
+where all property names of the complex objects are combined into one name separated by comma.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.getStatistics()</code></p>
-<p> Returns an object with collected db and api statstics and metrics</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.showStatistics(req, options, callback)</code></p>
-<p> Show statistics for a period of time</p>
+<li><p><code>api.calcStatistics(req, options, callback)</code></p>
+<p> Calculate statistics for a period of time</p>
 </li>
 </ul>
 
@@ -3277,8 +3317,8 @@ type can be bool, number, list, json</p>
 </ul>
 
 <ul>
-<li><p><code>core.processId()</code></p>
-<p> Return unique process id based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
+<li><p><code>core.processName()</code></p>
+<p> Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
 making it usable for repeating environments or storage solutions.</p>
 </li>
 </ul>
@@ -3385,6 +3425,25 @@ On end, the object params will contain the following updated properties:</li>
 <li>size - size of the response body or file
 Note: SIDE EFFECT: params object is modified in place so many options will be changed/removed or added</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.parseSignature(req)</code></p>
+<p> Parse incoming request for signature and return all pieces wrapped in an object, this object
+will be used by verifySignature function for verification against an account
+signature version:</p>
+<ul>
+<li>1 regular signature signed with secret for specific requests</li>
+<li>2 to be sent in cookies and uses wild support for host and path
+If the signature successfully recognized it is saved in the request for subsequent use as req.signature</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.verifySignature(sig, account)</code></p>
+<p> Verify signature with given account, signature is an object returned by parseSignature</p>
 </li>
 </ul>
 
@@ -3863,6 +3922,12 @@ Options may contains the following properties:</p>
 <p>Example:</p>
 <pre><code>    core.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;)
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>core.objFlatten(obj, options)</code></p>
+<p> Flatten a javascript object into a single-depth object</p>
+</li>
 </ul>
 
 <ul>
@@ -4445,8 +4510,10 @@ The following options can be used:</p>
 <ul>
 <li><p><code>db.search(table, query, options, callback)</code></p>
 <p> Perform full text search on the given table, the database implementation may ignore table name completely
-in case of global text index. Options takes same properties as in the select method. Without full text support
-this works the same way as the <code>select</code> method. NOT IMPLEMENTED YET.</p>
+in case of global text index.
+Query is in general a text string with the format that is supported by the underlying driver, bkjs does not parse the query at all.
+Options make take the same properties as in the select method. Without full text support
+this works the same way as the <code>select</code> method.</p>
 </li>
 </ul>
 

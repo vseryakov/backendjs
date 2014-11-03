@@ -596,7 +596,7 @@ db.query = function(req, options, callback)
     var t1 = Date.now();
     var m1 = pool.metrics.Timer('que').start();
     pool.metrics.Histogram('req').update(pool.metrics.Counter('count').inc());
-    pool.metrics.Counter('total_0').inc();
+    pool.metrics.Counter('req_0').inc();
 
     function onEnd(err, client, rows, info) {
         if (client) pool.free(client);

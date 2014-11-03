@@ -156,7 +156,7 @@ var api = {
                      follow1: { type: "counter", value: 0, autoincr: 1 }},     // reversed, who follows me
 
        // Collected metrics per worker process, basic columns are defined in the table to be collected like
-       // api and db request rates(.rmean), response times(.hmean) and total number of requests(total_0).
+       // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
        // Counters ending with _0 are snapshots, i.e. they must be summed up for any given interval.
        // All other counters are averages.
        bk_collect: { id: { primary: 1 },
@@ -174,17 +174,62 @@ var api = {
                      avg_hmean: { type: "real" },
                      free_hmean: { type: "real" },
                      util_hmean: { type: "real" },
-                     pool_total_0: { type: "real" },
+                     api_req_rmean: { type: "real" },
+                     api_req_hmean: { type: "real" },
+                     api_req_0: { type: "real" },
+                     api_errors_0: { type: "real" },
+                     api_bad_0: { type: "real" },
+                     api_que_rmean: { type: "real" },
+                     api_que_hmean: { type: "real" },
                      pool_req_rmean: { type: "real" },
                      pool_req_hmean: { type: "real" },
                      pool_req_hmean: { type: "real" },
+                     pool_req_0: { type: "real" },
+                     pool_errors_0: { type: "real" },
                      pool_que_rmean: { type: "real" },
                      pool_que_hmean: { type: "real" },
-                     api_total_0: { type: "real" },
-                     api_req_rmean: { type: "real" },
-                     api_req_hmean: { type: "real" },
-                     api_que_rmean: { type: "real" },
-                     api_que_hmean: { type: "real" },
+                     url_account_get_rmean: { type: "real" },
+                     url_account_get_hmean: { type: "real" },
+                     url_account_get_0: { type: "real" },
+                     url_account_update_rmean: { type: "real" },
+                     url_account_update_hmean: { type: "real" },
+                     url_account_update_0: { type: "real" },
+                     url_message_get_rmean: { type: "real" },
+                     url_message_get_hmean: { type: "real" },
+                     url_message_get_0: { type: "real" },
+                     url_message_add_rmean: { type: "real" },
+                     url_message_add_hmean: { type: "real" },
+                     url_message_add_0: { type: "real" },
+                     url_counter_incr_rmean: { type: "real" },
+                     url_counter_incr_hmean: { type: "real" },
+                     url_counter_incr_0: { type: "real" },
+                     url_connection_get_rmean: { type: "real" },
+                     url_connection_get_hmean: { type: "real" },
+                     url_connection_get_0: { type: "real" },
+                     url_connection_select_rmean: { type: "real" },
+                     url_connection_select_hmean: { type: "real" },
+                     url_connection_select_0: { type: "real" },
+                     url_connection_add_rmean: { type: "real" },
+                     url_connection_add_hmean: { type: "real" },
+                     url_connection_add_0: { type: "real" },
+                     url_connection_incr_rmean: { type: "real" },
+                     url_connection_incr_hmean: { type: "real" },
+                     url_connection_incr_0: { type: "real" },
+                     url_connection_del_rmean: { type: "real" },
+                     url_connection_del_hmean: { type: "real" },
+                     url_connection_del_0: { type: "real" },
+                     url_location_get_rmean: { type: "real" },
+                     url_location_get_hmean: { type: "real" },
+                     url_location_get_0: { type: "real" },
+                     url_location_put_rmean: { type: "real" },
+                     url_location_put_hmean: { type: "real" },
+                     url_location_put_0: { type: "real" },
+                     url_image_account_rmean: { type: "real" },
+                     url_image_account_hmean: { type: "real" },
+                     url_image_account_0: { type: "real" },
+                     url_image_message_rmean: { type: "real" },
+                     url_image_message_hmean: { type: "real" },
+                     url_image_message_0: { type: "real" },
                      ctime: { type: "bigint" }},
 
     }, // tables
@@ -256,14 +301,16 @@ var api = {
                                  'cpus', 0,
                                  'mem', 0),
 
+    // URL metrics, how long the metric path should be for an API endpoint URL, by default only first 2 components of the URL path are used.
+    // This object tells how long the metric name should be using the leading component of the url. The usual place to set this will be in the
+    // overridden api.initMiddleware() method in the application.
+    urlMetrics: { image: 2 },
+
     // Collector of statistics, seconds
     collectInterval: 30,
     collectSendInterval: 300,
     collectErrors: 0,
     collectQuiet: false,
-
-    // URL metrics, which endpoint to collect and how long the path should be
-    urlMetrics: {},
 
     // Default endpoints
     endpoints: { "account": 'initAccountAPI',
@@ -378,7 +425,7 @@ api.init = function(callback)
             res.end = end;
             res.end(chunk, encoding);
             self.metrics.Counter('api_nreq').dec();
-            self.metrics.Counter("api_total_0").inc();
+            self.metrics.Counter("api_req_0").inc();
             if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
             if (res.statusCode >= 500) self.metrics.Counter("api_errors_0").inc();
             req.metric1.end();
@@ -3548,7 +3595,14 @@ api.sendStatistics = function()
 }
 
 // Save collected statistics in the bk_collect table, this can be called via API or directly by the backend, this wrapper
-// is supposed to be overrriden by the application with additional logic how the statistics is saved
+// is supposed to be overrriden by the application with additional logic how the statistics is saved. Columns in the bk_collect table
+// must be defined for any metrics to be saved, use api.describeTable with additional columns from the api.metrics object in additional to the default ones.
+//
+// Example, add pool cache stats to the table
+//
+//          api.describeTable({ bk_collect: { pool_cache_rmean: { type: "real" },
+//                                            pool_cache_hmean: { type: "real" } });
+//
 api.saveStatistics = function(obj, callback)
 {
     var self = this;

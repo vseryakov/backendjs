@@ -265,7 +265,7 @@ aws.signS3 = function(method, bucket, key, options)
         if (options.expires) uri += "&Expires=" + options.expires;
         if (options.securityToken || this.securityToken) uri += "&SecurityToken=" + (options.securityToken || this.securityToken);
     }
-    logger.debug('signS3:', uri, options, 'str:', strSign);
+    logger.debug('signS3:', uri, options);
     return uri;
 }
 
