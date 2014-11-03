@@ -1931,6 +1931,9 @@ the worker processes if they die and restart them automatically. How many proces
                    url_account_get_rmean: { type: &quot;real&quot; },
                    url_account_get_hmean: { type: &quot;real&quot; },
                    url_account_get_0: { type: &quot;real&quot; },
+                   url_account_select_rmean: { type: &quot;real&quot; },
+                   url_account_select_hmean: { type: &quot;real&quot; },
+                   url_account_select_0: { type: &quot;real&quot; },
                    url_account_update_rmean: { type: &quot;real&quot; },
                    url_account_update_hmean: { type: &quot;real&quot; },
                    url_account_update_0: { type: &quot;real&quot; },
@@ -1964,6 +1967,9 @@ the worker processes if they die and restart them automatically. How many proces
                    url_location_put_rmean: { type: &quot;real&quot; },
                    url_location_put_hmean: { type: &quot;real&quot; },
                    url_location_put_0: { type: &quot;real&quot; },
+                   url_icon_get_rmean: { type: &quot;real&quot; },
+                   url_icon_get_hmean: { type: &quot;real&quot; },
+                   url_icon_get_0: { type: &quot;real&quot; },
                    url_image_account_rmean: { type: &quot;real&quot; },
                    url_image_account_hmean: { type: &quot;real&quot; },
                    url_image_account_0: { type: &quot;real&quot; },
@@ -2810,6 +2816,13 @@ delete an account but keep all messages and location: keep: { message: 1, locati
 </ul>
 
 <ul>
+<li><p><code>api.getStatistics(options)</code></p>
+<p> Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
+where all property names of the complex objects are combined into one name separated by comma.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.sendStatistics()</code></p>
 <p> Send collected statistics to the collection server, <code>backend-host</code> must be configured and possibly <code>backend-login</code> and <code>backend-secret</code> in case
 the system API is secured, the user can be any valid user registered in the bk_auth table.</p>
@@ -2828,15 +2841,8 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 </ul>
 
 <ul>
-<li><p><code>api.getStatistics(options)</code></p>
-<p> Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
-where all property names of the complex objects are combined into one name separated by comma.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.calcStatistics(req, options, callback)</code></p>
-<p> Calculate statistics for a period of time</p>
+<li><p><code>api.calcStatistics(query, options, callback)</code></p>
+<p> Calculate statistics for a period of time, query and options must confirm to the db.select conventions.</p>
 </li>
 </ul>
 
