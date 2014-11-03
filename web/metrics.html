@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+ <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+ <title>Metrics</title>
+ <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
+ <link rel="icon" href="/img/logo.png" type="image/png" />
+
+ <script src="/js/jquery.js" type="text/javascript" ></script>
+
+ <script src="/js/jquery-ui.js" type="text/javascript" ></script>
+ <link href="/css/jquery-ui.css" rel="stylesheet" type="text/css" />
+
+ <script src="/js/knockout.js" type="text/javascript"></script>
+
+ <script src="/js/crypto.js" type="text/javascript"></script>
+
+ <script src="/js/backend.js" type="text/javascript"></script>
+ <script src="/js/backend-jquery-ui.js" type="text/javascript"></script>
+
+ <link href="/css/nv.d3.css" rel="stylesheet" type="text/css">
+ <script src="/js/d3.min.js"></script>
+ <script src="/js/nv.d3.min.js"></script>
+
+<style>
+
+body {
+  overflow-y:scroll;
+  background-color: #bbbbbb;
+}
+
+text {
+  font: 12px sans-serif;
+}
+
+#loading {
+    display:none;
+    width: 16px;
+    height: 16px;
+}
+
+.buttons {
+    height: 22px;
+    background-color: #bbbbbb;
+}
+
+.chart svg {
+  height: 450px;
+  min-width: 100px;
+  min-height: 100px;
+  background-color: white;
+}
+
+</style>
+
+<script>
+
+function showChart()
+{
+    $("#chart_canvas").show();
+
+    var type = $('#type').val();
+    var mtime = Date.now() - parseInt($('#period').val());
+    Backend.send({ url: "/system/stats/calc?_noscan=0&_ops=mtime,ge&mtime=" + mtime, jsonType: "list" }, function(rows) {
+
+        var data = [];
+        switch (type) {
+        case "Endpoints":
+            data = [ { key: "Accounts Added", total: 0, values: [] },
+                     { key: "Accounts Deleted", total: 0, values: [] },
+                     { key: "Accounts Queried", total: 0, values: [] },
+                     { key: "Messages Added", total: 0, values: [] },
+                     { key: "Messages Read", total: 0, values: [] },
+                     { key: "Icons Read", total: 0, values: [] },
+                     { key: "Location Queried", total: 0, values: [] },
+                     { key: "Location Updated", total: 0, values: [] }  ];
+            rows.forEach(function(row) {
+                data[0].values.push([row.mtime, row.url_account_add_0 || 0]);
+                data[1].values.push([row.mtime, row.url_account_del_0 || 0]);
+                data[2].values.push([row.mtime, row.url_account_select_0 || 0]);
+                data[3].values.push([row.mtime, row.url_message_add_0 || 0]);
+                data[4].values.push([row.mtime, row.url_message_get_0 || 0]);
+                data[5].values.push([row.mtime, row.url_icon_get_0 || 0]);
+                data[6].values.push([row.mtime, row.url_location_get_0 || 0]);
+                data[7].values.push([row.mtime, row.url_location_put_0 || 0]);
+            });
+            break;
+
+        case "Requests":
+            data = [ { key: "API req/sec", values: [] },
+                     { key: "DB req/sec", values: [] }  ];
+            rows.forEach(function(row) {
+                data[0].values.push([row.mtime, row.api_req_rmean || 0]);
+                data[1].values.push([row.mtime, row.pool_req_rmean || 0]);
+            });
+            break;
+
+        case "Responses":
+            data = [ { key: "API resp, ms", values: [] },
+                     { key: "DB resp, ms", values: [] } ];
+            rows.forEach(function(row) {
+                data[0].values.push([row.mtime, row.api_req_hmean || 0]);
+                data[1].values.push([row.mtime, row.pool_req_hmean || 0]);
+            });
+            break;
+
+        case "Utilization":
+            data = [ { key: "CPU", values: [] },
+                     { key: "Latency, ms", values: [] } ];
+            rows.forEach(function(row) {
+                data[0].values.push([row.mtime, row.util_hmean || 0]);
+                data[1].values.push([row.mtime, row.latency || 0]);
+            });
+            break;
+
+        case "Memory":
+            data = [ { key: "RSS, Kb", values: [] },
+                     { key: "Heap, Kb", values: [] } ];
+            rows.forEach(function(row) {
+                data[0].values.push([row.mtime, (row.rss_hmean || 0)/1024]);
+                data[1].values.push([row.mtime, (row.heap_hmean || 0)/1024]);
+            });
+            break;
+        }
+
+        nv.addGraph(function() {
+            var chart = nv.models.lineChart()
+                 .useInteractiveGuideline(true)
+                 .rightAlignYAxis(false)
+                 .margin({left:100,right:20})
+                 .x(function(d) { return d[0] })
+                 .y(function(d) { return d[1] })
+                 .color(d3.scale.category10().range())
+                 .transitionDuration(300)
+                 .clipVoronoi(false);
+
+           chart.xAxis.tickFormat(function(d) { return d3.time.format('%a %H:%M')(new Date(d)) });
+           chart.yAxis.tickFormat(d3.format(',.2')).showMaxMin(0);
+
+           $("#chart_canvas").html("<svg></svg>");
+           d3.select('#chart_canvas svg').datum(data).call(chart);
+
+           nv.utils.windowResize(chart.update);
+           return chart;
+        });
+    }, function(err) {
+	console.log(err);
+    });
+}
+
+$(function() {
+     $('#type').on('change', function() { showChart(); });
+     $('#period').on('change', function() { showChart(); });
+
+     ko.applyBindings(Backend);
+     Backend.login(function(err) {
+       if (!err) showChart();
+       return 1;
+     });
+ });
+
+</script>
+
+<body>
+<div id="header" class="header">
+   <div class="buttons">
+   <select id="type" title="Metric type">
+     <option>Endpoints</option>
+     <option>Requests</option>
+     <option>Responses</option>
+     <option>Utilization</option>
+     <option>Memory</option>
+   </select>
+   <select id="period" title="Duration from the past">
+     <option value=3600000>1 Hour</option>
+     <option value=21600000>6 Hours</option>
+     <option value=43200000>12 Hours</option>
+     <option value=86400000>1 Day</option>
+     <option value=172800000>2 Days</option>
+     <option value=259200000>3 Days</option>
+     <option value=432000000>5 Days</option>
+     <option value=604800000>7 Days</option>
+   </select>
+   <img id="loading" src="/img/loading.gif">
+   </div>
+   <p style="clear:both;" />
+
+   <div class="center">
+     <div id="chart_canvas" class='chart with-transitions'><svg></svg></div>
+   </div>
+</body>
+

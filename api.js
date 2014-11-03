@@ -191,6 +191,9 @@ var api = {
                      url_account_get_rmean: { type: "real" },
                      url_account_get_hmean: { type: "real" },
                      url_account_get_0: { type: "real" },
+                     url_account_select_rmean: { type: "real" },
+                     url_account_select_hmean: { type: "real" },
+                     url_account_select_0: { type: "real" },
                      url_account_update_rmean: { type: "real" },
                      url_account_update_hmean: { type: "real" },
                      url_account_update_0: { type: "real" },
@@ -224,6 +227,9 @@ var api = {
                      url_location_put_rmean: { type: "real" },
                      url_location_put_hmean: { type: "real" },
                      url_location_put_0: { type: "real" },
+                     url_icon_get_rmean: { type: "real" },
+                     url_icon_get_hmean: { type: "real" },
+                     url_icon_get_0: { type: "real" },
                      url_image_account_rmean: { type: "real" },
                      url_image_account_hmean: { type: "real" },
                      url_image_account_0: { type: "real" },
@@ -1484,8 +1490,8 @@ api.initSystemAPI = function()
                 });
                 break;
 
-            case 'show':
-                self.calcStatistics(req, options, function(err, data) {
+            case 'calc':
+                self.calcStatistics(req.query, options, function(err, data) {
                     if (err) return self.sendReply(res, err);
                     res.json(data);
                 });
@@ -1689,6 +1695,7 @@ api.getOptions = function(req)
     if (req.query._tm) req.options.tm = core.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
     if (req.query._quality) req.options.quality = core.toNumber(req.query._quality);
     if (req.query._round) req.options.round = core.toNumber(req.query._round);
+    if (req.query._interval) req.options.interval = core.toNumber(req.query._interval);
     if (req.query._alias) req.options.alias = req.query._alias;
     if (req.query._name) req.options.name = req.query._name;
     if (req.query._ops) {
@@ -3566,6 +3573,44 @@ api.initStatistics = function()
     logger.debug("initStatistics:", "delay:",  delay, "interval:", self.collectInterval, self.collectSendInterval);
 }
 
+// Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
+// where all property names of the complex objects are combined into one name separated by comma.
+api.getStatistics = function(options)
+{
+    var self = this;
+    var now = Date.now();
+    var cpus = os.cpus();
+    var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
+    var avg = os.loadavg();
+    var mem = process.memoryUsage();
+    // Cache stats are always behind
+    ipc.stats(function(data) { self.metrics.cache = data });
+    this.metrics.mtime = now;
+    this.metrics.ip = core.ipaddr;
+    this.metrics.pid = process.pid;
+    this.metrics.ctime = core.ctime;
+    this.metrics.cpus = core.maxCPUs;
+    this.metrics.mem = os.totalmem();
+    this.metrics.instance = core.instanceId;
+    this.metrics.worker = core.workerId || '0';
+    this.metrics.id = core.ipaddr + '-' + process.pid;
+    this.metrics.latency = backend.getBusy();
+    this.metrics.Histogram('rss').update(mem.rss);
+    this.metrics.Histogram('heap').update(mem.heapUsed);
+    this.metrics.Histogram('avg').update(avg[2]);
+    this.metrics.Histogram('free').update(os.freemem());
+    this.metrics.Histogram("util").update(util * 100 / cpus.length);
+    this.metrics.pool = core.context.db.getPool().metrics;
+
+    // Convert into simple object with all deep properties using names concatenated with dots
+    var obj = core.objFlatten(this.metrics.toJSON(), { separator: '_' });
+
+    // Clear all counters to make a snapshot and start over, this way in the monitoring station it is only needd to be summed up without
+    // tracking any other states, the naming convention is to use _0 for snapshot counters.
+    if (options && options.clear) this.metrics.reset(/\_0$/);
+    return obj;
+}
+
 // Send collected statistics to the collection server, `backend-host` must be configured and possibly `backend-login` and `backend-secret` in case
 // the system API is secured, the user can be any valid user registered in the bk_auth table.
 api.sendStatistics = function()
@@ -3609,91 +3654,44 @@ api.saveStatistics = function(obj, callback)
     core.context.db.add("bk_collect", obj, { pool: self.collectPool }, callback);
 }
 
-// Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
-// where all property names of the complex objects are combined into one name separated by comma.
-api.getStatistics = function(options)
-{
-    var self = this;
-    var now = Date.now();
-    var cpus = os.cpus();
-    var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
-    var avg = os.loadavg();
-    var mem = process.memoryUsage();
-    // Cache stats are always behind
-    ipc.stats(function(data) { self.metrics.cache = data });
-    this.metrics.mtime = now;
-    this.metrics.ip = core.ipaddr;
-    this.metrics.pid = process.pid;
-    this.metrics.ctime = core.ctime;
-    this.metrics.cpus = core.maxCPUs;
-    this.metrics.mem = os.totalmem();
-    this.metrics.instance = core.instanceId;
-    this.metrics.worker = core.workerId || '0';
-    this.metrics.id = core.ipaddr + '-' + process.pid;
-    this.metrics.latency = backend.getBusy();
-    this.metrics.Histogram('rss').update(mem.rss);
-    this.metrics.Histogram('heap').update(mem.heapUsed);
-    this.metrics.Histogram('avg').update(avg[2]);
-    this.metrics.Histogram('free').update(os.freemem());
-    this.metrics.Histogram("util").update(util * 100 / cpus.length);
-    this.metrics.pool = core.context.db.getPool().metrics;
-
-    // Convert into simple object with all deep properties using names concatenated with dots
-    var obj = core.objFlatten(this.metrics.toJSON(), { separator: '_' });
-
-    // Clear all counters to make a snapshot and start over, this way in the monitoring station it is only needd to be summed up without
-    // tracking any other states, the naming convention is to use _0 for snapshot counters.
-    if (options && options.clear) this.metrics.reset(/\_0$/);
-    return obj;
-}
-
-// Calculate statistics for a period of time
-api.calcStatistics = function(req, options, callback)
+// Calculate statistics for a period of time, query and options must confirm to the db.select conventions.
+api.calcStatistics = function(query, options, callback)
 {
     var self = this;
     if (typeof optinons == "function") callback = options, options = null;
     if (!options) options = {};
     var db = core.context.db;
-    var now = Date.now();
-    var type = req.query.type || "util";
-    var start = now - core.toNumber(req.query.start, 0, 5, 1) * 60000;
-    var end = now - core.toNumber(req.query.end, 0, 0, 0) * 60000;
-    var interval = core.toNumber(req.query.interval, 0, 300, 60) * 1000;
+    // Default sample interval
+    if (!options.interval) options.interval = 300000;
 
-    options.ops = { mtime: 'between' };
-    options.noscan = false;
-
-    db.select("bk_collect", { mtime: [start, end] }, options, function(err, rows) {
-        var series = {};
+    db.select("bk_collect", query, options, function(err, rows) {
+        var series = {}, totals = {};
         rows.forEach(function(x) {
             var avg = {}, agg = {};
             // Extract properties to be shown by type
             for (var p in x) {
                 if (typeof x[p] != "number") continue;
                 if (p.slice(p.length - 2) == "_0") {
-                    agg[p.slice(0, p.length - 2)] = x[p];
+                    agg[p] = x[p];
                 } else {
                     avg[p] = x[p];
                 }
             }
 
             // Aggregate by specified interval
-            var mtime = Math.round(x.mtime/interval)*interval;
+            var mtime = Math.round(x.mtime/options.interval)*options.interval;
             if (!series[mtime]) {
                 series[mtime] = {};
-                for (var y in avg) {
-                    series[mtime]['_' + y] = 0;
-                    series[mtime][y] = 0;
-                }
-                for (var y in agg) {
-                    series[mtime][y] = 0;
-                }
+                totals[mtime] = {};
             }
             for (var y in avg) {
-                series[mtime]['_' + y]++;
+                if (!totals[mtime][y]) totals[mtime][y] = 0;
+                if (!series[mtime][y]) series[mtime][y] = 0;
+                totals[mtime][y]++;
                 series[mtime][y] += avg[y];
             }
             for (var y in agg) {
+                if (!series[mtime][y]) series[mtime][y] = 0;
                 series[mtime][y] += agg[y];
             }
         });
@@ -3701,8 +3699,7 @@ api.calcStatistics = function(req, options, callback)
         Object.keys(series).sort().forEach(function(x) {
             var obj = { mtime: core.toNumber(x) };
             for (var y in series[x]) {
-                if (y[0] == '_') continue;
-                if (series[x]['_' + y]) series[x][y] /= series[x]['_' + y];
+                if (totals[x][y]) series[x][y] /= totals[x][y];
                 obj[y] = series[x][y];
             }
             rows.push(obj);
