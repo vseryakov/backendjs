@@ -2463,18 +2463,18 @@ core.objGet = function(obj, name, options)
 }
 
 // Flatten a javascript object into a single-depth object
-core.objFlatten = function(ob)
+core.objFlatten = function(obj, options)
 {
     var rc = {};
 
-    for (var p in ob) {
-        if (typeof ob[p] == 'object') {
-            var o = this.objFlatten(ob[p]);
+    for (var p in obj) {
+        if (typeof obj[p] == 'object') {
+            var o = this.objFlatten(obj[p], options);
             for (var x in o) {
-                rc[p + '.' + x] = o[x];
+                rc[p + (options && options.separator ? options.separator : '.') + x] = o[x];
             }
         } else {
-            rc[p] = ob[p];
+            rc[p] = obj[p];
         }
     }
     return rc;

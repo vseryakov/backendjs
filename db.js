@@ -594,9 +594,9 @@ db.query = function(req, options, callback)
 
     // Metrics collection
     var t1 = Date.now();
-    var m1 = pool.metrics.Timer('query').start();
+    var m1 = pool.metrics.Timer('que').start();
     pool.metrics.Histogram('req').update(pool.metrics.Counter('count').inc());
-    pool.metrics.Counter('total#').inc();
+    pool.metrics.Counter('total_0').inc();
 
     function onEnd(err, client, rows, info) {
         if (client) pool.free(client);
@@ -605,7 +605,7 @@ db.query = function(req, options, callback)
         pool.metrics.Counter('count').dec();
 
         if (err && !options.silence_error) {
-            pool.metrics.Counter("errors#").inc();
+            pool.metrics.Counter("errors_0").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
         } else {
             logger.debug("db.query:", pool.name, Date.now() - t1, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);

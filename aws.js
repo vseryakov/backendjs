@@ -74,7 +74,7 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
     function encode(str) {
         str = encodeURIComponent(str);
         var efunc = function(m) { return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m; }
-        return str.replace(/[!'()*~]/g, efunc);
+        return str.replace(/[!'()*]/g, efunc);
     }
 
     sigValues.sort();
@@ -249,18 +249,23 @@ aws.signS3 = function(method, bucket, key, options)
         p = p.toLowerCase();
         if (resources.indexOf(p) != -1) rc.push(p + (options.query[p] == null ? "" : "=" + options.query[p]));
     }
-    strSign += (bucket ? "/" + bucket : "").toLowerCase() + (key[0] != "/" ? "/" : "") + encodeURI(key) + (rc.length ? "?" : "") + rc.sort().join("&");
+
+    // Run through the encoding so our signature match the real url sent by core.httpGet
+    key = url.parse(key).pathname;
+
+    strSign += (bucket ? "/" + bucket : "").toLowerCase() + (key[0] != "/" ? "/" : "") + key + (rc.length ? "?" : "") + rc.sort().join("&");
     var signature = core.sign(options.secret || this.secret, strSign);
     options.headers["authorization"] = "AWS " + (options.key || this.key) + ":" + signature;
 
     var uri = (self.proto || options.proto || 'http://') + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + url.format({ query: options.query });
+
     // Build REST url
     if (options.url) {
         uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Signature=" + encodeURIComponent(signature);
         if (options.expires) uri += "&Expires=" + options.expires;
         if (options.securityToken || this.securityToken) uri += "&SecurityToken=" + (options.securityToken || this.securityToken);
     }
-    logger.debug('signS3:', uri, options);
+    logger.debug('signS3:', uri, options, 'str:', strSign);
     return uri;
 }
 

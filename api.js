@@ -156,8 +156,8 @@ var api = {
                      follow1: { type: "counter", value: 0, autoincr: 1 }},     // reversed, who follows me
 
        // Collected metrics per worker process, basic columns are defined in the table to be collected like
-       // api and db request rates(.rmean), response times(.hmean) and total number of requests(total#).
-       // Counters ending with # are snapshots, i.e. they must be summed up for any given interval.
+       // api and db request rates(.rmean), response times(.hmean) and total number of requests(total_0).
+       // Counters ending with _0 are snapshots, i.e. they must be summed up for any given interval.
        // All other counters are averages.
        bk_collect: { id: { primary: 1 },
                      mtime: { type: "bigint", primary: 1 },
@@ -169,21 +169,22 @@ var api = {
                      latency: { type: "int" },
                      cpus: { type: "int" },
                      mem: { type: "bigint" },
-                     "rss.hmean": { type: "real" },
-                     "heap.hmean": { type: "real" },
-                     "avg.hmean": { type: "real" },
-                     "free.hmean": { type: "real" },
-                     "util.hmean": { type: "real" },
-                     "pool.req.rmean": { type: "real" },
-                     "pool.req.hmean": { type: "real" },
-                     "pool.req.hmean": { type: "real" },
-                     "pool.total#": { type: "real" },
-                     "pool.cache.rmean": { type: "real" },
-                     "pool.cache.hmean": { type: "real" },
-                     "api.queue.hmean": { type: "real" },
-                     "api.req.rmean": { type: "real" },
-                     "api.req.hmean": { type: "real" },
-                     "api.total#": { type: "real" },
+                     rss_hmean: { type: "real" },
+                     heap_hmean: { type: "real" },
+                     avg_hmean: { type: "real" },
+                     free_hmean: { type: "real" },
+                     util_hmean: { type: "real" },
+                     pool_total_0: { type: "real" },
+                     pool_req_rmean: { type: "real" },
+                     pool_req_hmean: { type: "real" },
+                     pool_req_hmean: { type: "real" },
+                     pool_que_rmean: { type: "real" },
+                     pool_que_hmean: { type: "real" },
+                     api_total_0: { type: "real" },
+                     api_req_rmean: { type: "real" },
+                     api_req_hmean: { type: "real" },
+                     api_que_rmean: { type: "real" },
+                     api_que_hmean: { type: "real" },
                      ctime: { type: "bigint" }},
 
     }, // tables
@@ -350,7 +351,7 @@ api.init = function(callback)
     // Latency watcher
     self.app.use(function(req, res, next) {
         if (self.busyLatency && backend.isBusy()) {
-            self.metrics.Counter('busy#').inc();
+            self.metrics.Counter('busy_0').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
         next();
@@ -367,25 +368,25 @@ api.init = function(callback)
     // Metrics starts early
     self.app.use(function(req, res, next) {
         var paths = req.path.substr(1).split("/");
-        var path = "/" + paths.slice(0, self.urlMetrics[paths[0]] || 2).join("/");
-        self.metrics.Histogram('api.queue').update(self.metrics.Counter('api.nreq').inc());
-        req.metric1 = self.metrics.Timer('api.req').start();
+        var path = "url_" + paths.slice(0, self.urlMetrics[paths[0]] || 2).join("_");
+        self.metrics.Histogram('api_que').update(self.metrics.Counter('api_nreq').inc());
+        req.metric1 = self.metrics.Timer('api_req').start();
         req.metric2 = self.metrics.Timer(path).start();
-        self.metrics.Counter(path +'#').inc();
+        self.metrics.Counter(path +'_0').inc();
         var end = res.end;
         res.end = function(chunk, encoding) {
             res.end = end;
             res.end(chunk, encoding);
-            self.metrics.Counter('api.nreq').dec();
-            self.metrics.Counter("api.total#").inc();
-            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api.bad#").inc();
-            if (res.statusCode >= 500) self.metrics.Counter("api.errors#").inc();
+            self.metrics.Counter('api_nreq').dec();
+            self.metrics.Counter("api_total_0").inc();
+            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
+            if (res.statusCode >= 500) self.metrics.Counter("api_errors_0").inc();
             req.metric1.end();
             req.metric2.end();
             // Ignore external or not handled urls
             if (req._noEndpoint || req._noSignature) {
                 delete self.metrics[path];
-                delete self.metrics[path + '#'];
+                delete self.metrics[path + '_0'];
             }
         }
         next();
@@ -2483,8 +2484,9 @@ api.storeFile = function(tmpfile, outfile, options, callback)
         var headers = { 'content-type': mime.lookup(outfile) };
         var params = { method: "PUT", headers: headers }
         params[Buffer.isBuffer(tmpfile) ? 'postdata' : 'postfile'] = tmpfile;
-        aws.queryS3(options.filesS3 || this.filesS3, outfile, params, function(err) {
-            if (callback) callback(err, outfile);
+        aws.queryS3(options.filesS3 || this.filesS3, outfile, params, function(err, params) {
+            if (params.status != 200) logger.error('storeFile:', outfile, 'status:', params.status, 'data:', params.data);
+            if (callback) callback(err, outfile, params);
         });
     } else {
         outfile = path.join(core.path.files, outfile);
@@ -2744,7 +2746,7 @@ api.makeConnection = function(id, obj, options, callback)
             query.mtime = now;
             db[op]("bk_connection", query, options, function(err) {
                 if (err) return next(err);
-                self.metrics.Counter(op + ":" + obj.type + '#').inc();
+                self.metrics.Counter(op + "_" + obj.type + '_0').inc();
                 next();
             });
         },
@@ -2797,7 +2799,7 @@ api.deleteConnection = function(id, obj, options, callback)
     var now = Date.now();
 
     function del(row, cb) {
-        self.metrics.Counter('del:' + row.type + '#').inc();
+        self.metrics.Counter('del_' + row.type + '_0').inc();
 
         async.series([
            function(next) {
@@ -3127,7 +3129,7 @@ api.addMessage = function(req, options, callback)
         },
         ], function(err) {
             if (err) return callback(err);
-            self.metrics.Counter('msg.add#').inc();
+            self.metrics.Counter('msg_add_0').inc();
             if (options.nosent) {
                 db.processRows("", "bk_message", msg, options);
                 callback(null, msg, info);
@@ -3363,7 +3365,7 @@ api.addAccount = function(req, options, callback)
            });
        },
        function(next) {
-           self.metrics.Counter('auth.add#').inc();
+           self.metrics.Counter('auth_add_0').inc();
            db.processRows(null, "bk_account", req.query, options);
            // Link account record for other middleware
            req.account = req.query;
@@ -3497,7 +3499,7 @@ api.deleteAccount = function(id, options, callback)
                db.del("bk_location", obj, options, function() { next() });
            }],
            function(err) {
-                if (!err) self.metrics.Counter('auth.del#').inc();
+                if (!err) self.metrics.Counter('auth_del_0').inc();
                 callback(err, obj);
         });
     });
@@ -3583,11 +3585,11 @@ api.getStatistics = function(options)
     this.metrics.pool = core.context.db.getPool().metrics;
 
     // Convert into simple object with all deep properties using names concatenated with dots
-    var obj = core.objFlatten(this.metrics.toJSON());
+    var obj = core.objFlatten(this.metrics.toJSON(), { separator: '_' });
 
     // Clear all counters to make a snapshot and start over, this way in the monitoring station it is only needd to be summed up without
-    // tracking any other states, the naming convention is to use # for snapshot counters.
-    if (options && options.clear) this.metrics.reset(/\#$/);
+    // tracking any other states, the naming convention is to use _0 for snapshot counters.
+    if (options && options.clear) this.metrics.reset(/\_0$/);
     return obj;
 }
 
@@ -3614,8 +3616,8 @@ api.calcStatistics = function(req, options, callback)
             // Extract properties to be shown by type
             for (var p in x) {
                 if (typeof x[p] != "number") continue;
-                if (p[p.length-1] == "#") {
-                    agg[p.slice(0, p.length-1)] = x[p];
+                if (p.slice(p.length - 2) == "_0") {
+                    agg[p.slice(0, p.length - 2)] = x[p];
                 } else {
                     avg[p] = x[p];
                 }
