@@ -1435,7 +1435,7 @@ core.forEachSeries = function (list, iterator, callback)
 {
     callback = callback || function() {}
     if (!list || !list.length) return callback();
-    function iterate (i) {
+    function iterate(i) {
         if (i == list.length) return callback();
         iterator(list[i], function(err) {
             if (err) return callback(err);

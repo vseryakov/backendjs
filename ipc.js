@@ -827,27 +827,10 @@ ipc.closeNotifications = function(options, callback)
     setTimeout(function() {
         async.parallel([
            function(next) {
-               if (!self.apnAgent) return next();
-               self.apnAgent.close(function() {
-                   self.apnFeedback.close();
-                   self.apnAgent = self.apnFeedback = null;
-                   logger.log('closeNotifications:', 'APN closed');
-                   next();
-               });
+               self.closeAPN(next);
            },
            function(next) {
-               if (!self.gcmAgent || !self.gcmQueue) return next();
-               var n = 0;
-               function check() {
-                   if (!self.gcmQueue || ++n > 30) {
-                       self.gcmAgent = null;
-                       logger.log('closeNotifications:', 'GCM closed');
-                       next();
-                   } else {
-                       setTimeout(check, 1000);
-                   }
-               }
-               check();
+               self.closeGCM(next);
            },
         ], callback);
     }, options.timeout || 2000);
@@ -902,6 +885,7 @@ ipc.initAPN = function()
     this.apnAgent.on('message:error', function(err) { logger.error('apn:', err) });
     this.apnAgent.on('gateway:error', function(err) { if (err && err.code != 10 && err.code != 8) logger.error('apn:', err) });
     this.apnAgent.connect(function(err) { if (err) logger.error('apn:', err); });
+    this.apnTimeout = setInterval(function() { self.apnAgent.queue.process() }, 1000);
     logger.debug("initAPN:", this.apnAgent.settings);
 
     this.apnFeedback = new apnagent.Feedback();
@@ -911,6 +895,21 @@ ipc.initAPN = function()
     this.apnFeedback.use(function(device, timestamp, next) {
         logger.log('apn: feedback:', device, timestamp);
         next();
+    });
+}
+
+// Close APN agent, try to send all pending messages before closing the gateway connection
+ipc.closeAPN = function(callback)
+{
+    var self = this;
+    if (!this.apnAgent) return callback ? callback() : null;
+
+    clearInterval(this.apnTimeout);
+    this.apnAgent.close(function() {
+        self.apnFeedback.close();
+        self.apnAgent = self.apnFeedback = null;
+        logger.log('closeAPN:');
+        if (callback) callback();
     });
 }
 
@@ -943,6 +942,25 @@ ipc.initGCM = function()
     if (!core.gcmKey) return;
     this.gcmAgent = new gcm.Sender(core.gcmKey);
     this.gcmQueue = 0;
+}
+
+// Close GCM connection, flush the queue
+ipc.closeGCM = function(callback)
+{
+    var self = this;
+    if (!self.gcmAgent || !self.gcmQueue) return callback ? callback() : null;
+
+    var n = 0;
+    function check() {
+        if (!self.gcmQueue || ++n > 30) {
+            self.gcmAgent = null;
+            logger.log('closeGCM:');
+            next();
+        } else {
+            setTimeout(check, 1000);
+        }
+    }
+    check();
 }
 
 // Send push notification to an Android device, return true if queued.
