@@ -1410,6 +1410,59 @@ core.runCallback = function(obj, msg)
     });
 }
 
+// Apply an iterator function to each item in an array in parallel. Execute a callback when all items
+// have been completed or immediately if there is an error provided.
+core.forEach = function (list, iterator, callback)
+{
+    callback = callback || function() {}
+    if (!list || !list.length) return callback();
+    var count = list.length;
+    for (var i = 0, l = list.length; i < l; i++) {
+        iterator(list[i], function(err) {
+            if (err) {
+                callback(err);
+                callback = function() {}
+            } else {
+                --count || callback(null);
+            }
+        });
+    }
+}
+
+// Apply an iterator function to each item in an array serially. Execute a callback when all items
+// have been completed or immediately if there is is an error provided.
+core.forEachSeries = function (list, iterator, callback)
+{
+    callback = callback || function() {}
+    if (!list || !list.length) return callback();
+    function iterate (i) {
+        if (i == list.length) return callback();
+        iterator(list[i], function(err) {
+            if (err) return callback(err);
+            iterate(++i);
+        });
+    }
+    iterate(0);
+}
+
+// Execute a list of functions in parellel and execute a callback upon completion or occurance of an error. Each function will be passed
+// a callback to signal completion. The callback accepts an error for the first argument or null.
+core.parallel = function (tasks, callback)
+{
+    callback = callback || function() {}
+    if (!tasks || !tasks.length) return callback();
+    this.forEach(tasks, function(task, next) { task(next); }, function(err) { callback(err); });
+}
+
+// Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
+// a callback to signal completion. The callback accepts either an error for the first argument or null.
+core.series = function (tasks, callback)
+{
+    callback = callback || function() {}
+    if (!tasks || !tasks.length) return callback();
+    this.forEachSeries(tasks, function(task, next) { task(next); }, function(err) { callback(err); });
+}
+
 // Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
 // Options defines the following properties:
 // - create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)
@@ -2390,6 +2443,24 @@ core.mergeObj = function(obj, options)
     return rc;
 }
 
+// Flatten a javascript object into a single-depth object
+core.flattenObj = function(obj, options)
+{
+    var rc = {};
+
+    for (var p in obj) {
+        if (typeof obj[p] == 'object') {
+            var o = this.objFlatten(obj[p], options);
+            for (var x in o) {
+                rc[p + (options && options.separator ? options.separator : '.') + x] = o[x];
+            }
+        } else {
+            rc[p] = obj[p];
+        }
+    }
+    return rc;
+}
+
 // Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
 core.extendObj = function()
 {
@@ -2460,24 +2531,6 @@ core.objGet = function(obj, name, options)
     }
     if (obj && options && options.list && !Array.isArray(obj)) obj = [ obj ];
     return obj;
-}
-
-// Flatten a javascript object into a single-depth object
-core.objFlatten = function(obj, options)
-{
-    var rc = {};
-
-    for (var p in obj) {
-        if (typeof obj[p] == 'object') {
-            var o = this.objFlatten(obj[p], options);
-            for (var x in o) {
-                rc[p + (options && options.separator ? options.separator : '.') + x] = o[x];
-            }
-        } else {
-            rc[p] = obj[p];
-        }
-    }
-    return rc;
 }
 
 // Set a property of the object, name can be an array or a string with property path inside the object, all non existent intermediate

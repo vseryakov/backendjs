@@ -850,7 +850,7 @@ ipc.closeNotifications = function(options, callback)
                check();
            },
         ], callback);
-    }, options.timeout || 500);
+    }, options.timeout || 2000);
 }
 
 // Deliver a notification using the specified service, apple is default.
@@ -932,7 +932,7 @@ ipc.sendAPN = function(device_id, options, callback)
     if (options.type) pkt.set("type", options.type);
     if (options.id) pkt.set("id", options.id);
     pkt.send();
-    if (callback) setImmediate(callback);
+    if (callback) process.nextTick(callback);
     return true;
 }
 
@@ -959,7 +959,7 @@ ipc.sendGCM = function(device_id, options, callback)
     if (options.badge) pkt.addData('badge', options.badge);
     this.gcmAgent.send(pkg, [device_id], 2, function() {
         self.gcmQueue--;
-        if (callback) setImmediate(callback);
+        if (callback) process.nextTick(callback);
     });
     return true;
 }

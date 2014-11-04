@@ -3307,6 +3307,7 @@ api.notifyAccount = function(id, options, callback)
     var ipc = core.context.ipc;
     if (!id || !options) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" }, {});
 
+    options = core.cloneObj(options);
     // Skip this account
     switch (core.typeName(options.skip)) {
     case "array":
@@ -3339,14 +3340,14 @@ api.notifyAccount = function(id, options, callback)
             }
 
             // Ready to send now, set additional properties, if if the options will be reused we overwrite the same properties for each account
-            options.account = account;
             options.status = status;
+            options.account = account;
             if (!options.device_id) options.device_id = account.device_id;
             if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
             ipc.sendNotification(options, function(err) {
-                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", id, account.alias, account.device_id, options, err || "");
                 status.device_id = account.device_id;
                 status.sent = err ? false : true;
+                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", id, account.alias, account.device_id, status, err || "");
                 callback(err, status);
             });
         });
@@ -3611,7 +3612,7 @@ api.getStatistics = function(options)
     this.metrics.pool = core.context.db.getPool().metrics;
 
     // Convert into simple object with all deep properties using names concatenated with dots
-    var obj = core.objFlatten(this.metrics.toJSON(), { separator: '_' });
+    var obj = core.flattenObj(this.metrics.toJSON(), { separator: '_' });
 
     // Clear all counters to make a snapshot and start over, this way in the monitoring station it is only needd to be summed up without
     // tracking any other states, the naming convention is to use _0 for snapshot counters.

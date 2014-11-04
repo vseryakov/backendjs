@@ -873,6 +873,16 @@ server.runJob = function(job)
 {
     var self = this;
 
+    function finish(err, name) {
+        logger.debug('runJob:', 'finished', name, err || "");
+        if (!self.jobs.length && cluster.isWorker) {
+            core.context.api.exitWorker(function() {
+                logger.debug('runJob:', 'exit', name, err || "");
+                process.exit(0);
+            });
+        }
+    }
+
     for (var name in job) {
         // Skip special objects
         if (job[name] instanceof domain.Domain) continue;
@@ -896,14 +906,7 @@ server.runJob = function(job)
                 var idx = self.jobs.indexOf(jname);
                 if (idx > -1) self.jobs.splice(idx, 1);
                 if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
-
-                logger.debug('runJob:', 'finished', jname, err || "");
-                if (!self.jobs.length && cluster.isWorker) {
-                    core.context.api.exitWorker(function() {
-                        logger.debug('runJob:', 'exit', jname, err || "");
-                        process.exit(0);
-                    });
-                }
+                finish(err, jname);
             });
         })(name);
 
@@ -918,7 +921,7 @@ server.runJob = function(job)
         });
     }
     // No jobs started or errors, just exit
-    if (!self.jobs.length && cluster.isWorker) process.exit(0);
+    if (!self.jobs.length && cluster.isWorker) finish(null, "no jobs");
 }
 
 // Execute job in the background by one of the workers, object must be known exported module
