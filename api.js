@@ -653,7 +653,7 @@ api.shutdown = function(callback)
     logger.log('api.shutdown: started');
     var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
     var db = core.context.db;
-    async.parallel([
+    core.parallel([
         function(next) {
             if (!self.wsServer) return next();
             try { self.wsServer.close(); next(); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
@@ -957,7 +957,7 @@ api.checkAccess = function(req, callback)
     // Call custom access handler for the endpoint
     var hooks = this.findHook('access', req.method, req.path);
     if (hooks.length) {
-        async.forEachSeries(hooks, function(hook, next) {
+        core.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAccess:', req.method, req.path, hook.path);
             hook.callbacks.call(self, req, next);
         }, callback);
@@ -975,7 +975,7 @@ api.checkAuthorization = function(req, status, callback)
     var self = this;
     var hooks = this.findHook('auth', req.method, req.path);
     if (hooks.length) {
-        async.forEachSeries(hooks, function(hook, next) {
+        core.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAuthorization:', req.method, req.path, hook.path);
             hook.callbacks.call(self, req, status, function(err) {
                 if (err && err.status != 200) return next(err);
@@ -1944,7 +1944,7 @@ api.sendJSON = function(req, err, rows)
     if (!rows) rows = [];
     var sent = 0;
     var hooks = this.findHook('post', req.method, req.path);
-    async.forEachSeries(hooks, function(hook, next) {
+    core.forEachSeries(hooks, function(hook, next) {
         try { sent = hook.callbacks.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.path, e.stack); }
         logger.debug('sendJSON:', req.method, req.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
         next(sent || req.res.headersSent);
@@ -2226,7 +2226,7 @@ api.handleIconRequest = function(req, res, options, callback)
     var limit = self.iconLimit[options.type] || self.iconLimit['*'];
     var icons = [];
 
-    async.series([
+    core.series([
        function(next) {
            options.ops = { type: "begins_with" };
            db.select("bk_icon", { id: req.query.id, type: options.prefix + ":" }, options, function(err, rows) {
@@ -2395,7 +2395,7 @@ api.putIcon = function(req, id, options, callback)
     var nfiles = req.files ? Object.keys(req.files).length : 0;
     if (nfiles) {
         var outfile = null, type = options.type || req.query.type;
-        async.forEachSeries(Object.keys(req.files), function(f, next) {
+        core.forEachSeries(Object.keys(req.files), function(f, next) {
             var opts = core.extendObj(options, 'type', req.body[f + '_type'] || (type && nfiles == 1 ? type : ""));
             self.storeIcon(req.files[f].path, id, opts, function(err, ofile) {
                 outfile = ofile;
@@ -2799,7 +2799,7 @@ api.makeConnection = function(id, obj, options, callback)
     var query = core.cloneObj(obj);
     var result = {};
 
-    async.series([
+    core.series([
         function(next) {
             // Primary connection
             if (options.noconnection) return next();
@@ -2863,7 +2863,7 @@ api.deleteConnection = function(id, obj, options, callback)
     function del(row, cb) {
         self.metrics.Counter('del_' + row.type + '_0').inc();
 
-        async.series([
+        core.series([
            function(next) {
                db.del("bk_connection", { id: id, type: row.type + ":" + row.id }, options, next);
            },
@@ -2897,7 +2897,7 @@ api.deleteConnection = function(id, obj, options, callback)
     db.select("bk_connection", { id: id, type: obj.type ? (obj.type + ":" + (obj.id || "")) : "" }, options, function(err, rows) {
         if (err) return callback(err, []);
 
-        async.forEachSeries(rows, function(row, next) {
+        core.forEachSeries(rows, function(row, next) {
             if (obj.id && row.id != obj.id) return next();
             if (obj.type && row.type != obj.type) return next();
             // Silently skip connections we cannot delete
@@ -3085,7 +3085,7 @@ api.getMessage = function(req, options, callback)
         options.ops = null;
         // Move to archive
         if (core.toBool(options.archive)) {
-            async.forEachSeries(rows, function(row, next) {
+            core.forEachSeries(rows, function(row, next) {
                 db.put("bk_archive", row, options, next);
             }, function(err) {
                 if (err) return callback(err, []);
@@ -3150,7 +3150,7 @@ api.addMessage = function(req, options, callback)
     if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
 
-    async.series([
+    core.series([
         function(next) {
             msg.sender = req.account.id;
             msg.alias = req.account.alias;
@@ -3228,7 +3228,7 @@ api.delMessage = function(req, options, callback)
         if (err) return callback(err, []);
 
         options.ops = null;
-        async.forEachSeries(rows, function(row, next) {
+        core.forEachSeries(rows, function(row, next) {
             if (req.query[sender] && row[sender] != req.query[sender]) return next();
             row.mtime += ":" + row[sender];
             db.del(table, row, function(err) {
@@ -3403,7 +3403,7 @@ api.addAccount = function(req, options, callback)
     req.query.id = core.uuid();
     req.query.mtime = req.query.ctime = Date.now();
 
-    async.series([
+    core.series([
        function(next) {
            if (options.noauth) return next();
            if (!req.query.secret) return next({ status: 400, message: "secret is required"});
@@ -3453,7 +3453,7 @@ api.updateAccount = function(req, options, callback)
     // Cannot reset account alias
     if (!req.query.alias) delete req.query.alias;
 
-    async.series([
+    core.series([
        function(next) {
            if (options.noauth) return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
@@ -3506,7 +3506,7 @@ api.deleteAccount = function(id, options, callback)
         if (err) return callback(err);
         if (!obj) return callback({ status: 404, message: "No account found" });
 
-        async.series([
+        core.series([
            function(next) {
                if (options.keep.auth || !obj.login) return next();
                db.del("bk_auth", { login: obj.login }, options, next);
@@ -3523,7 +3523,7 @@ api.deleteAccount = function(id, options, callback)
                if (options.keep.connection) return next();
                db.select("bk_connection", { id: obj.id }, options, function(err, rows) {
                    if (err) return next(err)
-                   async.forEachSeries(rows, function(row, next2) {
+                   core.forEachSeries(rows, function(row, next2) {
                        db.del("bk_reference", { id: row.id, type: row.type + ":" + obj.id }, options, function(err) {
                            db.del("bk_connection", { id: obj.id, type: row.type + ":" + row.id }, options, next2);
                        });
@@ -3551,7 +3551,7 @@ api.deleteAccount = function(id, options, callback)
                db.delAll("bk_icon", { id: obj.id }, options, function(err, rows) {
                    if (options.keep.images) return next();
                    // Delete all image files
-                   async.forEachSeries(rows, function(row, next2) {
+                   core.forEachSeries(rows, function(row, next2) {
                        self.formatIcon(row);
                        self.delIcon(obj.id, row, next2);
                    }, function() { next() });

@@ -284,7 +284,7 @@ core.init = function(options, callback)
     if (pkg) self.appVersion = pkg.name + "/" + pkg.version;
 
     // Serialize initialization procedure, run each function one after another
-    async.series([
+    self.series([
         function(next) {
             self.loadConfig(self.confFile, function() {
                 self.loadConfig(self.confFile + ".local", function() {
@@ -328,7 +328,7 @@ core.init = function(options, callback)
         function(next) {
             if (options.noInit) return next();
             // Run all configure methods for every module
-            async.forEachSeries(Object.keys(self.context), function(name, next2) {
+            self.forEachSeries(Object.keys(self.context), function(name, next2) {
                 var ctx = self.context[name];
                 if (!ctx.configure) return next2();
                 ctx.configure(options, next2);
@@ -374,9 +374,7 @@ core.init = function(options, callback)
         // Final callbacks
         function(err) {
             logger.debug("core: init:", err || "");
-            if (callback) setImmediate(function() {
-                callback.call(self, err);
-            });
+            if (callback) callback.call(self, err);
     });
 }
 
@@ -655,10 +653,10 @@ core.loadDnsConfig = function(options, callback)
         var ctx = self.context[p];
         if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
     }
-    async.forEachSeries(args, function(ctx, next1) {
+    self.forEachSeries(args, function(ctx, next1) {
         async.forEachLimit(ctx.args, 5, function(arg, next2) {
             var cname = ctx.name + arg.name;
-            async.series([
+            self.series([
                 function(next3) {
                     // Get DNS TXT record
                     if (!arg.dns) return next3();
@@ -1412,18 +1410,20 @@ core.runCallback = function(obj, msg)
 
 // Apply an iterator function to each item in an array in parallel. Execute a callback when all items
 // have been completed or immediately if there is an error provided.
-core.forEach = function (list, iterator, callback)
+core.forEach = function(list, iterator, callback)
 {
-    callback = callback || function() {}
+    var self = this;
+    callback = typeof callback == "function" ? callback : this.noop;
     if (!list || !list.length) return callback();
     var count = list.length;
-    for (var i = 0, l = list.length; i < l; i++) {
+    for (var i = 0; i < list.length; i++) {
         iterator(list[i], function(err) {
             if (err) {
                 callback(err);
-                callback = function() {}
+                callback = self.noop;
+                i = list.length + 1;
             } else {
-                --count || callback(null);
+                if (--count == 0) callback();
             }
         });
     }
@@ -1431,9 +1431,10 @@ core.forEach = function (list, iterator, callback)
 
 // Apply an iterator function to each item in an array serially. Execute a callback when all items
 // have been completed or immediately if there is is an error provided.
-core.forEachSeries = function (list, iterator, callback)
+core.forEachSeries = function(list, iterator, callback)
 {
-    callback = callback || function() {}
+    var self = this;
+    callback = typeof callback == "function" ? callback : this.noop;
     if (!list || !list.length) return callback();
     function iterate(i) {
         if (i == list.length) return callback();
@@ -1446,21 +1447,55 @@ core.forEachSeries = function (list, iterator, callback)
 }
 
 // Execute a list of functions in parellel and execute a callback upon completion or occurance of an error. Each function will be passed
-// a callback to signal completion. The callback accepts an error for the first argument or null.
-core.parallel = function (tasks, callback)
+// a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
+// called via setImmediate function to allow the main loop to process I/O.
+core.parallel = function(tasks, callback)
 {
-    callback = callback || function() {}
-    if (!tasks || !tasks.length) return callback();
-    this.forEach(tasks, function(task, next) { task(next); }, function(err) { callback(err); });
+    this.forEach(tasks, function(task, next) {
+        task(function(err) {
+            setImmediate(next, err);
+        });
+    }, function(err) {
+        if (typeof callback == "function") setImmediate(callback, err);
+    });
 }
 
 // Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
-// a callback to signal completion. The callback accepts either an error for the first argument or null.
-core.series = function (tasks, callback)
+// a callback to signal completion. The callback accepts either an error for the first argument. The iterator and callback will be
+// called via setImmediate function to allow the main loop to process I/O.
+core.series = function(tasks, callback)
 {
-    callback = callback || function() {}
-    if (!tasks || !tasks.length) return callback();
-    this.forEachSeries(tasks, function(task, next) { task(next); }, function(err) { callback(err); });
+    this.forEachSeries(tasks, function(task, next) {
+        task(function(err) {
+            setImmediate(next, err);
+        });
+    }, function(err) {
+        if (typeof callback == "function") setImmediate(callback, err);
+    });
+}
+
+// If the test function returns true run the iterator, call the callback at the end if specified. All functions are called via setImmediate.
+core.whilst = function(test, iterator, callback)
+{
+    var self = this;
+    callback = typeof callback == "function" ? callback : this.noop;
+    if (!test()) return callback();
+    iterator(function (err) {
+        if (err) return callback(err);
+        setImmediate(function() { self.whilst(test, iterator, callback); });
+    });
+};
+
+// Keep running iterator while test function returns true, call the callback at the end if specified. All functions are called via setImmediate.
+core.doWhilst = function(iterator, test, callback)
+{
+    var self = this;
+    callback = typeof callback == "function" ? callback : this.noop;
+    iterator(function(err) {
+        if (err) return callback(err);
+        if (!test()) return callback();
+        setImmediate(function() { self.doWhilst(iterator, test, callback); });
+    });
 }
 
 // Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
@@ -1707,6 +1742,7 @@ core.sendmail = function(from, to, subject, text, callback)
 // - until - skip lines until this regexp matches
 core.forEachLine = function(file, options, lineCallback, endCallback)
 {
+    var self = this;
     if (!options) options = {};
     var buffer = new Buffer(4096);
     var data = '';
@@ -1717,7 +1753,7 @@ core.forEachLine = function(file, options, lineCallback, endCallback)
             data += buffer.slice(0, nread).toString(options.encoding || 'utf8');
             var lines = data.split("\n");
             data = lines.pop();
-            async.forEachSeries(lines, function(line, next) {
+            self.forEachSeries(lines, function(line, next) {
                 options.lines++;
                 if (options.progress && options.lines % options.progress == 0) logger.log('forEachLine:', file, 'lines:', options.lines);
                 // Skip lines until we see our pattern
@@ -2216,9 +2252,10 @@ core.makePathSync = function(dir)
 // Async version of makePath, stops on first error
 core.makePath = function(dir, callback)
 {
+    var self = this;
     var list = path.normalize(dir).split("/");
     var full = "";
-    async.forEachSeries(list, function(d, next) {
+    self.forEachSeries(list, function(d, next) {
         full += d + '/';
         fs.exists(full, function(yes) {
             if (yes) return next();
@@ -2241,7 +2278,7 @@ core.unlinkPath = function(dir, callback)
         if (stat.isDirectory()) {
             fs.readdir(dir, function(err, files) {
                 if (err) return next(err);
-                async.forEachSeries(files, function(f, next) {
+                self.forEachSeries(files, function(f, next) {
                     self.unlinkPath(path.join(dir, f), next);
                 }, function(err) {
                     if (err) return callback ? callback(err) : null;
@@ -2450,7 +2487,7 @@ core.flattenObj = function(obj, options)
 
     for (var p in obj) {
         if (typeof obj[p] == 'object') {
-            var o = this.objFlatten(obj[p], options);
+            var o = this.flattenObj(obj[p], options);
             for (var x in o) {
                 rc[p + (options && options.separator ? options.separator : '.') + x] = o[x];
             }
@@ -2671,7 +2708,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
         });
         if (!found) cookiejar.push(obj);
     });
-    async.forEachSeries(cookiejar, function(rec, next) {
+    self.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
         if (!rec.id) rec.id = core.hash(rec.name + ':' + rec.domain + ':' + rec.path);
         db.put("bk_cookies", rec, { pool: db.local }, function() { next() });
@@ -2770,7 +2807,7 @@ core.watchTmp = function(dir, options, callback)
     fs.readdir(dir, function(err, files) {
         if (err) return callback ? callback(err) : null;
 
-        async.forEachSeries(files, function(file, next) {
+        self.forEachSeries(files, function(file, next) {
             if (file == "." || file == "..") return next();
             if (options.match && !file.match(options.match)) return next();
             if (options.ignore && file.match(options.ignore)) return next();
@@ -2853,7 +2890,7 @@ core.watchLogs = function(options, callback)
         var errors = "";
 
         // For every log file
-        async.forEachSeries(self.logwatcherFiles, function(log, next) {
+        self.forEachSeries(self.logwatcherFiles, function(log, next) {
             var file = log.file;
             if (!file && self[log.name]) file = self[log.name];
             if (!file) return next();
@@ -2995,7 +3032,7 @@ core.runTest = function(obj, options, callback)
 
     logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', this.test.cmd, 'db-pool:', this.context.db.pool);
 
-    async.whilst(
+    this.whilst(
         function () { return self.test.countdown > 0 || self.test.forever || options.running; },
         function (next) {
             self.test.countdown--;

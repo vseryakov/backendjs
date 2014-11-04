@@ -1261,7 +1261,7 @@ server.processRequestQueue = function(callback)
     var self = this;
 
     db.select("bk_queue", {}, { sort: "mtime", pool: db.local } , function(err, rows) {
-        async.forEachSeries(rows, function(row, next) {
+        core.forEachSeries(rows, function(row, next) {
             if (core.typeName(row.data) != "object") return next();
             for (var p in row) if (p != "data") row.data[p] = row[p];
             core.sendRequest(row.data, function(err2) { next(); });
@@ -1282,7 +1282,7 @@ server.processJobs = function(options, callback)
     if (typeof options == "function") callback = options, options = {};
 
     db.select("bk_jobs", { tag: self.jobsTag }, { count: self.maxJobs }, function(err, rows) {
-        async.forEachSeries(rows, function(row, next) {
+        core.forEachSeries(rows, function(row, next) {
             self.doJob(row.type, row.job, row.args);
             db.del('bk_jobs', row, function() { next() });
         }, function() {

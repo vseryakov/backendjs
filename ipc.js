@@ -517,7 +517,7 @@ ipc.keys = function(callback)
                 var item = items[0], keys = [];
                 var keys = Object.keys(item);
                 keys.pop();
-                async.forEachSeries(keys, function(stats, next) {
+                core.forEachSeries(keys, function(stats, next) {
                     memcached.cachedump(item.server, stats, item[stats].number, function(err, response) {
                         if (response) keys.push(response.key);
                         next(err);
@@ -825,7 +825,7 @@ ipc.closeNotifications = function(options, callback)
 
     // Wait a little just in case for some left over tasks
     setTimeout(function() {
-        async.parallel([
+        core.parallel([
            function(next) {
                self.closeAPN(next);
            },
@@ -882,10 +882,13 @@ ipc.initAPN = function()
     this.apnAgent = new apnagent.Agent();
     this.apnAgent.set('pfx file', core.apnCert);
     this.apnAgent.enable(core.apnProduction || core.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
-    this.apnAgent.on('message:error', function(err) { logger.error('apn:', err) });
-    this.apnAgent.on('gateway:error', function(err) { if (err && err.code != 10 && err.code != 8) logger.error('apn:', err) });
-    this.apnAgent.connect(function(err) { if (err) logger.error('apn:', err); });
-    this.apnTimeout = setInterval(function() { self.apnAgent.queue.process() }, 1000);
+    this.apnAgent.on('message:error', function(err) { logger.error('apn:message:', err) });
+    this.apnAgent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err) });
+    this.apnAgent.on('gateway:close', function(err) { logger.log('apn: closed') });
+    this.apnAgent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected"); });
+    // A posible workaround for the queue being stuck and not sending anything
+    this.apnTimeout = setInterval(function() { self.apnAgent.queue.process() }, 3000);
+    this.apnSent = 0;
     logger.debug("initAPN:", this.apnAgent.settings);
 
     this.apnFeedback = new apnagent.Feedback();
@@ -904,11 +907,14 @@ ipc.closeAPN = function(callback)
     var self = this;
     if (!this.apnAgent) return callback ? callback() : null;
 
+    logger.debug('closeAPN:', this.apnAgent.settings, 'connected:', this.apnAgent.connected, 'queue:', this.apnAgent.queue.length, 'sent:', this.apnSent);
+
     clearInterval(this.apnTimeout);
     this.apnAgent.close(function() {
         self.apnFeedback.close();
-        self.apnAgent = self.apnFeedback = null;
-        logger.log('closeAPN:');
+        self.apnAgent = null;
+        self.apnFeedback = null;
+        logger.log('closeAPN: done');
         if (callback) callback();
     });
 }
@@ -930,7 +936,7 @@ ipc.sendAPN = function(device_id, options, callback)
     if (options.badge) pkt.badge(options.badge);
     if (options.type) pkt.set("type", options.type);
     if (options.id) pkt.set("id", options.id);
-    pkt.send();
+    pkt.send(function(err) { if (!err) self.apnSent++; });
     if (callback) process.nextTick(callback);
     return true;
 }
@@ -950,11 +956,14 @@ ipc.closeGCM = function(callback)
     var self = this;
     if (!self.gcmAgent || !self.gcmQueue) return callback ? callback() : null;
 
+    logger.debug('closeGCM:', 'queue:', self.gcmQueue, 'sent:', this.gcmSent);
+
     var n = 0;
     function check() {
         if (!self.gcmQueue || ++n > 30) {
             self.gcmAgent = null;
-            logger.log('closeGCM:');
+            self.gcmSent = 0;
+            logger.log('closeGCM: done');
             next();
         } else {
             setTimeout(check, 1000);
@@ -977,6 +986,7 @@ ipc.sendGCM = function(device_id, options, callback)
     if (options.badge) pkt.addData('badge', options.badge);
     this.gcmAgent.send(pkg, [device_id], 2, function() {
         self.gcmQueue--;
+        self.gcmSent++;
         if (callback) process.nextTick(callback);
     });
     return true;

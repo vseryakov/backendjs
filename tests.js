@@ -57,7 +57,7 @@ tests.account = function(callback)
     var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
     var msgs = null, icons = [];
 
-    async.series([
+    core.series([
         function(next) {
             var query = { login: login, secret: secret, name: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
             core.sendRequest({ url: "/account/add", sign: false, query: query }, function(err, params) {
@@ -97,7 +97,7 @@ tests.account = function(callback)
             if (!icons.length) return next();
             // Add all icons from the files
             var type = 0;
-            async.forEachSeries(icons, function(icon, next2) {
+            core.forEachSeries(icons, function(icon, next2) {
                 icon = core.readFileSync(icon, { encoding : "base64" });
                 var options = { url: "/account/put/icon", login: login, secret: secret, method: "POST", postdata: { icon: icon, type: type++, acl_allow: "allow" }  }
                 core.sendRequest(options, function(err, params) {
@@ -347,14 +347,14 @@ tests.location = function(callback)
     // still can be in the box outside of the immediate neighbors, minDistance is an approximation
     var geo = core.geoHash(latitude, longitude, { distance: distance });
 
-    async.series([
+    core.series([
         function(next) {
             if (!cluster.isMaster && !reset) return next();
             self.resetTables(tables, next);
         },
         function(next) {
             if (!reset) return next();
-        	async.whilst(
+        	core.whilst(
         		function () { return good < rows + count; },
         		function (next2) {
         		    var lat = core.randomNum(bbox[0], bbox[2]);
@@ -390,7 +390,7 @@ tests.location = function(callback)
             if (!reset) return next();
             // Records beyond our distance
             bad = good;
-            async.whilst(
+            core.whilst(
                 function () { return bad < good + count; },
                 function (next2) {
                     var lat = core.randomNum(bbox[0], bbox[2]);
@@ -418,7 +418,7 @@ tests.location = function(callback)
             // Scan all locations, do it in small chunks to verify we can continue within the same geohash area
             var query = { latitude: latitude, longitude: longitude, distance: distance };
             var options = { count: gcount, round: round };
-            async.doUntil(
+            core.doWhilst(
                 function(next2) {
                     db.getLocations("geo", query, options, function(err, rows, info) {
                         options = info.next_token;
@@ -426,7 +426,7 @@ tests.location = function(callback)
                         next2();
                     });
                 },
-                function() { return !options },
+                function() { return options },
                 function(err) {
                     var ids = {};
                     var isok = rc.every(function(x) { ids[x.id] = 1; return x.status == 'good' })
@@ -504,7 +504,7 @@ tests.db = function(callback)
         return row;
     });
 
-	async.series([
+	core.series([
 	    function(next) {
 	         self.resetTables(tables, next);
 	    },
@@ -658,7 +658,7 @@ tests.db = function(callback)
 	    	});
 	    },
 	    function(next) {
-	    	async.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
+	    	core.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
 	    		db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, num: i, num2: i, mtime: now }, next2);
 	    	}, function(err) {
 	    		next(err);
@@ -668,7 +668,7 @@ tests.db = function(callback)
             // Check pagination
 	        var rc = [];
             next_token = null;
-            async.forEachSeries([2, 3], function(n, next2) {
+            core.forEachSeries([2, 3], function(n, next2) {
                 db.select("test2", { id: id2 }, { sort: "id2", start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
                     rc.push.apply(rc, rows);
@@ -683,7 +683,7 @@ tests.db = function(callback)
 	    function(next) {
 	        // Check pagination with small page size with condition on the range key
             next_token = null;
-	        async.forEachSeries([2, 3], function(n, next2) {
+	        core.forEachSeries([2, 3], function(n, next2) {
 	            db.select("test2", { id: id2, id2: '0' }, { sort: "id2", ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
 	                next_token = info.next_token;
 	                var isok = db.pool == "redis" ? rows.length>=n : rows.length==n;
@@ -814,7 +814,7 @@ tests.msg = function(callback)
         var sock = new bk.NNSocket(bk.AF_SP, bk.NN_PUB);
         sock.bind(addr);
 
-        async.whilst(
+        core.whilst(
            function () { return count > 0; },
            function (next) {
                count--;
@@ -839,7 +839,7 @@ tests.cache = function(callback)
     if (!nworkers) logger.error("need -test-workers 1 argument");
 
     function run1(cb) {
-        async.series([
+        core.series([
            function(next) {
                ipc.put("a", "1");
                ipc.put("b", "1");
@@ -892,7 +892,7 @@ tests.cache = function(callback)
                 if (!err) return cb();
                 ipc.keys(function(keys) {
                     var vals = {};
-                    async.forEachSeries(keys || [], function(key, next) {
+                    core.forEachSeries(keys || [], function(key, next) {
                         ipc.get(key, function(val) { vals[key] = val; next(); })
                     }, function() {
                         logger.log("keys:", vals);
@@ -903,7 +903,7 @@ tests.cache = function(callback)
     }
 
     function run2(cb) {
-        async.series([
+        core.series([
            function(next) {
                ipc.get("a", function(val) {
                    core.checkTest(next, null, val!="4", "value must be 4, got", val)
@@ -980,7 +980,7 @@ tests.nndb = function(callback)
 
     } else {
         pool = db.nndbInitPool({ db: bind, socket: socket == "NN_REP" ? "NN_REQ" : "NN_PUSH" });
-        async.series([
+        core.series([
            function(next) {
                db.put("", { name: "1", value: 1 }, { pool: pool.name }, next);
            },
@@ -1011,7 +1011,7 @@ tests.pool = function(callback)
     }
     var list = [];
     var pool = core.createPool(options)
-    async.series([
+    core.series([
        function(next) {
            console.log('pool0:', pool.stats(), 'list:', list.length);
            for (var i = 0; i < 5; i++) {

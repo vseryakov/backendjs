@@ -412,7 +412,7 @@ aws.getInstanceInfo = function(callback)
 {
     var self = this;
 
-    async.series([
+    core.series([
         function(next) {
             self.getInstanceMeta("/latest/meta-data/instance-id", function(err, id) {
                 if (!err && id) core.instanceId = id;
@@ -744,11 +744,11 @@ aws.ddbWaitForTable = function(name, item, options, callback)
     var self = this;
     if (!options.waitTimeout) return callback(null, item);
 
-    var now = Date.now();
+    var expires = Date.now() + options.waitTimeout;
     var status = item.TableDescription.TableStatus;
-    async.until(
+    core.whilst(
       function() {
-          return status == options.waitStatus || Date.now() - now < options.waitTimeout;
+          return status == options.waitStatus && Date.now() < expires;
       },
       function(next) {
           self.ddbDescribeTable(name, options, function(err, rc) {

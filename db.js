@@ -293,7 +293,7 @@ db.initTables = function(tables, options, callback)
 	var self = this;
     if (typeof options == "function") callback = options, options = null;
 
-	async.forEachSeries(Object.keys(self.dbpool), function(name, next) {
+	core.forEachSeries(Object.keys(self.dbpool), function(name, next) {
 	    if (name == "none") return next();
     	self.initPoolTables(name, tables, options, next);
 	}, function(err) {
@@ -326,7 +326,7 @@ db.initPoolTables = function(name, tables, options, callback)
     		return callback ? callback() : null;
     	}
         var changes = 0;
-        async.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
+        core.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
             // We if have columns, SQL table must be checked for missing columns and indexes
             var cols = self.getColumns(table, options);
             if (!cols || Object.keys(cols).every(function(x) { return cols[x].fake })) {
@@ -354,7 +354,7 @@ db.dropPoolTables = function(name, tables, options, callback)
 
     if (name) options.pool = name;
     var pool = self.getPool('', options);
-    async.forEachSeries(Object.keys(tables || {}), function(table, next) {
+    core.forEachSeries(Object.keys(tables || {}), function(table, next) {
         self.drop(table, options, function() { next() });
     }, callback);
 }
@@ -1055,7 +1055,7 @@ db.scan = function(table, query, options, rowCallback, callback)
     options.start = "";
     if (typeof options.noprocessrows == "undefined") options.noprocessrows = 1;
 
-    async.whilst(
+    core.whilst(
       function() {
           return options.start != null;
       },
@@ -1066,7 +1066,7 @@ db.scan = function(table, query, options, rowCallback, callback)
               if (options.batch) {
                   rowCallback(rows, next);
               } else {
-                  async.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next);
+                  core.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next);
               }
           });
       }, function(err) {
@@ -1091,7 +1091,7 @@ db.migrate = function(table, options, callback)
     var tmptable = table + "_tmp";
     var obj = pool.dbtables[table];
 
-    async.series([
+    core.series([
         function(next) {
             if (!pool.dbcolumns[tmptable]) return next();
             db.drop(tmptable, { pool: options.tmppool }, next);
@@ -1288,7 +1288,7 @@ db.getLocations = function(table, query, options, callback)
     logger.debug('getLocations:', table, 'OBJ:', query, 'GEO:', options.geokey, options.geohash, options.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'NEIGHBORS:', options.neighbors);
 
     // Collect all matching records until specified count
-    async.doUntil(
+    core.doWhilst(
       function(next) {
           db.select(table, query, options, function(err, items, info) {
               if (err) return next(err);
@@ -1314,15 +1314,15 @@ db.getLocations = function(table, query, options, callback)
       },
       function() {
           // We have all rows requested
-          if (rows.length >= options.gcount) return true;
+          if (rows.length >= options.gcount) return false;
           // No more in the current geo box, try the next neighbor
           if (!options.start || (options.top && options.count <= 0)) {
-              if (!options.neighbors.length) return true;
+              if (!options.neighbors.length) return false;
               query[options.geokey] = options.neighbors.shift();
               if (options.top) options.count = options.top;
               options.start = null;
           }
-          return false;
+          return true;
       },
       function(err) {
           // Build next token if we have more rows to search
@@ -2013,7 +2013,7 @@ db.sqlInitPool = function(options)
     pool.setup = function(client, callback) {
         var me = this;
         var init = Array.isArray(options.init) ? options.init : [];
-        async.forEachSeries(init, function(sql, next) {
+        core.forEachSeries(init, function(sql, next) {
             client.query(sql, next);
         }, function(err) {
             if (err) logger.error('db.setup:', me.name, err);
@@ -2037,7 +2037,7 @@ db.sqlInitPool = function(options)
             client.query(req.text, req.values, opts, callback);
         }  else {
             var rows = [];
-            async.forEachSeries(req.text, function(text, next) {
+            core.forEachSeries(req.text, function(text, next) {
                 client.query(text, null, opts, function(err, rc) { if (rc) rows = rc; next(err); });
             }, function(err) {
                 callback(err, rows);
@@ -2922,7 +2922,7 @@ db.sqliteConnect = function(options, callback)
         if (typeof options.read_uncommitted != "undefined") opts.push("PRAGMA read_uncommitted=" + options.read_uncommitted);
         if (typeof options.busy_timeout != "undefined") opts.push("SELECT busy_timeout(" + options.busy_timeout + ")");
         if (Array.isArray(options.init)) opts = opts.concat(options.init);
-        async.forEachSeries(opts, function(sql, next) {
+        core.forEachSeries(opts, function(sql, next) {
             logger.debug('sqliteOpen:', options.file, sql);
             db.exec(sql, next);
     }, function(err2) {
@@ -2945,7 +2945,7 @@ db.sqliteCacheColumns = function(options, callback)
             self.dbcolumns = {};
             self.dbkeys = {};
             self.dbindexes = {};
-            async.forEachSeries(tables, function(table, next) {
+            core.forEachSeries(tables, function(table, next) {
 
                 client.query("PRAGMA table_info(" + table.name + ")", function(err, rows) {
                     if (err) return next(err);
@@ -2959,7 +2959,7 @@ db.sqliteCacheColumns = function(options, callback)
                         if (rows[i].pk) self.dbkeys[table.name].push(rows[i].name);
                     }
                     client.query("PRAGMA index_list(" + table.name + ")", function(err4, indexes) {
-                        async.forEachSeries(indexes, function(idx, next2) {
+                        core.forEachSeries(indexes, function(idx, next2) {
                             client.query("PRAGMA index_info(" + idx.name + ")", function(err5, cols) {
                                 cols.forEach(function(x) {
                                     var col = self.dbcolumns[table.name][x.name];
@@ -3014,7 +3014,7 @@ db.mysqlCacheIndexes = function(options, callback)
         self.dbkeys = {};
         self.dbindexes = {};
         client.query("SHOW TABLES", function(err, tables) {
-            async.forEachSeries(tables, function(table, next) {
+            core.forEachSeries(tables, function(table, next) {
                 table = table[Object.keys(table)[0]].toLowerCase();
                 client.query("SHOW INDEX FROM " + table, function(err, rows) {
                     for (var i = 0; i < rows.length; i++) {
@@ -3065,7 +3065,7 @@ db.dynamodbInitPool = function(options)
             pool.dbkeys = {};
             pool.dbcolumns = {};
             pool.dbindexes = {};
-            async.forEachSeries(rc.TableNames, function(table, next) {
+            core.forEachSeries(rc.TableNames, function(table, next) {
                 aws.ddbDescribeTable(table, options, function(err, rc) {
                     if (err) return next(err);
                     rc.Table.AttributeDefinitions.forEach(function(x) {
@@ -3230,7 +3230,7 @@ db.dynamodbInitPool = function(options)
             opts.select = self.getSelectedColumns(table, opts);
             var rows = [];
             // Keep retrieving items until we reach the end or our limit
-            async.doUntil(
+            core.doWhilst(
                function(next) {
                    aws[op](table, keys, opts, function(err, item) {
                        if (opts.total) item.Items.push({ count: item.Count });
@@ -3241,9 +3241,9 @@ db.dynamodbInitPool = function(options)
                    });
                },
                function() {
-                   if (client.next_token == null || opts.count <= 0) return true;
+                   if (client.next_token == null || opts.count <= 0) return false;
                    opts.start = client.next_token;
-                   return false;
+                   return true;
                },
                function(err) {
                    pool.restoreOptions(opts, old);
@@ -3255,7 +3255,7 @@ db.dynamodbInitPool = function(options)
             var req = {};
             var rows = [];
             // Keep retrieving items until we reach the end or our limit
-            async.doUntil(
+            core.doWhilst(
                function(next) {
                    var list = obj.slice(0, 100);
                    obj = obj.slice(100);
@@ -3263,16 +3263,17 @@ db.dynamodbInitPool = function(options)
                    req[table] = { keys: list, select: self.getSelectedColumns(table, opts), consistent: opts.consistent };
                    aws.ddbBatchGetItem(req, opts, function(err, item) {
                        if (err) return callback(err, []);
-                       // Keep retrieving items until we get all items
+                       // Keep retrieving items until we get all items from this batch
                        var moreKeys = item.UnprocessedKeys || null;
                        rows.push.apply(rows, item.Responses[table] || []);
-                       async.until(
+                       core.whilst(
                            function() {
-                               return moreKeys;
+                               return moreKeys && Object.keys(moreKeys).length;
                            },
                            function(next2) {
                                opts.RequestItems = moreKeys;
                                aws.ddbBatchGetItem({}, opts, function(err, item) {
+                                   moreKeys = item.UnprocessedKeys || null;
                                    rows.push.apply(rows, item.Responses[table] || []);
                                    next2(err);
                                });
@@ -3282,7 +3283,7 @@ db.dynamodbInitPool = function(options)
                    });
                },
                function() {
-                   return obj.length == 0;
+                   return obj.length > 0;
                },
                function(err) {
                    callback(err, rows);
@@ -3422,7 +3423,7 @@ db.mongodbInitPool = function(options)
             client.createCollection(table, opts, function(err, item) {
                 if (err) return callback(err, []);
 
-                async.forEachSeries(keys, function(idx, next) {
+                core.forEachSeries(keys, function(idx, next) {
                     client.ensureIndex(table, idx.cols, idx.opts, function(err) {
                         if (err) logger.error('db.create:', idx, err);
                         next();
@@ -3944,7 +3945,7 @@ db.lmdbInitPool = function(options)
         case "list":
             var rc = [];
             var selected = self.getSelectedColumns(table, opts);
-            async.forEachSeries(obj, function(o, next) {
+            core.forEachSeries(obj, function(o, next) {
                 var key = pool.getKey(table, o, opts);
                 client.get(key, opts, function(err, row) {
                     if (row) {
@@ -4221,7 +4222,7 @@ db.redisInitPool = function(options)
             }
             var rows = [];
             var count = opts.count || 0;
-            async.doUntil(
+            core.doWhilst(
                 function(next) {
                     client.send_command("SCAN", args, function(err, reply) {
                         if (err) return next(err);
@@ -4236,7 +4237,7 @@ db.redisInitPool = function(options)
                     });
                 },
                 function() {
-                    return client.next_token == 0 || (opts.count && count <= 0);
+                    return client.next_token || (opts.count && count > 0);
                 },
                 function(err) {
                     if (rows.length && opts.sort) rows.sort(function(a,b) { return (a[opts.sort] - b[opts.sort]) * (opts.desc ? -1 : 1) });
