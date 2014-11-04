@@ -1719,6 +1719,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error. Default: 1000</li>
 <li><code>api-access-log</code> - File for access logging</li>
+<li><code>api-notifications</code> - Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers</li>
 <li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
@@ -1821,7 +1822,7 @@ the worker processes if they die and restart them automatically. How many proces
 
      // Status/presence support
      bk_status: { id: { primary: 1 },                               // account id
-                  status: { value: &quot;online&quot; },                      // status, online, offline, away
+                  status: {},                                       // status, online, offline, away
                   alias: {},
                   atime: { type: &quot;bigint&quot;, now: 1 },                // last access time
                   mtime: { type: &quot;bigint&quot; }},                       // last status save to db time
@@ -5348,12 +5349,12 @@ argument, the mesages received as the third argument</p>
 
 <ul>
 <li><p><code>ipc.initNotifications(callback)</code></p>
-<p> Initialize supported notification services</p>
+<p> Initialize supported notification services, this must be claled before sending any push notifications</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.closeNotifications(callback)</code></p>
+<li><p><code>ipc.closeNotifications(options, callback)</code></p>
 <p> Shutdown notification services, wait till all pending messages are sent before calling the callback</p>
 </li>
 </ul>
