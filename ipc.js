@@ -777,7 +777,7 @@ ipc.publish = function(key, data)
     }
 }
 
-// Initialize supported notification services
+// Initialize supported notification services, this must be claled before sending any push notifications
 ipc.initNotifications = function(callback)
 {
     var self = this;
@@ -817,37 +817,40 @@ ipc.initNotifications = function(callback)
 }
 
 // Shutdown notification services, wait till all pending messages are sent before calling the callback
-ipc.closeNotifications = function(callback)
+ipc.closeNotifications = function(options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
 
-    async.parallel([
-       function(next) {
-           if (!self.apnAgent) return next();
-           self.apnAgent.close(function() {
-               self.apnFeedback.close();
-               self.apnAgent = self.apnFeedback = null;
-               next();
-           });
-       },
-       function(next) {
-           if (!self.gcmAgent || !self.gcmQueue) return next();
-           var n = 0;
-           function check() {
-               if (!self.gcmQueue || ++n > 30) {
-                   self.gcmAgent = null;
+    // Wait a little just in case for some left over tasks
+    setTimeout(function() {
+        async.parallel([
+           function(next) {
+               if (!self.apnAgent) return next();
+               self.apnAgent.close(function() {
+                   self.apnFeedback.close();
+                   self.apnAgent = self.apnFeedback = null;
+                   logger.log('closeNotifications:', 'APN closed');
                    next();
-               } else {
-                   setTimeout(check, 1000);
+               });
+           },
+           function(next) {
+               if (!self.gcmAgent || !self.gcmQueue) return next();
+               var n = 0;
+               function check() {
+                   if (!self.gcmQueue || ++n > 30) {
+                       self.gcmAgent = null;
+                       logger.log('closeNotifications:', 'GCM closed');
+                       next();
+                   } else {
+                       setTimeout(check, 1000);
+                   }
                }
-           }
-           check();
-       },
-       function(next) {
-           // Wait a little just in case for some left over tasks
-           setTimeout(next, 5000);
-       },
-       ], callback);
+               check();
+           },
+        ], callback);
+    }, options.timeout || 500);
 }
 
 // Deliver a notification using the specified service, apple is default.

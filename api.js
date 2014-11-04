@@ -81,7 +81,7 @@ var api = {
 
        // Status/presence support
        bk_status: { id: { primary: 1 },                               // account id
-                    status: { value: "online" },                      // status, online, offline, away
+                    status: {},                                       // status, online, offline, away
                     alias: {},
                     atime: { type: "bigint", now: 1 },                // last access time
                     mtime: { type: "bigint" }},                       // last status save to db time
@@ -339,6 +339,7 @@ var api = {
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
+           { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
            { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
@@ -630,7 +631,14 @@ api.init = function(callback)
             // Notify the master about new worker server
             ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true } });
 
-            if (callback) callback.call(self, err);
+            // Allow push notifications in the API handlers
+            if (self.notifications) {
+                ipc.initNotifications(function() {
+                    if (callback) callback.call(self, err);
+                });
+            } else {
+                if (callback) callback.call(self, err);
+            }
         });
     });
     self.exiting = false;
@@ -3297,7 +3305,7 @@ api.notifyAccount = function(id, options, callback)
     var self = this;
     var db = core.context.db;
     var ipc = core.context.ipc;
-    if (!id || !options) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" });
+    if (!id || !options) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" }, {});
 
     // Skip this account
     switch (core.typeName(options.skip)) {
@@ -3338,7 +3346,7 @@ api.notifyAccount = function(id, options, callback)
             ipc.sendNotification(options, function(err) {
                 logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", id, account.alias, account.device_id, options, err || "");
                 status.device_id = account.device_id;
-                status.sent = true;
+                status.sent = err ? false : true;
                 callback(err, status);
             });
         });
