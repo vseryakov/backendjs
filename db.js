@@ -98,10 +98,6 @@ var db = {
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
     sqlitePool: core.name,
-    sqliteIdle: 86400000,
-
-    // DB pool defaults
-    dynamodbMax : Infinity,
 
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
@@ -111,53 +107,22 @@ var db = {
            { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
            { name: "config-type", dns: 1, descr: "Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database condifured with config-type, in seconds, 0 disables refreshing config from the db" },
+           { name: "max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connection for a pool" },
+           { name: "idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
+           { name: "tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
+           { name: "init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
+           { name: "options", count: 3, match: "pool", type: "json", descr: "A DB pool driver native options used with every request" },
            { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name" },
-           { name: "sqlite-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool" },
-           { name: "sqlite-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "sqlite-tables", count: 3, type: "list", array: 1, descr: "Sqlite tables, list of tables that belong to this pool only" },
            { name: "pgsql-pool", count: 3, descr: "PostgreSQL pool access url or options string" },
-           { name: "pgsql-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
-           { name: "pgsql-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
-           { name: "pgsql-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "pgsql-tables", count: 3, type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "mysql-pool", count: 3, descr: "MySQL pool access url in the format: mysql://user:pass@host/db" },
-           { name: "mysql-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
-           { name: "mysql-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
-           { name: "mysql-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "mysql-tables", count: 3, type: "list", array: 1, descr: "PostgreSQL tables, list of tables that belong to this pool only" },
            { name: "dynamodb-pool", count: 3, descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
-           { name: "dynamodb-max", count: 3, type: "number", min: 1, max: Infinity, descr: "Max number of open connection for the pool"  },
-           { name: "dynamodb-tables", count: 3, type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "mongodb-pool", count: 3, descr: "MongoDB endpoint url" },
-           { name: "mongodb-init", count: 3, type: "json", descr: "MongoDB driver native options used on connection create only" },
-           { name: "mongodb-options", count: 3, type: "json", descr: "MongoDB driver native options used with every request" },
-           { name: "mongodb-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
-           { name: "mongodb-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
-           { name: "mongodb-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "mongodb-tables", count: 3, type: "list", array: 1, descr: "MongoDB tables, list of tables that belong to this pool only" },
            { name: "cassandra-pool", count: 3, descr: "Casandra endpoint url" },
-           { name: "cassandra-min", count: 3, type: "number", min: 0, max: 100, descr: "Min number of open connection for the pool"  },
-           { name: "cassandra-max", count: 3, type: "number", min: 1, max: 1000, descr: "Max number of open connection for the pool"  },
-           { name: "cassandra-idle", count: 3, type: "number", min: 1000, max: 86400000, descr: "Number of ms for a connection to be idle before being destroyed" },
-           { name: "cassandra-tables", count: 3, type: "list", array: 1, descr: "DynamoDB tables, list of tables that belong to this pool only" },
            { name: "lmdb-pool", count: 3, descr: "Path to the local LMDB database" },
-           { name: "lmdb-init", count: 3, type: "json", descr: "Options for the lmdb pool passed on DB open" },
-           { name: "lmdb-tables", count: 3, type: "list", array: 1, descr: "LMDB tables, list of tables that belong to this pool only" },
            { name: "leveldb-pool", count: 3, descr: "Path to the local LevelDB database" },
-           { name: "leveldb-init", count: 3, type: "json", descr: "Options for the levedb on creation" },
-           { name: "leveldb-tables", count: 3, type: "list", array: 1, descr: "LevelDB tables, list of tables that belong to this pool only" },
            { name: "redis-pool", count: 3, descr: "Redis host" },
-           { name: "redis-init", count: 3, type: "json", descr: "Redis driver native options used on connection create only" },
-           { name: "redis-options", count: 3, type: "json", descr: "Redis driver native options used with every request" },
-           { name: "redis-tables", count: 3, type: "list", array: 1, descr: "Redis tables, list of tables that belong to this pool only" },
            { name: "elasticsearch-pool", count: 3, descr: "ElasticSearch host" },
-           { name: "elasticsearch-init", count: 3, type: "json", descr: "Options for the ElasticSearch pool, used on connection create only" },
-           { name: "elasticsearch-options", count: 3, type: "json", descr: "Options for the ElasticSearch pool, used with every request" },
-           { name: "elasticsearch-tables", count: 3, type: "list", array: 1, descr: "ElasticSearch tables, list of tables that belong to this pool only" },
            { name: "couchdb-pool", count: 3, descr: "ElasticSearch host" },
-           { name: "couchdb-init", count: 3, type: "json", descr: "Options for the CouchDB pool, used on connection create only" },
-           { name: "couchdb-options", count: 3, type: "json", descr: "Options for the CouchDB pool, used with every request" },
-           { name: "couchdb-tables", count: 3, type: "list", array: 1, descr: "CouchDB tables, list of tables that belong to this pool only" },
     ],
 
     // Default tables
@@ -229,11 +194,11 @@ db.init = function(options, callback)
 	            if (name != self.local && name != self.pool) continue;
 	        }
 	        var opts = { pool: name, db: db,
-	                     min: self[pool + 'Min' + n],
-	                     max: self[pool + 'Max' + n],
-	                     idle: self[pool + 'Idle' + n],
-	                     dbparams: self[pool + 'Init' + n],
-	                     dbopts: self[pool + 'Options' + n] };
+	                     min: self[pool + 'Min' + n] || 0,
+	                     max: self[pool + 'Max' + n] || Infinity,
+	                     idle: self[pool + 'Idle' + n] || 86400000,
+	                     initOptions: self[pool + 'InitOptions' + n],
+	                     options: self[pool + 'Options' + n] };
 	        self[pool + 'InitPool'](opts);
 	        // Pool specific tables
 	        (self[pool + 'Tables' + n] || []).forEach(function(y) { self.tblpool[y] = pool; });
@@ -414,7 +379,7 @@ db.createPool = function(options)
 
     logger.debug('createPool:', options);
 
-    if (options.pooling) {
+    if (options.pooling || (options.max > 0 && options.max != Infinity)) {
         var pool = core.createPool({
             min: options.min,
             max: options.max,
@@ -529,12 +494,14 @@ db.createPool = function(options)
     pool.dbindexes = {};
     pool.dbcache = {};
     pool.metrics = new metrics.Metrics('name', pool.name);
-    // Params passed during opening/creating a connection/client only
-    if (!pool.dbparams) pool.dbparams = {};
-    // Some required properties can be initialized with options, these options are passed with every request
-    if (!pool.dboptions) pool.dboptions = {};
-    for (var p in pool.dbopts) pool.dboptions[p] = pool.dbopts[p];
-    delete pool.dbopts;
+    // Options passed during opening/creating a connection/client only
+    pool.dbparams = {};
+    for (var p in options.initOptions) pool.dbparams[p] = options.initOptions[p];
+    delete pool.initOptions;
+    // These options are passed with every request
+    pool.dboptions = {};
+    for (var p in options.options) pool.dboptions[p] = options.options[p];
+    delete pool.options;
     [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
     if (!pool.type) pool.type = "unknown";
     this.dbpool[pool.name] = pool;
@@ -3049,7 +3016,6 @@ db.dynamodbInitPool = function(options)
     if (!options.pool) options.pool = "dynamodb";
 
     options.type = "dynamodb";
-    options.pooling = options.max > 0 && options.max != Infinity;
     options.max = options.max || 500;
     options.dboptions = { noUpgrade: 1, noJson: 1, strictTypes: 1, skipNull: { add: 1, put: 1 } };
     var pool = this.createPool(options);

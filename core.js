@@ -495,10 +495,26 @@ core.processArgs = function(name, ctx, argv, pass)
             // Support for multiple arguments with numeric suffix, name-1...n
             for (var i = 0; i < (x.count || 1); i++) {
                 // Core sets global parameters, all others by module
-                var cname = (name == "core" ? "" : "-" + name) + '-' + x.name + (i > 0 ? "-" + i : "");
-                var idx = argv.lastIndexOf(cname);
-                if (idx == -1) continue;
+                var sname = (name == "core" ? "" : "-" + name);
+                var ename = '-' + x.name + (i > 0 ? "-" + i : "");
+                var cname = sname + ename;
+                // Name of the key variable in the contenxt, key.property specifies alternative name for the value
                 var kname = (x.key || x.name) + (i > 0 ? i : "");
+                var idx = -1;
+                // Matched property, scan and find the last match by the suffix only
+                if (x.match) {
+                    for (var n = 0; n < argv.length; n++) {
+                        if (argv[n].slice(argv[n].length - ename.length) == ename) idx = n;
+                    }
+                    // Found a match, update our base name with the leading part from the actual argument name
+                    if (idx > -1) {
+                        kname = argv[idx].slice(sname.length + 1);
+                        cname = sname + '-' + kname;
+                    }
+                } else {
+                    idx = argv.lastIndexOf(cname);
+                }
+                if (idx == -1) continue;
                 // Place inside the object
                 if (x.obj) {
                     if (!ctx[x.obj]) ctx[x.obj] = {};
@@ -611,9 +627,10 @@ core.showHelp = function(options)
     args.forEach(function(x) {
         x[1].forEach(function(y) {
             if (!y.name || !y.descr) return;
-            var dflt = (x[0] ? self.context[x[0]] : core)[self.toCamel(y.name)] || "";
-            var line = (x[0] ? x[0] + '-' : '') + y.name + (options.markdown ? "`" : "") + " - " + y.descr + (dflt ? ". Default: " + dflt : "");
+            var dflt = y.match ? "" : ((x[0] ? self.context[x[0]] : core)[self.toCamel(y.name)] || "");
+            var line = (x[0] ? x[0] + '-' : '') + (y.match ? 'NAME-' : '') + y.name + (options.markdown ? "`" : "") + " - " + y.descr + (dflt ? ". Default: " + JSON.stringify(dflt) : "");
             if (y.dns) line += ". DNS TXT configurable.";
+            if (y.match) line += ". Where NAME is the actual " + y.match + " name.";
             if (options && options.markdown) {
                 data += "- `" +  line + "\n";
             } else {
@@ -1764,7 +1781,7 @@ core.createPool = function(options)
 // Return commandline argument value by name
 core.getArg = function(name, dflt)
 {
-    var idx = process.argv.indexOf(name);
+    var idx = process.argv.lastIndexOf(name);
     return idx > -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : (typeof dflt == "undefined" ? "" : dflt);
 }
 
@@ -1777,8 +1794,8 @@ core.getArgInt = function(name, dflt)
 // Returns true of given arg(s) are present in the comman dline,name can be a string or an array of strings.
 core.isArg = function(name)
 {
-    if (!Array.isArray(name)) return process.argv.indexOf(name) > 0;
-    return name.some(function(x) { return process.argv.indexOf(x) > 0 });
+    if (!Array.isArray(name)) return process.argv.lastIndexOf(name) > 0;
+    return name.some(function(x) { return process.argv.lastIndexOf(x) > 0 });
 }
 
 // Send email

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "uuid": ">= 1.4.1",
+    "async": ">= 0.9.0",
+    "printf" : ">= 0.2.0",
     "node-expat": ">= 2.1.4",
     "cron": ">= 1.0.4",
     "express": ">= 3.5.0 < 4.0.0",
