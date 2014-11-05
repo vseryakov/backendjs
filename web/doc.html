@@ -3519,14 +3519,26 @@ The message must have id property which is used to find the corresponding callba
 <li><p><code>core.forEach(list, iterator, callback)</code></p>
 <p> Apply an iterator function to each item in an array in parallel. Execute a callback when all items
 have been completed or immediately if there is an error provided.</p>
-</li>
+<pre><code>    async.forEach([ 1, 2, 3 ], function (i, next) {
+        console.log(i);
+        next();
+    }, function (err) {
+        console.log(&#39;done&#39;);
+    });
+</code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>core.forEachSeries(list, iterator, callback)</code></p>
 <p> Apply an iterator function to each item in an array serially. Execute a callback when all items
 have been completed or immediately if there is is an error provided.</p>
-</li>
+<pre><code>    async.forEachSeries([ 1, 2, 3 ], function (i, next) {
+      console.log(i);
+      next();
+    }, function (err) {
+      console.log(&#39;done&#39;);
+    });
+</code></pre></li>
 </ul>
 
 <ul>
@@ -3549,7 +3561,17 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 <p> Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
 a callback to signal completion. The callback accepts either an error for the first argument. The iterator and callback will be
 called via setImmediate function to allow the main loop to process I/O.</p>
-</li>
+<pre><code>    async.series([
+      function(next) {
+        setTimeout(function () { next(); }, 15);
+      },
+      function(next) {
+        setTimeout(function () { next(); }, 10);
+      },
+    ], function(err) {
+        console.log(err);
+    });
+</code></pre></li>
 </ul>
 
 <ul>
