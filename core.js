@@ -1409,6 +1409,13 @@ core.runCallback = function(obj, msg)
 
 // Apply an iterator function to each item in an array in parallel. Execute a callback when all items
 // have been completed or immediately if there is an error provided.
+//
+//          async.forEach([ 1, 2, 3 ], function (i, next) {
+//              console.log(i);
+//              next();
+//          }, function (err) {
+//              console.log('done');
+//          });
 core.forEach = function(list, iterator, callback)
 {
     var self = this;
@@ -1430,6 +1437,13 @@ core.forEach = function(list, iterator, callback)
 
 // Apply an iterator function to each item in an array serially. Execute a callback when all items
 // have been completed or immediately if there is is an error provided.
+//
+//          async.forEachSeries([ 1, 2, 3 ], function (i, next) {
+//            console.log(i);
+//            next();
+//          }, function (err) {
+//            console.log('done');
+//          });
 core.forEachSeries = function(list, iterator, callback)
 {
     var self = this;
@@ -1450,24 +1464,24 @@ core.forEachSeries = function(list, iterator, callback)
 core.forEachLimit = function(list, limit, iterator, callback)
 {
     var self = this;
-    callback = callback || function () {};
     callback = typeof callback == "function" ? callback : this.noop;
     if (!list || !list.length || typeof iterator != "function") return callback();
     if (!limit) limit = 1;
-    var idx = done = running = 0;
+    var idx = 0, done = 0, running = 0;
     function iterate() {
         if (done >= list.length) return callback();
         while (running < limit && idx < list.length) {
             running++;
             iterator(list[idx++], function(err) {
+                running--;
                 if (err) {
                     callback(err);
                     callback = self.noop;
-                    done = started = list.length + 1;
+                    idx = done = list.length + 1;
                 } else {
-                    running--;
                     if (++done >= list.length) {
                         callback();
+                        callback = self.noop;
                     } else {
                         iterate();
                     }
@@ -1495,6 +1509,17 @@ core.parallel = function(tasks, callback)
 // Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
 // a callback to signal completion. The callback accepts either an error for the first argument. The iterator and callback will be
 // called via setImmediate function to allow the main loop to process I/O.
+//
+//          async.series([
+//            function(next) {
+//              setTimeout(function () { next(); }, 15);
+//            },
+//            function(next) {
+//              setTimeout(function () { next(); }, 10);
+//            },
+//          ], function(err) {
+//              console.log(err);
+//          });
 core.series = function(tasks, callback)
 {
     this.forEachSeries(tasks, function(task, next) {

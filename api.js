@@ -3658,7 +3658,7 @@ api.sendStatistics = function()
 api.saveStatistics = function(obj, callback)
 {
     var self = this;
-    core.context.db.add("bk_collect", obj, { pool: self.collectPool }, callback);
+    core.context.db.add("bk_collect", obj, { pool: self.collectPool, skip_null: true }, callback);
 }
 
 // Calculate statistics for a period of time, query and options must confirm to the db.select conventions.
