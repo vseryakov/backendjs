@@ -15,8 +15,6 @@ var core = require(__dirname + '/core');
 var ipc = require(__dirname + '/ipc');
 var aws = require(__dirname + '/aws');
 var cluster = require('cluster');
-var printf = require('printf');
-var async = require('async');
 var os = require('os');
 var helenus = require('helenus');
 var mongodb = require('mongodb');
@@ -781,7 +779,7 @@ db.update = function(table, obj, options, callback)
 // The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
 // to finish due to sequential update every record one by one.
 // Special properties that can be in the options for this call:
-//   - concurrency - how many update queries to execute at the same time, default is 1, this is done by using async.forEachLimit.
+//   - concurrency - how many update queries to execute at the same time, default is 1, this is done by using core.forEachLimit.
 //   - process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
 //      in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 //      as `options.process(row, options)`
@@ -810,7 +808,7 @@ db.updateAll = function(table, query, obj, options, callback)
         if (err) return callback ? callback(err) : null;
 
         options.ops = {};
-        async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
+        core.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             for (var p in obj) row[p] = obj[p];
             if (options && options.process) options.process(row, options);
             self.update(table, row, options, next);
@@ -863,7 +861,7 @@ db.del = function(table, obj, options, callback)
 // Delete all records that match given condition, one by one, the input is the same as for `db.select` and every record
 // returned will be deleted using `db.del` call. The callback will receive on completion the err and all rows found and deleted.
 // Special properties that can be in the options for this call:
-// - concurrency - how many delete requests to execute at the same time by using async.forEachLimit.
+// - concurrency - how many delete requests to execute at the same time by using core.forEachLimit.
 // - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 //   in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 //   as `options.process(row, options)`
@@ -883,7 +881,7 @@ db.delAll = function(table, query, options, callback)
     self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
-        async.forEachLimit(rows, options.concurrency || 1, function(row, next) {
+        core.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             if (options && options.process) options.process(row, opts);
             self.del(table, row, opts, next);
         }, function(err) {
@@ -1011,7 +1009,7 @@ db.batch = function(table, op, objs, options, callback)
     if (pool.batch) return pool.batch(table, op, objs, options, callback);
     var info = [];
 
-    async.forEachLimit(objs, options.concurrency || 1, function(obj, next) {
+    core.forEachLimit(objs, options.concurrency || 1, function(obj, next) {
         db[op](table, obj, options, function(err) {
             if (err && options.ignore_error) {
                 info.push([ err, obj ]);
@@ -3899,7 +3897,7 @@ db.lmdbInitPool = function(options)
         case "drop":
             client.select(table, table, opts, function(err, rows) {
                 if (err || !rows.length) return callback(err, []);
-                async.forEachLimit(rows, opts.concurrency || pool.concurrency, function(row, next) {
+                core.forEachLimit(rows, opts.concurrency || pool.concurrency, function(row, next) {
                     client.del(row.name, next);
                 }, function(err) {
                     callback(err, []);
@@ -4178,7 +4176,7 @@ db.redisInitPool = function(options)
             return callback(null, obj);
         }
         var rows = [];
-        async.forEachLimit(obj, opts.concurrency || this.concurrency, function(item, next) {
+        core.forEachLimit(obj, opts.concurrency || this.concurrency, function(item, next) {
             pool.getItem(client, table, item, opts, function(err, val) {
                 if (!err && val.length) rows.push(val[0]);
                 next(err);
@@ -4198,7 +4196,7 @@ db.redisInitPool = function(options)
         case "drop":
             client.keys(table + "|*", function(err, list) {
                 if (err || !list.length) return callback(err, []);
-                async.forEachLimit(list, opts.concurrency || pool.concurrency, function(key, next) {
+                core.forEachLimit(list, opts.concurrency || pool.concurrency, function(key, next) {
                     client.del(key, next);
                 }, function(err) {
                     callback(err, []);
@@ -4286,7 +4284,7 @@ db.redisInitPool = function(options)
         case "incr":
             var key = this.getKey(table, obj, opts);
             var nums = (opts.counter || []).filter(function(x) { return keys.indexOf(x) == -1 }).map(function(x) { return { name: x, value: obj[x] } });
-            async.forEachLimit(nums, opts.concurrency || this.concurrency, function(num, next) {
+            core.forEachLimit(nums, opts.concurrency || this.concurrency, function(num, next) {
                 client.hincrby(key, num.name, num.value, next);
             }, function(err) {
                 callback(err, []);

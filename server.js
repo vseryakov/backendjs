@@ -20,8 +20,6 @@ var ipc = require(__dirname + '/ipc');
 var os = require('os');
 var express = require('express');
 var stream = require('stream');
-var async = require('async');
-var printf = require('printf');
 var proxy = require('http-proxy');
 
 // The main server class that starts various processes

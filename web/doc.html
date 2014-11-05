@@ -1840,7 +1840,7 @@ the worker processes if they die and restart them automatically. How many proces
                 mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
 
      // Locations for all accounts to support distance searches
-     bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
+     bk_location: { geohash: { primary: 1 },                    // geohash, core.minDistance defines the size
                     id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
                     latitude: { type: &quot;real&quot; },
                     longitude: { type: &quot;real&quot; },
@@ -3510,8 +3510,57 @@ any errors must be passed, use the message object for it, no other arguments are
 
 <ul>
 <li><p><code>core.runCallback(obj, msg)</code></p>
-<p> Run delayed callback for the message previously registsred with the <code>deferCallback</code> method.
+<p> Run delayed callback for the message previously registered with the <code>deferCallback</code> method.
 The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.forEach(list, iterator, callback)</code></p>
+<p> Apply an iterator function to each item in an array in parallel. Execute a callback when all items
+have been completed or immediately if there is an error provided.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.forEachSeries(list, iterator, callback)</code></p>
+<p> Apply an iterator function to each item in an array serially. Execute a callback when all items
+have been completed or immediately if there is is an error provided.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.forEachLimit(list, limit, iterator, callback)</code></p>
+<p> Apply an iterator function to each item in an array in parallel as many as specified in <code>limit</code> at a time. Execute a callback when all items
+have been completed or immediately if there is is an error provided.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.parallel(tasks, callback)</code></p>
+<p> Execute a list of functions in parellel and execute a callback upon completion or occurance of an error. Each function will be passed
+a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
+called via setImmediate function to allow the main loop to process I/O.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.series(tasks, callback)</code></p>
+<p> Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
+a callback to signal completion. The callback accepts either an error for the first argument. The iterator and callback will be
+called via setImmediate function to allow the main loop to process I/O.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.whilst(test, iterator, callback)</code></p>
+<p> While the test function returns true keep running the iterator, call the callback at the end if specified. All functions are called via setImmediate.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.doWhilst(iterator, test, callback)</code></p>
+<p> Keep running iterator while the test function returns true, call the callback at the end if specified. All functions are called via setImmediate.</p>
 </li>
 </ul>
 
@@ -3890,6 +3939,12 @@ Example:<pre><code>  core.cloneObj({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 </ul>
 
 <ul>
+<li><p><code>core.flattenObj(obj, options)</code></p>
+<p> Flatten a javascript object into a single-depth object</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.extendObj()</code></p>
 <p> Add properties to existing object, first arg is the object, the rest are pairs: name, value,....</p>
 </li>
@@ -3929,12 +3984,6 @@ Options may contains the following properties:</p>
 <p>Example:</p>
 <pre><code>    core.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;)
 </code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>core.objFlatten(obj, options)</code></p>
-<p> Flatten a javascript object into a single-depth object</p>
-</li>
 </ul>
 
 <ul>
@@ -4372,7 +4421,7 @@ returned will be updated using <code>db.update</code> call by the primary key, s
 to finish due to sequential update every record one by one.
 Special properties that can be in the options for this call:</p>
 <ul>
-<li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using async.forEachLimit.</li>
+<li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using core.forEachLimit.</li>
 <li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
  in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
  as <code>options.process(row, options)</code></li>
@@ -4419,7 +4468,7 @@ if does not exist yet.</em></p>
 returned will be deleted using <code>db.del</code> call. The callback will receive on completion the err and all rows found and deleted.
 Special properties that can be in the options for this call:</p>
 <ul>
-<li>concurrency - how many delete requests to execute at the same time by using async.forEachLimit.</li>
+<li>concurrency - how many delete requests to execute at the same time by using core.forEachLimit.</li>
 <li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 as <code>options.process(row, options)</code></li>
@@ -5383,6 +5432,12 @@ connection to APN gateway.</p>
 </ul>
 
 <ul>
+<li><p><code>ipc.closeAPN(callback)</code></p>
+<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>ipc.sendAPN(device_id, options, callback)</code></p>
 <p> Send push notification to an Apple device, returns true if the message has been queued.</p>
 <p>The options may contain the following properties:</p>
@@ -5398,6 +5453,12 @@ connection to APN gateway.</p>
 <ul>
 <li><p><code>ipc.initGCM()</code></p>
 <p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.closeGCM(callback)</code></p>
+<p> Close GCM connection, flush the queue</p>
 </li>
 </ul>
 

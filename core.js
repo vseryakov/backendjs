@@ -15,8 +15,6 @@ var exec = require('child_process').exec;
 var backend = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var cluster = require('cluster');
-var printf = require('printf');
-var async = require('async');
 var os = require('os');
 var emailjs = require('emailjs');
 var xml2json = require('xml2json');
@@ -604,6 +602,7 @@ core.describeArgs = function(module, args)
 core.showHelp = function(options)
 {
     var self = this;
+    if (!options) options = {};
     var args = [ [ '', core.args ] ];
     Object.keys(this.context).forEach(function(n) {
         if (self.context[n].args) args.push([n, self.context[n].args]);
@@ -613,16 +612,16 @@ core.showHelp = function(options)
         x[1].forEach(function(y) {
             if (!y.name || !y.descr) return;
             var dflt = (x[0] ? self.context[x[0]] : core)[self.toCamel(y.name)] || "";
-            var line = (x[0] ? x[0] + '-' : '') + y.name + "` - " + y.descr + (dflt ? ". Default: " + dflt : "");
+            var line = (x[0] ? x[0] + '-' : '') + y.name + (options.markdown ? "`" : "") + " - " + y.descr + (dflt ? ". Default: " + dflt : "");
             if (y.dns) line += ". DNS TXT configurable.";
             if (options && options.markdown) {
                 data += "- `" +  line + "\n";
             } else {
-                console.log(printf("%-40s", line));
+                console.log(" -" + line);
             }
         });
     });
-    if (options && options.markdown) return data;
+    if (options.markdown) return data;
     process.exit(0);
 }
 
@@ -654,7 +653,7 @@ core.loadDnsConfig = function(options, callback)
         if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
     }
     self.forEachSeries(args, function(ctx, next1) {
-        async.forEachLimit(ctx.args, 5, function(arg, next2) {
+        core.forEachLimit(ctx.args, 5, function(arg, next2) {
             var cname = ctx.name + arg.name;
             self.series([
                 function(next3) {
@@ -1383,7 +1382,7 @@ core.deferCallback = function(obj, msg, callback, timeout)
     };
 }
 
-// Run delayed callback for the message previously registsred with the `deferCallback` method.
+// Run delayed callback for the message previously registered with the `deferCallback` method.
 // The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
 core.runCallback = function(obj, msg)
 {
@@ -1446,6 +1445,39 @@ core.forEachSeries = function(list, iterator, callback)
     iterate(0);
 }
 
+// Apply an iterator function to each item in an array in parallel as many as specified in `limit` at a time. Execute a callback when all items
+// have been completed or immediately if there is is an error provided.
+core.forEachLimit = function(list, limit, iterator, callback)
+{
+    var self = this;
+    callback = callback || function () {};
+    callback = typeof callback == "function" ? callback : this.noop;
+    if (!list || !list.length || typeof iterator != "function") return callback();
+    if (!limit) limit = 1;
+    var idx = done = running = 0;
+    function iterate() {
+        if (done >= list.length) return callback();
+        while (running < limit && idx < list.length) {
+            running++;
+            iterator(list[idx++], function(err) {
+                if (err) {
+                    callback(err);
+                    callback = self.noop;
+                    done = started = list.length + 1;
+                } else {
+                    running--;
+                    if (++done >= list.length) {
+                        callback();
+                    } else {
+                        iterate();
+                    }
+                }
+            });
+        }
+    }
+    iterate();
+}
+
 // Execute a list of functions in parellel and execute a callback upon completion or occurance of an error. Each function will be passed
 // a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
 // called via setImmediate function to allow the main loop to process I/O.
@@ -1474,7 +1506,7 @@ core.series = function(tasks, callback)
     });
 }
 
-// If the test function returns true run the iterator, call the callback at the end if specified. All functions are called via setImmediate.
+// While the test function returns true keep running the iterator, call the callback at the end if specified. All functions are called via setImmediate.
 core.whilst = function(test, iterator, callback)
 {
     var self = this;
@@ -1486,7 +1518,7 @@ core.whilst = function(test, iterator, callback)
     });
 };
 
-// Keep running iterator while test function returns true, call the callback at the end if specified. All functions are called via setImmediate.
+// Keep running iterator while the test function returns true, call the callback at the end if specified. All functions are called via setImmediate.
 core.doWhilst = function(iterator, test, callback)
 {
     var self = this;

@@ -15,7 +15,6 @@ var cluster = require('cluster');
 var url = require('url');
 var qs = require('qs');
 var crypto = require('crypto');
-var async = require('async');
 var express = require('express');
 var cookieParser = require('cookie-parser');
 var session = require('cookie-session');
@@ -29,7 +28,6 @@ var domain = require('domain');
 var core = require(__dirname + '/core');
 var ipc = require(__dirname + '/ipc');
 var metrics = require(__dirname + '/metrics');
-var printf = require('printf');
 var logger = require(__dirname + '/logger');
 var backend = require(__dirname + '/build/Release/backend');
 
@@ -99,7 +97,7 @@ var api = {
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
-       bk_location: { geohash: { primary: 1 },                    // geohash, minDistance defines the size
+       bk_location: { geohash: { primary: 1 },                    // geohash, core.minDistance defines the size
                       id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
                       latitude: { type: "real" },
                       longitude: { type: "real" },
@@ -670,7 +668,7 @@ api.shutdown = function(callback)
             clearTimeout(timeout);
             var pools = db.getPools();
             try {
-                async.forEachLimit(pools, pools.length, function(pool, next) { db.dbpool[pool.name].shutdown(next); }, callback);
+                core.forEachLimit(pools, pools.length, function(pool, next) { db.dbpool[pool.name].shutdown(next); }, callback);
             } catch(e) {
                 logger.error("api.shutdown:", e.stack);
                 if (callback) callback();
@@ -3067,7 +3065,7 @@ api.getMessage = function(req, options, callback)
         options.total = 0;
     }
     function del(rows, next) {
-        async.forEachLimit(rows, options.concurrency || 1, function(row, next2) {
+        core.forEachLimit(rows, options.concurrency || 1, function(row, next2) {
             db.del("bk_message", row, options, function() { next2() });
         }, next);
     }

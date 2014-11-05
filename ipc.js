@@ -11,7 +11,6 @@ var backend = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var cluster = require('cluster');
-var async = require('async');
 var memcached = require('memcached');
 var redis = require("redis");
 var amqp = require('amqp');

@@ -10,7 +10,6 @@ var fs = require("fs");
 var cluster = require('cluster');
 var util = require('util');
 var path = require('path');
-var async = require('async');
 var child_process = require('child_process');
 var backend = require('backendjs')
 core = backend.core;
