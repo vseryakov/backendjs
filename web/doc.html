@@ -3519,7 +3519,7 @@ The message must have id property which is used to find the corresponding callba
 <li><p><code>core.forEach(list, iterator, callback)</code></p>
 <p> Apply an iterator function to each item in an array in parallel. Execute a callback when all items
 have been completed or immediately if there is an error provided.</p>
-<pre><code>    async.forEach([ 1, 2, 3 ], function (i, next) {
+<pre><code>    core.forEach([ 1, 2, 3 ], function (i, next) {
         console.log(i);
         next();
     }, function (err) {
@@ -3532,7 +3532,7 @@ have been completed or immediately if there is an error provided.</p>
 <li><p><code>core.forEachSeries(list, iterator, callback)</code></p>
 <p> Apply an iterator function to each item in an array serially. Execute a callback when all items
 have been completed or immediately if there is is an error provided.</p>
-<pre><code>    async.forEachSeries([ 1, 2, 3 ], function (i, next) {
+<pre><code>    core.forEachSeries([ 1, 2, 3 ], function (i, next) {
       console.log(i);
       next();
     }, function (err) {
@@ -3561,13 +3561,13 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 <p> Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
 a callback to signal completion. The callback accepts either an error for the first argument. The iterator and callback will be
 called via setImmediate function to allow the main loop to process I/O.</p>
-<pre><code>    async.series([
-      function(next) {
-        setTimeout(function () { next(); }, 15);
-      },
-      function(next) {
-        setTimeout(function () { next(); }, 10);
-      },
+<pre><code>    core.series([
+       function(next) {
+          setTimeout(function () { next(); }, 100);
+       },
+       function(next) {
+          setTimeout(function () { next(); }, 100);
+       },
     ], function(err) {
         console.log(err);
     });
@@ -3577,7 +3577,15 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 <ul>
 <li><p><code>core.whilst(test, iterator, callback)</code></p>
 <p> While the test function returns true keep running the iterator, call the callback at the end if specified. All functions are called via setImmediate.</p>
-</li>
+<pre><code>    var count = 0;
+    core.whilst(function() { return count &lt; 5; },
+                function (callback) {
+                    count++;
+                    setTimeout(callback, 1000);
+                }, function (err) {
+                    console.log(count);
+                });
+</code></pre></li>
 </ul>
 
 <ul>

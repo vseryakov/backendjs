@@ -1410,7 +1410,7 @@ core.runCallback = function(obj, msg)
 // Apply an iterator function to each item in an array in parallel. Execute a callback when all items
 // have been completed or immediately if there is an error provided.
 //
-//          async.forEach([ 1, 2, 3 ], function (i, next) {
+//          core.forEach([ 1, 2, 3 ], function (i, next) {
 //              console.log(i);
 //              next();
 //          }, function (err) {
@@ -1438,7 +1438,7 @@ core.forEach = function(list, iterator, callback)
 // Apply an iterator function to each item in an array serially. Execute a callback when all items
 // have been completed or immediately if there is is an error provided.
 //
-//          async.forEachSeries([ 1, 2, 3 ], function (i, next) {
+//          core.forEachSeries([ 1, 2, 3 ], function (i, next) {
 //            console.log(i);
 //            next();
 //          }, function (err) {
@@ -1510,13 +1510,13 @@ core.parallel = function(tasks, callback)
 // a callback to signal completion. The callback accepts either an error for the first argument. The iterator and callback will be
 // called via setImmediate function to allow the main loop to process I/O.
 //
-//          async.series([
-//            function(next) {
-//              setTimeout(function () { next(); }, 15);
-//            },
-//            function(next) {
-//              setTimeout(function () { next(); }, 10);
-//            },
+//          core.series([
+//             function(next) {
+//                setTimeout(function () { next(); }, 100);
+//             },
+//             function(next) {
+//                setTimeout(function () { next(); }, 100);
+//             },
 //          ], function(err) {
 //              console.log(err);
 //          });
@@ -1532,6 +1532,15 @@ core.series = function(tasks, callback)
 }
 
 // While the test function returns true keep running the iterator, call the callback at the end if specified. All functions are called via setImmediate.
+//
+//          var count = 0;
+//          core.whilst(function() { return count < 5; },
+//                      function (callback) {
+//                          count++;
+//                          setTimeout(callback, 1000);
+//                      }, function (err) {
+//                          console.log(count);
+//                      });
 core.whilst = function(test, iterator, callback)
 {
     var self = this;
