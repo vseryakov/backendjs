@@ -2008,7 +2008,7 @@ core.hash = function (data, algorithm, encode)
 // Return unique Id without any special characters and in lower case
 core.uuid = function()
 {
-    return uuid.v4().replace(/-/g, '').toLowerCase();
+    return uuid.v4().replace(/[-]/g, '').toLowerCase();
 }
 
 // Generate random key, size if specified defines how many random bits to generate

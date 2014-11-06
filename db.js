@@ -117,16 +117,17 @@ var db = {
            { name: "init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
            { name: "options", count: 3, match: "pool", type: "json", descr: "A DB pool driver options passed to every request" },
            { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name" },
-           { name: "pgsql-pool", count: 3, descr: "PostgreSQL pool access url or options string" },
-           { name: "mysql-pool", count: 3, descr: "MySQL pool access url in the format: mysql://user:pass@host/db" },
+           { name: "pgsql-pool", count: 3, descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
+           { name: "mysql-pool", count: 3, descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
            { name: "dynamodb-pool", count: 3, descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
-           { name: "mongodb-pool", count: 3, descr: "MongoDB endpoint url" },
-           { name: "cassandra-pool", count: 3, descr: "Casandra endpoint url" },
+           { name: "mongodb-pool", count: 3, descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
+           { name: "cassandra-pool", count: 3, descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
            { name: "lmdb-pool", count: 3, descr: "Path to the local LMDB database" },
            { name: "leveldb-pool", count: 3, descr: "Path to the local LevelDB database" },
            { name: "redis-pool", count: 3, descr: "Redis host" },
-           { name: "elasticsearch-pool", count: 3, descr: "ElasticSearch host" },
-           { name: "couchdb-pool", count: 3, descr: "ElasticSearch host" },
+           { name: "elasticsearch-pool", count: 3, descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
+           { name: "couchdb-pool", count: 3, descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
+           { name: "riak-pool", count: 3, descr: "Riak url to the host in the format: http://hostname[:port]" },
     ],
 
     // Default tables
@@ -4395,20 +4396,19 @@ db.couchdbInitPool = function(options)
 
     function query(method, path, obj, opts, callback) {
         var uri = pool.db + "/" + path;
-        var params = { method: method, query: opts.query || {} };
+        var params = { method: method, postdata: method != "GET" ? obj : "", query: {} };
         (opts._query || []).forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
-        if (obj && method != "GET") params.postdata = obj;
         core.httpGet(uri, params, function(err, params) {
             if (err) {
                 logger.error("couchdb:", method, path, err);
                 return callback(err, {});
             }
             var err = null;
-            params.json = core.jsonParse(params.data);
+            obj = core.jsonParse(params.data, { obj: 1 });
             if (params.status >= 400) {
-                err = core.newError({ message: params.json.reason || (method + " Error: " + params.status), code: params.json.error, status: params.status });
+                err = core.newError({ message: obj.reason || (method + " Error: " + params.status), code: obj.error, status: params.status });
             }
-            callback(err, params.json || {});
+            callback(err, obj);
         });
     }
 
@@ -4508,6 +4508,7 @@ db.couchdbInitPool = function(options)
             });
             break;
 
+        case "incr":
         case "update":
             opts._query = attrs.add;
             req.obj._id = key;
@@ -4516,7 +4517,14 @@ db.couchdbInitPool = function(options)
             if (!req.obj._rev) {
                 query("GET", key, "", opts, function(err, res) {
                     if (err) return callback(err, []);
-                    for (var p in res) if (!req.obj[p]) req.obj[p] = res[p];
+                    for (var p in res) {
+                        if (opts.counter && opts.counter.indexOf(p) > -1) {
+                            req.obj[p] = core.toNumber(res[p]) + core.toNumber(req.obj[p]);
+                        } else
+                        if (!req.obj[p]) {
+                            req.obj[p] = res[p];
+                        }
+                    }
                     query("PUT", key, req.obj, opts, function(err, res) {
                         callback(err, [], res);
                     });
@@ -4552,24 +4560,28 @@ db.riakInitPool = function(options)
     if (!options.pool) options.pool = "riak";
 
     options.type = "riak";
+    var u = url.parse(options.db);
+    if (!u.port) u.host = u.hostname + ":" + 8098;
+    u.path = u.pathname = null;
+    options.db = url.format(u);
     var pool = this.createPool(options);
 
     function query(method, path, obj, opts, callback) {
-        var uri = pool.db + "/" + path;
-        var params = { method: method, query: opts.query || {} };
+        var uri = pool.db + path;
+        var params = { method: method, postdata: method != "GET" ? obj : "", query: {}, headers: {} };
         (opts._query || []).forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
-        if (obj && method != "GET") params.postdata = obj;
+        (opts._index || []).forEach(function(x) { if (obj[x]) params.headers["x-riak-index-" + x] = obj[x] });
         core.httpGet(uri, params, function(err, params) {
             if (err) {
                 logger.error("riak:", method, path, err);
                 return callback(err, {});
             }
             var err = null;
-            params.json = core.jsonParse(params.data);
+            obj = core.jsonParse(params.data, { obj: 1 });
             if (params.status >= 400) {
-                err = core.newError({ message: params.json.reason || (method + " Error: " + params.status), code: params.json.error, status: params.status });
+                err = core.newError({ message: obj.reason || (method + " Error: " + params.status), code: obj.error, status: params.status });
             }
-            callback(err, params.json || {});
+            callback(err, obj);
         });
     }
 
@@ -4583,8 +4595,7 @@ db.riakInitPool = function(options)
         switch (req.op) {
         case "get":
             opts._query = attrs.get;
-            key = key.replace(/[\/]/g, "%2F");
-            key = "/buckets/" + req.table + "/keys/" + key;
+            key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
             query("GET", key, "", opts, function(err, res) {
                 if (err) return callback(err.status == 404 ? null : err, []);
                 callback(null, [ res ]);
@@ -4597,25 +4608,55 @@ db.riakInitPool = function(options)
 
         case "list":
             opts._query = attrs.get;
+            var ids = req.obj.map(function(x) { return keys.map(function(y) { return x[y] || "" }).join("|"); });
+            var rows = [];
+            core.forEachLimit(ids, opts.concurrency || core.concurrency, function(key, next) {
+                key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
+                query("GET", key, "", opts, function(err, res) {
+                    if (err && err.status != 404) return next(err);
+                    if (!err) rows.push(res);
+                    next();
+                });
+            }, function(err) {
+                callback(err, rows);
+            });
+            break;
+
+        case "counter":
+            opts._query = attrs.add;
+            core.forEachLimit(Object.keys(req.obj), function(name, next) {
+                key = "/buckets/" + req.table + "/counters/" + name.replace(/[\/]/g, "%2F");
+                query("POST", key, req.obj[name], opts, function(err, res) {
+                    next(err);
+                });
+            }, function(err) {
+                callback(err, []);
+            });
             break;
 
         case "add":
         case "put":
             opts._query = attrs.add;
-            key = key.replace(/[\/]/g, "%2F");
-            key = "/buckets/" + req.table + "/keys/" + key;
+            key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
             query("PUT", key, req.obj, opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
+        case "incr":
         case "update":
             opts._query = attrs.add;
-            key = key.replace(/[\/]/g, "%2F");
-            key = "/buckets/" + req.table + "/keys/" + key;
+            key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
             query("GET", key, "", opts, function(err, res) {
                 if (err) return callback(err, []);
-                for (var p in res) if (!req.obj[p]) req.obj[p] = res[p];
+                for (var p in res) {
+                    if (opts.counter && opts.counter.indexOf(p) > -1) {
+                        req.obj[p] = core.toNumber(res[p]) + core.toNumber(req.obj[p]);
+                    } else
+                    if (!req.obj[p]) {
+                        req.obj[p] = res[p];
+                    }
+                }
                 query("PUT", key, req.obj, opts, function(err, res) {
                     callback(err, [], res);
                 });
@@ -4624,8 +4665,7 @@ db.riakInitPool = function(options)
 
         case "del":
             opts._query = attrs.del;
-            key = key.replace(/[\/]/g, "%2F");
-            key = "/buckets/" + req.table + "/keys/" + key;
+            key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
             query("DELETE", key, "", opts, function(err, res) {
                 callback(err, [], res);
             });
