@@ -91,10 +91,10 @@ var db = {
     pool: 'sqlite',
 
     // Database connection pools by pool name
-    dbpool: {},
+    pools: {},
 
     // Pools by table name
-    tblpool: {},
+    poolTables: {},
 
     // Tables to be cached
     caching: [],
@@ -193,7 +193,7 @@ db.init = function(options, callback)
 	        var n = i > 0 ? i : "";
 	        var name = pool + n;
 	        var db = self[pool + 'Pool' + n];
-	        if (!db || self.dbpool[name]) continue;
+	        if (!db || self.pools[name]) continue;
             // local pool must be always initialized
 	        if (options.noPools || self.noPools) {
 	            if (name != self.local && name != self.pool) continue;
@@ -207,7 +207,7 @@ db.init = function(options, callback)
 	                     dboptions: self[pool + 'Options' + n] };
 	        self[pool + 'InitPool'](opts);
 	        // Pool specific tables
-	        (self[pool + 'Tables' + n] || []).forEach(function(y) { self.tblpool[y] = pool; });
+	        (self[pool + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
 	    }
 	});
 
@@ -262,7 +262,7 @@ db.initTables = function(tables, options, callback)
 	var self = this;
     if (typeof options == "function") callback = options, options = null;
 
-	core.forEachSeries(Object.keys(self.dbpool), function(name, next) {
+	core.forEachSeries(Object.keys(self.pools), function(name, next) {
 	    if (name == "none") return next();
     	self.initPoolTables(name, tables, options, next);
 	}, function(err) {
@@ -343,7 +343,7 @@ db.getPoolTables = function(name)
 db.getPools = function()
 {
     var rc = [];
-    for (var p in this.dbpool) rc.push({ name: this.dbpool[p].name, type: this.dbpool[p].type });
+    for (var p in this.pools) rc.push({ name: this.pools[p].name, type: this.pools[p].type });
     return rc;
 }
 
@@ -405,7 +405,7 @@ db.createPool = function(options)
                 }
             },
             validate: function(client) {
-                return self.dbpool[this.name].serialNum == client.pool_serial;
+                return self.pools[this.name].serialNum == client.pool_serial;
             },
             destroy: function(client) {
                 logger.debug('pool.destroy', client.pool_name, "#", client.pool_serial);
@@ -516,7 +516,7 @@ db.createPool = function(options)
     [ 'dbinit', 'dboptions'].forEach(function(x) { if (core.typeName(pool[x]) != "object") pool[x] = {}; });
     [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
     if (!pool.type) pool.type = "unknown";
-    this.dbpool[pool.name] = pool;
+    this.pools[pool.name] = pool;
     logger.debug('db.createPool:', pool.type, pool.name);
     return pool;
 }
@@ -542,15 +542,20 @@ db.showResult = function(err, rows, info)
 //   - table - table name for the operation
 // - options may have the following properties:
 //     - pool - name of the database pool where to execute this query.
-//
 //       The difference with the high level functions that take a table name as their firt argument, this function must use pool
 //       explicitely if it is different from the default. Other functions can resolve
 //       the pool by table name if some tables are assigned to any specific pool by configuration parameters `db-pool-tables`.
+//     - unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the `unique` property
 //     - filter - function to filter rows not to be included in the result, return false to skip row, args are: function(row, options)
 //     - async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(rows, options, callback),
 //          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
 //          filtering based on the ata in the other table for example.
 //     - silence_error - do not report about the error in the log, still the error is retirned to the caller
+//     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined
+//       columns as is
+//     - noconvertrows - if true skip converting the data from the database format into Javascript data types
+//     - cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)
+//     - total - if true then it is supposed to return only one record with property `count`, skip all post processing and convertion
 // - callback(err, rows, info) where
 //    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
 //    - rows is always returned as a list, even in case of error it is an empty list
@@ -1701,7 +1706,7 @@ db.prepare = function(op, table, obj, options)
 // special empty pool which provides same interface but returns errors instesd of results.
 db.getPool = function(table, options)
 {
-    return this.dbpool[(options || {})["pool"] || this.tblpool[table] || this.pool] || this.nopool;
+    return this.pools[(options || {})["pool"] || this.poolTables[table] || this.pool] || this.nopool;
 }
 
 // Returns given pool if it exists and initialized otherwise returns null
@@ -1731,6 +1736,13 @@ db.getColumns = function(table, options)
 db.getColumn = function(table, name, options)
 {
     return this.getColumns(table, options)[name];
+}
+
+// Return a value for the given property from the column definition, return empty string if no column or attribute found
+db.getColumnProperty = function(table, name, attr, options)
+{
+    var col = this.getColumns(table, options)[name];
+    return col ? col[attr] : "";
 }
 
 // Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property
@@ -1962,8 +1974,8 @@ db.setProcessRow = function(table, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!table || !callback) return;
-    for (var p in this.dbpool) {
-        var pool = this.dbpool[p];
+    for (var p in this.pools) {
+        var pool = this.pools[p];
         if (!pool.processRow[table]) pool.processRow[table] = [];
         pool.processRow[table].push(callback);
     }
@@ -4381,7 +4393,13 @@ db.elasticsearchInitPool = function(options)
     return pool;
 }
 
-// Create a database pool that works with CouchDB server
+// Create a database pool that works with CouchDB server.
+//
+// In addition to the standard commands it can execute any CouchDB HTTP API directly
+//
+//      db.query({ op: "GET", text: "/db/url" }, { pool: "couchdb" }, db.showResult)
+//      db.query({ op: "PUT", text: "/db/url", obj: { a: 1 b: 2 } }, { pool: "couchdb" }, db.showResult)
+//
 db.couchdbInitPool = function(options)
 {
     var self = this;
@@ -4394,10 +4412,18 @@ db.couchdbInitPool = function(options)
     options.db = url.format(u);
     var pool = this.createPool(options);
 
-    function query(method, path, obj, opts, callback) {
+    // Native query parameters for each operation
+    var _query = { get : ["attachments","att_encoding_info","atts_since","conflicts","deleted_conflicts","latest","local_seq","meta","open_revs","rev","revs","revs_info"],
+                   select: ["conflicts","descending","endkey","end_key","endkey_docid","end_key_doc_id","group","group_level","include_docs","attachments","att_encoding_info",
+                           "inclusive_end","key","limit","reduce","skip","stale","startkey","start_key","startkey_docid","start_key_doc_id","update_seq"],
+                   put: ["batch"],
+                   del: ["rev", "batch"] };
+
+    function query(op, method, path, obj, opts, callback) {
         var uri = pool.db + "/" + path;
         var params = { method: method, postdata: method != "GET" ? obj : "", query: {} };
-        (opts._query || []).forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
+        if (_query[op]) _query[op].forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
+
         core.httpGet(uri, params, function(err, params) {
             if (err) {
                 logger.error("couchdb:", method, path, err);
@@ -4415,18 +4441,13 @@ db.couchdbInitPool = function(options)
     pool.query = function(client, req, opts, callback) {
         var keys = self.getKeys(req.table, opts);
         var key = req.table + "|" + keys.filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
-        var attrs = { get : ["attachments","att_encoding_info","atts_since","conflicts","deleted_conflicts","latest","local_seq","meta","open_revs","rev","revs","revs_info"],
-                      select: ["conflicts","descending","endkey","end_key","endkey_docid","end_key_doc_id","group","group_level","include_docs","attachments","att_encoding_info",
-                               "inclusive_end","key","limit","reduce","skip","stale","startkey","start_key","startkey_docid","start_key_doc_id","update_seq"],
-                      add: ["batch"],
-                      del: ["rev", "batch"] };
+
         switch (req.op) {
         case "create":
         case "upgrade":
             var views = {}, changed = 0;
             var cols = Object.keys(core.searchObj(req.obj, { name: 'primary', sort: 1, flag: 1 }));
-            // Make an index to query just by the hash key to simulate DynamoDB/Cassandra
-            if (cols.length) views.primary = cols.slice(0, 1);
+            if (cols.length) views.primary = cols;
 
             ["", "1", "2", "3", "4", "5"].forEach(function(n) {
                 var cols = Object.keys(core.searchObj(req.obj, { name: "unique" + n, sort: 1, flag: 1 }));
@@ -4435,7 +4456,7 @@ db.couchdbInitPool = function(options)
                 if (cols.length) views[cols.join("_")] = cols;
             });
 
-            query("GET", "_design/" + req.table, "", {}, function(err, res) {
+            query("get", "GET", "_design/" + req.table, "", {}, function(err, res) {
                 if (err && err.status != 404) return callback(err);
                 if (!res || !res.views) res = { id: "_design/" + req.table, language: "javascript", views: {} }, changed = 1;
                 Object.keys(views).forEach(function(view) {
@@ -4445,51 +4466,47 @@ db.couchdbInitPool = function(options)
                     changed = 1;
                 });
                 if (!changed) return callback(err, []);
-                logger.log(res)
-                query("PUT", "_design/" + req.table, res, {}, function(err, res) {
+                query("put", "PUT", "_design/" + req.table, res, {}, function(err, res) {
                     callback(err, []);
                 });
             });
             break;
 
         case "get":
-            opts._query = attrs.get;
             key = key.replace(/[\/]/g, "%2F");
-            query("GET", key, "", opts, function(err, res) {
+            query("get", "GET", key, "", opts, function(err, res) {
                 if (err) return callback(err.status == 404 ? null : err, []);
                 callback(null, [ res ]);
             });
             break;
 
         case "select":
-            opts._query = attrs.select;
             if (opts.desc) opts.descending = true;
             if (opts.count) opts.limit = opts.count;
             if (opts.start) opts.skip = opts.start;
-            // Full primary key or a single column
-            var cols = self.getColumns(req.table);
-            var dbkeys = self.getQueryForKeys(keys.slice(0, 1), req.obj);
-            opts.key = Object.keys(dbkeys).map(function(x) { return dbkeys[x] }).join("|");
-            if (opts.key) opts.key = req.table + "|" + opts.key;
-            // Custom filter on other columns
-            var other = Object.keys(req.obj).filter(function(x) { return x[0] != "_" && !dbkeys[x] && typeof req.obj[x] != "undefined" });
-            var filter = function(items) {
-                if (other.length > 0) items = self.filterColumns(req.obj, items, { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap });
-                return items;
+            opts.startkey = key;
+            // Matching the beginning of the primary key
+            if (keys.some(function(x) { return opts.ops[x] == "begins_with" })) {
+                opts.endkey = key.substr(0, key.length - 1) + String.fromCharCode(key.charCodeAt(key.length - 1) + 1);
             }
-            query("GET", "_design/" + req.table + "/_view/" + (opts.sort || "primary"), "", opts, function(err, res) {
+            // Custom filter on other columns
+            var cols = self.getColumns(req.table, opts);
+            var other = Object.keys(req.obj).filter(function(x) { return x[0] != "_" && keys.indexOf(x) == -1 && typeof req.obj[x] != "undefined" });
+            var opts2 = { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap };
+            var filter = function(items) { return other.length > 0 ? self.filterColumns(req.obj, items, opts2) : items; }
+
+            query("select", "GET", "_design/" + req.table + "/_view/" + (opts.sort || "primary"), "", opts, function(err, res) {
                 if (err) return callback(err, []);
-                callback(null, filter(res.rows));
+                callback(null, filter(res.rows.map(function(x) { return x.value })));
             });
             break;
 
         case "list":
-            opts._query = attrs.get;
             var ids = req.obj.map(function(x) { return req.table + "|" + keys.map(function(y) { return x[y] || "" }).join("|"); });
             var rows = [];
             core.forEachLimit(ids, opts.concurrency || core.concurrency, function(key, next) {
                 key = key.replace(/[\/]/g, "%2F");
-                query("GET", key, "", opts, function(err, res) {
+                query("get", "GET", key, "", opts, function(err, res) {
                     if (err && err.status != 404) return next(err);
                     if (!err) rows.push(res);
                     next();
@@ -4501,21 +4518,19 @@ db.couchdbInitPool = function(options)
 
         case "add":
         case "put":
-            opts._query = attrs.add;
             req.obj._id = key;
-            query("POST", "", req.obj, opts, function(err, res) {
+            query("put", "POST", "", req.obj, opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
         case "incr":
         case "update":
-            opts._query = attrs.add;
             req.obj._id = key;
             key = key.replace(/[\/]/g, "%2F");
             // Not a full document, retrieve the latest revision
             if (!req.obj._rev) {
-                query("GET", key, "", opts, function(err, res) {
+                query("get", "GET", key, "", opts, function(err, res) {
                     if (err) return callback(err, []);
                     for (var p in res) {
                         if (opts.counter && opts.counter.indexOf(p) > -1) {
@@ -4525,7 +4540,7 @@ db.couchdbInitPool = function(options)
                             req.obj[p] = res[p];
                         }
                     }
-                    query("PUT", key, req.obj, opts, function(err, res) {
+                    query("put", "PUT", key, req.obj, opts, function(err, res) {
                         callback(err, [], res);
                     });
                 });
@@ -4537,22 +4552,29 @@ db.couchdbInitPool = function(options)
             break;
 
         case "del":
-            opts._query = attrs.del;
             key = key.replace(/[\/]/g, "%2F");
-            query("DELETE", key, "", opts, function(err, res) {
+            query("del", "DELETE", key, "", opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
         default:
-            return callback(null, []);
+            query("", req.op, req.text, req.obj, opts, function(err, res) {
+                callback(err, res);
+            });
         }
     }
 
     return pool;
 }
 
-// Create a database pool that works with the Riak database
+// Create a database pool that works with the Riak database.
+//
+// In addition to the standard commands it can execute any Riak HTTP API directly
+//
+//      db.query({ op: "GET", text: "/buckets?buckets=true" }, { pool: "riak" }, db.showResult)
+//      db.query({ op: "POST", text: "/buckets/bucket/counter/name", obj: 1 }, { pool: "riak" }, db.showResult)
+//
 db.riakInitPool = function(options)
 {
     var self = this;
@@ -4566,11 +4588,18 @@ db.riakInitPool = function(options)
     options.db = url.format(u);
     var pool = this.createPool(options);
 
-    function query(method, path, obj, opts, callback) {
+    // Native query parameters for each operation
+    var _query = { del: ["rw", "pr", "w", "dw", "pw"],
+                   get: ["r","pr","basic_quorum","notfound_ok","vtag"],
+                   put: ["w","dw","pw","returnbody"],
+                   select: ["return_terms","max_results","continuation"], };
+
+    function query(op, method, path, obj, opts, callback) {
         var uri = pool.db + path;
         var params = { method: method, postdata: method != "GET" ? obj : "", query: {}, headers: {} };
-        (opts._query || []).forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
-        (opts._index || []).forEach(function(x) { if (obj[x]) params.headers["x-riak-index-" + x] = obj[x] });
+        if (_query[op]) _query[op].forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
+        for (var p in opts.index) params.headers["x-riak-index-" + p] = opts.index[p];
+
         core.httpGet(uri, params, function(err, params) {
             if (err) {
                 logger.error("riak:", method, path, err);
@@ -4579,7 +4608,7 @@ db.riakInitPool = function(options)
             var err = null;
             obj = core.jsonParse(params.data, { obj: 1 });
             if (params.status >= 400) {
-                err = core.newError({ message: obj.reason || (method + " Error: " + params.status), code: obj.error, status: params.status });
+                err = core.newError({ message: params.data || (method + " Error: " + params.status), code: obj.error, status: params.status });
             }
             callback(err, obj);
         });
@@ -4588,31 +4617,56 @@ db.riakInitPool = function(options)
     pool.query = function(client, req, opts, callback) {
         var keys = self.getKeys(req.table, opts);
         var key = keys.filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
-        var attrs = { get : ["r","pr","basic_quorum","notfound_ok","vtag"],
-                      add: ["w","dw","pw","returnbody"],
-                      del: ["rw", "pr", "w", "dw", "pw"] };
 
         switch (req.op) {
         case "get":
-            opts._query = attrs.get;
-            key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-            query("GET", key, "", opts, function(err, res) {
+            var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
+            query("get", "GET", path, "", opts, function(err, res) {
                 if (err) return callback(err.status == 404 ? null : err, []);
                 callback(null, [ res ]);
             });
             break;
 
         case "select":
-            opts._query = attrs.select;
+            opts.return_terms = "true";
+            if (opts.count) opts.max_results = opts.count;
+            if (opts.start) opts.continuation = opts.start;
+
+            // Custom filter on other columns
+            var cols = self.getColumns(req.table, opts);
+            var other = Object.keys(req.obj).filter(function(x) { return x[0] != "_" && keys.indexOf(x) == -1 && typeof req.obj[x] != "undefined" });
+            var opts2 = { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap };
+            var filter = function(item) { return other.length > 0 ? self.filterColumns(req.obj, [ item ], opts2).length : 1; }
+
+            var path = "/buckets/" + req.table + "/index/" + (opts.sort || "primary_bin") + "/" + key.replace(/[\/]/g, "%2F");
+
+            // Matching the beginning of the primary key
+            if (keys.some(function(x) { return opts.ops[x] == "begins_with" })) {
+                path += "/" + key.substr(0, key.length - 1) + String.fromCharCode(key.charCodeAt(key.length - 1) + 1);
+            }
+            query("select", "GET", path, "", opts, function(err, res) {
+                if (err) return callback(err, []);
+                var rows = [];
+                core.forEachLimit(res.keys, opts.concurrency || core.concurrency, function(key, next) {
+                    var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
+                    query("get", "GET", path, "", opts, function(err, res) {
+                        if (err && err.status != 404) return next(err);
+                        if (!err && filter(res)) rows.push(res);
+                        next();
+                    });
+                }, function(err) {
+                    client.next_token = res.continuation;
+                    callback(err, rows);
+                });
+            });
             break;
 
         case "list":
-            opts._query = attrs.get;
             var ids = req.obj.map(function(x) { return keys.map(function(y) { return x[y] || "" }).join("|"); });
             var rows = [];
             core.forEachLimit(ids, opts.concurrency || core.concurrency, function(key, next) {
-                key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-                query("GET", key, "", opts, function(err, res) {
+                var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
+                query("get", "GET", path, "", opts, function(err, res) {
                     if (err && err.status != 404) return next(err);
                     if (!err) rows.push(res);
                     next();
@@ -4622,32 +4676,20 @@ db.riakInitPool = function(options)
             });
             break;
 
-        case "counter":
-            opts._query = attrs.add;
-            core.forEachLimit(Object.keys(req.obj), function(name, next) {
-                key = "/buckets/" + req.table + "/counters/" + name.replace(/[\/]/g, "%2F");
-                query("POST", key, req.obj[name], opts, function(err, res) {
-                    next(err);
-                });
-            }, function(err) {
-                callback(err, []);
-            });
-            break;
-
         case "add":
         case "put":
-            opts._query = attrs.add;
-            key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-            query("PUT", key, req.obj, opts, function(err, res) {
+            // Index by the hash property
+            if (!opts.index) opts.index = { primary_bin: key };
+            var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
+            query("put", "PUT", path, req.obj, opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
         case "incr":
         case "update":
-            opts._query = attrs.add;
-            key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-            query("GET", key, "", opts, function(err, res) {
+            var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
+            query("get", "GET", path, "", opts, function(err, res) {
                 if (err) return callback(err, []);
                 for (var p in res) {
                     if (opts.counter && opts.counter.indexOf(p) > -1) {
@@ -4657,22 +4699,25 @@ db.riakInitPool = function(options)
                         req.obj[p] = res[p];
                     }
                 }
-                query("PUT", key, req.obj, opts, function(err, res) {
+                // Index by the hash property
+                if (!opts.index) opts.index = { primary_bin: key };
+                query("put", "PUT", key, req.obj, opts, function(err, res) {
                     callback(err, [], res);
                 });
             });
             break;
 
         case "del":
-            opts._query = attrs.del;
-            key = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-            query("DELETE", key, "", opts, function(err, res) {
+            var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
+            query("del", "DELETE", path, "", opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
         default:
-            return callback(null, []);
+            query("", req.op, req.text, req.obj, opts, function(err, res) {
+                callback(err, res);
+            });
         }
     }
 

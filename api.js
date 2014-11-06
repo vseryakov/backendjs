@@ -2683,8 +2683,8 @@ api.incrAutoCounter = function(id, type, num, options, callback)
     var db = core.context.db;
 
     if (!id || !type || !num) return callback(null, []);
-    var col = db.getColumn("bk_counter", type, options) || {};
-    if (!col.autoincr) return callback(null, []);
+    var col = db.getColumn("bk_counter", type, options);
+    if (!col || col.autoincr) return callback(null, []);
     db.incr("bk_counter", core.newObj('id', id, type, num), options, callback);
 }
 

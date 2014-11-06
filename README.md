@@ -12,8 +12,10 @@ For the UI and presentation layer there are no restrictions what to use as long 
 Features:
 
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
-* Simple database API that supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB, CouchDB, ElasticSearch,
-  easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.
+* Database API supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
+  same way allowing to switch databases without changing the code.
+* Database driver for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations
+* Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
 * Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
