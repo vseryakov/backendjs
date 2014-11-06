@@ -1371,8 +1371,10 @@ core.sendRequest = function(options, callback)
                 break;
             }
         }
-        if (params.status != 200 && !err && !options.anystatus) err = self.newError(util.format("ResponseError: %d: %j", params.status, params.obj), "HTTP", params.status);
         if (!params.obj) params.obj = {};
+        if (params.status != 200 && !err && !options.anystatus) {
+            err = self.newError({ message: util.format("ResponseError: %d: %j", params.status, params.obj), name: "HTTP", status: params.status });
+        }
         if (typeof callback == "function") callback(err, options.obj ? params.obj : params, options.obj ? null : res);
     });
 }
@@ -2516,13 +2518,18 @@ core.cloneObj = function()
     return rc;
 }
 
-// Return a new Error object
-core.newError = function(msg, name, code, status)
+// Return a new Error object, options can be a string which will create an error with a message only
+// or an object with message, code, status, and name properties to build full error
+core.newError = function(options)
 {
-    var err = new Error(msg);
-    if (name) err.name = name;
-    if (code) err.code = code;
-    if (status) err.status = status;
+    if (typeof options == "string") options = { message: options };
+    if (!options) options = {};
+    var err = new Error(options.message || "Unknown error");
+    if (options.name) err.name = options.name;
+    if (options.code) err.code = options.code;
+    if (options.status) err.status = options.status;
+    if (err.code && !err.status) err.status = err.code;
+    if (err.status && !err.code) err.code = err.status;
     return err;
 }
 
@@ -2584,7 +2591,7 @@ core.flattenObj = function(obj, options)
 // Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
 core.extendObj = function()
 {
-    if (!arguments[0]) arguments[0] = {}
+    if (this.typeName(arguments[0]) != "object") arguments[0] = {}
     for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
     return arguments[0];
 }
@@ -2592,7 +2599,7 @@ core.extendObj = function()
 // Delete properties from the object, first arg is an object, the rest are properties to be deleted
 core.delObj = function()
 {
-    if (!arguments[0] || typeof arguments[0] != "object") return;
+    if (this.typeName(arguments[0]) != "object") return;
     for (var i = 1; i < arguments.length; i++) delete arguments[0][arguments[i]];
     return arguments[0];
 }

@@ -19,7 +19,6 @@ var os = require('os');
 var helenus = require('helenus');
 var mongodb = require('mongodb');
 var redis = require('redis');
-var nano = require('nano');
 var elasticsearch = require("elasticsearch");
 var metrics = require(__dirname + "/metrics");
 
@@ -62,6 +61,11 @@ var metrics = require(__dirname + "/metrics");
 // faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an error but
 // put extra requests into the waiting queue and execute once some requests finished.
 //
+//  Example:
+//
+//          db-pgsql-max = 100
+//          db-dynamodb-max  =100
+//
 // Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using `db-pool-tables` parameters
 // thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 // database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.
@@ -77,8 +81,8 @@ var metrics = require(__dirname + "/metrics");
 //
 // Example:
 //
-//          db-postgresql-pool = postgresql://locahost/backend
-//          db-postgresql-pool-1 = postgresql://localhost/billing
+//          db-pgsql-pool = postgresql://locahost/backend
+//          db-pgsql-pool-1 = postgresql://localhost/billing
 //
 var db = {
     name: 'db',
@@ -111,7 +115,7 @@ var db = {
            { name: "idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
            { name: "tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
            { name: "init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
-           { name: "options", count: 3, match: "pool", type: "json", descr: "A DB pool driver native options used with every request" },
+           { name: "options", count: 3, match: "pool", type: "json", descr: "A DB pool driver options passed to every request" },
            { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name" },
            { name: "pgsql-pool", count: 3, descr: "PostgreSQL pool access url or options string" },
            { name: "mysql-pool", count: 3, descr: "MySQL pool access url in the format: mysql://user:pass@host/db" },
@@ -193,12 +197,13 @@ db.init = function(options, callback)
 	        if (options.noPools || self.noPools) {
 	            if (name != self.local && name != self.pool) continue;
 	        }
-	        var opts = { pool: name, db: db,
+	        var opts = { pool: name,
+	                     db: db,
 	                     min: self[pool + 'Min' + n] || 0,
 	                     max: self[pool + 'Max' + n] || Infinity,
 	                     idle: self[pool + 'Idle' + n] || 86400000,
-	                     initOptions: self[pool + 'InitOptions' + n],
-	                     options: self[pool + 'Options' + n] };
+	                     dbinit: self[pool + 'InitOptions' + n],
+	                     dboptions: self[pool + 'Options' + n] };
 	        self[pool + 'InitPool'](opts);
 	        // Pool specific tables
 	        (self[pool + 'Tables' + n] || []).forEach(function(y) { self.tblpool[y] = pool; });
@@ -437,7 +442,7 @@ db.createPool = function(options)
 
     // Save all options and methods
     for (var p in options) {
-        if (!pool[p] && typeof options[p] != "undefined") pool[p] = options[p];
+        if (p[0] != "_" && !pool[p] && typeof options[p] != "undefined") pool[p] = options[p];
     }
 
     // Watch for changes or syncs and reopen the database file
@@ -479,11 +484,24 @@ db.createPool = function(options)
     if (typeof pool.connect != "function") pool.connect = function(pool, callback) { callback(null, {}); };
     if (typeof pool.close != "function") pool.close = function(client, callback) { callback() }
     if (typeof pool.setup != "function") pool.setup = function(client, callback) { callback(null, client); };
-    if (typeof pool.prepare != "function") pool.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj }; };
     if (typeof pool.query != "function") pool.query = function(client, req, opts, callback) { callback(null, []); };
-    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { callback(); };
     if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, callback) { callback(); };
     if (typeof pool.nextToken != "function") pool.nextToken = function(client, req, rows, opts) { return client.next_token || null };
+    // Pass all request in an object with predefined properties
+    if (typeof pool.prepare != "function") {
+        pool.prepare = function(op, table, obj, opts) {
+            return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj };
+        }
+    }
+    // By default for schema-less databases just reuse primary keys from the table definitions
+    if (typeof pool.cacheColumns != "function") {
+        pool.cacheColumns = function(opts, callback) {
+            for (var p in this.dbcolumns) {
+                this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
+            }
+            callback();
+        }
+    }
     pool.name = pool.pool || pool.name;
     delete pool.pool;
     pool.processRow = {};
@@ -494,14 +512,7 @@ db.createPool = function(options)
     pool.dbindexes = {};
     pool.dbcache = {};
     pool.metrics = new metrics.Metrics('name', pool.name);
-    // Options passed during opening/creating a connection/client only
-    pool.dbparams = {};
-    for (var p in options.initOptions) pool.dbparams[p] = options.initOptions[p];
-    delete pool.initOptions;
-    // These options are passed with every request
-    pool.dboptions = {};
-    for (var p in options.options) pool.dboptions[p] = options.options[p];
-    delete pool.options;
+    [ 'dbinit', 'dboptions'].forEach(function(x) { if (core.typeName(pool[x]) != "object") pool[x] = {}; });
     [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
     if (!pool.type) pool.type = "unknown";
     this.dbpool[pool.name] = pool;
@@ -3068,11 +3079,11 @@ db.dynamodbInitPool = function(options)
         switch (op) {
         case "add":
         case "put":
-            if (err.code == "ConditionalCheckFailedException") return core.newError("Record already exists", "ExpectedCondition", 409);
+            if (err.code == "ConditionalCheckFailedException") return core.newError({ message: "Record already exists", code: "ExpectedCondition", status: 409 });
             break;
         case "incr":
         case "update":
-            if (err.code == "ConditionalCheckFailedException") return core.newError("Record not found", "", "ExpectedCondition", 406);
+            if (err.code == "ConditionalCheckFailedException") return core.newError({ message: "Record not found", code: "ExpectedCondition", status: 406 });
             break;
         }
         return err;
@@ -3312,7 +3323,7 @@ db.mongodbInitPool = function(options)
     var pool = this.createPool(options);
 
     pool.connect = function(opts, callback) {
-        mongodb.MongoClient.connect(opts.db, opts.dbparams, function(err, db) {
+        mongodb.MongoClient.connect(opts.db, opts.dbinit, function(err, db) {
             if (err) logger.error('mongodbOpen:', err);
             if (callback) callback(err, db);
         });
@@ -3772,14 +3783,6 @@ db.lmdbInitPool = function(options)
     options.dboptions = { noJson: 1 };
     var pool = this.createPool(options);
 
-    // Assume all primary keys
-    pool.cacheColumns = function(opts, callback) {
-        for (var p in this.dbcolumns) {
-            this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
-        }
-        callback();
-    }
-
     pool.nextToken = function(client, req, rows, opts) {
         if (opts.count > 0 && rows.length == opts.count) {
             var key = this.getKey(req.table, rows[rows.length - 1], { ops: {} }, 1);
@@ -4059,19 +4062,11 @@ db.redisInitPool = function(options)
     options.dboptions = { noJson: 1 };
     var pool = this.createPool(options);
 
-    // Assume all primary keys
-    pool.cacheColumns = function(opts, callback) {
-        for (var p in this.dbcolumns) {
-            this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
-        }
-        callback();
-    }
-
     pool.get = function(callback) {
         var err = null;
         if (!this.redis) {
             try {
-                this.redis = redis.createClient(this.dbparams.port, this.db, this.dbparams);
+                this.redis = redis.createClient(this.dbinit.port, this.db, this.dbinit);
                 this.redis.on("error", function(err) { logger.error('redis:', err) });
             } catch(e) {
                 err = e;
@@ -4278,8 +4273,8 @@ db.elasticsearchInitPool = function(options)
 
     pool.get = function(callback) {
         if (!this.client) {
-            if (options.db) this.dbparams.host = options.db;
-            this.client = new elasticsearch.Client(this.dbparams);
+            if (options.db) this.dbinit.host = options.db + (options.db.indexOf(":") == -1 ? ":9200" : "");
+            this.client = new elasticsearch.Client(this.dbinit);
         }
         callback(null, this.client);
     }
@@ -4287,13 +4282,6 @@ db.elasticsearchInitPool = function(options)
     pool.close = function(cient, callback) {
         client.close();
         if (callback) callback();
-    }
-
-    pool.cacheColumns = function(opts, callback) {
-        for (var p in this.dbcolumns) {
-            this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
-        }
-        callback();
     }
 
     pool.query = function(client, req, opts, callback) {
@@ -4393,74 +4381,252 @@ db.elasticsearchInitPool = function(options)
 }
 
 // Create a database pool that works with CouchDB server
-db.couchdb = function(options)
+db.couchdbInitPool = function(options)
 {
     var self = this;
     if (!options) options = {};
     if (!options.pool) options.pool = "couchdb";
 
     options.type = "couchdb";
+    var u = url.parse(options.db);
+    if (!u.port) u.host = u.hostname + ":" + 5984;
+    options.db = url.format(u);
     var pool = this.createPool(options);
 
-    pool.get = function(callback) {
-        if (!this.client) {
-            if (options.db) this.dbparams.url = options.db;
-            this.client = nano(this.dbparams);
-        }
-        callback(null, this.client);
-    }
-
-    pool.close = function(cient, callback) {
-        client.close();
-        if (callback) callback();
-    }
-
-    pool.cacheColumns = function(opts, callback) {
-        for (var p in this.dbcolumns) {
-            this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
-        }
-        callback();
+    function query(method, path, obj, opts, callback) {
+        var uri = pool.db + "/" + path;
+        var params = { method: method, query: opts.query || {} };
+        (opts._query || []).forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
+        if (obj && method != "GET") params.postdata = obj;
+        core.httpGet(uri, params, function(err, params) {
+            if (err) {
+                logger.error("couchdb:", method, path, err);
+                return callback(err, {});
+            }
+            var err = null;
+            params.json = core.jsonParse(params.data);
+            if (params.status >= 400) {
+                err = core.newError({ message: params.json.reason || (method + " Error: " + params.status), code: params.json.error, status: params.status });
+            }
+            callback(err, params.json || {});
+        });
     }
 
     pool.query = function(client, req, opts, callback) {
         var keys = self.getKeys(req.table, opts);
-        var key = opts.id || keys.filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
-
+        var key = req.table + "|" + keys.filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
+        var attrs = { get : ["attachments","att_encoding_info","atts_since","conflicts","deleted_conflicts","latest","local_seq","meta","open_revs","rev","revs","revs_info"],
+                      select: ["conflicts","descending","endkey","end_key","endkey_docid","end_key_doc_id","group","group_level","include_docs","attachments","att_encoding_info",
+                               "inclusive_end","key","limit","reduce","skip","stale","startkey","start_key","startkey_docid","start_key_doc_id","update_seq"],
+                      add: ["batch"],
+                      del: ["rev", "batch"] };
         switch (req.op) {
+        case "create":
+        case "upgrade":
+            var views = {}, changed = 0;
+            var cols = Object.keys(core.searchObj(req.obj, { name: 'primary', sort: 1, flag: 1 }));
+            // Make an index to query just by the hash key to simulate DynamoDB/Cassandra
+            if (cols.length) views.primary = cols.slice(0, 1);
+
+            ["", "1", "2", "3", "4", "5"].forEach(function(n) {
+                var cols = Object.keys(core.searchObj(req.obj, { name: "unique" + n, sort: 1, flag: 1 }));
+                if (cols.length) views[cols.join("_")] = cols;
+                var cols = Object.keys(core.searchObj(req.obj, { name: "index" + n, sort: 1, flag: 1 }));
+                if (cols.length) views[cols.join("_")] = cols;
+            });
+
+            query("GET", "_design/" + req.table, "", {}, function(err, res) {
+                if (err && err.status != 404) return callback(err);
+                if (!res || !res.views) res = { id: "_design/" + req.table, language: "javascript", views: {} }, changed = 1;
+                Object.keys(views).forEach(function(view) {
+                    if (res.views[view]) return;
+                    var cols = views[view];
+                    res.views[view] = { map: "function(doc) { if (" + cols.map(function(x) { return "doc." + x }).join(" && ") + ") emit(" + (cols.map(function(x) { return "doc." + x }).join("+'|'+")) + ", doc); }" };
+                    changed = 1;
+                });
+                if (!changed) return callback(err, []);
+                logger.log(res)
+                query("PUT", "_design/" + req.table, res, {}, function(err, res) {
+                    callback(err, []);
+                });
+            });
+            break;
+
         case "get":
-            client.get(key, opts, function(err, res, info) {
-                if (err) return callback(err, []);
-                callback(null, [ res ], info);
+            opts._query = attrs.get;
+            key = key.replace(/[\/]/g, "%2F");
+            query("GET", key, "", opts, function(err, res) {
+                if (err) return callback(err.status == 404 ? null : err, []);
+                callback(null, [ res ]);
             });
             break;
 
         case "select":
+            opts._query = attrs.select;
+            if (opts.desc) opts.descending = true;
+            if (opts.count) opts.limit = opts.count;
+            if (opts.start) opts.skip = opts.start;
+            // Full primary key or a single column
+            var cols = self.getColumns(req.table);
+            var dbkeys = self.getQueryForKeys(keys.slice(0, 1), req.obj);
+            opts.key = Object.keys(dbkeys).map(function(x) { return dbkeys[x] }).join("|");
+            if (opts.key) opts.key = req.table + "|" + opts.key;
+            // Custom filter on other columns
+            var other = Object.keys(req.obj).filter(function(x) { return x[0] != "_" && !dbkeys[x] && typeof req.obj[x] != "undefined" });
+            var filter = function(items) {
+                if (other.length > 0) items = self.filterColumns(req.obj, items, { keys: other, cols: cols, ops: opts.ops, typesMap: opts.typesMap });
+                return items;
+            }
+            query("GET", "_design/" + req.table + "/_view/" + (opts.sort || "primary"), "", opts, function(err, res) {
+                if (err) return callback(err, []);
+                callback(null, filter(res.rows));
+            });
             break;
 
         case "list":
-            var ids = req.obj.map(function(x) { return keys.map(function(y) { return x[y] || "" }).join("|"); });
-            client.fetch(ids, opts, function(err, res, info) {
-                if (err) return callback(err, []);
-                callback(null, res.rows, info);
+            opts._query = attrs.get;
+            var ids = req.obj.map(function(x) { return req.table + "|" + keys.map(function(y) { return x[y] || "" }).join("|"); });
+            var rows = [];
+            core.forEachLimit(ids, opts.concurrency || core.concurrency, function(key, next) {
+                key = key.replace(/[\/]/g, "%2F");
+                query("GET", key, "", opts, function(err, res) {
+                    if (err && err.status != 404) return next(err);
+                    if (!err) rows.push(res);
+                    next();
+                });
+            }, function(err) {
+                callback(err, rows);
             });
             break;
 
         case "add":
-            client.insert(req.obj, opts, function(err, res) {
+        case "put":
+            opts._query = attrs.add;
+            req.obj._id = key;
+            query("POST", "", req.obj, opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
-        case "put":
         case "update":
-            opts.doc_name = key;
-            client.insert(req.obj, opts, function(err, res) {
+            opts._query = attrs.add;
+            req.obj._id = key;
+            key = key.replace(/[\/]/g, "%2F");
+            // Not a full document, retrieve the latest revision
+            if (!req.obj._rev) {
+                query("GET", key, "", opts, function(err, res) {
+                    if (err) return callback(err, []);
+                    for (var p in res) if (!req.obj[p]) req.obj[p] = res[p];
+                    query("PUT", key, req.obj, opts, function(err, res) {
+                        callback(err, [], res);
+                    });
+                });
+            } else {
+                query("PUT", key, req.obj, opts, function(err, res) {
+                    callback(err, [], res);
+                });
+            }
+            break;
+
+        case "del":
+            opts._query = attrs.del;
+            key = key.replace(/[\/]/g, "%2F");
+            query("DELETE", key, "", opts, function(err, res) {
                 callback(err, [], res);
+            });
+            break;
+
+        default:
+            return callback(null, []);
+        }
+    }
+
+    return pool;
+}
+
+// Create a database pool that works with the Riak database
+db.riakInitPool = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+    if (!options.pool) options.pool = "riak";
+
+    options.type = "riak";
+    var pool = this.createPool(options);
+
+    function query(method, path, obj, opts, callback) {
+        var uri = pool.db + "/" + path;
+        var params = { method: method, query: opts.query || {} };
+        (opts._query || []).forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
+        if (obj && method != "GET") params.postdata = obj;
+        core.httpGet(uri, params, function(err, params) {
+            if (err) {
+                logger.error("riak:", method, path, err);
+                return callback(err, {});
+            }
+            var err = null;
+            params.json = core.jsonParse(params.data);
+            if (params.status >= 400) {
+                err = core.newError({ message: params.json.reason || (method + " Error: " + params.status), code: params.json.error, status: params.status });
+            }
+            callback(err, params.json || {});
+        });
+    }
+
+    pool.query = function(client, req, opts, callback) {
+        var keys = self.getKeys(req.table, opts);
+        var key = keys.filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
+        var attrs = { get : ["r","pr","basic_quorum","notfound_ok","vtag"],
+                      add: ["w","dw","pw","returnbody"],
+                      del: ["rw", "pr", "w", "dw", "pw"] };
+
+        switch (req.op) {
+        case "get":
+            opts._query = attrs.get;
+            key = key.replace(/[\/]/g, "%2F");
+            key = "/buckets/" + req.table + "/keys/" + key;
+            query("GET", key, "", opts, function(err, res) {
+                if (err) return callback(err.status == 404 ? null : err, []);
+                callback(null, [ res ]);
+            });
+            break;
+
+        case "select":
+            opts._query = attrs.select;
+            break;
+
+        case "list":
+            opts._query = attrs.get;
+            break;
+
+        case "add":
+        case "put":
+            opts._query = attrs.add;
+            key = key.replace(/[\/]/g, "%2F");
+            key = "/buckets/" + req.table + "/keys/" + key;
+            query("PUT", key, req.obj, opts, function(err, res) {
+                callback(err, [], res);
+            });
+            break;
+
+        case "update":
+            opts._query = attrs.add;
+            key = key.replace(/[\/]/g, "%2F");
+            key = "/buckets/" + req.table + "/keys/" + key;
+            query("GET", key, "", opts, function(err, res) {
+                if (err) return callback(err, []);
+                for (var p in res) if (!req.obj[p]) req.obj[p] = res[p];
+                query("PUT", key, req.obj, opts, function(err, res) {
+                    callback(err, [], res);
+                });
             });
             break;
 
         case "del":
-            client.destroy(key, opts, function(err, res) {
+            opts._query = attrs.del;
+            key = key.replace(/[\/]/g, "%2F");
+            key = "/buckets/" + req.table + "/keys/" + key;
+            query("DELETE", key, "", opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
