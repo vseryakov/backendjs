@@ -8,8 +8,11 @@ TEST=db
 all:
 	npm build . 
 
-force:
+full:
 	npm build . --backend_nanomsg --backend_imagemagick
+
+dev:
+	npm build . --backend_nanomsg --backend_nanomsg_dev --backend_imagemagick
 
 run:
 	./bkjs run-backend

@@ -19,7 +19,6 @@ var os = require('os');
 var helenus = require('helenus');
 var mongodb = require('mongodb');
 var redis = require('redis');
-var elasticsearch = require("elasticsearch");
 var metrics = require(__dirname + "/metrics");
 
 // The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
@@ -4282,31 +4281,49 @@ db.elasticsearchInitPool = function(options)
 
     options.type = "elasticsearch";
     options.dboptions = { noJson: 1 };
+    var u = url.parse(options.db);
+    if (!u.port) u.host = u.hostname + ":" + 9200;
+    options.db = url.format(u);
     var pool = this.createPool(options);
 
-    pool.get = function(callback) {
-        if (!this.client) {
-            if (options.db) this.dbinit.host = options.db + (options.db.indexOf(":") == -1 ? ":9200" : "");
-            this.client = new elasticsearch.Client(this.dbinit);
-        }
-        callback(null, this.client);
-    }
+    // Native query parameters for each operation
+    var _query = { index: ["op_type","version","routing","parent","timestamp","ttl","consistency","refresh","timeout","replication"],
+                   del: ["version","routing","parent","consistency","refresh","timeout","replication"],
+                   get: ["version","fields","routing","realtime","preference","refresh","_source","_source_include","_source_exclude"],
+                   select: ["version","analyzer","analyze_wildcard","default_operator","df","explain","fields","from","ignore_unavailable",
+                            "allow_no_indices","expand_wildcards","indices_boost","lenient","lowercase_expanded_terms","preference","q",
+                            "routing","scroll","search_type","size","sort","_source","_source_include","_source_exclude","stats","local",
+                            "terminate_after","suggest_field","suggest_mode","suggest_size","suggest_text","timeout","track_scores","query_cache"],
+                   list: ["version","fields","routing","_source","_source_include","_source_exclude"] };
 
-    pool.close = function(cient, callback) {
-        client.close();
-        if (callback) callback();
+    function query(op, method, path, obj, opts, callback) {
+        var uri = pool.db + "/" + path;
+        var params = { method: method, postdata: obj, query: {} };
+        if (_query[op]) _query[op].forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
+
+        core.httpGet(uri, params, function(err, params) {
+            if (err) {
+                logger.error("elasticsearch:", method, path, err);
+                return callback(err, {});
+            }
+            var err = null;
+            obj = core.jsonParse(params.data, { obj: 1 });
+            if (params.status >= 400) {
+                err = core.newError({ message: obj.reason || (method + " Error: " + params.status), code: obj.error, status: params.status });
+            }
+            callback(err, obj);
+        });
     }
 
     pool.query = function(client, req, opts, callback) {
-        opts.index = req.table;
-        var key = self.getKeys(req.table, opts).filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
+        var keys = self.getKeys(req.table, opts);
+        var key = keys.filter(function(x) { return req.obj[x] }).map(function(x) { return req.obj[x] }).join("|");
 
         switch (req.op) {
         case "get":
-            if (!opts.id) opts.id = key;
-            if (!opts.type) opts.type = req.table;
             if (opts.select) opts.fields = String(opts.select);
-            client.get(opts, function(err, res) {
+            var path = "/" + req.table + "/" + (opts.type || req.table) + "/" + (opts.id || key).replace(/[\/]/g, "%2F");
+            query("get", "GET", path, "", opts, function(err, res) {
                 if (err) return callback(err, []);
                 callback(null, [ res._source || res.fields || {} ], res);
             });
@@ -4318,9 +4335,10 @@ db.elasticsearchInitPool = function(options)
             if (opts.select) opts.fields = String(opts.select);
             if (typeof req.obj == "string") {
                 opts.q = req.obj;
+                req.obj = "";
             } else
-            if (req.obj.body) {
-                opts.body = req.obj.body;
+            if (req.obj.query) {
+
             } else {
                 opts.q = Object.keys(req.obj).map(function(x) {
                     var val = req.obj[x];
@@ -4339,8 +4357,10 @@ db.elasticsearchInitPool = function(options)
                     default: return x + ':"' + val + '"';
                     }
                 }).join(" AND ");
+                req.obj = "";
             }
-            client[opts.op || 'search'](opts, function(err, res) {
+            var path = "/" + req.table + "/" + (opts.type || req.table) +  "/" + (opts.op || "_search");
+            query("select", "POST", path, req.obj, opts, function(err, res) {
                 if (err) return callback(err, []);
                 callback(null, res.hits ? res.hits.hits.map(function(x) { return x._source || x.fields || {} }) : [], res);
             });
@@ -4349,38 +4369,33 @@ db.elasticsearchInitPool = function(options)
         case "list":
             if (opts.count) opts.searchSize = opts.count;
             if (opts.select) opts.fields = String(opts.select);
-            if (!opts.type) opts.type = req.table;
-            opts.body = { ids: [] };
-            req.obj.forEach(function(x) { opts.body.ids.push(Object.keys(x).map(function(y) { return x[y]}).join("|")); });
-            client.mget(opts, function(err, res) {
+            var ids = req.obj.map(function(x) { return Object.keys(x).map(function(y) { return x[y]}).join("|") });
+            var path = "/" + req.table + "/" + (opts.type || req.table) +  "/_mget";
+            query("list", "GET", path, { ids: ids }, opts, function(err, res) {
                 if (err) return callback(err, []);
                 callback(null, res.docs ? res.docs.map(function(x) { return x._source || x.fields || {} }) : [], res);
             });
             break;
 
         case "add":
-            if (!opts.id) opts.id = key;
-            if (!opts.type) opts.type = req.table;
-            opts.body = req.obj;
-            client.create(opts, function(err, res) {
+            opts.op_type = "create";
+            var path = "/" + req.table + "/" + (opts.type || req.table) + "/" + (opts.id || key).replace(/[\/]/g, "%2F");
+            query("index", "PUT", path, req.obj, opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
         case "put":
         case "update":
-            if (!opts.id) opts.id = key;
-            if (!opts.type) opts.type = req.table;
-            opts.body = req.obj;
-            client.index(opts, function(err, res) {
+            var path = "/" + req.table + "/" + (opts.type || req.table) + "/" + (opts.id || key).replace(/[\/]/g, "%2F");
+            query("index", "PUT", path, req.obj, opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
         case "del":
-            if (!opts.id) opts.id = key;
-            if (!opts.type) opts.type = req.table;
-            client['delete'](opts, function(err, res) {
+            var path = "/" + req.table + "/" + (opts.type || req.table) + "/" + (opts.id || key).replace(/[\/]/g, "%2F");
+            query("del", "DELETE", path, "", opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
@@ -4529,7 +4544,11 @@ db.couchdbInitPool = function(options)
             req.obj._id = key;
             key = key.replace(/[\/]/g, "%2F");
             // Not a full document, retrieve the latest revision
-            if (!req.obj._rev) {
+            if (req.obj._rev && req.obj._id) {
+                query("PUT", key, req.obj, opts, function(err, res) {
+                    callback(err, [], res);
+                });
+            } else {
                 query("get", "GET", key, "", opts, function(err, res) {
                     if (err) return callback(err, []);
                     for (var p in res) {
@@ -4543,10 +4562,6 @@ db.couchdbInitPool = function(options)
                     query("put", "PUT", key, req.obj, opts, function(err, res) {
                         callback(err, [], res);
                     });
-                });
-            } else {
-                query("PUT", key, req.obj, opts, function(err, res) {
-                    callback(err, [], res);
                 });
             }
             break;

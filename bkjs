@@ -770,7 +770,7 @@ case "$ARG" in
     if [ "$?" = "1" -a "$npm_config_backend_nanomsg" != "" ]; then
         if [ ! -d deps/nanomsg ]; then
             nrepo=nanomsg
-            [ "$npm_config_backend_nanomsg_new" != "" ] && nrepo=vseryakov
+            [ "$npm_config_backend_nanomsg_dev" != "" ] && nrepo=vseryakov
             (cd deps && git clone https://github.com/$nrepo/nanomsg.git)
         fi
         (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)

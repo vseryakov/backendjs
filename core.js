@@ -1043,7 +1043,8 @@ core.httpGet = function(uri, params, callback)
 
     // Data to be sent over in the body
     if (params.postdata) {
-        if (options.method == "GET") options.method = "POST";
+        // Switch to POST if not specified explicitly
+        if (options.method == "GET" && !options.method) options.method = "POST";
         switch (this.typeName(params.postdata)) {
         case "string":
             if (!options.headers['content-length']) options.headers['content-length'] = Buffer.byteLength(params.postdata, 'utf8');
