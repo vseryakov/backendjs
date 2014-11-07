@@ -668,7 +668,7 @@ api.shutdown = function(callback)
             clearTimeout(timeout);
             var pools = db.getPools();
             try {
-                core.forEachLimit(pools, pools.length, function(pool, next) { db.dbpool[pool.name].shutdown(next); }, callback);
+                core.forEachLimit(pools, pools.length, function(pool, next) { db.pools[pool.name].shutdown(next); }, callback);
             } catch(e) {
                 logger.error("api.shutdown:", e.stack);
                 if (callback) callback();

@@ -1,24 +1,6 @@
 //
 //  Author: Vlad Seryakov vseryakov@gmail.com
-//  Author: Dm. Mayorov <arrabon@dimview.org>
 //  April 2007
-//
-//  Tokenizer based on native tokenizer from sqlite3 with additional support for exceptions,
-//  the first case is animals and animation both result in anim which is wrong for search, we want to keep
-//  animals as animal, this is very popular word
-//
-//  FTS3 tokenizer interface is just copied here without messing with fts3_tokenizer.h header file that is never distributed outside of the source tree
-//
-//  SpellingCorrector
-//  This started as a simple Bayesian spelling correcting, but then grew into search query
-//  re-writing and now does the following:
-//
-// - Corrects spelling errors of distance 1 for N-grams up to _max_ngrams (crew and title only);
-// - Connects words in N-grams with NEAR/0 instead of spaces for FTS;
-// - Corrects spelling errors of distance 1 for individual words towards stemmed words (because
-//   FTS uses stemming);
-// - Time permitting, corrects spelling errors of distance 2 for individual words;
-// - Handles special cases like ',' and ':' in search terms.
 //
 
 #include "bksqlite.h"

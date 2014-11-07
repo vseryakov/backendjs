@@ -1,6 +1,5 @@
 /*
  *  Author: Vlad Seryakov vseryakov@gmail.com
- *  Author: Dm. Mayorov <arrabon@dimview.org>
  *  April 2007
  *
  */
