@@ -79,8 +79,10 @@ metrics and monitoring, a library of tools for developing node.js servers.</p>
 <p>Features:</p>
 <ul>
 <li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
-<li>Simple database API that supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, LevelDB, MongoDB, LMDB, CouchDB, ElasticSearch,
-easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.</li>
+<li>Database API supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
+same way allowing to switch databases without changing the code.</li>
+<li>Database driver for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations</li>
+<li>Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.</li>
 <li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.</li>
 <li>Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
@@ -4333,18 +4335,22 @@ it is required to call <code>pool.free</code> at the end to return the connectio
 <li>table - table name for the operation</li>
 </ul>
 </li>
-<li><p>options may have the following properties:</p>
-<ul>
-<li><p>pool - name of the database pool where to execute this query.</p>
-<p>The difference with the high level functions that take a table name as their firt argument, this function must use pool
+<li>options may have the following properties:<ul>
+<li>pool - name of the database pool where to execute this query.
+The difference with the high level functions that take a table name as their firt argument, this function must use pool
 explicitely if it is different from the default. Other functions can resolve
-the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</p>
-</li>
+the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</li>
+<li>unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the <code>unique</code> property</li>
 <li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(row, options)</li>
 <li>async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(rows, options, callback),
    the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
    filtering based on the ata in the other table for example.</li>
 <li>silence_error - do not report about the error in the log, still the error is retirned to the caller</li>
+<li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined
+columns as is</li>
+<li>noconvertrows - if true skip converting the data from the database format into Javascript data types</li>
+<li>cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)</li>
+<li>total - if true then it is supposed to return only one record with property <code>count</code>, skip all post processing and convertion</li>
 </ul>
 </li>
 <li>callback(err, rows, info) where<ul>
@@ -4866,6 +4872,12 @@ special empty pool which provides same interface but returns errors instesd of r
 </ul>
 
 <ul>
+<li><p><code>db.getColumnProperty(table, name, attr, options)</code></p>
+<p> Return a value for the given property from the column definition, return empty string if no column or attribute found</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.getCapacity(table)</code></p>
 <p> Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property
 of all table columns.</p>
@@ -5279,14 +5291,20 @@ Options can define the following:</p>
 
 <ul>
 <li><p><code>db.couchdbInitPool(options)</code></p>
-<p> Create a database pool that works with CouchDB server</p>
-</li>
+<p> Create a database pool that works with CouchDB server.</p>
+<p>In addition to the standard commands it can execute any CouchDB HTTP API directly</p>
+<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/db/url&quot; }, { pool: &quot;couchdb&quot; }, db.showResult)
+db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } }, { pool: &quot;couchdb&quot; }, db.showResult)
+</code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>db.riakInitPool(options)</code></p>
-<p> Create a database pool that works with the Riak database</p>
-</li>
+<p> Create a database pool that works with the Riak database.</p>
+<p>In addition to the standard commands it can execute any Riak HTTP API directly</p>
+<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/buckets?buckets=true&quot; }, { pool: &quot;riak&quot; }, db.showResult)
+db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;, obj: 1 }, { pool: &quot;riak&quot; }, db.showResult)
+</code></pre></li>
 </ul>
 
 <h2 id="module-ipc">Module: IPC</h2>
