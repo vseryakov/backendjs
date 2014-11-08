@@ -117,7 +117,7 @@ aws.queryELB = function(action, obj, options, callback)
 }
 
 // AWS SQS API request
-aws.querySQS = function(action, obj, options, callback)
+aws.querySQS = function(action, queue, obj, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
