@@ -91,6 +91,7 @@ var server = {
            { name: "proxy-host", type: "callback", value: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "node-args", type: "list", descr: "Node arguments for spawned processes, for passing v8 options" },
            { name: "node-worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
+           { name: "job-queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
            { name: "jobs-count", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue processing only" },
            { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" } ],
@@ -1270,7 +1271,42 @@ server.processRequestQueue = function(callback)
     });
 }
 
-// Load submitted jobs for execution, it is run by the master process every `server-jobs-interval` seconds.
+// Process AWS SQS queue for any messages and execute jobs, a job object must be in the same format as for the cron jobs.
+//
+// The options can specify:
+//  - queue - SQS queue ARN, if not specified the `-api-queue` will be used
+//  - timeout - how long to wait for messages, seconds, default is 5
+//  - count - how many jobs to receive, if not specified use `-api-max-jobs` config parameter
+//  - visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
+//     after being retrieved by a ReceiveMessage request.
+//
+server.processSQS = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    var queue = options.queue || self.jobQueue;
+    var req = { QueueUrl: queue,
+                AttributeName: "All",
+                MaxNumberOfMessages: options.count || self.jobCount,
+                VisibilityTimeout: options.visibilityTimeout || 60,
+                WaitTimeSeconds: options.timeout || 5 };
+
+    aws.querySQS("ReceiveMessage", req, function(err, data) {
+        if (err) return callback ? callback(err) : null;
+        var items = core.objGet(data, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
+        core.forEachSeries(items || [], function(item, next) {
+            var job = core.jsonParse(item.Body, { obj: 1, error: 1 });
+            if (job && row.job) self.doJob(row.type, row.job, row.args);
+            aws.querySQS("DeleteMessage", { QueueUrl: queue, ReceiptHandle: item.ReceiptHandle }, function(err) { if (err) logger.error(err); });
+            next();
+        }, function() {
+            if (callback) callback();
+        });
+    });
+}
+
+// Load submitted jobs for execution, it is run by the master process every `-server-jobs-interval` seconds.
 // Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
 // the higher level management tool must take care when and what to run and in what order.
 //
@@ -1278,8 +1314,9 @@ server.processJobs = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
 
-    db.select("bk_jobs", { tag: self.jobsTag }, { count: self.maxJobs }, function(err, rows) {
+    db.select("bk_jobs", { tag: self.jobsTag }, { count: self.jobCount }, function(err, rows) {
         core.forEachSeries(rows, function(row, next) {
             self.doJob(row.type, row.job, row.args);
             db.del('bk_jobs', row, function() { next() });

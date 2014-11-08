@@ -12,7 +12,6 @@ var cluster = require('cluster');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var backend = require(__dirname + '/build/Release/backend');
-var cheerio = require('cheerio');
 var xml2json = require('xml2json');
 
 var aws = {
