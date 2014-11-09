@@ -5302,7 +5302,11 @@ db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } },
 <ul>
 <li><p><code>db.riakInitPool(options)</code></p>
 <p> Create a database pool that works with the Riak database.</p>
-<p>In addition to the standard commands it can execute any Riak HTTP API directly</p>
+<p>By default the driver uses simple key-value mode of operations, to enable bucket-type mode
+pass bucketType in the <code>-db-riak-options</code>:</p>
+<p>To use maps for the object records set <code>useMaps</code> in the <code>-db-riak-options</code></p>
+<pre><code>-db-riak-options &#39;{ &quot;bucketType&quot;: &quot;bk&quot;, &quot;useMaps&quot;: 1 }&#39;
+</code></pre><p>In addition to the standard commands it can execute any Riak HTTP API directly</p>
 <pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/buckets?buckets=true&quot; }, { pool: &quot;riak&quot; }, db.showResult)
 db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;, obj: 1 }, { pool: &quot;riak&quot; }, db.showResult)
 </code></pre></li>

@@ -4585,6 +4585,13 @@ db.couchdbInitPool = function(options)
 
 // Create a database pool that works with the Riak database.
 //
+// By default the driver uses simple key-value mode of operations, to enable bucket-type mode
+// pass bucketType in the `-db-riak-options`:
+//
+// To use maps for the object records set `useMaps` in the `-db-riak-options`
+//
+//      -db-riak-options '{ "bucketType": "bk", "useMaps": 1 }'
+//
 // In addition to the standard commands it can execute any Riak HTTP API directly
 //
 //      db.query({ op: "GET", text: "/buckets?buckets=true" }, { pool: "riak" }, db.showResult)
@@ -4631,22 +4638,22 @@ db.riakInitPool = function(options)
 
     function getPath(table, key) {
         if (pool.bucketType) {
-            return "/types/" + pool.bucketType + "/buckets/" + table + (pool.mapType ? "/datatypes/" : "/keys/") + key.replace(/[\/]/g, "%2F");
+            return "/types/" + pool.bucketType + "/buckets/" + table + (pool.useMaps ? "/datatypes/" : "/keys/") + key.replace(/[\/]/g, "%2F");
         }
         return "/buckets/" + table + "/keys/" + key.replace(/[\/]/g, "%2F");
     }
     function getValue(obj) {
-        if (pool.bucketType && pool.mapType && obj.value) {
+        if (pool.bucketType && pool.useMaps && obj.value) {
             var o = {};
             for (var p in obj.value) o[p.replace(/(_register|_flag|_counter)$/, "")] = obj[p];
             obj = o;
         }
         return obj;
     }
-    function toValue(obj, opts) {
-        if (pool.bucketType && pool.mapType) {
+    function toValue(obj, cols) {
+        if (pool.bucketType && pool.useMaps) {
             var o = { update: {} };
-            for (var p in obj) o.update[p + (opts && opts.counter && opts.counter.indexOf(p) > -1 ? "_counter" : "_register")] = obj[p];
+            for (var p in obj) o.update[p + (cols && cols[p] && cols[p].type == "counter" ? "_counter" : "_register")] = obj[p];
             obj = o;
         }
         return obj;
@@ -4720,8 +4727,9 @@ db.riakInitPool = function(options)
             // Index by the hash property
             opts.headers = { "x-riak-index-primary_bin": key };
             if (opts.context) opts.headers['x-riak-vclock'] = opts.context;
+            var cols = self.getColumns(req.table, opts);
             var path = getPath(req.table, key);
-            query("put", "PUT", path, toValue(req.obj), opts, function(err, res) {
+            query("put", "PUT", path, toValue(req.obj, cols), opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
@@ -4731,9 +4739,10 @@ db.riakInitPool = function(options)
             // Index by the hash property
             opts.headers = { "x-riak-index-primary_bin": key };
             if (opts.context) opts.headers['x-riak-vclock'] = opts.context;
+            var cols = self.getColumns(req.table, opts);
             var path = getPath(req.table, key);
-            if (pool.bucketType && pool.mapType) {
-                query("put", "PUT", key, toValue(req.obj, opts), opts, function(err, res) {
+            if (pool.bucketType && pool.useMaps) {
+                query("put", "PUT", key, toValue(req.obj, cols), opts, function(err, res) {
                     callback(err, [], res);
                 });
                 break;
