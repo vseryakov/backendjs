@@ -4611,9 +4611,9 @@ db.riakInitPool = function(options)
 
     function query(op, method, path, obj, opts, callback) {
         var uri = pool.db + path;
-        var params = { method: method, postdata: method != "GET" ? obj : "", query: {}, headers: {} };
+        var params = { method: method, postdata: method != "GET" ? obj : "", query: {}, headers: { "content-type": "application/json" } };
         if (_query[op]) _query[op].forEach(function(x) { if (opts[x]) params.query[x] = opts[x] });
-        for (var p in opts.index) params.headers["x-riak-index-" + p] = opts.index[p];
+        for (var p in opts.headers) params.headers[p] = opts.headers[p];
 
         core.httpGet(uri, params, function(err, params) {
             if (err) {
@@ -4625,8 +4625,31 @@ db.riakInitPool = function(options)
             if (params.status >= 400) {
                 err = core.newError({ message: params.data || (method + " Error: " + params.status), code: obj.error, status: params.status });
             }
-            callback(err, obj);
+            callback(err, obj, { context: params.headers['x-riak-vclock'] });
         });
+    }
+
+    function getPath(table, key) {
+        if (pool.bucketType) {
+            return "/types/" + pool.bucketType + "/buckets/" + table + (pool.mapType ? "/datatypes/" : "/keys/") + key.replace(/[\/]/g, "%2F");
+        }
+        return "/buckets/" + table + "/keys/" + key.replace(/[\/]/g, "%2F");
+    }
+    function getValue(obj) {
+        if (pool.bucketType && pool.mapType && obj.value) {
+            var o = {};
+            for (var p in obj.value) o[p.replace(/(_register|_flag|_counter)$/, "")] = obj[p];
+            obj = o;
+        }
+        return obj;
+    }
+    function toValue(obj, opts) {
+        if (pool.bucketType && pool.mapType) {
+            var o = { update: {} };
+            for (var p in obj) o.update[p + (opts && opts.counter && opts.counter.indexOf(p) > -1 ? "_counter" : "_register")] = obj[p];
+            obj = o;
+        }
+        return obj;
     }
 
     pool.query = function(client, req, opts, callback) {
@@ -4635,10 +4658,10 @@ db.riakInitPool = function(options)
 
         switch (req.op) {
         case "get":
-            var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-            query("get", "GET", path, "", opts, function(err, res) {
+            var path = getPath(req.table, key);
+            query("get", "GET", path, "", opts, function(err, res, info) {
                 if (err) return callback(err.status == 404 ? null : err, []);
-                callback(null, [ res ]);
+                callback(null, [ getValue(res) ], info);
             });
             break;
 
@@ -4663,9 +4686,10 @@ db.riakInitPool = function(options)
                 if (err) return callback(err, []);
                 var rows = [];
                 core.forEachLimit(res.keys, opts.concurrency || core.concurrency, function(key, next) {
-                    var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-                    query("get", "GET", path, "", opts, function(err, res) {
+                    var path = getPath(req.table, key);
+                    query("get", "GET", path, "", opts, function(err, res, info) {
                         if (err && err.status != 404) return next(err);
+                        res = getValue(res);
                         if (!err && filter(res)) rows.push(res);
                         next();
                     });
@@ -4680,10 +4704,10 @@ db.riakInitPool = function(options)
             var ids = req.obj.map(function(x) { return keys.map(function(y) { return x[y] || "" }).join("|"); });
             var rows = [];
             core.forEachLimit(ids, opts.concurrency || core.concurrency, function(key, next) {
-                var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-                query("get", "GET", path, "", opts, function(err, res) {
+                var path = getPath(req.table, key);
+                query("get", "GET", path, "", opts, function(err, res, info) {
                     if (err && err.status != 404) return next(err);
-                    if (!err) rows.push(res);
+                    if (!err) rows.push(getValue(res));
                     next();
                 });
             }, function(err) {
@@ -4694,17 +4718,27 @@ db.riakInitPool = function(options)
         case "add":
         case "put":
             // Index by the hash property
-            if (!opts.index) opts.index = { primary_bin: key };
-            var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-            query("put", "PUT", path, req.obj, opts, function(err, res) {
+            opts.headers = { "x-riak-index-primary_bin": key };
+            if (opts.context) opts.headers['x-riak-vclock'] = opts.context;
+            var path = getPath(req.table, key);
+            query("put", "PUT", path, toValue(req.obj), opts, function(err, res) {
                 callback(err, [], res);
             });
             break;
 
         case "incr":
         case "update":
-            var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
-            query("get", "GET", path, "", opts, function(err, res) {
+            // Index by the hash property
+            opts.headers = { "x-riak-index-primary_bin": key };
+            if (opts.context) opts.headers['x-riak-vclock'] = opts.context;
+            var path = getPath(req.table, key);
+            if (pool.bucketType && pool.mapType) {
+                query("put", "PUT", key, toValue(req.obj, opts), opts, function(err, res) {
+                    callback(err, [], res);
+                });
+                break;
+            }
+            query("get", "GET", path, "", opts, function(err, res, info) {
                 if (err) return callback(err, []);
                 for (var p in res) {
                     if (opts.counter && opts.counter.indexOf(p) > -1) {
@@ -4714,8 +4748,7 @@ db.riakInitPool = function(options)
                         req.obj[p] = res[p];
                     }
                 }
-                // Index by the hash property
-                if (!opts.index) opts.index = { primary_bin: key };
+                if (info && info.context) opts.headers['x-riak-vclock'] = info.context;
                 query("put", "PUT", key, req.obj, opts, function(err, res) {
                     callback(err, [], res);
                 });
@@ -4723,7 +4756,7 @@ db.riakInitPool = function(options)
             break;
 
         case "del":
-            var path = "/buckets/" + req.table + "/keys/" + key.replace(/[\/]/g, "%2F");
+            var path = getPath(req.table, key);
             query("del", "DELETE", path, "", opts, function(err, res) {
                 callback(err, [], res);
             });
