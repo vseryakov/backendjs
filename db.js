@@ -1642,6 +1642,8 @@ db.prepare = function(op, table, obj, options)
                 if (Array.isArray(col.values) && col.values.indexOf(String(v)) == -1) continue;
                 // The field is combined from several values contatenated for complex primary keys
                 if (col.join) v = col.join.map(function(x) { return obj[x] || "" }).join("|");
+                // Max length limit for text fields
+                if (col.maxlength && !col.type && v.length > col.maxlength) v = v.substr(0, col.maxlength);
             }
             if (this.skipColumn(p, v, options, cols)) continue;
             if ((v == null || v === "") && options.skipNull[op]) continue;
