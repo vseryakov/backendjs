@@ -337,6 +337,7 @@ var api = {
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
+           { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
            { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },

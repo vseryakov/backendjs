@@ -102,6 +102,9 @@ var db = {
     local: 'sqlite',
     sqlitePool: core.name,
 
+    // Refresh config from the db
+    configInterval: 300,
+
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type: "bool", descr: "Do not use other db pools except default local pool" },
@@ -109,7 +112,7 @@ var db = {
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
            { name: "config-type", dns: 1, descr: "Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded" },
-           { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database condifured with config-type, in seconds, 0 disables refreshing config from the db" },
+           { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
            { name: "max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connection for a pool" },
            { name: "idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
            { name: "tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
@@ -246,12 +249,13 @@ db.initConfig = function(options, callback)
             if (x.value) argv.push(x.value);
         });
         core.parseArgs(argv);
-        if (callback) callback();
 
         // Refresh from time to time with new or modified parameters, randomize a little to spread across all servers, we run in at the end
         // in order to pickup any new config parameters that we just loaded
         clearInterval(self.configTimer);
         if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + core.randomShort());
+
+        if (callback) callback();
     });
 }
 
@@ -1643,7 +1647,7 @@ db.prepare = function(op, table, obj, options)
                 // The field is combined from several values contatenated for complex primary keys
                 if (col.join) v = col.join.map(function(x) { return obj[x] || "" }).join("|");
                 // Max length limit for text fields
-                if (col.maxlength && !col.type && v.length > col.maxlength) v = v.substr(0, col.maxlength);
+                if (col.maxlength && typeof v == "string" && !col.type && v.length > col.maxlength) v = v.substr(0, col.maxlength);
             }
             if (this.skipColumn(p, v, options, cols)) continue;
             if ((v == null || v === "") && options.skipNull[op]) continue;
