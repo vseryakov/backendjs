@@ -1655,7 +1655,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: &quot;sqlite&quot;</li>
 <li><code>db-config</code> - Configuration database pool for config parameters, must be defined to use remote db for config parameters</li>
 <li><code>db-config-type</code> - Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded. DNS TXT configurable.</li>
-<li><code>db-config-interval</code> - Interval between loading configuration from the database condifured with config-type, in seconds, 0 disables refreshing config from the db</li>
+<li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db. Default: 300</li>
 <li><code>db-NAME-max</code> - Max number of open connection for a pool. Where NAME is the actual pool name.</li>
 <li><code>db-NAME-idle</code> - Number of ms for a db pool connection to be idle before being destroyed. Where NAME is the actual pool name.</li>
 <li><code>db-NAME-tables</code> - A DB pool tables, list of tables that belong to this pool only. Where NAME is the actual pool name.</li>
@@ -1691,6 +1691,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error. Default: 1000</li>
 <li><code>api-access-log</code> - File for access logging</li>
+<li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
 <li><code>api-notifications</code> - Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers</li>
 <li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
