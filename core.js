@@ -144,12 +144,6 @@ var core = {
             { name: "ssl-ciphers", obj: 'ssl', descr: "A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
             { name: "ssl-request-cert", type: "bool", obj: 'ssl', descr: "If true the server will request a certificate from clients that connect and attempt to verify that certificate. " },
             { name: "ssl-reject-unauthorized", type: "bool", obj: 'ssl', decr: "If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true" },
-            { name: "apn-cert", type: "path", descr: "Certificate for APN service, pfx format, .p12 ext" },
-            { name: "apn-production", type: "bool", descr: "Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode" },
-            { name: "gcm-key", descr: "Google Cloud Messaging API key" },
-            { name: "notification-server", descr: "Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem" },
-            { name: "notification-client", descr: "Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes" },
-            { name: "notification-host", dns: 1, descr: "List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers" },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
@@ -166,11 +160,11 @@ var core = {
             { name: "repl-bind", descr: "Listen only on specified address for REPL server in the master process" },
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
-            { name: "no-msg", type: "bool", descr: "Disable nanomsg messaging sockets" },
-            { name: "msg-port", type: "int", descr: "Ports to use for nanomsg sockets for message publish and subscribe, 2 ports will be used, this one and the next" },
-            { name: "msg-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets" },
-            { name: "msg-host", dns: 1, descr: "Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used" },
-            { name: "msg-bind", descr: "Listen only on specified address for messaging sockets server in the master process" },
+            { name: "no-queue", type: "bool", descr: "Disable nanomsg queue sockets" },
+            { name: "queue-port", type: "int", descr: "Ports to use for nanomsg sockets for publish/subscribe queues, 2 ports will be used, this one and the next" },
+            { name: "queue-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB queues, default is nanomsg sockets" },
+            { name: "queue-host", dns: 1, descr: "Server(s) where clients publish and subscribe with nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used" },
+            { name: "queue-bind", descr: "Listen only on specified address for queue sockets in the master process" },
             { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP[:port],host[:port].." },
             { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
             { name: "redis-port", dns: 1, descr: "Port to Redis server for cache and messaging" },
@@ -221,9 +215,9 @@ var core = {
     cacheType: 'nanomsg',
     cachePort: 20100,
     cacheHost: "127.0.0.1",
-    msgType: 'nanomsg',
-    msgPort: 20110,
-    msgHost: "127.0.0.1",
+    queueType: 'nanomsg',
+    queuePort: 20110,
+    queueHost: "127.0.0.1",
     subCallbacks: {},
 }
 
@@ -3020,7 +3014,7 @@ core.watchLogs = function(options, callback)
             if (errors.length > 1) {
                 logger.log('logwatcher:', 'found errors, send report to', self.logwatcherEmail, self.logwatcherUrl);
                 if (self.logwatcherUrl) {
-                    self.sendRequest({ url: self.logwatcherUrl, queue: true, headers: { "content-type": "text/plain" }, postdata: errors }, callback);
+                    self.sendRequest({ url: self.logwatcherUrl, queue: true, headers: { "content-type": "text/plain" }, method: "POST", postdata: errors }, callback);
                 } else
                 if (self.logwatcherEmail) {
                     self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, callback);

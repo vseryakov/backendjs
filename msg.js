@@ -11,12 +11,20 @@ var backend = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var aws = require(__dirname + '/aws');
+var ipc = require(__dirname + '/ipc');
 var cluster = require('cluster');
 var apnagent = require("apnagent");
 var gcm = require('node-gcm');
 
-// Notifications for mobile and others
+// Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.
 var msg = {
+    args: [ { name: "apn-cert", type: "path", descr: "Certificate for APN service, pfx format, .p12 ext" },
+            { name: "apn-production", type: "bool", descr: "Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode" },
+            { name: "gcm-key", descr: "Google Cloud Messaging API key" },
+            { name: "server-queue", descr: "Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem" },
+            { name: "client-queue", descr: "Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes" },
+            { name: "host", dns: 1, descr: "List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers" },
+            ],
     apnSent: 0,
     gcmSent: 0,
     awsSent: 0,
@@ -32,28 +40,28 @@ msg.init = function(callback)
     this.notificationQueue = null;
 
     // Explicitly configured notification client queue, send all messages there
-    if (core.notificationClient) {
-        this.notificationQueue = core.notificationClient;
+    if (this.clientQueue) {
+        this.notificationQueue = this.clientQueue;
         return callback ? callback() : null;
     } else
 
     // Explicitely configured notification server queue
-    if (core.notificationServer) {
-        this.subscribe(core.notificationServer, function(arg, key, data) {
-            self.sendNotification(core.jsonParse(data, { obj: 1 }));
+    if (this.serverQueue) {
+        ipc.subscribe(this.serverQueue, function(arg, key, data) {
+            self.send(core.jsonParse(data, { obj: 1 }));
         });
     } else
 
     // Connect to notification gateways only on the hosts configured to be the notification servers
-    if (core.notificationHost) {
+    if (this.host) {
         var queue = "bk.notification.queue";
-        if (!core.strSplit(core.notificationHost).some(function(x) { return core.hostname == x || core.ipaddrs.indexOf(x) > -1 })) {
-            this.notificationQueue = queue;
+        if (!core.strSplit(this.host).some(function(x) { return core.hostname == x || core.ipaddrs.indexOf(x) > -1 })) {
+            self.notificationQueue = queue;
             return callback ? callback() : null;
         }
         // Listen for published messages and forward them to the notification gateways
-        this.subscribe(queue, function(arg, key, data) {
-            self.sendNotification(core.jsonParse(data, { obj: 1 }));
+        ipc.subscribe(queue, function(arg, key, data) {
+            self.send(core.jsonParse(data, { obj: 1 }));
         });
     }
 
@@ -100,7 +108,7 @@ msg.send = function(options, callback)
     // Queue to the publish server
     if (this.notificationQueue) {
         if (callback) setImmediate(callback);
-        return this.publish(this.notificationQueue, options);
+        return ipc.publish(this.notificationQueue, options);
     }
 
     // Determine the service to use from the device token
@@ -131,10 +139,10 @@ msg.initAPN = function()
 {
     var self = this;
 
-    if (!core.apnCert) return;
+    if (!this.apnCert) return;
     this.apnAgent = new apnagent.Agent();
-    this.apnAgent.set('pfx file', core.apnCert);
-    this.apnAgent.enable(core.apnProduction || core.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
+    this.apnAgent.set('pfx file', this.apnCert);
+    this.apnAgent.enable(this.apnProduction || this.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
     this.apnAgent.on('message:error', function(err) { logger.error('apn:message:', err) });
     this.apnAgent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err) });
     this.apnAgent.on('gateway:close', function(err) { logger.log('apn: closed') });
@@ -146,7 +154,7 @@ msg.initAPN = function()
 
     this.apnFeedback = new apnagent.Feedback();
     this.apnFeedback.set('interval', '1h');
-    this.apnFeedback.set('pfx file', core.apnCert);
+    this.apnFeedback.set('pfx file', this.apnCert);
     this.apnFeedback.connect(function(err) { if (err) logger.error('apn: feedback:', err);  });
     this.apnFeedback.use(function(device, timestamp, next) {
         logger.log('apn: feedback:', device, timestamp);
@@ -198,8 +206,8 @@ msg.sendAPN = function(device_id, options, callback)
 msg.initGCM = function()
 {
     var self = this;
-    if (!core.gcmKey) return;
-    this.gcmAgent = new gcm.Sender(core.gcmKey);
+    if (!this.gcmKey) return;
+    this.gcmAgent = new gcm.Sender(this.gcmKey);
     this.gcmQueue = 0;
 }
 

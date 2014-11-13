@@ -1960,15 +1960,15 @@ api.sendJSON = function(req, err, rows)
 }
 
 // Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
-api.sendReply = function(res, status, msg)
+api.sendReply = function(res, status, text)
 {
     if (status instanceof Error || status instanceof Object) {
-        msg = status.message || "Error occured";
+        text = status.message || "Error occured";
         status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
     }
-    if (typeof status == "string" && status) msg = status, status = 500;
-    if (!status) status = 200, msg = "";
-    return this.sendStatus(res, { status: status, message: String(msg || "") });
+    if (typeof status == "string" && status) text = status, status = 500;
+    if (!status) status = 200, text = "";
+    return this.sendStatus(res, { status: status, message: String(text || "") });
 }
 
 // Return reply to the client using the options object, it cantains the following properties:
@@ -3146,23 +3146,23 @@ api.addMessage = function(req, options, callback)
     var info = {};
     var op = options.op || "add";
     var sent = core.cloneObj(req.query);
-    var msg = core.cloneObj(req.query);
+    var obj = core.cloneObj(req.query);
 
     if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
 
     core.series([
         function(next) {
-            msg.sender = req.account.id;
-            msg.alias = req.account.alias;
-            msg.mtime = now + ":" + msg.sender;
-            self.putIcon(req, msg.id, { prefix: 'message', type: msg.mtime }, function(err, icon) {
-                msg.icon = icon ? 1 : 0;
+            obj.sender = req.account.id;
+            obj.alias = req.account.alias;
+            obj.mtime = now + ":" + pbj.sender;
+            self.putIcon(req, obj.id, { prefix: 'message', type: obj.mtime }, function(err, icon) {
+                obj.icon = icon ? 1 : 0;
                 next(err);
             });
         },
         function(next) {
-            db[op]("bk_message", msg, options, function(err, rows, info2) {
+            db[op]("bk_message", obj, options, function(err, rows, info2) {
                 info = info2;
                 next(err);
             });
@@ -3194,8 +3194,8 @@ api.addMessage = function(req, options, callback)
             if (err) return callback(err);
             self.metrics.Counter('msg_add_0').inc();
             if (options.nosent) {
-                db.processRows("", "bk_message", msg, options);
-                callback(null, msg, info);
+                db.processRows("", "bk_message", obj, options);
+                callback(null, obj, info);
             } else {
                 db.processRows("", "bk_sent", sent, options);
                 callback(null, sent, info);

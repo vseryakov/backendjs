@@ -51,9 +51,11 @@ aws.configure = function(options, callback)
 }
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
-aws.queryAWS = function(proto, method, host, path, obj, callback)
+aws.queryAWS = function(proto, method, host, path, obj, options, callback)
 {
     var self = this;
+    if (typeof options == "callback") callback = options, options = {};
+
     var curTime = new Date();
     var formattedTime = curTime.toISOString().replace(/\.[0-9]+Z$/, 'Z');
     var sigValues = new Array();
@@ -66,6 +68,10 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
     // Mix in the additional parameters. params must be an Array of tuples as for sigValues above
     for (var p in obj) {
         if (typeof obj[p] != "undefined") sigValues.push([p, obj[p]]);
+    }
+    // All capitalized options are passed as is
+    for (var p in options) {
+        if (p[0] >= 'A' && p[0] <= 'Z') sigValues.push([p, options[p]]);
     }
     var strSign = "", query = "", postdata = "";
 
@@ -176,9 +182,14 @@ aws.queryDDB = function (action, obj, options, callback)
     var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ((self.proto || options.proto || 'http://') + 'dynamodb.' + this.region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
-    var req = url.parse(uri);
-    var json = JSON.stringify(obj);
     var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };
+    var req = url.parse(uri);
+    // All capitalized options are native DDB parameters
+    for (var p in options) {
+        if (p[0] >= 'A' && p[0] <= 'Z') obj[p] = options[p];
+    }
+    var json = JSON.stringify(obj);
+
     logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);
 
     this.querySign("dynamodb", req.hostname, "POST", req.path, json, headers);
@@ -321,13 +332,7 @@ aws.runInstances = function(options, callback)
         options["NetworkInterface.0.DeviceIndex"] = 0;
         options["NetworkInterface.0.AssociatePublicIpAddress"] = true;
     }
-
     if (options.file) options.UserData = core.readFileSync(options.file).toString("base64");
-
-    // All upper case properties are native EC2 parameters
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z' && !req[p]) req[p] = options[p];
-    }
 
     logger.debug('runInstances:', this.name, options);
     this.queryEC2("RunInstances", req, function(err, obj) {
@@ -456,9 +461,6 @@ aws.snsCreatePlatformEndpoint = function(token, options, callback)
     var params = { PlatformApplicationArn: options.appArn || self.snsAppArn, Token: token };
     if (options.data) params.CustomUserData = options.data;
 
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     this.querySNS("CreatePlatformEndpoint", params, options, function(err, obj) {
         var arn = null;
         if (!err) arn = core.objGet(obj, "CreatePlatformEndpointResponse.CreatePlatformEndpointResult.EndpointArn", { str: 1 });
@@ -482,10 +484,6 @@ aws.snsSetEndpointAttributes = function(arn, options, callback)
     if (options.data) params["Attributes.entry." + (n++) + ".CustomUserData"] = options.data;
     if (options.token) params["Attributes.entry." + (n++) + ".Token"] = options.token;
     if (options.enabled) params["Attributes.entry." + (n++) + ".Enabled"] = options.enabled;
-
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     this.querySNS("SetEndpointAttributes", params, options, callback);
 }
 
@@ -517,11 +515,174 @@ aws.snsPublish = function(arn, msg, options, callback)
     }
     if (options.subject) params.Subject = options.subject;
 
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
-    logger.log(params)
     this.querySNS("Publish", params, options, callback);
+}
+
+// Creates a topic to which notifications can be published. The callback returns topic ARN on success.
+aws.snsCreateTopic = function(name, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { Name: name };
+    this.querySNS("CreateTopic", params, options, function(err, obj) {
+        var arn = null;
+        if (!err) arn = core.objGet(obj, "CreateTopicResponse.CreateTopicResult.TopicArn", { str: 1 });
+        if (callback) callback(err, arn);
+    });
+}
+
+// Updates the topic attributes.
+// The following options can be used:
+//  - name - new topic name
+//  - policy - an object with access policy
+//  - deliveryPolicy - an object with delivery attributes, can specify all or only the ones that needed to be updated
+aws.snsSetTopicAttributes = function(arn, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { TopicArn: arn };
+    if (options.name) {
+        params.AttrributeName = "DisplayName";
+        params.AttributeValue = options.name;
+    } else
+    if (options.policy) {
+        params.AttrributeName = "Policy";
+        params.AttributeValue = JSON.stringify(options.policy);
+    } else
+    if (options.deliveryPolicy) {
+        params.AttrributeName = "DeliveryPolicy";
+        params.AttributeValue = JSON.stringify(options.deliveryPolicy);
+    } esle {
+        var policy = null;
+        ["minDelayTarget", "maxDelayTarget", "numRetries", "numMaxDelayRetries", "backoffFunction"].forEach(function(x) {
+            if (typeof options[x] == "undefined") return;
+            if (!policy) policy = {};
+            if (!policy.defaultHealthyRetryPolicy) policy.defaultHealthyRetryPolicy = {};
+            policy.defaultHealthyRetryPolicy[x] = options[x];
+        });
+        if (options.maxReceivesPerSecond) {
+            if (!policy) policy = {};
+            policy.defaultThrottlePolicy = { maxReceivesPerSecond: options.maxReceivesPerSecond };
+        }
+        if (options.disableSubscriptionOverrides) {
+            if (!policy) policy = {};
+            policy.disableSubscriptionOverrides = options.disableSubscriptionOverrides;
+        }
+        if (policy && options.protocol) {
+            params.AttrributeName = "DeliveryPolicy";
+            params.AttributeValue = JSON.stringify(core.newObj(options.protocol, policy));
+        }
+    }
+
+    this.querySNS("SetTopicAttributes", params, options, callback);
+}
+
+// Deletes the topic from Amazon SNS.
+aws.snsDeleteTopic = function(arn, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { TopicArn: arn };
+    this.querySNS("DeleteTopic", params, options, callback);
+}
+
+// Creates a topic to which notifications can be published. The callback returns topic ARN on success, if the topic requires
+// confirmation the arn returned will bt null and a token will be sent to the endpoint for confirmation.
+aws.snsSubscribe = function(arn, endpoint, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    // Detect the protocol form the ARN
+    if (!options.protocol && typeof endpoint == "string") {
+        if (endpoint.match(/^https?\:\/\//)) options.protocol = endpoint.substr(0, 4); else
+        if (endpoint.match(/^arn\:aws\:/)) options.protocol = "sqs"; else
+        if (endpoint.match(/^[^ ]@[^ ]+$/)) options.protocol = "email"; else
+        if (endpoint.match(/[0-9-]+/)) options.protocol = "sms"; else
+        options.protocol = "application";
+    }
+
+    var params = { TopicARN: arn, Protocol: options.protocol, Endpoint: endpoint };
+    this.querySNS("Subscribe", params, options, function(err, obj) {
+        var arn = null;
+        if (!err) arn = core.objGet(obj, "SubscribeResponse.SubscribeResult.SubscriptionArn", { str: 1 });
+        if (callback) callback(err, arn);
+    });
+}
+
+// Verifies an endpoint owner's intent to receive messages by validating the token sent to the
+// endpoint by an earlier Subscribe action. If the token is valid, the action creates a new subscription
+// and returns its Amazon Resource Name (ARN) in the callback.
+aws.snsConfirmSubscription = function(arn, token, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { TopicARN: arn, Token: token };
+    this.querySNS("ConfirmSubscription", params, options, function(err, obj) {
+        var arn = null;
+        if (!err) arn = core.objGet(obj, "SubscribeResponse.SubscribeResult.SubscriptionArn", { str: 1 });
+        if (callback) callback(err, arn);
+    });
+}
+
+// Updates the subscription attributes.
+// The following options can be used:
+//  - name - new topic name
+//  - deliveryPolicy - an object with delivery attributes, can specify all or only the ones that needed to be updated
+//  - minDelayTarget - update delivery policy by attribute name
+//  - maxDelayTarget
+//  - numRetries
+//  - numMaxDelayRetries
+//  - backoffFunction - one of linear|arithmetic|geometric|exponential
+//  - maxReceivesPerSecond
+aws.snsSetSubscriptionAttributes = function(arn, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { TopicArn: arn };
+    if (options.deliveryPolicy) {
+        params.AttrributeName = "DeliveryPolicy";
+        params.AttributeValue = JSON.stringify(options.deliveryPolicy);
+    } else {
+        var policy = null;
+        ["minDelayTarget", "maxDelayTarget", "numRetries", "numMaxDelayRetries", "backoffFunction"].forEach(function(x) {
+            if (typeof options[x] == "undefined") return;
+            if (!policy) policy = {};
+            if (!policy.healthyRetryPolicy) policy.healthyRetryPolicy = {};
+            policy.healthyRetryPolicy[x] = options[x];
+        });
+        if (options.maxReceivesPerSecond) {
+            if (!policy) policy = {};
+            policy.throttlePolicy = { maxReceivesPerSecond: options.maxReceivesPerSecond };
+        }
+        if (policy) {
+            params.AttrributeName = "DeliveryPolicy";
+            params.AttributeValue = JSON.stringify(policy);
+        }
+    }
+
+    this.querySNS("SetSubscriptionAttributes", params, options, callback);
+}
+// Creates a topic to which notifications can be published. The callback returns topic ARN on success.
+aws.snsUnsubscribe = function(arn, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { Name: name };
+    this.querySNS("Unsubscribe", params, options, callback);
 }
 
 // Convert a Javascript object into DynamoDB object
@@ -793,10 +954,6 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
         }
     });
 
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
-
     this.queryDDB('CreateTable', params, options, function(err, item) {
         if (err) return callback(err, item);
 
@@ -888,9 +1045,6 @@ aws.ddbPutItem = function(name, item, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { TableName: name, Item: self.toDynamoDB(item) };
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     // Sugar-candy syntax for expected values
     for (var p in options.expected) {
         if (!params.Expected) params.Expected = {};
@@ -944,9 +1098,6 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { TableName: name, Key: {} };
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     for (var p in keys) {
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
@@ -1020,9 +1171,6 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { TableName: name, Key: {} };
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     for (var p in keys) {
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
@@ -1054,9 +1202,6 @@ aws.ddbBatchWriteItem = function(items, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { RequestItems: {} };
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     for (var p in items) {
         params.RequestItems[p] = [];
         items[p].forEach(function(x) {
@@ -1086,9 +1231,6 @@ aws.ddbBatchGetItem = function(items, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { RequestItems: {} };
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     for (var p in items) {
         var obj = {};
         obj.Keys = items[p].keys.map(function(x) { return self.toDynamoDB(x); });
@@ -1123,9 +1265,6 @@ aws.ddbGetItem = function(name, keys, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { TableName: name, Key: {} };
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     if (options.select) {
         params.AttributesToGet = core.strSplit(options.select);
     }
@@ -1179,9 +1318,6 @@ aws.ddbQueryTable = function(name, condition, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { TableName: name, KeyConditions: {} };
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     if (options.names) {
         params.ExpressionAttributeNames = self.toDynamoDB(options.names);
     }
@@ -1252,9 +1388,6 @@ aws.ddbScanTable = function(name, condition, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var params = { TableName: name, ScanFilter: {} };
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
-    }
     if (options.projection) {
         params.ProjectionExpression = options.projection;
     }

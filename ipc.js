@@ -39,7 +39,7 @@ ipc.initClient = function()
     var self = this;
 
     this.initClientCaching();
-    this.initClientMessaging();
+    this.initClientQueueing();
 
     // Event handler for the worker to process response and fire callback
     process.on("message", function(msg) {
@@ -89,7 +89,7 @@ ipc.initServer = function()
     var self = this;
 
     this.initServerCaching();
-    this.initServerMessaging();
+    this.initServerQueueing();
 
     cluster.on("exit", function(worker, code, signal) {
         self.onMessage.call(worker, { op: "cluster:exit" });
@@ -264,35 +264,35 @@ ipc.initClientCaching = function()
     }
 }
 
-// Initialize messaging system for the server process, can be called multiple times in case environment has changed
-ipc.initServerMessaging = function()
+// Initialize queue system for the server process, can be called multiple times in case environment has changed
+ipc.initServerQueueing = function()
 {
-    switch (core.msgType) {
+    switch (core.queueType) {
     case "redis":
         break;
 
     case "nanomsg":
         if (!backend.NNSocket || core.noMsg) break;
-        core.msgBind = core.msgBind || (core.msgHost == "127.0.0.1" || core.msgHost == "localhost" ? "127.0.0.1" : "*");
+        core.queueBind = core.queueBind || (core.queueHost == "127.0.0.1" || core.queueHost == "localhost" ? "127.0.0.1" : "*");
 
         // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process connects to this socket.
-        this.bind('msub', "nanomsg", core.msgBind, core.msgPort + 1, { type: backend.NN_PUB });
+        this.bind('msub', "nanomsg", core.queueBind, core.queuePort + 1, { type: backend.NN_PUB });
 
         // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
         // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
         // and automatically uses next live server in case of failure.
-        this.bind('mpub', "nanomsg", core.msgBind, core.msgPort, { type: backend.NN_PULL , forward: this.nanomsg.msub });
+        this.bind('mpub', "nanomsg", core.queueBind, core.queuePort, { type: backend.NN_PULL , forward: this.nanomsg.msub });
         break;
     }
 }
 
-// Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
+// Initialize web worker queue system, client part, sends all publish messages to this socket which will be broadcasted into the
 // publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.
-ipc.initClientMessaging = function()
+ipc.initClientQueueing = function()
 {
     var self = this;
 
-    switch (core.msgType) {
+    switch (core.queueType) {
     case "amqp":
         this.connect("client", "amqp", core.amqpHost, core.amqpPort, core.amqpOptions, function() {
             this.queue(core.amqpQueueName || '', core.amqpQueueOptions | {}, function(q) {
@@ -316,13 +316,13 @@ ipc.initClientMessaging = function()
         break;
 
     case "nanomsg":
-        if (!backend.NNSocket || core.noMsg || !core.msgHost) break;
+        if (!backend.NNSocket || core.noQueue || !core.queueHost) break;
 
         // Socket where we publish our messages
-        this.connect('pub', "nanomsg", core.msgHost, core.msgPort, { type: backend.NN_PUSH });
+        this.connect('pub', "nanomsg", core.queueHost, core.queuePort, { type: backend.NN_PUSH });
 
         // Socket where we receive messages for us
-        this.connect('sub', "nanomsg", core.msgHost, core.msgPort + 1, { type: backend.NN_SUB }, function(err, data) {
+        this.connect('sub', "nanomsg", core.queueHost, core.queuePort + 1, { type: backend.NN_SUB }, function(err, data) {
             if (err) return logger.error('subscribe:', err);
             data = data.split("\1");
             var cb = self.subCallbacks[data[0]];
@@ -697,7 +697,7 @@ ipc.subscribe = function(key, callback, data)
 {
     var self = this;
     try {
-        switch (core.msgType) {
+        switch (core.queueType) {
         case "redis":
             if (!this.redis.sub) break;
             this.subCallbacks[key] = [ callback, data ];
@@ -727,7 +727,7 @@ ipc.unsubscribe = function(key)
     var self = this;
     try {
         delete this.subCallbacks[key];
-        switch (core.msgType) {
+        switch (core.queueType) {
         case "redis":
             if (!this.redis.sub) break;
             this.redis.sub.punsubscribe(key);
@@ -753,7 +753,7 @@ ipc.publish = function(key, data)
 {
     var self = this;
     try {
-        switch (core.msgType) {
+        switch (core.queueType) {
         case "redis":
             if (!this.redis.pub) break;
             this.redis.pub.publish(key, data);
