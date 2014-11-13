@@ -556,7 +556,7 @@ aws.snsSetTopicAttributes = function(arn, options, callback)
     if (options.deliveryPolicy) {
         params.AttrributeName = "DeliveryPolicy";
         params.AttributeValue = JSON.stringify(options.deliveryPolicy);
-    } esle {
+    } else {
         var policy = null;
         ["minDelayTarget", "maxDelayTarget", "numRetries", "numMaxDelayRetries", "backoffFunction"].forEach(function(x) {
             if (typeof options[x] == "undefined") return;

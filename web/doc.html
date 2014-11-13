@@ -65,6 +65,7 @@
 <li><a href="#module-ipc">ipc</a></li>
 <li><a href="#module-logger">logger</a></li>
 <li><a href="#module-metrics">metrics</a></li>
+<li><a href="#module-msg">msg</a></li>
 <li><a href="#module-server">server</a></li>
 </ul>
 </li>
@@ -1593,12 +1594,6 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>ssl-crl</code> - Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)</li>
 <li><code>ssl-ciphers</code> - A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format</li>
 <li><code>ssl-request-cert</code> - If true the server will request a certificate from clients that connect and attempt to verify that certificate. </li>
-<li><code>apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
-<li><code>apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
-<li><code>gcm-key</code> - Google Cloud Messaging API key</li>
-<li><code>notification-server</code> - Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem</li>
-<li><code>notification-client</code> - Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes</li>
-<li><code>notification-host</code> - List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers. DNS TXT configurable.</li>
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks. Default: 2</li>
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
@@ -1615,11 +1610,11 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process. Default: &quot;127.0.0.1&quot;</li>
 <li><code>repl-file</code> - User specified file for REPL history. Default: &quot;.history&quot;</li>
 <li><code>lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes. Default: 100000</li>
-<li><code>no-msg</code> - Disable nanomsg messaging sockets</li>
-<li><code>msg-port</code> - Ports to use for nanomsg sockets for message publish and subscribe, 2 ports will be used, this one and the next. Default: 20110</li>
-<li><code>msg-type</code> - One of the redis, amqp or nanomsg to use for PUB/SUB messaging, default is nanomsg sockets. Default: &quot;nanomsg&quot;</li>
-<li><code>msg-host</code> - Server(s) where clients publish and subscribe messages using nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used. Default: &quot;127.0.0.1&quot;. DNS TXT configurable.</li>
-<li><code>msg-bind</code> - Listen only on specified address for messaging sockets server in the master process</li>
+<li><code>no-queue</code> - Disable nanomsg queue sockets</li>
+<li><code>queue-port</code> - Ports to use for nanomsg sockets for publish/subscribe queues, 2 ports will be used, this one and the next. Default: 20110</li>
+<li><code>queue-type</code> - One of the redis, amqp or nanomsg to use for PUB/SUB queues, default is nanomsg sockets. Default: &quot;nanomsg&quot;</li>
+<li><code>queue-host</code> - Server(s) where clients publish and subscribe with nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used. Default: &quot;127.0.0.1&quot;. DNS TXT configurable.</li>
+<li><code>queue-bind</code> - Listen only on specified address for queue sockets in the master process</li>
 <li><code>memcache-host</code> - List of memcached servers for cache messages: IP[:port],host[:port]... DNS TXT configurable.</li>
 <li><code>memcache-options</code> - JSON object with options to the Memcached client, see npm doc memcached</li>
 <li><code>redis-port</code> - Port to Redis server for cache and messaging. DNS TXT configurable.</li>
@@ -1678,11 +1673,18 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>aws-region</code> - AWS region. Default: &quot;us-east-1&quot;</li>
 <li><code>aws-ddb-read-capacity</code> - Default DynamoDB read capacity for all tables</li>
 <li><code>aws-ddb-write-capacity</code> - Default DynamoDB write capacity for all tables</li>
+<li><code>aws-sns-app-arn</code> - SNS Platform application ARN to be used for push notifications</li>
 <li><code>aws-key-name</code> - AWS instance keypair name for remote job instances</li>
 <li><code>aws-iam-profile</code> - IAM instance profile name</li>
 <li><code>aws-image-id</code> - AWS image id to be used for instances</li>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
 <li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand. Default: &quot;t1.micro&quot;</li>
+<li><code>msg-apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
+<li><code>msg-apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
+<li><code>msg-gcm-key</code> - Google Cloud Messaging API key</li>
+<li><code>msg-server-queue</code> - Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem</li>
+<li><code>msg-client-queue</code> - Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes</li>
+<li><code>msg-host</code> - List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers. DNS TXT configurable.</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
@@ -1775,6 +1777,7 @@ the worker processes if they die and restart them automatically. How many proces
                     last_name: {},
                     alias: { pub: 1 },
                     status: { value: &quot;ok&quot; },
+                    type: { admin: 1 },
                     email: {},
                     phone: {},
                     website: {},
@@ -2330,7 +2333,7 @@ If err is not null the error message is returned immediately.</p>
 </ul>
 
 <ul>
-<li><p><code>api.sendReply(res, status, msg)</code></p>
+<li><p><code>api.sendReply(res, status, text)</code></p>
 <p> Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back</p>
 </li>
 </ul>
@@ -2829,7 +2832,7 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 </ul>
 
 <ul>
-<li><p><code>aws.queryAWS(proto, method, host, path, obj, callback)</code></p>
+<li><p><code>aws.queryAWS(proto, method, host, path, obj, options, callback)</code></p>
 <p> Make AWS request, return parsed response as Javascript object or null in case of error</p>
 </li>
 </ul>
@@ -2913,6 +2916,109 @@ Options may contain the following properties:</p>
 <ul>
 <li><p><code>aws.getInstanceInfo(callback)</code></p>
 <p> Retrieve instance launch index from the meta data if running on AWS instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsCreatePlatformEndpoint(token, options, callback)</code></p>
+<p> Creates an endpoint for a device and mobile app on one of the supported push notification services, such as GCM and APNS.</p>
+<p>The following properties can be specified in the options:</p>
+<ul>
+<li>appArn - an application ARN to be used for push notifications, if not passed, global <code>-sns-app-arn</code> will be used.</li>
+<li>data - a user data to be associated with the endpoint arn</li>
+</ul>
+<p>All capitalized properties in the options will be pased as is. The callback will be called with an error if any and the endpoint ARN</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsSetEndpointAttributes(arn, options, callback)</code></p>
+<p> Sets the attributes for an endpoint for a device on one of the supported push notification services, such as GCM and APNS.</p>
+<p>The following properties can be specified in the options:</p>
+<ul>
+<li>token - a device token for the notification service</li>
+<li>data - a user data to be associated with the endpoint arn</li>
+<li>enabled - true or false to enable/disable the deliver of notifications to this endpoint</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsDeleteEndpoint(arn, options, callback)</code></p>
+<p> Deletes the endpoint from Amazon SNS.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsPublish(arn, msg, options, callback)</code></p>
+<p> Sends a message to all of a topic&#39;s subscribed endpoints or to a mobile endpoint.
+If msg is an object, then it will be pushed as JSON.
+The options may take the following properties:</p>
+<ul>
+<li>subject - optional subject to be included in the message if the target supports it</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsCreateTopic(name, options, callback)</code></p>
+<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsSetTopicAttributes(arn, options, callback)</code></p>
+<p> Updates the topic attributes.
+The following options can be used:</p>
+<ul>
+<li>name - new topic name</li>
+<li>policy - an object with access policy</li>
+<li>deliveryPolicy - an object with delivery attributes, can specify all or only the ones that needed to be updated</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsDeleteTopic(arn, options, callback)</code></p>
+<p> Deletes the topic from Amazon SNS.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsSubscribe(arn, endpoint, options, callback)</code></p>
+<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success, if the topic requires
+confirmation the arn returned will bt null and a token will be sent to the endpoint for confirmation.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsConfirmSubscription(arn, token, options, callback)</code></p>
+<p> Verifies an endpoint owner&#39;s intent to receive messages by validating the token sent to the
+endpoint by an earlier Subscribe action. If the token is valid, the action creates a new subscription
+and returns its Amazon Resource Name (ARN) in the callback.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsSetSubscriptionAttributes(arn, options, callback)</code></p>
+<p> Updates the subscription attributes.
+The following options can be used:</p>
+<ul>
+<li>name - new topic name</li>
+<li>deliveryPolicy - an object with delivery attributes, can specify all or only the ones that needed to be updated</li>
+<li>minDelayTarget - update delivery policy by attribute name</li>
+<li>maxDelayTarget</li>
+<li>numRetries</li>
+<li>numMaxDelayRetries</li>
+<li>backoffFunction - one of linear|arithmetic|geometric|exponential</li>
+<li>maxReceivesPerSecond</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsUnsubscribe(arn, options, callback)</code></p>
+<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
 </li>
 </ul>
 
@@ -5352,14 +5458,14 @@ use <code>this.send()</code>.</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.initServerMessaging()</code></p>
-<p> Initialize messaging system for the server process, can be called multiple times in case environment has changed</p>
+<li><p><code>ipc.initServerQueueing()</code></p>
+<p> Initialize queue system for the server process, can be called multiple times in case environment has changed</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initClientMessaging()</code></p>
-<p> Initialize web worker messaging system, client part, sends all publish messages to this socket which will be broadcasted into the
+<li><p><code>ipc.initClientQueueing()</code></p>
+<p> Initialize web worker queue system, client part, sends all publish messages to this socket which will be broadcasted into the
 publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.</p>
 </li>
 </ul>
@@ -5427,78 +5533,6 @@ argument, the mesages received as the third argument</p>
 <ul>
 <li><p><code>ipc.publish(key, data)</code></p>
 <p> Publish an event to be sent to the subscribed clients</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.initNotifications(callback)</code></p>
-<p> Initialize supported notification services, this must be claled before sending any push notifications</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.closeNotifications(options, callback)</code></p>
-<p> Shutdown notification services, wait till all pending messages are sent before calling the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.sendNotification(options, callback)</code></p>
-<p> Deliver a notification using the specified service, apple is default.
-Options may contain the following properties:</p>
-<ul>
-<li>device_id - device where to send the message to</li>
-<li>service - which service to use for delivery: apple, google</li>
-<li>msg - text message to send</li>
-<li>badge - badge number to show if supported by the service</li>
-<li>type - set type of the message, service specific</li>
-<li>id - send id with the notification, this is application specific data, sent as is</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.initAPN()</code></p>
-<p> Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
-not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
-connection to APN gateway.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.closeAPN(callback)</code></p>
-<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.sendAPN(device_id, options, callback)</code></p>
-<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>type - set type of the packet</li>
-<li>id - send id in the user properties</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.initGCM()</code></p>
-<p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.closeGCM(callback)</code></p>
-<p> Close GCM connection, flush the queue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.sendGCM(device_id, options, callback)</code></p>
-<p> Send push notification to an Android device, return true if queued.</p>
 </li>
 </ul>
 
@@ -5570,6 +5604,98 @@ connection to APN gateway.</p>
 </ul>
 
 <h2 id="module-metrics">Module: METRICS</h2>
+<h2 id="module-msg">Module: MSG</h2>
+<ul>
+<li><p><code>msg</code></p>
+<p> Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.init(callback)</code></p>
+<p> Initialize supported notification services, this must be called before sending any push notifications</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.shutdown(options, callback)</code></p>
+<p> Shutdown notification services, wait till all pending messages are sent before calling the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.send(options, callback)</code></p>
+<p> Deliver a notification using the specified service, apple is default.
+Options may contain the following properties:</p>
+<ul>
+<li>device_id - device where to send the message to</li>
+<li>service - which service to use for delivery: aws, apns, gcm, ads, mpns, wns</li>
+<li>msg - text message to send</li>
+<li>badge - badge number to show if supported by the service</li>
+<li>type - set type of the message, service specific</li>
+<li>id - send id with the notification, this is application specific data, sent as is</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.initAPN()</code></p>
+<p> Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
+not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
+connection to APN gateway.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.closeAPN(callback)</code></p>
+<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.sendAPN(device_id, options, callback)</code></p>
+<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>type - set type of the packet</li>
+<li>id - send id in the user properties</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.initGCM()</code></p>
+<p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.closeGCM(callback)</code></p>
+<p> Close GCM connection, flush the queue</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.sendGCM(device_id, options, callback)</code></p>
+<p> Send push notification to an Android device, return true if queued.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.sendAWS(device_id, options, callback)</code></p>
+<p> Send push notification to a device using AWS SNS service, device_d must be a valid SNS endpoint ARN.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>type - set type of the packet</li>
+<li>id - send id in the user properties</li>
+</ul>
+</li>
+</ul>
+
 <h2 id="module-server">Module: SERVER</h2>
 <ul>
 <li><p><code>server</code></p>
