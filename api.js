@@ -27,6 +27,7 @@ var consolidate = require('consolidate');
 var domain = require('domain');
 var core = require(__dirname + '/core');
 var ipc = require(__dirname + '/ipc');
+var msg = require(__dirname + '/msg');
 var metrics = require(__dirname + '/metrics');
 var logger = require(__dirname + '/logger');
 var backend = require(__dirname + '/build/Release/backend');
@@ -58,6 +59,7 @@ var api = {
                       last_name: {},
                       alias: { pub: 1 },
                       status: { value: "ok" },
+                      type: { admin: 1 },
                       email: {},
                       phone: {},
                       website: {},
@@ -632,7 +634,7 @@ api.init = function(callback)
 
             // Allow push notifications in the API handlers
             if (self.notifications) {
-                ipc.initNotifications(function() {
+                msg.init(function() {
                     if (callback) callback.call(self, err);
                 });
             } else {
@@ -3343,7 +3345,7 @@ api.notifyAccount = function(id, options, callback)
             options.account = account;
             if (!options.device_id) options.device_id = account.device_id;
             if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
-            ipc.sendNotification(options, function(err) {
+            msg.send(options, function(err) {
                 status.device_id = account.device_id;
                 status.sent = err ? false : true;
                 logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", id, account.alias, account.device_id, status, err || "");

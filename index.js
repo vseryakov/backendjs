@@ -9,9 +9,10 @@ exports.logger = require(__dirname + '/logger');
 exports.ipc = require(__dirname + '/ipc');
 exports.aws = require(__dirname + '/aws');
 exports.db = require(__dirname + '/db');
+exports.msg = require(__dirname + '/msg');
 exports.server = require(__dirname + '/server');
 exports.api = require(__dirname + '/api');
 exports.metrics = require(__dirname + '/metrics');
 
-exports.core.addContext('logger', exports.logger, 'ipc', exports.ipc, 'db', exports.db, 'aws', exports.aws, 'api', exports.api, 'server', exports.server);
+exports.core.addContext('logger', exports.logger, 'ipc', exports.ipc, 'db', exports.db, 'aws', exports.aws, 'msg', exports.msg, 'api', exports.api, 'server', exports.server);
 exports.run = function(callback) { this.core.run(callback); }

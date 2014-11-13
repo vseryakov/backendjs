@@ -21,6 +21,7 @@ var aws = {
             { name: "region", descr: "AWS region" },
             { name: "ddb-read-capacity", type: "int", min: 1, descr: "Default DynamoDB read capacity for all tables" },
             { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
+            { name: "sns-app-arn", descr: "SNS Platform application ARN to be used for push notifications" },
             { name: "key-name", descr: "AWS instance keypair name for remote job instances" },
             { name: "iam-profile", descr: "IAM instance profile name" },
             { name: "image-id", descr: "AWS image id to be used for instances" },
@@ -437,6 +438,90 @@ aws.getInstanceInfo = function(callback)
             logger.debug('getInstanceInfo:', self.name, 'id:', core.instanceId, 'idx:', self.instanceIndex, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration, err || "");
             if (callback) callback();
     });
+}
+
+// Creates an endpoint for a device and mobile app on one of the supported push notification services, such as GCM and APNS.
+//
+// The following properties can be specified in the options:
+//   - appArn - an application ARN to be used for push notifications, if not passed, global `-sns-app-arn` will be used.
+//   - data - a user data to be associated with the endpoint arn
+//
+// All capitalized properties in the options will be pased as is. The callback will be called with an error if any and the endpoint ARN
+aws.snsCreatePlatformEndpoint = function(token, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { PlatformApplicationArn: options.appArn || self.snsAppArn, Token: token };
+    if (options.data) params.CustomUserData = options.data;
+
+    for (var p in options) {
+        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
+    }
+    this.querySNS("CreatePlatformEndpoint", params, options, function(err, obj) {
+        var arn = null;
+        if (!err) arn = core.objGet(obj, "CreatePlatformEndpointResponse.CreatePlatformEndpointResult.EndpointArn", { str: 1 });
+        if (callback) callback(err, arn);
+    });
+}
+
+// Sets the attributes for an endpoint for a device on one of the supported push notification services, such as GCM and APNS.
+//
+// The following properties can be specified in the options:
+//  - token - a device token for the notification service
+//  - data - a user data to be associated with the endpoint arn
+//  - enabled - true or false to enable/disable the deliver of notifications to this endpoint
+aws.snsSetEndpointAttributes = function(arn, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { EndpointArn: arn }, n = 1;
+    if (options.data) params["Attributes.entry." + (n++) + ".CustomUserData"] = options.data;
+    if (options.token) params["Attributes.entry." + (n++) + ".Token"] = options.token;
+    if (options.enabled) params["Attributes.entry." + (n++) + ".Enabled"] = options.enabled;
+
+    for (var p in options) {
+        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
+    }
+    this.querySNS("SetEndpointAttributes", params, options, callback);
+}
+
+// Deletes the endpoint from Amazon SNS.
+aws.snsDeleteEndpoint = function(arn, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { EndpointArn: arn };
+    this.querySNS("DeleteEndpoint", params, options, callback);
+}
+
+// Sends a message to all of a topic's subscribed endpoints or to a mobile endpoint.
+// If msg is an object, then it will be pushed as JSON.
+// The options may take the following properties:
+//  - subject - optional subject to be included in the message if the target supports it
+aws.snsPublish = function(arn, msg, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { TargetArn: arn, Message: msg };
+    if (typeof msg != "string") {
+        params.Message = JSON.stringify(msg);
+        params.MessageStructure = "json";
+    }
+    if (options.subject) params.Subject = options.subject;
+
+    for (var p in options) {
+        if (p[0] >= 'A' && p[0] <= 'Z') params[p] = options[p];
+    }
+    logger.log(params)
+    this.querySNS("Publish", params, options, callback);
 }
 
 // Convert a Javascript object into DynamoDB object
