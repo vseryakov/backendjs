@@ -2277,32 +2277,54 @@ core.readFileSync = function(file, options)
     }
 }
 
-// Return list of files than match filter recursively starting with given path
-// - file - starting path
-// - filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync
-// - depth - if a number specifies max depth to go into the subfolders, starts with 1
-core.findFileSync = function(file, filter, depth)
+// Return list of files than match filter recursively starting with given path, file is the starting path.
+// The options may contain the following:
+//   - include - a regexp with file pattern to include
+//   - exclude - a regexp with file pattern to exclude
+//   - filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync
+//   - depth - if a number it specifies max depth to go into the subfolders, starts with 1
+//   - types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO
+core.findFileSync = function(file, options)
 {
     var list = [];
+    function filter(file, stat) {
+        if (!options) return 1;
+        if (options.filter) return options.filter(file, stat);
+        if (options.exclude instanceof RegExp && options.exclude.test(file)) return 0;
+        if (options.include instanceof RegExp && !options.include.test(file)) return 0;
+        if (options.types) {
+            if (stat.isFile() && options.types.indexOf("f") == -1) return 0;
+            if (stat.isDirectory() && options.types.indexOf("d") == -1) return 0;
+            if (stat.isBlockDevice() && options.types.indexOf("b") == -1) return 0;
+            if (stat.isCharacterDevice() && options.types.indexOf("c") == -1) return 0;
+            if (stat.isSymbolicLink() && options.types.indexOf("l") == -1) return 0;
+            if (stat.isFIFO() && options.types.indexOf("p") == -1) return 0;
+            if (stat.isSocket() && options.types.indexOf("s") == -1) return 0;
+        }
+        return 1;
+    }
     try {
         var stat = this.statSync(file);
         if (stat.isFile()) {
-            if (file != "." && file != ".." && (!filter || filter(file, stat))) {
+            if (file != "." && file != ".." && filter(file, stat)) {
                 list.push(file);
             }
         } else
         if (stat.isDirectory()) {
-            if (file != "." && file != ".." && (!filter || filter(file, stat))) {
+            if (file != "." && file != ".." && filter(file, stat)) {
                 list.push(file);
             }
-            if (typeof depth == "number" && depth == 0) return list;
+            if (options && typeof options.depth == "number") {
+                if (options.depth <= 0) return list;
+                options.depth--;
+            }
             var files = fs.readdirSync(file);
             for (var i in files) {
-                list = list.concat(this.findFileSync(path.join(file, files[i]), filter, depth ? depth - 1 : null));
+                list = list.concat(this.findFileSync(path.join(file, files[i]), options));
             }
         }
     } catch(e) {
-        logger.error('findFileSync:', file, e);
+        logger.error('findFileSync:', file, options, e);
     }
     return list;
 }
@@ -2372,7 +2394,7 @@ core.unlinkPath = function(dir, callback)
 // Recursively remove all files and folders in the given path, stops on first error
 core.unlinkPathSync = function(dir)
 {
-    var files = this.findFileSync(dir, function() { return 1 });
+    var files = this.findFileSync(dir);
     // Start from the end to delete files first, then folders
     for (var i = files.length - 1; i >= 0; i--) {
         try {

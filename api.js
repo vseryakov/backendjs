@@ -339,6 +339,7 @@ var api = {
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
+           { name: "modules", descr: "Directory from where to load API modules, parts of the backend but in external files, each API web server will load all .js files from this directory" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
            { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
@@ -601,6 +602,18 @@ api.init = function(callback)
 
     // Custom application logic
     self.initApplication.call(self, function(err) {
+
+        // Dynamically load all services
+        core.findFileSync(self.modules || "modules", { depth: 1, types: "f", include: /\.js$/ }).forEach(function(file) {
+            try {
+                var mod = require(path.join(core.home, file));
+                if (typeof mod.init == "function") mod.init();
+                logger.log("init:", file, "loaded");
+            } catch (e) {
+                logger.error("init:", file, e.stack);
+            }
+        });
+
         // Setup all tables
         self.initTables(function(err) {
 
