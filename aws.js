@@ -1474,4 +1474,3 @@ aws.ddbScanTable = function(name, condition, options, callback)
         if (callback) callback(err, rc);
     });
 }
-

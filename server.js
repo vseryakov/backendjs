@@ -1274,32 +1274,29 @@ server.processRequestQueue = function(callback)
 // Process AWS SQS queue for any messages and execute jobs, a job object must be in the same format as for the cron jobs.
 //
 // The options can specify:
-//  - queue - SQS queue ARN, if not specified the `-api-queue` will be used
+//  - queue - SQS queue ARN, if not specified the `-server-job-queue` will be used
 //  - timeout - how long to wait for messages, seconds, default is 5
 //  - count - how many jobs to receive, if not specified use `-api-max-jobs` config parameter
 //  - visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
 //     after being retrieved by a ReceiveMessage request.
 //
-server.processSQS = function(options, callback)
+server.processJobsFromSQS = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var queue = options.queue || self.jobQueue;
-    var req = { QueueUrl: queue,
-                AttributeName: "All",
-                MaxNumberOfMessages: options.count || self.jobCount,
-                VisibilityTimeout: options.visibilityTimeout || 60,
-                WaitTimeSeconds: options.timeout || 5 };
+    if (!queue) return callback ? callback() : null;
 
-    aws.querySQS("ReceiveMessage", req, function(err, data) {
+    aws.sqsReceiveMessage(queue, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
-        var items = core.objGet(data, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
-        core.forEachSeries(items || [], function(item, next) {
+        core.forEachSeries(rows || [], function(item, next) {
             var job = core.jsonParse(item.Body, { obj: 1, error: 1 });
             if (job && row.job) self.doJob(row.type, row.job, row.args);
-            aws.querySQS("DeleteMessage", { QueueUrl: queue, ReceiptHandle: item.ReceiptHandle }, function(err) { if (err) logger.error(err); });
-            next();
+            aws.querySQS("DeleteMessage", { QueueUrl: queue, ReceiptHandle: item.ReceiptHandle }, function(err) {
+                if (err) logger.error(err);
+                next();
+            });
         }, function() {
             if (callback) callback();
         });
