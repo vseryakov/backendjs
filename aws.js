@@ -445,6 +445,57 @@ aws.getInstanceInfo = function(callback)
     });
 }
 
+// Receive message(s) from the SQS queue, the callback will receive a list with messages if no error.
+// The following options can be specified:
+//  - count - how many messages to receive
+//  - timeout - how long to wait, this is for Long Poll
+//  - visibilityTimeout - the duration (in seconds) that the received messages are hidden from subsequent retrieve requests after being retrieved by a ReceiveMessage request.
+aws.sqsReceiveMessage = function(url, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { QueueUrl: url };
+    if (options.count) params.MaxNumberOfMessages = options.count;
+    if (options.visibilityTimeout) params.VisibilityTimeout = options.visibilityTimeout;
+    if (options.timeout) params.WaitTimeSeconds = options.timeout;
+    this.querySQS("ReceiveMessage", params, options, function(err, obj) {
+        var rows = [];
+        if (!err) rows = core.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
+        if (callback) callback(err, rows);
+    });
+}
+
+// Send a message to the SQS queue.
+// The options can specify the following:
+//  - delay - pass as DelaySeconds parameter
+//  - attrs - an object with additional message attributes to send, use only string, numbers or binary values, all other types will be converted into strings
+aws.sqsSendMessage = function(url, body, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { QueueUrl: url, MessageBody: body };
+    if (options.delay) params.DelaySeconds = options.delay;
+    if (options.attrs) {
+        var n = 1;
+        for (var p in options.attrs) {
+            var type = typeof options.attrs[p] == "number" ? "Number" : typeof options.attrs[p] == "string" ? "String" : "Binary";
+            params["MessageAttribute." + n + ".Name"] = p;
+            params["MessageAttribute." + n + ".Value." + type + "Value"] = options.attrs[p];
+            params["MessageAttribute." + n + ".Value.DataType"] = type;
+            n++;
+        }
+    }
+    this.querySQS("SendMessage", params, options, function(err, obj) {
+        var rows = [];
+        if (!err) rows = core.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
+        if (callback) callback(err, rows);
+    });
+}
+
 // Creates an endpoint for a device and mobile app on one of the supported push notification services, such as GCM and APNS.
 //
 // The following properties can be specified in the options:
