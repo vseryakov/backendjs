@@ -2920,6 +2920,29 @@ Options may contain the following properties:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.sqsReceiveMessage(url, options, callback)</code></p>
+<p> Receive message(s) from the SQS queue, the callback will receive a list with messages if no error.
+The following options can be specified:</p>
+<ul>
+<li>count - how many messages to receive</li>
+<li>timeout - how long to wait, this is for Long Poll</li>
+<li>visibilityTimeout - the duration (in seconds) that the received messages are hidden from subsequent retrieve requests after being retrieved by a ReceiveMessage request.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.sqsSendMessage(url, body, options, callback)</code></p>
+<p> Send a message to the SQS queue.
+The options can specify the following:</p>
+<ul>
+<li>delay - pass as DelaySeconds parameter</li>
+<li>attrs - an object with additional message attributes to send, use only string, numbers or binary values, all other types will be converted into strings</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.snsCreatePlatformEndpoint(token, options, callback)</code></p>
 <p> Creates an endpoint for a device and mobile app on one of the supported push notification services, such as GCM and APNS.</p>
 <p>The following properties can be specified in the options:</p>
