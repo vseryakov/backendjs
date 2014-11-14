@@ -1693,6 +1693,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error. Default: 1000</li>
 <li><code>api-access-log</code> - File for access logging</li>
+<li><code>api-modules</code> - Directory from where to load API modules, parts of the backend but in external files, each API web server will load all .js files from this directory</li>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
 <li><code>api-notifications</code> - Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers</li>
 <li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
@@ -3955,12 +3956,15 @@ Options can specify the format:</p>
 </ul>
 
 <ul>
-<li><p><code>core.findFileSync(file, filter, depth)</code></p>
-<p> Return list of files than match filter recursively starting with given path</p>
+<li><p><code>core.findFileSync(file, options)</code></p>
+<p> Return list of files than match filter recursively starting with given path, file is the starting path.
+The options may contain the following:</p>
 <ul>
-<li>file - starting path</li>
+<li>include - a regexp with file pattern to include</li>
+<li>exclude - a regexp with file pattern to exclude</li>
 <li>filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync</li>
-<li>depth - if a number specifies max depth to go into the subfolders, starts with 1</li>
+<li>depth - if a number it specifies max depth to go into the subfolders, starts with 1</li>
+<li>types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO</li>
 </ul>
 </li>
 </ul>
@@ -5966,11 +5970,11 @@ cron jobs manually</p>
 </ul>
 
 <ul>
-<li><p><code>server.processSQS(options, callback)</code></p>
+<li><p><code>server.processJobsFromSQS(options, callback)</code></p>
 <p> Process AWS SQS queue for any messages and execute jobs, a job object must be in the same format as for the cron jobs.</p>
 <p>The options can specify:</p>
 <ul>
-<li>queue - SQS queue ARN, if not specified the <code>-api-queue</code> will be used</li>
+<li>queue - SQS queue ARN, if not specified the <code>-server-job-queue</code> will be used</li>
 <li>timeout - how long to wait for messages, seconds, default is 5</li>
 <li>count - how many jobs to receive, if not specified use <code>-api-max-jobs</code> config parameter</li>
 <li>visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
