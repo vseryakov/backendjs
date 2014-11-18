@@ -242,6 +242,7 @@ server.startWorker = function()
     // At least API tables are needed for normal operations
     core.context.api.initTables(function(err) {
         core.context.api.initWorker(function() {
+            core.loadModules("worker");
             process.send('ready');
         });
     });
@@ -404,6 +405,9 @@ server.startWeb = function(callback)
         // Init API environment
         api.init(function(err) {
             core.dropPrivileges();
+
+            core.loadModules("api");
+
             // Use proxy headers in the Express
             if (core.proxy.port) {
                 this.app.set('trust proxy', true);
@@ -1294,7 +1298,7 @@ server.processJobsFromSQS = function(options, callback)
             var job = core.jsonParse(item.Body, { obj: 1, error: 1 });
             if (job && row.job) self.doJob(row.type, row.job, row.args);
             aws.querySQS("DeleteMessage", { QueueUrl: queue, ReceiptHandle: item.ReceiptHandle }, function(err) {
-                if (err) logger.error(err);
+                if (err) logger.error('processJobsFromSQS:', err);
                 next();
             });
         }, function() {

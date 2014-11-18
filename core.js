@@ -144,6 +144,7 @@ var core = {
             { name: "ssl-ciphers", obj: 'ssl', descr: "A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
             { name: "ssl-request-cert", type: "bool", obj: 'ssl', descr: "If true the server will request a certificate from clients that connect and attempt to verify that certificate. " },
             { name: "ssl-reject-unauthorized", type: "bool", obj: 'ssl', decr: "If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true" },
+            { name: "modules", descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules" },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
@@ -1574,6 +1575,21 @@ core.doWhilst = function(iterator, test, callback)
         if (!test()) return callback();
         setImmediate(function() { self.doWhilst(iterator, test, callback); });
     });
+}
+
+// Dynamically load services
+core.loadModules = function(type)
+{
+    core.findFileSync(this.modules || "modules", { depth: 1, types: "f", include: new RegExp("_" + type + ".js$") }).forEach(function(file) {
+        try {
+            var mod = require(path.join(core.home, file));
+            if (typeof mod.init == "function") mod.init();
+            logger.log("loadModules:", file, "loaded");
+        } catch (e) {
+            logger.error("loadModules:", file, e.stack);
+        }
+    });
+
 }
 
 // Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
