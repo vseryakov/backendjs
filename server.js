@@ -406,8 +406,6 @@ server.startWeb = function(callback)
         api.init(function(err) {
             core.dropPrivileges();
 
-            core.loadModules("api");
-
             // Use proxy headers in the Express
             if (core.proxy.port) {
                 this.app.set('trust proxy', true);

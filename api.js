@@ -605,6 +605,9 @@ api.init = function(callback)
         // Setup all tables
         self.initTables(function(err) {
 
+            // Synchronously load external api modules
+            core.loadModules("api");
+
             // Start http server
             if (core.port) {
                 self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
