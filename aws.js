@@ -44,7 +44,7 @@ module.exports = aws;
 // Initialization of metadata
 aws.configure = function(options, callback)
 {
-    if (typeof options == "callback") callback = options, options = null;
+    if (typeof options == "function") callback = options, options = null;
     // Do not retrieve metadata if not running inside important process
     if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master","worker"].indexOf(core.role) == -1) return callback();
     this.getInstanceInfo(callback);
@@ -54,7 +54,7 @@ aws.configure = function(options, callback)
 aws.queryAWS = function(proto, method, host, path, obj, options, callback)
 {
     var self = this;
-    if (typeof options == "callback") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = {};
 
     var curTime = new Date();
     var formattedTime = curTime.toISOString().replace(/\.[0-9]+Z$/, 'Z');
@@ -445,10 +445,44 @@ aws.getInstanceInfo = function(callback)
             if (self.key) return next();
             self.getInstanceCredentials(next);
         },
+        function(next) {
+            if (!self.secret || !core.instanceId) return next();
+            self.queryEC2("DescribeTags", { 'Filter.1.Name': 'resource-id', 'Filter.1.Value': core.instanceId }, function(err, tags) {
+                if (!err) self.tags = core.objGet(tags, "DescribeTagsResponse.tagSet.item", { list: 1 });
+                if (self.tags) core.instanceTag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
+                next();
+            });
+        },
         ], function(err) {
             logger.debug('getInstanceInfo:', self.name, 'id:', core.instanceId, 'idx:', self.instanceIndex, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration, err || "");
             if (callback) callback();
     });
+}
+
+// Register an instance(s) with ELB, instance can be one id or a list of ids
+aws.elbRegisterInstancesWithLoadBalancer = function(name, instance, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { LoadBalancerName: name };
+    if (!Array.isArray(instance)) instance = [ instance ];
+    instance.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
+    this.queryELB("RegisterInstancesWithLoadBalancer", params, options, callback);
+}
+
+// Deregister an instance(s) from ELB, instance can be one id or a list of ids
+aws.elbDeregisterInstancesWithLoadBalancer = function(name, instance, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { LoadBalancerName: name };
+    if (!Array.isArray(instance)) instance = [ instance ];
+    instance.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
+    this.queryELB("DeregisterInstancesWithLoadBalancer", params, options, callback);
 }
 
 // Receive message(s) from the SQS queue, the callback will receive a list with messages if no error.
