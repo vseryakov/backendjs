@@ -2896,7 +2896,28 @@ Options may contain the following properties:</p>
 
 <ul>
 <li><p><code>aws.runInstances(options, callback)</code></p>
-<p> Run AWS instances with given arguments in user-data</p>
+<p> Run AWS instances, supports all native EC2 parameters with first capital letter but also accepts simple parameters in the options:</p>
+<ul>
+<li>min - min number of instances to run, default 1</li>
+<li>max - max number of instances to run, default 1</li>
+<li>id - AMI id, use aws.imageId if not given or options.ImageId attribute</li>
+<li>type - instance type, use aws.instanceType if not given or options.InstanceType attribute</li>
+<li>key - Keypair, use aws.keyName if not given or options.KeyName attribute</li>
+<li>data - user data, in clear text</li>
+<li>terminate - set instance initiated shutdown behaviour to terminate</li>
+<li>stop - set instance initiated shutdown behaviour to stop</li>
+<li>group - one group id or an array with security group ids</li>
+<li>ip - a static private IP adress to assign</li>
+<li>publicIp - associate with a public IP address</li>
+<li>file - pass contents of a file as user data, contents are read using sync method</li>
+<li>name - assign a tag to the instance as Name:</li>
+<li>delay - how long to wait in ms for instance startup before assigning tags or do other post start actions, default is 30 seconds</li>
+<li>elbName - join elastic balancer after the startup</li>
+<li>elasticIp - asociate with the given Elastic IP address after the start</li>
+<li>profile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options[&#39;IamInstanceProfile.Name&#39;] attribute</li>
+<li>zone - availability zone, if not given use aws.availZone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
+<li>subnet - subnet id, if not given use aws.subnetId or options.SubnetId attribute</li>
+</ul>
 </li>
 </ul>
 
