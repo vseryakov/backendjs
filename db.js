@@ -228,17 +228,16 @@ db.initConfig = function(options, callback)
     if (!self.config || !db.getPoolByName(self.config)) return callback ? callback() : null;
 
     // Request configs by network
-    var type = core.subnet ? [ core.subnet, core.network ] : undefined;
+    var type = core.subnet ? [ core.subnet, core.network ] : [];
     // Host specific
-    if (core.ipaddr) {
-        if (!type) type = [];
-        type.push(core.ipaddr);
-    }
-    // Custom config type
-    if (self.configType) {
-        if (!type) type = [];
-        type.push(self.configType);
-    }
+    if (core.ipaddr) type.push(core.ipaddr);
+    // Custom config type or run mode
+    if (self.configType) type.push(self.configType);
+    // Instance info
+    if (core.instanceTag) type.push(core.instanceTag);
+    if (core.instanceImage) type.push(core.instanceImage);
+    if (core.appVersion) type.push(core.appVersion);
+    if (!type.length) type = undefined;
 
     self.select("bk_config", { type: type }, { select: ['name','value'], ops: { type: "in" }, pool: self.config }, function(err, rows) {
         var argv = [];

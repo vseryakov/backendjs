@@ -43,6 +43,8 @@ var core = {
     // Instance mode, remote jobs
     instance: false,
     instanceId: process.pid,
+    instanceTag: '',
+    instanceImage: '',
     workerId: '',
 
     // Home directory, current by default, must be absolute path

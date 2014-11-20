@@ -423,6 +423,12 @@ aws.getInstanceInfo = function(callback)
             });
         },
         function(next) {
+            self.getInstanceMeta("/latest/meta-data/ami-id", function(err, id) {
+                if (!err && id) core.instanceImage = id;
+                next(err);
+            });
+        },
+        function(next) {
             self.getInstanceMeta("/latest/user-data", function(err, data) {
                 if (!err && data) core.parseArgs(backend.strSplit(data, " ", '"\''));
                 next(err);
