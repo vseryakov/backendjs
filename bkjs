@@ -139,6 +139,16 @@ case "$ARG" in
     exit 0
     ;;
 
+  install)
+    home=${BACKEND_HOME-$HOME}
+    user=${BACKEND_USER-$(whoami)}
+    echo "installing in $home for $user..."
+    sudo $0 init-server -home $home -user $user -prefix $home -domain $BACKEND_DOMAIN -host $BACKEND_HOST
+    sudo $0 init-devel
+    $0 build-node -prefix $home
+    npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
+    ;;
+
   stop-master)
     $KILLALL $1 'backend: master'
     $KILLALL $1 'backend: master'
@@ -180,6 +190,7 @@ case "$ARG" in
        useradd -g 0 -m $BACKEND_USER
        echo "$BACKEND_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
        mkdir -p -m 700 $BHOME/.ssh && chown $BACKEND_USER $BHOME/.ssh
+       # Copy ssh config if running on Amazon instance
        [ -d /home/ec2-user ] && cp /home/ec2-user/.ssh/authorized_keys $BHOME/.ssh && chown $BACKEND_USER $BHOME/.ssh/*
     fi
 
@@ -206,7 +217,7 @@ case "$ARG" in
 
   init-home)
     # Create required directories
-    mkdir -p $BACKEND_HOME/node_modules $BACKEND_HOME/log $BACKEND_HOME/etc $BACKEND_HOME/var
+    mkdir -p $BACKEND_HOME/node_modules $BACKEND_HOME/bin $BACKEND_HOME/log $BACKEND_HOME/etc $BACKEND_HOME/var
     chown -R $BACKEND_USER $BACKEND_HOME
     ;;
 

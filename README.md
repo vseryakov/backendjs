@@ -1491,10 +1491,7 @@ Run the backendjs on the AWS instance as user ec2-user with the backend in the u
 - install commands
 
         curl -L -o /tmp/bkjs http://backendjs.io/bkjs && chmod 755 /tmp/bkjs
-        sudo /tmp/bkjs init-server -home $HOME -user $(whoami) -prefix $HOME
-        /tmp/bkjs init-devel
-        /tmp/bkjs build-node -prefix $HOME
-        npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
+        /tmp/bkjs install
         bkjs restart
 
 - run `ps agx`, it should show several backend processes running
