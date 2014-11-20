@@ -1676,6 +1676,7 @@ node can find global modules, replace $BACKEND_PREFIX with the actual path unles
 <li><code>aws-iam-profile</code> - IAM instance profile name</li>
 <li><code>aws-image-id</code> - AWS image id to be used for instances</li>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
+<li><code>aws-group-id</code> - AWS security group(s) to be used for instances</li>
 <li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand. Default: &quot;t1.micro&quot;</li>
 <li><code>msg-apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
 <li><code>msg-apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
@@ -4384,8 +4385,18 @@ Options can have the following properties:</p>
 
 <ul>
 <li><p><code>db.initConfig(options, callback)</code></p>
-<p> Load configuration from the config database, must be configured with <code>db-config-type</code> pointong to the database pool where bk_config table contains
-configuration parameters.</p>
+<p> Load configuration from the config database, must be configured with <code>db-config-type</code> pointing to the database pool where bk_config table contains
+configuration parameters.
+The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:</p>
+<ul>
+<li>config type or run mode defined by the <code>db-config-type</code></li>
+<li>the application version specified in the app package.json</li>
+<li>instance image id if running in AWS or other virtual environment, stored in the <code>core.instanceImage</code></li>
+<li>the network where the instance is running, first 2 octets from the current IP address</li>
+<li>the subnet where the instance is running, first 3 octets from the current IP address</li>
+<li>instance name set via AWS tag or other way, stored in the <code>core.instanceTag</code></li>
+<li>current instance IP address</li>
+</ul>
 </li>
 </ul>
 
