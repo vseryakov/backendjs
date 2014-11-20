@@ -299,7 +299,26 @@ aws.queryS3 = function(bucket, key, options, callback)
     });
 }
 
-// Run AWS instances with given arguments in user-data
+// Run AWS instances, supports all native EC2 parameters with first capital letter but also accepts simple parameters in the options:
+//  - min - min number of instances to run, default 1
+//  - max - max number of instances to run, default 1
+//  - id - AMI id, use aws.imageId if not given or options.ImageId attribute
+//  - type - instance type, use aws.instanceType if not given or options.InstanceType attribute
+//  - key - Keypair, use aws.keyName if not given or options.KeyName attribute
+//  - data - user data, in clear text
+//  - terminate - set instance initiated shutdown behaviour to terminate
+//  - stop - set instance initiated shutdown behaviour to stop
+//  - group - one group id or an array with security group ids
+//  - ip - a static private IP adress to assign
+//  - publicIp - associate with a public IP address
+//  - file - pass contents of a file as user data, contents are read using sync method
+//  - name - assign a tag to the instance as Name:
+//  - delay - how long to wait in ms for instance startup before assigning tags or do other post start actions, default is 30 seconds
+//  - elbName - join elastic balancer after the startup
+//  - elasticIp - asociate with the given Elastic IP address after the start
+//  - profile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options['IamInstanceProfile.Name'] attribute
+//  - zone - availability zone, if not given use aws.availZone or options['Placement.AvailabilityZone'] attribute
+//  - subnet - subnet id, if not given use aws.subnetId or options.SubnetId attribute
 aws.runInstances = function(options, callback)
 {
     var self = this;
@@ -314,11 +333,11 @@ aws.runInstances = function(options, callback)
                 KeyName: options.key || this.keyName || "",
                 UserData: options.data ? new Buffer(options.data).toString("base64") : "" };
 
-    if (options.shutdown) req.InstanceInitiatedShutdownBehavior = "shutdown";
+    if (options.stop) req.InstanceInitiatedShutdownBehavior = "stop";
     if (options.terminate) req.InstanceInitiatedShutdownBehavior = "terminate";
-    if (!options.SubnetId && this.subnetId) req.SubnetId = this.subnetId;
-    if (!options["IamInstanceProfile.Name"] && this.iamProfile) req["IamInstanceProfile.Name"] = this.iamProfile;
-    if (!options["Placement.AvailabilityZone"] && this.availZone) req["Placement.AvailabilityZone"] = this.availZone;
+    if (options.subnet || this.subnetId) req.SubnetId = options.subnet || this.subnetId;
+    if (options.profile || this.iamProfile) req["IamInstanceProfile.Name"] = options.profile || this.iamProfile;
+    if (options.zone || this.availZone) req["Placement.AvailabilityZone"] = options.zone || this.availZone;
     if (!options["SecurityGroupId.0"]) {
         var group = options.group || this.groupId;
         if (group) {
@@ -358,13 +377,13 @@ aws.runInstances = function(options, callback)
                     tags["Tag." + (i+1) + ".Key"] = 'Name';
                     tags["Tag." + (i+1) + ".Value"] = options.name;
                 });
-                setTimeout(function() { self.queryEC2("CreateTags", tags);  }, options.delay + 500);
+                setTimeout(function() { self.queryEC2("CreateTags", tags);  }, options.delay + 100);
             }
             // Add to the ELB
             if (options.elbName) {
                 var params = { LoadBalancerName: options.elbName };
                 items.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
-                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, options.delay + 600);
+                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, options.delay + 200);
             }
             // Elastic IP
             if (options.elasticIp) {
@@ -373,11 +392,11 @@ aws.runInstances = function(options, callback)
                     self.queryEC2("DescribeAddresses", { 'PublicIp.1': options.elastcIp }, function(err, addr) {
                         params.AllocationId = core.objGet(addr, "DescribeAddressesResponse.AddressesSet.item.allocationId");
                         if (!params.AllocationId) return;
-                        setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, options.delay + 700);
+                        setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, options.delay + 300);
                     });
                 } else {
                     var params = { PublicIp: options.elasticIp, InstanceId: items[0].instanceId };
-                    setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, options.delay + 700);
+                    setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, options.delay + 300);
                 }
             }
         }
