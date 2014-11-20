@@ -217,8 +217,16 @@ db.init = function(options, callback)
 	self.initTables(self.tables, options, callback);
 }
 
-// Load configuration from the config database, must be configured with `db-config-type` pointong to the database pool where bk_config table contains
+// Load configuration from the config database, must be configured with `db-config-type` pointing to the database pool where bk_config table contains
 // configuration parameters.
+// The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:
+//  - config type or run mode defined by the `db-config-type`
+//  - the application version specified in the app package.json
+//  - instance image id if running in AWS or other virtual environment, stored in the `core.instanceImage`
+//  - the network where the instance is running, first 2 octets from the current IP address
+//  - the subnet where the instance is running, first 3 octets from the current IP address
+//  - instance name set via AWS tag or other way, stored in the `core.instanceTag`
+//  - current instance IP address
 db.initConfig = function(options, callback)
 {
     var self = this;
@@ -227,24 +235,27 @@ db.initConfig = function(options, callback)
 
     if (!self.config || !db.getPoolByName(self.config)) return callback ? callback() : null;
 
-    // Request configs by network
-    var type = core.subnet ? [ core.subnet, core.network ] : [];
-    // Host specific
-    if (core.ipaddr) type.push(core.ipaddr);
-    // Custom config type or run mode
+    // The order of the types here defines the priority of the parameters, most specific at the end always wins
+    var type = [];
     if (self.configType) type.push(self.configType);
-    // Instance info
-    if (core.instanceTag) type.push(core.instanceTag);
-    if (core.instanceImage) type.push(core.instanceImage);
     if (core.appVersion) type.push(core.appVersion);
-    if (!type.length) type = undefined;
+    if (core.instanceImage) type.push(core.instanceImage);
+    if (core.subnet) type.push(core.network, core.subnet);
+    if (core.instanceTag) type.push(core.instanceTag);
+    if (core.ipaddr) type.push(core.ipaddr);
+    type = !type.length ? undefined : type.map(function(x) { return String(x) });
 
-    self.select("bk_config", { type: type }, { select: ['name','value'], ops: { type: "in" }, pool: self.config }, function(err, rows) {
+    self.select(options.table || "bk_config", { type: type }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
+        if (err) return callback ? callback(err) : null;
+
         var argv = [];
         // Sort inside to be persistent across databases
-        rows.sort(function(a,b) { return b.type - a.type});
+        rows.sort(function(a,b) { return type.indexOf(b.type) - type.indexOf(a.type); });
+        // Only keep the most specific value, it is sorted in descendent order most specific at the end
         rows.forEach(function(x) {
-            if (x.name) argv.push('-' + x.name);
+            var name = '-' + x.name;
+            if (argv.indexOf(name) > -1) return;
+            if (x.name) argv.push(name);
             if (x.value) argv.push(x.value);
         });
         core.parseArgs(argv);
@@ -254,7 +265,7 @@ db.initConfig = function(options, callback)
         clearInterval(self.configTimer);
         if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + core.randomShort());
 
-        if (callback) callback();
+        if (callback) callback(null, argv);
     });
 }
 

@@ -26,6 +26,7 @@ var aws = {
             { name: "iam-profile", descr: "IAM instance profile name" },
             { name: "image-id", descr: "AWS image id to be used for instances" },
             { name: "subnet-id", descr: "AWS subnet id to be used for instances" },
+            { name: "group-id", array: 1, descr: "AWS security group(s) to be used for instances" },
             { name: "instance-type", descr: "AWS instance type for remote jobs launched on demand" } ],
 
     region: 'us-east-1',
@@ -110,7 +111,7 @@ aws.queryEC2 = function(action, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2014-05-01' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, options, callback);
 }
 
 // AWS ELB API request
@@ -120,7 +121,7 @@ aws.queryELB = function(action, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2012-06-01' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'elasticloadbalancing.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'elasticloadbalancing.' + this.region + '.amazonaws.com', '/', req, options, callback);
 }
 
 // AWS SQS API request
@@ -130,7 +131,7 @@ aws.querySQS = function(action, queue, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2012-11-05' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sqs.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sqs.' + this.region + '.amazonaws.com', '/', req, options, callback);
 }
 
 // AWS SNS API request
@@ -140,7 +141,7 @@ aws.querySNS = function(action, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2010-03-31' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + this.region + '.amazonaws.com', '/', req, options, callback);
 }
 
 // Build version 4 signature headers
@@ -306,42 +307,50 @@ aws.runInstances = function(options, callback)
 
     if (!this.imageId && !options.ImageId) return callback ? callback(new Error("no imageId configured"), obj) : null;
 
-    var req = { MinCount: options.MinCount || options.count || 1,
-                MaxCount: options.MaxCount || options.count || 1,
-                ImageId: options.ImageId || this.imageId,
-                InstanceType: options.InstanceType || this.instanceType,
-                KeyName: options.KeyName || this.keyName || "",
-                InstanceInitiatedShutdownBehavior: options.InstanceInitiatedShutdownBehavior || "stop",
-                UserData: options.UserData ? new Buffer(options.UserData).toString("base64") : "" };
+    var req = { MinCount: options.min || options.count || 1,
+                MaxCount: options.max || options.count || 1,
+                ImageId: options.id || this.imageId,
+                InstanceType: options.type || this.instanceType,
+                KeyName: options.key || this.keyName || "",
+                UserData: options.data ? new Buffer(options.data).toString("base64") : "" };
 
-    if (!options["SubnetId"] && this.subnetId) options["SubnetId"] = this.subnetId;
-    if (!options["IamInstanceProfile.Name"] && this.iamProfile) options["IamInstanceProfile.Name"] = this.iamProfile;
-    if (!options["Placement.AvailabilityZone"] && this.availZone) options["Placement.AvailabilityZone"] = this.availZone;
-
+    if (options.shutdown) req.InstanceInitiatedShutdownBehavior = "shutdown";
+    if (options.terminate) req.InstanceInitiatedShutdownBehavior = "terminate";
+    if (!options.SubnetId && this.subnetId) req.SubnetId = this.subnetId;
+    if (!options["IamInstanceProfile.Name"] && this.iamProfile) req["IamInstanceProfile.Name"] = this.iamProfile;
+    if (!options["Placement.AvailabilityZone"] && this.availZone) req["Placement.AvailabilityZone"] = this.availZone;
+    if (!options["SecurityGroupId.0"]) {
+        var group = options.group || this.groupId;
+        if (group) {
+            if (!Array.isArray(group)) group = [ group ];
+            group.forEach(function(x, i) { req["SecurityGroupId." + i] = x; });
+        }
+    }
     if (options.ip) {
         if (options.SubnetId) {
-            options["NetworkInterface.0.DeviceIndex"] = 0;
-            options["NetworkInterface.0.SubnetId"] = options.SubnetId;
-            options["NetworkInterface.0.PrivateIpAddress"] = options.ip;
+            req["NetworkInterface.0.DeviceIndex"] = 0;
+            req["NetworkInterface.0.SubnetId"] = options.SubnetId;
+            req["NetworkInterface.0.PrivateIpAddress"] = options.ip;
             delete options.SubnetId;
         } else {
-            options["PrivateIpAddress"] = ip;
+            req.PrivateIpAddress = ip;
         }
     }
     if (options.publicIp) {
-        options["NetworkInterface.0.DeviceIndex"] = 0;
-        options["NetworkInterface.0.AssociatePublicIpAddress"] = true;
+        req["NetworkInterface.0.DeviceIndex"] = 0;
+        req["NetworkInterface.0.AssociatePublicIpAddress"] = true;
     }
-    if (options.file) options.UserData = core.readFileSync(options.file).toString("base64");
+    if (options.file) req.UserData = core.readFileSync(options.file).toString("base64");
 
     logger.debug('runInstances:', this.name, options);
-    this.queryEC2("RunInstances", req, function(err, obj) {
+    this.queryEC2("RunInstances", req, options, function(err, obj) {
         if (err) return callback ? callback(err) : null;
 
         // Instances list
         var items = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
         if (items) {
             // Update tags with delay to allow instances appear in the system
+            if (!options.delay) options.delay = 30000;
             if (options.name) {
                 var tags = {};
                 items.forEach(function(x, i) {
@@ -349,13 +358,13 @@ aws.runInstances = function(options, callback)
                     tags["Tag." + (i+1) + ".Key"] = 'Name';
                     tags["Tag." + (i+1) + ".Value"] = options.name;
                 });
-                setTimeout(function() { self.queryEC2("CreateTags", tags);  }, 10000);
+                setTimeout(function() { self.queryEC2("CreateTags", tags);  }, options.delay + 500);
             }
             // Add to the ELB
             if (options.elbName) {
                 var params = { LoadBalancerName: options.elbName };
                 items.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
-                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, 30000);
+                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, options.delay + 600);
             }
             // Elastic IP
             if (options.elasticIp) {
@@ -364,11 +373,11 @@ aws.runInstances = function(options, callback)
                     self.queryEC2("DescribeAddresses", { 'PublicIp.1': options.elastcIp }, function(err, addr) {
                         params.AllocationId = core.objGet(addr, "DescribeAddressesResponse.AddressesSet.item.allocationId");
                         if (!params.AllocationId) return;
-                        setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, 20000);
+                        setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, options.delay + 700);
                     });
                 } else {
                     var params = { PublicIp: options.elasticIp, InstanceId: items[0].instanceId };
-                    setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, 20000);
+                    setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, options.delay + 700);
                 }
             }
         }

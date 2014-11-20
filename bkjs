@@ -147,6 +147,7 @@ case "$ARG" in
     sudo $0 init-devel
     $0 build-node -prefix $home
     npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
+    (cd bin && ln -sf ../node_modules/backendjs/bkjs && ln -sf ../node_modules/backendjs/bkjs bksh)
     ;;
 
   stop-master)

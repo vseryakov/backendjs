@@ -1074,7 +1074,9 @@ server.launchJob = function(job, options, callback)
     // Update tag name with current job
     var d = args.match(/\-jobname ([^ ]+)/i);
     if (d) options.instanceName = d[1];
-    if (typeof options.InstanceInitiatedShutdownBehavior == "undefined") options.InstanceInitiatedShutdownBehavior = "terminate";
+
+    // Terminate after the job is done
+    if (!options.InstanceInitiatedShutdownBehavior && !options.termnate && !options.stop) options.terminate = 1;
 
     aws.runInstances(options, callback);
     return true;
