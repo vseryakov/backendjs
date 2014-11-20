@@ -1412,10 +1412,7 @@ new image configuration.</p>
 <li>login as <code>ec2-user</code></li>
 <li><p>install commands</p>
 <pre><code>  curl -L -o /tmp/bkjs http://backendjs.io/bkjs &amp;&amp; chmod 755 /tmp/bkjs
-  sudo /tmp/bkjs init-server -home $HOME -user $(whoami) -prefix $HOME
-  /tmp/bkjs init-devel
-  /tmp/bkjs build-node -prefix $HOME
-  npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
+  /tmp/bkjs install
   bkjs restart
 </code></pre></li>
 <li><p>run <code>ps agx</code>, it should show several backend processes running</p>
@@ -2917,6 +2914,18 @@ Options may contain the following properties:</p>
 <ul>
 <li><p><code>aws.getInstanceInfo(callback)</code></p>
 <p> Retrieve instance launch index from the meta data if running on AWS instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.elbRegisterInstancesWithLoadBalancer(name, instance, options, callback)</code></p>
+<p> Register an instance(s) with ELB, instance can be one id or a list of ids</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.elbDeregisterInstancesWithLoadBalancer(name, instance, options, callback)</code></p>
+<p> Deregister an instance(s) from ELB, instance can be one id or a list of ids</p>
 </li>
 </ul>
 
