@@ -8,6 +8,7 @@ var http = require('http');
 var url = require('url');
 var fs = require('fs');
 var os = require('os');
+var mime = require('mime');
 var cluster = require('cluster');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
@@ -23,6 +24,7 @@ var aws = {
             { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
             { name: "sns-app-arn", descr: "SNS Platform application ARN to be used for push notifications" },
             { name: "key-name", descr: "AWS instance keypair name for remote job instances" },
+            { name: "elb-name", descr: "AWS ELB name to be registered with on start up" },
             { name: "iam-profile", descr: "IAM instance profile name" },
             { name: "image-id", descr: "AWS image id to be used for instances" },
             { name: "subnet-id", descr: "AWS subnet id to be used for instances" },
@@ -293,114 +295,154 @@ aws.queryS3 = function(bucket, key, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
+
     var uri = this.signS3(options.method, bucket, key, options);
     core.httpGet(uri, options, function(err, params) {
+        if (err || params.status != 200) return callback ? callback(err || core.newError("Error: " + params.status, "S3", params.status), params.data) : null;
         if (callback) callback(err, params);
     });
+}
+
+// Upload a file to S3 bucket, `file` can be a Buffer or a file name
+aws.s3PutFile = function(bucket, path, file, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+
+    options.method = "PUT";
+    if (!options.headers) options.headers = {};
+    if (options.acl) options.headers['x-amz-acl'] = options.acl;
+    if (options.contentType) options.headers['content-type'] = options.contentType;
+    if (!options.headers['content-type']) options.headers['content-type'] = mime.lookup(file);
+    options[Buffer.isBuffer(file) ? 'postdata' : 'postfile'] = file;
+    aws.queryS3(bucket, path, options, callback);
 }
 
 // Run AWS instances, supports all native EC2 parameters with first capital letter but also accepts simple parameters in the options:
 //  - min - min number of instances to run, default 1
 //  - max - max number of instances to run, default 1
-//  - id - AMI id, use aws.imageId if not given or options.ImageId attribute
-//  - type - instance type, use aws.instanceType if not given or options.InstanceType attribute
-//  - key - Keypair, use aws.keyName if not given or options.KeyName attribute
+//  - imageId - AMI id, use aws.imageId if not given or options.ImageId attribute
+//  - instanceType - instance type, use aws.instanceType if not given or options.InstanceType attribute
+//  - keyName - Keypair, use aws.keyName if not given or options.KeyName attribute
 //  - data - user data, in clear text
 //  - terminate - set instance initiated shutdown behaviour to terminate
 //  - stop - set instance initiated shutdown behaviour to stop
-//  - group - one group id or an array with security group ids
+//  - groupId - one group id or an array with security group ids
 //  - ip - a static private IP adress to assign
 //  - publicIp - associate with a public IP address
 //  - file - pass contents of a file as user data, contents are read using sync method
 //  - name - assign a tag to the instance as Name:
-//  - delay - how long to wait in ms for instance startup before assigning tags or do other post start actions, default is 30 seconds
+//  - waitTime - how long to wait in ms for instance to be runnable
 //  - elbName - join elastic balancer after the startup
 //  - elasticIp - asociate with the given Elastic IP address after the start
 //  - profile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options['IamInstanceProfile.Name'] attribute
-//  - zone - availability zone, if not given use aws.availZone or options['Placement.AvailabilityZone'] attribute
-//  - subnet - subnet id, if not given use aws.subnetId or options.SubnetId attribute
+//  - availZone - availability zone, if not given use aws.availZone or options['Placement.AvailabilityZone'] attribute
+//  - subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute
 aws.runInstances = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
 
-    if (!this.imageId && !options.ImageId) return callback ? callback(new Error("no imageId configured"), obj) : null;
-
     var req = { MinCount: options.min || options.count || 1,
                 MaxCount: options.max || options.count || 1,
-                ImageId: options.id || this.imageId,
-                InstanceType: options.type || this.instanceType,
-                KeyName: options.key || this.keyName || "",
+                ImageId: options.imageId || this.imageId,
+                InstanceType: options.instanceType || this.instanceType,
+                KeyName: options.keyName || this.keyName || "",
                 UserData: options.data ? new Buffer(options.data).toString("base64") : "" };
 
     if (options.stop) req.InstanceInitiatedShutdownBehavior = "stop";
     if (options.terminate) req.InstanceInitiatedShutdownBehavior = "terminate";
-    if (options.subnet || this.subnetId) req.SubnetId = options.subnet || this.subnetId;
     if (options.profile || this.iamProfile) req["IamInstanceProfile.Name"] = options.profile || this.iamProfile;
-    if (options.zone || this.availZone) req["Placement.AvailabilityZone"] = options.zone || this.availZone;
-    if (!options["SecurityGroupId.0"]) {
-        var group = options.group || this.groupId;
-        if (group) {
-            if (!Array.isArray(group)) group = [ group ];
-            group.forEach(function(x, i) { req["SecurityGroupId." + i] = x; });
-        }
-    }
-    if (options.ip) {
-        if (options.SubnetId) {
+    if (options.availZone || this.availZone) req["Placement.AvailabilityZone"] = options.availZone || this.availZone;
+    if (options.subnetId || this.subnetId) {
+        if (!options["SecurityGroupId.0"]) {
+            var groups = options.groupId || this.groupId || [];
+            if (!Array.isArray(groups)) groups = [ groups ];
+            groups.forEach(function(x, i) { req["NetworkInterface.0.SecurityGroupId." + i] = x; });
             req["NetworkInterface.0.DeviceIndex"] = 0;
-            req["NetworkInterface.0.SubnetId"] = options.SubnetId;
+        }
+        if (options.ip) {
+            req["NetworkInterface.0.DeviceIndex"] = 0;
             req["NetworkInterface.0.PrivateIpAddress"] = options.ip;
-            delete options.SubnetId;
-        } else {
+            req["NetworkInterface.0.SubnetId"] = options.SubnetId || req.SubnetId;
+        }
+        if (options.publicIp) {
+            req["NetworkInterface.0.DeviceIndex"] = 0;
+            req["NetworkInterface.0.AssociatePublicIpAddress"] = true;
+            req["NetworkInterface.0.SubnetId"] = options.subnetId || this.subnetId;
+        }
+        if (typeof req["NetworkInterface.0.DeviceIndex"] == "undefined") {
+            req.SubnetId = options.subnetId || this.subnetId;
+        }
+    } else {
+        if (!options["SecurityGroupId.0"]) {
+            var groups = options.groupId || this.groupId || [];
+            if (!Array.isArray(groups)) groups = [ groups ];
+            groups.forEach(function(x, i) { req["SecurityGroupId." + i] = x; });
+        }
+        if (options.ip) {
             req.PrivateIpAddress = ip;
         }
     }
-    if (options.publicIp) {
-        req["NetworkInterface.0.DeviceIndex"] = 0;
-        req["NetworkInterface.0.AssociatePublicIpAddress"] = true;
-    }
     if (options.file) req.UserData = core.readFileSync(options.file).toString("base64");
 
-    logger.debug('runInstances:', this.name, options);
+    logger.debug('runInstances:', this.name, req, options);
     this.queryEC2("RunInstances", req, options, function(err, obj) {
         if (err) return callback ? callback(err) : null;
 
         // Instances list
         var items = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
-        if (items) {
-            // Update tags with delay to allow instances appear in the system
-            if (!options.delay) options.delay = 30000;
-            if (options.name) {
-                var tags = {};
-                items.forEach(function(x, i) {
-                    tags["ResourceId." + (i+1)] = x.instanceId;
-                    tags["Tag." + (i+1) + ".Key"] = 'Name';
-                    tags["Tag." + (i+1) + ".Value"] = options.name;
-                });
-                setTimeout(function() { self.queryEC2("CreateTags", tags);  }, options.delay + 100);
-            }
-            // Add to the ELB
-            if (options.elbName) {
-                var params = { LoadBalancerName: options.elbName };
-                items.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
-                setTimeout(function() { self.queryELB("RegisterInstancesWithLoadBalancer", params); }, options.delay + 200);
-            }
-            // Elastic IP
-            if (options.elasticIp) {
-                if (options.subnetId || options["NetworkInterface.0.SubnetId"]) {
-                    var params = { InstanceId: items[0].instanceId, AllowReassociation: true };
-                    self.queryEC2("DescribeAddresses", { 'PublicIp.1': options.elastcIp }, function(err, addr) {
-                        params.AllocationId = core.objGet(addr, "DescribeAddressesResponse.AddressesSet.item.allocationId");
-                        if (!params.AllocationId) return;
-                        setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, options.delay + 300);
-                    });
-                } else {
-                    var params = { PublicIp: options.elasticIp, InstanceId: items[0].instanceId };
-                    setTimeout(function() { self.queryEC2("AssociateAddress", params);  }, options.delay + 300);
-                }
-            }
-        }
-        if (callback) callback(err, obj);
+        if (!items) return callback ? callback(err, obj) : null;
+
+        core.series([
+           function(next) {
+               var status = items[0].instanceState.name, expires = Date.now() + (options.waitTimeout || 300000);
+               core.whilst(
+                 function() {
+                     return status != "running" && Date.now() < expires;
+                 },
+                 function(next2) {
+                     self.queryEC2("DescribeInstances", { 'Filter.1.Name': 'instance-id', 'Filter.1.Value.1': items[0].instanceId }, function(err, rc) {
+                         if (err) return next2(err);
+                         status = core.objGet(rc, "DescribeInstancesResponse.reservationSet.item.instancesSet.item.instanceState.name");
+                         setTimeout(next2, options.waitDelay || 3000);
+                     });
+                 }, next);
+           },
+           function(next) {
+               if (!options.name) return next();
+               var tags = {};
+               items.forEach(function(x, i) {
+                   tags["ResourceId." + (i+1)] = x.instanceId;
+                   tags["Tag." + (i+1) + ".Key"] = 'Name';
+                   tags["Tag." + (i+1) + ".Value"] = options.name;
+               });
+               self.queryEC2("CreateTags", tags, function() { next() });
+           },
+           function(next) {
+               // Add to the ELB
+               if (!options.elbName) return next();
+               self.elbRegisterInstances(options.elbName, items.map(function() { return x.instanceId }), function() { next()});
+           },
+           function(next) {
+               // Elastic IP
+               if (!options.elasticIp) return next();
+               if (options.subnetId || options["NetworkInterface.0.SubnetId"]) {
+                   var params = { InstanceId: items[0].instanceId, AllowReassociation: true };
+                   self.queryEC2("DescribeAddresses", { 'PublicIp.1': options.elastcIp }, function(err, addr) {
+                       params.AllocationId = core.objGet(addr, "DescribeAddressesResponse.AddressesSet.item.allocationId");
+                       if (!params.AllocationId) return next();
+                       self.queryEC2("AssociateAddress", params);
+                   });
+               } else {
+                   var params = { PublicIp: options.elasticIp, InstanceId: items[0].instanceId };
+                   self.queryEC2("AssociateAddress", params, function() { next() });
+               }
+           },
+           ], function() {
+                if (callback) callback(err, obj);
+        });
     });
 }
 
@@ -488,7 +530,7 @@ aws.getInstanceInfo = function(callback)
 }
 
 // Register an instance(s) with ELB, instance can be one id or a list of ids
-aws.elbRegisterInstancesWithLoadBalancer = function(name, instance, options, callback)
+aws.elbRegisterInstances = function(name, instance, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
@@ -496,12 +538,12 @@ aws.elbRegisterInstancesWithLoadBalancer = function(name, instance, options, cal
 
     var params = { LoadBalancerName: name };
     if (!Array.isArray(instance)) instance = [ instance ];
-    instance.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
+    instance.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x; });
     this.queryELB("RegisterInstancesWithLoadBalancer", params, options, callback);
 }
 
 // Deregister an instance(s) from ELB, instance can be one id or a list of ids
-aws.elbDeregisterInstancesWithLoadBalancer = function(name, instance, options, callback)
+aws.elbDeregisterInstances = function(name, instance, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
@@ -509,7 +551,7 @@ aws.elbDeregisterInstancesWithLoadBalancer = function(name, instance, options, c
 
     var params = { LoadBalancerName: name };
     if (!Array.isArray(instance)) instance = [ instance ];
-    instance.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x.instanceId; });
+    instance.forEach(function(x, i) { params["Instances.member." + (i+1) + ".InstanceId"] = x; });
     this.queryELB("DeregisterInstancesWithLoadBalancer", params, options, callback);
 }
 

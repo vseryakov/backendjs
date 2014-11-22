@@ -24,7 +24,7 @@ string exceptionString(TryCatch* try_catch)
     return msg;
 }
 
-static Handle<Value> logging(const Arguments& args)
+static Handle<Value> logging(onst Arguments& args)
 {
     HandleScope scope;
 

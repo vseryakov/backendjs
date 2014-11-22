@@ -778,25 +778,25 @@ api.closeWebSocketRequest = function(socket)
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the server
 // is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.
-api.initApplication = function(callback) { callback() };
+api.initApplication = function(callback) { if (callback) callback(); };
 
 // This handler is called during the Express server initialization just after the security middleware.
 // this.app refers to the Express instance.
-api.initMiddleware = function() {};
+api.initMiddleware = function(callback) { if (callback) callback(); };
 
 // This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling
-api.initMasterServer = function() {}
+api.initMasterServer = function(callback) { if (callback) callback(); }
 
 // This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
 // interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.
-api.initWebServer = function() {}
+api.initWebServer = function(callback) { if (callback) callback(); }
 
 // This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job
-api.initWorker = function(callback) { callback() }
+api.initWorker = function(callback) { if (callback) callback(); }
 
 // Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
 // This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.
-api.exitWorker = function(callback) { callback() }
+api.exitWorker = function(callback) { if (callback) callback(); }
 
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)
@@ -2432,13 +2432,11 @@ api.storeIcon = function(file, id, options, callback)
     if (!options) options = {};
 
     if (this.imagesS3 || options.imagesS3) {
-        var aws = core.context.aws;
         var icon = this.iconPath(id, options);
         this.scaleIcon(file, options, function(err, data) {
             if (err) return callback ? callback(err) : null;
 
-            var headers = { 'content-type': 'image/' + (options.ext || "jpeg") };
-            aws.queryS3(options.imagesS3 || self.imagesS3, icon, { method: "PUT", postdata: data, headers: headers }, function(err) {
+            core.context.aws.s3PutFile(options.imagesS3 || self.imagesS3, icon, data, function(err) {
                 if (callback) callback(err, icon);
             });
         });
@@ -2547,14 +2545,7 @@ api.storeFile = function(tmpfile, outfile, options, callback)
     logger.debug("storeFile:", outfile);
 
     if (this.filesS3 || options.filesS3) {
-        var aws = core.context.aws;
-        var headers = { 'content-type': mime.lookup(outfile) };
-        var params = { method: "PUT", headers: headers }
-        params[Buffer.isBuffer(tmpfile) ? 'postdata' : 'postfile'] = tmpfile;
-        aws.queryS3(options.filesS3 || this.filesS3, outfile, params, function(err, params) {
-            if (params.status != 200) logger.error('storeFile:', outfile, 'status:', params.status, 'data:', params.data);
-            if (callback) callback(err, outfile, params);
-        });
+        core.context.aws.s3PutFile(options.filesS3 || this.filesS3, outfile, tmpfile, callback);
     } else {
         outfile = path.join(core.path.files, outfile);
         core.makePath(path.dirname(outfile), function(err) {

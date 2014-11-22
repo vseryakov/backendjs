@@ -1447,8 +1447,8 @@ Running without arguments will bring help screen with description of all availab
 The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
 On Linux, when started the bkjs tries to load and source the following config files:
 
-        /etc/sysconfig/backendjs
-        $BACKEND_HOME/etc/profile
+        /etc/sysconfig/bkjs
+        $BKJS_HOME/etc/profile
 
 Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.
@@ -1458,7 +1458,7 @@ Most common used commands are:
 - bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
 - bkjs init-app - create the app skeleton
 - bkjs pack-app - archive the app into .zip file including all dependencies and modules, all files starting with dot are excluded, also etc/*.local files are excluded as well
-- bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BACKEND_HOST env variable for host if not specified in the command line, this is for developent version of the backend only
+- bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BKJS_HOST env variable for host if not specified in the command line, this is for developent version of the backend only
 - bkjs init-server [-home path] [-user user] [-host name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
    home will be instead of ~/.backend, optional -user tells to use existing user instead of creating user `backend`.
 
@@ -1491,7 +1491,7 @@ Run the backendjs on the AWS instance as user ec2-user with the backend in the u
 - install commands
 
         curl -L -o /tmp/bkjs http://backendjs.io/bkjs && chmod 755 /tmp/bkjs
-        /tmp/bkjs install
+        /tmp/bkjs install -user ec2-user -prefix ec2-user
         bkjs restart
 
 - run `ps agx`, it should show several backend processes running
@@ -1511,7 +1511,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
   The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
   defined via command line arguments as `-home` or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
-  `init-server` command, for non-standard home use `/etc/sysconfig/backendjs` profile, specify `BACKEND_HOME=/home/backend` there and the rest will be taken care of
+  `init-server` command, for non-standard home use `/etc/sysconfig/backendjs` profile, specify `BKJS_HOME=/home/backend` there and the rest will be taken care of
 
 - command line arguments
 
@@ -1588,7 +1588,7 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
     * node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local
 
-    * to install node.js in $BACKEND_PREFIX/bin run command:
+    * to install node.js in $BKJS_PREFIX/bin run command:
 
             ./bkjs build-node
 
@@ -1596,8 +1596,8 @@ See web/js/backend.js for function Backend.sign or function core.signRequest in 
 
             ./bksj build-node -prefix $HOME
 
-    * **Important**: Add NODE_PATH=$BACKEND_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-      node can find global modules, replace $BACKEND_PREFIX with the actual path unless this variable is also set in the .profile
+    * **Important**: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+      node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile
 
 * to compile the binary module and all required dependencies just type `make` or `npm build .`
 

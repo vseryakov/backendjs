@@ -48,7 +48,7 @@ var core = {
     workerId: '',
 
     // Home directory, current by default, must be absolute path
-    home: process.env.BACKEND_HOME || (process.env.HOME + '/.backend'),
+    home: process.env.BKJS_HOME || (process.env.HOME + '/.bkjs'),
 
     // Various folders, by default relative paths are used
     path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", files: "files", log: "log" },
@@ -56,6 +56,7 @@ var core = {
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logFile: "log/backend.log",
     errFile: "log/error.log",
+    confFile: "config",
 
     // HTTP settings
     port: 8000,
@@ -271,8 +272,10 @@ core.init = function(options, callback)
     // Default domain from local host name
     self.hostname = os.hostname().toLowerCase();
     self.domain = self.domainName(self.hostname);
-    // Default config file
-    self.confFile = path.resolve(self.confFile || path.join(self.path.etc, "config"));
+
+    // Default config file, locate in the etc if just name is given
+    if (self.confFile.indexOf("/") == -1) self.confFile = path.join(self.path.etc, self.confFile);
+    self.confFile = path.resolve(self.confFile);
 
     // Application version from the package.json
     var pkg = self.jsonParse(self.readFileSync("package.json"));
@@ -323,11 +326,7 @@ core.init = function(options, callback)
         function(next) {
             if (options.noInit) return next();
             // Run all configure methods for every module
-            self.forEachSeries(Object.keys(self.context), function(name, next2) {
-                var ctx = self.context[name];
-                if (!ctx.configure) return next2();
-                ctx.configure(options, next2);
-            }, next);
+            self.runMethods("configure", options, next);
         },
 
         function(next) {
@@ -388,11 +387,13 @@ core.postInit = function(callback) { callback() }
 // default environment or pass -home dir so the script will reuse same config and paths as the server
 // context can be specified for the callback, if no then it run in the core context
 // - require('backendjs').run(function() {}) is one example where this call is used as a shortcut for ad-hoc scripting
-core.run = function(callback)
+core.run = function(options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = {};
+
     if (!callback) return logger.error('run:', 'callback is required');
-    this.init(function(err) {
+    this.init(options, function(err) {
         callback.call(self, err);
     });
 }
@@ -429,8 +430,8 @@ core.parseConfig = function(data)
         var line = lines[i].trim();
         if (!line.match(/^([a-z_-]+)/)) continue;
         line = line.split("=");
-        if (line[0]) argv.push('-' + line[0]);
-        if (line[1]) argv.push(line.slice(1).join('='));
+        if (line[0]) argv.push('-' + line[0].trim());
+        if (line[1]) argv.push(line.slice(1).join('=').trim());
     }
     this.parseArgs(argv);
 }
@@ -495,13 +496,15 @@ core.processArgs = function(name, ctx, argv, pass)
                 var sname = (name == "core" ? "" : "-" + name);
                 var ename = '-' + x.name + (i > 0 ? "-" + i : "");
                 var cname = sname + ename;
-                // Name of the key variable in the contenxt, key.property specifies alternative name for the value
+                // Name of the key variable in the contenxt, key. property specifies alternative name for the value
                 var kname = (x.key || x.name) + (i > 0 ? i : "");
                 var idx = -1;
-                // Matched property, scan and find the last match by the suffix only
+                // Matched property, scan and find the last match by the module prefix and suffix only,
+                // using the middle for the actual parameter
                 if (x.match) {
-                    for (var n = 0; n < argv.length; n++) {
-                        if (argv[n].slice(argv[n].length - ename.length) == ename) idx = n;
+                    var rx = new RegExp("^" + (name == "core" ? "" : "\-" + name) + "\-.+" + ename + "$");
+                    for (var n = argv.length - 1; idx == -1 && n >= 0; n--) {
+                        if (rx.test(argv[n])) idx = n;
                     }
                     // Found a match, update our base name with the leading part from the actual argument name
                     if (idx > -1) {
@@ -593,7 +596,7 @@ core.processArgs = function(name, ctx, argv, pass)
 
 // Add custom config parameters to be understood and processed by the config parser
 // - module - name of the module to add these params to
-// - args - a list of objectsin the format: { name: N, type: T, descr: D, min: M, max: M, array: B }, all except name are optional.
+// - args - a list of objects in the format: { name: N, type: T, descr: D, min: M, max: M, array: B }, all except name are optional.
 //
 // Example:
 //
@@ -603,7 +606,7 @@ core.describeArgs = function(module, args)
 {
     var self = this;
     if (!Array.isArray(args)) return;
-    var ctx = module == "coe" ? this : this.context[module];
+    var ctx = module == "core" ? this : this.context[module];
     if (!ctx) return logger.error("deescribeArgs:", "invalid module", module);
     if (!ctx.args) ctx.args = [];
     args.forEach(function(x) {
@@ -628,6 +631,7 @@ core.showHelp = function(options)
             var line = (x[0] ? x[0] + '-' : '') + (y.match ? 'NAME-' : '') + y.name + (options.markdown ? "`" : "") + " - " + y.descr + (dflt ? ". Default: " + JSON.stringify(dflt) : "");
             if (y.dns) line += ". DNS TXT configurable.";
             if (y.match) line += ". Where NAME is the actual " + y.match + " name.";
+            if (y.count) line += ". " + y.count + " variants: " + y.name + "-1 .. " + y.name + "-" + y.count + ".";
             if (options && options.markdown) {
                 data += "- `" +  line + "\n";
             } else {
@@ -1073,6 +1077,9 @@ core.httpGet = function(uri, params, callback)
         for (var p in headers) options.headers[p] = headers[p];
     }
 
+    // Use file name form the url
+    if (params.file && params.file[params.file.length - 1] == "/") params.file += path.basename(options.pathname);
+
     // Runtime properties
     if (!params.retries) params.retries = 0;
     if (!params.redirects) params.redirects = 0;
@@ -1382,6 +1389,7 @@ core.sendRequest = function(options, callback)
 // any errors must be passed, use the message object for it, no other arguments are expected.
 core.deferCallback = function(obj, msg, callback, timeout)
 {
+    var self = this;
     if (!msg || !msg.id || !callback) return;
 
     obj[msg.id] = {
@@ -1397,10 +1405,25 @@ core.deferCallback = function(obj, msg, callback, timeout)
     };
 }
 
+// Run a method for every module
+core.runMethods = function(name, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+
+    self.forEachSeries(Object.keys(self.context), function(mod, next) {
+        var ctx = self.context[mod];
+        if (!ctx[name]) return next();
+        logger.debug("runMethods:", name, mod);
+        ctx[name](options, next);
+    }, callback);
+}
+
 // Run delayed callback for the message previously registered with the `deferCallback` method.
 // The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
 core.runCallback = function(obj, msg)
 {
+    var self = this;
     if (!msg) return;
     if (typeof msg == "string") {
         try { msg = JSON.parse(msg); } catch(e) { logger.error('runCallback:', e, msg); }
@@ -2219,12 +2242,13 @@ core.copyFile = function(src, dst, overwrite, callback)
     fs.stat(dst, copy);
 }
 
-// Run the process and return all output to the callback
+// Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the core.runPtocess
+// can be used without importing the child module. All fatal errors are logged.
 core.runProcess = function(cmd, callback)
 {
     exec(cmd, function (err, stdout, stderr) {
-        if (err) logger.error('getProcessOutput:', cmd, err);
-        if (callback) callback(stdout, stderr);
+        if (err) logger.error('runProcess:', cmd, err);
+        if (callback) callback(err, stdout, stderr);
     });
 }
 
@@ -2235,7 +2259,7 @@ core.killBackend = function(name, signal, callback)
     if (typeof signal == "function") callback = signal, signal = '';
     if (!signal) signal = 'SIGTERM';
 
-    self.runProcess("/bin/ps agx", function(stdout) {
+    self.runProcess("/bin/ps agx", function(stderr, stdout) {
         stdout.split("\n").
                filter(function(x) { return x.match("backend:") && (!name || x.match(name)); }).
                map(function(x) { return self.toNumber(x) }).
@@ -2922,7 +2946,7 @@ core.createRepl = function(options)
 core.watchTmp = function(dir, options, callback)
 {
     var self = this;
-    if (typeof options == "callback") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     if (!options.seconds) options.seconds = 86400;
 

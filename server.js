@@ -203,7 +203,9 @@ server.startMaster = function()
         }, 30000);
 
         // API related initialization
-        core.context.api.initMasterServer();
+        core.context.api.initMasterServer(function() {
+            core.runMethods("configureMaster");
+        });
 
         logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
     } else {
@@ -242,8 +244,10 @@ server.startWorker = function()
     // At least API tables are needed for normal operations
     core.context.api.initTables(function(err) {
         core.context.api.initWorker(function() {
-            core.loadModules("worker");
-            process.send('ready');
+            core.runMethods("configureWorker", function() {
+                core.loadModules("worker");
+                process.send('ready');
+            });
         });
     });
 
@@ -297,7 +301,7 @@ server.startWeb = function(callback)
             }
             self.clusterFork = function() {
                 var port = self.getProxyPort();
-                var worker = cluster.fork({ BACKEND_PORT: port });
+                var worker = cluster.fork({ BKJS_PORT: port });
                 self.proxyTargets.push({ id: worker.id, port: port });
             }
             ipc.onMessage = function(msg) {
@@ -358,7 +362,9 @@ server.startWeb = function(callback)
         });
 
         // API related initialization
-        api.initWebServer();
+        api.initWebServer(function(err) {
+            core.runMethods("configureServer");
+        });
 
         // Frontend server tasks
         setInterval(function() {
@@ -390,8 +396,8 @@ server.startWeb = function(callback)
 
         // Port to listen in case of reverse proxy configuration, all other ports become offsets from the base
         if (core.proxy.port) {
-            core.bind = process.env.BACKEND_BIND || core.proxy.bind;
-            core.port = core.toNumber(process.env.BACKEND_PORT || core.proxy.port);
+            core.bind = process.env.BKJS_BIND || core.proxy.bind;
+            core.port = core.toNumber(process.env.BKJS_PORT || core.proxy.port);
             if (core.ssl.port) core.ssl.port = core.port + 100;
             if (core.ws.port) core.ws.port = core.port + 200;
         }
@@ -415,6 +421,8 @@ server.startWeb = function(callback)
                 self.exiting = true;
                 api.shutdown(function() { process.exit(0); } );
             }
+
+            core.runMethods("configureWeb");
 
             process.on("uncaughtException", function(err) {
                 logger.error('fatal:', err, err.stack);
@@ -608,6 +616,23 @@ server.startShell = function()
                 api.putLocation({ account: row, query: query }, {}, function(err, data) {
                     exit(err, data);
                 });
+            });
+        } else
+
+        // Get file
+        if (core.isArg("-s3-get")) {
+            var query = getQuery(), bucket = core.getArg("-bucket"), path = core.getArg("-path");
+            query.file = path.basename(path);
+            aws.queryS3(bucket, path, query, function(err, data) {
+                exit(err, data);
+            });
+        } else
+
+        // Put file
+        if (core.isArg("-s3-put")) {
+            var query = getQuery(), bucket = core.getArg("-bucket"), path = core.getArg("-path"), file = core.getArg("-file");
+            aws.s3PutFile(bucket, path, file, query, function(err, data) {
+                exit(err, data);
             });
         } else
 

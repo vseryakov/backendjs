@@ -63,7 +63,7 @@ var metrics = require(__dirname + "/metrics");
 //  Example:
 //
 //          db-pgsql-max = 100
-//          db-dynamodb-max  =100
+//          db-dynamodb-max = 100
 //
 // Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using `db-pool-tables` parameters
 // thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
@@ -82,6 +82,7 @@ var metrics = require(__dirname + "/metrics");
 //
 //          db-pgsql-pool = postgresql://locahost/backend
 //          db-pgsql-pool-1 = postgresql://localhost/billing
+//          db-pgsql-max-1 = 100
 //
 var db = {
     name: 'db',
@@ -113,7 +114,8 @@ var db = {
            { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
            { name: "config-type", dns: 1, descr: "Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
-           { name: "max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connection for a pool" },
+           { name: "max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
+           { name: "min", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
            { name: "idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
            { name: "tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
            { name: "init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
@@ -220,6 +222,7 @@ db.init = function(options, callback)
 // Load configuration from the config database, must be configured with `db-config-type` pointing to the database pool where bk_config table contains
 // configuration parameters.
 // The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:
+//  - prefix to add to all types for separation of config parameters for different uses, like in-app properties, command line propeties, ...
 //  - config type or run mode defined by the `db-config-type`
 //  - the application version specified in the app package.json
 //  - instance image id if running in AWS or other virtual environment, stored in the `core.instanceImage`
@@ -236,21 +239,21 @@ db.initConfig = function(options, callback)
     if (!self.config || !db.getPoolByName(self.config)) return callback ? callback() : null;
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
-    var type = [];
-    if (self.configType) type.push(self.configType);
-    if (core.appVersion) type.push(core.appVersion);
-    if (core.instanceImage) type.push(core.instanceImage);
-    if (core.subnet) type.push(core.network, core.subnet);
-    if (core.instanceTag) type.push(core.instanceTag);
-    if (core.ipaddr) type.push(core.ipaddr);
-    type = !type.length ? undefined : type.map(function(x) { return String(x) });
+    var types = [];
+    if (self.configType) types.push(self.configType);
+    if (core.appVersion) types.push(core.appVersion);
+    if (core.instanceImage) types.push(core.instanceImage);
+    if (core.subnet) types.push(core.network, core.subnet);
+    if (core.instanceTag) types.push(core.instanceTag);
+    if (core.ipaddr) types.push(core.ipaddr);
+    types = !types.length ? undefined : types.map(function(x) { return (options.prefix || "") + String(x) });
 
-    self.select(options.table || "bk_config", { type: type }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
+    self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
         var argv = [];
         // Sort inside to be persistent across databases
-        rows.sort(function(a,b) { return type.indexOf(b.type) - type.indexOf(a.type); });
+        rows.sort(function(a,b) { return types.indexOf(b.type) - types.indexOf(a.type); });
         // Only keep the most specific value, it is sorted in descendent order most specific at the end
         rows.forEach(function(x) {
             var name = '-' + x.name;
@@ -265,6 +268,7 @@ db.initConfig = function(options, callback)
         clearInterval(self.configTimer);
         if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + core.randomShort());
 
+        // Return the normalized argument list to the caller for extra processing
         if (callback) callback(null, argv);
     });
 }
