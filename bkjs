@@ -65,9 +65,9 @@ while [ $# -gt 1 ]; do
      -sync) export BKJS_SYNC=$2;shift;shift;;
      -path) export BKJS_PATH=$2;shift;shift;;
      -ssh) export BKJS_SSH_ARGS="$BKJS_SSH_ARGS $2";shift;shift;;
-     -exclude) export BKJS_EXCLUDE="$BKJS_EXCLUDE --exclude $2";shift;shift;;
-     -include) export BKJS_EXCLUDE="$BKJS_EXCLUDE --include $2";shift;shift;;
-     -delete) export BKJS_EXCLUDE="$BKJS_EXCLUDE --delete-after";shift;;
+     -exclude) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude $2";shift;shift;;
+     -include) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --include $2";shift;shift;;
+     -delete) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --delete-after";shift;;
      *) break;;
     esac
 done
@@ -209,7 +209,7 @@ case "$ARG" in
        echo "umask 022" >> $LHOME/.bashrc
        echo "export PATH=\$PATH:$LHOME/bin:$LHOME/node_modules/.bin" >> $LHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $LHOME/.bashrc
-       echo "alias blog=\"tail -100 $BKJS_HOME/log/backend.log\"" >> $LHOME/.bashrc
+       echo "alias blog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $LHOME/.bashrc
        echo "alias elog=\"tail -100 $BKJS_HOME/log/error.log\"" >> $LHOME/.bashrc
        echo "alias alog=\"tail -100 $BKJS_HOME/log/access.log\"" >> $LHOME/.bashrc
        echo 'alias ps="ps augx"' >> $LHOME/.bashrc
@@ -259,7 +259,7 @@ case "$ARG" in
     fi
     if [ ! -f /etc/logrotate.d/$BKJS -o "$(grep '#Bkjs $BKJS_HOME' /etc/logrotate.d/$BKJS)" = "" ]; then
        echo "#Bkjs $BKJS_HOME" > /etc/logrotate.d/$BKJS
-       echo "$BKJS_HOME/log/backend.log $BKJS_HOME/log/access.log {" >> /etc/logrotate.d/$BKJS
+       echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> /etc/logrotate.d/$BKJS
        echo " missingok" >> /etc/logrotate.d/$BKJS
        echo " daily" >> /etc/logrotate.d/$BKJS
        echo " sharedscripts" >> /etc/logrotate.d/$BKJS
@@ -293,11 +293,11 @@ case "$ARG" in
     fi
     if [ ! -f /etc/rsyslog.d/$BKJS -o "$(grep '#Bkjs $BKJS_HOME' /etc/rsyslog.d/$BKJS)" = "" ]; then
        echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS
-       echo "local0.* $BKJS_HOME/log/backend.log" >> /etc/rsyslog.d/$BKJS
+       echo "local0.* $BKJS_HOME/log/message.log" >> /etc/rsyslog.d/$BKJS
        echo "local5.* $BKJS_HOME/log/access.log" >> /etc/rsyslog.d/$BKJS
        mkdir -p $BKJS_HOME/log
        service rsyslog restart
-       touch $BKJS_HOME/log/access.log $BKJS_HOME/log/backend.log
+       touch $BKJS_HOME/log/access.log $BKJS_HOME/log/message.log
        chown -R $BKJS_USER $BKJS_HOME/log
     fi
     ;;
@@ -398,7 +398,7 @@ case "$ARG" in
   init-instance)
     # Instance mode, duplicate messages to the console for easier access
     echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
-    truncate -c -s 0 /var/log/messages $BKJS_HOME/log/backend.log $BKJS_HOME/log/error.log
+    truncate -c -s 0 /var/log/messages $BKJS_HOME/log/message.log $BKJS_HOME/log/error.log
     service rsyslog restart
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
@@ -516,12 +516,12 @@ case "$ARG" in
     fi
     [ "$BKJS_HOST" = "" ] && echo "Remote host required, specify with -host or BKJS_HOST" && exit
     for f in bin etc build deps images files log pages tmp var '*.log' '*.sh'; do
-        BKJS_EXCLUDE="$BKJS_EXCLUDE --exclude $f"
+        BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude $f"
     done
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
     for h in $BKJS_HOST; do
-        echo "Deploying the module to $BKJS_SSH_ARGS $BKJS_EXCLUDE $h:$BKJS_PATH"
-        rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_EXCLUDE `ls` $h:$BKJS_PATH
+        echo "Deploying the module to $BKJS_SSH_ARGS $BKJS_RSYNC_ARGS $h:$BKJS_PATH"
+        rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS `ls` $h:$BKJS_PATH
     done
     ;;
 
@@ -540,6 +540,10 @@ case "$ARG" in
        logger "Too long running, $uptime/$BKJS_UPTIME, shutting down..."
        /sbin/halt
     fi
+    ;;
+
+  log-watch)
+    $0 run-shell -log error -log-watch
     ;;
 
   ntp)
@@ -624,7 +628,7 @@ case "$ARG" in
 
   run-pgsql)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    exec nohup $PG_PREFIX/bin/postgres -F -D $PG_DIR >>$BKJS_HOME/log/backend.log 2>&1 &
+    exec nohup $PG_PREFIX/bin/postgres -F -D $PG_DIR >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
   stop-pgsql)
@@ -646,8 +650,8 @@ case "$ARG" in
 
   run-mysql)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    [ -f $MYSQL_PREFIX/bin/mysqld ] && exec nohup $MYSQL_PREFIX/bin/mysqld >>$BKJS_HOME/log/backend.log 2>&1 &
-    [ -f $MYSQL_PREFIX/libexec/mysqld ] && exec nohup $MYSQL_PREFIX/libexec/mysqld >>$BKJS_HOME/log/backend.log 2>&1 &
+    [ -f $MYSQL_PREFIX/bin/mysqld ] && exec nohup $MYSQL_PREFIX/bin/mysqld >>$BKJS_HOME/log/message.log 2>&1 &
+    [ -f $MYSQL_PREFIX/libexec/mysqld ] && exec nohup $MYSQL_PREFIX/libexec/mysqld >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
   stop-mysql)
@@ -670,7 +674,7 @@ case "$ARG" in
 
   run-dynamodb)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    (cd $BKJS_HOME/var && exec nohup java -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar --port 8181 >>$BKJS_HOME/log/backend.log 2>&1 &)
+    (cd $BKJS_HOME/var && exec nohup java -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar --port 8181 >>$BKJS_HOME/log/message.log 2>&1 &)
     ;;
 
   stop-dynamodb)
@@ -699,7 +703,7 @@ case "$ARG" in
 
   run-cassandra)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    $CASSANDRA_PREFIX/bin/cassandra >>$BKJS_HOME/log/backend.log 2>&1
+    $CASSANDRA_PREFIX/bin/cassandra >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-cassandra)
@@ -722,7 +726,7 @@ case "$ARG" in
     ;;
 
   run-elasticsearch)
-    $ELASTICSEARCH_PREFIX/bin/elasticsearch >>$BKJS_HOME/log/backend.log 2>&1
+    $ELASTICSEARCH_PREFIX/bin/elasticsearch >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-elasticsearch)
@@ -752,7 +756,7 @@ case "$ARG" in
 
   run-mongodb)
     mkdir -p $MONGO_DIR $BKJS_HOME/var $BKJS_HOME/log
-    $BKJS_PREFIX/bin/mongod --fork --dbpath $MONGO_DIR --syslog >>$BKJS_HOME/log/backend.log 2>&1
+    $BKJS_PREFIX/bin/mongod --fork --dbpath $MONGO_DIR --syslog >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-mongodb)
@@ -1004,7 +1008,7 @@ api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) {
 
 backend.server.start();
 @@@
-      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"The backend\",\n \"main\": \"app.js\",\n \"dependencies\": { \"$BKJS\": \">=0.9.0\" },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
+      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"The backend\",\n \"main\": \"app.js\",\n \"dependencies\": {\n    \"$BKJS_MOD\": \">=0.9.0\"\n },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
     fi
     ;;
 
@@ -1087,8 +1091,9 @@ backend.server.start();
     echo "  -account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
     echo "  -location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account"
     echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
-    echo "  -s3-get -bucket bucket -path path"
-    echo "  -s3-put -bucket bucket -path path -file file"
+    echo "  -s3-get bucket path"
+    echo "  -s3-put bucket path file"
+    echo "  -log-watch - run logwatcher and exit, send emails in case any errors found"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BKJS_HOME"

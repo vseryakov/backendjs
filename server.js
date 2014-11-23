@@ -78,17 +78,17 @@ var server = {
     proxyPort: 80,
 
     // Config parameters
-    args: [{ name: "max-processes", type: "callback", value: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
+    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
            { name: "job-max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed, for instance mode only" },
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
-           { name: "job", type: "callback", value: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
+           { name: "job", type: "callback", callback: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "proxy-url", type: "regexpmap", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
-           { name: "proxy-host", type: "callback", value: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
+           { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "node-args", type: "list", descr: "Node arguments for spawned processes, for passing v8 options" },
            { name: "node-worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
            { name: "job-queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
@@ -203,7 +203,7 @@ server.startMaster = function()
         }, 30000);
 
         // API related initialization
-        core.context.api.initMasterServer(function() {
+        core.context.api.initMaster(function() {
             core.runMethods("configureMaster");
         });
 
@@ -362,7 +362,7 @@ server.startWeb = function(callback)
         });
 
         // API related initialization
-        api.initWebServer(function(err) {
+        api.initServer(function(err) {
             core.runMethods("configureServer");
         });
 
@@ -616,6 +616,13 @@ server.startShell = function()
                 api.putLocation({ account: row, query: query }, {}, function(err, data) {
                     exit(err, data);
                 });
+            });
+        } else
+
+        // Update location
+        if (core.isArg("-log-watch")) {
+            core.watchLogs(function(err) {
+                exit(err);
             });
         } else
 

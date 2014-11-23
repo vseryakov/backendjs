@@ -24,7 +24,7 @@ string exceptionString(TryCatch* try_catch)
     return msg;
 }
 
-static Handle<Value> logging(onst Arguments& args)
+static Handle<Value> logging(const Arguments& args)
 {
     HandleScope scope;
 
@@ -459,6 +459,26 @@ static Handle<Value> strSplit(const Arguments& args)
    return scope.Close(toArray(list));
 }
 
+static Handle<Value> run(const Arguments& args)
+{
+   HandleScope scope;
+
+   OPTIONAL_ARGUMENT_STRING(0, cmd);
+   string out;
+
+   FILE *fp = popen(*cmd, "r");
+   if (fp) {
+       size_t len;
+       while (!feof(fp)) {
+           char *line = fgetln(fp, &len);
+           if (line && len) out += string(line, len);
+       }
+       pclose(fp);
+   }
+   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+}
+
+
 void backend_init(Handle<Object> target)
 {
     HandleScope scope;
@@ -467,6 +487,8 @@ void backend_init(Handle<Object> target)
     vsqlite_init();
 
     DebugInit(target);
+
+    NODE_SET_METHOD(target, "run", run);
 
     NODE_SET_METHOD(target, "strSplit", strSplit);
 

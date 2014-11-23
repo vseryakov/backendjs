@@ -979,20 +979,22 @@ int VUnzip::unzip(string zipfile, string dir)
         uint mode = unzip.get_file_mode();
         long long size = unzip.get_file_size();
 
-        if (outname != dir && mode != 0) {
+        if (outname != dir) {
             string outdir = outname.substr(0, outname.find_last_of('/'));
             LogDebug("file=%s, dir=%s, mode=%o, size=%lld", outname.c_str(), outdir.c_str(), mode, size);
 
-            if (S_ISDIR(mode)) {
+            // Deal with broken zip files made by some tools like scala/sbt without storing proper file mode/type
+            if (S_ISDIR(mode) || *(outname.end() - 1) == '/') {
                 if (!vMakePath(outdir)) {
                     LogError("%s: mkdir error %s: %s", zipfile.c_str(), outname.c_str(), strerror(errno));
                 }
             } else
-#ifdef _UNIX
+#ifdef __UNIX__
             if (S_ISLNK(mode)) {
                 string link;
+                char buffer[4096];
                 while (1) {
-                    uint bytes = unzip.read_file(buffer, sizeof(buffer));
+                    int bytes = unzip.read_file(buffer, sizeof(buffer));
                     if (bytes == 0) {
                         break;
                     }
@@ -1004,7 +1006,7 @@ int VUnzip::unzip(string zipfile, string dir)
                     link.append(buffer, bytes);
                 }
                 if (link.size()) {
-                    if (!mMakePath(outdir)) {
+                    if (!vMakePath(outdir)) {
                         LogError("%s: mkdir error %s: %s", zipfile.c_str(), outname.c_str(), strerror(errno));
                     }
                     unlink(outname.c_str());
@@ -1015,8 +1017,8 @@ int VUnzip::unzip(string zipfile, string dir)
 
             } else
 #endif
-            if (S_ISREG(mode)) {
-                if (vMakePath(outdir)) {
+            if (!mode || S_ISREG(mode)) {
+                if (!vMakePath(outdir)) {
                     LogError("%s: mkdir error %s: %s", zipfile.c_str(), outname.c_str(), strerror(errno));
                 }
                 unzip.extract(outname, outname);

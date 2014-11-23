@@ -54,10 +54,9 @@ aws.configure = function(options, callback)
 }
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
-aws.queryAWS = function(proto, method, host, path, obj, options, callback)
+aws.queryAWS = function(proto, method, host, path, obj, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
 
     var curTime = new Date();
     var formattedTime = curTime.toISOString().replace(/\.[0-9]+Z$/, 'Z');
@@ -68,13 +67,9 @@ aws.queryAWS = function(proto, method, host, path, obj, options, callback)
     sigValues.push(["Timestamp", formattedTime]);
     if (this.securityToken) sigValues.push(["SecurityToken", this.securityToken]);
 
-    // Mix in the additional parameters. params must be an Array of tuples as for sigValues above
+    // Mix in the primary request parameters
     for (var p in obj) {
         if (typeof obj[p] != "undefined") sigValues.push([p, obj[p]]);
-    }
-    // All capitalized options are passed as is
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') sigValues.push([p, options[p]]);
     }
     var strSign = "", query = "", postdata = "";
 
@@ -98,6 +93,7 @@ aws.queryAWS = function(proto, method, host, path, obj, options, callback)
         if (err || !params.data) return callback ? callback(err) : null;
         try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
         if (params.status != 200) {
+            if (!err) err = core.newError("Error: " + params.status, "AWS", params.status);
             logger.error('queryAWS:', query, err || params.data);
             return callback ? callback(err, params.obj) : null;
         }
@@ -113,7 +109,10 @@ aws.queryEC2 = function(action, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2014-05-01' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, options, callback);
+    // All capitalized options are passed as is and take priority because they are in native format
+    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
+
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
 // AWS ELB API request
@@ -123,7 +122,9 @@ aws.queryELB = function(action, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2012-06-01' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'elasticloadbalancing.' + this.region + '.amazonaws.com', '/', req, options, callback);
+    // All capitalized options are passed as is and take priority because they are in native format
+    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'elasticloadbalancing.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
 // AWS SQS API request
@@ -133,7 +134,9 @@ aws.querySQS = function(action, queue, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2012-11-05' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sqs.' + this.region + '.amazonaws.com', '/', req, options, callback);
+    // All capitalized options are passed as is and take priority because they are in native format
+    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sqs.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
 // AWS SNS API request
@@ -143,7 +146,9 @@ aws.querySNS = function(action, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2010-03-31' };
     for (var p in obj) req[p] = obj[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + this.region + '.amazonaws.com', '/', req, options, callback);
+    // All capitalized options are passed as is and take priority because they are in native format
+    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
 // Build version 4 signature headers
@@ -187,10 +192,8 @@ aws.queryDDB = function (action, obj, options, callback)
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
     var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };
     var req = url.parse(uri);
-    // All capitalized options are native DDB parameters
-    for (var p in options) {
-        if (p[0] >= 'A' && p[0] <= 'Z') obj[p] = options[p];
-    }
+    // All capitalized options are passed as is and take priority because they are in native format
+    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') obj[p] = options[p];
     var json = JSON.stringify(obj);
 
     logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);

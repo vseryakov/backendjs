@@ -23,12 +23,14 @@ var dns = require('dns');
 
 // The primary object containing all config options and common functions
 var core = {
+    // Backend process name
     name: 'backend',
 
     // Protocol version
     version: '2014.09.20',
 
-    // Application version
+    // Application version, read from package.json if exists
+    appName: 'backend',
     appVersion: "",
 
     // Process and config parameters
@@ -49,12 +51,13 @@ var core = {
 
     // Home directory, current by default, must be absolute path
     home: process.env.BKJS_HOME || (process.env.HOME + '/.bkjs'),
+    cwd: process.cwd(),
 
     // Various folders, by default relative paths are used
     path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", files: "files", log: "log" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
-    logFile: "log/backend.log",
+    logFile: "log/message.log",
     errFile: "log/error.log",
     confFile: "config",
 
@@ -107,29 +110,29 @@ var core = {
     userAgent: [],
 
     // Config parameters
-    args: [ { name: "help", type: "callback", value: function() { core.showHelp() }, descr: "Print help and exit" },
-            { name: "debug", type: "callback", value: function(v) { logger.setDebug(v == "0" ? 'log' : 'debug'); }, descr: "Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable", pass: 1 },
-            { name: "debug-label", type: "callback", value: function(v) { logger.setDebugLabel(v); }, descr: "Enable debugging labels, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
-            { name: "debug-run-segv", type: "callback", value: function(v) { if(v) backend.runSEGV(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
-            { name: "debug-set-segv", type: "callback", value: function(v) { if(v) backend.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
-            { name: "debug-set-backtrace", type: "callback", value: function(v) { if(v) backend.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
-            { name: "log", type: "callback", value: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
-            { name: "log-file", type: "callback", value: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
-            { name: "syslog", type: "callback", value: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
-            { name: "console", type: "callback", value: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
+    args: [ { name: "help", type: "callback", callback: function() { core.showHelp() }, descr: "Print help and exit" },
+            { name: "debug", type: "callback", callback: function(v) { logger.setDebug(v == "0" ? 'log' : 'debug'); }, descr: "Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable", pass: 1 },
+            { name: "debug-label", type: "callback", callback: function(v) { logger.setDebugLabel(v); }, descr: "Enable debugging labels, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
+            { name: "debug-run-segv", type: "callback", callback: function(v) { if(v) backend.runSEGV(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
+            { name: "debug-set-segv", type: "callback", callback: function(v) { if(v) backend.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
+            { name: "debug-set-backtrace", type: "callback", callback: function(v) { if(v) backend.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
+            { name: "log", type: "callback", callback: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
+            { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
+            { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
+            { name: "console", type: "callback", callback: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
             { name: "home", type: "callback", value: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "conf-file", descr: "Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path", pass: 1 },
             { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks", pass: 1 },
-            { name: "etc-dir", type: "callback", value: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
-            { name: "web-dir", type: "callback", value: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
-            { name: "tmp-dir", type: "callback", value: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
-            { name: "spool-dir", type: "callback", value: function(v) { if (v) this.path.spool = v; }, descr: "Path where to keep modifiable files" },
-            { name: "log-dir", type: "callback", value: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
-            { name: "files-dir", type: "callback", value: function(v) { if (v) this.path.files = v; }, descr: "Path where to keep uploaded files" },
-            { name: "images-dir", type: "callback", value: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
-            { name: "uid", type: "callback", value: function(v) { var u = backend.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
-            { name: "gid", type: "callback", value: function(v) { var g = backend.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
-            { name: "force-uid", type: "callback", value: "dropPrivileges", descr: "Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.", pass: 1 },
+            { name: "etc-dir", type: "callback", callback: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
+            { name: "web-dir", type: "callback", callback: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
+            { name: "tmp-dir", type: "callback", callback: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
+            { name: "spool-dir", type: "callback", callback: function(v) { if (v) this.path.spool = v; }, descr: "Path where to keep modifiable files" },
+            { name: "log-dir", type: "callback", callback: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
+            { name: "files-dir", type: "callback", callback: function(v) { if (v) this.path.files = v; }, descr: "Path where to keep uploaded files" },
+            { name: "images-dir", type: "callback", callback: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
+            { name: "uid", type: "callback", callback: function(v) { var u = backend.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
+            { name: "gid", type: "callback", callback: function(v) { var g = backend.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
+            { name: "force-uid", type: "callback", callback: "dropPrivileges", descr: "Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.", pass: 1 },
             { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used", pass: 1 },
             { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
             { name: "bind", descr: "Bind to this address only, if not specified listen on all interfaces" },
@@ -187,7 +190,7 @@ var core = {
             { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns" },
             { name: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
             { name: "logwatcher-interval", type: "number", min: 1, descr: "How often to check for errors in the log files in minutes" },
-            { name: "logwatcher-file", type: "callback", value: function(v) { if (v) this.logwatcherFiles.push({file:v}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
+            { name: "logwatcher-file", type: "callback", callback: function(v) { if (v) this.logwatcherFiles.push({file:v}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
@@ -197,7 +200,7 @@ var core = {
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
             { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
-            { name: "watch", type: "callback", value: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
+            { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
     ],
 
     // Geo min distance for the hash key, km
@@ -279,7 +282,10 @@ core.init = function(options, callback)
 
     // Application version from the package.json
     var pkg = self.jsonParse(self.readFileSync("package.json"));
-    if (pkg) self.appVersion = pkg.name + "/" + pkg.version;
+    if (pkg) {
+        self.appName = pkg.name;
+        self.appVersion = pkg.version;
+    }
 
     // Serialize initialization procedure, run each function one after another
     self.series([
@@ -398,6 +404,13 @@ core.run = function(options, callback)
     });
 }
 
+// Exit the process with possible message to be displayed and status code
+core.exit = function(code, msg)
+{
+    if (msg) console.log(msg);
+    process.exit(code || 0);
+}
+
 // Switch to new home directory, exit if we cannot, this is important for relative paths to work if used,
 // no need to do this in worker because we already switched to home directory in the master and all child processes
 // inherit current directory
@@ -514,7 +527,9 @@ core.processArgs = function(name, ctx, argv, pass)
                 } else {
                     idx = argv.lastIndexOf(cname);
                 }
-                if (idx == -1) continue;
+                // Continue if we have default value defined
+                if (idx == -1 && !x.value) continue;
+
                 // Place inside the object
                 if (x.obj) {
                     if (!ctx[x.obj]) ctx[x.obj] = {};
@@ -523,7 +538,7 @@ core.processArgs = function(name, ctx, argv, pass)
                     kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
                 }
                 var key = self.toCamel(kname);
-                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : null;
+                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : (x.value || null);
                 if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
                 // Ignore the value if it is a parameter
                 if (val && val[0] == '-') val = "";
@@ -575,11 +590,11 @@ core.processArgs = function(name, ctx, argv, pass)
                     try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', key, val, e); }
                     break;
                 case "callback":
-                    if (typeof x.value == "string") {
-                        obj[x.value](val);
+                    if (typeof x.callback == "string") {
+                        obj[x.callback](val);
                     } else
-                        if (typeof x.value == "function") {
-                            x.value.call(obj, val);
+                        if (typeof x.callback == "function") {
+                            x.callback.call(obj, val);
                         }
                     break;
                 default:
@@ -595,7 +610,9 @@ core.processArgs = function(name, ctx, argv, pass)
 }
 
 // Add custom config parameters to be understood and processed by the config parser
-// - module - name of the module to add these params to
+// - module - name of the module to add these params to, if it is an empty string then the module where any
+//    parameter goes is determined by the prefix, for example if name is 'aws-elastic-ip' then it will be added to the aws module,
+//    all not matched parameters will be added to the core module.
 // - args - a list of objects in the format: { name: N, type: T, descr: D, min: M, max: M, array: B }, all except name are optional.
 //
 // Example:
@@ -606,12 +623,28 @@ core.describeArgs = function(module, args)
 {
     var self = this;
     if (!Array.isArray(args)) return;
+    function addArgs(ctx, args) {
+        if (!ctx.args) ctx.args = [];
+        ctx.args.push.apply(ctx.args, args.filter(function(x) { return x.name }));
+    }
     var ctx = module == "core" ? this : this.context[module];
-    if (!ctx) return logger.error("deescribeArgs:", "invalid module", module);
-    if (!ctx.args) ctx.args = [];
-    args.forEach(function(x) {
-        if (x.name) ctx.args.push(x);
+    if (ctx) return addArgs(ctx, args);
+
+    // Add arguments to the module by the prefix
+    var map = {};
+    args.forEach(function(x) { map[x.name] = x });
+    Object.keys(this.context).forEach(function(ctx) {
+        Object.keys(map).forEach(function(x) {
+            var n = x.split("-");
+            if (n[0] == ctx) {
+                map[x].name = n.slice(1).join("-");
+                addArgs(self.context[ctx], [map[x]]);
+                delete map[x];
+            }
+        });
     });
+    // The rest goes to the core
+    addArgs(this, Object.keys(map).map(function(x) { return map[x] }));
 }
 
 // Print help about command line arguments and exit
@@ -622,7 +655,7 @@ core.showHelp = function(options)
     var args = [ [ '', core.args ] ];
     Object.keys(this.context).forEach(function(n) {
         if (self.context[n].args) args.push([n, self.context[n].args]);
-    })
+    });
     var data = "";
     args.forEach(function(x) {
         x[1].forEach(function(y) {
@@ -3076,16 +3109,17 @@ core.watchLogs = function(options, callback)
             });
         }, function(err2) {
             if (errors.length > 1) {
-                logger.log('logwatcher:', 'found errors, send report to', self.logwatcherEmail, self.logwatcherUrl);
+                logger.log('logwatcher:', 'found errors, sending report to', self.logwatcherEmail, self.logwatcherUrl);
                 if (self.logwatcherUrl) {
                     self.sendRequest({ url: self.logwatcherUrl, queue: true, headers: { "content-type": "text/plain" }, method: "POST", postdata: errors }, callback);
-                } else
+                    return;
+                }
                 if (self.logwatcherEmail) {
                     self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, callback);
+                    return;
                 }
-            } else {
-                if (typeof callback == "function") callback();
             }
+            if (typeof callback == "function") callback();
         });
     });
 }

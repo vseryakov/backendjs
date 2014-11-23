@@ -224,7 +224,8 @@ db.init = function(options, callback)
 // The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:
 //  - prefix to add to all types for separation of config parameters for different uses, like in-app properties, command line propeties, ...
 //  - config type or run mode defined by the `db-config-type`
-//  - the application version specified in the app package.json
+//  - the application name specified in the package.json
+//  - the application version specified in the package.json
 //  - instance image id if running in AWS or other virtual environment, stored in the `core.instanceImage`
 //  - the network where the instance is running, first 2 octets from the current IP address
 //  - the subnet where the instance is running, first 3 octets from the current IP address
@@ -241,6 +242,7 @@ db.initConfig = function(options, callback)
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
     var types = [];
     if (self.configType) types.push(self.configType);
+    if (core.appName) types.push(core.appName);
     if (core.appVersion) types.push(core.appVersion);
     if (core.instanceImage) types.push(core.instanceImage);
     if (core.subnet) types.push(core.network, core.subnet);

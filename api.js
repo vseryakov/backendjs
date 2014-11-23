@@ -414,7 +414,7 @@ api.init = function(callback)
 
     // Allow cross site requests
     self.app.use(function(req, res, next) {
-        res.header('Server', core.name + '/' + core.version + " " + core.appVersion);
+        res.header('Server', core.name + '/' + core.version + " " + core.appName + "/" + core.appVersion);
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Allow-Headers', 'bk-signature');
         next();
@@ -785,11 +785,11 @@ api.initApplication = function(callback) { if (callback) callback(); };
 api.initMiddleware = function(callback) { if (callback) callback(); };
 
 // This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling
-api.initMasterServer = function(callback) { if (callback) callback(); }
+api.initMaster = function(callback) { if (callback) callback(); }
 
 // This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
 // interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.
-api.initWebServer = function(callback) { if (callback) callback(); }
+api.initServer = function(callback) { if (callback) callback(); }
 
 // This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job
 api.initWorker = function(callback) { if (callback) callback(); }
