@@ -142,7 +142,7 @@ case "$ARG" in
   install)
     sudo $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
     sudo $0 init-devel
-    $0 build-node
+    [ "`which node`" = "" ] && $0 build-node
     npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
     (cd bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME

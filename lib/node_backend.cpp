@@ -469,9 +469,10 @@ static Handle<Value> run(const Arguments& args)
    FILE *fp = popen(*cmd, "r");
    if (fp) {
        size_t len;
+       char buf[4096];
        while (!feof(fp)) {
-           char *line = fgetln(fp, &len);
-           if (line && len) out += string(line, len);
+           len = fread(buf, 1, sizeof(buf), fp);
+           if (len) out += string(buf, len);
        }
        pclose(fp);
    }
