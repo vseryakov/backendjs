@@ -30,8 +30,8 @@ var core = {
     version: '2014.09.20',
 
     // Application version, read from package.json if exists
-    appName: 'backend',
-    appVersion: "",
+    appName: 'app',
+    appVersion: '0',
 
     // Process and config parameters
     argv: {},
@@ -48,6 +48,7 @@ var core = {
     instanceTag: '',
     instanceImage: '',
     workerId: '',
+    runMode: 'production',
 
     // Home directory, current by default, must be absolute path
     home: process.env.BKJS_HOME || (process.env.HOME + '/.bkjs'),
@@ -159,6 +160,7 @@ var core = {
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
+            { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
             { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1" },
@@ -281,11 +283,10 @@ core.init = function(options, callback)
     self.confFile = path.resolve(self.confFile);
 
     // Application version from the package.json
-    var pkg = self.jsonParse(self.readFileSync("package.json"));
-    if (pkg) {
-        self.appName = pkg.name;
-        self.appVersion = pkg.version;
-    }
+    var pkg = self.readFileSync("package.json", { json: 1 });
+    if (!pkg) pkg = self.readFileSync(self.cwd + "/package.json", { json: 1 });
+    if (pkg && pkg.name) self.appName = pkg.name;
+    if (pkg && pkg.vesion) self.appVersion = pkg.version;
 
     // Serialize initialization procedure, run each function one after another
     self.series([
@@ -1860,7 +1861,7 @@ core.getArgInt = function(name, dflt)
     return this.toNumber(this.getArg(name, dflt));
 }
 
-// Returns true of given arg(s) are present in the comman dline,name can be a string or an array of strings.
+// Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.
 core.isArg = function(name)
 {
     if (!Array.isArray(name)) return process.argv.lastIndexOf(name) > 0;

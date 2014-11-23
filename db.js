@@ -112,7 +112,6 @@ var db = {
            { name: "caching", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
-           { name: "config-type", dns: 1, descr: "Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
            { name: "max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
            { name: "min", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
@@ -222,13 +221,11 @@ db.init = function(options, callback)
 // Load configuration from the config database, must be configured with `db-config-type` pointing to the database pool where bk_config table contains
 // configuration parameters.
 // The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:
-//  - prefix to add to all types for separation of config parameters for different uses, like in-app properties, command line propeties, ...
-//  - config type or run mode defined by the `db-config-type`
-//  - the application name specified in the package.json
-//  - the application version specified in the package.json
+//  - the application name without and with version specified in the package.json
+//  - run mode defined by the `-run-mode`, without and with the app name
 //  - instance image id if running in AWS or other virtual environment, stored in the `core.instanceImage`
-//  - the network where the instance is running, first 2 octets from the current IP address
-//  - the subnet where the instance is running, first 3 octets from the current IP address
+//  - the network where the instance is running, first 2 octets from the current IP address, without and with the app name
+//  - the subnet where the instance is running, first 3 octets from the current IP address, without and with the app name
 //  - instance name set via AWS tag or other way, stored in the `core.instanceTag`
 //  - current instance IP address
 db.initConfig = function(options, callback)
@@ -241,14 +238,14 @@ db.initConfig = function(options, callback)
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
     var types = [];
-    if (self.configType) types.push(self.configType);
-    if (core.appName) types.push(core.appName);
-    if (core.appVersion) types.push(core.appVersion);
-    if (core.instanceImage) types.push(core.instanceImage);
-    if (core.subnet) types.push(core.network, core.subnet);
-    if (core.instanceTag) types.push(core.instanceTag);
-    if (core.ipaddr) types.push(core.ipaddr);
-    types = !types.length ? undefined : types.map(function(x) { return (options.prefix || "") + String(x) });
+    types.push(core.appName);
+    types.push(core.appName + '-' + core.appVersion);
+    types.push(core.runMode, core.appName + "-" + core.runMode);
+    if (core.instanceImage) types.push(core.instanceImage, core.appName + "-" + core.instanceImage);
+    if (core.network) types.push(core.network, core.appName + "-" + core.network);
+    if (core.subnet) types.push(core.subnet, core.appName + "-" + core.subnet);
+    if (core.instanceTag) types.push(core.instanceTag, core.appName + "-" + core.instanceTag);
+    if (core.ipaddr) types.push(core.ipaddr, core.appName + "-" + core.ipaddr);
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
         if (err) return callback ? callback(err) : null;

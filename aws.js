@@ -335,14 +335,16 @@ aws.s3PutFile = function(bucket, path, file, options, callback)
 //  - ip - a static private IP adress to assign
 //  - publicIp - associate with a public IP address
 //  - file - pass contents of a file as user data, contents are read using sync method
+//  - waitTimeout - how long to wait in ms for instance to be runnable
+//  - waitDelay  - now often in ms to poll for status while waiting
+//  - waitRunning - if 1 then wait for instance to be in running state, this is implied also by elbName, name, elasticIp properties in the options
 //  - name - assign a tag to the instance as Name:
-//  - waitTime - how long to wait in ms for instance to be runnable
 //  - elbName - join elastic balancer after the startup
 //  - elasticIp - asociate with the given Elastic IP address after the start
 //  - profile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options['IamInstanceProfile.Name'] attribute
 //  - availZone - availability zone, if not given use aws.availZone or options['Placement.AvailabilityZone'] attribute
 //  - subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute
-aws.runInstances = function(options, callback)
+aws.ec2RunInstances = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
@@ -368,7 +370,7 @@ aws.runInstances = function(options, callback)
         if (options.ip) {
             req["NetworkInterface.0.DeviceIndex"] = 0;
             req["NetworkInterface.0.PrivateIpAddress"] = options.ip;
-            req["NetworkInterface.0.SubnetId"] = options.SubnetId || req.SubnetId;
+            req["NetworkInterface.0.SubnetId"] = options.subnetId || this.subnetId;
         }
         if (options.publicIp) {
             req["NetworkInterface.0.DeviceIndex"] = 0;
@@ -396,57 +398,116 @@ aws.runInstances = function(options, callback)
 
         // Instances list
         var items = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
-        if (!items) return callback ? callback(err, obj) : null;
+        if (!items || !items.length) return callback ? callback(err, obj) : null;
+
+        // Dont wait for instance to be running
+        if (!options.waitRunning && !options.name && !options.elbName && !options.elasticIp) {
+            return callback ? callback(err, obj) : null;
+        }
+        var instanceId = items[0].instanceId;
 
         core.series([
            function(next) {
-               var status = items[0].instanceState.name, expires = Date.now() + (options.waitTimeout || 300000);
-               core.whilst(
-                 function() {
-                     return status != "running" && Date.now() < expires;
-                 },
-                 function(next2) {
-                     self.queryEC2("DescribeInstances", { 'Filter.1.Name': 'instance-id', 'Filter.1.Value.1': items[0].instanceId }, function(err, rc) {
-                         if (err) return next2(err);
-                         status = core.objGet(rc, "DescribeInstancesResponse.reservationSet.item.instancesSet.item.instanceState.name");
-                         setTimeout(next2, options.waitDelay || 3000);
-                     });
-                 }, next);
+               self.ec2WaitForInstance(instanceId, "running", { waitTimeout: 300000, waitDelay: 5000 }, next);
            },
            function(next) {
+               // Set tag name for all instances
                if (!options.name) return next();
-               var tags = {};
-               items.forEach(function(x, i) {
-                   tags["ResourceId." + (i+1)] = x.instanceId;
-                   tags["Tag." + (i+1) + ".Key"] = 'Name';
-                   tags["Tag." + (i+1) + ".Value"] = options.name;
-               });
-               self.queryEC2("CreateTags", tags, function() { next() });
+               core.forEachSeries(items, function(item, next2) {
+                   self.ec2CreateTags(item.instanceId, options.name, next2);
+               }, next);
            },
            function(next) {
                // Add to the ELB
                if (!options.elbName) return next();
-               self.elbRegisterInstances(options.elbName, items.map(function() { return x.instanceId }), function() { next()});
+               self.elbRegisterInstances(options.elbName, items.map(function() { return x.instanceId }), next);
            },
            function(next) {
                // Elastic IP
                if (!options.elasticIp) return next();
-               if (options.subnetId || options["NetworkInterface.0.SubnetId"]) {
-                   var params = { InstanceId: items[0].instanceId, AllowReassociation: true };
-                   self.queryEC2("DescribeAddresses", { 'PublicIp.1': options.elastcIp }, function(err, addr) {
-                       params.AllocationId = core.objGet(addr, "DescribeAddressesResponse.AddressesSet.item.allocationId");
-                       if (!params.AllocationId) return next();
-                       self.queryEC2("AssociateAddress", params);
-                   });
-               } else {
-                   var params = { PublicIp: options.elasticIp, InstanceId: items[0].instanceId };
-                   self.queryEC2("AssociateAddress", params, function() { next() });
-               }
+               self.ec2AssociateAddress(instanceId, options.elasticIp, { subnetId: req.SubnetId || req["NetworkInterface.0.SubnetId"] }, next);
            },
            ], function() {
                 if (callback) callback(err, obj);
         });
     });
+}
+
+// Check an instance status and keep waiting until it is equal what we expect or timeout occured.
+// The `status` can be one of: pending | running | shutting-down | terminated | stopping | stopped
+// The options can specify the following:
+//  - waitTimeout - how long to wait in ms until give up, default is 30 secs
+//  - waitDelay - how long in ms between polls
+aws.ec2WaitForInstance = function(instanceId, status, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+
+    var state = "", expires = Date.now() + (options.waitTimeout || 60000);
+    core.doWhilst(
+      function(next) {
+          self.queryEC2("DescribeInstances", { 'Filter.1.Name': 'instance-id', 'Filter.1.Value.1': instanceId }, function(err, rc) {
+              if (err) return next(err);
+              state = core.objGet(rc, "DescribeInstancesResponse.reservationSet.item.instancesSet.item.instanceState.name");
+              setTimeout(next, options.waitDelay || 5000);
+          });
+      },
+      function() {
+          return state != status && Date.now() < expires;
+      },
+      callback);
+}
+
+// Create tags for a resource. Options may contain tags property which is an object with tag key and value
+//
+// Example
+//
+//      aws.ec2CreateTags("i-1234","My Instance", { tags: { tag2 : "val2", tag3: "val3" } } )
+//
+aws.ec2CreateTags = function(id, name, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+
+    var tags = {}, i = 2;
+    tags["ResourceId.1"] = id;
+    tags["Tag.1.Key"] = 'Name';
+    tags["Tag.1.Value"] = name;
+
+    // Additional tags
+    for (var p in options.tags) {
+        tags["ResourceId." + i] = id;
+        tags["Tag." + i + ".Key"] = p;
+        tags["Tag." + i + ".Value"] = options[p];
+        i++;
+    }
+    self.queryEC2("CreateTags", tags, options, callback);
+}
+
+// Associate an Elastic IP with an instance. Default behaviour is to reassociate if the EIP is taken.
+// The options can specify the following:
+//  - subnetId - required for instances in VPC, allocation id will be retrieved for the given ip address automatically
+aws.ec2AssociateAddress = function(instanceId, elasticIp, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+
+    var params = { InstanceId: instanceId, PublicIp: elasticIp, AllowReassociation: true };
+    if (options.subnetId) {
+        // Already known
+        if (options.AllocationId) {
+            return self.queryEC2("AssociateAddress", params, options, callback);
+        }
+        // Get the allocation id
+        self.queryEC2("DescribeAddresses", { 'PublicIp.1': elasticIp }, function(err, obj) {
+            params.AllocationId = core.objGet(obj, "DescribeAddressesResponse.AddressesSet.item.allocationId");
+            if (!params.AllocationId) err = core.newError("EIP not found", "EC2", elasticIp);
+            if (err) return callback ? callback(err) : null;
+            self.queryEC2("AssociateAddress", params, options, callback);
+        });
+    } else {
+        self.queryEC2("AssociateAddress", params, options, callback);
+    }
 }
 
 // Retrieve instance meta data

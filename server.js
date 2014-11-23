@@ -643,6 +643,38 @@ server.startShell = function()
             });
         } else
 
+        // Show all records
+        if (core.isArg("-db-list")) {
+            var query = getQuery(), table = core.getArg("-table")
+            db.select(table, query, { noscan: 0 }, function(err, data) {
+                if (data && data.length) {
+                    console.log(Object.keys(data[0]).join(" | "));
+                    data.forEach(function(x) {
+                        var vals = [];
+                        for (var p in x) vals.push(x[p]);
+                        console.log(vals.join(" | "));
+                    });
+                }
+                exit(err);
+            });
+        } else
+
+        // Put config entry
+        if (core.isArg("-db-put")) {
+            var query = getQuery(), table = core.getArg("-table");
+            db.put(table, query, {}, function(err, data) {
+                exit(err);
+            });
+        } else
+
+        // Delete config entry
+        if (core.isArg("-db-del")) {
+            var query = getQuery(), table = core.getArg("-table");
+            db.del(table, query, {}, function(err, data) {
+                exit(err);
+            });
+        } else
+
         // Send API request
         if (core.isArg("-send-request")) {
             var query = getQuery(), url = core.getArg("-url"), id = core.getArg("-id"), login = core.getArg("-login");
@@ -1110,7 +1142,7 @@ server.launchJob = function(job, options, callback)
     // Terminate after the job is done
     if (!options.InstanceInitiatedShutdownBehavior && !options.termnate && !options.stop) options.terminate = 1;
 
-    aws.runInstances(options, callback);
+    aws.ec2RunInstances(options, callback);
     return true;
 }
 

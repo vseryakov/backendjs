@@ -140,7 +140,7 @@ case "$ARG" in
     ;;
 
   install)
-    sudo $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX -host $BKJS_HOST -domain $BKJS_DOMAIN
+    sudo $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
     sudo $0 init-devel
     $0 build-node
     npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
@@ -1091,9 +1091,12 @@ backend.server.start();
     echo "  -account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
     echo "  -location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account"
     echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
-    echo "  -s3-get bucket path"
-    echo "  -s3-put bucket path file"
     echo "  -log-watch - run logwatcher and exit, send emails in case any errors found"
+    echo "  -s3-get -bucket BUCKET -path PATH - retrieve a file from S6"
+    echo "  -s3-put -bucket BUCKET -path PATH -fle FILE - store a file to S3"
+    echo "  -db-list -table TABLE [name VALUE ...] - return all records from the table or only that match given column values"
+    echo "  -db-put -table TABLE name VALUE ... - add or replace a record in the config table, name value pairs are column name and value to be set for the record to be added"
+    echo "  -db-del -table TABLE name VALUE ... - delete a record from the table, name value pairs must define a primary key for the table"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BKJS_HOME"
