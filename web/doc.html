@@ -1559,7 +1559,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>debug-set-segv</code> - Set default SEGV handler which shows backtrace of calls if debug info is available</li>
 <li><code>debug-set-backtrace</code> - Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well</li>
 <li><code>log</code> - Set debugging level: none, log, debug, dev</li>
-<li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog. Default: &quot;log/backend.log&quot;</li>
+<li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog. Default: &quot;log/message.log&quot;</li>
 <li><code>syslog</code> - Write all logging messages to syslog, connect to the local syslog server over Unix domain socket</li>
 <li><code>console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
 <li><code>home</code> - Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist. Default: &quot;/Users/vlad/.bkjs&quot;</li>
@@ -1600,6 +1600,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
 <li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
 <li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests </li>
+<li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. Default: &quot;production&quot;. DNS TXT configurable.</li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default</li>
 <li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
 <li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1</li>
@@ -1647,7 +1648,6 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>db-caching</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: []</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: &quot;sqlite&quot;</li>
 <li><code>db-config</code> - Configuration database pool for config parameters, must be defined to use remote db for config parameters</li>
-<li><code>db-config-type</code> - Config group to use when requesting confguration from the database, if not defined all config parameters will be loaded. DNS TXT configurable.</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db. Default: 300</li>
 <li><code>db-NAME-max</code> - Max number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: max-1 .. max-3.</li>
 <li><code>db-NAME-min</code> - Min number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: min-1 .. min-3.</li>
@@ -2034,13 +2034,13 @@ this.app refers to the Express instance.</p>
 </ul>
 
 <ul>
-<li><p><code>api.initMasterServer(callback)</code></p>
+<li><p><code>api.initMaster(callback)</code></p>
 <p> This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.initWebServer(callback)</code></p>
+<li><p><code>api.initServer(callback)</code></p>
 <p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
 interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
 </li>
@@ -2833,7 +2833,7 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 </ul>
 
 <ul>
-<li><p><code>aws.queryAWS(proto, method, host, path, obj, options, callback)</code></p>
+<li><p><code>aws.queryAWS(proto, method, host, path, obj, callback)</code></p>
 <p> Make AWS request, return parsed response as Javascript object or null in case of error</p>
 </li>
 </ul>
@@ -2903,7 +2903,7 @@ Options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>aws.runInstances(options, callback)</code></p>
+<li><p><code>aws.ec2RunInstances(options, callback)</code></p>
 <p> Run AWS instances, supports all native EC2 parameters with first capital letter but also accepts simple parameters in the options:</p>
 <ul>
 <li>min - min number of instances to run, default 1</li>
@@ -2918,13 +2918,45 @@ Options may contain the following properties:</p>
 <li>ip - a static private IP adress to assign</li>
 <li>publicIp - associate with a public IP address</li>
 <li>file - pass contents of a file as user data, contents are read using sync method</li>
+<li>waitTimeout - how long to wait in ms for instance to be runnable</li>
+<li>waitDelay  - now often in ms to poll for status while waiting</li>
+<li>waitRunning - if 1 then wait for instance to be in running state, this is implied also by elbName, name, elasticIp properties in the options</li>
 <li>name - assign a tag to the instance as Name:</li>
-<li>waitTime - how long to wait in ms for instance to be runnable</li>
 <li>elbName - join elastic balancer after the startup</li>
 <li>elasticIp - asociate with the given Elastic IP address after the start</li>
 <li>profile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options[&#39;IamInstanceProfile.Name&#39;] attribute</li>
 <li>availZone - availability zone, if not given use aws.availZone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
 <li>subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2WaitForInstance(instanceId, status, options, callback)</code></p>
+<p> Check an instance status and keep waiting until it is equal what we expect or timeout occured.
+The <code>status</code> can be one of: pending | running | shutting-down | terminated | stopping | stopped
+The options can specify the following:</p>
+<ul>
+<li>waitTimeout - how long to wait in ms until give up, default is 30 secs</li>
+<li>waitDelay - how long in ms between polls</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2CreateTags(id, name, options, callback)</code></p>
+<p> Create tags for a resource. Options may contain tags property which is an object with tag key and value</p>
+<p>Example</p>
+<pre><code>aws.ec2CreateTags(&quot;i-1234&quot;,&quot;My Instance&quot;, { tags: { tag2 : &quot;val2&quot;, tag3: &quot;val3&quot; } } )
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2AssociateAddress(instanceId, elasticIp, options, callback)</code></p>
+<p> Associate an Elastic IP with an instance. Default behaviour is to reassociate if the EIP is taken.
+The options can specify the following:</p>
+<ul>
+<li>subnetId - required for instances in VPC, allocation id will be retrieved for the given ip address automatically</li>
 </ul>
 </li>
 </ul>
@@ -3400,6 +3432,12 @@ context can be specified for the callback, if no then it run in the core context
 </ul>
 
 <ul>
+<li><p><code>core.exit(code, msg)</code></p>
+<p> Exit the process with possible message to be displayed and status code</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.setHome(home)</code></p>
 <p> Switch to new home directory, exit if we cannot, this is important for relative paths to work if used,
 no need to do this in worker because we already switched to home directory in the master and all child processes
@@ -3433,7 +3471,9 @@ type can be bool, number, list, json</p>
 <li><p><code>core.describeArgs(module, args)</code></p>
 <p> Add custom config parameters to be understood and processed by the config parser</p>
 <ul>
-<li>module - name of the module to add these params to</li>
+<li>module - name of the module to add these params to, if it is an empty string then the module where any
+parameter goes is determined by the prefix, for example if name is &#39;aws-elastic-ip&#39; then it will be added to the aws module,
+all not matched parameters will be added to the core module.</li>
 <li>args - a list of objects in the format: { name: N, type: T, descr: D, min: M, max: M, array: B }, all except name are optional.</li>
 </ul>
 <p>Example:</p>
@@ -3780,7 +3820,7 @@ Options defines the following properties:</p>
 
 <ul>
 <li><p><code>core.isArg(name)</code></p>
-<p> Returns true of given arg(s) are present in the comman dline,name can be a string or an array of strings.</p>
+<p> Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.</p>
 </li>
 </ul>
 
@@ -4426,12 +4466,11 @@ Options can have the following properties:</p>
 configuration parameters.
 The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:</p>
 <ul>
-<li>prefix to add to all types for separation of config parameters for different uses, like in-app properties, command line propeties, ...</li>
-<li>config type or run mode defined by the <code>db-config-type</code></li>
-<li>the application version specified in the app package.json</li>
+<li>the application name without and with version specified in the package.json</li>
+<li>run mode defined by the <code>-run-mode</code>, without and with the app name</li>
 <li>instance image id if running in AWS or other virtual environment, stored in the <code>core.instanceImage</code></li>
-<li>the network where the instance is running, first 2 octets from the current IP address</li>
-<li>the subnet where the instance is running, first 3 octets from the current IP address</li>
+<li>the network where the instance is running, first 2 octets from the current IP address, without and with the app name</li>
+<li>the subnet where the instance is running, first 3 octets from the current IP address, without and with the app name</li>
 <li>instance name set via AWS tag or other way, stored in the <code>core.instanceTag</code></li>
 <li>current instance IP address</li>
 </ul>
