@@ -143,7 +143,7 @@ case "$ARG" in
     sudo $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
     sudo $0 init-devel
     [ "$(which node 2>/dev/null)" = "" ] && $0 build-node
-    npm install git+https://github.com/vseryakov/backendjs.git --backend_nanomsg --backend_imagemagick
+    $0 build-bkjs
     (cd bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
@@ -181,6 +181,7 @@ case "$ARG" in
     hostname $BKJS_HOST.$BKJS_DOMAIN
     echo $BKJS_HOST.$BKJS_DOMAIN > /etc/hostname
     if [ -f /etc/sysconfig/network ]; then
+       echo "Configuring hostname $BKJS_HOST.$BKJS_DOMAIN ..."
        echo "HOSTNAME=$BKJS_HOST.$BKJS_DOMAIN" > /tmp/network
        grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
        mv /tmp/network /etc/sysconfig/network
@@ -190,7 +191,8 @@ case "$ARG" in
   init-user)
     # Add local user
     LHOME=/home/$BKJS_USER
-    if [ "$(grep -qs $BKJS_USER /etc/passwd)" = "" ]; then
+    if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
+       echo "Adding user $BKJS_USER..."
        useradd -g 0 -m $BKJS_USER
        echo "$BKJS_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
        mkdir -p -m 700 $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh
@@ -204,7 +206,8 @@ case "$ARG" in
     fi
 
     # Aliases and environment
-    if [ "$(grep -qs '#Bkjs' $LHOME/.bashrc)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' $LHOME/.bashrc)" = "" ]; then
+       echo "Configuring .bashrc..."
        echo '#Bkjs' >> $LHOME/.bashrc
        echo "umask 022" >> $LHOME/.bashrc
        echo "export PATH=\$PATH:$LHOME/bin:$LHOME/node_modules/.bin" >> $LHOME/.bashrc
@@ -227,7 +230,7 @@ case "$ARG" in
 
   init-ssh)
     # Allow only pubkey auth
-    if [ "$(grep -qs '#Bkjs' /etc/ssh/sshd_config)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' /etc/ssh/sshd_config)" = "" ]; then
        echo "Configuring ssh..."
        egrep -v '^(#Bkjs|PasswordAuth|GSSAPIAuth|MaxAuth|MaxSess|ClientAlive)' /etc/ssh/sshd_config > /tmp/sshd_config
        echo "" >> /tmp/sshd_config
@@ -245,7 +248,7 @@ case "$ARG" in
 
   init-logrotate)
     # Setup logrotate for backend log files
-    if [ "$(grep -qs '#Bkjs' /etc/logrotate.d/syslog)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' /etc/logrotate.d/syslog)" = "" ]; then
        echo "Configuring logrotate..."
        echo "#Bkjs" > /etc/logrotate.d/syslog
        echo "/var/log/cron /var/log/messages {" >> /etc/logrotate.d/syslog
@@ -257,7 +260,8 @@ case "$ARG" in
        echo " endscript" >> /etc/logrotate.d/syslog
        echo "}" >> /etc/logrotate.d/syslog
     fi
-    if [ "$(grep -qs '#Bkjs $BKJS_HOME' /etc/logrotate.d/$BKJS)" = "" ]; then
+    if [ "$(grep -s '#Bkjs $BKJS_HOME' /etc/logrotate.d/$BKJS)" = "" ]; then
+       echo "Configuring logrotate.d/$BKJS..."
        echo "#Bkjs $BKJS_HOME" > /etc/logrotate.d/$BKJS
        echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> /etc/logrotate.d/$BKJS
        echo " missingok" >> /etc/logrotate.d/$BKJS
@@ -272,7 +276,7 @@ case "$ARG" in
 
   init-rsyslog)
     # Setup syslog config for backend logging
-    if [ "$(grep -qs '#Bkjs' /etc/rsyslog.conf)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' /etc/rsyslog.conf)" = "" ]; then
        echo "Configuring rsyslog..."
        echo "#Bkjs" > /etc/rsyslog.conf
        echo '$ModLoad imklog' >> /etc/rsyslog.conf
@@ -294,7 +298,8 @@ case "$ARG" in
        chown -R $BKJS_USER /var/log/messages
        service rsyslog restart
     fi
-    if [ "$(grep -qs '#Bkjs $BKJS_HOME' /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
+    if [ "$(grep -s '#Bkjs $BKJS_HOME' /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
+       echo "Configuring rsyslog.d/$BKJS ..."
        echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS.conf
        echo "$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS.conf
        echo "local0.* $BKJS_HOME/log/message.log" >> /etc/rsyslog.d/$BKJS.conf
@@ -335,7 +340,7 @@ case "$ARG" in
     fi
 
     # System tuning
-    if [ "$(grep -qs '#Bkjs' /etc/sysctl.conf)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' /etc/sysctl.conf)" = "" ]; then
        echo "#Bkjs" >> /etc/sysctl.conf
        echo 'kernel.core_uses_pid=0' >> /etc/sysctl.conf
        echo 'vm.max_map_count=131072' >> /etc/sysctl.conf
@@ -364,7 +369,7 @@ case "$ARG" in
 
   init-postfix)
     # Setup postfix with origin domain name
-    if [ "$(grep -qs '#Bkjs' /etc/postfix/main.cf)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' /etc/postfix/main.cf)" = "" ]; then
        yum -y -q remove sendmail
        yum -y -q install postfix
        echo "Configuring postfix..."
@@ -379,7 +384,7 @@ case "$ARG" in
 
   init-dns)
     # DNS cache
-    if [ "$(grep -qs '#Bkjs' /etc/dnsmasq.conf)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' /etc/dnsmasq.conf)" = "" ]; then
        yum -y -q install dnsmasq
        echo "#Bkjs" > /etc/dnsmasq.conf
        echo "domain-needed" >> /etc/dnsmasq.conf
@@ -773,6 +778,14 @@ case "$ARG" in
     rm -rf *~ *.o *.a *.so *.dylib *.node *.log build
     ;;
 
+  build-bkjs)
+    if [ ! -d node_modules/$BKJS_MOD ]; then
+        mkdir -p node_modules
+        (cd node_modules && git clone https://github.com/vseryakov/backendjs.git)
+    fi
+    (cd node_modules/$BKJS_MOD && git pull && npm install --backend_nanomsg --backend_imagemagick)
+    ;;
+
   build-backend)
     set -e
     if [ ! -f build/Makefile -o binding.gyp -nt build/Makefile ]; then
@@ -1034,7 +1047,8 @@ backend.server.start();
     echo "  restart - restart the backend service"
     echo "  stop - stop the backend service"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
-    echo "  init-server [-user USER] [-home HOME] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
+    echo "  install - [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - make server setup and install all pakages including node and the $BKJS_MOD"
+    echo "  init-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
     echo "  init-hostname [-host HOST] - set the hostname"
     echo "  init-user [-user NAME] - create a new user for the backend"
     echo "  init-ssh - setup SSH permissions, allow only public key auth"
@@ -1079,6 +1093,7 @@ backend.server.start();
     echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
     echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
+    echo "  build-bkjs - build the $BKJS_MOD from the git"
     echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
