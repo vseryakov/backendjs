@@ -790,7 +790,7 @@ case "$ARG" in
     fi
     (cd deps/node && [ ! -f out/Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BKJS_PREFIX)
     (cd deps/node && git pull && make install clean)
-    $NPM_BIN config set nodedir "$(pwd)/deps/node"
+    sudo -u $BKJS_USER $NPM_BIN config set nodedir "$(pwd)/deps/node"
     ;;
 
   build-deps)
