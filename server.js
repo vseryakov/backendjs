@@ -648,11 +648,8 @@ server.startShell = function()
             var query = getQuery(), table = core.getArg("-table")
             db.select(table, query, { noscan: 0 }, function(err, data) {
                 if (data && data.length) {
-                    console.log(Object.keys(data[0]).join(" | "));
                     data.forEach(function(x) {
-                        var vals = [];
-                        for (var p in x) vals.push(x[p]);
-                        console.log(vals.join(" | "));
+                        console.log(JSON.stringify(x));
                     });
                 }
                 exit(err);

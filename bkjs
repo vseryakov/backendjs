@@ -209,7 +209,7 @@ case "$ARG" in
        echo "umask 022" >> $LHOME/.bashrc
        echo "export PATH=\$PATH:$LHOME/bin:$LHOME/node_modules/.bin" >> $LHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $LHOME/.bashrc
-       echo "alias blog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $LHOME/.bashrc
+       echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $LHOME/.bashrc
        echo "alias elog=\"tail -100 $BKJS_HOME/log/error.log\"" >> $LHOME/.bashrc
        echo "alias alog=\"tail -100 $BKJS_HOME/log/access.log\"" >> $LHOME/.bashrc
        echo 'alias ps="ps augx"' >> $LHOME/.bashrc
@@ -290,18 +290,18 @@ case "$ARG" in
        echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
-       service rsyslog restart
        touch /var/log/messages
        chown -R $BKJS_USER /var/log/messages
-    fi
-    if [ "$(grep -qs '#Bkjs $BKJS_HOME' /etc/rsyslog.d/$BKJS)" = "" ]; then
-       echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS
-       echo "local0.* $BKJS_HOME/log/message.log" >> /etc/rsyslog.d/$BKJS
-       echo "local5.* $BKJS_HOME/log/access.log" >> /etc/rsyslog.d/$BKJS
-       mkdir -p $BKJS_HOME/log
        service rsyslog restart
-       touch $BKJS_HOME/log/access.log $BKJS_HOME/log/message.log
+    fi
+    if [ "$(grep -qs '#Bkjs $BKJS_HOME' /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
+       echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS.conf
+       echo "$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS.conf
+       echo "local0.* $BKJS_HOME/log/message.log" >> /etc/rsyslog.d/$BKJS.conf
+       echo "local5.* $BKJS_HOME/log/access.log" >> /etc/rsyslog.d/$BKJS.conf
+       mkdir -p $BKJS_HOME/log
        chown -R $BKJS_USER $BKJS_HOME/log
+       service rsyslog restart
     fi
     ;;
 

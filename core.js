@@ -1449,7 +1449,10 @@ core.runMethods = function(name, options, callback)
         var ctx = self.context[mod];
         if (!ctx[name]) return next();
         logger.debug("runMethods:", name, mod);
-        ctx[name](options, next);
+        ctx[name](options, function(err) {
+            if (err) logger.error('runMethods:', name, mod, err);
+            next();
+        });
     }, callback);
 }
 

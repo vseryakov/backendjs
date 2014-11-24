@@ -47,10 +47,22 @@ module.exports = aws;
 // Initialization of metadata
 aws.configure = function(options, callback)
 {
+    var self = this;
     if (typeof options == "function") callback = options, options = null;
     // Do not retrieve metadata if not running inside important process
     if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master","worker"].indexOf(core.role) == -1) return callback();
     this.getInstanceInfo(callback);
+}
+
+// Execute on Web server startup
+aws.configureServer = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    // Make sure we are running on EC2 instance
+    if (!self.elbName || !core.instanceId || !core.instanceImage) return callback();
+    // Do not stop if cannot register
+    self.elbRegisterInstances(self.elbName, core.instanceId, options, callback);
 }
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
