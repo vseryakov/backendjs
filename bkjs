@@ -615,9 +615,24 @@ case "$ARG" in
     ;;
 
   get-java)
-    set -e
-    file=java.rpm
-    wget -O $file --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u5-b13/jdk-8u5-linux-x64.rpm"
+    [ "$BKJS_PATH" = "" ] && echo "-path url is required" && exit 1
+    url=$BKJS_PATH
+    file=jdk.rpm
+    rm -rf $file
+    if [[ $url =~ oracle.com ]]; then
+       wget -O $file --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" $url
+    else
+      if [[ $url =~ ^http:// ]]; then
+         wget -O $file $url
+      else
+        if [[ $url =~ ^s3:// ]]; then
+           aws s3 cp $url $file
+        else
+           echo "unsupported url $url" && exit 1
+        fi
+      fi
+    fi
+    [ ! -f $file ] && echo "no jdk rpm found" && exit 1
     rpm -Uvh $file
     alternatives --install /usr/bin/java java /usr/java/default/bin/java 20000
     alternatives --set java /usr/java/default/bin/java
