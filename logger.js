@@ -210,7 +210,7 @@ logger.dev = function()
 logger.warn = function()
 {
     if (this.level < 0) return;
-    this.print('WARNING', this.format(arguments));
+    this.print('WARN', this.format(arguments));
 }
 
 logger.error = function()

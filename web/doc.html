@@ -1629,8 +1629,8 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>logwatcher-url</code> - The backend URL where logwatcher reports should be sent instead of email</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
-<li><code>logwatcher-ignore</code> - Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns. Default: [&quot;NOTICE: &quot;,&quot;DEBUG: &quot;,&quot;DEV: &quot;]</li>
-<li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns. Default: [&quot;[[0-9a-zA-Z_.-]+]: (ERROR|WARNING): &quot;,&quot;message\&quot;:\&quot;ERROR:&quot;]</li>
+<li><code>logwatcher-ignore</code> - Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns. Default: [&quot; (NOTICE|DEBUG|DEV): &quot;]</li>
+<li><code>logwatcher-match</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns. Default: [&quot; (ERROR|WARNING|WARN|ALERT|EMERG|CRIT): &quot;,&quot;message\&quot;:\&quot;ERROR:&quot;]</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes. Default: 60</li>
 <li><code>logwatcher-file</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers. Default: []</li>

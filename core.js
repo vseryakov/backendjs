@@ -103,8 +103,8 @@ var core = {
     // Log watcher config, watch for server restarts as well
     logwatcherMax: 1000000,
     logwatcherInterval: 60,
-    logwatcherIgnore: ["NOTICE: ", "DEBUG: ", "DEV: "],
-    logwatcherMatch: ['\[[0-9a-zA-Z_\.-]+\]: (ERROR|WARNING): ', 'message":"ERROR:'],
+    logwatcherIgnore: [" (NOTICE|DEBUG|DEV): "],
+    logwatcherMatch: [' (ERROR|WARNING|WARN|ALERT|EMERG|CRIT): ', 'message":"ERROR:'],
     logwatcherFiles: [ { file: "/var/log/messages" }, { name: "logFile" }, { name: "errFile", match: /.+/, } ],
 
     // User agent
