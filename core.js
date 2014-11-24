@@ -3065,6 +3065,8 @@ core.watchLogs = function(options, callback)
         try { ignore = new RegExp(self.logwatcherIgnore.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) { logger.error('watchLogs:', e, self.logwatcherIgnore) }
     }
 
+    logger.debug('watchLogs:', self.logwatcherEmail, self.logwatcherUrl, self.logwatcherFiles);
+
     // Load all previous positions for every log file, we start parsing file from the previous last stop
     db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' }, pool: db.local }, function(err, rows) {
         var lastpos = {};
@@ -3111,7 +3113,7 @@ core.watchLogs = function(options, callback)
                    });
                });
             });
-        }, function(err2) {
+        }, function(err) {
             if (errors.length > 1) {
                 logger.log('logwatcher:', 'found errors, sending report to', self.logwatcherEmail, self.logwatcherUrl);
                 if (self.logwatcherUrl) {
@@ -3123,7 +3125,7 @@ core.watchLogs = function(options, callback)
                     return;
                 }
             }
-            if (typeof callback == "function") callback();
+            if (typeof callback == "function") callback(err, errors);
         });
     });
 }

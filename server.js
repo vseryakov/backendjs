@@ -552,6 +552,8 @@ server.startShell = function()
     var db = core.context.db;
     var api = core.context.api;
 
+    logger.debug('runShell:', process.argv);
+
     function exit(err, msg) {
         if (err) console.log(err);
         if (msg) console.log(msg);

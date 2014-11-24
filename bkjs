@@ -44,7 +44,7 @@ esac
 # There are special commands that can be used as the script name
 NAME=$(echo $0 | awk -F/ '{print $NF}')
 case "$NAME" in
-  bksh|sync-backend|check-backend|backup-backend)
+  bksh|sync-backend|check-backend|backup-backend|log-watch|ntp)
     ARG=$NAME
     ;;
 
@@ -545,7 +545,7 @@ case "$ARG" in
     ;;
 
   log-watch)
-    $0 run-shell -log error -log-watch
+    bkjs run-shell -log error -log-watch
     ;;
 
   ntp)
