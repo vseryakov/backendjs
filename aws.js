@@ -1218,7 +1218,7 @@ aws.ddbWaitForTable = function(name, item, options, callback)
           self.ddbDescribeTable(name, options, function(err, rc) {
               if (err) return next(err);
               status = rc.Table.TableStatus;
-              setTimeout(next, options.waitDelay || 250);
+              setTimeout(next, options.waitDelay || 1000);
           });
       },
       function(err) {
