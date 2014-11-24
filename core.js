@@ -3121,7 +3121,7 @@ core.watchLogs = function(options, callback)
                     return;
                 }
                 if (self.logwatcherEmail) {
-                    self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + " errors", errors, callback);
+                    self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + "/" + self.instanceId + " errors", errors, callback);
                     return;
                 }
             }
