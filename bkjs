@@ -431,7 +431,7 @@ case "$ARG" in
   init-packages)
     # Install required runtime packages
     yum -y -q update
-    yum -y -q install ntp rsync wget socat mc nano man telnet
+    yum -y -q install ntp rsync wget socat mc nano man telnet daemonize
 
     # Linux distro specific actions
     case "$OS_TYPE" in

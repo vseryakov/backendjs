@@ -163,7 +163,7 @@ server.startMaster = function()
         process.title = core.name + ': master';
 
         // Start other master processes
-        if (!Date.noweb) this.startWebProcess();
+        if (!core.noWeb) this.startWebProcess();
 
         // REPL command prompt over TCP
         if (core.replPort) self.startRepl(core.replPort, core.replBind);
