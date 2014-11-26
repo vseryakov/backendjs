@@ -6058,12 +6058,6 @@ cron jobs manually</p>
 </ul>
 
 <ul>
-<li><p><code>server.checkJob(type, job)</code></p>
-<p> Verify job structure and permissions and return as an object if the job is a string</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>server.loadSchedules()</code></p>
 <p> Load crontab from JSON file as list of job specs:</p>
 <ul>
@@ -6092,7 +6086,7 @@ cron jobs manually</p>
 <li>type - job type: local, remote, server</li>
 <li>stime - start time ofr the job, it will wait until this time is current to be processed</li>
 <li>etime - expiration time, after this this job is ignored</li>
-<li>job - an object with job spec</li>
+<li>job - an object with a job spec, for name-only job the object can look like { job: null }</li>
 <li>args - additional arguments for remote job to pass in the command line via user-data</li>
 </ul>
 </li>
