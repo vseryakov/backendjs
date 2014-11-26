@@ -1130,7 +1130,7 @@ backend.server.start();
     echo "  -log-watch - run logwatcher and exit, send emails in case any errors found"
     echo "  -s3-get -bucket BUCKET -path PATH - retrieve a file from S6"
     echo "  -s3-put -bucket BUCKET -path PATH -fle FILE - store a file to S3"
-    echo "  -db-list -table TABLE [name VALUE ...] - return all records from the table or only that match given column values"
+    echo "  -db-select -table TABLE [name VALUE ...] - return all records from the table or only that match given column values, all supported by db.select options are supported by prefixing with underscore like _count 10, the format is the same as for API query parameters"
     echo "  -db-put -table TABLE name VALUE ... - add or replace a record in the config table, name value pairs are column name and value to be set for the record to be added"
     echo "  -db-del -table TABLE name VALUE ... - delete a record from the table, name value pairs must define a primary key for the table"
     echo ""

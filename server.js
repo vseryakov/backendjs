@@ -568,9 +568,18 @@ server.startShell = function()
     function getQuery() {
         var query = {};
         for (var i = process.argv.length - 1; i > 1; i -= 2) {
-            if (process.argv[i - 1][0] != '-' && process.argv[i][0] != '-') query[process.argv[i - 1]] = process.argv[i];
+            var a = process.argv[i - 1][0], b = process.argv[i][0];
+            if (a != '_' && a != '-' && b != '_' && b != '-') query[process.argv[i - 1]] = process.argv[i];
         }
         return query;
+    }
+    function getOptions() {
+        var query = {};
+        for (var i = process.argv.length - 1; i > 1; i -= 2) {
+            var a = process.argv[i - 1][0], b = process.argv[i][0];
+            if (a == '_' && b != '_' && b != '-') query[process.argv[i - 1]] = process.argv[i];
+        }
+        return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
     }
 
     (core.isArg("-shell-api") ? api.initTables : function(c) { c() }).call(api, function(err) {
@@ -642,13 +651,11 @@ server.startShell = function()
         } else
 
         // Show all records
-        if (core.isArg("-db-list")) {
-            var query = getQuery(), table = core.getArg("-table")
-            db.select(table, query, { noscan: 0 }, function(err, data) {
+        if (core.isArg("-db-select")) {
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
+            db.select(table, query, opts, function(err, data) {
                 if (data && data.length) {
-                    data.forEach(function(x) {
-                        console.log(JSON.stringify(x));
-                    });
+                    console.log('[ ' + data.map(function(x) { return JSON.stringify(x) }).join(",\n  ") + "\n]");
                 }
                 exit(err);
             });
@@ -656,16 +663,16 @@ server.startShell = function()
 
         // Put config entry
         if (core.isArg("-db-put")) {
-            var query = getQuery(), table = core.getArg("-table");
-            db.put(table, query, {}, function(err, data) {
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
+            db.put(table, query, opts, function(err, data) {
                 exit(err);
             });
         } else
 
         // Delete config entry
         if (core.isArg("-db-del")) {
-            var query = getQuery(), table = core.getArg("-table");
-            db.del(table, query, {}, function(err, data) {
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
+            db.del(table, query, opts, function(err, data) {
                 exit(err);
             });
         } else
@@ -870,6 +877,7 @@ server.sleep = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
+
     setTimeout(function() {
         logger.log('sleep:', options);
         if (callback) callback();
