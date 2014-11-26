@@ -85,7 +85,7 @@ var server = {
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
-           { name: "job", type: "callback", callback: "queueJob", descr: "Job specification, JSON encoded as base64 of the job object" },
+           { name: "job", type: "callback", callback: function(v) { this.queueJob(core.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "proxy-url", type: "regexpmap", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
            { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
@@ -1147,18 +1147,17 @@ server.launchJob = function(job, options, callback)
 server.queueJob = function(job)
 {
     var self = this;
-    if (!job) return;
     switch (core.typeName(job)) {
     case "object":
-        this.queue.push(job);
+        if (Object.keys(job).length) return this.queue.push(job);
         break;
 
     case "string":
-    	var o = core.base64ToJson(job);
-    	if (!o) logger.error('queueJob:', 'invalid job', job);
-    	this.queue.push(o);
+        job = job.trim();
+        if (job) return this.queue.push(core.newObj(job, null));
         break;
     }
+    logger.error("queueJob:", "invalid job: ", job);
 }
 
 // Process pending jobs, submit to idle workers
@@ -1167,8 +1166,7 @@ server.execJobQueue = function()
     var self = this;
     if (!this.queue.length) return;
     var job = this.queue.shift();
-    if (!job) return;
-    this.execJob(job);
+    if (job) this.execJob(job);
 }
 
 // Create a new cron job, for remote jobs additional property args can be used in the object to define
@@ -1186,18 +1184,17 @@ server.execJobQueue = function()
 server.scheduleCronjob = function(spec, obj)
 {
     var self = this;
-    var job = self.checkJob('local', obj.job);
-    if (!job) return;
+    if (!spec || !obj || !obj.job) return;
     logger.debug('scheduleCronjob:', spec, obj);
     var cj = new cron.CronJob(spec, function() {
         // Submit a job via cron to a worker for execution
         if (this.job.tag) {
-            self.submitJob({ type: this.job.type, tag: this.job.tag, job: this.job.job, args: this.job.args });
+            self.submitJob(this.job);
         } else {
             self.scheduleJob(this.job);
         }
     }, null, true);
-    cj.job = { type: obj.type, id: obj.id, tag: obj.tag, args: obj.args, job: job };
+    cj.job = obj;
     this.crontab.push(cj);
 }
 
@@ -1258,16 +1255,6 @@ server.scheduleJob = function(options, callback)
     }
 }
 
-// Verify job structure and permissions and return as an object if the job is a string
-server.checkJob = function(type, job)
-{
-    var self = this;
-    if (typeof job == "string") job = core.newObj(job, null);
-    if (typeof job != "object") return null;
-    if (!Object.keys(job).length) return null;
-    return core.cloneObj(job);
-}
-
 // Load crontab from JSON file as list of job specs:
 // - type - local, remote, server
 //      - local means spawn a worker to run the job function
@@ -1317,7 +1304,7 @@ server.loadSchedules = function()
 //  - type - job type: local, remote, server
 //  - stime - start time ofr the job, it will wait until this time is current to be processed
 //  - etime - expiration time, after this this job is ignored
-//  - job - an object with job spec
+//  - job - an object with a job spec, for name-only job the object can look like { job: null }
 //  - args - additional arguments for remote job to pass in the command line via user-data
 server.submitJob = function(options, callback)
 {
