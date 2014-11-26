@@ -133,6 +133,7 @@ var core = {
             { name: "images-dir", type: "callback", callback: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
             { name: "uid", type: "callback", callback: function(v) { var u = backend.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
             { name: "gid", type: "callback", callback: function(v) { var g = backend.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
+            { name: "email", descr: "Email address to be used when sending emails from the backend" },
             { name: "force-uid", type: "callback", callback: "dropPrivileges", descr: "Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.", pass: 1 },
             { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used", pass: 1 },
             { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
@@ -156,6 +157,7 @@ var core = {
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
             { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules" },
+            { name: "shell-api", type: "none", descr: "Run command line shell but initializes the api modules in addition to the core and db" },
             { name: "monitor", type: "none", descr: "For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line" },
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
@@ -288,6 +290,9 @@ core.init = function(options, callback)
     if (pkg && pkg.name) self.appName = pkg.name;
     if (pkg && pkg.vesion) self.appVersion = pkg.version;
 
+    // Default email address
+    if (!self.email) self.email = (self.appName || self.name) + "@" + (self.domain || os.hostname());
+
     // Serialize initialization procedure, run each function one after another
     self.series([
         function(next) {
@@ -383,11 +388,11 @@ core.init = function(options, callback)
 core.noop = function() {}
 
 // Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized
-core.preInit = function(callback) { callback() }
+core.preInit = function(callback) { if (typeof callback == "function") callback() }
 
 // Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
 // init steps that all processes require to have.
-core.postInit = function(callback) { callback() }
+core.postInit = function(callback) { if (typeof callback == "function") callback() }
 
 // Run any backend function after environment has been initialized, this is to be used in shell scripts,
 // core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
@@ -399,7 +404,7 @@ core.run = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
 
-    if (!callback) return logger.error('run:', 'callback is required');
+    if (typeof callback != "function") return logger.error('run:', 'callback is required');
     this.init(options, function(err) {
         callback.call(self, err);
     });
@@ -1350,11 +1355,11 @@ core.signRequest = function(login, secret, method, host, uri, options)
 // - login - login to use for access credentials instead of global credentials
 // - secret - secret to use for access instead of global credentials
 // - proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
-// - queue - perform queue management, save in queue if cannot send right now, delete from queue if sent
-// - id - unique record id to be used in case of queue management
 // - checksum - calculate checksum from the data
 // - anystatus - keep any HTTP status, dont treat as error if not 200
 // - obj - return just result object, not the whole params
+// - queue - perform queue management, save in the bk_queue if cannot send right now, delete from bk_queue if sent
+// - etime - when this request expires, for queue management
 core.sendRequest = function(options, callback)
 {
     var self = this;
@@ -1373,24 +1378,15 @@ core.sendRequest = function(options, callback)
     var db = self.context.db;
 
     this.httpGet(options.url, core.cloneObj(options), function(err, params, res) {
-        // Queue management, insert on failure or delete on success
         if (options.queue) {
             if (params.status == 200) {
-                if (options.id) {
-                    db.del("bk_queue", { id: options.id }, { pool: db.local });
-                }
+                if (options.id) db.del("bk_queue", { id: options.id }, { pool: db.local });
             } else {
-                options.counter = self.toNumber(options.counter) + 1;
-                if ((options.retries && options.counter > options.retries) ||
-                    (options.expires && Date.now() > options.expires)) {
-                    if (options.id) {
-                        db.del("bk_queue", { id: options.id }, { pool: db.local });
-                    }
-                } else {
-                    db.put("bk_queue", { id: options.id || self.uuid(), data: options, ctime: Date.now() }, { pool: db.local });
-                }
+                options.tag = core.ipaddr;
+                db.put("bk_queue", options, { pool: db.local });
             }
         }
+
         // If the contents are encrypted, decrypt before processing content type
         if ((options.headers || {})['content-encoding'] == "encrypted") {
             params.data = self.decrypt(options.secret, params.data);
@@ -2825,20 +2821,23 @@ core.jsonParse = function(obj, options)
 // Return cookies that match given domain
 core.cookieGet = function(domain, callback)
 {
+    var self = this;
     var db = this.context.db;
-    db.select("bk_cookies", {}, { pool: db.local }, function(err, rows) {
-        var cookies = [];
-        rows.forEach(function(cookie) {
-            if (cookie.expires <= Date.now()) return;
-            if (cookie.domain == domain) {
-                cookies.push(cookie);
-            } else
-            if (cookie.domain.charAt(0) == "." && (cookie.domain.substr(1) == domain || domain.match(cookie.domain.replace(/\./g,'\\.') + '$'))) {
-                cookies.push(cookie);
-            }
-        });
+    var cookies = [];
+    db.scan("bk_property", {}, { pool: db.local }, function(row, next) {
+        if (!row.name.match(/^bk:cookie:/)) return next();
+        var cookie = self.jsonParse(row.value, { obj: 1 })
+        if (cookie.expires <= Date.now()) return next();
+        if (cookie.domain == domain) {
+            cookies.push(cookie);
+        } else
+        if (cookie.domain.charAt(0) == "." && (cookie.domain.substr(1) == domain || domain.match(cookie.domain.replace(/\./g,'\\.') + '$'))) {
+            cookies.push(cookie);
+        }
+        next();
+    }, function(err) {
         logger.debug('cookieGet:', domain, cookies);
-        if (callback) callback(cookies);
+        if (callback) callback(err, cookies);
     });
 }
 
@@ -2895,7 +2894,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
     self.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
         if (!rec.id) rec.id = core.hash(rec.name + ':' + rec.domain + ':' + rec.path);
-        db.put("bk_cookies", rec, { pool: db.local }, function() { next() });
+        db.put("bk_property", { name: "bk:cookie:" + rec.id, value: rec }, { pool: db.local }, function() { next() });
     }, function() {
         if (callback) callback();
     });

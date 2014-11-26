@@ -55,8 +55,8 @@ var server = {
     jobsInterval: 0,
     // Batch size
     jobsCount: 1,
-    // Default jobs host to be executed
-    jobsTag: os.hostname().split('.').shift(),
+    // Tag for jobs to process
+    jobsTag: '',
 
     // Schedules cron jobs
     crontab: [],
@@ -91,9 +91,9 @@ var server = {
            { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "node-args", type: "list", descr: "Node arguments for spawned processes, for passing v8 options" },
            { name: "node-worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
+           { name: "jobs-tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
            { name: "job-queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
-           { name: "jobs-tag", descr: "This server executes jobs that match this tag, cannot be empty, default is current hostname" },
-           { name: "jobs-count", descr: "How many jobs to execute at any iteration, this relates to the bk_jobs queue processing only" },
+           { name: "jobs-count", descr: "How many jobs to execute at any iteration, this relates to the bk_queue queue processing only" },
            { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" } ],
 };
 
@@ -110,7 +110,7 @@ server.start = function()
     logger.debug("server: start", process.argv);
 
     // REPL shell
-    if (core.isArg("-shell")) {
+    if (core.isArg("-shell") || core.isArg("-shell-api")) {
         return core.init({ role: "shell" }, function() { self.startShell(); });
     }
 
@@ -180,15 +180,11 @@ server.startMaster = function()
         }
 
         // Primary cron jobs
-        if (self.jobsInterval > 0) setInterval(function() { d.run(function() { self.processJobs(); }); }, self.jobsInterval * 1000);
+        if (self.jobsInterval > 0) setInterval(function() { d.run(function() { self.processQueue(); }); }, self.jobsInterval * 1000);
 
         // Watch temp files
         setInterval(function() { d.run(function() { core.watchTmp("tmp", { seconds: 86400 }) }); }, 43200000);
         setInterval(function() { d.run(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }); }, 86400000);
-
-        // Pending requests from local queue
-        self.processRequestQueue();
-        setInterval(function() { d.run(function() { self.processRequestQueue(); }) }, self.requestQueueInterval || 300000);
 
         // Maintenance tasks
         setInterval(function() {
@@ -577,7 +573,7 @@ server.startShell = function()
         return query;
     }
 
-    api.initTables(function(err) {
+    (core.isArg("-shell-api") ? api.initTables : function(c) { c() }).call(api, function(err) {
         // Add a user
         if (core.isArg("-account-add")) {
             var query = getQuery();
@@ -1178,14 +1174,14 @@ server.execJobQueue = function()
 // Create a new cron job, for remote jobs additional property args can be used in the object to define
 // arguments for the instance backend process, properties must start with -
 //
-// If a job object contains the `tag` property, it will be submitted into the bk_jobs queue for execution by that worker
+// If a job object contains the `tag` property, it will be submitted into the bk_queue for execution by that worker
 //
 // Example:
 //
-//          { "type": "server", "cron": "0 */10 * * * *", "job": "server.processJobs" },
+//          { "type": "server", "cron": "0 */10 * * * *", "job": "server.processQueue" },
 //          { "type": "local", "cron": "0 10 7 * * *", "id": "processQueue", "job": "api.processQueue" }
 //          { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
-//          { "type": "local", "cron": "0 */10 * * * *", "tag": "host-12", "job": "server.processJobs" },
+//          { "type": "local", "cron": "0 */10 * * * *", "tag": "host-12", "job": "server.processQueue" },
 //
 server.scheduleCronjob = function(spec, obj)
 {
@@ -1196,9 +1192,9 @@ server.scheduleCronjob = function(spec, obj)
     var cj = new cron.CronJob(spec, function() {
         // Submit a job via cron to a worker for execution
         if (this.job.tag) {
-            self.submitJob({ type: this.job.type, tag: this.job.tag, job: this.job.job });
+            self.submitJob({ type: this.job.type, tag: this.job.tag, job: this.job.job, args: this.job.args });
         } else {
-            self.doJob(this.job.type, this.job.job, this.job.args);
+            self.scheduleJob(this.job);
         }
     }, null, true);
     cj.job = { type: obj.type, id: obj.id, tag: obj.tag, args: obj.args, job: job };
@@ -1225,25 +1221,39 @@ server.runCronjob = function(id)
 }
 
 // Perform execution according to type
-server.doJob = function(type, job, options)
+server.scheduleJob = function(options, callback)
 {
     var self = this;
-    switch (type) {
+    if (typeof callback != "function") callback = core.noop;
+    if (core.typeName(options) != "object" || !options.job) options = { type: "error" };
+
+    switch (options.type || "") {
+    case "error":
+        callback("Invalid job", true);
+        break;
+
+    case "request":
+        core.sendRequest(options, function() { callback() });
+        break;
+
     case 'remote':
-        setImmediate(function() { self.launchJob(job, options); });
+        setImmediate(function() { self.launchJob(options.job, options.args); });
+        callback(null, true);
         break;
 
     case "server":
         setImmediate(function() {
             var d = domain.create();
-            d.on('error', function(err) { logger.error('doJob:', job, err.stack); });
-            d.add(job);
-            d.run(function() { self.runJob(job); });
+            d.on('error', function(err) { logger.error('scheduleJob:', options, err.stack); });
+            d.add(options.job);
+            d.run(function() { self.runJob(options.job); });
         });
+        callback(null, true);
         break;
 
     default:
-        setImmediate(function() { self.queueJob(job); });
+        setImmediate(function() { self.queueJob(options.job); });
+        callback(null, true);
         break;
     }
 }
@@ -1303,39 +1313,21 @@ server.loadSchedules = function()
 // Submit job for execution, it will be saved in the server queue and the master or matched job server will pick it up later.
 //
 // The options can specify:
-//  - tag - job tag for execution, default is current jobTag, this can be used to run on specified servers only
+//  - tag - job name for execution, this can be used to run on specified servers by IP address or other tag asigned
+//  - type - job type: local, remote, server
+//  - stime - start time ofr the job, it will wait until this time is current to be processed
+//  - etime - expiration time, after this this job is ignored
 //  - job - an object with job spec
-//  - type - job type: local, remote, server, cron
+//  - args - additional arguments for remote job to pass in the command line via user-data
 server.submitJob = function(options, callback)
 {
     var self = this;
-    if (!options || core.typeName(options.job) != "object") {
+    if (!options || core.typeName(options) != "object" || !options.job) {
         logger.error('submitJob:', 'invalid job spec, must be an object:', options);
         return callback ? callback("invalid job") : null;
     }
     logger.debug('submitJob:', options);
-    db.put("bk_jobs", { tag: options.tag || self.jobsTag,
-                        hash: core.hash(options.job),
-                        type: options.type,
-                        job: options.job,
-                        args: options.args }, callback);
-}
-
-// Send all pending updates from the queue table
-server.processRequestQueue = function(callback)
-{
-    var self = this;
-
-    db.select("bk_queue", {}, { sort: "mtime", pool: db.local } , function(err, rows) {
-        core.forEachSeries(rows, function(row, next) {
-            if (core.typeName(row.data) != "object") return next();
-            for (var p in row) if (p != "data") row.data[p] = row[p];
-            core.sendRequest(row.data, function(err2) { next(); });
-        }, function(err) {
-            if (rows.length) logger.log('processQueue:', 'sent', rows.length);
-            if (callback) callback(err);
-        });
-    });
+    db.put("bk_queue", options, callback);
 }
 
 // Process AWS SQS queue for any messages and execute jobs, a job object must be in the same format as for the cron jobs.
@@ -1347,7 +1339,7 @@ server.processRequestQueue = function(callback)
 //  - visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
 //     after being retrieved by a ReceiveMessage request.
 //
-server.processJobsFromSQS = function(options, callback)
+server.processSQS = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
@@ -1359,9 +1351,10 @@ server.processJobsFromSQS = function(options, callback)
         if (err) return callback ? callback(err) : null;
         core.forEachSeries(rows || [], function(item, next) {
             var job = core.jsonParse(item.Body, { obj: 1, error: 1 });
-            if (job && row.job) self.doJob(row.type, row.job, row.args);
+            if (job && row.job) self.scheduleJob(row.type, row.job, row.args);
+
             aws.querySQS("DeleteMessage", { QueueUrl: queue, ReceiptHandle: item.ReceiptHandle }, function(err) {
-                if (err) logger.error('processJobsFromSQS:', err);
+                if (err) logger.error('processSQS:', err);
                 next();
             });
         }, function() {
@@ -1374,18 +1367,30 @@ server.processJobsFromSQS = function(options, callback)
 // Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
 // the higher level management tool must take care when and what to run and in what order.
 //
-server.processJobs = function(options, callback)
+server.processQueue = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
 
-    db.select("bk_jobs", { tag: self.jobsTag }, { count: self.jobCount }, function(err, rows) {
+    var now = Date.now()
+    db.select("bk_queue", {}, { count: self.jobCount }, function(err, rows) {
+        rows = rows.filter(function(x) {
+            if (x.stime && x.stime < now) return 0;
+            return !x.tag || x.tag == core.ipaddr || x.tag == self.jobsTag;
+        }).sort(function(a,b) { return a.mtime - b.mtime });
+
         core.forEachSeries(rows, function(row, next) {
-            self.doJob(row.type, row.job, row.args);
-            db.del('bk_jobs', row, function() { next() });
+            // Cleanup expired records
+            if (row.etime && row.etime < now) {
+                return db.del('bk_queue', row, function() { next() });
+            }
+            self.scheduleJob(row, function(err, del) {
+                if (del) return db.del('bk_queue', row, function() { next() });
+                next();
+            });
         }, function() {
-            if (rows.length) logger.log('processJobs:', rows.length, 'jobs');
+            if (rows.length) logger.log('processQueue:', rows.length, 'jobs');
             if (callback) callback();
         });
     });

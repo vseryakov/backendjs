@@ -149,29 +149,16 @@ var db = {
                        mtime: { type: "bigint", now: 1 }
         },
 
-        // Store for cookies
-        bk_cookies: { id: { primary: 1 },
-                      name: {},
-                      domain: {},
-                      path: {},
-                      value: { type: "text" },
-                      expires: { type:" bigint" }
-        },
-
-        // Pending requests to be sent to the backend by core.sendRequest
-        bk_queue: { id: { primary: 1 },
-                    data: { type: "json" },
-                    ctime: { type: "bigint" },
+        // Pending jobs or other requests to be processed
+        bk_queue: { id: { type: "uuid", primary: 1 },
+                    tag: {},
+                    type: {},
+                    job: { type: "json" },
+                    args: { type: "json" },
+                    stime: { type: "bigint" },                        // time when valid for processing
+                    etime: { type: "bigint" },                        // expiration time
+                    ctime: { type: "bigint", readonly: 1, now: 1 },   // creation time
                     mtime: { type: "bigint", now: 1 }
-        },
-
-        // Jobs to be executed by the server
-        bk_jobs: { tag: { primary: 1 },
-                   hash: { primary: 1 },
-                   type: { value: "local" },
-                   job: { type: "json" },
-                   args: { type: "json" },
-                   mtime: { type: 'bigint', now: 1 }
         },
     }, // tables
 };
@@ -710,6 +697,8 @@ db.query = function(req, options, callback)
 //      - mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
 //        string then it is used as a name of the column instead of default mtime name
 //      - skip_null - if set, all null values will be skipped, otherwise will be written into the DB as NULLs
+//
+// On return the `obj` will contain all new columns generated before adding the record
 //
 // Example
 //
@@ -1623,7 +1612,10 @@ db.prepare = function(op, table, obj, options)
         for (var p in cols) {
             if (typeof cols[p].value != "undefined" && !obj[p]) obj[p] = cols[p].value;
             // Counters must have default value or use 0 is implied
-            if (typeof obj[p] == "undefined" && cols[p].type == "counter") obj[p] = 0;
+            if (typeof obj[p] == "undefined") {
+                if (cols[p].type == "counter") obj[p] = 0;
+                if (cols[p].type == "uuid") obj[p] = core.uuid();
+            }
         }
 
     case "incr":
@@ -3071,7 +3063,7 @@ db.dynamodbInitPool = function(options)
             pool.dbkeys = {};
             pool.dbcolumns = {};
             pool.dbindexes = {};
-            core.forEachSeries(rc.TableNames, function(table, next) {
+            core.forEachLimit(rc.TableNames, 3, function(table, next) {
                 aws.ddbDescribeTable(table, options, function(err, rc) {
                     if (err) return next(err);
                     rc.Table.AttributeDefinitions.forEach(function(x) {
@@ -3299,13 +3291,13 @@ db.dynamodbInitPool = function(options)
         case "add":
             opts.expected = (pool.dbkeys[table] || []).map(function(x) { return x }).reduce(function(x,y) { x[y] = null; return x }, {});
             aws.ddbPutItem(table, obj, opts, function(err, rc) {
-                callback(err, [], rc);
+                callback(err, rc && rc.Item ? [rc.Item] : [], rc);
             });
             break;
 
         case "put":
             aws.ddbPutItem(table, obj, opts, function(err, rc) {
-                callback(err, [], rc);
+                callback(err, rc && rc.Item ? [rc.Item] : [], rc);
             });
             break;
 
@@ -3314,7 +3306,7 @@ db.dynamodbInitPool = function(options)
             if (!options.expected && !options.Expected && !options.expr && !options.ConditionExpression) opts.expected = keys;
             if (opts.counter) opts.counter.forEach(function(x) { opts.ops[x] = 'ADD'; });
             aws.ddbUpdateItem(table, keys, obj, opts, function(err, rc) {
-                callback(err, [], rc);
+                callback(err, rc && rc.Item ? [rc.Item] : [], rc);
             });
             break;
 
@@ -3323,14 +3315,14 @@ db.dynamodbInitPool = function(options)
             // Increment counters, only specified columns will use ADD operation, they must be numbers
             if (opts.counter) opts.counter.forEach(function(x) { opts.ops[x] = 'ADD'; });
             aws.ddbUpdateItem(table, keys, obj, opts, function(err, rc) {
-                callback(err, [], rc);
+                callback(err, rc && rc.Item ? [rc.Item] : [], rc);
             });
             break;
 
         case "del":
             var keys = self.getSearchQuery(table, obj);
             aws.ddbDeleteItem(table, keys, opts, function(err, rc) {
-                callback(err, [], rc);
+                callback(err, rc && rc.Item ? [rc.Item] : [], rc);
             });
             break;
 

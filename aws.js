@@ -163,6 +163,18 @@ aws.querySNS = function(action, obj, options, callback)
     this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + this.region + '.amazonaws.com', '/', req, callback);
 }
 
+// AWS SES API request
+aws.querySES = function(action, obj, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    var req = { Action: action, Version: '2010-12-01' };
+    for (var p in obj) req[p] = obj[p];
+    // All capitalized options are passed as is and take priority because they are in native format
+    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ses.' + this.region + '.amazonaws.com', '/', req, callback);
+}
+
 // Build version 4 signature headers
 aws.querySign = function(service, host, method, path, body, headers)
 {
@@ -911,6 +923,7 @@ aws.snsSetSubscriptionAttributes = function(arn, options, callback)
 
     this.querySNS("SetSubscriptionAttributes", params, options, callback);
 }
+
 // Creates a topic to which notifications can be published. The callback returns topic ARN on success.
 aws.snsUnsubscribe = function(arn, options, callback)
 {
@@ -920,6 +933,49 @@ aws.snsUnsubscribe = function(arn, options, callback)
 
     var params = { Name: name };
     this.querySNS("Unsubscribe", params, options, callback);
+}
+
+// Send an email via SES
+// The following options supported:
+//  - from - an email to use in the From: header
+//  - cc - list of email to use in CC: header
+//  - bcc - list of emails to use in Bcc: header
+//  - replyTo - list of emails to ue in ReplyTo: header
+//  - returnPath - email where to send bounces
+//  - charset - charset to use, default is UTF-8
+//  - html - if set the body is sent as MIME HTML
+aws.sesSendEmail = function(to, subject, body, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { "Message.Subject.Data": subject, "Message.Subject.Charset": options.charset || "UTF-8" };
+    params["Message.Body." + (options.html ? "Html" : "Text") + ".Data"] = body;
+    params["Message.Body." + (options.html ? "Html" : "Text") + ".Charset"] = options.charset || "UTF-8";
+    params["Source"] = options.from || core.email;
+    core.strSplit(to).forEach(function(x, i) { params["Destination.ToAddresses.member." + (i + 1)] = x; })
+    if (options.cc) core.strSplit(options.cc).forEach(function(x, i) { params["Destination.CcAddresses.member." + (i + 1)] = x; })
+    if (options.bcc) core.strSplit(options.bcc).forEach(function(x, i) { params["Destination.BccAddresses.member." + (i + 1)] = x; })
+    if (options.replyTo) core.strSplit(options.replyTo).forEach(function(x, i) { params["ReplyToAddresses.member." + (i + 1)] = x; })
+    if (options.returnPath) params["ReturnPath"] = options.returnPath;
+    this.querySES("SendEmail", params, options, callback);
+}
+
+// Send raw email
+// The following options accepted:
+//  - to - list of email addresses to use in RCPT TO
+//  - from - an email to use in from header
+aws.sesSendRawEmail = function(body, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = { "RawMessage.Data": body };
+    if (options.from) params["Source"] = options.from;
+    if (options.to) core.strSplit(options.to).forEach(function(x, i) { params["Destinations.member." + (i + 1)] = x; })
+    this.querySES("SendRawEmail", params, options, callback);
 }
 
 // Convert a Javascript object into DynamoDB object
@@ -1299,6 +1355,9 @@ aws.ddbPutItem = function(name, item, options, callback)
     }
     if (options.values) {
         params.ExpressionAttributeValues = self.toDynamoDB(options.values);
+    }
+    if (options.returning) {
+        params.ReturnValues = options.returning;
     }
     this.queryDDB('PutItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
