@@ -20,6 +20,7 @@ var aws = {
     args: [ { name: "key", descr: "AWS access key" },
             { name: "secret", descr: "AWS access secret" },
             { name: "region", descr: "AWS region" },
+            { name: "sdk-profile", descr: "AWS SDK profile to use when reding credentials file" },
             { name: "ddb-read-capacity", type: "int", min: 1, descr: "Default DynamoDB read capacity for all tables" },
             { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
             { name: "sns-app-arn", descr: "SNS Platform application ARN to be used for push notifications" },
@@ -50,8 +51,14 @@ aws.configure = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     // Do not retrieve metadata if not running inside important process
-    if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master","worker"].indexOf(core.role) == -1) return callback();
-    this.getInstanceInfo(callback);
+    if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master","worker"].indexOf(core.role) == -1) {
+        if (!self.key) return self.readCredentials(self.sdkProfile, callback);
+        callback();
+    }
+    this.getInstanceInfo(function() {
+        if (!self.key) return self.readCredentials(self.sdkProfile, callback);
+        callback();
+    });
 }
 
 // Execute on Web server startup
@@ -63,6 +70,37 @@ aws.configureServer = function(options, callback)
     if (!self.elbName || !core.instanceId || !core.instanceImage) return callback();
     // Do not stop if cannot register
     self.elbRegisterInstances(self.elbName, core.instanceId, options, callback);
+}
+
+// Read key and secret from the AWS SDK credentials file
+aws.readCredentials = function(profile, callback)
+{
+    var self = this;
+    if (typeof profile == "function") callback = profile, profile = null;
+    fs.readFile(process.env.HOME + "/.aws/credentials", function(err, data) {
+        if (data.length) {
+            var state = 0, lines = data.toString().split("\n");
+            for (var i = 0; i < lines.length; i++) {
+                var x = lines[i].split("=");
+                if (state == 0) {
+                    if (x[0][0] == '[' && (!profile || profile == x[0].substr(1, x[0].length - 2))) state = 1;
+                } else
+
+                if (state == 1) {
+                    if (x[0][0] == '[') break;
+                    if (x[0].trim() == "aws_access_key_id" && x[1]) {
+                        self.key = x[1].trim();
+                    }
+                    if (x[0].trim() == "aws_secret_access_key" && x[1]) {
+                        self.secret = x[1].trim();
+                        break;
+                    }
+                }
+            }
+            logger.debug('readCredentials:', self.key, self.secret);
+        }
+        callback();
+    });
 }
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
