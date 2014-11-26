@@ -1574,6 +1574,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>images-dir</code> - Path where to keep images</li>
 <li><code>uid</code> - User id or name to switch after startup if running as root, used by Web servers and job workers</li>
 <li><code>gid</code> - Group id or name to switch after startup if running to root</li>
+<li><code>email</code> - Email address to be used when sending emails from the backend</li>
 <li><code>force-uid</code> - Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.</li>
 <li><code>umask</code> - Permissions mask for new files, calls system umask on startup, if not specified the current umask is used. Default: &quot;0002&quot;</li>
 <li><code>port</code> - port to listen for the HTTP server, this is global default. Default: 8000</li>
@@ -1596,6 +1597,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
 <li><code>shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules</li>
+<li><code>shell-api</code> - Run command line shell but initializes the api modules in addition to the core and db</li>
 <li><code>monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
 <li><code>master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
 <li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
@@ -1742,9 +1744,9 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>server-proxy-host</code> - A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port</li>
 <li><code>server-node-args</code> - Node arguments for spawned processes, for passing v8 options. Default: []</li>
 <li><code>server-node-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options. Default: []</li>
+<li><code>server-jobs-tag</code> - This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag</li>
 <li><code>server-job-queue</code> - Name of the queue to process, this is a generic queue name that can be used by any queue provider</li>
-<li><code>server-jobs-tag</code> - This server executes jobs that match this tag, cannot be empty, default is current hostname. Default: &quot;Vlad-Macbook&quot;</li>
-<li><code>server-jobs-count</code> - How many jobs to execute at any iteration, this relates to the bk_jobs queue processing only. Default: 1</li>
+<li><code>server-jobs-count</code> - How many jobs to execute at any iteration, this relates to the bk_queue queue processing only. Default: 1</li>
 <li><code>server-jobs-interval</code> - Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs</li>
 </ul>
 <h2 id="module-api">Module: API</h2>
@@ -2869,6 +2871,12 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 </ul>
 
 <ul>
+<li><p><code>aws.querySES(action, obj, options, callback)</code></p>
+<p> AWS SES API request</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.querySign(service, host, method, path, body, headers)</code></p>
 <p> Build version 4 signature headers</p>
 </li>
@@ -3120,6 +3128,33 @@ The following options can be used:</p>
 <ul>
 <li><p><code>aws.snsUnsubscribe(arn, options, callback)</code></p>
 <p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.sesSendEmail(to, subject, body, options, callback)</code></p>
+<p> Send an email via SES
+The following options supported:</p>
+<ul>
+<li>from - an email to use in the From: header</li>
+<li>cc - list of email to use in CC: header</li>
+<li>bcc - list of emails to use in Bcc: header</li>
+<li>replyTo - list of emails to ue in ReplyTo: header</li>
+<li>returnPath - email where to send bounces</li>
+<li>charset - charset to use, default is UTF-8</li>
+<li>html - if set the body is sent as MIME HTML</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.sesSendRawEmail(body, options, callback)</code></p>
+<p> Send raw email
+The following options accepted:</p>
+<ul>
+<li>to - list of email addresses to use in RCPT TO</li>
+<li>from - an email to use in from header</li>
+</ul>
 </li>
 </ul>
 
@@ -3678,11 +3713,11 @@ Special parameters for options:</p>
 <li>login - login to use for access credentials instead of global credentials</li>
 <li>secret - secret to use for access instead of global credentials</li>
 <li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
-<li>queue - perform queue management, save in queue if cannot send right now, delete from queue if sent</li>
-<li>id - unique record id to be used in case of queue management</li>
 <li>checksum - calculate checksum from the data</li>
 <li>anystatus - keep any HTTP status, dont treat as error if not 200</li>
 <li>obj - return just result object, not the whole params</li>
+<li>queue - perform queue management, save in the bk_queue if cannot send right now, delete from bk_queue if sent</li>
+<li>etime - when this request expires, for queue management</li>
 </ul>
 </li>
 </ul>
@@ -4428,29 +4463,16 @@ other database will not require any application code changes.</p>
                      mtime: { type: &quot;bigint&quot;, now: 1 }
       },
 
-      // Store for cookies
-      bk_cookies: { id: { primary: 1 },
-                    name: {},
-                    domain: {},
-                    path: {},
-                    value: { type: &quot;text&quot; },
-                    expires: { type:&quot; bigint&quot; }
-      },
-
-      // Pending requests to be sent to the backend by core.sendRequest
-      bk_queue: { id: { primary: 1 },
-                  data: { type: &quot;json&quot; },
-                  ctime: { type: &quot;bigint&quot; },
+      // Pending jobs or other requests to be processed
+      bk_queue: { id: { type: &quot;uuid&quot;, primary: 1 },
+                  tag: {},
+                  type: {},
+                  job: { type: &quot;json&quot; },
+                  args: { type: &quot;json&quot; },
+                  stime: { type: &quot;bigint&quot; },                        // time when valid for processing
+                  etime: { type: &quot;bigint&quot; },                        // expiration time
+                  ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // creation time
                   mtime: { type: &quot;bigint&quot;, now: 1 }
-      },
-
-      // Jobs to be executed by the server
-      bk_jobs: { tag: { primary: 1 },
-                 hash: { primary: 1 },
-                 type: { value: &quot;local&quot; },
-                 job: { type: &quot;json&quot; },
-                 args: { type: &quot;json&quot; },
-                 mtime: { type: &#39;bigint&#39;, now: 1 }
       },
 </code></pre></li>
 </ul>
@@ -4624,6 +4646,7 @@ string then it is used as a name of the column instead of default mtime name</li
 </ul>
 </li>
 </ul>
+<p>On return the <code>obj</code> will contain all new columns generated before adding the record</p>
 <p>Example</p>
 <pre><code> db.add(&quot;bk_account&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
  });
@@ -6006,12 +6029,12 @@ All spaces must be are replaced with %20 to be used in command line parameterrs<
 <li><p><code>server.scheduleCronjob(spec, obj)</code></p>
 <p> Create a new cron job, for remote jobs additional property args can be used in the object to define
 arguments for the instance backend process, properties must start with -</p>
-<p>If a job object contains the <code>tag</code> property, it will be submitted into the bk_jobs queue for execution by that worker</p>
+<p>If a job object contains the <code>tag</code> property, it will be submitted into the bk_queue for execution by that worker</p>
 <p>Example:</p>
-<pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },
+<pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
     { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;id&quot;: &quot;processQueue&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
     { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
-    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;tag&quot;: &quot;host-12&quot;, &quot;job&quot;: &quot;server.processJobs&quot; },
+    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;tag&quot;: &quot;host-12&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
 </code></pre></li>
 </ul>
 
@@ -6029,7 +6052,7 @@ cron jobs manually</p>
 </ul>
 
 <ul>
-<li><p><code>server.doJob(type, job, options)</code></p>
+<li><p><code>server.scheduleJob(options, callback)</code></p>
 <p> Perform execution according to type</p>
 </li>
 </ul>
@@ -6065,21 +6088,18 @@ cron jobs manually</p>
 <p> Submit job for execution, it will be saved in the server queue and the master or matched job server will pick it up later.</p>
 <p>The options can specify:</p>
 <ul>
-<li>tag - job tag for execution, default is current jobTag, this can be used to run on specified servers only</li>
+<li>tag - job name for execution, this can be used to run on specified servers by IP address or other tag asigned</li>
+<li>type - job type: local, remote, server</li>
+<li>stime - start time ofr the job, it will wait until this time is current to be processed</li>
+<li>etime - expiration time, after this this job is ignored</li>
 <li>job - an object with job spec</li>
-<li>type - job type: local, remote, server, cron</li>
+<li>args - additional arguments for remote job to pass in the command line via user-data</li>
 </ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>server.processRequestQueue(callback)</code></p>
-<p> Send all pending updates from the queue table</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.processJobsFromSQS(options, callback)</code></p>
+<li><p><code>server.processSQS(options, callback)</code></p>
 <p> Process AWS SQS queue for any messages and execute jobs, a job object must be in the same format as for the cron jobs.</p>
 <p>The options can specify:</p>
 <ul>
@@ -6093,7 +6113,7 @@ cron jobs manually</p>
 </ul>
 
 <ul>
-<li><p><code>server.processJobs(options, callback)</code></p>
+<li><p><code>server.processQueue(options, callback)</code></p>
 <p> Load submitted jobs for execution, it is run by the master process every <code>-server-jobs-interval</code> seconds.
 Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
 the higher level management tool must take care when and what to run and in what order.</p>
