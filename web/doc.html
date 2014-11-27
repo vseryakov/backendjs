@@ -1554,7 +1554,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <ul>
 <li><code>help</code> - Print help and exit</li>
 <li><code>debug</code> - Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable</li>
-<li><code>debug-label</code> - Enable debugging labels, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug</li>
+<li><code>debug-filter</code> - Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug</li>
 <li><code>debug-run-segv</code> - On SEGV crash keep the process spinning so attaching with gdb is possible</li>
 <li><code>debug-set-segv</code> - Set default SEGV handler which shows backtrace of calls if debug info is available</li>
 <li><code>debug-set-backtrace</code> - Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well</li>
@@ -1603,7 +1603,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
 <li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests </li>
 <li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. Default: &quot;production&quot;. DNS TXT configurable.</li>
-<li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default</li>
+<li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically</li>
 <li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
 <li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1</li>
 <li><code>repl-bind-web</code> - Web server REPL listen address. Default: &quot;127.0.0.1&quot;</li>
@@ -1647,7 +1647,8 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: &quot;sqlite&quot;. DNS TXT configurable.</li>
 <li><code>db-no-pools</code> - Do not use other db pools except default local pool</li>
-<li><code>db-caching</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: []</li>
+<li><code>db-no-columns</code> - Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions</li>
+<li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: []</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: &quot;sqlite&quot;</li>
 <li><code>db-config</code> - Configuration database pool for config parameters, must be defined to use remote db for config parameters</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db. Default: 300</li>
@@ -4808,7 +4809,7 @@ db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { conso
 </ul>
 
 <ul>
-<li><p><code>db.scan(table, query, options, rowCallback, callback)</code></p>
+<li><p><code>db.scan(table, query, options, rowCallback, endCallback)</code></p>
 <p> Convenient helper for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
 records matching given criteria. The obj is the same as passed to the <code>db.select</code> method which defined a condition which records to get.
 The rowCallback must be present and is called for every row or batch retrieved and second parameter which is the function to be called
@@ -5255,6 +5256,14 @@ is used for SQL parametrized statements</p>
 <ul>
 <li><p><code>db.mergeColumns(pool)</code></p>
 <p> Merge JavaScript column definitions with the db cached columns</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.mergeKeys(pool)</code></p>
+<p> Update pool keys with the primary keys form the table definitions in addition to the actual cached
+column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
+not provide info about primary keys</p>
 </li>
 </ul>
 
@@ -5723,7 +5732,7 @@ argument, the mesages received as the third argument</p>
 </ul>
 
 <ul>
-<li><p><code>logger.setDebugLabel(str)</code></p>
+<li><p><code>logger.setDebugFilter(str)</code></p>
 <p> Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level</p>
 </li>
 </ul>
