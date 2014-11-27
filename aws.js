@@ -20,7 +20,7 @@ var aws = {
     args: [ { name: "key", descr: "AWS access key" },
             { name: "secret", descr: "AWS access secret" },
             { name: "region", descr: "AWS region" },
-            { name: "sdk-profile", descr: "AWS SDK profile to use when reding credentials file" },
+            { name: "sdk-profile", descr: "AWS SDK profile to use when reading credentials file" },
             { name: "ddb-read-capacity", type: "int", min: 1, descr: "Default DynamoDB read capacity for all tables" },
             { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
             { name: "sns-app-arn", descr: "SNS Platform application ARN to be used for push notifications" },
@@ -30,6 +30,7 @@ var aws = {
             { name: "image-id", descr: "AWS image id to be used for instances" },
             { name: "subnet-id", descr: "AWS subnet id to be used for instances" },
             { name: "group-id", array: 1, descr: "AWS security group(s) to be used for instances" },
+            { name: "s3", descr: "AWS S3 endpoint" },
             { name: "instance-type", descr: "AWS instance type for remote jobs launched on demand" } ],
 
     region: 'us-east-1',
@@ -88,13 +89,9 @@ aws.readCredentials = function(profile, callback)
 
                 if (state == 1) {
                     if (x[0][0] == '[') break;
-                    if (x[0].trim() == "aws_access_key_id" && x[1]) {
-                        self.key = x[1].trim();
-                    }
-                    if (x[0].trim() == "aws_secret_access_key" && x[1]) {
-                        self.secret = x[1].trim();
-                        break;
-                    }
+                    if (x[0].trim() == "aws_access_key_id" && x[1]) self.key = x[1].trim();
+                    if (x[0].trim() == "aws_secret_access_key" && x[1]) self.secret = x[1].trim();
+                    if (x[0].trim() == "region" && x[1]) self.region = x[1].trim();
                 }
             }
             logger.debug('readCredentials:', self.key, self.secret);

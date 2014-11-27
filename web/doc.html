@@ -1672,6 +1672,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region. Default: &quot;us-east-1&quot;</li>
+<li><code>aws-sdk-profile</code> - AWS SDK profile to use when reading credentials file</li>
 <li><code>aws-ddb-read-capacity</code> - Default DynamoDB read capacity for all tables</li>
 <li><code>aws-ddb-write-capacity</code> - Default DynamoDB write capacity for all tables</li>
 <li><code>aws-sns-app-arn</code> - SNS Platform application ARN to be used for push notifications</li>
@@ -1681,6 +1682,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>aws-image-id</code> - AWS image id to be used for instances</li>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
 <li><code>aws-group-id</code> - AWS security group(s) to be used for instances</li>
+<li><code>aws-s3</code> - AWS S3 endpoint. Default: &quot;s3.amazonaws.com&quot;</li>
 <li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand. Default: &quot;t1.micro&quot;</li>
 <li><code>msg-apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
 <li><code>msg-apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
@@ -2837,6 +2839,12 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <ul>
 <li><p><code>aws.configureServer(options, callback)</code></p>
 <p> Execute on Web server startup</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.readCredentials(profile, callback)</code></p>
+<p> Read key and secret from the AWS SDK credentials file</p>
 </li>
 </ul>
 
