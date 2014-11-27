@@ -110,10 +110,34 @@ var core = {
     // User agent
     userAgent: [],
 
+    // Geo min distance for the hash key, km
+    minDistance: 5,
+    // Max searchable distance, km
+    maxDistance: 50,
+
+    // Inter-process messages
+    deferTimeout: 50,
+    lruMax: 100000,
+
+    // REPL port for server
+    replBindWeb: '127.0.0.1',
+    replBind: '127.0.0.1',
+    replFile: '.history',
+    context: {},
+
+    // Cache and messaging properties
+    cacheType: 'nanomsg',
+    cachePort: 20100,
+    cacheHost: "127.0.0.1",
+    queueType: 'nanomsg',
+    queuePort: 20110,
+    queueHost: "127.0.0.1",
+    subCallbacks: {},
+
     // Config parameters
     args: [ { name: "help", type: "callback", callback: function() { core.showHelp() }, descr: "Print help and exit" },
             { name: "debug", type: "callback", callback: function(v) { logger.setDebug(v == "0" ? 'log' : 'debug'); }, descr: "Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable", pass: 1 },
-            { name: "debug-label", type: "callback", callback: function(v) { logger.setDebugLabel(v); }, descr: "Enable debugging labels, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
+            { name: "debug-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
             { name: "debug-run-segv", type: "callback", callback: function(v) { if(v) backend.runSEGV(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
             { name: "debug-set-segv", type: "callback", callback: function(v) { if(v) backend.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
             { name: "debug-set-backtrace", type: "callback", callback: function(v) { if(v) backend.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
@@ -163,7 +187,7 @@ var core = {
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
             { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
-            { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, without this flag no Web servers will be started by default" },
+            { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
             { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1" },
             { name: "repl-bind-web", descr: "Web server REPL listen address" },
@@ -206,30 +230,6 @@ var core = {
             { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
             { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
     ],
-
-    // Geo min distance for the hash key, km
-    minDistance: 5,
-    // Max searchable distance, km
-    maxDistance: 50,
-
-    // Inter-process messages
-    deferTimeout: 50,
-    lruMax: 100000,
-
-    // REPL port for server
-    replBindWeb: '127.0.0.1',
-    replBind: '127.0.0.1',
-    replFile: '.history',
-    context: {},
-
-    // Cache and messaging properties
-    cacheType: 'nanomsg',
-    cachePort: 20100,
-    cacheHost: "127.0.0.1",
-    queueType: 'nanomsg',
-    queuePort: 20110,
-    queueHost: "127.0.0.1",
-    subCallbacks: {},
 }
 
 module.exports = core;
@@ -379,7 +379,7 @@ core.init = function(options, callback)
 
         // Final callbacks
         function(err) {
-            logger.debug("core: init:", err || "");
+            logger.debug("init:", err || "");
             if (callback) callback.call(self, err);
     });
 }
@@ -1521,10 +1521,14 @@ core.forEachSeries = function(list, iterator, callback)
     callback = typeof callback == "function" ? callback : this.noop;
     if (!list || !list.length) return callback();
     function iterate(i) {
-        if (i == list.length) return callback();
+        if (i >= list.length) return callback();
         iterator(list[i], function(err) {
-            if (err) return callback(err);
-            iterate(++i);
+            if (err) {
+                callback(err);
+                callback = self.noop;
+            } else {
+                iterate(++i);
+            }
         });
     }
     iterate(0);

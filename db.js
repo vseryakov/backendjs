@@ -97,7 +97,7 @@ var db = {
     poolTables: {},
 
     // Tables to be cached
-    caching: [],
+    cacheTables: [],
 
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
@@ -109,7 +109,8 @@ var db = {
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type: "bool", descr: "Do not use other db pools except default local pool" },
-           { name: "caching", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
+           { name: "no-columns", type: "bool", descr: "Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions" },
+           { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
@@ -283,8 +284,6 @@ db.initPoolTables = function(name, tables, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    logger.debug('initPoolTables:', name, Object.keys(tables));
-
     // Add tables to the list of all tables this pool supports
     var pool = self.getPool('', { pool: name });
     if (!pool.dbtables) pool.dbtables = {};
@@ -292,6 +291,13 @@ db.initPoolTables = function(name, tables, options, callback)
     for (var p in tables) pool.dbtables[p] = tables[p];
     options.pool = name;
     options.tables = tables;
+    if (self.noColumns) {
+        self.mergeColumns(pool);
+        self.mergeKeys(pool);
+        return callback ? callback() : null;
+    }
+
+    logger.debug('initPoolTables:', name, Object.keys(tables));
     self.cacheColumns(options, function() {
     	// Workers do not manage tables, only master process
     	if (cluster.isWorker || core.worker) {
@@ -489,6 +495,7 @@ db.createPool = function(options)
     if (typeof pool.close != "function") pool.close = function(client, callback) { callback() }
     if (typeof pool.setup != "function") pool.setup = function(client, callback) { callback(null, client); };
     if (typeof pool.query != "function") pool.query = function(client, req, opts, callback) { callback(null, []); };
+    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { callback(); }
     if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, callback) { callback(); };
     if (typeof pool.nextToken != "function") pool.nextToken = function(client, req, rows, opts) { return client.next_token || null };
     // Pass all request in an object with predefined properties
@@ -497,15 +504,7 @@ db.createPool = function(options)
             return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj };
         }
     }
-    // By default for schema-less databases just reuse primary keys from the table definitions
-    if (typeof pool.cacheColumns != "function") {
-        pool.cacheColumns = function(opts, callback) {
-            for (var p in this.dbcolumns) {
-                this.dbkeys[p] = core.searchObj(this.dbcolumns[p], { name: 'primary', sort: 1, names: 1 });
-            }
-            callback();
-        }
-    }
+
     pool.name = pool.pool || pool.name;
     delete pool.pool;
     pool.processRow = {};
@@ -623,7 +622,7 @@ db.query = function(req, options, callback)
                     client = null;
 
                     // Cache notification in case of updates, we must have the request prepared by the db.prepare
-                    var cached = options.cached || self.caching.indexOf(table) > -1;
+                    var cached = options.cached || self.cacheTables.indexOf(table) > -1;
                     if (cached && table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
                         self.delCache(table, req.obj, options);
                     }
@@ -1034,9 +1033,9 @@ db.batch = function(table, op, objs, options, callback)
 //              db.add("bk_account", row, { pool: "pgsql" }, next);
 //          }, function(err) { });
 //
-db.scan = function(table, query, options, rowCallback, callback)
+db.scan = function(table, query, options, rowCallback, endCallback)
 {
-    if (typeof options == "function") callback = rowCallback, rowCallback = options, options = null;
+    if (typeof options == "function") endCallback = rowCallback, rowCallback = options, options = null;
     options = this.getOptions(table, options);
     if (!options.count) options.count = 100;
     options.start = "";
@@ -1056,9 +1055,7 @@ db.scan = function(table, query, options, rowCallback, callback)
                   core.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next);
               }
           });
-      }, function(err) {
-          if (callback) callback(err);
-      });
+      }, endCallback);
 }
 
 // Migrate a table via temporary table, copies all records into a temp table, then re-create the table with up-to-date definitions and copies all records back into the new table.
@@ -1417,7 +1414,7 @@ db.get = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
-    if (!options._cached && (options.cached || this.caching.indexOf(table) > -1)) {
+    if (!options._cached && (options.cached || this.cacheTables.indexOf(table) > -1)) {
     	options._cached = 1;
     	return this.getCached("get", table, query, options, callback);
     }
@@ -1905,6 +1902,7 @@ db.cacheColumns = function(options, callback)
     	self.mergeColumns(pool);
     	pool.cacheIndexes.call(pool, options, function(err) {
     	    if (err) logger.error('cacheIndexes:', pool.name, err);
+    	    self.mergeKeys(pool);
     	    if (callback) callback(err);
     	});
     });
@@ -1915,7 +1913,6 @@ db.mergeColumns = function(pool)
 {
 	var tables = pool.dbtables;
 	var dbcolumns = pool.dbcolumns;
-	var dboptions = pool.dboptions;
     for (var table in tables) {
 		for (var col in tables[table]) {
 		    if (!dbcolumns[table]) dbcolumns[table] = {};
@@ -1929,6 +1926,18 @@ db.mergeColumns = function(pool)
 			}
 		}
 	}
+}
+
+// Update pool keys with the primary keys form the table definitions in addition to the actual cached
+// column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
+// not provide info about primary keys
+db.mergeKeys = function(pool)
+{
+    var dbcolumns = pool.dbcolumns;
+    var dbkeys = pool.dbkeys;
+    for (var table in dbcolumns) {
+        if (!dbkeys[table]) dbkeys[table] = core.searchObj(dbcolumns[table], { name: 'primary', sort: 1, names: 1 });
+    }
 }
 
 // Custom row handler that is called for every row in the result, this assumes that pool.processRow callback has been assigned previously by db.setProcessRow.
@@ -2961,6 +2970,8 @@ db.sqliteCacheColumns = function(options, callback)
                         core.forEachSeries(indexes, function(idx, next2) {
                             client.query("PRAGMA index_info(" + idx.name + ")", function(err5, cols) {
                                 cols.forEach(function(x) {
+                                    if (!self.dbcolumns[table.name]) self.dbcolumns[table.name] = {};
+                                    if (!self.dbcolumns[table.name][x.name]) self.dbcolumns[table.name][x.name] = {};
                                     var col = self.dbcolumns[table.name][x.name];
                                     if (idx.unique) col.unique = 1;
                                     if (!self.dbindexes[idx.name]) self.dbindexes[idx.name] = [];

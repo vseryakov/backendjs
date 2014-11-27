@@ -107,7 +107,7 @@ server.start = function()
     // Mark the time we started for calculating idle times properly
     self.jobTime = Date.now();
     process.title = core.name + ": process";
-    logger.debug("server: start", process.argv);
+    logger.debug("start:", process.argv);
 
     // REPL shell
     if (core.isArg("-shell") || core.isArg("-shell-api")) {
@@ -384,7 +384,7 @@ server.startWeb = function(callback)
             logger.log('web server: shutdown started');
             for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
         }
-        logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
+        logger.log('startServer:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
 
     } else {
         core.role = 'web';
@@ -426,7 +426,7 @@ server.startWeb = function(callback)
             });
         });
 
-        logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, core.bind, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+        logger.log('startWeb:', core.role, 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'port:', core.port, core.bind, 'repl:', core.replPortWeb, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
     }
 }
 
@@ -513,7 +513,7 @@ server.startRepl = function(port, bind)
         self.repl.context.socket = socket;
     });
     repl.on('error', function(err) {
-       logger.error('startRepl:', port, bind, err);
+       logger.error('startRepl:', core.role, port, bind, err);
     });
     try { repl.listen(port, bind || '0.0.0.0'); } catch(e) { logger.error('startRepl:', port, bind, e) }
     logger.log('startRepl:', core.role, 'port:', port, 'bind:', bind || '0.0.0.0');
@@ -547,8 +547,9 @@ server.startShell = function()
     var self = this;
     var db = core.context.db;
     var api = core.context.api;
+    process.title = core.name + ": shell";
 
-    logger.debug('runShell:', process.argv);
+    logger.debug('startShell:', process.argv);
 
     function exit(err, msg) {
         if (err) console.log(err);
@@ -652,10 +653,47 @@ server.startShell = function()
 
         // Show all records
         if (core.isArg("-db-select")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");
+            var cols = Object.keys(db.getColumns(table))
             db.select(table, query, opts, function(err, data) {
                 if (data && data.length) {
-                    console.log('[ ' + data.map(function(x) { return JSON.stringify(x) }).join(",\n  ") + "\n]");
+                    if (fmt == "text") {
+                        data.forEach(function(x) { console.log((cols || Object.keys(x)).map(function(y) { return x[y] }).join(sep)) });
+                    } else {
+                        data.forEach(function(x) { console.log(JSON.stringify(x)) });
+                    }
+                }
+                exit(err);
+            });
+        } else
+
+        // Show all records
+        if (core.isArg("-db-scan")) {
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");
+            var cols = Object.keys(db.getColumns(table));
+            db.scan(table, query, opts, function(row, next) {
+                if (fmt == "text") {
+                    console.log((cols || Object.keys(row)).map(function(y) { return row[y] }).join(sep));
+                } else {
+                    console.log(JSON.stringify(row));
+                }
+                next();
+            }, function(err) {
+                exit(err);
+            });
+        } else
+
+        // Put config entry
+        if (core.isArg("-db-get")) {
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
+            var cols = Object.keys(db.getColumns(table))
+            db.get(table, query, opts, function(err, data) {
+                if (data) {
+                    if (fmt == "text") {
+                        console.log((cols || Object.keys(x)).map(function(y) { return x[y] }).join(sep))
+                    } else {
+                        console.log(JSON.stringify(data));
+                    }
                 }
                 exit(err);
             });
@@ -932,7 +970,7 @@ server.spawnProcess = function(args, skip, opts)
     // Remove arguments we should not pass to the process
     var argv = this.nodeArgs.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
     if (Array.isArray(args)) argv = argv.concat(args);
-    logger.debug('spawnProcess:', argv, 'skip:', skip);
+    logger.debug('spawnProcess:', argv, 'skip:', skip, 'opts:', opts);
     return spawn(process.argv[0], argv, opts);
 }
 

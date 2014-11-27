@@ -33,6 +33,8 @@ var aws = {
             { name: "s3", descr: "AWS S3 endpoint" },
             { name: "instance-type", descr: "AWS instance type for remote jobs launched on demand" } ],
 
+    key: process.env.AWS_ACCESS_KEY_ID,
+    secret: process.env.AWS_SECRET_ACCESS_KEY,
     region: 'us-east-1',
     s3: "s3.amazonaws.com",
     instanceType: "t1.micro",
@@ -54,7 +56,7 @@ aws.configure = function(options, callback)
     // Do not retrieve metadata if not running inside important process
     if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master","worker"].indexOf(core.role) == -1) {
         if (!self.key) return self.readCredentials(self.sdkProfile, callback);
-        callback();
+        return callback();
     }
     this.getInstanceInfo(function() {
         if (!self.key) return self.readCredentials(self.sdkProfile, callback);

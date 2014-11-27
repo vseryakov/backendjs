@@ -14,7 +14,7 @@ var logger = {
     stream: process.stdout,
     writable: true,
     levels: { test: 3, dev: 2, debug: 1, warn: 0, info: 0, none: -1 },
-    labels: null,
+    filters: null,
 
     // syslog facilities
     LOG_KERN: (0<<3),
@@ -146,21 +146,21 @@ logger.setDebug = function(level)
 }
 
 // Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level
-logger.setDebugLabel = function(str)
+logger.setDebugFilter = function(str)
 {
     var self = this;
     String(str).split(",").forEach(function(x) {
         x = x.trim();
         switch (x[0]) {
         case '-':
-            if (x == "-") self.labels = null;
-            if (!self.labels) break;
-            delete self.labels[x.substr(1)];
-            if (!Object.keys(self.labels).length) self.labels = null;
+            if (x == "-") self.filters = null;
+            if (!self.filters) break;
+            delete self.filters[x.substr(1)];
+            if (!Object.keys(self.filters).length) self.filters = null;
             break;
         case '+':
-            if (!self.labels) self.labels = {};
-            self.labels[x.substr(1)] = 1;
+            if (!self.filters) self.filters = {};
+            self.filters[x.substr(1)] = 1;
             break;
         }
     });
@@ -197,7 +197,7 @@ logger.log = function()
 // Make it one line to preserve space, syslog cannot output very long lines
 logger.debug = function()
 {
-    if (this.level < 1 && (!this.labels || !this.labels[arguments[0]])) return;
+    if (this.level < 1 && (!this.filters || !this.filters[arguments[0]])) return;
     this.print('DEBUG', this.format(arguments));
 }
 
