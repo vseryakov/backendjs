@@ -4443,19 +4443,23 @@ put extra requests into the waiting queue and execute once some requests finishe
 </code></pre><p>Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-pool-tables</code> parameters
 thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.</p>
-<p>The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB</p>
-<p>All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
-due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
-opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
-other database will not require any application code changes.</p>
-<p>Multiple connections of the same tipy can be opened, just add -n suffix to all database config parameters where n is 1 to <code>count</code> property in the config descriptor.</p>
-<p>Example:</p>
-<pre><code>    db-pgsql-pool = postgresql://locahost/backend
-    db-pgsql-pool-1 = postgresql://localhost/billing
-    db-pgsql-max-1 = 100
+<p>Example, run the backend with default PostgreSQL database but keep all config parametrs in the DynamoDB table for availability:</p>
+<pre><code>    db-pool = pgsql
+    db-dynamodb-pool = default
+    db-dynamodb-tables = bk_config
 </code></pre></li>
 </ul>
-
+<p> The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB</p>
+<p> All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
+ due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
+ opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
+ other database will not require any application code changes.</p>
+<p> Multiple connections of the same tipy can be opened, just add -n suffix to all database config parameters where n is 1 to <code>count</code> property in the config descriptor.</p>
+<p> Example:</p>
+<pre><code>      db-pgsql-pool = postgresql://locahost/backend
+      db-pgsql-pool-1 = postgresql://localhost/billing
+      db-pgsql-max-1 = 100
+</code></pre>
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups

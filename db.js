@@ -69,6 +69,13 @@ var metrics = require(__dirname + "/metrics");
 // thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 // database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.
 //
+//  Example, run the backend with default PostgreSQL database but keep all config parametrs in the DynamoDB table for availability:
+//
+//          db-pool = pgsql
+//          db-dynamodb-pool = default
+//          db-dynamodb-tables = bk_config
+//
+//
 // The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB
 //
 // All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting

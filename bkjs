@@ -450,7 +450,7 @@ case "$ARG" in
          ;;
     esac
     sleep 10
-    yum -y -q $packages
+    yum -y -q install $packages
     ;;
 
   init-devel)
@@ -468,7 +468,7 @@ case "$ARG" in
          packages="$packages postgresql9-devel"
          ;;
     esac
-    yum -y -q $packages
+    yum -y -q install $packages
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
