@@ -1133,6 +1133,7 @@ backend.server.start();
     echo "  -log-watch - run logwatcher and exit, send emails in case any errors found"
     echo "  -s3-get -bucket BUCKET -path PATH - retrieve a file from S6"
     echo "  -s3-put -bucket BUCKET -path PATH -fle FILE - store a file to S3"
+    echo "  -db-get-config [-separator =] [-format text] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: mode, name, version, imageId, network, subnet, tag, ipaddr"
     echo "  -db-select -table TABLE [-separator !] [-format text] [name VALUE ...] - return all records from the table or only that match given column values, all supported by db.select options are supported by prefixing with underscore like _count 10, the format is the same as for API query parameters"
     echo "  -db-scan -table TABLE [name VALUE ...] - return all records from the table using scan operation, same arg as for db-select"
     echo "  -db-get -table TABLE [name VALUE ...] - return a record from the table for given primary key"

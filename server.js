@@ -651,6 +651,19 @@ server.startShell = function()
             });
         } else
 
+        // Show all config parameters
+        if (core.isArg("-db-get-config")) {
+            var opts = getQuery(), sep = core.getArg("-separator", "="), fmt = core.getArg("-format")
+            db.initConfig(opts, function(err, data) {
+                if (fmt == "text") {
+                    for (var i = 0; i < data.length; i += 2) console.log(data[i].substr(1) + (sep) + data[ i + 1]);
+                } else {
+                    console.log(JSON.stringify(data));
+                }
+                exit(err);
+            });
+        } else
+
         // Show all records
         if (core.isArg("-db-select")) {
             var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");

@@ -229,21 +229,40 @@ db.initConfig = function(options, callback)
     if (typeof options == "function") callback = options, options = null
     if (!options) options = {};
 
-    if (!self.config || !db.getPoolByName(self.config)) return callback ? callback() : null;
+    if (!self.config || !db.getPoolByName(self.config)) return callback ? callback(null, []) : null;
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
     var types = [];
-    types.push(core.appName);
-    types.push(core.appName + '-' + core.appVersion);
-    types.push(core.runMode, core.appName + "-" + core.runMode);
-    if (core.instanceImage) types.push(core.instanceImage, core.appName + "-" + core.instanceImage);
-    if (core.network) types.push(core.network, core.appName + "-" + core.network);
-    if (core.subnet) types.push(core.subnet, core.appName + "-" + core.subnet);
-    if (core.instanceTag) types.push(core.instanceTag, core.appName + "-" + core.instanceTag);
-    if (core.ipaddr) types.push(core.ipaddr, core.appName + "-" + core.ipaddr);
+    var appName = options.name || core.appName;
+    types.push(appName);
+    types.push(appName + '-' + (options.version || core.appVersion));
+
+    var runMode = options.mode || core.runMode
+    types.push(runMode, appName + "-" + runMode);
+
+    var instanceImage = options.imageId || core.instanceImage;
+    if (core.instanceImage) {
+        types.push(instanceImage, appName + "-" + instanceImage);
+    }
+    var network = options.network || core.network;
+    if (core.network) {
+        types.push(network, appName + "-" + network);
+    }
+    var subnet = options.subnet || core.subnet;
+    if (core.subnet) {
+        types.push(subnet, appName + "-" + subnet);
+    }
+    var instanceTag = options.tag || core.instanceTag;
+    if (instanceTag && types.indexOf(instanceTag) == -1) {
+        types.push(instanceTag, appName + "-" + instanceTag);
+    }
+    var ipaddr = options.ipaddr || core.ipaddr;
+    if (ipaddr) {
+        types.push(ipaddr, appName + "-" + ipaddr);
+    }
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
-        if (err) return callback ? callback(err) : null;
+        if (err) return callback ? callback(err, []) : null;
 
         var argv = [];
         // Sort inside to be persistent across databases
