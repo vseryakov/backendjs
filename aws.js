@@ -142,8 +142,10 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
         if (err || !params.data) return callback ? callback(err) : null;
         try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
         if (params.status != 200) {
-            if (!err) err = core.newError("Error: " + params.status, "AWS", params.status);
-            logger.error('queryAWS:', query, err || params.data);
+            var errors = core.objGet(params.obj, "Response.Errors.Error", { list: 1 });
+            if (errors.length && errors[0].Message) err = core.newError({ message: errors[0].Message, name: obj.Action || "AWS", code: errors[0].Code, status: params.status });
+            if (!err) err = core.newError({ message: "Error: " + params.data, name: obj.Action || "AWS", status: params.status });
+            logger.error('queryAWS:', query, err);
             return callback ? callback(err, params.obj) : null;
         }
         logger.debug('queryAWS:', query, params.obj);
@@ -362,7 +364,7 @@ aws.queryS3 = function(bucket, key, options, callback)
 
     var uri = this.signS3(options.method, bucket, key, options);
     core.httpGet(uri, options, function(err, params) {
-        if (err || params.status != 200) return callback ? callback(err || core.newError("Error: " + params.status, "S3", params.status), params.data) : null;
+        if (err || params.status != 200) return callback ? callback(err || core.newError({ message: "Error: " + params.status, name: "S3", status : params.status}), params.data) : null;
         if (callback) callback(err, params);
     });
 }
@@ -423,10 +425,9 @@ aws.ec2RunInstances = function(options, callback)
     if (options.availZone || this.availZone) req["Placement.AvailabilityZone"] = options.availZone || this.availZone;
     if (options.subnetId || this.subnetId) {
         if (!options["SecurityGroupId.0"]) {
-            var groups = options.groupId || this.groupId || [];
-            if (!Array.isArray(groups)) groups = [ groups ];
+            var groups = core.strSplitUnique(options.groupId || this.groupId || []);
             groups.forEach(function(x, i) { req["NetworkInterface.0.SecurityGroupId." + i] = x; });
-            req["NetworkInterface.0.DeviceIndex"] = 0;
+            if (groups.length) req["NetworkInterface.0.DeviceIndex"] = 0;
         }
         if (options.ip) {
             req["NetworkInterface.0.DeviceIndex"] = 0;
@@ -443,8 +444,7 @@ aws.ec2RunInstances = function(options, callback)
         }
     } else {
         if (!options["SecurityGroupId.0"]) {
-            var groups = options.groupId || this.groupId || [];
-            if (!Array.isArray(groups)) groups = [ groups ];
+            var groups = core.strSplitUnique(options.groupId || this.groupId || []);
             groups.forEach(function(x, i) { req["SecurityGroupId." + i] = x; });
         }
         if (options.ip) {
@@ -562,7 +562,7 @@ aws.ec2AssociateAddress = function(instanceId, elasticIp, options, callback)
         // Get the allocation id
         self.queryEC2("DescribeAddresses", { 'PublicIp.1': elasticIp }, function(err, obj) {
             params.AllocationId = core.objGet(obj, "DescribeAddressesResponse.AddressesSet.item.allocationId");
-            if (!params.AllocationId) err = core.newError("EIP not found", "EC2", elasticIp);
+            if (!params.AllocationId) err = core.newError({ message: "EIP not found", name: "EC2", code: elasticIp });
             if (err) return callback ? callback(err) : null;
             self.queryEC2("AssociateAddress", params, options, callback);
         });
