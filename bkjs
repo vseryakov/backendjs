@@ -202,7 +202,7 @@ case "$ARG" in
 
     # Allow path in sudo
     if [ ! -f /etc/sudoers.d/$BKJS ]; then
-       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
+       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
     fi
 
     # Aliases and environment
@@ -451,6 +451,11 @@ case "$ARG" in
     esac
     sleep 10
     yum -y -q install $packages
+
+    # Daemon superviser with respawn ability
+    if [ "$(which daemon 2>/dev/null)" == "" ]; then
+       rpm -i http://libslack.org/daemon/download/daemon-0.6.4-1.x86_64.rpm
+    fi
     ;;
 
   init-devel)

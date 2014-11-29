@@ -584,6 +584,7 @@ server.startShell = function()
     }
 
     (core.isArg("-shell-api") ? api.initTables : function(c) { c() }).call(api, function(err) {
+
         // Add a user
         if (core.isArg("-account-add")) {
             var query = getQuery();
@@ -636,17 +637,17 @@ server.startShell = function()
 
         // Get file
         if (core.isArg("-s3-get")) {
-            var query = getQuery(), bucket = core.getArg("-bucket"), path = core.getArg("-path");
-            query.file = path.basename(path);
-            aws.queryS3(bucket, path, query, function(err, data) {
+            var query = getQuery(), file = core.getArg("-file"), uri = core.getArg("-path");
+            query.file = file || uri.split("?")[0].split("/").pop();
+            aws.s3GetFile(uri, query, function(err, data) {
                 exit(err, data);
             });
         } else
 
         // Put file
         if (core.isArg("-s3-put")) {
-            var query = getQuery(), bucket = core.getArg("-bucket"), path = core.getArg("-path"), file = core.getArg("-file");
-            aws.s3PutFile(bucket, path, file, query, function(err, data) {
+            var query = getQuery(), path = core.getArg("-path"), uri = core.getArg("-file");
+            aws.s3PutFile(uri, file, query, function(err, data) {
                 exit(err, data);
             });
         } else

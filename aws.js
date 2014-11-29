@@ -6,6 +6,7 @@
 var util = require('util');
 var http = require('http');
 var url = require('url');
+var qs = require('qs');
 var fs = require('fs');
 var os = require('os');
 var mime = require('mime');
@@ -36,7 +37,7 @@ var aws = {
     key: process.env.AWS_ACCESS_KEY_ID,
     secret: process.env.AWS_SECRET_ACCESS_KEY,
     region: 'us-east-1',
-    s3: "s3.amazonaws.com",
+    s3: "s3",
     instanceType: "t1.micro",
     instanceIndex: 0,
     tokenExpiration: 0,
@@ -306,6 +307,7 @@ aws.signS3 = function(method, bucket, key, options)
     if (!options.headers) options.headers = {};
 
     var curTime = new Date().toUTCString();
+    var region = options.region || this.region;
     if (!options.headers["x-amz-date"]) options.headers["x-amz-date"] = curTime;
     if (!options.headers["content-type"]) options.headers["content-type"] = "binary/octet-stream; charset=utf-8";
     if (options.headers["content-type"] && options.headers["content-type"].indexOf("charset=") == -1) options.headers["content-type"] += "; charset=utf-8";
@@ -339,11 +341,19 @@ aws.signS3 = function(method, bucket, key, options)
     // Run through the encoding so our signature match the real url sent by core.httpGet
     key = url.parse(key).pathname;
 
-    strSign += (bucket ? "/" + bucket : "").toLowerCase() + (key[0] != "/" ? "/" : "") + key + (rc.length ? "?" : "") + rc.sort().join("&");
+    strSign += (bucket ? "/" + bucket : "") + (key[0] != "/" ? "/" : "") + key + (rc.length ? "?" : "") + rc.sort().join("&");
     var signature = core.sign(options.secret || this.secret, strSign);
     options.headers["authorization"] = "AWS " + (options.key || this.key) + ":" + signature;
 
-    var uri = (self.proto || options.proto || 'http://') + (bucket ? bucket + "." : "") + this.s3 + (key[0] != "/" ? "/" : "") + key + url.format({ query: options.query });
+    // DNS compatible or not, use path-style if not for access otherwise virtual host style
+    var dns = bucket.match(/[a-z0-9][a-z0-9\-]*[a-z0-9]/) ? true : false;
+
+    var uri = (self.proto || options.proto || 'http://');
+    uri += dns ? bucket + "." : "";
+    uri += "s3" + (region != "us-east-1" ? "-" + region : "") + ".amazonaws.com";
+    uri += dns ? "" : "/" + bucket;
+    uri += (key[0] != "/" ? "/" : "") + key;
+    uri += url.format({ query: options.query });
 
     // Build REST url
     if (options.url) {
@@ -351,7 +361,7 @@ aws.signS3 = function(method, bucket, key, options)
         if (options.expires) uri += "&Expires=" + options.expires;
         if (options.securityToken || this.securityToken) uri += "&SecurityToken=" + (options.securityToken || this.securityToken);
     }
-    logger.debug('signS3:', uri, options);
+    logger.debug('signS3:', uri, options, "str:", strSign);
     return uri;
 }
 
@@ -364,21 +374,32 @@ aws.signS3 = function(method, bucket, key, options)
 // - expires - absolute time when this request is expires
 // - headers - HTTP headers to be sent with request
 // - file - file name where to save downloaded contents
-aws.queryS3 = function(bucket, key, options, callback)
+aws.queryS3 = function(bucket, path, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
 
-    var uri = this.signS3(options.method, bucket, key, options);
+    var uri = this.signS3(options.method, bucket, path, options);
     core.httpGet(uri, options, function(err, params) {
         if (err || params.status != 200) return callback ? callback(err || core.newError({ message: "Error: " + params.status, name: "S3", status : params.status}), params.data) : null;
         if (callback) callback(err, params);
     });
 }
 
+// Retrieve a file from S3 bucket, root of the path is a bucket, path can have a protocol prepended like s3://, it will be ignored
+aws.s3GetFile = function(path, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    var uri = self.s3ParseUrl(path);
+    if (uri.query) options.query = uri.query;
+    aws.queryS3(uri.bucket, uri.path, options, callback);
+}
+
 // Upload a file to S3 bucket, `file` can be a Buffer or a file name
-aws.s3PutFile = function(bucket, path, file, options, callback)
+aws.s3PutFile = function(path, file, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
@@ -390,7 +411,23 @@ aws.s3PutFile = function(bucket, path, file, options, callback)
     if (options.contentType) options.headers['content-type'] = options.contentType;
     if (!options.headers['content-type']) options.headers['content-type'] = mime.lookup(file);
     options[Buffer.isBuffer(file) ? 'postdata' : 'postfile'] = file;
-    aws.queryS3(bucket, path, options, callback);
+    var uri = self.s3ParseUrl(path);
+    if (uri.query) options.query = uri.query;
+    aws.queryS3(uri.bucket, uri.path, options, callback);
+}
+
+// Parse an S3 URL and return an object with bucket and path
+aws.s3ParseUrl = function(url)
+{
+    var rc = {}
+    url = url.split("?");
+    // Remove the protocol part and leading slashes
+    url[0] = url[0].replace(/(^.+\:\/\/|^\/+)/, "");
+    var path = url[0].split("/");
+    rc.bucket = path[0];
+    rc.path = path.slice(1).join("/");
+    if (url[1]) rc.query = qs.parse(url[1]);
+    return rc;
 }
 
 // Run AWS instances, supports all native EC2 parameters with first capital letter but also accepts simple parameters in the options:
