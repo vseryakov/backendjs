@@ -70,9 +70,17 @@ aws.configureServer = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     // Make sure we are running on EC2 instance
-    if (!self.elbName || !core.instanceId || !core.instanceImage) return callback();
-    // Do not stop if cannot register
-    self.elbRegisterInstances(self.elbName, core.instanceId, options, callback);
+    if (!core.instanceId || !core.instanceImage) return callback();
+    core.series([
+       function(next) {
+           if (core.instanceTag) return next();
+           self.ec2CreateTags(core.instanceId, core.runMode + "-" + core.appName + "-" + core.appVersion, function() { next() });
+       },
+       function(next) {
+           if (!self.elbName) return next();
+           self.elbRegisterInstances(self.elbName, core.instanceId, options, function() { next() });
+       },
+       ], callback);
 }
 
 // Read key and secret from the AWS SDK credentials file
@@ -644,7 +652,7 @@ aws.getInstanceInfo = function(callback)
             if (!self.secret || !core.instanceId) return next();
             self.queryEC2("DescribeTags", { 'Filter.1.Name': 'resource-id', 'Filter.1.Value': core.instanceId }, function(err, tags) {
                 if (!err) self.tags = core.objGet(tags, "DescribeTagsResponse.tagSet.item", { list: 1 });
-                if (self.tags) core.instanceTag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
+                if (self.tags && !core.instanceTag) core.instanceTag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
                 next();
             });
         },

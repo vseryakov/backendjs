@@ -116,7 +116,7 @@ var db = {
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type: "bool", descr: "Do not use other db pools except default local pool" },
-           { name: "no-columns", type: "bool", descr: "Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions" },
+           { name: "no-cache-columns", type: "bool", descr: "Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
@@ -217,12 +217,13 @@ db.init = function(options, callback)
 // configuration parameters.
 // The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:
 //  - the application name without and with version specified in the package.json
-//  - run mode defined by the `-run-mode`, without and with the app name
-//  - instance image id if running in AWS or other virtual environment, stored in the `core.instanceImage`
+//  - run mode defined by the config or command line `-run-mode`, without and with the app name
 //  - the network where the instance is running, first 2 octets from the current IP address, without and with the app name
 //  - the subnet where the instance is running, first 3 octets from the current IP address, without and with the app name
-//  - instance name set via AWS tag or other way, stored in the `core.instanceTag`
-//  - current instance IP address
+//  - instance tag set via AWS tags or config or command line `-instance-tag`, without and with the app name
+//  - current instance IP address without and with the app name
+//
+// On return, the callback second argument will receive all parameters received form the database as a list: -name value ...
 db.initConfig = function(options, callback)
 {
     var self = this;
@@ -233,32 +234,25 @@ db.initConfig = function(options, callback)
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
     var types = [];
-    var appName = options.name || core.appName;
-    types.push(appName);
-    types.push(appName + '-' + (options.version || core.appVersion));
+    types.push(core.appName);
+    types.push(core.appName + '-' + core.appVersion);
+    types.push(core.runMode, core.appName + "-" + core.runMode);
 
-    var runMode = options.mode || core.runMode
-    types.push(runMode, appName + "-" + runMode);
-
-    var instanceImage = options.imageId || core.instanceImage;
-    if (core.instanceImage) {
-        types.push(instanceImage, appName + "-" + instanceImage);
-    }
     var network = options.network || core.network;
     if (core.network) {
-        types.push(network, appName + "-" + network);
+        types.push(network, core.appName + "-" + network);
     }
     var subnet = options.subnet || core.subnet;
     if (core.subnet) {
-        types.push(subnet, appName + "-" + subnet);
+        types.push(subnet, core.appName + "-" + subnet);
     }
     var instanceTag = options.tag || core.instanceTag;
     if (instanceTag && types.indexOf(instanceTag) == -1) {
-        types.push(instanceTag, appName + "-" + instanceTag);
+        types.push(instanceTag, core.appName + "-" + instanceTag);
     }
     var ipaddr = options.ipaddr || core.ipaddr;
     if (ipaddr) {
-        types.push(ipaddr, appName + "-" + ipaddr);
+        types.push(ipaddr, core.appName + "-" + ipaddr);
     }
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
@@ -317,7 +311,7 @@ db.initPoolTables = function(name, tables, options, callback)
     for (var p in tables) pool.dbtables[p] = tables[p];
     options.pool = name;
     options.tables = tables;
-    if (self.noColumns) {
+    if (self.noCacheColumns) {
         self.mergeColumns(pool);
         self.mergeKeys(pool);
         return callback ? callback() : null;
@@ -800,11 +794,15 @@ db.update = function(table, obj, options, callback)
 //
 // Example, update birthday format if not null
 //
-//          db.updateAll("bk_account", { birthday: 1 }, { mtime: Date.now() },
-//                                     { ops: { birthday: "not null" },
-//                                       concurrency: 2,
-//                                       process: function(r, o) { r.birthday = core.strftime(new Date(r.birthday, "%Y-%m-D")) } },
-//                                     function(err, rows) {
+//          db.updateAll("bk_account",
+//                      { birthday: 1 },
+//                      { mtime: Date.now() },
+//                      { ops: { birthday: "not null" },
+//                        concurrency: 2,
+//                        process: function(r, o) {
+//                              r.birthday = core.strftime(new Date(r.birthday, "%Y-%m-D"));
+//                        } },
+//                        function(err, rows) {
 //          });
 //
 db.updateAll = function(table, query, obj, options, callback)

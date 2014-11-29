@@ -30,7 +30,7 @@ var core = {
     version: '2014.09.20',
 
     // Application version, read from package.json if exists
-    appName: 'app',
+    appName: '',
     appVersion: '0',
 
     // Process and config parameters
@@ -186,6 +186,8 @@ var core = {
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
+            { name: "app-name", type: "callback", callback: function(v) { if (!v) return;v = v.split("-");this.appName=v[0];if(v[1]) this.appVersion=v[1];}, descr: "Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version", pass: 1 },
+            { name: "instance-tag", descr: "Set instanceTag exolicitely, skip all meta data checks for it", pass: 1 },
             { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
@@ -280,27 +282,30 @@ core.init = function(options, callback)
     self.hostname = os.hostname().toLowerCase();
     self.domain = self.domainName(self.hostname);
 
-    // Default config file, locate in the etc if just name is given
-    if (self.confFile.indexOf("/") == -1) self.confFile = path.join(self.path.etc, self.confFile);
-    self.confFile = path.resolve(self.confFile);
-
-    // Application version from the package.json
-    var pkg = self.readFileSync("package.json", { json: 1 });
-    if (!pkg) pkg = self.readFileSync(self.cwd + "/package.json", { json: 1 });
-    if (pkg && pkg.name) self.appName = pkg.name;
-    if (pkg && pkg.vesion) self.appVersion = pkg.version;
-
-    // Default email address
-    if (!self.email) self.email = (self.appName || self.name) + "@" + (self.domain || os.hostname());
-
     // Serialize initialization procedure, run each function one after another
     self.series([
         function(next) {
+            // Default config file, locate in the etc if just name is given
+            if (self.confFile.indexOf("/") == -1) self.confFile = path.join(self.path.etc, self.confFile);
+            self.confFile = path.resolve(self.confFile);
             self.loadConfig(self.confFile, function() {
                 self.loadConfig(self.confFile + ".local", function() {
                     next();
                 });
             });
+        },
+
+        // Application version from the package.json
+        function(next) {
+            if (!self.appName) {
+                var pkg = self.readFileSync("package.json", { json: 1 });
+                if (!pkg) pkg = self.readFileSync(self.cwd + "/package.json", { json: 1 });
+                if (pkg && pkg.name) self.appName = pkg.name;
+                if (pkg && pkg.vesion) self.appVersion = pkg.version;
+            }
+            // Default email address
+            if (!self.email) self.email = (self.appName || self.name) + "@" + (self.domain || os.hostname());
+            next();
         },
 
         // Load config params from the DNS TXT records, only the ones marked as dns
@@ -329,18 +334,19 @@ core.init = function(options, callback)
             next();
         },
 
+        // Custom application init
         function(next) {
             if (options.noInit) return next();
-            // Custom application init
             self.preInit.call(self, next);
         },
 
+        // Run all configure methods for every module
         function(next) {
             if (options.noInit) return next();
-            // Run all configure methods for every module
             self.runMethods("configure", options, next);
         },
 
+        // Initialize all database pools
         function(next) {
             if (options.noInit) return next();
             db.init(options, next);

@@ -1048,11 +1048,15 @@ server.runJob = function(job)
 // object as its first argument and callback as its second argument.
 // More than one job can be specified, property of the object defines name for the job to run:
 //
-// Example: { 'scraper.run': {}, 'server.shutdown': {} }
+// Example:
+//
+//          { 'scraper.run': {}, 'server.shutdown': {} }
 //
 // If the same object.method must be executed several times, prepend subsequent jobs with $
 //
-// Example: { 'scraper.run': { "arg": 1 }, '$scraper.run': { "arg": 2 }, '$$scraper.run': { "arg": 3 } }
+// Example:
+//
+//          { 'scraper.run': { "arg": 1 }, '$scraper.run': { "arg": 2 }, '$$scraper.run': { "arg": 3 } }
 //
 // Supported options by the server:
 //  - skipqueue - in case of a duplicate or other condition when this job cannot be executed it is put back to
@@ -1064,11 +1068,11 @@ server.runJob = function(job)
 //    order for this job to start, this implements chaining of jobs to be executed one after another
 //    but submitted at the same time
 //
-//   Exampe: submit 3 jobs to run sequentially:
+//  Exampe: submit 3 jobs to run sequentially:
 //
-//                'scraper.import'
-//                { 'scraper.sync': { runafter: 'scraper.import' } }
-//                { 'server.shutdown': { runafter: 'scraper.sync' } }
+//          'scraper.import'
+//          { 'scraper.sync': { runafter: 'scraper.import' } }
+//          { 'server.shutdown': { runafter: 'scraper.sync' } }
 server.execJob = function(job)
 {
     var self = this;
