@@ -1602,6 +1602,8 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
 <li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
 <li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests </li>
+<li><code>app-name</code> - Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version</li>
+<li><code>instance-tag</code> - Set instanceTag exolicitely, skip all meta data checks for it</li>
 <li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. Default: &quot;production&quot;. DNS TXT configurable.</li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically</li>
 <li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
@@ -1647,7 +1649,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: &quot;sqlite&quot;. DNS TXT configurable.</li>
 <li><code>db-no-pools</code> - Do not use other db pools except default local pool</li>
-<li><code>db-no-columns</code> - Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions</li>
+<li><code>db-no-cache-columns</code> - Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: []</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: &quot;sqlite&quot;</li>
 <li><code>db-config</code> - Configuration database pool for config parameters, must be defined to use remote db for config parameters</li>
@@ -4508,13 +4510,13 @@ configuration parameters.
 The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:</p>
 <ul>
 <li>the application name without and with version specified in the package.json</li>
-<li>run mode defined by the <code>-run-mode</code>, without and with the app name</li>
-<li>instance image id if running in AWS or other virtual environment, stored in the <code>core.instanceImage</code></li>
+<li>run mode defined by the config or command line <code>-run-mode</code>, without and with the app name</li>
 <li>the network where the instance is running, first 2 octets from the current IP address, without and with the app name</li>
 <li>the subnet where the instance is running, first 3 octets from the current IP address, without and with the app name</li>
-<li>instance name set via AWS tag or other way, stored in the <code>core.instanceTag</code></li>
-<li>current instance IP address</li>
+<li>instance tag set via AWS tags or config or command line <code>-instance-tag</code>, without and with the app name</li>
+<li>current instance IP address without and with the app name</li>
 </ul>
+<p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
 </li>
 </ul>
 
@@ -4717,11 +4719,15 @@ Special properties that can be in the options for this call:</p>
  as <code>options.process(row, options)</code></li>
 </ul>
 <p>Example, update birthday format if not null</p>
-<pre><code>    db.updateAll(&quot;bk_account&quot;, { birthday: 1 }, { mtime: Date.now() },
-                               { ops: { birthday: &quot;not null&quot; },
-                                 concurrency: 2,
-                                 process: function(r, o) { r.birthday = core.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;)) } },
-                               function(err, rows) {
+<pre><code>    db.updateAll(&quot;bk_account&quot;,
+                { birthday: 1 },
+                { mtime: Date.now() },
+                { ops: { birthday: &quot;not null&quot; },
+                  concurrency: 2,
+                  process: function(r, o) {
+                        r.birthday = core.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;));
+                  } },
+                  function(err, rows) {
     });
 </code></pre></li>
 </ul>
@@ -6003,26 +6009,27 @@ connection to APN gateway.</p>
 and method must be existing method of the given object. The method function must take options
 object as its first argument and callback as its second argument.
 More than one job can be specified, property of the object defines name for the job to run:</p>
-<p>Example: { &#39;scraper.run&#39;: {}, &#39;server.shutdown&#39;: {} }</p>
-<p>If the same object.method must be executed several times, prepend subsequent jobs with $</p>
-<p>Example: { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } }</p>
-<p>Supported options by the server:</p>
+<p>Example:</p>
+<pre><code>    { &#39;scraper.run&#39;: {}, &#39;server.shutdown&#39;: {} }
+</code></pre><p>If the same object.method must be executed several times, prepend subsequent jobs with $</p>
+<p>Example:</p>
+<pre><code>    { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } }
+</code></pre><p>Supported options by the server:</p>
 <ul>
 <li>skipqueue - in case of a duplicate or other condition when this job cannot be executed it is put back to
   the waiting queue, this options if set to 1 makes the job to be ignored on error</li>
 <li>runalways - no checks for existing job wth the same name should be done</li>
 <li>runone - only run the job if there is no same running job, this options serializes similar jobs</li>
 <li>runlast - run when no more pending or running jobs</li>
-<li><p>runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
+<li>runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
 order for this job to start, this implements chaining of jobs to be executed one after another
-but submitted at the same time</p>
-<p>Exampe: submit 3 jobs to run sequentially:</p>
-<pre><code>        &#39;scraper.import&#39;
-        { &#39;scraper.sync&#39;: { runafter: &#39;scraper.import&#39; } }
-        { &#39;server.shutdown&#39;: { runafter: &#39;scraper.sync&#39; } }
-</code></pre></li>
+but submitted at the same time</li>
 </ul>
-</li>
+<p>Exampe: submit 3 jobs to run sequentially:</p>
+<pre><code>    &#39;scraper.import&#39;
+    { &#39;scraper.sync&#39;: { runafter: &#39;scraper.import&#39; } }
+    { &#39;server.shutdown&#39;: { runafter: &#39;scraper.sync&#39; } }
+</code></pre></li>
 </ul>
 
 <ul>
