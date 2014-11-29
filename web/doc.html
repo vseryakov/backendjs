@@ -1685,7 +1685,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>aws-image-id</code> - AWS image id to be used for instances</li>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
 <li><code>aws-group-id</code> - AWS security group(s) to be used for instances</li>
-<li><code>aws-s3</code> - AWS S3 endpoint. Default: &quot;s3.amazonaws.com&quot;</li>
+<li><code>aws-s3</code> - AWS S3 endpoint. Default: &quot;s3&quot;</li>
 <li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand. Default: &quot;t1.micro&quot;</li>
 <li><code>msg-apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
 <li><code>msg-apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
@@ -2906,7 +2906,7 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 </ul>
 
 <ul>
-<li><p><code>aws.queryS3(bucket, key, options, callback)</code></p>
+<li><p><code>aws.queryS3(bucket, path, options, callback)</code></p>
 <p> S3 requests
 Options may contain the following properties:</p>
 <ul>
@@ -2922,8 +2922,20 @@ Options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>aws.s3PutFile(bucket, path, file, options, callback)</code></p>
+<li><p><code>aws.s3GetFile(path, options, callback)</code></p>
+<p> Retrieve a file from S3 bucket, root of the path is a bucket, path can have a protocol prepended like s3://, it will be ignored</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.s3PutFile(path, file, options, callback)</code></p>
 <p> Upload a file to S3 bucket, <code>file</code> can be a Buffer or a file name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.s3ParseUrl(url)</code></p>
+<p> Parse an S3 URL and return an object with bucket and path</p>
 </li>
 </ul>
 
