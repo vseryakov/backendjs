@@ -583,7 +583,8 @@ server.startShell = function()
         return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
     }
 
-    (core.isArg("-shell-api") ? api.initTables : function(c) { c() }).call(api, function(err) {
+    var func = core.isArg("-shell-api") ? api.initTables : function(c) { c() };
+    func.call(api, function(err) {
 
         // Add a user
         if (core.isArg("-account-add")) {

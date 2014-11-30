@@ -302,6 +302,7 @@ core.init = function(options, callback)
                 if (!pkg) pkg = self.readFileSync(self.cwd + "/package.json", { json: 1 });
                 if (pkg && pkg.name) self.appName = pkg.name;
                 if (pkg && pkg.vesion) self.appVersion = pkg.version;
+                if (!self.appName) self.appName = self.name;
             }
             // Default email address
             if (!self.email) self.email = (self.appName || self.name) + "@" + (self.domain || os.hostname());
