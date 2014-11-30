@@ -142,8 +142,8 @@ case "$ARG" in
   install)
     sudo $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
     sudo $0 init-devel
-    [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && $0 build-node)
-    (cd $BKJS_HOME && $0 build-bkjs)
+    [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -u $BKJS_USER -H $0 build-node)
+    (cd $BKJS_HOME && sudo -u $BKJS_USER -H $0 build-bkjs)
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
@@ -811,7 +811,7 @@ case "$ARG" in
         (cd node_modules && git clone https://github.com/vseryakov/backendjs.git)
     fi
     (cd node_modules/$BKJS_MOD && git pull)
-    (cd node_modules/$BKJS_MOD && npm install --backend_nanomsg --backend_imagemagick)
+    (cd node_modules/$BKJS_MOD && npm install -d --backend_nanomsg --backend_imagemagick)
     ;;
 
   build-backend)
@@ -833,7 +833,7 @@ case "$ARG" in
     fi
     (cd deps/node && [ ! -f out/Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BKJS_PREFIX)
     (cd deps/node && git pull && make install clean)
-    sudo -u $BKJS_USER $NPM_BIN config set nodedir "$(pwd)/deps/node"
+    $NPM_BIN config set nodedir "$(pwd)/deps/node"
     ;;
 
   build-deps)
