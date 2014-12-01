@@ -67,7 +67,7 @@ var server = {
 
     // Options for v8
     processArgs: [],
-    nodeWorkerArgs: [],
+    workerArgs: [],
 
     // How long to be in idle state and shutdown, for use in instances
     idleTime: 120000,
@@ -91,7 +91,7 @@ var server = {
            { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guardred by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
-           { name: "node-worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
+           { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
            { name: "job-queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
            { name: "jobs-count", descr: "How many jobs to execute at any iteration, this relates to the bk_queue queue processing only" },
@@ -347,7 +347,7 @@ server.startWeb = function(callback)
             self.clusterFork = function() { return cluster.fork(); }
         }
         // Arguments passed to the v8 engine
-        if (self.nodeWorkerArgs.length) process.execArgv = self.nodeWorkerArgs;
+        if (self.workerArgs.length) process.execArgv = self.workerArgs;
 
         // Create tables and spawn Web workers
         api.initTables(function(err) {
@@ -1129,7 +1129,7 @@ server.execJob = function(job)
     }
 
     // Setup node args passed for each worker
-    if (self.nodeWorkerArgs) process.execArrgv = self.nodeWorkerArgs;
+    if (self.workerArgs) process.execArgv = self.workerArgs;
 
     self.jobTime = Date.now();
     logger.debug('execJob:', 'workers:', workers.length, 'job:', job);

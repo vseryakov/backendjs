@@ -24,11 +24,13 @@ var app = {
 module.exports = app;
 
 // Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
-// the primary purpose of this early call is to setup environment before connecting to the database
+// the primary purpose of this early call is to setup environment before connecting to the database. This is called regardless of the server
+// to be started and intended to initialize the common environment before the database and other subsystems are initialized.
 app.configure = function(options, callback) { callback(); }
 
 // Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
-// init steps that all processes require to have. All database pool and other confugration is ready at this point.
+// init steps that all processes require to have. All database pool and other confugration is ready at this point. This hook is
+// called regardless of what kind of server is about to start, it is always called before starting a server or shell.
 app.configureModule = function(options, callback) { callback(); }
 
 // This handler is called during the Express server initialization just after the security middleware.
@@ -61,4 +63,11 @@ app.configureWorker = function(options, callback) { callback(); }
 // This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.
 app.shutdownWorker = function(options, callback) { callback(); }
 
+// This callback is called when the monitor process is ready, there is no any other code is supposed to run inside the monitor, but
+// in case it is needed, this is the hook to be used.
+app.configureMonitor = function(options, callback) { callback(); }
 
+// This callback is called by the shell process to setup additional command or to execute a command which is not
+// supported by the standard shell. Setting options.done to 1 will stop the shell, this is a signal that command has already
+// been processed.
+app.configureShell = function(options, callback) { callback(); }

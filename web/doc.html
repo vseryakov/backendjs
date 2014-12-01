@@ -1794,7 +1794,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>server-proxy-host</code> - A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port</li>
 <li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guardred by this monitor</li>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes. Default: []</li>
-<li><code>server-node-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options. Default: []</li>
+<li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options. Default: []</li>
 <li><code>server-jobs-tag</code> - This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag</li>
 <li><code>server-job-queue</code> - Name of the queue to process, this is a generic queue name that can be used by any queue provider</li>
 <li><code>server-jobs-count</code> - How many jobs to execute at any iteration, this relates to the bk_queue queue processing only. Default: 1</li>
@@ -2862,14 +2862,16 @@ during different phases, like initialization, shutting down, etc...</p>
 <ul>
 <li><p><code>app.configure(options, callback)</code></p>
 <p> Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
-the primary purpose of this early call is to setup environment before connecting to the database</p>
+the primary purpose of this early call is to setup environment before connecting to the database. This is called regardless of the server
+to be started and intended to initialize the common environment before the database and other subsystems are initialized.</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>app.configureModule(options, callback)</code></p>
 <p> Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
-init steps that all processes require to have. All database pool and other confugration is ready at this point.</p>
+init steps that all processes require to have. All database pool and other confugration is ready at this point. This hook is
+called regardless of what kind of server is about to start, it is always called before starting a server or shell.</p>
 </li>
 </ul>
 
@@ -2918,6 +2920,21 @@ interacts with the Web workers via IPC sockets between processes and relaunches 
 <li><p><code>app.shutdownWorker(options, callback)</code></p>
 <p> Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
 This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMonitor(options, callback)</code></p>
+<p> This callback is called when the monitor process is ready, there is no any other code is supposed to run inside the monitor, but
+in case it is needed, this is the hook to be used.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureShell(options, callback)</code></p>
+<p> This callback is called by the shell process to setup additional command or to execute a command which is not
+supported by the standard shell. Setting options.done to 1 will stop the shell, this is a signal that command has already
+been processed.</p>
 </li>
 </ul>
 
