@@ -212,7 +212,7 @@ The typical structure of a backendjs application is the following (created by th
             // Register API endpoints, i.e. url callbacks
             app.configureWeb = function(options, callback)
             {
-                this.app.get('/some/api/endpoint', function(req, res) { ... });
+                api.app.get('/some/api/endpoint', function(req, res) { ... });
                 ...
                 callback();
             }
@@ -236,6 +236,8 @@ request endpoint callbacks must be provided in the application.
 As with any node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
 the application is structured.
 
+## Modules
+
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory `modules/`. The format is the same as for regular node.js modules but the file names should follow the following conventions:
  - for API modules the file name must be in the form `NAME_web.js`
@@ -244,6 +246,20 @@ home subdirectory `modules/`. The format is the same as for regular node.js modu
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the node nodules and setup. These modules are exposed in the `core.context` the same way as all other core submodules.
 methods.
+
+Let's assuming the modules/ contains file facebook_web.js:
+
+            var bkjs = require("backendjs");
+            var fb = bkjs.facebook;
+
+            ...
+
+            // Using facebook module in the main app
+            fb.get("me", function(err, data) {
+                ...
+            });
+
+            bkj.server.start()
 
 # Database schema definition
 

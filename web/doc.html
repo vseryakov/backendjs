@@ -7,7 +7,10 @@
 <li><a href="#installation"> Installation</a></li>
 <li><a href="#quick-start"> Quick start</a></li>
 <li><a href="#backend-runtime"> Backend runtime</a></li>
-<li><a href="#application-structure"> Application structure</a></li>
+<li><a href="#application-structure"> Application structure</a><ul>
+<li><a href="#modules"> Modules</a></li>
+</ul>
+</li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#accounts"> Accounts</a></li>
@@ -249,7 +252,7 @@ which makes it easy to refer and extend with additional methods and structures.<
         // Register API endpoints, i.e. url callbacks
         app.configureWeb = function(options, callback)
         {
-            this.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
+            api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
             ...
             callback();
         }
@@ -270,6 +273,7 @@ configuration of the cron jobs so the amount of code to be written to have fully
 request endpoint callbacks must be provided in the application.</p>
 <p>As with any node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
 the application is structured.</p>
+<h2 id="modules">Modules</h2>
 <p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory <code>modules/</code>. The format is the same as for regular node.js modules but the file names should follow the following conventions:</p>
 <ul>
@@ -279,7 +283,19 @@ home subdirectory <code>modules/</code>. The format is the same as for regular n
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the node nodules and setup. These modules are exposed in the <code>core.context</code> the same way as all other core submodules.
 methods.</p>
-<h1 id="database-schema-definition">Database schema definition</h1>
+<p>Let&#39;s assuming the modules/ contains file facebook_web.js:</p>
+<pre><code>        var bkjs = require(&quot;backendjs&quot;);
+        var fb = bkjs.facebook;
+
+        ...
+
+        // Using facebook module in the main app
+        fb.get(&quot;me&quot;, function(err, data) {
+            ...
+        });
+
+        bkj.server.start()
+</code></pre><h1 id="database-schema-definition">Database schema definition</h1>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
 The database operations supported in the unified way provide simple actions like <code>db.get, db.put, db.update, db.del, db.select</code>. The <code>db.query</code> method provides generic
@@ -1707,7 +1723,6 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>aws-image-id</code> - AWS image id to be used for instances</li>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
 <li><code>aws-group-id</code> - AWS security group(s) to be used for instances</li>
-<li><code>aws-s3</code> - AWS S3 endpoint. Default: &quot;s3&quot;</li>
 <li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand. Default: &quot;t1.micro&quot;</li>
 <li><code>msg-apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
 <li><code>msg-apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
