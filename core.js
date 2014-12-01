@@ -55,7 +55,7 @@ var core = {
     cwd: process.cwd(),
 
     // Various folders, by default relative paths are used
-    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", files: "files", log: "log" },
+    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", files: "files", log: "log", modules: "modules" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logFile: "log/message.log",
@@ -123,7 +123,9 @@ var core = {
     replBindWeb: '127.0.0.1',
     replBind: '127.0.0.1',
     replFile: '.history',
-    context: {},
+
+    // All internal and loaded modules
+    modules: {},
 
     // Cache and messaging properties
     cacheType: 'nanomsg',
@@ -155,6 +157,7 @@ var core = {
             { name: "log-dir", type: "callback", callback: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
             { name: "files-dir", type: "callback", callback: function(v) { if (v) this.path.files = v; }, descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "callback", callback: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
+            { name: "modules-dir", type: "callback", callback: function(v) { if (v) this.path.modules = v; }, descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point" },
             { name: "uid", type: "callback", callback: function(v) { var u = utils.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
             { name: "gid", type: "callback", callback: function(v) { var g = utils.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
             { name: "email", descr: "Email address to be used when sending emails from the backend" },
@@ -176,7 +179,6 @@ var core = {
             { name: "ssl-ciphers", obj: 'ssl', descr: "A string describing the ciphers to use or exclude. Consult http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT for details on the format" },
             { name: "ssl-request-cert", type: "bool", obj: 'ssl', descr: "If true the server will request a certificate from clients that connect and attempt to verify that certificate. " },
             { name: "ssl-reject-unauthorized", type: "bool", obj: 'ssl', decr: "If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true" },
-            { name: "modules", descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules" },
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
@@ -245,7 +247,7 @@ core.init = function(options, callback)
 
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    var db = self.context.db;
+    var db = self.modules.db;
 
     // Process role
     if (options.role) this.role = options.role;
@@ -463,8 +465,8 @@ core.parseArgs = function(argv)
     self.processArgs("core", self, argv);
 
     // Run registered handlers for each module
-    for (var n in this.context) {
-        var ctx = this.context[n];
+    for (var n in this.modules) {
+        var ctx = this.modules[n];
         self.processArgs(n, ctx, argv);
     }
 }
@@ -627,18 +629,18 @@ core.describeArgs = function(module, args)
         if (!ctx.args) ctx.args = [];
         ctx.args.push.apply(ctx.args, args.filter(function(x) { return x.name }));
     }
-    var ctx = module == "core" ? this : this.context[module];
+    var ctx = module == "core" ? this : this.modules[module];
     if (ctx) return addArgs(ctx, args);
 
     // Add arguments to the module by the prefix
     var map = {};
     args.forEach(function(x) { map[x.name] = x });
-    Object.keys(this.context).forEach(function(ctx) {
+    Object.keys(this.modules).forEach(function(ctx) {
         Object.keys(map).forEach(function(x) {
             var n = x.split("-");
             if (n[0] == ctx) {
                 map[x].name = n.slice(1).join("-");
-                addArgs(self.context[ctx], [map[x]]);
+                addArgs(self.modules[ctx], [map[x]]);
                 delete map[x];
             }
         });
@@ -653,14 +655,14 @@ core.showHelp = function(options)
     var self = this;
     if (!options) options = {};
     var args = [ [ '', core.args ] ];
-    Object.keys(this.context).forEach(function(n) {
-        if (self.context[n].args) args.push([n, self.context[n].args]);
+    Object.keys(this.modules).forEach(function(n) {
+        if (self.modules[n].args) args.push([n, self.modules[n].args]);
     });
     var data = "";
     args.forEach(function(x) {
         x[1].forEach(function(y) {
             if (!y.name || !y.descr) return;
-            var dflt = y.match ? "" : ((x[0] ? self.context[x[0]] : core)[self.toCamel(y.name)] || "");
+            var dflt = y.match ? "" : ((x[0] ? self.modules[x[0]] : core)[self.toCamel(y.name)] || "");
             var line = (x[0] ? x[0] + '-' : '') + (y.match ? 'NAME-' : '') + y.name + (options.markdown ? "`" : "") + " - " + y.descr + (dflt ? ". Default: " + JSON.stringify(dflt) : "");
             if (y.dns) line += ". DNS TXT configurable.";
             if (y.match) line += ". Where NAME is the actual " + y.match + " name.";
@@ -699,8 +701,8 @@ core.loadDnsConfig = function(options, callback)
     if (options.noDns || !self.configDomain) return callback ? callback() : null;
 
     var args = [ { name: "", args: self.args } ];
-    for (var p in this.context) {
-        var ctx = self.context[p];
+    for (var p in this.modules) {
+        var ctx = self.modules[p];
         if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
     }
     self.forEachSeries(args, function(ctx, next1) {
@@ -1369,7 +1371,7 @@ core.sendRequest = function(options, callback)
     if (typeof options.url == "string" && options.url.indexOf("://") == -1) {
         options.url = (self.backendHost || "http://localhost:" + this.port) + options.url;
     }
-    var db = self.context.db;
+    var db = self.modules.db;
 
     this.httpGet(options.url, core.cloneObj(options), function(err, params, res) {
         if (options.queue) {
@@ -1437,8 +1439,8 @@ core.runMethods = function(name, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
 
-    self.forEachSeries(Object.keys(self.context), function(mod, next) {
-        var ctx = self.context[mod];
+    self.forEachSeries(Object.keys(self.modules), function(mod, next) {
+        var ctx = self.modules[mod];
         if (!ctx[name]) return next();
         logger.debug("runMethods:", name, mod);
         ctx[name](options, function(err) {
@@ -1641,11 +1643,11 @@ core.doWhilst = function(iterator, test, callback)
 core.loadModules = function(type)
 {
     var self = this;
-    core.findFileSync(this.modules || "modules", { depth: 1, types: "f", include: new RegExp("_" + type + ".js$") }).forEach(function(file) {
+    core.findFileSync(this.path.modules || "modules", { depth: 1, types: "f", include: new RegExp("_" + type + ".js$") }).forEach(function(file) {
         try {
             var mod = require(path.join(core.home, file));
             if (typeof mod.init == "function") mod.init();
-            self.addContext(path.basename(file, ".js").slice(0, -type.length-1), mod);
+            self.addModule(path.basename(file, ".js").slice(0, -type.length-1), mod);
             logger.log("loadModules:", file, "loaded");
         } catch (e) {
             logger.error("loadModules:", file, e.stack);
@@ -2325,7 +2327,7 @@ core.statSync = function(file)
         stat.mdate = stat.mtime.toISOString();
         stat.mtime = stat.mtime.getTime()/1000;
     } catch(e) {
-        if (e.code != "ENOENT") logger.error('statSync:', e);
+        if (e.code != "ENOENT") logger.error('statSync:', e, e.stack);
     }
     return stat;
 }
@@ -2826,7 +2828,7 @@ core.jsonParse = function(obj, options)
 core.cookieGet = function(domain, callback)
 {
     var self = this;
-    var db = this.context.db;
+    var db = this.modules.db;
     var cookies = [];
     db.scan("bk_property", {}, { pool: db.local }, function(row, next) {
         if (!row.name.match(/^bk:cookie:/)) return next();
@@ -2850,7 +2852,7 @@ core.cookieGet = function(domain, callback)
 core.cookieSave = function(cookiejar, setcookies, hostname, callback)
 {
     var self = this;
-    var db = this.context.db;
+    var db = this.modules.db;
     var cookies = !setcookies ? [] : Array.isArray(setcookies) ? setcookies : String(setcookies).split(/[:](?=\s*[a-zA-Z0-9_\-]+\s*[=])/g);
     logger.debug('cookieSave:', cookiejar, 'SET:', cookies);
     cookies.forEach(function(cookie) {
@@ -2939,10 +2941,10 @@ core.profiler = function(type, cmd)
 }
 
 // Adds reference to the objects in the core for further access, specify module name, module reference pairs
-core.addContext = function()
+core.addModule = function()
 {
 	for (var i = 0; i < arguments.length - 1; i+= 2) {
-		this.context[arguments[i]] = arguments[i + 1];
+		this.modules[arguments[i]] = arguments[i + 1];
 	}
 }
 
@@ -2951,14 +2953,14 @@ core.createRepl = function(options)
 {
     var self = this;
     var r = repl.start(options || {});
-    r.context.core = this;
-    r.context.fs = fs;
-    r.context.os = os;
-    r.context.util = util;
+    r.modules.core = this;
+    r.modules.fs = fs;
+    r.modules.os = os;
+    r.modules.util = util;
     r.rli.historyIndex = 0;
     r.rli.history = [];
     // Expose all modules as top level objects
-    for (var p in this.context) r.context[p] = this.context[p];
+    for (var p in this.modules) r.modules[p] = this.modules[p];
 
     // Support history
     if (this.replFile) {
@@ -3049,7 +3051,7 @@ core.watchLogs = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
-    var db = self.context.db;
+    var db = self.modules.db;
 
     // Check interval
     self.logwatcherMtime = Date.now();
@@ -3218,7 +3220,7 @@ core.runTest = function(obj, options, callback)
         });
     }
 
-    logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', this.test.cmd, 'db-pool:', this.context.db.pool);
+    logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', this.test.cmd, 'db-pool:', this.modules.db.pool);
 
     this.whilst(
         function () { return self.test.countdown > 0 || self.test.forever || options.running; },
@@ -3237,7 +3239,7 @@ core.runTest = function(obj, options, callback)
                 if (cluster.isMaster && callback) return callback(err);
                 process.exit(1);
             }
-            logger.log("test stopped:", self.test.role, 'name:', self.test.cmd, 'db-pool:', self.context.db.pool, 'time:', self.test.etime - self.test.stime, "ms");
+            logger.log("test stopped:", self.test.role, 'name:', self.test.cmd, 'db-pool:', self.modules.db.pool, 'time:', self.test.etime - self.test.stime, "ms");
             if (cluster.isMaster && callback) return callback();
             process.exit(0);
         });

@@ -394,7 +394,7 @@ module.exports = api;
 api.init = function(callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     // Performance statistics
     self.initStatistics();
@@ -660,7 +660,7 @@ api.shutdown = function(callback)
     this.exiting = true;
     logger.log('api.shutdown: started');
     var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
-    var db = core.context.db;
+    var db = core.modules.db;
     core.parallel([
         function(next) {
             if (!self.wsServer) return next();
@@ -695,7 +695,7 @@ api.configureShell = function(options, callback)
 // Start Express middleware processing wrapped in the node domain
 api.handleServerRequest = function(req, res)
 {
-    var api = core.context.api;
+    var api = core.modules.api;
     var d = domain.create();
     d.on('error', function(err) {
         logger.error('api:', req.path, err.stack);
@@ -1010,7 +1010,7 @@ api.checkSignature = function(req, callback)
     }
 
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-    core.context.db.get("bk_auth", { login: sig.login }, function(err, account) {
+    core.modules.db.get("bk_auth", { login: sig.login }, function(err, account) {
         if (err) return callback({ status: 500, message: String(err) });
         if (!account) return callback({ status: 404, message: "No account record found" });
 
@@ -1051,7 +1051,7 @@ api.checkSignature = function(req, callback)
 api.initAccountAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     this.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
         var options = self.getOptions(req);
@@ -1142,7 +1142,7 @@ api.initAccountAPI = function()
 api.initStatusAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     this.app.all(/^\/status\/([a-z\/]+)$/, function(req, res) {
         var options = self.getOptions(req);
@@ -1178,7 +1178,7 @@ api.initStatusAPI = function()
 api.initIconAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     this.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
         var options = self.getOptions(req);
@@ -1225,7 +1225,7 @@ api.initIconAPI = function()
 api.initFileAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     this.app.all(/^\/file\/([a-z]+)$/, function(req, res) {
         var options = self.getOptions(req);
@@ -1263,7 +1263,7 @@ api.initFileAPI = function()
 api.initMessageAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     this.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
         var options = self.getOptions(req);
@@ -1335,7 +1335,7 @@ api.initMessageAPI = function()
 api.initCounterAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     this.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
         var options = self.getOptions(req);
@@ -1369,7 +1369,7 @@ api.initCounterAPI = function()
 api.initConnectionAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     this.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
         var options = self.getOptions(req);
@@ -1417,7 +1417,7 @@ api.initConnectionAPI = function()
 api.initLocationAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
         var options = self.getOptions(req);
@@ -1571,7 +1571,7 @@ api.initSystemAPI = function()
 api.initDataAPI = function()
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     // Return table columns
     this.app.all(/^\/data\/columns\/?([a-z_0-9]+)?$/, function(req, res) {
@@ -1617,7 +1617,7 @@ api.initDataAPI = function()
 api.initTables = function(options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
@@ -1761,7 +1761,7 @@ api.checkPublicColumns = function(table, rows, options)
 {
     if (!table || !rows || !rows.length) return;
     if (!options) options = {};
-    var db = core.context.db;
+    var db = core.modules.db;
     var cols = {};
     core.strSplit(table).forEach(function(x) {
         var c = db.getColumns(x, options);
@@ -1817,7 +1817,7 @@ api.clearQuery = function(query, options, table, name)
     for (var i = 3; i < arguments.length; i++) {
         var name = arguments[i];
         if (options && options['keep_' + name]) continue;
-        var cols = core.context.db.getColumns(table, options);
+        var cols = core.modules.db.getColumns(table, options);
         for (var p in cols) {
             if (cols[p][name]) delete query[p];
         }
@@ -2206,7 +2206,7 @@ api.scaleIcon = function(infile, options, callback)
 api.handleIconRequest = function(req, res, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     var op = options.op || "put";
 
     options.force = true;
@@ -2285,7 +2285,7 @@ api.formatIcon = function(row, options)
     } else
     if ((this.imagesS3 || options.imagesS3) && (this.imagesS3Options || options.imagesS3Options)) {
         this.imagesS3Options.url = true;
-        row.url = core.context.aws.signS3("GET", options.imagesS3 || this.imagesS3, this.iconPath(row.id, row), options.imagesS3Options || this.imagesS3Options);
+        row.url = core.modules.aws.signS3("GET", options.imagesS3 || this.imagesS3, this.iconPath(row.id, row), options.imagesS3Options || this.imagesS3Options);
     } else
     if ((!row.acl_allow || row.acl_allow == "all") && this.allow.rx && ("/image/" + row.prefix + "/").match(this.allow.rx)) {
         row.url = (options.imagesUrl || this.imagesUrl) + '/image/' + row.prefix + '/' + row.id + '/' + row.type;
@@ -2324,7 +2324,7 @@ api.checkIcon = function(row, options, cols)
 api.selectIcon = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     options.ops = { type: "begins_with" };
     db.select("bk_icon", { id: req.query.id, type: req.query.prefix + ":" + (req.query.type || "") }, options, function(err, rows) {
@@ -2336,7 +2336,7 @@ api.selectIcon = function(req, options, callback)
 api.getIcon = function(req, res, id, options)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     db.get("bk_icon", { id: id, type: req.query.prefix + ":" + req.query.type }, options, function(err, row) {
         if (err) return self.sendReply(res, err);
@@ -2353,7 +2353,7 @@ api.sendIcon = function(req, res, id, options)
 {
     var self = this;
     if (!options) options = {};
-    var aws = core.context.aws;
+    var aws = core.modules.aws;
     var icon = this.iconPath(id, options);
     logger.debug('sendIcon:', icon, id, options);
 
@@ -2423,7 +2423,7 @@ api.storeIcon = function(file, id, options, callback)
         this.scaleIcon(file, options, function(err, data) {
             if (err) return callback ? callback(err) : null;
 
-            core.context.aws.s3PutFile(options.imagesS3 || self.imagesS3, icon, data, function(err) {
+            core.modules.aws.s3PutFile(options.imagesS3 || self.imagesS3, icon, data, function(err) {
                 if (callback) callback(err, icon);
             });
         });
@@ -2443,7 +2443,7 @@ api.delIcon = function(id, options, callback)
     logger.debug('delIcon:', id, options);
 
     if (this.imagesS3 || options.imagesS3) {
-        var aws = core.context.aws;
+        var aws = core.modules.aws;
         aws.queryS3(options.imagesS3 || self.imagesS3, icon, { method: "DELETE" }, function(err) {
             if (callback) callback();
         });
@@ -2460,7 +2460,7 @@ api.getFile = function(req, res, file, options)
 {
     var self = this;
     if (!options) options = {};
-    var aws = core.context.aws;
+    var aws = core.modules.aws;
     logger.debug('sendFile:', file, options);
 
     if (options.imagesS3 || self.imagesS3) {
@@ -2532,7 +2532,7 @@ api.storeFile = function(tmpfile, outfile, options, callback)
     logger.debug("storeFile:", outfile);
 
     if (this.filesS3 || options.filesS3) {
-        core.context.aws.s3PutFile(options.filesS3 || this.filesS3, outfile, tmpfile, callback);
+        core.modules.aws.s3PutFile(options.filesS3 || this.filesS3, outfile, tmpfile, callback);
     } else {
         outfile = path.join(core.path.files, outfile);
         core.makePath(path.dirname(outfile), function(err) {
@@ -2560,7 +2560,7 @@ api.delFile = function(file, options, callback)
     if (!options) options = {};
 
     if (this.filesS3 || options.filesS3) {
-        var aws = core.context.aws;
+        var aws = core.modules.aws;
         aws.queryS3(options.filesS3 || this.filesS3, file, { method: "DELETE" }, function(err) {
             if (callback) callback(err, outfile);
         });
@@ -2585,7 +2585,7 @@ api.getStatus = function(id, options, callback)
 {
     var self = this;
     var now = Date.now();
-    var db = core.context.db;
+    var db = core.modules.db;
 
     if (Array.isArray(id)) {
         db.list("bk_status", id, options, function(err, rows) {
@@ -2612,7 +2612,7 @@ api.putStatus = function(obj, options, callback)
 {
     var self = this;
     var now = Date.now();
-    var db = core.context.db;
+    var db = core.modules.db;
 
     // Read the current record, check is handled differently in put
     self.getStatus(obj.id, options, function(err, row) {
@@ -2636,7 +2636,7 @@ api.putStatus = function(obj, options, callback)
 api.incrCounter = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     var now = Date.now();
     var op = options.op || "incr";
 
@@ -2665,7 +2665,7 @@ api.incrCounter = function(req, options, callback)
 api.incrAutoCounter = function(id, type, num, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     if (!id || !type || !num) return callback(null, []);
     var col = db.getColumn("bk_counter", type, options);
@@ -2716,7 +2716,7 @@ api.delConnection = function(req, options, callback)
 api.queryConnection = function(id, obj, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     var query = { id: id, type: obj.type ? (obj.type + ":" + (obj.id || "")) : "" };
     for (var p in obj) if (p != "id" && p != "type") query[p] = obj[p];
@@ -2740,7 +2740,7 @@ api.queryConnection = function(id, obj, options, callback)
 api.readConnection = function(id, obj, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     var query = { id: id, type: obj.type + ":" + obj.id };
     for (var p in obj) if (p != "id" && p != "type") query[p] = obj[p];
@@ -2776,7 +2776,7 @@ api.readConnection = function(id, obj, options, callback)
 api.makeConnection = function(id, obj, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     var now = Date.now();
     var op = options.op || 'put';
     var query = core.cloneObj(obj);
@@ -2840,7 +2840,7 @@ api.makeConnection = function(id, obj, options, callback)
 api.deleteConnection = function(id, obj, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     var now = Date.now();
 
     function del(row, cb) {
@@ -2911,7 +2911,7 @@ api.deleteConnection = function(id, obj, options, callback)
 api.getLocation = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     var table = options.table || "bk_location";
 
     // Continue pagination using the search token, it carries all query and pagination info
@@ -2952,7 +2952,7 @@ api.getLocation = function(req, options, callback)
 api.putLocation = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     var now = Date.now();
     var table = options.table || "bk_location";
 
@@ -3011,7 +3011,7 @@ api.putLocation = function(req, options, callback)
 api.getArchiveMessage = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
@@ -3024,7 +3024,7 @@ api.getArchiveMessage = function(req, options, callback)
 api.getSentMessage = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
@@ -3037,7 +3037,7 @@ api.getSentMessage = function(req, options, callback)
 api.getMessage = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     req.query.id = req.account.id;
     if (!options.ops) options.ops = {};
@@ -3098,7 +3098,7 @@ api.getMessage = function(req, options, callback)
 api.archiveMessage = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     if (!req.query.sender || !req.query.mtime) return callback({ status: 400, message: "sender and mtime are required" });
 
     req.query.id = req.account.id;
@@ -3123,7 +3123,7 @@ api.archiveMessage = function(req, options, callback)
 api.addMessage = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     var now = Date.now();
     var info = {};
     var op = options.op || "add";
@@ -3189,7 +3189,7 @@ api.addMessage = function(req, options, callback)
 api.delMessage = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     var table = options.table || "bk_message";
     var sender = options.sender || "sender";
@@ -3244,7 +3244,7 @@ api.delSentMessage = function(req, options, callback)
 api.getAccount = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     if (!req.query.id) {
         db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
             if (err) return callback(err);
@@ -3286,8 +3286,8 @@ api.getAccount = function(req, options, callback)
 api.notifyAccount = function(id, options, callback)
 {
     var self = this;
-    var db = core.context.db;
-    var ipc = core.context.ipc;
+    var db = core.modules.db;
+    var ipc = core.modules.ipc;
     if (!id || !options) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" }, {});
 
     options = core.cloneObj(options);
@@ -3343,7 +3343,7 @@ api.notifyAccount = function(id, options, callback)
 api.listAccount = function(rows, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     var key = options.key || "id";
     var map = {};
     rows.forEach(function(x) { if (!map[x[key]]) map[x[key]] = []; map[x[key]].push(x); });
@@ -3367,7 +3367,7 @@ api.listAccount = function(rows, options, callback)
 api.selectAccount = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     db.select("bk_account", req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
         callback(err, self.getResultPage(req, options, rows, info));
@@ -3378,7 +3378,7 @@ api.selectAccount = function(req, options, callback)
 api.addAccount = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
 
     // Verify required fields
     if (!req.query.name) return callback({ status: 400, message: "name is required"});
@@ -3430,7 +3430,7 @@ api.addAccount = function(req, options, callback)
 api.updateAccount = function(req, options, callback)
 {
     var self = this;
-    var db = core.context.db;
+    var db = core.modules.db;
     req.query.mtime = Date.now();
     req.query.id = req.account.id;
     // Cannot reset account alias
@@ -3466,7 +3466,7 @@ api.updateAccount = function(req, options, callback)
 // Change account secret, used in /account/put/secret API call
 api.setAccountSecret = function(req, options, callback)
 {
-    var db = core.context.db;
+    var db = core.modules.db;
     if (!req.query.secret) return callback({ status: 400, message: "secret is required" });
     req.account.secret = req.query.secret;
     db.update("bk_auth", req.account, options, callback);
@@ -3481,7 +3481,7 @@ api.deleteAccount = function(id, options, callback)
 
     if (!id) return callback({ status: 400, message: "id must be specified" });
 
-    var db = core.context.db;
+    var db = core.modules.db;
     if (!options.keep) options.keep = {};
     options.count = 1000000;
 
@@ -3592,7 +3592,7 @@ api.getStatistics = function(options)
     this.metrics.Histogram('avg').update(avg[2]);
     this.metrics.Histogram('free').update(os.freemem());
     this.metrics.Histogram("util").update(util * 100 / cpus.length);
-    this.metrics.pool = core.context.db.getPool().metrics;
+    this.metrics.pool = core.modules.db.getPool().metrics;
 
     // Convert into simple object with all deep properties using names concatenated with dots
     var obj = core.flattenObj(this.metrics.toJSON(), { separator: '_' });
@@ -3643,7 +3643,7 @@ api.sendStatistics = function()
 api.saveStatistics = function(obj, callback)
 {
     var self = this;
-    core.context.db.add("bk_collect", obj, { pool: self.collectPool, skip_null: true }, callback);
+    core.modules.db.add("bk_collect", obj, { pool: self.collectPool, skip_null: true }, callback);
 }
 
 // Calculate statistics for a period of time, query and options must confirm to the db.select conventions.
@@ -3652,7 +3652,7 @@ api.calcStatistics = function(query, options, callback)
     var self = this;
     if (typeof optinons == "function") callback = options, options = null;
     if (!options) options = {};
-    var db = core.context.db;
+    var db = core.modules.db;
     // Default sample interval
     if (!options.interval) options.interval = 300000;
 

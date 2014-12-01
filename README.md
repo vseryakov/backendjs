@@ -244,19 +244,26 @@ home subdirectory `modules/`. The format is the same as for regular node.js modu
  - for worker modules the file name must be in the format: `NAME_worker.js`
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the node nodules and setup. These modules are exposed in the `core.context` the same way as all other core submodules.
+can be shipped regardless of the node nodules and setup. These modules are exposed in the `core.modules` the same way as all other core submodules.
 methods.
 
-Let's assuming the modules/ contains file facebook_web.js:
+Let's assuming the modules/ contains file facebook_web.js which implenents custom FB logic:
 
             var bkjs = require("backendjs");
-            var fb = bkjs.facebook;
+            var core = bkjs.core;
+            var fb;
 
-            ...
+            app.configureWeb = function(options, callback) {
+                // Now the facebook module is loaded and can be referenced
+                fb = core.modules.facebook;
+            });
 
             // Using facebook module in the main app
-            fb.get("me", function(err, data) {
-                ...
+            api.app.get("some url", function(req, res) {
+
+                fb.makeRequest(function(err, data) {
+                    ...
+                });
             });
 
             bkj.server.start()

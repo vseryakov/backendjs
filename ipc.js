@@ -49,7 +49,7 @@ ipc.initClient = function()
         try {
             switch (msg.op || "") {
             case "api:restart":
-                core.context.api.shutdown(function() { process.exit(0); });
+                core.modules.api.shutdown(function() { process.exit(0); });
                 break;
 
             case "init:cache":

@@ -251,7 +251,7 @@ server.startWorker = function()
 server.startWeb = function(callback)
 {
     var self = this;
-    var api = core.context.api;
+    var api = core.modules.api;
 
     if (cluster.isMaster) {
         core.role = 'server';
@@ -538,8 +538,8 @@ server.startDaemon = function()
 server.startShell = function()
 {
     var self = this;
-    var db = core.context.db;
-    var api = core.context.api;
+    var db = core.modules.db;
+    var api = core.modules.api;
     process.title = core.name + ": shell";
 
     logger.debug('startShell:', process.argv);
@@ -747,7 +747,7 @@ server.startTestServer = function(options)
 
     if (!options.master) {
         options.running = options.stime = options.etime = options.id = 0;
-        core.context.aws.getInstanceInfo(function() {
+        core.modules.aws.getInstanceInfo(function() {
             setInterval(function() {
                 core.sendRequest({ url: options.host + '/ping/' + core.instanceId + '/' + options.id }, function(err, params) {
                     if (err) return;
@@ -772,7 +772,7 @@ server.startTestServer = function(options)
                         } else
                         if (options.test) {
                             var name = options.test.split(".");
-                            core.runTest(core.context[name[0]], name[1], options);
+                            core.runTest(core.modules[name[0]], name[1], options);
                         }
                         break;
 
@@ -802,7 +802,7 @@ server.startTestServer = function(options)
     var nodes = {};
     var app = express();
     app.on('error', function (e) { logger.error(e); });
-    app.use(function(req, res, next) { return core.context.api.checkQuery(req, res, next); });
+    app.use(function(req, res, next) { return core.modules.api.checkQuery(req, res, next); });
     app.use(app.routes);
     app.use(function(err, req, res, next) {
         logger.error('startTestMaster:', req.path, err, err.stack);
@@ -1006,7 +1006,7 @@ server.runJob = function(job)
 
         // Make report about unknown job, leading $ are used for same method miltiple times in the same job because property names are unique in the objects
         var spec = name.replace(/^[\$]+/g, "").split('.');
-        var obj = spec[0] == "core" ? core : core.context[spec[0]];
+        var obj = spec[0] == "core" ? core : core.modules[spec[0]];
         if (!obj || !obj[spec[1]]) {
             logger.error('runJob:', "unknown method", name, 'job:', job);
             continue;

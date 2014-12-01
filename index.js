@@ -16,12 +16,12 @@ exports.metrics = require(__dirname + '/metrics');
 exports.app = require(__dirname + '/app');
 exports.run = function(callback) { this.core.run(callback); }
 
-exports.core.addContext('logger', exports.logger,
-                        'ipc', exports.ipc,
-                        'db', exports.db,
-                        'aws', exports.aws,
-                        'msg', exports.msg,
-                        'api', exports.api,
-                        'server', exports.server,
-                        'utils', exports.utils,
-                        'app', exports.app);
+exports.core.addModule('logger', exports.logger,
+                       'ipc', exports.ipc,
+                       'db', exports.db,
+                       'aws', exports.aws,
+                       'msg', exports.msg,
+                       'api', exports.api,
+                       'server', exports.server,
+                       'utils', exports.utils,
+                       'app', exports.app);
