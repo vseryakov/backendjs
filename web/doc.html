@@ -281,17 +281,24 @@ home subdirectory <code>modules/</code>. The format is the same as for regular n
 <li>for worker modules the file name must be in the format: <code>NAME_worker.js</code></li>
 </ul>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the node nodules and setup. These modules are exposed in the <code>core.context</code> the same way as all other core submodules.
+can be shipped regardless of the node nodules and setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules.
 methods.</p>
-<p>Let&#39;s assuming the modules/ contains file facebook_web.js:</p>
+<p>Let&#39;s assuming the modules/ contains file facebook_web.js which implenents custom FB logic:</p>
 <pre><code>        var bkjs = require(&quot;backendjs&quot;);
-        var fb = bkjs.facebook;
+        var core = bkjs.core;
+        var fb;
 
-        ...
+        app.configureWeb = function(options, callback) {
+            // Now the facebook module is loaded and can be referenced
+            fb = core.modules.facebook;
+        });
 
         // Using facebook module in the main app
-        fb.get(&quot;me&quot;, function(err, data) {
-            ...
+        api.app.get(&quot;some url&quot;, function(req, res) {
+
+            fb.makeRequest(function(err, data) {
+                ...
+            });
         });
 
         bkj.server.start()
@@ -1611,6 +1618,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>log-dir</code> - Path where to keep other log files, log-file and err-file are not affected by this</li>
 <li><code>files-dir</code> - Path where to keep uploaded files</li>
 <li><code>images-dir</code> - Path where to keep images</li>
+<li><code>modules-dir</code> - Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point</li>
 <li><code>uid</code> - User id or name to switch after startup if running as root, used by Web servers and job workers</li>
 <li><code>gid</code> - Group id or name to switch after startup if running to root</li>
 <li><code>email</code> - Email address to be used when sending emails from the backend</li>
@@ -1631,7 +1639,6 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>ssl-crl</code> - Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)</li>
 <li><code>ssl-ciphers</code> - A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format</li>
 <li><code>ssl-request-cert</code> - If true the server will request a certificate from clients that connect and attempt to verify that certificate. </li>
-<li><code>modules</code> - Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules</li>
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks. Default: 2</li>
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
@@ -4403,7 +4410,7 @@ merge with existing cookies from the jar which is a list of cookies before the r
 </ul>
 
 <ul>
-<li><p><code>core.addContext()</code></p>
+<li><p><code>core.addModule()</code></p>
 <p> Adds reference to the objects in the core for further access, specify module name, module reference pairs</p>
 </li>
 </ul>
