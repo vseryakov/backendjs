@@ -59,6 +59,7 @@
 <li><a href="#configuration-parameters">Configuration parameters</a></li>
 <li>Javascript API functions<ul>
 <li><a href="#module-api">api</a></li>
+<li><a href="#module-app">app</a></li>
 <li><a href="#module-aws">aws</a></li>
 <li><a href="#module-core">core</a></li>
 <li><a href="#module-db">db</a></li>
@@ -224,29 +225,33 @@ may return data in whatever format is required.</p>
 <p>The principle behind the system is that nowadays the API services just return data which Web apps or mobiles apps can render to
 the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
 processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.</p>
-<p>When the API layer is initialized, the api module contains <code>app</code> object which is Express application. The <code>api.initMiddleware</code> method which is supposed to be overridden
-is called with <code>this</code> pointing to the api module and Express server <code>this.app</code> created and initialized with security middleware but not any other routes or templates.</p>
-<p>The typical structure of a backendjs application is the following (created by the bkjs init-app command:</p>
-<pre><code>        var backend = require(&#39;backendjs&#39;);
-        var api = backend.api;
-        var db = backend.db;
+<p>When the API layer is initialized, the api module contains <code>app</code> object which is an Express server.</p>
+<p>Special module <code>app</code> or namespace is designated to be used fpr application developent. This module is available the same way as api or core
+which makes it easy to refer and extend with additional methods and structures.</p>
+<p>The typical structure of a backendjs application is the following (created by the bkjs init-app command):</p>
+<pre><code>        var bkjs = require(&#39;backendjs&#39;);
+        var api = bkjs.api;
+        var app = bkjs.app;
+        var db = bkjs.db;
 
         // Describe the tables or data model
         api.describeTables({
             ...
         });
 
-        // Optionally customize the Express environment, setup MVC routes or else, this.app is the Express server
-        api.initMiddleware = function()
+        // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
+        app.configureMiddleware = function(options, callback)
         {
             ...
+            callback()
         }
 
         // Register API endpoints, i.e. url callbacks
-        api.initApplication = function(callback)
+        app.configureWeb = function(options, callback)
         {
             this.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
             ...
+            callback();
         }
 
         // Optionally register post processing of the returned data from the default calls
@@ -258,11 +263,22 @@ is called with <code>this</code> pointing to the api module and Express server <
         api.registerPreProcess(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
         ...
 
-        backend.server.start();
-</code></pre><p>Except the <code>api.initApplication</code> and <code>server.start()</code> all other functions are optional, they are here for the sake of completness of the example. Also
+        bkjs.server.start();
+</code></pre><p>Except the <code>app.configureWeb</code> and <code>server.start()</code> all other functions are optional, they are here for the sake of completness of the example. Also
 because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
 configuration of the cron jobs so the amount of code to be written to have fully functionaning production API server is not that much, basically only
 request endpoint callbacks must be provided in the application.</p>
+<p>As with any node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
+the application is structured.</p>
+<p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
+home subdirectory <code>modules/</code>. The format is the same as for regular node.js modules but the file names should follow the following conventions:</p>
+<ul>
+<li>for API modules the file name must be in the form <code>NAME_web.js</code></li>
+<li>for worker modules the file name must be in the format: <code>NAME_worker.js</code></li>
+</ul>
+<p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
+can be shipped regardless of the node nodules and setup. These modules are exposed in the <code>core.context</code> the same way as all other core submodules.
+methods.</p>
 <h1 id="database-schema-definition">Database schema definition</h1>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
@@ -316,12 +332,13 @@ hooks are registered and return data itself then it is the hook responsibility t
                        work_phone: {},
         });
 
-        api.initApplication = function(callback)
+        app.configureWeb = function(options, callback)
         {
-            db.setProcessRow(&quot;bk_account&quot;, self.processAccountRow);
+            db.setProcessRow(&quot;bk_account&quot;, this.processAccountRow);
             ...
+            callback();
         }
-        api.processAccountRow = function(row, options, cols)
+        app.processAccountRow = function(row, options, cols)
         {
             if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
             return row;
@@ -1128,14 +1145,14 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 <p>  Example:</p>
 <ol>
 <li><p>Create file in ~/.backend/etc/crontab with the following contents:</p>
-<pre><code> [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;api.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
+<pre><code> [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;app.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
 </code></pre></li>
 <li><p>Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file</p>
-<pre><code> var backend = require(&quot;backendjs&quot;);
- backend.api.cleanSessions = function(options, callback) {
-      backend.db.delAll(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot; }, callback);
+<pre><code> var bkjs = require(&quot;backendjs&quot;);
+ bkjs.app.cleanSessions = function(options, callback) {
+      bkjs.db.delAll(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot; }, callback);
  }
- backend.server.start()
+ bkjs.server.start()
 </code></pre></li>
 <li><p>Start the scheduler and the web server at once</p>
 <pre><code> bkjs run-backend -master -web
@@ -1153,25 +1170,24 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 <li><code>web</code> - Web pages served by the static Express middleware</li>
 </ul>
 <h1 id="internal-backend-functions">Internal backend functions</h1>
-<p>The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as &quot;backend&quot; submodule, to see
+<p>The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as <code>utils</code> submodule, to see
 all functions for example run the below:</p>
-<pre><code>var backend = require(&#39;backendjs&#39;);
-console.log(backend.backend)
+<pre><code>    var bkjs = require(&#39;backendjs&#39;);
+    console.log(bkjs.utils)
 </code></pre><p>List of available functions:</p>
 <ul>
-<li>rungc() - run V8 garbage collector on demand</li>
-<li>setsegv() - install SEGV signal handler to show crash backtrace</li>
-<li>setbacktrace() - install special V8-aware backtrace handler</li>
-<li>backtrace() - show V8 backtrace from current position</li>
-<li>heapSnapshot(file) - dump current memory heap snapshot into a file</li>
-<li>splitArray(str) - split a string into an array separated by commas, supports double quotes</li>
-<li>logging([level]) - set or return logging level, this is internal C++ logging facility</li>
-<li>loggingChannel(channelname) - redirect logging into stdout or stderr, this is internal C++ logging</li>
-<li>countWords(word, text) - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm</li>
-<li>countAllWords(list, text) - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm</li>
-<li>countWordsInit() - clears word counting cache</li>
-<li><p>resizeImage(source, options, callback) - resize image using ImageMagick,</p>
-<ul>
+<li><code>rungc()</code> - run V8 garbage collector on demand</li>
+<li><code>setsegv()</code> - install SEGV signal handler to show crash backtrace</li>
+<li><code>setbacktrace()</code> - install special V8-aware backtrace handler</li>
+<li><code>backtrace()</code> - show V8 backtrace from current position</li>
+<li><code>heapSnapshot(file)</code> - dump current memory heap snapshot into a file</li>
+<li><code>splitArray(str)</code> - split a string into an array separated by commas, supports double quotes</li>
+<li><code>logging([level])</code> - set or return logging level, this is internal C++ logging facility</li>
+<li><code>loggingChannel(channelname)</code> - redirect logging into stdout or stderr, this is internal C++ logging</li>
+<li><code>countWords(word, text)</code> - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm</li>
+<li><code>countAllWords(list, text)</code> - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm</li>
+<li><code>countWordsInit()</code> - clears word counting cache</li>
+<li><code>resizeImage(source, options, callback)</code> - resize image using ImageMagick,<ul>
 <li>source can be a Buffer or file name</li>
 <li>options can have the following properties:<ul>
 <li>width - output image width, if negative and the original image width is smaller than the specified, nothing happens</li>
@@ -1183,68 +1199,74 @@ console.log(backend.backend)
 </li>
 </ul>
 </li>
-<li><p>resizeImageSync(name,width,height,format,filter,quality,outfile) - resize an image synchronically</p>
-</li>
-<li>snappyCompress(str) - compress a string</li>
-<li>snappyUncompress(str) - decompress a string</li>
+<li><code>resizeImageSync(name,width,height,format,filter,quality,outfile)</code> - resize an image synchronically</li>
+<li><code>snappyCompress(str)</code> - compress a string</li>
+<li><code>snappyUncompress(str)</code> - decompress a string</li>
+<li><code>zlibCompress(str)</code> - compress a string</li>
+<li><code>zlibUncompress(str)</code> - decompress a string</li>
+<li><code>unzip(zipfile, outdir)</code> - extract a zip archive into directory</li>
+<li><code>unzipFile(zipfile, file [, outfile])</code> - extract a file from zip archive, return contents if no outfile s specified</li>
+<li><code>run(command, callback)</code> - run shell command and return all output to the callback</li>
+<li><code>getUser([user])</code> - return an object with user info from the /etc/passwd file, user can be uid or name</li>
+<li><code>getGroup([group])</code> - return an object with specified group info for the current user of for the given group id or name</li>
 <li>Geohash support<ul>
-<li>geoDistance(lat1, lon1, lat2, lon2) - return distance between 2 coordinates in km</li>
-<li>geoBoundingBox(lat, lon, distance) - return bounding box geohash for given point around distance</li>
-<li>geoHashEncode(lat, lon, len) - return geohash for given coordinate, len defines number of bytesin geohash</li>
-<li>geoHashDecode(hash) - return coordinates for given geohash</li>
-<li>geoHashAdjacent()</li>
-<li>geoHashGrid()</li>
-<li>geoHashRow()</li>
+<li><code>geoDistance(lat1, lon1, lat2, lon2)</code> - return distance between 2 coordinates in km</li>
+<li><code>geoBoundingBox(lat, lon, distance)</code> - return bounding box geohash for given point around distance</li>
+<li><code>geoHashEncode(lat, lon, len)</code> - return geohash for given coordinate, len defines number of bytesin geohash</li>
+<li><code>geoHashDecode(hash)</code> - return coordinates for given geohash</li>
+<li><code>geoHashAdjacent()</code></li>
+<li><code>geoHashGrid()</code></li>
+<li><code>geoHashRow()</code></li>
 </ul>
 </li>
 <li>Generic cache outside of V8 memory pool<ul>
-<li>cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap</li>
-<li>cachePut()</li>
-<li>cacheGet()</li>
-<li>cacheDel()</li>
-<li>cacheKeys()</li>
-<li>cacheClear()</li>
-<li>cacheNames()</li>
-<li>cacheSize()</li>
-<li>cacheEach()</li>
-<li>cacheForEach()</li>
-<li>cacheForEachNext()</li>
-<li>cacheBegin()</li>
-<li>cacheNext()</li>
+<li><code>cacheSave()</code> - general purpose caching functions that have no memory limits and do not use V8 heap</li>
+<li><code>cachePut()</code></li>
+<li><code>cacheGet()</code></li>
+<li><code>cacheDel()</code></li>
+<li><code>cacheKeys()</code></li>
+<li><code>cacheClear()</code></li>
+<li><code>cacheNames()</code></li>
+<li><code>cacheSize()</code></li>
+<li><code>cacheEach()</code></li>
+<li><code>cacheForEach()</code></li>
+<li><code>cacheForEachNext()</code></li>
+<li><code>cacheBegin()</code></li>
+<li><code>cacheNext()</code></li>
 </ul>
 </li>
 <li>LRU internal cache<ul>
-<li>lruInit(max) - init LRU cache with max number of keys, this is in-memory cache which evicts older keys</li>
-<li>lruStats() - return statistics about the LRU cache</li>
-<li>lruSize() - return size of the current LRU cache</li>
-<li>lruCount() - number of keys in the LRU cache</li>
-<li>lruPut(name, val) - set/replace value by name</li>
-<li>lruGet(name) - return value by name</li>
-<li>lruIncr(name, val) - increase value by given number, non existent items assumed to be 0</li>
-<li>lruDel(name) - delete by name</li>
-<li>lruKeys() - return all cache key names</li>
-<li>lruClear() - clear LRU cache</li>
-<li>lruServer()</li>
+<li><code>lruInit(max)</code> - init LRU cache with max number of keys, this is in-memory cache which evicts older keys</li>
+<li><code>lruStats()</code> - return statistics about the LRU cache</li>
+<li><code>lruSize()</code> - return size of the current LRU cache</li>
+<li><code>lruCount()</code> - number of keys in the LRU cache</li>
+<li><code>lruPut(name, val)</code> - set/replace value by name</li>
+<li><code>lruGet(name)</code> - return value by name</li>
+<li><code>lruIncr(name, val)</code> - increase value by given number, non existent items assumed to be 0</li>
+<li><code>lruDel(name)</code> - delete by name</li>
+<li><code>lruKeys()</code> - return all cache key names</li>
+<li><code>lruClear()</code> - clear LRU cache</li>
+<li><code>lruServer()</code></li>
 </ul>
 </li>
 <li>Syslog support<ul>
-<li>syslogInit(name, priority, facility) - initialize syslog client, used by the logger module</li>
-<li>syslogSend(level, text)</li>
-<li>syslogClose()</li>
+<li><code>syslogInit(name, priority, facility)</code> - initialize syslog client, used by the logger module</li>
+<li><code>syslogSend(level, text)</code></li>
+<li><code>syslogClose()</code></li>
 </ul>
 </li>
 <li>NNSocket() - nanomsg socket object with the methods:<ul>
-<li>subscribe</li>
-<li>bind</li>
-<li>close</li>
-<li>setOption</li>
-<li>connect</li>
-<li>unsubscribe</li>
-<li>send</li>
-<li>recv</li>
-<li>setCallback</li>
-<li>setProxy</li>
-<li>setForward</li>
+<li><code>subscribe</code></li>
+<li><code>bind</code></li>
+<li><code>close</code></li>
+<li><code>setOption</code></li>
+<li><code>connect</code></li>
+<li><code>unsubscribe</code></li>
+<li><code>send</code></li>
+<li><code>recv</code></li>
+<li><code>setCallback</code></li>
+<li><code>setProxy</code></li>
+<li><code>setForward</code></li>
 </ul>
 </li>
 </ul>
@@ -1340,10 +1362,11 @@ this assumes the default path &#39;/public&#39; still allowed without the signat
 in case of error will be redirected to the login page by the server. Note, in the login page <code>Backend.session</code> must be set to true for all
 html pages to work after login without singing every API request.</p>
 <p>First we disable all allowed paths to the html and registration:</p>
-<pre><code>    api.initMiddleware = function(callback) {
+<pre><code>    app.configureMiddleware = function(options, callback) {
         self.allow.splice(self.allow.indexOf(&#39;^/$&#39;), 1);
         self.allow.splice(self.allow.indexOf(&#39;\\.html$&#39;), 1);
         self.allow.splice(self.allow.indexOf(&#39;^/account/add$&#39;), 1);
+        callback();
     }
 </code></pre><p>Second we define auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:</p>
@@ -1596,8 +1619,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks. Default: 2</li>
 <li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests. Default: 30000</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
-<li><code>shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules</li>
-<li><code>shell-api</code> - Run command line shell but initializes the api modules in addition to the core and db</li>
+<li><code>shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line</li>
 <li><code>monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
 <li><code>master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
 <li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
@@ -1693,6 +1715,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>msg-server-queue</code> - Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem</li>
 <li><code>msg-client-queue</code> - Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes</li>
 <li><code>msg-host</code> - List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers. DNS TXT configurable.</li>
+<li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutting down before exiting. Default: 2000</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
@@ -1747,7 +1770,8 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>server-proxy-url</code> - URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests. Default: {}</li>
 <li><code>server-proxy-reverse</code> - Reverse the proxy logic, proxy all that do not match the proxy-url pattern</li>
 <li><code>server-proxy-host</code> - A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port</li>
-<li><code>server-node-args</code> - Node arguments for spawned processes, for passing v8 options. Default: []</li>
+<li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guardred by this monitor</li>
+<li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes. Default: []</li>
 <li><code>server-node-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options. Default: []</li>
 <li><code>server-jobs-tag</code> - This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag</li>
 <li><code>server-job-queue</code> - Name of the queue to process, this is a generic queue name that can be used by any queue provider</li>
@@ -1985,6 +2009,18 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 </ul>
 
 <ul>
+<li><p><code>api.configureWorker(options, callback)</code></p>
+<p> Allow access to API table in worker processes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.configureShell(options, callback)</code></p>
+<p> Access to the API table in the shell</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.handleServerRequest(req, res)</code></p>
 <p> Start Express middleware processing wrapped in the node domain</p>
 </li>
@@ -2023,46 +2059,6 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 <ul>
 <li><p><code>api.closeWebSocketRequest(socket)</code></p>
 <p> Close all pending requests, this is called on socket close or disconnect</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initApplication(callback)</code></p>
-<p> This handler is called after the Express server has been setup and all default API endpoints initialized but the server
-is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initMiddleware(callback)</code></p>
-<p> This handler is called during the Express server initialization just after the security middleware.
-this.app refers to the Express instance.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initMaster(callback)</code></p>
-<p> This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initServer(callback)</code></p>
-<p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
-interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initWorker(callback)</code></p>
-<p> This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.exitWorker(callback)</code></p>
-<p> Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
-This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.</p>
 </li>
 </ul>
 
@@ -2228,7 +2224,7 @@ property is used to detect current account but can be specified by the <code>opt
 
 <ul>
 <li><p><code>api.describeTables(tables)</code></p>
-<p> Define new tables or extned/customize existing tables. Table definitions are used with every database operation,
+<p> Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
 on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
 like public columns are only specific to the backend so to mark such columns the table with such properties must be described
 using this method. Only columns with changed properties need to be specified, other columns will be left as it is.</p>
@@ -2829,6 +2825,77 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <ul>
 <li><p><code>api.calcStatistics(query, options, callback)</code></p>
 <p> Calculate statistics for a period of time, query and options must confirm to the db.select conventions.</p>
+</li>
+</ul>
+
+<h2 id="module-app">Module: APP</h2>
+<ul>
+<li><p><code>app</code></p>
+<p> This is a skeleton module to be extended by the specific application logic. It provides all callback and hooks that are called by the core backend modules
+during different phases, like initialization, shutting down, etc...</p>
+<p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configure(options, callback)</code></p>
+<p> Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
+the primary purpose of this early call is to setup environment before connecting to the database</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureModule(options, callback)</code></p>
+<p> Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
+init steps that all processes require to have. All database pool and other confugration is ready at this point.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMiddleware(options, callback)</code></p>
+<p> This handler is called during the Express server initialization just after the security middleware.</p>
+<p>NOTE: <code>options.app</code> refers to the Express instance.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureWeb(options, callback)</code></p>
+<p> This handler is called after the Express server has been setup and all default API endpoints initialized but the Web server
+is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.</p>
+<p>NOTE: <code>options.app</code> refers to the Express instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.shutdownWeb(options, callback)</code></p>
+<p> Perform shutdown sequence when a Web process is about to exit</p>
+<p>NOTE: <code>options.app</code> refers to the Express instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMaster(options, callback)</code></p>
+<p> This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureServer(options, callback)</code></p>
+<p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
+interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureWorker(options, callback)</code></p>
+<p> This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.shutdownWorker(options, callback)</code></p>
+<p> Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
+This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.</p>
 </li>
 </ul>
 
@@ -3471,19 +3538,6 @@ If options are given they may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>core.preInit(callback)</code></p>
-<p> Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.postInit(callback)</code></p>
-<p> Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
-init steps that all processes require to have.</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.run(options, callback)</code></p>
 <p> Run any backend function after environment has been initialized, this is to be used in shell scripts,
 core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
@@ -3757,7 +3811,9 @@ any errors must be passed, use the message object for it, no other arguments are
 
 <ul>
 <li><p><code>core.runMethods(name, options, callback)</code></p>
-<p> Run a method for every module</p>
+<p> Run a method for every module, a method must conform to the following signature: <code>function(options, callback)</code> and
+call the callback when finished. The callback second argument will be the options, so it is possible to pass anything
+in the options back to the caller. Errors from a module is never propagated and simply ignored.</p>
 </li>
 </ul>
 
@@ -4549,6 +4605,12 @@ The priority of the paramaters is fixed and goes form the most broad to the most
 </ul>
 
 <ul>
+<li><p><code>db.shutdownWeb(optios, callback)</code></p>
+<p> Gracefully close all database pools when the shutdown is initiated by a Web process</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.dropPoolTables(name, tables, options, callback)</code></p>
 <p> Delete all specified tables from the pool, if <code>name</code> is empty then default pool will be used, <code>tables</code> is an object with table names as
 properties, same table definition format as for create table method</p>
@@ -5036,7 +5098,7 @@ Additional options:</p>
 </ul>
 <p>Example:</p>
 <pre><code>db.getCached(&quot;get&quot;, &quot;bk_account&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {
-    var distance = backend.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
+    var distance = utils.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
 });
 </code></pre></li>
 </ul>
@@ -5578,7 +5640,7 @@ all other commands work as in push mode. Only &#39;get,put,del,incr&#39; comamnd
 on the other side only support simple key-value operations.
 Options can define the following:</p>
 <ul>
-<li>socket - nanomsg socket type, default is backend.NN_PUSH, can be backend.NN_REQ</li>
+<li>socket - nanomsg socket type, default is utils.NN_PUSH, can be utils.NN_REQ</li>
 </ul>
 </li>
 </ul>
@@ -5818,6 +5880,18 @@ argument, the mesages received as the third argument</p>
 <ul>
 <li><p><code>msg.shutdown(options, callback)</code></p>
 <p> Shutdown notification services, wait till all pending messages are sent before calling the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.shutdownWorker(options, callback)</code></p>
+<p> Gracefully drain all message queues on worker exit</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.shutdownWeb(options, callback)</code></p>
+<p> Gracefully drain all message queues on web process exit</p>
 </li>
 </ul>
 
