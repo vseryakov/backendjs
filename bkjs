@@ -811,7 +811,7 @@ case "$ARG" in
         (cd node_modules && git clone https://github.com/vseryakov/backendjs.git)
     fi
     (cd node_modules/$BKJS_MOD && git pull)
-    (cd node_modules/$BKJS_MOD && npm install -d --backend_nanomsg --backend_imagemagick)
+    (cd node_modules/$BKJS_MOD && npm install --backend_nanomsg --backend_imagemagick)
     ;;
 
   build-backend)
@@ -960,11 +960,12 @@ $(whoami)
 // Backend app
 // Created by $(whoami) on $(date)
 //
-var backend = require('$BKJS_MOD');
-var db = backend.db;
-var api = backend.api;
-var core = backend.core;
-var logger = backend.logger;
+var bkjs = require('$BKJS_MOD');
+var db = bkjs.db;
+var api = bkjs.api;
+var app = bkjs.app;
+var core = bkjs.core;
+var logger = bkjs.logger;
 
 api.describeTables({
     // New table
@@ -988,29 +989,19 @@ api.describeTables({
     },
 });
 
-// Modify every row returned to the client, we can add/del properties
-api.processTestRow = function(row, options, cols)
-{
-    row.url = '/test/list';
-    return row;
-}
-
-api.initMiddleware = function()
-{
-}
-
-api.initApplication = function(callback)
+// Create API endpoints and routes
+app.configureWeb = function(options, callback)
 {
     db.setProcessRow('test', this.processTestRow);
 
     // Add new record
-    this.app.all(/^\/test\/add/, function(req, res) {
+    api.app.all(/^\/test\/add/, function(req, res) {
         db.add('test', { id: req.query.id, name: req.query.name }, function(err, rows) {
             api.sendReply(res, err);
         });
     });
     // Update record
-    this.app.all(/^\/test\/update/, function(req, res) {
+    api.app.all(/^\/test\/update/, function(req, res) {
         if (!req.query.id || !req.query.name) return api.sendRepy(res, { status: 400, message: "id and name required" });
 
         db.update('test', req.query, function(err, rows) {
@@ -1018,7 +1009,7 @@ api.initApplication = function(callback)
         });
     });
     // Retrieve record by id
-    this.app.all(/^\/test\/([0-9]+)/, function(req, res) {
+    api.app.all(/^\/test\/([0-9]+)/, function(req, res) {
         var options = api.getOptions(req);
         db.get('test', { id: req.params[0] }, options, function(err, rows) {
             res.json(rows);
@@ -1026,6 +1017,23 @@ api.initApplication = function(callback)
     });
     callback()
 };
+
+// A job method that can be called directly from the crontab or via shell
+app.processTestJob = function(options, callback)
+{
+    db.select("test", {}, function(err, rows) {
+        if (err) return callback(err);
+        console.log("Test contains: ", rows.length, "records")
+        callback()
+    });
+}
+
+// Modify every row returned to the client, we can add/del properties
+app.processTestRow = function(row, options, cols)
+{
+    row.url = '/test/list';
+    return row;
+}
 
 api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows) {
     var self = this;

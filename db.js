@@ -9,7 +9,7 @@ var net = require('net');
 var fs = require('fs');
 var path = require('path');
 var domain = require('domain');
-var backend = require(__dirname + '/build/Release/backend');
+var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var ipc = require(__dirname + '/ipc');
@@ -340,6 +340,15 @@ db.initPoolTables = function(name, tables, options, callback)
             });
         });
     });
+}
+
+// Gracefully close all database pools when the shutdown is initiated by a Web process
+db.shutdownWeb = function(optios, callback)
+{
+    var pools = this.getPools();
+    core.forEachLimit(pools, pools.length, function(pool, next) {
+        db.pools[pool.name].shutdown(next);
+    }, callback);
 }
 
 // Delete all specified tables from the pool, if `name` is empty then default pool will be used, `tables` is an object with table names as
@@ -1457,7 +1466,7 @@ db.get = function(table, query, options, callback)
 //  Example:
 //
 //      db.getCached("get", "bk_account", { id: req.query.id }, { select: "latitude,longitude" }, function(err, row) {
-//          var distance = backend.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
+//          var distance = utils.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
 //      });
 //
 db.getCached = function(op, table, query, options, callback)
@@ -2818,7 +2827,7 @@ db.sqlDelete = function(table, obj, options)
 // Setup PostgreSQL pool driver
 db.pgsqlInitPool = function(options)
 {
-    if (!backend.PgSQLDatabase) {
+    if (!utils.PgSQLDatabase) {
         logger.error("PostgreSQL driver is not compiled in, consider to install postgresql libpq library");
         return this.nopool;
     }
@@ -2830,7 +2839,7 @@ db.pgsqlInitPool = function(options)
     options.type = "pgsql";
     var pool = this.sqlInitPool(options);
     pool.connect = function(options, callback) {
-        new backend.PgSQLDatabase(options.db, function(err) {
+        new utils.PgSQLDatabase(options.db, function(err) {
             if (err) {
                 logger.error('pgsqlOpen:', options, err);
                 return callback(err);
@@ -2936,7 +2945,7 @@ db.sqliteInitPool = function(options)
 db.sqliteConnect = function(options, callback)
 {
     var self = this;
-    new backend.SQLiteDatabase(options.file, options.readonly ? backend.OPEN_READONLY : 0, function(err) {
+    new utils.SQLiteDatabase(options.file, options.readonly ? utils.OPEN_READONLY : 0, function(err) {
         if (err) {
             // Do not report errors about not existing databases
             if (err.code != "SQLITE_CANTOPEN" || !options.silent) logger.error('sqliteOpen', options.file, err);
@@ -3019,7 +3028,7 @@ db.sqliteCacheColumns = function(options, callback)
 // Setup MySQL database driver
 db.mysqlInitPool = function(options)
 {
-    if (!backend.MysqlDatabase) {
+    if (!utils.MysqlDatabase) {
         logger.error("MySQL driver is not compiled in, consider to install libmysqlclient library");
         return this.nopool;
     }
@@ -3031,7 +3040,7 @@ db.mysqlInitPool = function(options)
     options.dboptions = { typesMap: { json: "text", bigint: "bigint" }, sqlPlaceholder: "?", defaultType: "VARCHAR(128)", noIfExists: 1, noJson: 1, noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
     pool.connect = function(options, callback) {
-        new backend.MysqlDatabase(options.db, function(err) {
+        new utils.MysqlDatabase(options.db, function(err) {
             callback(err, this);
         });
     }
@@ -3854,7 +3863,7 @@ db.lmdbInitPool = function(options)
         try {
             if (!core.exists(this.create_if_missing)) options.create_if_missing = true;
             var path = core.path.spool + "/" + (options.db || ('ldb_' + core.processName()));
-            new backend.LevelDB(path, options, function(err) {
+            new utils.LevelDB(path, options, function(err) {
                 pool.dbhandle = this;
                 callback(null, this);
             });
@@ -3866,12 +3875,12 @@ db.lmdbInitPool = function(options)
         if (this.dbhandle) return callback(null, this.dbhandle);
         try {
             if (!options.path) options.path = core.path.spool;
-            if (!options.flags) options.flags = backend.MDB_CREATE;
+            if (!options.flags) options.flags = utils.MDB_CREATE;
             if (!options.dbs) options.dbs = 1;
             // Share same environment between multiple pools, each pool works with one db only to keep the API simple
-            if (options.env && options.env instanceof backend.LMDBEnv) this.env = options.env;
-            if (!this.env) this.env = new backend.LMDBEnv(options);
-            new backend.LMDB(this.env, { name: options.db, flags: options.flags }, function(err) {
+            if (options.env && options.env instanceof utils.LMDBEnv) this.env = options.env;
+            if (!this.env) this.env = new utils.LMDBEnv(options);
+            new utils.LMDB(this.env, { name: options.db, flags: options.flags }, function(err) {
                 pool.dbhandle = this;
                 callback(err, this);
             });
@@ -4050,7 +4059,7 @@ db.lmdbInitPool = function(options)
 // all other commands work as in push mode. Only 'get,put,del,incr' comamnd are supported, add,update will be sent as put, LevelDB or LMDB
 // on the other side only support simple key-value operations.
 // Options can define the following:
-// - socket - nanomsg socket type, default is backend.NN_PUSH, can be backend.NN_REQ
+// - socket - nanomsg socket type, default is utils.NN_PUSH, can be utils.NN_REQ
 db.nndbInitPool = function(options)
 {
     var self = this;
@@ -4065,13 +4074,13 @@ db.nndbInitPool = function(options)
 
         try {
             if (typeof options.socket == "string") options.socket = backend[options.socket];
-            this.sock = new backend.NNSocket(backend.AF_SP, options.socket || backend.NN_PUSH);
+            this.sock = new utils.NNSocket(utils.AF_SP, options.socket || utils.NN_PUSH);
             this.sock.connect(options.db);
         } catch(e) {
             return callback(e, this);
         }
         // Request socket needs a callback handler, reply comes as JSON with id property
-        if (this.sock.type == backend.NN_REQ) {
+        if (this.sock.type == utils.NN_REQ) {
             this.socknum = 1;
             this.callbacks = {};
             this.sock.setCallback(function(err, msg) { core.runCallback(pool.callbacks, msg); });
@@ -4086,7 +4095,7 @@ db.nndbInitPool = function(options)
         switch (req.op) {
         case "get":
         case "select":
-            if (this.sock.type != backend.NN_REQ) return callback(null, []);
+            if (this.sock.type != utils.NN_REQ) return callback(null, []);
 
             obj.id = this.socknum++;
             core.deferCallback(this.callbacks, obj, function(msg) { callback(null, msg.value) });

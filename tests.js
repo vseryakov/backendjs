@@ -11,15 +11,15 @@ var cluster = require('cluster');
 var util = require('util');
 var path = require('path');
 var child_process = require('child_process');
-var backend = require('backendjs')
-core = backend.core;
-ipc = backend.ipc;
-api = backend.api;
-db = backend.db;
-aws = backend.aws;
-server = backend.server;
-logger = backend.logger;
-bk = backend.backend;
+var bkjs = require('backendjs')
+core = bkjs.core;
+ipc = bkjs.ipc;
+api = bkjs.api;
+db = bkjs.db;
+aws = bkjs.aws;
+server = bkjs.server;
+logger = bkjs.logger;
+bk = bkjs.backend;
 
 var females = [ "mary", "patricia", "linda", "barbara", "elizabeth", "jennifer", "maria", "susan",
                 "carol", "ruth", "sharon", "michelle", "laura", "sarah", "kimberly", "deborah", "jessica",
@@ -341,7 +341,7 @@ tests.location = function(callback)
     var rc = [], top = {}, bad = 0, good = 0, error = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
     // New bounding box for the tests
-    bbox = backend.backend.geoBoundingBox(latitude, longitude, distance);
+    bbox = bkjs.utils.geoBoundingBox(latitude, longitude, distance);
     // To get all neighbors, we can only guarantee searches in the neighboring areas, even if the distance is within it
     // still can be in the box outside of the immediate neighbors, minDistance is an approximation
     var geo = core.geoHash(latitude, longitude, { distance: distance });
@@ -930,7 +930,7 @@ tests.cache = function(callback)
         }
         if (!core.test.iterations) {
             ipc.initServer();
-            setInterval(function() { logger.log('keys:', backend.backend.lruKeys()); }, 1000);
+            setInterval(function() { logger.log('keys:', bkjs.utils.lruKeys()); }, 1000);
         }
     } else {
         ipc.onMessage = function(msg) {
@@ -1043,7 +1043,7 @@ tests.pool = function(callback)
        }], callback);
 }
 
-backend.run(function() {
+bkjs.run(function() {
     var l = locations[core.getArg("-city", "LA")] || locations.LA;
     tests.city = l.name;
     tests.bbox = l.bbox;

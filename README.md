@@ -185,31 +185,36 @@ The principle behind the system is that nowadays the API services just return da
 the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
 processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.
 
-When the API layer is initialized, the api module contains `app` object which is Express application. The `api.initMiddleware` method which is supposed to be overridden
-is called with `this` pointing to the api module and Express server `this.app` created and initialized with security middleware but not any other routes or templates.
+When the API layer is initialized, the api module contains `app` object which is an Express server.
 
-The typical structure of a backendjs application is the following (created by the bkjs init-app command:
+Special module `app` or namespace is designated to be used fpr application developent. This module is available the same way as api or core
+which makes it easy to refer and extend with additional methods and structures.
 
-            var backend = require('backendjs');
-            var api = backend.api;
-            var db = backend.db;
+The typical structure of a backendjs application is the following (created by the bkjs init-app command):
+
+            var bkjs = require('backendjs');
+            var api = bkjs.api;
+            var app = bkjs.app;
+            var db = bkjs.db;
 
             // Describe the tables or data model
             api.describeTables({
                 ...
             });
 
-            // Optionally customize the Express environment, setup MVC routes or else, this.app is the Express server
-            api.initMiddleware = function()
+            // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
+            app.configureMiddleware = function(options, callback)
             {
                 ...
+                callback()
             }
 
             // Register API endpoints, i.e. url callbacks
-            api.initApplication = function(callback)
+            app.configureWeb = function(options, callback)
             {
                 this.app.get('/some/api/endpoint', function(req, res) { ... });
                 ...
+                callback();
             }
 
             // Optionally register post processing of the returned data from the default calls
@@ -221,12 +226,24 @@ The typical structure of a backendjs application is the following (created by th
             api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) { ...  });
             ...
 
-            backend.server.start();
+            bkjs.server.start();
 
-Except the `api.initApplication` and `server.start()` all other functions are optional, they are here for the sake of completness of the example. Also
+Except the `app.configureWeb` and `server.start()` all other functions are optional, they are here for the sake of completness of the example. Also
 because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
 configuration of the cron jobs so the amount of code to be written to have fully functionaning production API server is not that much, basically only
 request endpoint callbacks must be provided in the application.
+
+As with any node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
+the application is structured.
+
+Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
+home subdirectory `modules/`. The format is the same as for regular node.js modules but the file names should follow the following conventions:
+ - for API modules the file name must be in the form `NAME_web.js`
+ - for worker modules the file name must be in the format: `NAME_worker.js`
+
+Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
+can be shipped regardless of the node nodules and setup. These modules are exposed in the `core.context` the same way as all other core submodules.
+methods.
 
 # Database schema definition
 
@@ -287,12 +304,13 @@ hooks are registered and return data itself then it is the hook responsibility t
                            work_phone: {},
             });
 
-            api.initApplication = function(callback)
+            app.configureWeb = function(options, callback)
             {
-                db.setProcessRow("bk_account", self.processAccountRow);
+                db.setProcessRow("bk_account", this.processAccountRow);
                 ...
+                callback();
             }
-            api.processAccountRow = function(row, options, cols)
+            app.processAccountRow = function(row, options, cols)
             {
                 if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
                 return row;
@@ -1181,15 +1199,15 @@ The backend directory structure is the following:
 
         1. Create file in ~/.backend/etc/crontab with the following contents:
 
-                [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "api.cleanSessions": { "interval": 3600000 } } } ]
+                [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "app.cleanSessions": { "interval": 3600000 } } } ]
 
         2. Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file
 
-                var backend = require("backendjs");
-                backend.api.cleanSessions = function(options, callback) {
-                     backend.db.delAll("session", { mtime: options.interval + Date.now() }, { ops: "le" }, callback);
+                var bkjs = require("backendjs");
+                bkjs.app.cleanSessions = function(options, callback) {
+                     bkjs.db.delAll("session", { mtime: options.interval + Date.now() }, { ops: "le" }, callback);
                 }
-                backend.server.start()
+                bkjs.server.start()
 
         3. Start the scheduler and the web server at once
 
@@ -1204,25 +1222,25 @@ The backend directory structure is the following:
 
 # Internal backend functions
 
-The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as "backend" submodule, to see
+The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as `utils` submodule, to see
 all functions for example run the below:
 
-    var backend = require('backendjs');
-    console.log(backend.backend)
+        var bkjs = require('backendjs');
+        console.log(bkjs.utils)
 
 List of available functions:
-- rungc() - run V8 garbage collector on demand
-- setsegv() - install SEGV signal handler to show crash backtrace
-- setbacktrace() - install special V8-aware backtrace handler
-- backtrace() - show V8 backtrace from current position
-- heapSnapshot(file) - dump current memory heap snapshot into a file
-- splitArray(str) - split a string into an array separated by commas, supports double quotes
-- logging([level]) - set or return logging level, this is internal C++ logging facility
-- loggingChannel(channelname) - redirect logging into stdout or stderr, this is internal C++ logging
-- countWords(word, text) - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm
-- countAllWords(list, text) - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm
-- countWordsInit() - clears word counting cache
-- resizeImage(source, options, callback) - resize image using ImageMagick,
+ - `rungc()` - run V8 garbage collector on demand
+ - `setsegv()` - install SEGV signal handler to show crash backtrace
+ - `setbacktrace()` - install special V8-aware backtrace handler
+ - `backtrace()` - show V8 backtrace from current position
+ - `heapSnapshot(file)` - dump current memory heap snapshot into a file
+ - `splitArray(str)` - split a string into an array separated by commas, supports double quotes
+ - `logging([level])` - set or return logging level, this is internal C++ logging facility
+ - `loggingChannel(channelname)` - redirect logging into stdout or stderr, this is internal C++ logging
+ - `countWords(word, text)` - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm
+ - `countAllWords(list, text)` - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm
+ - `countWordsInit()` - clears word counting cache
+ - `resizeImage(source, options, callback)` - resize image using ImageMagick,
    - source can be a Buffer or file name
    - options can have the following properties:
      - width - output image width, if negative and the original image width is smaller than the specified, nothing happens
@@ -1230,60 +1248,66 @@ List of available functions:
      - quality - 0 -99
      - out - output file name
      - ext - image extention
-
-- resizeImageSync(name,width,height,format,filter,quality,outfile) - resize an image synchronically
-- snappyCompress(str) - compress a string
-- snappyUncompress(str) - decompress a string
-- Geohash support
-   - geoDistance(lat1, lon1, lat2, lon2) - return distance between 2 coordinates in km
-   - geoBoundingBox(lat, lon, distance) - return bounding box geohash for given point around distance
-   - geoHashEncode(lat, lon, len) - return geohash for given coordinate, len defines number of bytesin geohash
-   - geoHashDecode(hash) - return coordinates for given geohash
-   - geoHashAdjacent()
-   - geoHashGrid()
-   - geoHashRow()
-- Generic cache outside of V8 memory pool
-   - cacheSave() - general purpose caching functions that have no memory limits and do not use V8 heap
-   - cachePut()
-   - cacheGet()
-   - cacheDel()
-   - cacheKeys()
-   - cacheClear()
-   - cacheNames()
-   - cacheSize()
-   - cacheEach()
-   - cacheForEach()
-   - cacheForEachNext()
-   - cacheBegin()
-   - cacheNext()
-- LRU internal cache
-   - lruInit(max) - init LRU cache with max number of keys, this is in-memory cache which evicts older keys
-   - lruStats() - return statistics about the LRU cache
-   - lruSize() - return size of the current LRU cache
-   - lruCount() - number of keys in the LRU cache
-   - lruPut(name, val) - set/replace value by name
-   - lruGet(name) - return value by name
-   - lruIncr(name, val) - increase value by given number, non existent items assumed to be 0
-   - lruDel(name) - delete by name
-   - lruKeys() - return all cache key names
-   - lruClear() - clear LRU cache
-   - lruServer()
-- Syslog support
-   - syslogInit(name, priority, facility) - initialize syslog client, used by the logger module
-   - syslogSend(level, text)
-   - syslogClose()
-- NNSocket() - nanomsg socket object with the methods:
-    - subscribe
-    - bind
-    - close
-    - setOption
-    - connect
-    - unsubscribe
-    - send
-    - recv
-    - setCallback
-    - setProxy
-    - setForward
+ - `resizeImageSync(name,width,height,format,filter,quality,outfile)` - resize an image synchronically
+ - `snappyCompress(str)` - compress a string
+ - `snappyUncompress(str)` - decompress a string
+ - `zlibCompress(str)` - compress a string
+ - `zlibUncompress(str)` - decompress a string
+ - `unzip(zipfile, outdir)` - extract a zip archive into directory
+ - `unzipFile(zipfile, file [, outfile])` - extract a file from zip archive, return contents if no outfile s specified
+ - `run(command, callback)` - run shell command and return all output to the callback
+ - `getUser([user])` - return an object with user info from the /etc/passwd file, user can be uid or name
+ - `getGroup([group])` - return an object with specified group info for the current user of for the given group id or name
+ - Geohash support
+   - `geoDistance(lat1, lon1, lat2, lon2)` - return distance between 2 coordinates in km
+   - `geoBoundingBox(lat, lon, distance)` - return bounding box geohash for given point around distance
+   - `geoHashEncode(lat, lon, len)` - return geohash for given coordinate, len defines number of bytesin geohash
+   - `geoHashDecode(hash)` - return coordinates for given geohash
+   - `geoHashAdjacent()`
+   - `geoHashGrid()`
+   - `geoHashRow()`
+ - Generic cache outside of V8 memory pool
+   - `cacheSave()` - general purpose caching functions that have no memory limits and do not use V8 heap
+   - `cachePut()`
+   - `cacheGet()`
+   - `cacheDel()`
+   - `cacheKeys()`
+   - `cacheClear()`
+   - `cacheNames()`
+   - `cacheSize()`
+   - `cacheEach()`
+   - `cacheForEach()`
+   - `cacheForEachNext()`
+   - `cacheBegin()`
+   - `cacheNext()`
+ - LRU internal cache
+   - `lruInit(max)` - init LRU cache with max number of keys, this is in-memory cache which evicts older keys
+   - `lruStats()` - return statistics about the LRU cache
+   - `lruSize()` - return size of the current LRU cache
+   - `lruCount()` - number of keys in the LRU cache
+   - `lruPut(name, val)` - set/replace value by name
+   - `lruGet(name)` - return value by name
+   - `lruIncr(name, val)` - increase value by given number, non existent items assumed to be 0
+   - `lruDel(name)` - delete by name
+   - `lruKeys()` - return all cache key names
+   - `lruClear()` - clear LRU cache
+   - `lruServer()`
+ - Syslog support
+   - `syslogInit(name, priority, facility)` - initialize syslog client, used by the logger module
+   - `syslogSend(level, text)`
+   - `syslogClose()`
+ - NNSocket() - nanomsg socket object with the methods:
+    - `subscribe`
+    - `bind`
+    - `close`
+    - `setOption`
+    - `connect`
+    - `unsubscribe`
+    - `send`
+    - `recv`
+    - `setCallback`
+    - `setProxy`
+    - `setForward`
 
 # Cache configurations
 Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it
@@ -1402,10 +1426,11 @@ html pages to work after login without singing every API request.
 
 First we disable all allowed paths to the html and registration:
 
-        api.initMiddleware = function(callback) {
+        app.configureMiddleware = function(options, callback) {
             self.allow.splice(self.allow.indexOf('^/$'), 1);
             self.allow.splice(self.allow.indexOf('\\.html$'), 1);
             self.allow.splice(self.allow.indexOf('^/account/add$'), 1);
+            callback();
         }
 
 

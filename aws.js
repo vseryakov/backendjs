@@ -13,7 +13,7 @@ var mime = require('mime');
 var cluster = require('cluster');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
-var backend = require(__dirname + '/build/Release/backend');
+var utils = require(__dirname + '/build/Release/backend');
 var xml2json = require('xml2json');
 
 var aws = {
@@ -53,9 +53,8 @@ module.exports = aws;
 aws.configure = function(options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = null;
     // Do not retrieve metadata if not running inside important process
-    if (os.platform() != "linux" || (options && options.noInit) || ["shell","web","master","worker"].indexOf(core.role) == -1) {
+    if (os.platform() != "linux" || options.noInit || ["shell","web","master","worker"].indexOf(core.role) == -1) {
         if (!self.key) return self.readCredentials(self.sdkProfile, callback);
         return callback();
     }
@@ -69,7 +68,7 @@ aws.configure = function(options, callback)
 aws.configureServer = function(options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = null;
+
     // Make sure we are running on EC2 instance
     if (!core.instanceId || !core.instanceImage) return callback();
     core.series([
@@ -670,7 +669,7 @@ aws.getInstanceInfo = function(callback)
         },
         function(next) {
             self.getInstanceMeta("/latest/user-data", function(err, data) {
-                if (!err && data) core.parseArgs(backend.strSplit(data, " ", '"\''));
+                if (!err && data) core.parseArgs(utils.strSplit(data, " ", '"\''));
                 next(err);
             });
         },

@@ -7,7 +7,7 @@ var util = require('util');
 var fs = require('fs');
 var repl = require('repl');
 var path = require('path');
-var backend = require(__dirname + '/build/Release/backend');
+var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var cluster = require('cluster');
@@ -141,48 +141,48 @@ ipc.initServer = function()
                     break;
 
                 case 'stats':
-                    msg.value = backend.lruStats();
+                    msg.value = utils.lruStats();
                     worker.send(msg);
                     break;
 
                 case 'keys':
-                    msg.value = backend.lruKeys();
+                    msg.value = utils.lruKeys();
                     worker.send(msg);
                     break;
 
                 case 'get':
                     if (Array.isArray(msg.name)) {
                         msg.value = {};
-                        msg.name.forEach(function(x) { msg.value[x] = backend.lruGet(x); });
+                        msg.name.forEach(function(x) { msg.value[x] = utils.lruGet(x); });
                     } else
                     if (msg.name) {
-                        msg.value = backend.lruGet(msg.name);
+                        msg.value = utils.lruGet(msg.name);
                     }
                     worker.send(msg);
                     break;
 
                 case 'exists':
-                    if (msg.name) msg.value = backend.lruExists(msg.name);
+                    if (msg.name) msg.value = utils.lruExists(msg.name);
                     worker.send(msg);
                     break;
 
                 case 'put':
-                    if (msg.name && msg.value) backend.lruPut(msg.name, msg.value);
+                    if (msg.name && msg.value) utils.lruPut(msg.name, msg.value);
                     if (msg.reply) worker.send(msg);
                     break;
 
                 case 'incr':
-                    if (msg.name && msg.value) msg.value = backend.lruIncr(msg.name, msg.value);
+                    if (msg.name && msg.value) msg.value = utils.lruIncr(msg.name, msg.value);
                     if (msg.reply) worker.send(msg);
                     break;
 
                 case 'del':
-                    if (msg.name) backend.lruDel(msg.name);
+                    if (msg.name) utils.lruDel(msg.name);
                     if (msg.reply) worker.send(msg);
                     break;
 
                 case 'clear':
-                    backend.lruClear();
+                    utils.lruClear();
                     if (msg.reply) worker.send({});
                     break;
                 }
@@ -199,7 +199,7 @@ ipc.initServer = function()
 ipc.initServerCaching = function()
 {
     var self = this;
-    backend.lruInit(core.lruMax);
+    utils.lruInit(core.lruMax);
 
     switch (core.cacheType) {
     case "memcache":
@@ -209,16 +209,16 @@ ipc.initServerCaching = function()
         break;
 
     case "nanomsg":
-        if (!backend.NNSocket) break;
+        if (!utils.NNSocket) break;
         core.cacheBind = core.cacheBind || (core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*");
 
         // Socket to publish cache update to all connected subscribers
-        this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, { type: backend.NN_PUB });
+        this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, { type: utils.NN_PUB });
         // Socket to read a cache update and forward it to the subcribers
-        this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, { type: backend.NN_PULL, forward: this.nanomsg.lpub });
+        this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, { type: utils.NN_PULL, forward: this.nanomsg.lpub });
 
         // Socket to subscribe for updates and actually update the cache
-        this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, { type: backend.NN_SUB, subscribe: [""] }, function(err, data) {
+        this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, { type: utils.NN_SUB, subscribe: [""] }, function(err, data) {
             if (err) return logger.error('lsub:', err);
             // \1key - del key
             // \2key\2val - set key with val
@@ -226,18 +226,18 @@ ipc.initServerCaching = function()
             // \4 - clear cache
             switch (data[0]) {
             case "\1":
-                backend.lruDel(data.substr(1));
+                utils.lruDel(data.substr(1));
                 break;
             case "\2":
                 data = data.substr(1).split("\2");
-                backend.lruPut(data[0], data[1]);
+                utils.lruPut(data[0], data[1]);
                 break;
             case "\3":
                 data = data.substr(1).split("\3");
-                backend.lruIncr(data[0], data[1]);
+                utils.lruIncr(data[0], data[1]);
                 break;
             case "\4":
-                backend.lruClear();
+                utils.lruClear();
                 break;
             }
         });
@@ -259,7 +259,7 @@ ipc.initClientCaching = function()
         break;
 
     case "nanomsg":
-        this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, { type: backend.NN_PUSH });
+        this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, { type: utils.NN_PUSH });
         break;
     }
 }
@@ -272,16 +272,16 @@ ipc.initServerQueueing = function()
         break;
 
     case "nanomsg":
-        if (!backend.NNSocket || core.noMsg) break;
+        if (!utils.NNSocket || core.noMsg) break;
         core.queueBind = core.queueBind || (core.queueHost == "127.0.0.1" || core.queueHost == "localhost" ? "127.0.0.1" : "*");
 
         // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process connects to this socket.
-        this.bind('msub', "nanomsg", core.queueBind, core.queuePort + 1, { type: backend.NN_PUB });
+        this.bind('msub', "nanomsg", core.queueBind, core.queuePort + 1, { type: utils.NN_PUB });
 
         // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
         // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
         // and automatically uses next live server in case of failure.
-        this.bind('mpub', "nanomsg", core.queueBind, core.queuePort, { type: backend.NN_PULL , forward: this.nanomsg.msub });
+        this.bind('mpub', "nanomsg", core.queueBind, core.queuePort, { type: utils.NN_PULL , forward: this.nanomsg.msub });
         break;
     }
 }
@@ -316,13 +316,13 @@ ipc.initClientQueueing = function()
         break;
 
     case "nanomsg":
-        if (!backend.NNSocket || core.noQueue || !core.queueHost) break;
+        if (!utils.NNSocket || core.noQueue || !core.queueHost) break;
 
         // Socket where we publish our messages
-        this.connect('pub', "nanomsg", core.queueHost, core.queuePort, { type: backend.NN_PUSH });
+        this.connect('pub', "nanomsg", core.queueHost, core.queuePort, { type: utils.NN_PUSH });
 
         // Socket where we receive messages for us
-        this.connect('sub', "nanomsg", core.queueHost, core.queuePort + 1, { type: backend.NN_SUB }, function(err, data) {
+        this.connect('sub', "nanomsg", core.queueHost, core.queuePort + 1, { type: utils.NN_SUB }, function(err, data) {
             if (err) return logger.error('subscribe:', err);
             data = data.split("\1");
             var cb = self.subCallbacks[data[0]];
@@ -377,9 +377,9 @@ ipc.bind = function(name, type, host, port, options, callback)
         break;
 
     case "nanomsg":
-        if (!backend.NNSocket) break;
-        if (!this[type][name]) this[type][name] = new backend.NNSocket(backend.AF_SP, options.type);
-        if (this[type][name] instanceof backend.NNSocket) {
+        if (!utils.NNSocket) break;
+        if (!this[type][name]) this[type][name] = new utils.NNSocket(utils.AF_SP, options.type);
+        if (this[type][name] instanceof utils.NNSocket) {
             var h = host.split(":");
             host = "tcp://" + h[0] + ":" + (h[1] || port)
             var err = this[type][name].bind(host);
@@ -423,9 +423,9 @@ ipc.connect = function(name, type, host, port, options, callback)
         break;
 
     case "nanomsg":
-        if (!backend.NNSocket) break;
-        if (!this[type][name]) this[type][name] = new backend.NNSocket(backend.AF_SP, options.type);
-        if (this[type][name] instanceof backend.NNSocket) {
+        if (!utils.NNSocket) break;
+        if (!this[type][name]) this[type][name] = new utils.NNSocket(utils.AF_SP, options.type);
+        if (this[type][name] instanceof utils.NNSocket) {
             host = core.strSplit(host).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
             var err = this[type][name].connect(host);
             if (!err) err = this.setup(name, type, options, callback);
@@ -471,7 +471,7 @@ ipc.close = function(name, type)
         break;
 
     case "nanomsg":
-        if (!backend.NNSocket) break;
+        if (!utils.NNSocket) break;
         try { this[type][name].close(); } catch(e) { logger.error('ipc.close:', type, name, e); }
         break;
     }

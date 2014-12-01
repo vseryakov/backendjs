@@ -12,7 +12,7 @@ var url = require('url');
 var http = require('http');
 var https = require('https');
 var exec = require('child_process').exec;
-var backend = require(__dirname + '/build/Release/backend');
+var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var cluster = require('cluster');
 var os = require('os');
@@ -138,9 +138,9 @@ var core = {
     args: [ { name: "help", type: "callback", callback: function() { core.showHelp() }, descr: "Print help and exit" },
             { name: "debug", type: "callback", callback: function(v) { logger.setDebug(v == "0" ? 'log' : 'debug'); }, descr: "Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable", pass: 1 },
             { name: "debug-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
-            { name: "debug-run-segv", type: "callback", callback: function(v) { if(v) backend.runSEGV(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
-            { name: "debug-set-segv", type: "callback", callback: function(v) { if(v) backend.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
-            { name: "debug-set-backtrace", type: "callback", callback: function(v) { if(v) backend.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
+            { name: "debug-run-segv", type: "callback", callback: function(v) { if(v) utils.runSEGV(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
+            { name: "debug-set-segv", type: "callback", callback: function(v) { if(v) utils.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
+            { name: "debug-set-backtrace", type: "callback", callback: function(v) { if(v) utils.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
             { name: "log", type: "callback", callback: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
             { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
@@ -155,8 +155,8 @@ var core = {
             { name: "log-dir", type: "callback", callback: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
             { name: "files-dir", type: "callback", callback: function(v) { if (v) this.path.files = v; }, descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "callback", callback: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
-            { name: "uid", type: "callback", callback: function(v) { var u = backend.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
-            { name: "gid", type: "callback", callback: function(v) { var g = backend.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
+            { name: "uid", type: "callback", callback: function(v) { var u = utils.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
+            { name: "gid", type: "callback", callback: function(v) { var g = utils.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
             { name: "email", descr: "Email address to be used when sending emails from the backend" },
             { name: "force-uid", type: "callback", callback: "dropPrivileges", descr: "Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.", pass: 1 },
             { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used", pass: 1 },
@@ -180,8 +180,7 @@ var core = {
             { name: "concurrency", type:"number", min: 1, max: 4, descr: "How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks" },
             { name: "timeout", type: "number", min: 0, max: 3600000, descr: "HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests" },
             { name: "daemon", type: "none", descr: "Daemonize the process, go to the background, can be specified only in the command line" },
-            { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line, no servers will be initialized, only the core and db modules" },
-            { name: "shell-api", type: "none", descr: "Run command line shell but initializes the api modules in addition to the core and db" },
+            { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line" },
             { name: "monitor", type: "none", descr: "For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line" },
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
@@ -335,12 +334,6 @@ core.init = function(options, callback)
             next();
         },
 
-        // Custom application init
-        function(next) {
-            if (options.noInit) return next();
-            self.preInit.call(self, next);
-        },
-
         // Run all configure methods for every module
         function(next) {
             if (options.noInit) return next();
@@ -379,9 +372,10 @@ core.init = function(options, callback)
             });
         },
 
+        // Initialize all modules after core is done
         function(next) {
             if (options.noInit) return next();
-            self.postInit.call(self, next);
+            self.runMethods("configureModule", options, next);
         }],
 
         // Final callbacks
@@ -393,13 +387,6 @@ core.init = function(options, callback)
 
 // Empty function to be used when callback was no provided
 core.noop = function() {}
-
-// Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized
-core.preInit = function(callback) { if (typeof callback == "function") callback() }
-
-// Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
-// init steps that all processes require to have.
-core.postInit = function(callback) { if (typeof callback == "function") callback() }
 
 // Run any backend function after environment has been initialized, this is to be used in shell scripts,
 // core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
@@ -1442,7 +1429,9 @@ core.deferCallback = function(obj, msg, callback, timeout)
     };
 }
 
-// Run a method for every module
+// Run a method for every module, a method must conform to the following signature: `function(options, callback)` and
+// call the callback when finished. The callback second argument will be the options, so it is possible to pass anything
+// in the options back to the caller. Errors from a module is never propagated and simply ignored.
 core.runMethods = function(name, options, callback)
 {
     var self = this;
@@ -1456,7 +1445,9 @@ core.runMethods = function(name, options, callback)
             if (err) logger.error('runMethods:', name, mod, err);
             next();
         });
-    }, callback);
+    }, function(err) {
+        if (typeof callback == "function") callback(err, options);
+    });
 }
 
 // Run delayed callback for the message previously registered with the `deferCallback` method.
@@ -1649,10 +1640,12 @@ core.doWhilst = function(iterator, test, callback)
 // Dynamically load services
 core.loadModules = function(type)
 {
+    var self = this;
     core.findFileSync(this.modules || "modules", { depth: 1, types: "f", include: new RegExp("_" + type + ".js$") }).forEach(function(file) {
         try {
             var mod = require(path.join(core.home, file));
             if (typeof mod.init == "function") mod.init();
+            self.addContext(path.basename(file, ".js").slice(0, -type.length-1), mod);
             logger.log("loadModules:", file, "loaded");
         } catch (e) {
             logger.error("loadModules:", file, e.stack);
@@ -1991,10 +1984,10 @@ core.geoHash = function(latitude, longitude, options)
 	              [1, 99999]
 	            ].filter(function(x) { return x[1] > minDistance })[0];
 
-	var geohash = backend.geoHashEncode(latitude, longitude);
+	var geohash = utils.geoHashEncode(latitude, longitude);
 	return { geohash: geohash.substr(0, range[0]),
              _geohash: geohash,
-			 neighbors: options.distance ? backend.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
+			 neighbors: options.distance ? utils.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
 			 latitude: latitude,
 			 longitude: longitude,
 			 minRange: range[1],
@@ -2011,7 +2004,7 @@ core.geoHash = function(latitude, longitude, options)
 //
 core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
 {
-    var distance = backend.geoDistance(latitude1, longitude1, latitude2, longitude2);
+    var distance = utils.geoDistance(latitude1, longitude1, latitude2, longitude2);
     if (isNaN(distance) || distance === null) return null;
 
     // Round the distance to the closes edge and fixed number of decimals
@@ -2026,8 +2019,8 @@ core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, option
 // Same as geoDistance but operates on 2 geohashes instead of coordinates.
 core.geoHashDistance = function(geohash1, geohash2, options)
 {
-    var coords1 = backend.geoHashDecode(geohash1);
-    var coords2 = backend.geoHashDecode(geohash2);
+    var coords1 = utils.geoHashDecode(geohash1);
+    var coords2 = utils.geoHashDecode(geohash2);
     return this.geoDistance(coords1[0], coords1[1], coords2[0], coords2[1], options);
 }
 
@@ -2916,31 +2909,31 @@ core.profiler = function(type, cmd)
 {
     switch(type + "." + cmd) {
     case "cpu.start":
-        backend.startProfiling();
+        utils.startProfiling();
         break;
 
     case "cpu.stop":
-        this.cpuProfile = backend.stopProfiling();
+        this.cpuProfile = utils.stopProfiling();
         break;
 
     case "cpu.clear":
         this.cpuProfile = null;
-        backend.deleteAllProfiles();
+        utils.deleteAllProfiles();
         break;
 
     case "heap.save":
-        var snapshot = backend.takeSnapshot();
+        var snapshot = utils.takeSnapshot();
         snapshot.save("tmp/" + process.pid + ".heapsnapshot");
-        backend.deleteAllSnapshots();
+        utils.deleteAllSnapshots();
         break;
 
     case "heap.take":
-        this.heapSnapshot = backend.takeSnapshot();
+        this.heapSnapshot = utils.takeSnapshot();
         break;
 
     case "heap.clear":
         this.heapSnapshot = null;
-        backend.deleteAllSnapshots();
+        utils.deleteAllSnapshots();
         break;
     }
 }
@@ -2959,8 +2952,6 @@ core.createRepl = function(options)
     var self = this;
     var r = repl.start(options || {});
     r.context.core = this;
-    r.context.logger = logger;
-    r.context.backend = backend;
     r.context.fs = fs;
     r.context.os = os;
     r.context.util = util;

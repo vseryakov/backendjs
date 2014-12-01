@@ -6,7 +6,7 @@
 var fs = require('fs')
 var path = require("path");
 var marked = require("marked");
-var backend = require('backendjs');
+var bkjs = require('backendjs');
 
 var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && ["index.js", "tests.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/); });
 
@@ -39,7 +39,7 @@ var text = marked(toc, { renderer: renderer });
 
 text += marked(readme, { renderer: renderer });
 text += marked("## Configuration parameters\n", { renderer: renderer });
-text += marked(backend.core.showHelp({markdown:1}), { renderer: renderer });
+text += marked(bkjs.core.showHelp({markdown:1}), { renderer: renderer });
 
 files.forEach(function(file) {
     var doc = "";

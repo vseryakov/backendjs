@@ -66,7 +66,7 @@ var server = {
     maxProcesses: 1,
 
     // Options for v8
-    nodeArgs: [],
+    processArgs: [],
     nodeWorkerArgs: [],
 
     // How long to be in idle state and shutdown, for use in instances
@@ -89,7 +89,8 @@ var server = {
            { name: "proxy-url", type: "regexpmap", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
            { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
-           { name: "node-args", type: "list", descr: "Node arguments for spawned processes, for passing v8 options" },
+           { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guardred by this monitor" },
+           { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "node-worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
            { name: "jobs-tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
            { name: "job-queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
@@ -110,7 +111,7 @@ server.start = function()
     logger.debug("start:", process.argv);
 
     // REPL shell
-    if (core.isArg("-shell") || core.isArg("-shell-api")) {
+    if (core.isArg("-shell")) {
         return core.init({ role: "shell" }, function() { self.startShell(); });
     }
 
@@ -150,7 +151,9 @@ server.startMonitor = function()
     var self = this;
     process.title = core.name + ': monitor';
     core.role = 'monitor';
-    this.startProcess();
+    // Be careful about adding functionality to the monitor, it is supposed to just watch the process and restart it
+    core.runMethods("configureMonitor");
+    self.startProcess();
 }
 
 // Setup worker environment
@@ -199,9 +202,7 @@ server.startMaster = function()
         }, 30000);
 
         // API related initialization
-        core.context.api.initMaster(function() {
-            core.runMethods("configureMaster");
-        });
+        core.runMethods("configureMaster");
 
         logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
     } else {
@@ -238,13 +239,9 @@ server.startWorker = function()
     }, 30000);
 
     // At least API tables are needed for normal operations
-    core.context.api.initTables(function(err) {
-        core.context.api.initWorker(function() {
-            core.runMethods("configureWorker", function() {
-                core.loadModules("worker");
-                process.send('ready');
-            });
-        });
+    core.runMethods("configureWorker", function() {
+        core.loadModules("worker");
+        process.send('ready');
     });
 
     logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
@@ -358,9 +355,7 @@ server.startWeb = function(callback)
         });
 
         // API related initialization
-        api.initServer(function(err) {
-            core.runMethods("configureServer");
-        });
+        core.runMethods("configureServer");
 
         // Frontend server tasks
         setInterval(function() {
@@ -417,8 +412,6 @@ server.startWeb = function(callback)
                 self.exiting = true;
                 api.shutdown(function() { process.exit(0); } );
             }
-
-            core.runMethods("configureWeb");
 
             process.on("uncaughtException", function(err) {
                 logger.error('fatal:', err, err.stack);
@@ -551,6 +544,8 @@ server.startShell = function()
 
     logger.debug('startShell:', process.argv);
 
+    core.loadModules("shell");
+
     function exit(err, msg) {
         if (err) console.log(err);
         if (msg) console.log(msg);
@@ -583,8 +578,8 @@ server.startShell = function()
         return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
     }
 
-    var func = core.isArg("-shell-api") ? api.initTables : function(c) { c() };
-    func.call(api, function(err) {
+    core.runMethods("configureShell", function(err, opts) {
+        if (opts.done) exit();
 
         // Add a user
         if (core.isArg("-account-add")) {
@@ -983,10 +978,11 @@ server.spawnProcess = function(args, skip, opts)
     skip.push("-watch");
     skip.push("-monitor");
     // Remove arguments we should not pass to the process
-    var argv = this.nodeArgs.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
+    var cmd = self.processName || process.argv[0];
+    var argv = this.processArgs.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
     if (Array.isArray(args)) argv = argv.concat(args);
-    logger.debug('spawnProcess:', argv, 'skip:', skip, 'opts:', opts);
-    return spawn(process.argv[0], argv, opts);
+    logger.debug('spawnProcess:', cmd, argv, 'skip:', skip, 'opts:', opts);
+    return spawn(cmd, argv, opts);
 }
 
 // Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.
@@ -997,7 +993,7 @@ server.runJob = function(job)
     function finish(err, name) {
         logger.debug('runJob:', 'finished', name, err || "");
         if (!self.jobs.length && cluster.isWorker) {
-            core.context.api.exitWorker(function() {
+            core.runMethods("shutdownWorker", function() {
                 logger.debug('runJob:', 'exit', name, err || "");
                 process.exit(0);
             });

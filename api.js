@@ -28,9 +28,10 @@ var domain = require('domain');
 var core = require(__dirname + '/core');
 var ipc = require(__dirname + '/ipc');
 var msg = require(__dirname + '/msg');
+var app = require(__dirname + '/app');
 var metrics = require(__dirname + '/metrics');
 var logger = require(__dirname + '/logger');
-var backend = require(__dirname + '/build/Release/backend');
+var utils = require(__dirname + '/build/Release/backend');
 
 // HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
 // incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
@@ -401,11 +402,11 @@ api.init = function(callback)
     self.app = express();
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
-    if (this.busyLatency) backend.initBusy(this.busyLatency);
+    if (this.busyLatency) utils.initBusy(this.busyLatency);
 
     // Latency watcher
     self.app.use(function(req, res, next) {
-        if (self.busyLatency && backend.isBusy()) {
+        if (self.busyLatency && utils.isBusy()) {
             self.metrics.Counter('busy_0').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
@@ -518,135 +519,137 @@ api.init = function(callback)
     });
 
     // Assign custom middleware just after the security handler
-    self.initMiddleware.call(self);
+    core.runMethods("configureMiddleware", { api: self, app: self.app }, function() {
 
-    // Custom routes, if host defined only server API calls for matched domains
-    var router = self.app.router;
-    self.app.use(function(req, res, next) {
-        if (req._noBackend) return next();
-        return router(req, res, next);
-    });
-
-    // No API routes matched, cleanup stats
-    self.app.use(function(req, res, next) {
-        req._noEndpoint = 1;
-        next();
-    });
-
-    // Templating engine setup
-    if (!self.noTemplating) {
-        self.app.engine('html', consolidate[self.templating || 'ejs']);
-        self.app.set('view engine', 'html');
-        // Use app specific views path if created even if it is empty
-        self.app.set('views', fs.existsSync(core.path.web + "/views") ? core.path.web + "/views" : __dirname + '/views');
-    }
-
-    // Serve from default web location in the package or from application specific location
-    if (!self.noStatic) {
-        self.app.use(serveStatic(core.path.web));
-        self.app.use(serveStatic(__dirname + "/web"));
-    }
-
-    // Default error handler to show errors in the log
-    self.app.use(function(err, req, res, next) {
-        logger.error('app:', req.path, err, err.stack);
-        self.sendReply(res, err);
-    });
-
-    // For health checks
-    self.app.all("/ping", function(req, res) {
-        if (!req.query.file) return res.json({});
-        fs.stat(core.path.web + "/public/" + req.query.file, function(err, stats) {
-            if (err) return res.send(404);
-            res.json({ size: stats.size, mtime: stats.mtime.getTime(), atime: stats.atime.getTime(), ctime: stats.ctime.getTime() });
+        // Custom routes, if host defined only server API calls for matched domains
+        var router = self.app.router;
+        self.app.use(function(req, res, next) {
+            if (req._noBackend) return next();
+            return router(req, res, next);
         });
-    });
 
-    // Return images by prefix, id and possibly type
-    self.app.all(/^\/image\/([a-zA-Z0-9_\.\:-]+)\/([^\/ ]+)\/?([^\/ ]+)?$/, function(req, res) {
-        var options = self.getOptions(req);
-        options.prefix = req.params[0];
-        options.type = req.params[2] || "";
-        self.sendIcon(req, res, req.params[1], options);
-    });
-
-    // Managing accounts, basic functionality
-    for (var p in self.endpoints) {
-        if (self.disable.indexOf(p) == -1) self[self.endpoints[p]].call(this);
-    }
-
-    // Disable access to endpoints if session exists, meaning Web app
-    if (self.disableSession.rx) {
-        self.registerPreProcess('', self.disableSession.rx, function(req, status, cb) {
-            if (req.session && req.session['bk-signature']) return cb({ status: 401, message: "Not authorized" });
-            cb();
+        // No API routes matched, cleanup stats
+        self.app.use(function(req, res, next) {
+            req._noEndpoint = 1;
+            next();
         });
-    }
 
-    // Admin only access
-    if (self.allowAdmin.rx) {
-        self.registerPreProcess('', self.allowAdmin.rx, function(req, status, cb) {
-            if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
-            cb();
+        // Templating engine setup
+        if (!self.noTemplating) {
+            self.app.engine('html', consolidate[self.templating || 'ejs']);
+            self.app.set('view engine', 'html');
+            // Use app specific views path if created even if it is empty
+            self.app.set('views', fs.existsSync(core.path.web + "/views") ? core.path.web + "/views" : __dirname + '/views');
+        }
+
+        // Serve from default web location in the package or from application specific location
+        if (!self.noStatic) {
+            self.app.use(serveStatic(core.path.web));
+            self.app.use(serveStatic(__dirname + "/web"));
+        }
+
+        // Default error handler to show errors in the log
+        self.app.use(function(err, req, res, next) {
+            logger.error('app:', req.path, err, err.stack);
+            self.sendReply(res, err);
         });
-    }
 
-    // SSL only access
-    if (self.allowSsl.rx) {
-        self.registerPreProcess('', self.allowSsl.rx, function(req, status, cb) {
-            if (req.socket.server != self.sslserver) return cb({ status: 404, message: "ssl only" });
-            cb();
+        // For health checks
+        self.app.all("/ping", function(req, res) {
+            if (!req.query.file) return res.json({});
+            fs.stat(core.path.web + "/public/" + req.query.file, function(err, stats) {
+                if (err) return res.send(404);
+                res.json({ size: stats.size, mtime: stats.mtime.getTime(), atime: stats.atime.getTime(), ctime: stats.ctime.getTime() });
+            });
         });
-    }
 
-    // Custom application logic
-    self.initApplication.call(self, function(err) {
+        // Return images by prefix, id and possibly type
+        self.app.all(/^\/image\/([a-zA-Z0-9_\.\:-]+)\/([^\/ ]+)\/?([^\/ ]+)?$/, function(req, res) {
+            var options = self.getOptions(req);
+            options.prefix = req.params[0];
+            options.type = req.params[2] || "";
+            self.sendIcon(req, res, req.params[1], options);
+        });
 
-        // Setup all tables
-        self.initTables(function(err) {
+        // Managing accounts, basic functionality
+        for (var p in self.endpoints) {
+            if (self.disable.indexOf(p) == -1) self[self.endpoints[p]].call(self);
+        }
 
-            // Synchronously load external api modules
-            core.loadModules("api");
+        // Disable access to endpoints if session exists, meaning Web app
+        if (self.disableSession.rx) {
+            self.registerPreProcess('', self.disableSession.rx, function(req, status, cb) {
+                if (req.session && req.session['bk-signature']) return cb({ status: 401, message: "Not authorized" });
+                cb();
+            });
+        }
 
-            // Start http server
-            if (core.port) {
-                self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
-            }
+        // Admin only access
+        if (self.allowAdmin.rx) {
+            self.registerPreProcess('', self.allowAdmin.rx, function(req, status, cb) {
+                if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
+                cb();
+            });
+        }
 
-            // Start SSL server
-            if (core.ssl.port && (core.ssl.key || core.ssl.pfx)) {
-                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
-            }
+        // SSL only access
+        if (self.allowSsl.rx) {
+            self.registerPreProcess('', self.allowSsl.rx, function(req, status, cb) {
+                if (req.socket.server != self.sslserver) return cb({ status: 404, message: "ssl only" });
+                cb();
+            });
+        }
 
-            // WebSocket server, by default uses the http port
-            if (core.ws.port) {
-                var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslServer : null;
-                if (!server) server = core.createServer({ ssl: core.ws.ssl ? core.ssl : null, port: core.ws.port, bind: core.ws.bind, restart: "web" }, function(req, res) { res.send(200, "OK"); });
-                if (server) {
-                    var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
-                    if (core.ws.path) opts.path = core.ws.path;
-                    self.wsServer = new ws.Server(opts);
-                    self.wsServer.serverName = "ws";
-                    self.wsServer.serverPort = core.ws.port;
-                    self.wsServer.on("error", function(err) { logger.error("api.init: ws:", err.stack)});
-                    self.wsServer.on('connection', function(socket) { self.handleWebSocketConnect(socket); });
+        // Custom application logic
+        core.runMethods("configureWeb", { app: self.app }, function(err) {
+
+            // Setup all tables
+            self.initTables(function(err) {
+
+                // Synchronously load external api modules
+                core.loadModules("web");
+
+                // Start http server
+                if (core.port) {
+                    self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
                 }
-            }
 
-            // Notify the master about new worker server
-            ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true } });
+                // Start SSL server
+                if (core.ssl.port && (core.ssl.key || core.ssl.pfx)) {
+                    self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
+                }
 
-            // Allow push notifications in the API handlers
-            if (self.notifications) {
-                msg.init(function() {
+                // WebSocket server, by default uses the http port
+                if (core.ws.port) {
+                    var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslServer : null;
+                    if (!server) server = core.createServer({ ssl: core.ws.ssl ? core.ssl : null, port: core.ws.port, bind: core.ws.bind, restart: "web" }, function(req, res) { res.send(200, "OK"); });
+                    if (server) {
+                        var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
+                        if (core.ws.path) opts.path = core.ws.path;
+                        self.wsServer = new ws.Server(opts);
+                        self.wsServer.serverName = "ws";
+                        self.wsServer.serverPort = core.ws.port;
+                        self.wsServer.on("error", function(err) { logger.error("api.init: ws:", err.stack)});
+                        self.wsServer.on('connection', function(socket) { self.handleWebSocketConnect(socket); });
+                    }
+                }
+
+                // Notify the master about new worker server
+                ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true } });
+
+                // Allow push notifications in the API handlers
+                if (self.notifications) {
+                    msg.init(function() {
+                        if (callback) callback.call(self, err);
+                    });
+                } else {
                     if (callback) callback.call(self, err);
-                });
-            } else {
-                if (callback) callback.call(self, err);
-            }
+                }
+            });
         });
+        self.exiting = false;
+
     });
-    self.exiting = false;
 }
 
 // Gracefully close all connections, call the callback after that
@@ -673,14 +676,20 @@ api.shutdown = function(callback)
         },
         ], function(err) {
             clearTimeout(timeout);
-            var pools = db.getPools();
-            try {
-                core.forEachLimit(pools, pools.length, function(pool, next) { db.pools[pool.name].shutdown(next); }, callback);
-            } catch(e) {
-                logger.error("api.shutdown:", e.stack);
-                if (callback) callback();
-            }
+            core.runMethods("shutdownWeb", callback);
         });
+}
+
+// Allow access to API table in worker processes
+api.configureWorker = function(options, callback)
+{
+    this.initTables(options, callback);
+}
+
+// Access to the API table in the shell
+api.configureShell = function(options, callback)
+{
+    this.initTables(options, callback);
 }
 
 // Start Express middleware processing wrapped in the node domain
@@ -775,28 +784,6 @@ api.closeWebSocketRequest = function(socket)
         x.res.end();
     }
 }
-
-// This handler is called after the Express server has been setup and all default API endpoints initialized but the server
-// is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.
-api.initApplication = function(callback) { if (callback) callback(); };
-
-// This handler is called during the Express server initialization just after the security middleware.
-// this.app refers to the Express instance.
-api.initMiddleware = function(callback) { if (callback) callback(); };
-
-// This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling
-api.initMaster = function(callback) { if (callback) callback(); }
-
-// This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
-// interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.
-api.initServer = function(callback) { if (callback) callback(); }
-
-// This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job
-api.initWorker = function(callback) { if (callback) callback(); }
-
-// Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
-// This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.
-api.exitWorker = function(callback) { if (callback) callback(); }
 
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)
@@ -1682,7 +1669,7 @@ api.initTables = function(options, callback)
             db.setProcessRow("bk_reference", options, onConnectionRow);
             db.setProcessRow("bk_icon", options, self.checkIcon);
         }
-        if (callback) callback(err);
+        if (typeof callback == "function") callback(err);
     });
 }
 
@@ -1792,7 +1779,7 @@ api.checkPublicColumns = function(table, rows, options)
     });
 }
 
-// Define new tables or extned/customize existing tables. Table definitions are used with every database operation,
+// Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
 // on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
 // like public columns are only specific to the backend so to mark such columns the table with such properties must be described
 // using this method. Only columns with changed properties need to be specified, other columns will be left as it is.
@@ -2208,7 +2195,7 @@ api.scaleIcon = function(infile, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    backend.resizeImage(infile, options, function(err, data) {
+    utils.resizeImage(infile, options, function(err, data) {
         if (err) logger.error('scaleIcon:', Buffer.isBuffer(infile) ? "Buffer:" + infile.length : infile, options, err);
         if (callback) callback(err, data);
     });
@@ -2981,7 +2968,7 @@ api.putLocation = function(req, options, callback)
 
         // Skip if within minimal distance
         if (old.latitude || old.longitude) {
-            var distance = backend.geoDistance(old.latitude, old.longitude, latitude, longitude);
+            var distance = utils.geoDistance(old.latitude, old.longitude, latitude, longitude);
             if (distance == null || distance <= core.minDistance) {
                 return callback({ status: 305, message: "ignored, min distance: " + core.minDistance});
             }
@@ -3599,7 +3586,7 @@ api.getStatistics = function(options)
     this.metrics.instance = core.instanceId;
     this.metrics.worker = core.workerId || '0';
     this.metrics.id = core.ipaddr + '-' + process.pid;
-    this.metrics.latency = backend.getBusy();
+    this.metrics.latency = utils.getBusy();
     this.metrics.Histogram('rss').update(mem.rss);
     this.metrics.Histogram('heap').update(mem.heapUsed);
     this.metrics.Histogram('avg').update(avg[2]);

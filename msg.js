@@ -24,10 +24,11 @@ var msg = {
             { name: "server-queue", descr: "Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem" },
             { name: "client-queue", descr: "Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes" },
             { name: "host", dns: 1, descr: "List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers" },
-            ],
+            { name: "shutdown-timeout", type:" int", min: 500, descr: "How long to wait for messages draining out in ms on shutting down before exiting" },],
     apnSent: 0,
     gcmSent: 0,
     awsSent: 0,
+    shutdownTimeout: 2000,
 };
 
 module.exports = msg;
@@ -88,7 +89,19 @@ msg.shutdown = function(options, callback)
                self.closeGCM(next);
            },
         ], callback);
-    }, options.timeout || 2000);
+    }, options.timeout || self.shutdownTimeout);
+}
+
+// Gracefully drain all message queues on worker exit
+msg.shutdownWorker = function(options, callback)
+{
+    this.shutdown(options, callback);
+}
+
+// Gracefully drain all message queues on web process exit
+msg.shutdownWeb = function(options, callback)
+{
+    this.shutdown(options, callback);
 }
 
 // Deliver a notification using the specified service, apple is default.
