@@ -1484,7 +1484,7 @@ api.initSystemAPI = function()
                 break;
 
             case 'collect':
-                if (!req.query.id || !req.query.ip || !req.query.pid || !req.query.mtime) return self.sendReply(res, 400, "invalid format");
+                if (!req.query.id || !req.query.ip || !req.query.pid || !req.query.mtime) return self.sendReply(res, 400, "invalid format: " + req.query.id +","+ req.query.ip +"," + req.query.pid + ","+ req.query.mtime);
                 self.saveStatistics(req.query, function(err) {
                     self.sendReply(res, err);
                 });

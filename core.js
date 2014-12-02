@@ -2953,14 +2953,14 @@ core.createRepl = function(options)
 {
     var self = this;
     var r = repl.start(options || {});
-    r.modules.core = this;
-    r.modules.fs = fs;
-    r.modules.os = os;
-    r.modules.util = util;
+    r.context.core = this;
+    r.context.fs = fs;
+    r.context.os = os;
+    r.context.util = util;
     r.rli.historyIndex = 0;
     r.rli.history = [];
     // Expose all modules as top level objects
-    for (var p in this.modules) r.modules[p] = this.modules[p];
+    for (var p in this.modules) r.context[p] = this.modules[p];
 
     // Support history
     if (this.replFile) {
