@@ -117,25 +117,22 @@ case "$ARG" in
 
   restart)
     $0 stop
-    sleep 2
+    sleep 3
     $0 start
     ;;
 
   stop)
     $KILLALL $1 'backend:'
+    sleep 1
     $KILLALL $1 'backend:'
     exit 0
     ;;
 
-  stop-web)
-    $KILLALL $1 'backend: web'
-    $KILLALL $1 'backend: web'
-    exit 0
-    ;;
-
-  stop-server)
-    $KILLALL $1 'backend: server'
-    $KILLALL $1 'backend: server'
+  stop-*)
+    name=${ARG:5}
+    [ "$name" = "" ] && exit 0
+    $KILLALL $1 'backend: $name'
+    $KILLALL $1 'backend: $name'
     exit 0
     ;;
 
@@ -150,12 +147,6 @@ case "$ARG" in
 
   install-ec2)
     $0 install -user ec2-user -prefix /home/ec2-user
-    ;;
-
-  stop-master)
-    $KILLALL $1 'backend: master'
-    $KILLALL $1 'backend: master'
-    exit 0
     ;;
 
   init-server)
@@ -437,16 +428,17 @@ case "$ARG" in
     # Linux distro specific actions
     case "$OS_TYPE" in
       centos)
+         rpm -i http://mirror.pnl.gov/epel/6/x86_64/epel-release-6-8.noarch.rpm
          if [ ! -f /etc/yum.repos.d/pgdg-93-centos.repo ]; then
             echo "Setting up PostgreSQL repo..."
             rpm -i http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
          fi
-         packages="$packages postgresql93-server"
+         packages="$packages postgresql93-server redis"
          ;;
 
       amazon)
          yum-config-manager --enable epel
-         packages="$packages postgresql9-server nodejs-devel npm"
+         packages="$packages postgresql9-server nodejs-devel npm redis"
          ;;
     esac
     sleep 10
