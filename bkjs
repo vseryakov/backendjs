@@ -255,7 +255,7 @@ case "$ARG" in
        echo " endscript" >> /etc/logrotate.d/syslog
        echo "}" >> /etc/logrotate.d/syslog
     fi
-    if [ "$(grep -s '#Bkjs $BKJS_HOME' /etc/logrotate.d/$BKJS)" = "" ]; then
+    if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/logrotate.d/$BKJS)" = "" ]; then
        echo "Configuring logrotate.d/$BKJS..."
        echo "#Bkjs $BKJS_HOME" > /etc/logrotate.d/$BKJS
        echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> /etc/logrotate.d/$BKJS
@@ -293,7 +293,7 @@ case "$ARG" in
        chown -R $BKJS_USER /var/log/messages
        service rsyslog restart
     fi
-    if [ "$(grep -s '#Bkjs $BKJS_HOME' /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
+    if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
        echo "Configuring rsyslog.d/$BKJS ..."
        echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS.conf
        echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS.conf
