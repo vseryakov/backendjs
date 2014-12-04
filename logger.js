@@ -13,7 +13,7 @@ var logger = {
     file: null,
     stream: process.stdout,
     writable: true,
-    levels: { test: 3, dev: 2, debug: 1, warn: 0, info: 0, none: -1 },
+    levels: { test: 3, dev: 2, debug: 1, warn: 0, info: 0, error: -1, none: -1 },
     filters: null,
 
     // syslog facilities

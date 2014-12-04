@@ -56,7 +56,7 @@ msg.init = function(callback)
     // Connect to notification gateways only on the hosts configured to be the notification servers
     if (this.host) {
         var queue = "bk.notification.queue";
-        if (!core.strSplit(this.host).some(function(x) { return core.hostname == x || core.ipaddrs.indexOf(x) > -1 })) {
+        if (!core.strSplit(this.host).some(function(x) { return core.hostName == x || core.ipaddrs.indexOf(x) > -1 })) {
             self.notificationQueue = queue;
             return callback ? callback() : null;
         }
@@ -156,7 +156,7 @@ msg.initAPN = function()
     this.apnAgent = new apnagent.Agent();
     this.apnAgent.set('pfx file', this.apnCert);
     this.apnAgent.enable(this.apnProduction || this.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
-    this.apnAgent.on('message:error', function(err) { logger.error('apn:message:', err) });
+    this.apnAgent.on('message:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err) });
     this.apnAgent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err) });
     this.apnAgent.on('gateway:close', function(err) { logger.log('apn: closed') });
     this.apnAgent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected"); });
