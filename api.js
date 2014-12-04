@@ -162,6 +162,7 @@ var api = {
        // All other counters are averages.
        bk_collect: { id: { primary: 1 },
                      mtime: { type: "bigint", primary: 1 },
+                     app: {},
                      ip: {},
                      type: {},
                      instance: {},
@@ -3578,6 +3579,7 @@ api.getStatistics = function(options)
     // Cache stats are always behind
     ipc.stats(function(data) { self.metrics.cache = data });
     this.metrics.mtime = now;
+    this.metrics.app = core.appName + "/" + core.appVersion;
     this.metrics.ip = core.ipaddr;
     this.metrics.pid = process.pid;
     this.metrics.ctime = core.ctime;

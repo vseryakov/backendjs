@@ -475,7 +475,7 @@ case "$ARG" in
     [ -f node_modules/$BKJS_MOD/server.js ] && SCRIPT=node_modules/$BKJS_MOD/server.js
     [ -f server.js ] && SCRIPT=server.js
     [ -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
-    [ -f app.js ] && SCRIPT=app.js
+    [ -f app.js -a "$SCRIPT" != "server.js" ] && SCRIPT=app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
 
     case "$ARG" in

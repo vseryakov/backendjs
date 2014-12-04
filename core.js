@@ -187,7 +187,7 @@ var core = {
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
-            { name: "app-name", type: "callback", callback: function(v) { if (!v) return;v = v.split("-");this.appName=v[0];if(v[1]) this.appVersion=v[1];}, descr: "Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version", pass: 1 },
+            { name: "app-name", type: "callback", callback: function(v) { if (!v) return;v = v.split(/[\/-]/);this.appName=v[0];if(v[1]) this.appVersion=v[1];}, descr: "Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version", pass: 1 },
             { name: "instance-tag", descr: "Set instanceTag explicitely, skip all meta data checks for it", pass: 1 },
             { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically" },
@@ -540,7 +540,7 @@ core.processArgs = function(name, ctx, argv, pass)
                     kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
                 }
                 var key = self.toCamel(kname);
-                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1] : (x.value || null);
+                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (x.value || null);
                 if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
                 // Ignore the value if it is a parameter
                 if (val && val[0] == '-') val = "";
