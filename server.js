@@ -650,7 +650,7 @@ server.startShell = function()
 
         // Show all config parameters
         if (core.isArg("-db-get-config")) {
-            var opts = getQuery(), sep = core.getArg("-separator", "="), fmt = core.getArg("-format")
+            var opts = getQuery(), sep = core.getArg("-separator", "="), fmt = core.getArg("-format");
             db.initConfig(opts, function(err, data) {
                 if (fmt == "text") {
                     for (var i = 0; i < data.length; i += 2) console.log(data[i].substr(1) + (sep) + data[ i + 1]);
@@ -695,12 +695,12 @@ server.startShell = function()
 
         // Put config entry
         if (core.isArg("-db-get")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");
             var cols = Object.keys(db.getColumns(table))
             db.get(table, query, opts, function(err, data) {
                 if (data) {
                     if (fmt == "text") {
-                        console.log((cols || Object.keys(x)).map(function(y) { return x[y] }).join(sep))
+                        console.log((cols || Object.keys(data)).map(function(y) { return x[y] }).join(sep))
                     } else {
                         console.log(JSON.stringify(data));
                     }

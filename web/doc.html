@@ -194,6 +194,10 @@ is only enabled by default in development mode, check app.sh for parameters befo
 <li><p>To add users from the command line</p>
 <pre><code>  bksh -add-user login test sectet test name TestUser email test@test.com
 </code></pre></li>
+<li><p>To see current metrics run the command in the console &#39;/system/stats/get&#39;</p>
+</li>
+<li><p>To see charts about accumulated metrics go to <a href="http://localhist:8000/metrics.html">http://localhist:8000/metrics.html</a></p>
+</li>
 </ul>
 <h1 id="backend-runtime">Backend runtime</h1>
 <p>When the backendjs server starts it spawns several processes the perform different tasks.</p>
@@ -1022,124 +1026,319 @@ Database pool statistics and other diagnostics</p>
 </ul>
 </li>
 <li>api - Web requests metrics, same structure as for the db pool metrics</li>
+<li>url - metrics per url endpoints</li>
 </ul>
 <p>Individual sub-objects:</p>
 <ul>
 <li>meter - Things that are measured as events / interval.<ul>
-<li>mean: The average rate since the meter was started.</li>
-<li>count: The total of all values added to the meter.</li>
-<li>currentRate: The rate of the meter since the last toJSON() call.</li>
-<li>1MinuteRate: The rate of the meter biased towards the last 1 minute.</li>
-<li>5MinuteRate: The rate of the meter biased towards the last 5 minutes.</li>
-<li>15MinuteRate: The rate of the meter biased towards the last 15 minutes.</li>
+<li>rmean: The average rate since the meter was started.</li>
+<li>rcnt: The total of all values added to the meter.</li>
+<li>rate: The rate of the meter since the last toJSON() call.</li>
+<li>r1m: The rate of the meter biased towards the last 1 minute.</li>
+<li>r5m: The rate of the meter biased towards the last 5 minutes.</li>
+<li>r15m: The rate of the meter biased towards the last 15 minutes.</li>
 </ul>
 </li>
 <li>queue or histogram - Keeps a resevoir of statistically relevant values biased towards the last 5 minutes to explore their distribution<ul>
-<li>min: The lowest observed value.</li>
-<li>max: The highest observed value.</li>
-<li>sum: The sum of all observed values.</li>
-<li>variance: The variance of all observed values.</li>
-<li>mean: The average of all observed values.</li>
-<li>stddev: The stddev of all observed values.</li>
-<li>count: The number of observed values.</li>
-<li>median: 50% of all values in the resevoir are at or below this value.</li>
-<li>p75: See median, 75% percentile.</li>
-<li>p95: See median, 95% percentile.</li>
-<li>p99: See median, 99% percentile.</li>
-<li>p999: See median, 99.9% percentile.</li>
+<li>hmin: The lowest observed value.</li>
+<li>mmax: The highest observed value.</li>
+<li>hsum: The sum of all observed values.</li>
+<li>hvar: The variance of all observed values.</li>
+<li>hmean: The average of all observed values.</li>
+<li>hdev: The standard deviation of all observed values.</li>
+<li>hcnt: The number of observed values.</li>
+<li>hmed: median, 50% of all values in the resevoir are at or below this value.</li>
+<li>hp75: See median, 75% percentile.</li>
+<li>hp95: See median, 95% percentile.</li>
+<li>hp99: See median, 99% percentile.</li>
+<li>hp999: See median, 99.9% percentile.</li>
 </ul>
 </li>
 </ul>
 <p>Response:</p>
-<pre><code>   {
-      &quot;latency&quot;: 0,
-      &quot;busy&quot;: 0,
-      &quot;pool&quot;: {
-          &quot;queue&quot;: {
-              &quot;min&quot;: 1,
-              &quot;max&quot;: 1,
-              &quot;sum&quot;: 65,
-              &quot;variance&quot;: 0,
-              &quot;mean&quot;: 1,
-              &quot;stddev&quot;: 0,
-              &quot;count&quot;: 65,
-              &quot;median&quot;: 1,
-              &quot;p75&quot;: 1,
-              &quot;p95&quot;: 1,
-              &quot;p99&quot;: 1,
-              &quot;p999&quot;: 1
-          },
-          &quot;count&quot;: 0,
-          &quot;response&quot;: {
-              &quot;meter&quot;: {
-                  &quot;mean&quot;: 0.0011948947405274121,
-                  &quot;count&quot;: 65,
-                  &quot;currentRate&quot;: 0.0011948947405274121,
-                  &quot;1MinuteRate&quot;: 2.413646785930864e-158,
-                  &quot;5MinuteRate&quot;: 1.2021442332952544e-33,
-                  &quot;15MinuteRate&quot;: 7.127940837162242e-13
-              },
-              &quot;histogram&quot;: {
-                  &quot;min&quot;: 0,
-                  &quot;max&quot;: 2,
-                  &quot;sum&quot;: 65,
-                  &quot;variance&quot;: 0.12500000000000003,
-                  &quot;mean&quot;: 1,
-                  &quot;stddev&quot;: 0.3535533905932738,
-                  &quot;count&quot;: 65,
-                  &quot;median&quot;: 1,
-                  &quot;p75&quot;: 1,
-                  &quot;p95&quot;: 2,
-                  &quot;p99&quot;: 2,
-                  &quot;p999&quot;: 2
-              }
-          },
-          &quot;misses&quot;: 3,
-          &quot;hits&quot;: 50
-      },
-      &quot;rss&quot;: {
-          &quot;min&quot;: 77926400,
-          &quot;max&quot;: 145408000,
-          &quot;sum&quot;: 23414882304,
-          &quot;variance&quot;: 234721528417225.16,
-          &quot;mean&quot;: 128653199.47252747,
-          &quot;stddev&quot;: 15320624.282881724,
-          &quot;count&quot;: 182,
-          &quot;median&quot;: 124903424,
-          &quot;p75&quot;: 144999424,
-          &quot;p95&quot;: 145408000,
-          &quot;p99&quot;: 145408000,
-          &quot;p999&quot;: 145408000
-      },
-      &quot;heap&quot;: {
-          &quot;min&quot;: 14755896,
-          &quot;max&quot;: 31551408,
-          &quot;sum&quot;: 4174830592,
-          &quot;variance&quot;: 19213862445722.168,
-          &quot;mean&quot;: 22938629.626373626,
-          &quot;stddev&quot;: 4383362.002586846,
-          &quot;count&quot;: 182,
-          &quot;median&quot;: 22453472,
-          &quot;p75&quot;: 26436622,
-          &quot;p95&quot;: 30530277.599999998,
-          &quot;p99&quot;: 31331225.599999998,
-          &quot;p999&quot;: 31551408
-      },
-      &quot;loadavg&quot;: {
-          &quot;min&quot;: 0,
-          &quot;max&quot;: 0.14208984375,
-          &quot;sum&quot;: 8.33349609375,
-          &quot;variance&quot;: 0.0013957310299007465,
-          &quot;mean&quot;: 0.04578844007554945,
-          &quot;stddev&quot;: 0.03735948380131538,
-          &quot;count&quot;: 182,
-          &quot;median&quot;: 0.043701171875,
-          &quot;p75&quot;: 0.0806884765625,
-          &quot;p95&quot;: 0.103857421875,
-          &quot;p99&quot;: 0.13803710937499994,
-          &quot;p999&quot;: 0.14208984375
-      },
-  }
+<pre><code>       {
+            &quot;id&quot;: &quot;172.31.31.85-25170&quot;,
+            &quot;ip&quot;: &quot;172.31.31.85&quot;,
+            &quot;mtime&quot;: 1417500027321,
+            &quot;ctime&quot;: 1416941754760,
+            &quot;type&quot;: &quot;&quot;,
+            &quot;host&quot;: &quot;&quot;,
+            &quot;pid&quot;: 25170,
+            &quot;instance&quot;: &quot;i-d4c89eff&quot;,
+            &quot;worker&quot;: 27,
+            &quot;latency&quot;: 0,
+            &quot;cpus&quot;: 4,
+            &quot;mem&quot;: 15774367744,
+            &quot;rss_hmin&quot;: 66879488,
+            &quot;rss_hmax&quot;: 151891968,
+            &quot;rss_hsum&quot;: 2451506479104,
+            &quot;rss_hvar&quot;: 254812067010902.66,
+            &quot;rss_hmean&quot;: 118895507.98312236,
+            &quot;rss_hdev&quot;: 15962833.92793719,
+            &quot;rss_hcnt&quot;: 20619,
+            &quot;rss_hmed&quot;: 147644416,
+            &quot;rss_h75p&quot;: 149262336,
+            &quot;rss_h95p&quot;: 150834585.6,
+            &quot;rss_h99p&quot;: 151550033.92000002,
+            &quot;rss_h999p&quot;: 151886266.368,
+            &quot;heap_hmin&quot;: 25790920,
+            &quot;heap_hmax&quot;: 72316184,
+            &quot;heap_hsum&quot;: 1029889929504,
+            &quot;heap_hvar&quot;: 54374337037311.65,
+            &quot;heap_hmean&quot;: 49948587.68630874,
+            &quot;heap_hdev&quot;: 7373895.648658967,
+            &quot;heap_hcnt&quot;: 20619,
+            &quot;heap_hmed&quot;: 57480704,
+            &quot;heap_h75p&quot;: 61934254,
+            &quot;heap_h95p&quot;: 67752391.2,
+            &quot;heap_h99p&quot;: 70544797.92,
+            &quot;heap_h999p&quot;: 72315029.104,
+            &quot;avg_hmin&quot;: 0.04541015625,
+            &quot;avg_hmax&quot;: 0.06005859375,
+            &quot;avg_hsum&quot;: 938.234375,
+            &quot;avg_hvar&quot;: 4.491222722966496e-7,
+            &quot;avg_hmean&quot;: 0.04550338886463941,
+            &quot;avg_hdev&quot;: 0.0006701658543201448,
+            &quot;avg_hcnt&quot;: 20619,
+            &quot;avg_hmed&quot;: 0.04541015625,
+            &quot;avg_h75p&quot;: 0.04541015625,
+            &quot;avg_h95p&quot;: 0.04541015625,
+            &quot;avg_h99p&quot;: 0.05078125,
+            &quot;avg_h999p&quot;: 0.05997363281250001,
+            &quot;free_hmin&quot;: 12879872000,
+            &quot;free_hmax&quot;: 13228994560,
+            &quot;free_hsum&quot;: 268429937405952,
+            &quot;free_hvar&quot;: 5839592954606286,
+            &quot;free_hmean&quot;: 13018572064.889277,
+            &quot;free_hdev&quot;: 76417229.43555522,
+            &quot;free_hcnt&quot;: 20619,
+            &quot;free_hmed&quot;: 12908707840,
+            &quot;free_h75p&quot;: 12915716096,
+            &quot;free_h95p&quot;: 12919331430.4,
+            &quot;free_h99p&quot;: 12922073088,
+            &quot;free_h999p&quot;: 12922164563.968,
+            &quot;util_hmin&quot;: 0.05905642141342145,
+            &quot;util_hmax&quot;: 0.0607655708794173,
+            &quot;util_hsum&quot;: 1230.6298386264643,
+            &quot;util_hvar&quot;: 2.1530671850148948e-7,
+            &quot;util_hmean&quot;: 0.059684263961708346,
+            &quot;util_hdev&quot;: 0.0004640115499656118,
+            &quot;util_hcnt&quot;: 20619,
+            &quot;util_hmed&quot;: 0.05920415878947068,
+            &quot;util_h75p&quot;: 0.059217278415661254,
+            &quot;util_h95p&quot;: 0.05934395790869296,
+            &quot;util_h99p&quot;: 0.059361851867105964,
+            &quot;util_h999p&quot;: 0.0593659827984017,
+            &quot;pool_name&quot;: &quot;dynamodb&quot;,
+            &quot;pool_que_rate&quot;: 0,
+            &quot;pool_que_rcnt&quot;: 1989,
+            &quot;pool_que_rmean&quot;: 0.0035627883554577716,
+            &quot;pool_que_r1m&quot;: 0,
+            &quot;pool_que_r5m&quot;: 0,
+            &quot;pool_que_r15m&quot;: 0,
+            &quot;pool_que_hmin&quot;: 0,
+            &quot;pool_que_hmax&quot;: 230,
+            &quot;pool_que_hsum&quot;: 45843,
+            &quot;pool_que_hvar&quot;: 366.86587852909315,
+            &quot;pool_que_hmean&quot;: 23.048265460030166,
+            &quot;pool_que_hdev&quot;: 19.15374319889178,
+            &quot;pool_que_hcnt&quot;: 1989,
+            &quot;pool_que_hmed&quot;: 21,
+            &quot;pool_que_h75p&quot;: 23,
+            &quot;pool_que_h95p&quot;: 33,
+            &quot;pool_que_h99p&quot;: 126.42000000000007,
+            &quot;pool_que_h999p&quot;: 225.971,
+            &quot;pool_req_hmin&quot;: 1,
+            &quot;pool_req_hmax&quot;: 2,
+            &quot;pool_req_hsum&quot;: 1991,
+            &quot;pool_req_hvar&quot;: 0.001005024617286425,
+            &quot;pool_req_hmean&quot;: 1.0010055304172951,
+            &quot;pool_req_hdev&quot;: 0.03170212322994195,
+            &quot;pool_req_hcnt&quot;: 1989,
+            &quot;pool_req_hmed&quot;: 1,
+            &quot;pool_req_h75p&quot;: 1,
+            &quot;pool_req_h95p&quot;: 1,
+            &quot;pool_req_h99p&quot;: 1,
+            &quot;pool_req_h999p&quot;: 1.9710000000000036,
+            &quot;pool_count&quot;: 0,
+            &quot;pool_req_0&quot;: 2,
+            &quot;pool_cache_rate&quot;: 0.1303780964797914,
+            &quot;pool_cache_rcnt&quot;: 284,
+            &quot;pool_cache_rmean&quot;: 0.0005087436344326025,
+            &quot;pool_cache_r1m&quot;: 0,
+            &quot;pool_cache_r5m&quot;: 0,
+            &quot;pool_cache_r15m&quot;: 0,
+            &quot;pool_cache_hmin&quot;: 0,
+            &quot;pool_cache_hmax&quot;: 2,
+            &quot;pool_cache_hsum&quot;: 70,
+            &quot;pool_cache_hvar&quot;: 0.19345045538247163,
+            &quot;pool_cache_hmean&quot;: 0.24647887323943662,
+            &quot;pool_cache_hdev&quot;: 0.4398300301053483,
+            &quot;pool_cache_hcnt&quot;: 284,
+            &quot;pool_cache_hmed&quot;: 0,
+            &quot;pool_cache_h75p&quot;: 0,
+            &quot;pool_cache_h95p&quot;: 1,
+            &quot;pool_cache_h99p&quot;: 1,
+            &quot;pool_cache_h999p&quot;: 2,
+            &quot;pool_hits&quot;: 239,
+            &quot;pool_misses&quot;: 45,
+            &quot;cache_inserted&quot;: 484,
+            &quot;cache_deleted&quot;: 310,
+            &quot;cache_cleanups&quot;: 0,
+            &quot;cache_hits&quot;: 7642,
+            &quot;cache_misses&quot;: 1411,
+            &quot;cache_max&quot;: 1000000,
+            &quot;cache_size&quot;: 61586,
+            &quot;cache_count&quot;: 174,
+            &quot;api_que_hmin&quot;: 1,
+            &quot;api_que_hmax&quot;: 6,
+            &quot;api_que_hsum&quot;: 13237,
+            &quot;api_que_hvar&quot;: 0.005674280465987009,
+            &quot;api_que_hmean&quot;: 1.0024992426537414,
+            &quot;api_que_hdev&quot;: 0.07532782000022972,
+            &quot;api_que_hcnt&quot;: 13204,
+            &quot;api_que_hmed&quot;: 1,
+            &quot;api_que_h75p&quot;: 1,
+            &quot;api_que_h95p&quot;: 1,
+            &quot;api_que_h99p&quot;: 1,
+            &quot;api_que_h999p&quot;: 2,
+            &quot;api_nreq&quot;: 1,
+            &quot;api_req_rate&quot;: 0,
+            &quot;api_req_rcnt&quot;: 13203,
+            &quot;api_req_rmean&quot;: 0.02365120609256502,
+            &quot;api_req_r1m&quot;: 0,
+            &quot;api_req_r5m&quot;: 0,
+            &quot;api_req_r15m&quot;: 0,
+            &quot;api_req_hmin&quot;: 0,
+            &quot;api_req_hmax&quot;: 536,
+            &quot;api_req_hsum&quot;: 20115,
+            &quot;api_req_hvar&quot;: 89.12554520926801,
+            &quot;api_req_hmean&quot;: 1.5235173824130879,
+            &quot;api_req_hdev&quot;: 9.440632669968046,
+            &quot;api_req_hcnt&quot;: 13203,
+            &quot;api_req_hmed&quot;: 1,
+            &quot;api_req_h75p&quot;: 1,
+            &quot;api_req_h95p&quot;: 1,
+            &quot;api_req_h99p&quot;: 33.13000000000011,
+            &quot;api_req_h999p&quot;: 99.36200000000008,
+            &quot;url_message_get_rate&quot;: 0,
+            &quot;url_message_get_rcnt&quot;: 24,
+            &quot;url_message_get_rmean&quot;: 0.00004299242196761214,
+            &quot;url_message_get_r1m&quot;: 0,
+            &quot;url_message_get_r5m&quot;: 0,
+            &quot;url_message_get_r15m&quot;: 0,
+            &quot;url_message_get_hmin&quot;: 16,
+            &quot;url_message_get_hmax&quot;: 71,
+            &quot;url_message_get_hsum&quot;: 792,
+            &quot;url_message_get_hvar&quot;: 208.34782608695653,
+            &quot;url_message_get_hmean&quot;: 33,
+            &quot;url_message_get_hdev&quot;: 14.434258764722092,
+            &quot;url_message_get_hcnt&quot;: 24,
+            &quot;url_message_get_hmed&quot;: 30.5,
+            &quot;url_message_get_h75p&quot;: 40.75,
+            &quot;url_message_get_h95p&quot;: 68,
+            &quot;url_message_get_h99p&quot;: 71,
+            &quot;url_message_get_h999p&quot;: 71,
+            &quot;url_message_get_0&quot;: 0,
+            &quot;api_req_0&quot;: 20,
+            &quot;url_ping_rate&quot;: 0,
+            &quot;url_ping_rcnt&quot;: 12407,
+            &quot;url_ping_rmean&quot;: 0.022226981327796796,
+            &quot;url_ping_r1m&quot;: 0,
+            &quot;url_ping_r5m&quot;: 0,
+            &quot;url_ping_r15m&quot;: 0,
+            &quot;url_ping_hmin&quot;: 0,
+            &quot;url_ping_hmax&quot;: 4,
+            &quot;url_ping_hsum&quot;: 6915,
+            &quot;url_ping_hvar&quot;: 0.25785489698686204,
+            &quot;url_ping_hmean&quot;: 0.5573466591440316,
+            &quot;url_ping_hdev&quot;: 0.5077941482400737,
+            &quot;url_ping_hcnt&quot;: 12407,
+            &quot;url_ping_hmed&quot;: 1,
+            &quot;url_ping_h75p&quot;: 1,
+            &quot;url_ping_h95p&quot;: 1,
+            &quot;url_ping_h99p&quot;: 1,
+            &quot;url_ping_h999p&quot;: 2,
+            &quot;url_ping_0&quot;: 5,
+            &quot;url_image_account_rate&quot;: 0,
+            &quot;url_image_account_rcnt&quot;: 95,
+            &quot;url_image_account_rmean&quot;: 0.00017084907295404685,
+            &quot;url_image_account_r1m&quot;: 0,
+            &quot;url_image_account_r5m&quot;: 0,
+            &quot;url_image_account_r15m&quot;: 0,
+            &quot;url_image_account_hmin&quot;: 17,
+            &quot;url_image_account_hmax&quot;: 121,
+            &quot;url_image_account_hsum&quot;: 4295,
+            &quot;url_image_account_hvar&quot;: 372.42329227323637,
+            &quot;url_image_account_hmean&quot;: 45.21052631578947,
+            &quot;url_image_account_hdev&quot;: 19.29827174317007,
+            &quot;url_image_account_hcnt&quot;: 95,
+            &quot;url_image_account_hmed&quot;: 42,
+            &quot;url_image_account_h75p&quot;: 51,
+            &quot;url_image_account_h95p&quot;: 89.59999999999991,
+            &quot;url_image_account_h99p&quot;: 121,
+            &quot;url_image_account_h999p&quot;: 121,
+            &quot;url_image_account_0&quot;: 0,
+            &quot;incr_follow_0&quot;: 0,
+            &quot;api_bad_0&quot;: 3,
+            &quot;url_account_update_rate&quot;: 0,
+            &quot;url_account_update_rcnt&quot;: 6,
+            &quot;url_account_update_rmean&quot;: 0.000010813705805470248,
+            &quot;url_account_update_r1m&quot;: 0,
+            &quot;url_account_update_r5m&quot;: 0,
+            &quot;url_account_update_r15m&quot;: 0,
+            &quot;url_account_update_hmin&quot;: 53,
+            &quot;url_account_update_hmax&quot;: 182,
+            &quot;url_account_update_hsum&quot;: 573,
+            &quot;url_account_update_hvar&quot;: 2041.5,
+            &quot;url_account_update_hmean&quot;: 95.5,
+            &quot;url_account_update_hdev&quot;: 45.18296139032943,
+            &quot;url_account_update_hcnt&quot;: 6,
+            &quot;url_account_update_hmed&quot;: 82,
+            &quot;url_account_update_h75p&quot;: 120.5,
+            &quot;url_account_update_h95p&quot;: 182,
+            &quot;url_account_update_h99p&quot;: 182,
+            &quot;url_account_update_h999p&quot;: 182,
+            &quot;url_account_update_0&quot;: 0,
+            &quot;auth_add_0&quot;: 0,
+            &quot;url_account_get_rate&quot;: 0,
+            &quot;url_account_get_rcnt&quot;: 9,
+            &quot;url_account_get_rmean&quot;: 0.0001993511695335063,
+            &quot;url_account_get_r1m&quot;: 0,
+            &quot;url_account_get_r5m&quot;: 0,
+            &quot;url_account_get_r15m&quot;: 0,
+            &quot;url_account_get_hmin&quot;: 2,
+            &quot;url_account_get_hmax&quot;: 100,
+            &quot;url_account_get_hsum&quot;: 435,
+            &quot;url_account_get_hvar&quot;: 844.0000000000001,
+            &quot;url_account_get_hmean&quot;: 48.333333333333336,
+            &quot;url_account_get_hdev&quot;: 29.051678092667903,
+            &quot;url_account_get_hcnt&quot;: 9,
+            &quot;url_account_get_hmed&quot;: 46,
+            &quot;url_account_get_h75p&quot;: 67,
+            &quot;url_account_get_h95p&quot;: 100,
+            &quot;url_account_get_h99p&quot;: 100,
+            &quot;url_account_get_h999p&quot;: 100,
+            &quot;url_account_get_0&quot;: 1,
+            &quot;url_system_stats_rate&quot;: 0,
+            &quot;url_system_stats_rcnt&quot;: 1,
+            &quot;url_system_stats_rmean&quot;: 0.04501665616278023,
+            &quot;url_system_stats_r1m&quot;: 0,
+            &quot;url_system_stats_r5m&quot;: 0,
+            &quot;url_system_stats_r15m&quot;: 0,
+            &quot;url_system_stats_hmin&quot;: 3,
+            &quot;url_system_stats_hmax&quot;: 3,
+            &quot;url_system_stats_hsum&quot;: 3,
+            &quot;url_system_stats_hmean&quot;: 3,
+            &quot;url_system_stats_hdev&quot;: 0,
+            &quot;url_system_stats_hcnt&quot;: 1,
+            &quot;url_system_stats_hmed&quot;: 3,
+            &quot;url_system_stats_h75p&quot;: 3,
+            &quot;url_system_stats_h95p&quot;: 3,
+            &quot;url_system_stats_h99p&quot;: 3,
+            &quot;url_system_stats_h999p&quot;: 3,
+            &quot;url_system_stats_0&quot;: 2
+        }
 </code></pre></li>
 </ul>
 <h1 id="backend-directory-structure">Backend directory structure</h1>
@@ -1648,7 +1847,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
 <li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests </li>
 <li><code>app-name</code> - Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version</li>
-<li><code>instance-tag</code> - Set instanceTag exolicitely, skip all meta data checks for it</li>
+<li><code>instance-tag</code> - Set instanceTag explicitely, skip all meta data checks for it</li>
 <li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. Default: &quot;production&quot;. DNS TXT configurable.</li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically</li>
 <li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
@@ -1697,7 +1896,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>db-no-cache-columns</code> - Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: []</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: &quot;sqlite&quot;</li>
-<li><code>db-config</code> - Configuration database pool for config parameters, must be defined to use remote db for config parameters</li>
+<li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db. Default: 300</li>
 <li><code>db-NAME-max</code> - Max number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: max-1 .. max-3.</li>
 <li><code>db-NAME-min</code> - Min number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: min-1 .. min-3.</li>

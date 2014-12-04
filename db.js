@@ -119,7 +119,7 @@ var db = {
            { name: "no-cache-columns", type: "bool", descr: "Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
-           { name: "config", descr: "Configuration database pool for config parameters, must be defined to use remote db for config parameters" },
+           { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
            { name: "max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
            { name: "min", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
@@ -182,6 +182,9 @@ db.init = function(options, callback)
 	var self = this;
 	if (typeof options == "function") callback = options, options = {};
 	if (!options) options = {};
+
+	// Config pool can be set to default which means use the current default pool
+	if (this.config == "default") this.config = this.pool;
 
 	// Configured pools for supported databases
 	self.args.filter(function(x) { return x.name.match(/\-pool$/) }).forEach(function(x) {
@@ -246,7 +249,8 @@ db.initConfig = function(options, callback)
     if (core.subnet) {
         types.push(subnet, core.appName + "-" + subnet);
     }
-    var instanceTag = options.tag || core.instanceTag;
+    // This can be empty string due to spaces
+    var instanceTag = String(options.tag || core.instanceTag).trim();
     if (instanceTag && types.indexOf(instanceTag) == -1) {
         types.push(instanceTag, core.appName + "-" + instanceTag);
     }

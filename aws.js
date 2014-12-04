@@ -469,7 +469,10 @@ aws.ec2RunInstances = function(options, callback)
         if (!options["SecurityGroupId.0"]) {
             var groups = core.strSplitUnique(options.groupId || this.groupId || []);
             groups.forEach(function(x, i) { req["NetworkInterface.0.SecurityGroupId." + i] = x; });
-            if (groups.length) req["NetworkInterface.0.DeviceIndex"] = 0;
+            if (groups.length) {
+                req["NetworkInterface.0.DeviceIndex"] = 0;
+                req["NetworkInterface.0.SubnetId"] = options.subnetId || this.subnetId;
+            }
         }
         if (options.ip) {
             req["NetworkInterface.0.DeviceIndex"] = 0;

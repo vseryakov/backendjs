@@ -188,7 +188,7 @@ var core = {
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
             { name: "app-name", type: "callback", callback: function(v) { if (!v) return;v = v.split("-");this.appName=v[0];if(v[1]) this.appVersion=v[1];}, descr: "Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version", pass: 1 },
-            { name: "instance-tag", descr: "Set instanceTag exolicitely, skip all meta data checks for it", pass: 1 },
+            { name: "instance-tag", descr: "Set instanceTag explicitely, skip all meta data checks for it", pass: 1 },
             { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
