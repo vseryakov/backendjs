@@ -39,9 +39,6 @@ var core = {
     // Server role, used by API server, for provisioning must include backend
     role: '',
 
-    // Local domain
-    domain: '',
-
     // Instance mode, remote jobs
     instance: false,
     instanceId: process.pid,
@@ -85,7 +82,7 @@ var core = {
     subnet: '',
     network: '',
     ipaddrs: [],
-    hostname: '',
+    hostName: '',
     domain: '',
     maxCPUs: os.cpus().length,
     ctime: Date.now(),
@@ -226,7 +223,7 @@ var core = {
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access when using core.sendRequest" },
-            { name: "domain", descr: "Domain to use for communications, default is current domain of the host machine" },
+            { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = this.domainName(this.hostName); }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
@@ -278,10 +275,8 @@ core.init = function(options, callback)
     });
     self.subnet = self.ipaddr.split(".").slice(0, 3).join(".");
     self.network = self.ipaddr.split(".").slice(0, 2).join(".");
-
-    // Default domain from local host name
-    self.hostname = os.hostname().toLowerCase();
-    self.domain = self.domainName(self.hostname);
+    self.hostName = os.hostname().toLowerCase();
+    self.domain = self.domainName(self.hostName);
 
     // Serialize initialization procedure, run each function one after another
     self.series([
@@ -305,8 +300,6 @@ core.init = function(options, callback)
                 if (pkg && pkg.vesion) self.appVersion = pkg.version;
                 if (!self.appName) self.appName = self.name;
             }
-            // Default email address
-            if (!self.email) self.email = (self.appName || self.name) + "@" + (self.domain || os.hostname());
             next();
         },
 
@@ -378,8 +371,13 @@ core.init = function(options, callback)
         function(next) {
             if (options.noInit) return next();
             self.runMethods("configureModule", options, next);
-        }],
-
+        },
+        function(next) {
+            // Default email address
+            if (!self.email) self.email = (self.appName || self.name) + "@" + self.domain;
+            next();
+        },
+        ],
         // Final callbacks
         function(err) {
             logger.debug("init:", err || "");
@@ -3057,7 +3055,7 @@ core.watchLogs = function(options, callback)
     self.logwatcherMtime = Date.now();
 
     // From address, use current hostname
-    if (!self.logwatcherFrom) self.logwatcherFrom = "logwatcher@" + (self.domain || os.hostname());
+    if (!self.logwatcherFrom) self.logwatcherFrom = "logwatcher@" + self.domain;
 
     var match = null;
     if (self.logwatcherMatch) {
@@ -3118,7 +3116,7 @@ core.watchLogs = function(options, callback)
             });
         }, function(err) {
             if (errors.length > 1) {
-                logger.log('logwatcher:', 'found errors, sending report to', self.logwatcherEmail, self.logwatcherUrl);
+                logger.log('logwatcher:', 'found errors, sending report to', self.logwatcherEmail || "", self.logwatcherUrl || "");
                 if (self.logwatcherUrl) {
                     self.sendRequest({ url: self.logwatcherUrl, queue: true, headers: { "content-type": "text/plain" }, method: "POST", postdata: errors }, callback);
                     return;
