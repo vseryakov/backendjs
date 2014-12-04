@@ -1885,7 +1885,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
 <li><code>backend-secret</code> - Credentials secret for the master backend access when using core.sendRequest</li>
-<li><code>domain</code> - Domain to use for communications, default is current domain of the host machine</li>
+<li><code>host-name</code> - Hostname/domain to use for communications, default is current domain of the host machine</li>
 <li><code>config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
 <li><code>max-distance</code> - Max searchable distance(radius) in km, for location searches to limit the upper bound. Default: 50</li>
 <li><code>min-distance</code> - Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. Default: 5</li>
