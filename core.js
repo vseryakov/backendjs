@@ -8,10 +8,11 @@ var fs = require('fs');
 var repl = require('repl');
 var path = require('path');
 var crypto = require('crypto');
+var domain = require('domain');
 var url = require('url');
 var http = require('http');
 var https = require('https');
-var exec = require('child_process').exec;
+var child = require('child_process');
 var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var cluster = require('cluster');
@@ -2283,10 +2284,29 @@ core.copyFile = function(src, dst, overwrite, callback)
 // can be used without importing the child_processes module. All fatal errors are logged.
 core.runProcess = function(cmd, callback)
 {
-    exec(cmd, function (err, stdout, stderr) {
+    var self = this;
+    child.exec(cmd, function (err, stdout, stderr) {
         if (err) logger.error('runProcess:', cmd, err);
         if (callback) callback(err, stdout, stderr);
     });
+}
+
+// Run specified command with the optional arguments, this is similar to child_process.spawn with callback being called after the process exited
+core.spawnProcess = function(cmd, args, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd };
+    var proc = child.spawn(cmd, args, options);
+    proc.on("error", function(err) {
+        logger.error("spawnProcess:", cmd, args, err);
+        if (callback) callback(err);
+    });
+    proc.on('exit', function (code, signal) {
+        logger.debug("spawnProcess:", cmd, args, "exit", code, signal);
+        if (callback) callback(null, code, signal);
+    });
+    return proc;
 }
 
 // Kill all backend processes that match name and not the current process
@@ -2309,7 +2329,8 @@ core.killBackend = function(name, signal, callback)
 // Shutdown the machine now
 core.shutdown = function()
 {
-    exec("/sbin/halt", function(err, stdout, stderr) {
+    var self = this;
+    child.exec("/sbin/halt", function(err, stdout, stderr) {
         logger.log('shutdown:', stdout || "", stderr || "", err || "");
     });
 }

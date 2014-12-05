@@ -554,7 +554,7 @@ case "$ARG" in
     ;;
 
   log-watch)
-    bkjs run-shell -db-no-cache-columns -log error -log-watch $@
+    bkjs run-shell -log error -log-watch $@
     ;;
 
   ntp)

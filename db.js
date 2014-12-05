@@ -106,6 +106,9 @@ var db = {
     // Tables to be cached
     cacheTables: [],
 
+    // Which pools not to cache
+    noCacheColumns: [],
+
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
     sqlitePool: core.name,
@@ -115,8 +118,8 @@ var db = {
 
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
-           { name: "no-pools", type: "bool", descr: "Do not use other db pools except default local pool" },
-           { name: "no-cache-columns", type: "bool", descr: "Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions" },
+           { name: "no-pools", type: "bool", descr: "Do not use other db pools except the default pool specified by 'db-pool'" },
+           { name: "no-cache-columns", array: 1, type: "list", descr: "Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions, this can be 'all' for all pools or a list of pool names separated by comma" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
@@ -315,7 +318,7 @@ db.initPoolTables = function(name, tables, options, callback)
     for (var p in tables) pool.dbtables[p] = tables[p];
     options.pool = name;
     options.tables = tables;
-    if (self.noCacheColumns) {
+    if (self.noCacheColumns.indexOf("all") > -1 || self.noCacheColumns.indexOf(name) > -1) {
         self.mergeColumns(pool);
         self.mergeKeys(pool);
         return callback ? callback() : null;
