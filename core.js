@@ -2282,11 +2282,11 @@ core.copyFile = function(src, dst, overwrite, callback)
 
 // Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the core.runProcess
 // can be used without importing the child_processes module. All fatal errors are logged.
-core.runProcess = function(cmd, callback)
+core.execProcess = function(cmd, callback)
 {
     var self = this;
     child.exec(cmd, function (err, stdout, stderr) {
-        if (err) logger.error('runProcess:', cmd, err);
+        if (err) logger.error('execProcess:', cmd, err);
         if (callback) callback(err, stdout, stderr);
     });
 }
@@ -2303,10 +2303,32 @@ core.spawnProcess = function(cmd, args, options, callback)
         if (callback) callback(err);
     });
     proc.on('exit', function (code, signal) {
-        logger.debug("spawnProcess:", cmd, args, "exit", code, signal);
-        if (callback) callback(null, code, signal);
+        logger.debug("spawnProcess:", cmd, args, "exit", code || signal);
+        if (callback) callback(code || signal);
     });
     return proc;
+}
+
+// Run a series of commands, `cmds` is an object where a property name is a command to execute and the value is an array of arguments or null.
+// if options.error is 1, then stop on first error or if non-zero status on a process exit.
+//
+//  Example:
+//
+//          core.spawnSeries({"ls":null,"ps":"augx","uname":["-a"]}, db.showResult)
+//
+core.spawnSeries = function(cmds, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd };
+    this.forEachSeries(Object.keys(cmds), function(cmd, next) {
+        var args = cmds[cmd];
+        if (args === null) args = [];
+        if (typeof args == "string") args = [ args ];
+        self.spawnProcess(cmd, args, options, function(err) {
+            next(options.error ? err : null);
+        });
+    }, callback);
 }
 
 // Kill all backend processes that match name and not the current process
@@ -2316,7 +2338,7 @@ core.killBackend = function(name, signal, callback)
     if (typeof signal == "function") callback = signal, signal = '';
     if (!signal) signal = 'SIGTERM';
 
-    self.runProcess("/bin/ps agx", function(stderr, stdout) {
+    self.execProcess("/bin/ps agx", function(stderr, stdout) {
         stdout.split("\n").
                filter(function(x) { return x.match(core.name + ":") && (!name || x.match(name)); }).
                map(function(x) { return self.toNumber(x) }).
