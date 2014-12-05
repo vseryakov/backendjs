@@ -4382,9 +4382,13 @@ can be used without importing the child_processes module. All fatal errors are l
 <ul>
 <li><p><code>core.spawnSeries(cmds, options, callback)</code></p>
 <p> Run a series of commands, <code>cmds</code> is an object where a property name is a command to execute and the value is an array of arguments or null.
-if options.error is 1, then stop on first error or if non-zero status on a process exit.</p>
+if <code>options.error</code> is 1, then stop on first error or if non-zero status on a process exit.</p>
 <p>Example:</p>
-<pre><code>    core.spawnSeries({&quot;ls&quot;:null,&quot;ps&quot;:&quot;augx&quot;,&quot;uname&quot;:[&quot;-a&quot;]}, db.showResult)
+<pre><code>    core.spawnSeries({&quot;ls&quot;:null,
+                      &quot;ps&quot;:&quot;augx&quot;,
+                      &quot;du&quot;: { argv: &quot;-sh&quot;, stdio: &quot;inherit&quot;, cwd: &quot;/tmp&quot; },
+                      &quot;uname&quot;:[&quot;-a&quot;] },
+                     db.showResult)
 </code></pre></li>
 </ul>
 
