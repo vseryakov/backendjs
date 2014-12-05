@@ -216,9 +216,9 @@ case "$ARG" in
   init-home)
     # Create required directories
     mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
-    if [ "$BKJS_USER" != "root" ]; then
+    if [ "$BKJS_USER" != "root" -a ! -f $BKJS_HOME/etc/config ]; then
        echo "Creating default $BKJS config ..."
-       $ECHO "uid=$BKJS_USER\nforce-uid=1\n" > $BKJS_HOME/etc/config
+       $ECHO "uid=$BKJS_USER\nforce-uid=1" > $BKJS_HOME/etc/config
     fi
     chown -R $BKJS_USER $BKJS_HOME
     ;;

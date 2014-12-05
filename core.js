@@ -2279,8 +2279,8 @@ core.copyFile = function(src, dst, overwrite, callback)
     fs.stat(dst, copy);
 }
 
-// Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the core.runPtocess
-// can be used without importing the child module. All fatal errors are logged.
+// Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the core.runProcess
+// can be used without importing the child_processes module. All fatal errors are logged.
 core.runProcess = function(cmd, callback)
 {
     exec(cmd, function (err, stdout, stderr) {
@@ -2298,7 +2298,7 @@ core.killBackend = function(name, signal, callback)
 
     self.runProcess("/bin/ps agx", function(stderr, stdout) {
         stdout.split("\n").
-               filter(function(x) { return x.match("backend:") && (!name || x.match(name)); }).
+               filter(function(x) { return x.match(core.name + ":") && (!name || x.match(name)); }).
                map(function(x) { return self.toNumber(x) }).
                filter(function(x) { return x != process.pid }).
                forEach(function(x) { try { process.kill(x, signal); } catch(e) { logger.error('killBackend:', name, x, e); } });
