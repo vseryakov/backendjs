@@ -2310,11 +2310,15 @@ core.spawnProcess = function(cmd, args, options, callback)
 }
 
 // Run a series of commands, `cmds` is an object where a property name is a command to execute and the value is an array of arguments or null.
-// if options.error is 1, then stop on first error or if non-zero status on a process exit.
+// if `options.error` is 1, then stop on first error or if non-zero status on a process exit.
 //
 //  Example:
 //
-//          core.spawnSeries({"ls":null,"ps":"augx","uname":["-a"]}, db.showResult)
+//          core.spawnSeries({"ls":null,
+//                            "ps":"augx",
+//                            "du": { argv: "-sh", stdio: "inherit", cwd: "/tmp" },
+//                            "uname":["-a"] },
+//                           db.showResult)
 //
 core.spawnSeries = function(cmds, options, callback)
 {
@@ -2322,10 +2326,28 @@ core.spawnSeries = function(cmds, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd };
     this.forEachSeries(Object.keys(cmds), function(cmd, next) {
-        var args = cmds[cmd];
-        if (args === null) args = [];
-        if (typeof args == "string") args = [ args ];
-        self.spawnProcess(cmd, args, options, function(err) {
+        var argv = cmds[cmd], opts = options;
+        switch (self.typeName(argv)) {
+        case "null":
+            argv = [];
+            break;
+
+        case "object":
+            opts = argv;
+            argv = opts.argv;
+            break;
+
+        case "array":
+        case "string":
+            break;
+
+        default:
+            logger.error("spawnSeries:", "invalid arguments", cmd, argv);
+            return next(options.error ? self.newError("invalid args", cmd) : null);
+        }
+        if (!options.stdio) options.stdio = "inherit";
+        if (typeof argv == "string") argv = [ argv ];
+        self.spawnProcess(cmd, argv, opts, function(err) {
             next(options.error ? err : null);
         });
     }, callback);

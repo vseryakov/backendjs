@@ -978,9 +978,9 @@ server.spawnProcess = function(args, skip, opts)
     skip.push("-watch");
     skip.push("-monitor");
     // Remove arguments we should not pass to the process
-    var cmd = self.processName || process.argv[0];
     var argv = this.processArgs.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
     if (Array.isArray(args)) argv = argv.concat(args);
+    var cmd = self.processName || process.argv[0];
     logger.debug('spawnProcess:', cmd, argv, 'skip:', skip, 'opts:', opts);
     return spawn(cmd, argv, opts);
 }
