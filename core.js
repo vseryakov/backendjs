@@ -2292,11 +2292,17 @@ core.execProcess = function(cmd, callback)
 }
 
 // Run specified command with the optional arguments, this is similar to child_process.spawn with callback being called after the process exited
+//
+//  Example
+//
+//          core.spawProcess("ls", "-ls", { cwd: "/tmp" }, db.showResult)
+//
 core.spawnProcess = function(cmd, args, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd };
+    if (!options.stdio) options.stdio = "inherit";
     var proc = child.spawn(cmd, args, options);
     proc.on("error", function(err) {
         logger.error("spawnProcess:", cmd, args, err);
@@ -2314,10 +2320,10 @@ core.spawnProcess = function(cmd, args, options, callback)
 //
 //  Example:
 //
-//          core.spawnSeries({"ls":null,
-//                            "ps":"augx",
+//          core.spawnSeries({"ls": "-la",
+//                            "ps": "augx",
 //                            "du": { argv: "-sh", stdio: "inherit", cwd: "/tmp" },
-//                            "uname":["-a"] },
+//                            "uname": ["-a"] },
 //                           db.showResult)
 //
 core.spawnSeries = function(cmds, options, callback)
@@ -2421,6 +2427,25 @@ core.readFileSync = function(file, options)
     }
 }
 
+// Filter function to be used in findFile methods
+core.findFilter = function(file, stat, options)
+{
+    if (!options) return 1;
+    if (options.filter) return options.filter(file, stat);
+    if (options.exclude instanceof RegExp && options.exclude.test(file)) return 0;
+    if (options.include instanceof RegExp && !options.include.test(file)) return 0;
+    if (options.types) {
+        if (stat.isFile() && options.types.indexOf("f") == -1) return 0;
+        if (stat.isDirectory() && options.types.indexOf("d") == -1) return 0;
+        if (stat.isBlockDevice() && options.types.indexOf("b") == -1) return 0;
+        if (stat.isCharacterDevice() && options.types.indexOf("c") == -1) return 0;
+        if (stat.isSymbolicLink() && options.types.indexOf("l") == -1) return 0;
+        if (stat.isFIFO() && options.types.indexOf("p") == -1) return 0;
+        if (stat.isSocket() && options.types.indexOf("s") == -1) return 0;
+    }
+    return 1;
+}
+
 // Return list of files than match filter recursively starting with given path, file is the starting path.
 // The options may contain the following:
 //   - include - a regexp with file pattern to include
@@ -2431,46 +2456,75 @@ core.readFileSync = function(file, options)
 core.findFileSync = function(file, options)
 {
     var list = [];
-    function filter(file, stat) {
-        if (!options) return 1;
-        if (options.filter) return options.filter(file, stat);
-        if (options.exclude instanceof RegExp && options.exclude.test(file)) return 0;
-        if (options.include instanceof RegExp && !options.include.test(file)) return 0;
-        if (options.types) {
-            if (stat.isFile() && options.types.indexOf("f") == -1) return 0;
-            if (stat.isDirectory() && options.types.indexOf("d") == -1) return 0;
-            if (stat.isBlockDevice() && options.types.indexOf("b") == -1) return 0;
-            if (stat.isCharacterDevice() && options.types.indexOf("c") == -1) return 0;
-            if (stat.isSymbolicLink() && options.types.indexOf("l") == -1) return 0;
-            if (stat.isFIFO() && options.types.indexOf("p") == -1) return 0;
-            if (stat.isSocket() && options.types.indexOf("s") == -1) return 0;
-        }
-        return 1;
-    }
+    var level = arguments[2];
+    if (typeof level != "number") level = 0;
+
     try {
         var stat = this.statSync(file);
         if (stat.isFile()) {
-            if (file != "." && file != ".." && filter(file, stat)) {
+            if (this.findFilter(file, stat, options)) {
                 list.push(file);
             }
         } else
         if (stat.isDirectory()) {
-            if (file != "." && file != ".." && filter(file, stat)) {
+            if (this.findFilter(file, stat, options)) {
                 list.push(file);
             }
-            if (options && typeof options.depth == "number") {
-                if (options.depth <= 0) return list;
-                options.depth--;
-            }
+            // We reached our directory depth
+            if (options && typeof options.depth == "number" && level >= options.depth) return list;
             var files = fs.readdirSync(file);
             for (var i in files) {
-                list = list.concat(this.findFileSync(path.join(file, files[i]), options));
+                list = list.concat(this.findFileSync(path.join(file, files[i]), options, level + 1));
             }
         }
     } catch(e) {
         logger.error('findFileSync:', file, options, e);
     }
     return list;
+}
+
+// Async version of find file, same options as in the sync version
+core.findFile = function(dir, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {}
+    if (!options.files) options.files = [];
+
+    var level = arguments[3];
+    if (typeof level != "number") level = 0;
+
+    fs.readdir(dir, function(err, files) {
+        if (err) return callback(err);
+
+        self.forEachSeries(files, function(file, next) {
+            if (options.done) return next();
+            file = path.join(dir, file);
+
+            fs.stat(file, function(err, stat) {
+                if (err) return next(err);
+
+                if (stat.isFile()) {
+                    if (self.findFilter(file, stat, options)) {
+                        options.files.push(file);
+                    }
+                    next();
+                } else
+                if (stat.isDirectory()) {
+                    if (self.findFilter(file, stat, options)) {
+                        options.files.push(file);
+                    }
+                    // We reached our directory depth
+                    if (options && typeof options.depth == "number" && level >= options.depth) return next();
+                    self.findFile(file, options, next, level + 1);
+                } else {
+                    next()
+                }
+            });
+        }, function(err) {
+            if (callback) callback(err, options.files);
+        });
+    });
 }
 
 // Recursively create all directories, return 1 if created or 0 on error or if exists, no exceptions are raised, error is logged only
