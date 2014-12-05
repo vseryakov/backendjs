@@ -1892,8 +1892,8 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>instance</code> - Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: &quot;sqlite&quot;. DNS TXT configurable.</li>
-<li><code>db-no-pools</code> - Do not use other db pools except default local pool</li>
-<li><code>db-no-cache-columns</code> - Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions</li>
+<li><code>db-no-pools</code> - Do not use other db pools except the default pool specified by &#39;db-pool&#39;</li>
+<li><code>db-no-cache-columns</code> - Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions, this can be &#39;all&#39; for all pools or a list of pool names separated by comma. Default: []</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: []</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: &quot;sqlite&quot;</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
@@ -4370,6 +4370,12 @@ in format: protocol://*:port, mostly to be used with nanomsg sockets</p>
 <li><p><code>core.runProcess(cmd, callback)</code></p>
 <p> Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the core.runProcess
 can be used without importing the child_processes module. All fatal errors are logged.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.spawnProcess(cmd, args, options, callback)</code></p>
+<p> Run specified command with the optional arguments, this is similar to child_process.spawn with callback being called after the process exited</p>
 </li>
 </ul>
 
