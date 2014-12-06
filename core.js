@@ -28,7 +28,7 @@ var core = {
     name: 'backend',
 
     // Protocol version
-    version: '2014.09.20',
+    version: '2014.12.01',
 
     // Application version, read from package.json if exists
     appName: '',

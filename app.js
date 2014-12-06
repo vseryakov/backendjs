@@ -71,3 +71,8 @@ app.configureMonitor = function(options, callback) { callback(); }
 // supported by the standard shell. Setting options.done to 1 will stop the shell, this is a signal that command has already
 // been processed.
 app.configureShell = function(options, callback) { callback(); }
+
+// Run main server if we execute this as standalone program
+if (!module.parent) {
+    require('backendjs').server.start();
+}

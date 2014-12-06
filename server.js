@@ -1444,8 +1444,3 @@ server.processQueue = function(options, callback)
     });
 }
 
-// Run main server if we execute this as standalone program
-if (!module.parent) {
-    require('backendjs').server.start();
-}
-

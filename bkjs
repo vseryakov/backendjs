@@ -469,13 +469,12 @@ case "$ARG" in
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
-    [ -f /usr/lib/node_modules/$BKJS_MOD/server.js ] && SCRIPT=/usr/lib/node_modules/$BKJS_MOD/server.js
-    [ -f $BKJS_PREFIX/lib/node_modules/$BKJS_MOD/server.js ] && SCRIPT=$BKJS_PREFIX/lib/node_modules/$BKJS_MOD/server.js
-    [ -f $BKJS_HOME/node_modules/$BKJS_MOD/server.js ] && SCRIPT=$BKJS_HOME/node_modules/$BKJS_MOD/server.js
-    [ -f node_modules/$BKJS_MOD/server.js ] && SCRIPT=node_modules/$BKJS_MOD/server.js
-    [ -f server.js ] && SCRIPT=server.js
+    [ -f /usr/lib/node_modules/$BKJS_MOD/app.js ] && SCRIPT=/usr/lib/node_modules/$BKJS_MOD/app.js
+    [ -f $BKJS_PREFIX/lib/node_modules/$BKJS_MOD/app.js ] && SCRIPT=$BKJS_PREFIX/lib/node_modules/$BKJS_MOD/app.js
+    [ -f $BKJS_HOME/node_modules/$BKJS_MOD/app.js ] && SCRIPT=$BKJS_HOME/node_modules/$BKJS_MOD/app.js
+    [ -f node_modules/$BKJS_MOD/app.js ] && SCRIPT=node_modules/$BKJS_MOD/app.js
     [ -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
-    [ -f app.js -a "$SCRIPT" != "server.js" ] && SCRIPT=app.js
+    [ -f app.js ] && SCRIPT=app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
 
     case "$ARG" in
