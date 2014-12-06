@@ -2785,6 +2785,11 @@ core.mergeObj = function(obj, options)
 }
 
 // Flatten a javascript object into a single-depth object, all nested values will have property names appended separated by comma
+//
+// Example
+//
+//          > core.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
+//          { 'a.c': 1, 'b.d': 1 }
 core.flattenObj = function(obj, options)
 {
     var rc = {};
@@ -2863,9 +2868,10 @@ core.searchObj = function(obj, options)
 //
 // Example:
 //
-//          core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
-//          core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
-//
+//          > core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
+//          "Test"
+//          > core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
+//          [ "Test" ]
 core.objGet = function(obj, name, options)
 {
     if (!obj) return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
@@ -2916,7 +2922,7 @@ core.objSet = function(obj, name, value, options)
     return v;
 }
 
-// JSON stringify without exceptions, on error return empty string
+// JSON stringify without exceptions, on error just returns an empty string and logs the error
 core.stringify = function(obj, filter)
 {
     try { return JSON.stringify(obj, filter); } catch(e) { logger.error("stringify:", e); return "" }

@@ -638,7 +638,7 @@ aws.ec2DeregisterImage = function(ami_id, options, callback)
 
             core.forEachSeries(volumes, function(vol, next) {
                 if (!vol.ebs || !vol.ebs.snapshotId) return next();
-                self.queryEC2("DeleteSnapshot", { snapshotId: vol.ebs.snapshotId }, next);
+                self.queryEC2("DeleteSnapshot", { SnapshotId: vol.ebs.snapshotId }, next);
             }, callback)
         });
     });

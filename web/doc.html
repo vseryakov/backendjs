@@ -4570,7 +4570,10 @@ or an object with message, code, status, and name properties to build full error
 <ul>
 <li><p><code>core.flattenObj(obj, options)</code></p>
 <p> Flatten a javascript object into a single-depth object, all nested values will have property names appended separated by comma</p>
-</li>
+<p>Example</p>
+<pre><code>    &gt; core.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
+    { &#39;a.c&#39;: 1, &#39;b.d&#39;: 1 }
+</code></pre></li>
 </ul>
 
 <ul>
@@ -4614,8 +4617,10 @@ Options may contains the following properties:</p>
 <li>num - return the value as a number, convert any other type by using toNumber</li>
 </ul>
 <p>Example:</p>
-<pre><code>    core.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;)
-    core.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;, { list: 1 })
+<pre><code>    &gt; core.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;)
+    &quot;Test&quot;
+    &gt; core.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;, { list: 1 })
+    [ &quot;Test&quot; ]
 </code></pre></li>
 </ul>
 
@@ -4635,7 +4640,7 @@ objects will be create automatically. The options can have the folowing properti
 
 <ul>
 <li><p><code>core.stringify(obj, filter)</code></p>
-<p> JSON stringify without exceptions, on error return empty string</p>
+<p> JSON stringify without exceptions, on error just returns an empty string and logs the error</p>
 </li>
 </ul>
 
