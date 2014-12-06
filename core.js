@@ -2453,6 +2453,7 @@ core.findFilter = function(file, stat, options)
 //   - filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync
 //   - depth - if a number it specifies max depth to go into the subfolders, starts with 1
 //   - types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO
+//   - base - if set only keep base file name in the result, not full path
 core.findFileSync = function(file, options)
 {
     var list = [];
@@ -2463,12 +2464,12 @@ core.findFileSync = function(file, options)
         var stat = this.statSync(file);
         if (stat.isFile()) {
             if (this.findFilter(file, stat, options)) {
-                list.push(file);
+                list.push(options.base ? path.basename(file) : file);
             }
         } else
         if (stat.isDirectory()) {
             if (this.findFilter(file, stat, options)) {
-                list.push(file);
+                list.push(options.base ? path.basename(file) : file);
             }
             // We reached our directory depth
             if (options && typeof options.depth == "number" && level >= options.depth) return list;
@@ -2499,24 +2500,24 @@ core.findFile = function(dir, options, callback)
 
         self.forEachSeries(files, function(file, next) {
             if (options.done) return next();
-            file = path.join(dir, file);
+            var full = path.join(dir, file);
 
-            fs.stat(file, function(err, stat) {
+            fs.stat(full, function(err, stat) {
                 if (err) return next(err);
 
                 if (stat.isFile()) {
-                    if (self.findFilter(file, stat, options)) {
-                        options.files.push(file);
+                    if (self.findFilter(full, stat, options)) {
+                        options.files.push(options.base ? file : full);
                     }
                     next();
                 } else
                 if (stat.isDirectory()) {
-                    if (self.findFilter(file, stat, options)) {
-                        options.files.push(file);
+                    if (self.findFilter(full, stat, options)) {
+                        options.files.push(options.base ? file : full);
                     }
                     // We reached our directory depth
                     if (options && typeof options.depth == "number" && level >= options.depth) return next();
-                    self.findFile(file, options, next, level + 1);
+                    self.findFile(full, options, next, level + 1);
                 } else {
                     next()
                 }
@@ -2783,7 +2784,7 @@ core.mergeObj = function(obj, options)
     return rc;
 }
 
-// Flatten a javascript object into a single-depth object
+// Flatten a javascript object into a single-depth object, all nested values will have property names appended separated by comma
 core.flattenObj = function(obj, options)
 {
     var rc = {};
@@ -2855,21 +2856,30 @@ core.searchObj = function(obj, options)
 // Return a property from the object, name specifies the path to the property, if the required property belong to another object inside the top one
 // the name uses . to separate objects. This is a convenient method to extract properties from nested objects easily.
 // Options may contains the following properties:
-// - list - return the value as list even if there is only one value found
+//   - list - return the value as a list even if there is only one value found
+//   - obj - return the value as an object, if the result is a simple type, wrap into an object like { name: name, value: result }
+//   - str - return the value as a string, convert any other type into string
+//   - num - return the value as a number, convert any other type by using toNumber
 //
 // Example:
 //
 //          core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
+//          core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
 //
 core.objGet = function(obj, name, options)
 {
-    if (!obj) return null;
-    if (!Array.isArray(name)) name = String(name).split(".");
-    for (var i = 0; i < name.length; i++) {
-        obj = obj[name[i]];
-        if (typeof obj == "undefined") return null;
+    if (!obj) return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
+    var path = !Array.isArray(name) ? String(name).split(".") : name;
+    for (var i = 0; i < path.length; i++) {
+        obj = obj[path[i]];
+        if (typeof obj == "undefined") return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
     }
-    if (obj && options && options.list && !Array.isArray(obj)) obj = [ obj ];
+    if (obj && options) {
+        if (options.list && !Array.isArray(obj)) return [ obj ];
+        if (options.obj && typeof obj != "object") return { name: name, value: obj };
+        if (options.str && typeof obj != "string") return String(obj);
+        if (options.num && typeof obj != "number") return this.toNumber(obj);
+    }
     return obj;
 }
 

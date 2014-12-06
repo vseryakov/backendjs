@@ -1050,7 +1050,7 @@ api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) {
 
 backend.server.start();
 @@@
-      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"The backend\",\n \"main\": \"app.js\",\n \"dependencies\": {\n    \"$BKJS_MOD\": \">=0.9.0\"\n },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
+      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"The backend\",\n \"repository\": { \"type\": \"git\", \"url\": \"http://github.com/vseryakov/backendjs.git\" },\n \"main\": \"app.js\",\n \"dependencies\": {\n    \"$BKJS_MOD\": \">=0.9.0\"\n },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
     fi
     ;;
 

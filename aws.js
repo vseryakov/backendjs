@@ -504,7 +504,7 @@ aws.ec2RunInstances = function(options, callback)
 
         // Instances list
         var items = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
-        if (!items || !items.length) return callback ? callback(err, obj) : null;
+        if (!items.length) return callback ? callback(err, obj) : null;
 
         // Dont wait for instance to be running
         if (!options.waitRunning && !options.name && !options.elbName && !options.elasticIp) {
@@ -616,6 +616,34 @@ aws.ec2AssociateAddress = function(instanceId, elasticIp, options, callback)
     }
 }
 
+// Deregister an AMI by id. If `options.snapshots` is set, then delete all snapshots for this image as well
+aws.ec2DeregisterImage = function(ami_id, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+
+    // Not deleting snapshots, just deregister
+    if (!options.snapshots) return self.queryEC2("DeregisterImage", { ImageId: ami_id }, callback);
+
+    // Pull the image meta data and delete all snapshots
+    self.queryEC2("DescribeImages", { 'ImageId.1': ami_id }, function(err, rc) {
+        if (err) return callback(err);
+
+        var items = core.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
+        if (!items.length) return callback(core.newError({ message: "no AMI found", name: ami_id }));
+
+        var volumes = core.objGet(items[0], "blockDeviceMapping.item", { list : 1 });
+        self.queryEC2("DeregisterImage", { ImageId: ami_id }, function(err) {
+            if (err) return callback(err);
+
+            core.forEachSeries(volumes, function(vol, next) {
+                if (!vol.ebs || !vol.ebs.snapshotId) return next();
+                self.queryEC2("DeleteSnapshot", { snapshotId: vol.ebs.snapshotId }, next);
+            }, callback)
+        });
+    });
+}
+
 // Retrieve instance meta data
 aws.getInstanceMeta = function(path, callback)
 {
@@ -689,7 +717,7 @@ aws.getInstanceInfo = function(callback)
             if (!self.secret || !core.instanceId) return next();
             self.queryEC2("DescribeTags", { 'Filter.1.Name': 'resource-id', 'Filter.1.Value': core.instanceId }, function(err, tags) {
                 if (!err) self.tags = core.objGet(tags, "DescribeTagsResponse.tagSet.item", { list: 1 });
-                if (self.tags && !core.instanceTag) core.instanceTag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
+                if (!core.instanceTag) core.instanceTag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
                 next();
             });
         },
