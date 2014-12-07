@@ -446,7 +446,7 @@ aws.s3ParseUrl = function(url)
 //  - name - assign a tag to the instance as Name:
 //  - elbName - join elastic balancer after the startup
 //  - elasticIp - asociate with the given Elastic IP address after the start
-//  - profile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options['IamInstanceProfile.Name'] attribute
+//  - iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options['IamInstanceProfile.Name'] attribute
 //  - availZone - availability zone, if not given use aws.availZone or options['Placement.AvailabilityZone'] attribute
 //  - subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute
 aws.ec2RunInstances = function(options, callback)
@@ -463,7 +463,7 @@ aws.ec2RunInstances = function(options, callback)
 
     if (options.stop) req.InstanceInitiatedShutdownBehavior = "stop";
     if (options.terminate) req.InstanceInitiatedShutdownBehavior = "terminate";
-    if (options.profile || this.iamProfile) req["IamInstanceProfile.Name"] = options.profile || this.iamProfile;
+    if (options.iamProfile || this.iamProfile) req["IamInstanceProfile.Name"] = options.iamProfile || this.iamProfile;
     if (options.availZone || this.availZone) req["Placement.AvailabilityZone"] = options.availZone || this.availZone;
     if (options.subnetId || this.subnetId) {
         if (!options["SecurityGroupId.0"]) {
