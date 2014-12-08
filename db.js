@@ -226,8 +226,8 @@ db.init = function(options, callback)
 //  - run mode defined by the config or command line `-run-mode`, without and with the app name
 //  - the network where the instance is running, first 2 octets from the current IP address, without and with the app name
 //  - the subnet where the instance is running, first 3 octets from the current IP address, without and with the app name
-//  - instance tag set via AWS tags or config or command line `-instance-tag`, without and with the app name
 //  - current instance IP address without and with the app name
+//  - custom tag for ad-hoc queries
 //
 // On return, the callback second argument will receive all parameters received form the database as a list: -name value ...
 db.initConfig = function(options, callback)
@@ -252,14 +252,14 @@ db.initConfig = function(options, callback)
     if (core.subnet) {
         types.push(subnet, core.appName + "-" + subnet);
     }
-    // This can be empty string due to spaces
-    var instanceTag = String(options.tag || core.instanceTag).trim();
-    if (instanceTag && types.indexOf(instanceTag) == -1) {
-        types.push(instanceTag, core.appName + "-" + instanceTag);
-    }
     var ipaddr = options.ipaddr || core.ipaddr;
     if (ipaddr) {
         types.push(ipaddr, core.appName + "-" + ipaddr);
+    }
+    // This can be empty string due to spaces
+    var tag = String(options.tag || "").trim();
+    if (tag && types.indexOf(tag) == -1) {
+        types.push(tag);
     }
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
