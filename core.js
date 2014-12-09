@@ -3231,12 +3231,16 @@ core.watchLogs = function(options, callback)
                        if (err4 || !nread) return next();
 
                        var lines = buffer.slice(0, nread).toString().split("\n");
-                       for (var i in lines) {
+                       for (var i = 0; i < lines.length; i++) {
                            // Skip global ignore list first
                            if (ignore && ignore.test(lines[i])) continue;
                            // Match both global or local filters
                            if (log.match && log.match.test(lines[i]) || (match && match.test(lines[i]))) {
                                errors += lines[i] + "\n";
+                               // Add all subsequent lines starting with a space or tab, those are continuations of the error or stack traces
+                               while (i < lines.length && (lines[i + 1][0] == ' ' || lines[i + 1][0] == '\t')) {
+                                   errors += lines[++i] + "\n";
+                               }
                            }
                        }
                        // Separator between log files
