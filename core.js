@@ -103,6 +103,11 @@ var core = {
     logwatcherInterval: 60,
     logwatcherIgnore: [" (NOTICE|DEBUG|DEV): "],
     logwatcherMatch: [' (ERROR|WARNING|WARN|ALERT|EMERG|CRIT): ', 'message":"ERROR:'],
+    // List of files to watch, every file is an object with the following properties:
+    //   - file: absolute pth to the log file - or -
+    //   - name: name of the property in the core which hold the file path
+    //   - ignore: a regexp with the pattern to ignore
+    //   - match: a regexp with the pttern to match and report
     logwatcherFiles: [ { file: "/var/log/messages" }, { name: "logFile" }, { name: "errFile", match: /.+/, } ],
 
     // User agent
@@ -213,10 +218,10 @@ var core = {
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
             { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
-            { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of email" },
+            { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of sending over email" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
-            { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that needs to be ignored by logwatcher process, it is added to the list of ignored patterns" },
+            { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns" },
             { name: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
             { name: "logwatcher-interval", type: "number", min: 1, descr: "How often to check for errors in the log files in minutes" },
             { name: "logwatcher-file", type: "callback", callback: function(v) { if (v) this.logwatcherFiles.push({file:v}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
@@ -3178,7 +3183,7 @@ core.watchFiles = function(dir, pattern, callback)
     });
 }
 
-// Watch log files for errors and report via email or POST url
+// Watch log files for errors and report via email or POST url, see config parameters starting with `logwatcher-` about how this works
 core.watchLogs = function(options, callback)
 {
     var self = this;
@@ -3232,10 +3237,10 @@ core.watchLogs = function(options, callback)
 
                        var lines = buffer.slice(0, nread).toString().split("\n");
                        for (var i = 0; i < lines.length; i++) {
-                           // Skip global ignore list first
-                           if (ignore && ignore.test(lines[i])) continue;
+                           // Skip local or global ignore list first
+                           if ((log.ignore && log.ignore.test(lines[i])) || (ignore && ignore.test(lines[i]))) continue;
                            // Match both global or local filters
-                           if (log.match && log.match.test(lines[i]) || (match && match.test(lines[i]))) {
+                           if ((log.match && log.match.test(lines[i])) || (match && match.test(lines[i]))) {
                                errors += lines[i] + "\n";
                                // Add all subsequent lines starting with a space or tab, those are continuations of the error or stack traces
                                while (i < lines.length && (lines[i + 1][0] == ' ' || lines[i + 1][0] == '\t')) {
