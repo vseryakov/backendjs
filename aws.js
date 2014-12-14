@@ -113,9 +113,9 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
 {
     var self = this;
 
+    var sigValues = [];
     var curTime = new Date();
     var formattedTime = curTime.toISOString().replace(/\.[0-9]+Z$/, 'Z');
-    var sigValues = new Array();
     sigValues.push(["AWSAccessKeyId", this.key]);
     sigValues.push(["SignatureMethod", "HmacSHA256"]);
     sigValues.push(["SignatureVersion", "2"]);
@@ -549,13 +549,13 @@ aws.ec2WaitForInstance = function(instanceId, status, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
 
-    var state = "", expires = Date.now() + (options.waitTimeout || 60000);
+    var state = "", num = 0, expires = Date.now() + (options.waitTimeout || 60000);
     core.doWhilst(
       function(next) {
           self.queryEC2("DescribeInstances", { 'Filter.1.Name': 'instance-id', 'Filter.1.Value.1': instanceId }, function(err, rc) {
               if (err) return next(err);
               state = core.objGet(rc, "DescribeInstancesResponse.reservationSet.item.instancesSet.item.instanceState.name");
-              setTimeout(next, options.waitDelay || 5000);
+              setTimeout(next, num++ ? (options.waitDelay || 5000) : 0);
           });
       },
       function() {

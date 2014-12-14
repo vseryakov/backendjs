@@ -9,6 +9,9 @@
 *.*~
 *.log
 *.tgz
+*.autosave
+*.qbs
+*.user
 *xcshareddata*
 *xcuserdata*
 .settings

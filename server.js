@@ -515,7 +515,7 @@ server.startRepl = function(port, bind)
 // Create daemon from the current process, restart node with -daemon removed in the background
 server.startDaemon = function()
 {
-	var self = this;
+    var self = this;
     // Avoid spawning loop, skip daemon flag
     var argv = process.argv.slice(1).filter(function(x) { return x != "-daemon"; });
     var log = "ignore";
@@ -1161,7 +1161,7 @@ server.execJob = function(job)
 // By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the options
 server.launchJob = function(job, options, callback)
 {
-	var self = this;
+    var self = this;
     if (!job) return;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};

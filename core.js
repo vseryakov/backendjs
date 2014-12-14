@@ -424,7 +424,7 @@ core.exit = function(code, msg)
 // it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that.
 core.setHome = function(home)
 {
-	var self = this;
+    var self = this;
     if ((home || self.home) && cluster.isMaster) {
         if (home) self.home = path.resolve(home);
         // On create set permissions
@@ -1979,26 +1979,26 @@ core.forEachLine = function(file, options, lineCallback, endCallback)
 //      if not specified default `min-distance` value will be used.
 core.geoHash = function(latitude, longitude, options)
 {
-	if (!options) options = {};
-	var minDistance = options.minDistance || this.minDistance;
-	if (options.distance && options.distance < minDistance) options.distance = minDistance;
+    if (!options) options = {};
+    var minDistance = options.minDistance || this.minDistance;
+    if (options.distance && options.distance < minDistance) options.distance = minDistance;
 
-	// Geohash ranges for different lengths in km, take the first greater than our min distance
-	var range = [ [12, 0], [8, 0.019], [7, 0.076],
-	              [6, 0.61], [5, 2.4], [4, 20.0],
-	              [3, 78.0], [2, 630.0], [1, 2500.0],
-	              [1, 99999]
-	            ].filter(function(x) { return x[1] > minDistance })[0];
+    // Geohash ranges for different lengths in km, take the first greater than our min distance
+    var range = [ [12, 0], [8, 0.019], [7, 0.076],
+                  [6, 0.61], [5, 2.4], [4, 20.0],
+                  [3, 78.0], [2, 630.0], [1, 2500.0],
+                  [1, 99999]
+                ].filter(function(x) { return x[1] > minDistance })[0];
 
-	var geohash = utils.geoHashEncode(latitude, longitude);
-	return { geohash: geohash.substr(0, range[0]),
+    var geohash = utils.geoHashEncode(latitude, longitude);
+    return { geohash: geohash.substr(0, range[0]),
              _geohash: geohash,
-			 neighbors: options.distance ? utils.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
-			 latitude: latitude,
-			 longitude: longitude,
-			 minRange: range[1],
-			 minDistance: minDistance,
-			 distance: options.distance || 0 };
+             neighbors: options.distance ? utils.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
+             latitude: latitude,
+             longitude: longitude,
+             minRange: range[1],
+             minDistance: minDistance,
+             distance: options.distance || 0 };
 }
 
 // Return distance between two locations, options can specify the following properties:
@@ -2168,11 +2168,11 @@ core.strftime = function(date, fmt, utc)
     return fmt;
 }
 
-// Split string into array, ignore empty items
+// Split string into array, ignore empty items, `sep` is an RegExp to use as a separator instead of default  pattern `[,\|]`, if num is 1, then convert all items into numbers
 core.strSplit = function(str, sep, num)
 {
     var self = this;
-    if (!str) return [];
+    if (!str) return
     return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).
             map(function(x) { return num ? self.toNumber(x) : typeof x == "string" ? x.trim() : x }).
             filter(function(x) { return typeof x == "string" ? x : 1 });
@@ -2207,26 +2207,26 @@ core.jsonToBase64 = function(data, secret)
 {
     data = JSON.stringify(data);
     if (secret) return this.encrypt(secret, data);
-	return new Buffer(data).toString("base64");
+    return new Buffer(data).toString("base64");
 }
 
 // Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
 // that data is not chnaged and was signed with the same secret
 core.base64ToJson = function(data, secret)
 {
-	var rc = "";
-	if (secret) data = this.decrypt(secret, data);
-	try {
-	    if (data.match(/^[0-9]+$/)) {
-	        rc = this.toNumber(data);
-	    } else {
-	        if (!secret) data = new Buffer(data, "base64").toString();
-	        if (data) rc = JSON.parse(data);
-	    }
-	} catch(e) {
-	    logger.debug("base64ToJson:", e.stack, data);
-	}
-	return rc;
+    var rc = "";
+    if (secret) data = this.decrypt(secret, data);
+    try {
+        if (data.match(/^[0-9]+$/)) {
+            rc = this.toNumber(data);
+        } else {
+            if (!secret) data = new Buffer(data, "base64").toString();
+            if (data) rc = JSON.parse(data);
+        }
+    } catch(e) {
+        logger.debug("base64ToJson:", e.stack, data);
+    }
+    return rc;
 }
 
 // Given a string with list of urls try to find if any points to our local server using IP address or host name, returns the url
@@ -2282,7 +2282,7 @@ core.copyFile = function(src, dst, overwrite, callback)
         });
     }
     logger.debug('copyFile:', src, dst, overwrite);
-    fs.stat(dst, copy);
+    fs.stat(dstopy);
 }
 
 // Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the core.runProcess
@@ -3081,9 +3081,9 @@ core.profiler = function(type, cmd)
 // Adds reference to the objects in the core for further access, specify module name, module reference pairs
 core.addModule = function()
 {
-	for (var i = 0; i < arguments.length - 1; i+= 2) {
-		this.modules[arguments[i]] = arguments[i + 1];
-	}
+    for (var i = 0; i < arguments.length - 1; i+= 2) {
+        this.modules[arguments[i]] = arguments[i + 1];
+    }
 }
 
 // Create REPL interface with all modules available
