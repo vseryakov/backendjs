@@ -2172,7 +2172,7 @@ core.strftime = function(date, fmt, utc)
 core.strSplit = function(str, sep, num)
 {
     var self = this;
-    if (!str) return
+    if (!str) return [];
     return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).
             map(function(x) { return num ? self.toNumber(x) : typeof x == "string" ? x.trim() : x }).
             filter(function(x) { return typeof x == "string" ? x : 1 });

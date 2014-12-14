@@ -9,6 +9,10 @@
 *.*~
 *.log
 *.tgz
+*.config
+*.creator
+*.files
+*.includes
 *.autosave
 *.qbs
 *.user

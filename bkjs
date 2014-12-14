@@ -65,6 +65,7 @@ while [ $# -gt 1 ]; do
      -sync) export BKJS_SYNC=$2;shift;shift;;
      -path) export BKJS_PATH=$2;shift;shift;;
      -ssh) export BKJS_SSH_ARGS="$BKJS_SSH_ARGS $2";shift;shift;;
+     -rsync) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS $2";shift;shift;;
      -exclude) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude $2";shift;shift;;
      -include) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --include $2";shift;shift;;
      -delete) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --delete-after";shift;;
@@ -522,12 +523,10 @@ case "$ARG" in
     # Put backend code to the remote site
     if [ "$BKJS_PATH" = "" ]; then
        mod=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("package.json")).name)')
-       [ "$mod" = "$BKJS" ] && BKJS_PATH=node_modules/$BKJS_MOD
+       [ "$mod" = "$BKJS_MOD" ] && BKJS_PATH=node_modules/$BKJS_MOD
     fi
     [ "$BKJS_HOST" = "" ] && echo "Remote host required, specify with -host or BKJS_HOST" && exit
-    for f in bin etc build deps images files log pages tmp var '*.log' '*.sh'; do
-        BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude $f"
-    done
+    BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from .gitignore"
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
     for h in $BKJS_HOST; do
         echo "Deploying the module to $BKJS_SSH_ARGS $BKJS_RSYNC_ARGS $h:$BKJS_PATH"
