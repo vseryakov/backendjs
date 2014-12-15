@@ -40,6 +40,7 @@ var aws = {
     instanceIndex: 0,
     tokenExpiration: 0,
     amiProfile: "",
+    tags: [],
 
     // Translation map for operators
     opsMap: { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' },
