@@ -1920,7 +1920,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>db-riak-pool</code> - Riak url to the host in the format: <a href="http://hostname[:port">http://hostname[:port</a>]. 3 variants: riak-pool-1 .. riak-pool-3.</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
-<li><code>aws-region</code> - AWS region. Default: &quot;us-east-1&quot;</li>
+<li><code>aws-region</code> - AWS region</li>
 <li><code>aws-sdk-profile</code> - AWS SDK profile to use when reading credentials file</li>
 <li><code>aws-ddb-read-capacity</code> - Default DynamoDB read capacity for all tables</li>
 <li><code>aws-ddb-write-capacity</code> - Default DynamoDB write capacity for all tables</li>
@@ -4870,26 +4870,19 @@ for very flexible configuration policies defined by the app or place where insta
 <p>The following list of properties will be queried from the config database and the sorting order is very important, the last values
 will override values received for the eqrlier properties, for example, if two properties defined in the <code>bk_config</code> table with the
 types <code>myapp</code> and <code>prod-myapp</code>, then the last value will be used only.</p>
+<p>All attributes will be added multiple times in the following order, <code>name</code> being the attribute listed below:
+  <code>name</code>, runMode-<code>name</code>, appName-<code>name</code>, runMode-appName-<code>name</code></p>
 <p>The priority of the attributes is the following:</p>
 <ul>
-<li>the application name: <code>myapp</code></li>
-<li>the application name and app version specified in the package.json: <code>myapp-1.0.0</code></li>
 <li>the run mode specified in the command line <code>-run-mode</code>: <code>prod</code></li>
-<li>the run mode with the application name: <code>prod-myapp</code></li>
-<li>the run mode with the application name and app version: <code>prod-myapp-1.0.0</code></li>
-<li>all other attributes will be added multiple times in the following order:<ul>
-<li><code>name</code>, prod-<code>name</code>, <code>name</code>-myapp, prod-<code>name</code>-myapp</li>
-<li>where <code>name</code> is the attribute from the list below:<ul>
+<li>the application name: <code>myapp</code></li>
+<li>the application version specified in the package.json: <code>1.0.0</code></li>
 <li>the network where the instance is running, first 2 octets from the current IP address: <code>192.168</code></li>
 <li>the region where the instance is running, AWS region or other name: <code>us-east-1</code></li>
 <li>the network where the instance is running, first 2 octets from the current IP address: <code>192.168.1</code></li>
 <li>the zone where the instance is running, AWS availability zone or other name: <code>us-east-1a</code></li>
 <li>current instance tag or a custom tag for ad-hoc queries: <code>nat</code></li>
 <li>current instance IP address: <code>192.168.1.1</code></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 <p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
 </li>
