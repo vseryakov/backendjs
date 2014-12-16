@@ -40,13 +40,12 @@ var core = {
     // Server role, used by API server, for provisioning must include backend
     role: '',
 
-    // Instance mode, remote jobs
-    instance: false,
-    instanceId: process.pid,
-    instanceTag: '',
-    instanceImage: '',
-    workerId: '',
+    // Environment mode of the process or the application
     runMode: 'production',
+
+    // Current instance attributes gathered by other modules
+    instance: { id: process.pid, index: 0, tag: '', image: '', region: '', zone: '' },
+    workerId: '',
 
     // Home directory, current by default, must be absolute path
     home: process.env.BKJS_HOME || (process.env.HOME + '/.bkjs'),
@@ -191,7 +190,10 @@ var core = {
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
             { name: "app-name", type: "callback", callback: function(v) { if (!v) return;v = v.split(/[\/-]/);this.appName=v[0].trim();if(v[1]) this.appVersion=v[1].trim();}, descr: "Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version", pass: 1 },
-            { name: "instance-tag", descr: "Set instanceTag explicitely, skip all meta data checks for it", pass: 1 },
+            { name: "instance-tag", obj: 'instance', descr: "Set instance tag explicitely, skip all meta data checks for it", pass: 1 },
+            { name: "instance-region", obj: 'instance', obj: 'instance', descr: "Set instance region explicitely, skip all meta data checks for it", pass: 1 },
+            { name: "instance-zone", obj: 'instance', descr: "Set instance zone explicitely, skip all meta data checks for it", pass: 1 },
+            { name: "instance-job", obj: 'instance', type: "bool", descr: "Enables remote job mode, it means the backendjs is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
             { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
@@ -233,7 +235,6 @@ var core = {
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
             { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
             { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
-            { name: "instance", type: "bool", descr: "Enables instance mode, it means the backend is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
             { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
     ],
 }
@@ -3266,7 +3267,7 @@ core.watchLogs = function(options, callback)
                     return;
                 }
                 if (self.logwatcherEmail) {
-                    self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + "/" + self.instanceId + " errors", errors, callback);
+                    self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + " errors", errors, callback);
                     return;
                 }
             }

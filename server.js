@@ -195,7 +195,7 @@ server.startMaster = function()
             self.execJobQueue();
 
             // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
-            if (core.instance && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - self.jobTime > self.idleTime) {
+            if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - self.jobTime > self.idleTime) {
                 logger.log('startMaster:', 'idle:', self.idleTime);
                 self.shutdown();
             }
@@ -749,7 +749,7 @@ server.startTestServer = function(options)
         options.running = options.stime = options.etime = options.id = 0;
         core.modules.aws.getInstanceInfo(function() {
             setInterval(function() {
-                core.sendRequest({ url: options.host + '/ping/' + core.instanceId + '/' + options.id }, function(err, params) {
+                core.sendRequest({ url: options.host + '/ping/' + core.instance.id + '/' + options.id }, function(err, params) {
                     if (err) return;
                     logger.debug(params.obj);
 
@@ -1174,7 +1174,7 @@ server.launchJob = function(job, options, callback)
     logger.log('launchJob:', job, 'options:', options);
 
     // Common arguments for remote workers
-    var args = ["-master", "-instance",
+    var args = ["-master", "-instance-job",
                 "-backend-host", core.backendHost || "",
                 "-backend-key", core.backendKey || "",
                 "-backend-secret", core.backendSecret || "",

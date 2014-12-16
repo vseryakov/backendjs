@@ -132,8 +132,8 @@ case "$ARG" in
   stop-*)
     name=${ARG:5}
     [ "$name" = "" ] && exit 0
-    $KILLALL $1 'backend: $name'
-    $KILLALL $1 'backend: $name'
+    $KILLALL $1 "backend: $name"
+    $KILLALL $1 "backend: $name"
     exit 0
     ;;
 

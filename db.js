@@ -182,52 +182,68 @@ module.exports = db;
 //     different than sqlite it is initialized always as well
 db.init = function(options, callback)
 {
-	var self = this;
-	if (typeof options == "function") callback = options, options = {};
-	if (!options) options = {};
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
 
-	// Config pool can be set to default which means use the current default pool
-	if (this.config == "default") this.config = this.pool;
+    // Config pool can be set to default which means use the current default pool
+    if (this.config == "default") this.config = this.pool;
 
-	// Configured pools for supported databases
-	self.args.filter(function(x) { return x.name.match(/\-pool$/) }).forEach(function(x) {
-	    var pool = x.name.replace('-pool', '');
-	    // Several drivers can be defined
-	    for (var i = 0; i < (x.count || 1); i++) {
-	        var n = i > 0 ? i : "";
-	        var name = pool + n;
-	        var db = self[pool + 'Pool' + n];
-	        if (!db || self.pools[name]) continue;
+    // Configured pools for supported databases
+    self.args.filter(function(x) { return x.name.match(/\-pool$/) }).forEach(function(x) {
+        var pool = x.name.replace('-pool', '');
+        // Several drivers can be defined
+        for (var i = 0; i < (x.count || 1); i++) {
+            var n = i > 0 ? i : "";
+            var name = pool + n;
+            var db = self[pool + 'Pool' + n];
+            if (!db || self.pools[name]) continue;
             // local pool must be always initialized
-	        if (options.noPools || self.noPools) {
-	            if (name != self.local && name != self.pool) continue;
-	        }
-	        var opts = { pool: name,
-	                     db: db,
-	                     min: self[pool + 'Min' + n] || 0,
-	                     max: self[pool + 'Max' + n] || Infinity,
-	                     idle: self[pool + 'Idle' + n] || 86400000,
-	                     dbinit: self[pool + 'InitOptions' + n],
-	                     dboptions: self[pool + 'Options' + n] };
-	        self[pool + 'InitPool'](opts);
-	        // Pool specific tables
-	        (self[pool + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
-	    }
-	});
+            if (options.noPools || self.noPools) {
+                if (name != self.local && name != self.pool) continue;
+            }
+            var opts = { pool: name,
+                         db: db,
+                         min: self[pool + 'Min' + n] || 0,
+                         max: self[pool + 'Max' + n] || Infinity,
+                         idle: self[pool + 'Idle' + n] || 86400000,
+                         dbinit: self[pool + 'InitOptions' + n],
+                         dboptions: self[pool + 'Options' + n] };
+            self[pool + 'InitPool'](opts);
+            // Pool specific tables
+            (self[pool + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
+        }
+    });
 
-	// Initialize all pools with common tables
-	self.initTables(self.tables, options, callback);
+    // Initialize all pools with common tables
+    self.initTables(self.tables, options, callback);
 }
 
 // Load configuration from the config database, must be configured with `db-config-type` pointing to the database pool where bk_config table contains
 // configuration parameters.
-// The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins:
-//  - the application name without and with version specified in the package.json
-//  - run mode defined by the config or command line `-run-mode`, without and with the app name
-//  - the network where the instance is running, first 2 octets from the current IP address, without and with the app name
-//  - the subnet where the instance is running, first 3 octets from the current IP address, without and with the app name
-//  - current instance IP address without and with the app name
-//  - custom tag for ad-hoc queries
+//
+// The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins, this allows
+// for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.
+//
+// The following list of properties will be queried from the config database and the sorting order is very important, the last values
+// will override values received for the eqrlier properties, for example, if two properties defined in the `bk_config` table with the
+// types `myapp` and `prod-myapp`, then the last value will be used only.
+//
+// The priority of the attributes is the following:
+//  - the application name: `myapp`
+//  - the application name and app version specified in the package.json: `myapp-1.0.0`
+//  - the run mode specified in the command line `-run-mode`: `prod`
+//  - the run mode with the application name: `prod-myapp`
+//  - the run mode with the application name and app version: `prod-myapp-1.0.0`
+//  - all other attributes will be added multiple times in the following order:
+//    - `name`, prod-`name`, `name`-myapp, prod-`name`-myapp
+//    - where `name` is the attribute from the list below:
+//      - the network where the instance is running, first 2 octets from the current IP address: `192.168`
+//      - the region where the instance is running, AWS region or other name: `us-east-1`
+//      - the network where the instance is running, first 2 octets from the current IP address: `192.168.1`
+//      - the zone where the instance is running, AWS availability zone or other name: `us-east-1a`
+//      - current instance tag or a custom tag for ad-hoc queries: `nat`
+//      - current instance IP address: `192.168.1.1`
 //
 // On return, the callback second argument will receive all parameters received form the database as a list: -name value ...
 db.initConfig = function(options, callback)
@@ -242,25 +258,27 @@ db.initConfig = function(options, callback)
     var types = [];
     types.push(core.appName);
     types.push(core.appName + '-' + core.appVersion);
-    types.push(core.runMode, core.appName + "-" + core.runMode);
+    types.push(core.runMode);
+    types.push(core.runMode + "-" + core.appName);
+    types.push(core.runMode + "-" + core.appName + '-' + core.appVersion);
 
-    var network = options.network || core.network;
-    if (core.network) {
-        types.push(network, core.appName + "-" + network);
-    }
-    var subnet = options.subnet || core.subnet;
-    if (core.subnet) {
-        types.push(subnet, core.appName + "-" + subnet);
-    }
-    var ipaddr = options.ipaddr || core.ipaddr;
-    if (ipaddr) {
-        types.push(ipaddr, core.appName + "-" + ipaddr);
-    }
-    // This can be empty string due to spaces
-    var tag = String(options.tag || "").trim();
-    if (tag && types.indexOf(tag) == -1) {
-        types.push(tag);
-    }
+    // All other entries in order of priority with all common prefixes
+    var items = [ options.network || core.network,
+                  options.region || core.instance.region,
+                  options.subnet || core.subnet,
+                  options.zone || core.instance.zone,
+                  options.tag || core.instance.tag,
+                  options.ipaddr || core.ipaddr ];
+
+    items.forEach(function(x) {
+        if (!x) return;
+        x = String(x).trim();
+        if (!x) return;
+        types.push(x, core.runMode + "-" + x);
+        types.push(x + "-" + core.appName, core.runMode + "-" + x + "-" + core.appName);
+    });
+    // Make sure we have only unique items in the list
+    types = core.strSplitUnique(types);
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
         if (err) return callback ? callback(err, []) : null;
@@ -290,13 +308,13 @@ db.initConfig = function(options, callback)
 // Create tables in all pools
 db.initTables = function(tables, options, callback)
 {
-	var self = this;
+    var self = this;
     if (typeof options == "function") callback = options, options = null;
 
-	core.forEachSeries(Object.keys(self.pools), function(name, next) {
-	    if (name == "none") return next();
-    	self.initPoolTables(name, tables, options, next);
-	}, function(err) {
+    core.forEachSeries(Object.keys(self.pools), function(name, next) {
+        if (name == "none") return next();
+        self.initPoolTables(name, tables, options, next);
+    }, function(err) {
         if (callback) callback(err);
     });
 }
@@ -326,10 +344,10 @@ db.initPoolTables = function(name, tables, options, callback)
 
     logger.debug('initPoolTables:', name, Object.keys(tables));
     self.cacheColumns(options, function() {
-    	// Workers do not manage tables, only master process
-    	if (cluster.isWorker || core.worker) {
-    		return callback ? callback() : null;
-    	}
+        // Workers do not manage tables, only master process
+        if (cluster.isWorker || core.worker) {
+            return callback ? callback() : null;
+        }
         var changes = 0;
         core.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
             // We if have columns, SQL table must be checked for missing columns and indexes
@@ -343,7 +361,7 @@ db.initPoolTables = function(name, tables, options, callback)
             logger.debug('db.initPoolTables:', options.pool, 'changes:', changes);
             if (!changes) return callback ? callback() : null;
             self.cacheColumns(options, function() {
-            	if (callback) callback();
+                if (callback) callback();
             });
         });
     });
@@ -996,20 +1014,20 @@ db.list = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
 
-	switch (core.typeName(query)) {
-	case "string":
-	case "array":
+    switch (core.typeName(query)) {
+    case "string":
+    case "array":
         query = core.strSplit(query);
-	    if (typeof query[0] == "string") {
-	        var keys = this.getKeys(table, options);
-	        if (!keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
-	        query = query.map(function(x) { return core.newObj(keys[0], x) });
-	    }
-		break;
+        if (typeof query[0] == "string") {
+            var keys = this.getKeys(table, options);
+            if (!keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
+            query = query.map(function(x) { return core.newObj(keys[0], x) });
+        }
+        break;
 
-	default:
-		return callback ? callback(new Error("invalid list"), []) : null;
-	}
+    default:
+        return callback ? callback(new Error("invalid list"), []) : null;
+    }
     if (!query.length) return callback ? callback(null, []) : null;
     this.select(table, query, options, callback);
 }
@@ -1300,9 +1318,9 @@ db.getLocations = function(table, query, options, callback)
         if (!options.sort && keys.length > 1) options.sort = keys[1];
         var geo = core.geoHash(query.latitude, query.longitude, { distance: options.distance });
         for (var p in geo) options[p] = geo[p];
-    	query[options.geokey] = geo.geohash;
-    	options.gquery = query;
-    	['latitude', 'longitude', 'distance' ].forEach(function(x) { delete query[x]; });
+        query[options.geokey] = geo.geohash;
+        options.gquery = query;
+        ['latitude', 'longitude', 'distance' ].forEach(function(x) { delete query[x]; });
     } else {
         // Original query
         query = options.gquery;
@@ -1455,8 +1473,8 @@ db.get = function(table, query, options, callback)
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
     if (!options._cached && (options.cached || this.cacheTables.indexOf(table) > -1)) {
-    	options._cached = 1;
-    	return this.getCached("get", table, query, options, callback);
+        options._cached = 1;
+        return this.getCached("get", table, query, options, callback);
     }
     var req = this.prepare("get", table, query, options);
     this.query(req, options, function(err, rows) {
@@ -1839,10 +1857,10 @@ db.getSelectedColumns = function(table, options)
 // Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped
 db.skipColumn = function(name, val, options, columns)
 {
-	return !name || name[0] == '_' || typeof val == "undefined" ||
-	       (options && options.skip_null && val === null) ||
-	       (options && !options.all_columns && (!columns || !columns[name])) ||
-	       (options && options.skip_columns && options.skip_columns.indexOf(name) > -1) ? true : false;
+    return !name || name[0] == '_' || typeof val == "undefined" ||
+           (options && options.skip_null && val === null) ||
+           (options && !options.all_columns && (!columns || !columns[name])) ||
+           (options && options.skip_columns && options.skip_columns.indexOf(name) > -1) ? true : false;
 }
 
 // Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is usee
@@ -1910,15 +1928,15 @@ db.getQueryForKeys = function(keys, obj, options)
 //  - info - column definition for the value from the cached columns
 db.getBindValue = function(table, options, val, info)
 {
-	var cb = this.getPool(table, options).bindValue;
-	return cb ? cb(val, info) : val;
+    var cb = this.getPool(table, options).bindValue;
+    return cb ? cb(val, info) : val;
 }
 
 // Return transformed value for the column value returned by the database, same parameters as for getBindValue
 db.getColumnValue = function(table, options, val, info)
 {
-	var cb = this.getPool(table, options).colValue;
-	return cb ? cb(val, info) : val;
+    var cb = this.getPool(table, options).colValue;
+    return cb ? cb(val, info) : val;
 }
 
 // Convert native database error in some generic human readable string
@@ -1932,40 +1950,40 @@ db.convertError = function(table, op, err, options)
 // Reload all columns into the cache for the pool
 db.cacheColumns = function(options, callback)
 {
-	var self = this;
-	if (typeof options == "function") callback = options, options = null;
-	if (!options) options = {};
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
 
     var pool = this.getPool('', options);
     pool.cacheColumns.call(pool, options, function(err) {
         if (err) logger.error('cacheColumns:', pool.name, err);
-    	self.mergeColumns(pool);
-    	pool.cacheIndexes.call(pool, options, function(err) {
-    	    if (err) logger.error('cacheIndexes:', pool.name, err);
-    	    self.mergeKeys(pool);
-    	    if (callback) callback(err);
-    	});
+        self.mergeColumns(pool);
+        pool.cacheIndexes.call(pool, options, function(err) {
+            if (err) logger.error('cacheIndexes:', pool.name, err);
+            self.mergeKeys(pool);
+            if (callback) callback(err);
+        });
     });
 }
 
 // Merge JavaScript column definitions with the db cached columns
 db.mergeColumns = function(pool)
 {
-	var tables = pool.dbtables;
-	var dbcolumns = pool.dbcolumns;
+    var tables = pool.dbtables;
+    var dbcolumns = pool.dbcolumns;
     for (var table in tables) {
-		for (var col in tables[table]) {
-		    if (!dbcolumns[table]) dbcolumns[table] = {};
-			if (!dbcolumns[table][col]) {
-			    dbcolumns[table][col] = { fake: 1 };
-			} else {
-			    delete dbcolumns[table][col].fake;
-			}
-			for (var p in tables[table][col]) {
-				if (!dbcolumns[table][col][p]) dbcolumns[table][col][p] = tables[table][col][p];
-			}
-		}
-	}
+        for (var col in tables[table]) {
+            if (!dbcolumns[table]) dbcolumns[table] = {};
+            if (!dbcolumns[table][col]) {
+                dbcolumns[table][col] = { fake: 1 };
+            } else {
+                delete dbcolumns[table][col].fake;
+            }
+            for (var p in tables[table][col]) {
+                if (!dbcolumns[table][col][p]) dbcolumns[table][col][p] = tables[table][col][p];
+            }
+        }
+    }
 }
 
 // Update pool keys with the primary keys form the table definitions in addition to the actual cached
@@ -1989,22 +2007,22 @@ db.processRows = function(pool, table, rows, options)
     var self = this;
     if (!pool) pool = this.getPool(table, options);
     var hooks = pool.processRow[table];
-	if (!Array.isArray(hooks) || !hooks.length) return rows;
-	var cols = this.getColumns(table, options);
+    if (!Array.isArray(hooks) || !hooks.length) return rows;
+    var cols = this.getColumns(table, options);
 
     // Stop of the first hook returning true to remove this row from the list
-	function processRow(row) {
-	    for (var i = 0; i < hooks.length; i++) {
-	        if (hooks[i].call(pool, row, options, cols) === true) return false;
-	    }
-	    return true;
-	}
-	if (Array.isArray(rows)) {
-	    rows = rows.filter(processRow);
-	} else {
-	    processRow(rows);
-	}
-	return rows;
+    function processRow(row) {
+        for (var i = 0; i < hooks.length; i++) {
+            if (hooks[i].call(pool, row, options, cols) === true) return false;
+        }
+        return true;
+    }
+    if (Array.isArray(rows)) {
+        rows = rows.filter(processRow);
+    } else {
+        processRow(rows);
+    }
+    return rows;
 }
 
 // Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
@@ -2693,16 +2711,16 @@ db.sqlDrop = function(table, obj, options)
 //  - select is list of columns or expressions to return
 db.sqlSelect = function(table, query, options)
 {
-	var self = this;
+    var self = this;
     if (!options) options = {};
 
     // Requested columns, support only existing
     var select = "*";
     if (options.total) {
-    	select = "COUNT(*) AS count";
+        select = "COUNT(*) AS count";
     } else {
-    	select = this.getSelectedColumns(table, options);
-    	if (!select) select = "*";
+        select = this.getSelectedColumns(table, options);
+        if (!select) select = "*";
     }
 
     var keys = Array.isArray(options.keys) && options.keys.length ? options.keys : Object.keys(query);

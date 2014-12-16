@@ -37,7 +37,6 @@ var aws = {
     secret: process.env.AWS_SECRET_ACCESS_KEY,
     region: 'us-east-1',
     instanceType: "t1.micro",
-    instanceIndex: 0,
     tokenExpiration: 0,
     amiProfile: "",
     tags: [],
@@ -69,15 +68,15 @@ aws.configureServer = function(options, callback)
     var self = this;
 
     // Make sure we are running on EC2 instance
-    if (!core.instanceId || !core.instanceImage) return callback();
+    if (!core.instance.id || !core.instance.image) return callback();
     core.series([
        function(next) {
-           if (core.instanceTag) return next();
-           self.ec2CreateTags(core.instanceId, core.runMode + "-" + core.appName + "-" + core.appVersion, function() { next() });
+           if (core.instance.tag) return next();
+           self.ec2CreateTags(core.instance.id, core.runMode + "-" + core.appName + "-" + core.appVersion, function() { next() });
        },
        function(next) {
            if (!self.elbName) return next();
-           self.elbRegisterInstances(self.elbName, core.instanceId, options, function() { next() });
+           self.elbRegisterInstances(self.elbName, core.instance.id, options, function() { next() });
        },
        ], callback);
 }
@@ -686,14 +685,20 @@ aws.getInstanceInfo = function(callback)
 
     core.series([
         function(next) {
-            self.getInstanceMeta("/latest/meta-data/instance-id", function(err, id) {
-                if (!err && id) core.instanceId = id;
+            self.getInstanceMeta("/latest/meta-data/instance-id", function(err, data) {
+                if (!err && data) core.instance.id = data;
                 next(err);
             });
         },
         function(next) {
-            self.getInstanceMeta("/latest/meta-data/ami-id", function(err, id) {
-                if (!err && id) core.instanceImage = id;
+            self.getInstanceMeta("/latest/meta-data/ami-id", function(err, data) {
+                if (!err && data) core.instance.image = data;
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, data) {
+                if (!err && data) core.instance.index = core.toNumber(data);
                 next(err);
             });
         },
@@ -704,8 +709,16 @@ aws.getInstanceInfo = function(callback)
             });
         },
         function(next) {
-            self.getInstanceMeta("/latest/meta-data/iam/security-credentials/", function(err, name) {
-                if (!err && name) self.amiProfile = name;
+            self.getInstanceMeta("/latest/meta-data/placement/availability-zone/", function(err, data) {
+                if (!err && data) self.zone = data;
+                if (self.zone && !core.instance.zone) core.instance.zone = self.zone;
+                if (self.zone && !core.instance.region) core.instance.region = self.zone.slice(0, -1);
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/iam/security-credentials/", function(err, data) {
+                if (!err && data) self.amiProfile = data;
                 next(err);
             });
         },
@@ -715,15 +728,15 @@ aws.getInstanceInfo = function(callback)
             self.getInstanceCredentials(next);
         },
         function(next) {
-            if (!self.secret || !core.instanceId) return next();
-            self.queryEC2("DescribeTags", { 'Filter.1.Name': 'resource-id', 'Filter.1.Value': core.instanceId }, function(err, tags) {
+            if (!self.secret || !core.instance.id) return next();
+            self.queryEC2("DescribeTags", { 'Filter.1.Name': 'resource-id', 'Filter.1.Value': core.instance.id }, function(err, tags) {
                 if (!err) self.tags = core.objGet(tags, "DescribeTagsResponse.tagSet.item", { list: 1 });
-                if (!core.instanceTag) core.instanceTag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
+                if (!core.instance.tag) core.instance.tag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
                 next();
             });
         },
         ], function(err) {
-            logger.debug('getInstanceInfo:', self.name, 'id:', core.instanceId, 'idx:', self.instanceIndex, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration, err || "");
+            logger.debug('getInstanceInfo:', self.name, core.instance, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration, err || "");
             if (callback) callback();
     });
 }
