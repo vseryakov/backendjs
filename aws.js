@@ -35,7 +35,6 @@ var aws = {
     ],
     key: process.env.AWS_ACCESS_KEY_ID,
     secret: process.env.AWS_SECRET_ACCESS_KEY,
-    region: 'us-east-1',
     instanceType: "t1.micro",
     tokenExpiration: 0,
     amiProfile: "",
@@ -165,11 +164,12 @@ aws.queryEC2 = function(action, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2014-05-01' };
+    var region = this.region  || 'us-east-1';
     for (var p in obj) req[p] = obj[p];
     // All capitalized options are passed as is and take priority because they are in native format
     for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
 
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ec2.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ec2.' + region + '.amazonaws.com', '/', req, callback);
 }
 
 // AWS ELB API request
@@ -178,10 +178,11 @@ aws.queryELB = function(action, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2012-06-01' };
+    var region = this.region  || 'us-east-1';
     for (var p in obj) req[p] = obj[p];
     // All capitalized options are passed as is and take priority because they are in native format
     for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'elasticloadbalancing.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'elasticloadbalancing.' + region + '.amazonaws.com', '/', req, callback);
 }
 
 // AWS SQS API request
@@ -190,10 +191,11 @@ aws.querySQS = function(action, queue, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2012-11-05' };
+    var region = this.region  || 'us-east-1';
     for (var p in obj) req[p] = obj[p];
     // All capitalized options are passed as is and take priority because they are in native format
     for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sqs.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sqs.' + region + '.amazonaws.com', '/', req, callback);
 }
 
 // AWS SNS API request
@@ -202,10 +204,11 @@ aws.querySNS = function(action, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2010-03-31' };
+    var region = this.region  || 'us-east-1';
     for (var p in obj) req[p] = obj[p];
     // All capitalized options are passed as is and take priority because they are in native format
     for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + region + '.amazonaws.com', '/', req, callback);
 }
 
 // AWS SES API request
@@ -214,10 +217,11 @@ aws.querySES = function(action, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     var req = { Action: action, Version: '2010-12-01' };
+    var region = this.region  || 'us-east-1';
     for (var p in obj) req[p] = obj[p];
     // All capitalized options are passed as is and take priority because they are in native format
     for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ses.' + this.region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ses.' + region + '.amazonaws.com', '/', req, callback);
 }
 
 // Build version 4 signature headers
@@ -227,6 +231,7 @@ aws.querySign = function(service, host, method, path, body, headers)
     var now = new Date();
     var date = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
     var datetime = date.substr(0, 8);
+    var region = this.region  || 'us-east-1';
 
     headers['Host'] = host;
     headers['X-Amz-Date'] = date;
@@ -235,7 +240,7 @@ aws.querySign = function(service, host, method, path, body, headers)
     if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
 
     function trimAll(header) { return header.toString().trim().replace(/\s+/g, ' '); }
-    var credString = [ datetime, this.region, service, 'aws4_request' ].join('/');
+    var credString = [ datetime, region, service, 'aws4_request' ].join('/');
     var pathParts = path.split('?', 2);
     var signedHeaders = Object.keys(headers).map(function(key) { return key.toLowerCase(); }).sort().join(';');
     var canonHeaders = Object.keys(headers).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; }).map(function(key) { return key.toLowerCase() + ':' + trimAll(String(headers[key])); }).join('\n');
@@ -243,7 +248,7 @@ aws.querySign = function(service, host, method, path, body, headers)
 
     var strToSign = [ 'AWS4-HMAC-SHA256', date, credString, core.hash(canonString, "sha256", "hex") ].join('\n');
     var kDate = core.sign('AWS4' + this.secret, datetime, "sha256", "binary");
-    var kRegion = core.sign(kDate, this.region, "sha256", "binary");
+    var kRegion = core.sign(kDate, region, "sha256", "binary");
     var kService = core.sign(kRegion, service, "sha256", "binary");
     var kCredentials = core.sign(kService, 'aws4_request', "sha256", "binary");
     var sig = core.sign(kCredentials, strToSign, "sha256", "hex");
@@ -256,7 +261,8 @@ aws.queryDDB = function (action, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     var start = Date.now();
-    var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ((self.proto || options.proto || 'http://') + 'dynamodb.' + this.region + '.amazonaws.com/');
+    var region = this.region  || 'us-east-1';
+    var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ((self.proto || options.proto || 'http://') + 'dynamodb.' + region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
     var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };
@@ -304,7 +310,7 @@ aws.signS3 = function(method, bucket, key, options)
     if (!options.headers) options.headers = {};
 
     var curTime = new Date().toUTCString();
-    var region = options.region || this.region;
+    var region = options.region || this.region || 'us-east-1';
     if (!options.headers["x-amz-date"]) options.headers["x-amz-date"] = curTime;
     if (!options.headers["content-type"]) options.headers["content-type"] = "binary/octet-stream; charset=utf-8";
     if (options.headers["content-type"] && options.headers["content-type"].indexOf("charset=") == -1) options.headers["content-type"] += "; charset=utf-8";
@@ -713,6 +719,7 @@ aws.getInstanceInfo = function(callback)
                 if (!err && data) self.zone = data;
                 if (self.zone && !core.instance.zone) core.instance.zone = self.zone;
                 if (self.zone && !core.instance.region) core.instance.region = self.zone.slice(0, -1);
+                if (!self.region && data) self.region = data.slice(0, -1);
                 next(err);
             });
         },

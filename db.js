@@ -229,21 +229,19 @@ db.init = function(options, callback)
 // will override values received for the eqrlier properties, for example, if two properties defined in the `bk_config` table with the
 // types `myapp` and `prod-myapp`, then the last value will be used only.
 //
+// All attributes will be added multiple times in the following order, `name` being the attribute listed below:
+//    `name`, runMode-`name`, appName-`name`, runMode-appName-`name`
+//
 // The priority of the attributes is the following:
-//  - the application name: `myapp`
-//  - the application name and app version specified in the package.json: `myapp-1.0.0`
 //  - the run mode specified in the command line `-run-mode`: `prod`
-//  - the run mode with the application name: `prod-myapp`
-//  - the run mode with the application name and app version: `prod-myapp-1.0.0`
-//  - all other attributes will be added multiple times in the following order:
-//    - `name`, prod-`name`, `name`-myapp, prod-`name`-myapp
-//    - where `name` is the attribute from the list below:
-//      - the network where the instance is running, first 2 octets from the current IP address: `192.168`
-//      - the region where the instance is running, AWS region or other name: `us-east-1`
-//      - the network where the instance is running, first 2 octets from the current IP address: `192.168.1`
-//      - the zone where the instance is running, AWS availability zone or other name: `us-east-1a`
-//      - current instance tag or a custom tag for ad-hoc queries: `nat`
-//      - current instance IP address: `192.168.1.1`
+//  - the application name: `myapp`
+//  - the application version specified in the package.json: `1.0.0`
+//  - the network where the instance is running, first 2 octets from the current IP address: `192.168`
+//  - the region where the instance is running, AWS region or other name: `us-east-1`
+//  - the network where the instance is running, first 2 octets from the current IP address: `192.168.1`
+//  - the zone where the instance is running, AWS availability zone or other name: `us-east-1a`
+//  - current instance tag or a custom tag for ad-hoc queries: `nat`
+//  - current instance IP address: `192.168.1.1`
 //
 // On return, the callback second argument will receive all parameters received form the database as a list: -name value ...
 db.initConfig = function(options, callback)
@@ -256,14 +254,12 @@ db.initConfig = function(options, callback)
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
     var types = [];
-    types.push(core.appName);
-    types.push(core.appName + '-' + core.appVersion);
-    types.push(core.runMode);
-    types.push(core.runMode + "-" + core.appName);
-    types.push(core.runMode + "-" + core.appName + '-' + core.appVersion);
 
     // All other entries in order of priority with all common prefixes
-    var items = [ options.network || core.network,
+    var items = [ core.runMode,
+                  core.appName,
+                  core.appVersion,
+                  options.network || core.network,
                   options.region || core.instance.region,
                   options.subnet || core.subnet,
                   options.zone || core.instance.zone,
@@ -274,10 +270,12 @@ db.initConfig = function(options, callback)
         if (!x) return;
         x = String(x).trim();
         if (!x) return;
-        types.push(x, core.runMode + "-" + x);
-        types.push(x + "-" + core.appName, core.runMode + "-" + x + "-" + core.appName);
+        types.push(x);
+        if (x != core.runMode) types.push(core.runMode + "-" + x);
+        if (x != core.appName) types.push(core.appName + "-" + x);
+        if (x != core.runMode && x != core.appName) types.push(core.runMode + "-" + core.appName + "-" + x);
     });
-    // Make sure we have only unique items in the list
+    // Make sure we have only unique items in the list, skip empty or incomplete items
     types = core.strSplitUnique(types);
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
