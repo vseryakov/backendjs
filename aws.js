@@ -163,8 +163,9 @@ aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
     var req = { Action: action, Version: version };
-    var region = this.region  || 'us-east-1';
+    var region = options.region || this.region  || 'us-east-1';
     for (var p in obj) req[p] = obj[p];
     // All capitalized options are passed as is and take priority because they are in native format
     for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
@@ -208,13 +209,12 @@ aws.queryCFN = function(action, obj, options, callback)
 }
 
 // Build version 4 signature headers
-aws.querySign = function(service, host, method, path, body, headers)
+aws.querySign = function(region, service, host, method, path, body, headers)
 {
     var self = this;
     var now = new Date();
     var date = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
     var datetime = date.substr(0, 8);
-    var region = this.region  || 'us-east-1';
 
     headers['Host'] = host;
     headers['X-Amz-Date'] = date;
@@ -243,8 +243,9 @@ aws.queryDDB = function (action, obj, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
     var start = Date.now();
-    var region = this.region  || 'us-east-1';
+    var region = options.region || this.region  || 'us-east-1';
     var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ((self.proto || options.proto || 'http://') + 'dynamodb.' + region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
@@ -256,7 +257,7 @@ aws.queryDDB = function (action, obj, options, callback)
 
     logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);
 
-    this.querySign("dynamodb", req.hostname, "POST", req.path, json, headers);
+    this.querySign(region, "dynamodb", req.hostname, "POST", req.path, json, headers);
     core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
         if (err) {
             logger.error("queryDDB:", self.key, action, obj, err);
