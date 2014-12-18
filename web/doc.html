@@ -1851,7 +1851,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>instance-region</code> - Set instance region explicitely, skip all meta data checks for it</li>
 <li><code>instance-zone</code> - Set instance zone explicitely, skip all meta data checks for it</li>
 <li><code>instance-job</code> - Enables remote job mode, it means the backendjs is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
-<li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. Default: &quot;production&quot;. DNS TXT configurable.</li>
+<li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. Default: &quot;development&quot;. DNS TXT configurable.</li>
 <li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically</li>
 <li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
 <li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1</li>
@@ -3166,6 +3166,12 @@ been processed.</p>
 </ul>
 
 <ul>
+<li><p><code>aws.queryEndpoint(endpoint, version, action, obj, options, callback)</code></p>
+<p> AWS generic query interface</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.queryEC2(action, obj, options, callback)</code></p>
 <p> AWS EC2 API request</p>
 </li>
@@ -3192,6 +3198,12 @@ been processed.</p>
 <ul>
 <li><p><code>aws.querySES(action, obj, options, callback)</code></p>
 <p> AWS SES API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryCFN(action, obj, options, callback)</code></p>
+<p> AWS CFN API request</p>
 </li>
 </ul>
 
