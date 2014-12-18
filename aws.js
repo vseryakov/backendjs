@@ -158,70 +158,53 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
     });
 }
 
-// AWS EC2 API request
-aws.queryEC2 = function(action, obj, options, callback)
+// AWS generic query interface
+aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
-    var req = { Action: action, Version: '2014-05-01' };
+    var req = { Action: action, Version: version };
     var region = this.region  || 'us-east-1';
     for (var p in obj) req[p] = obj[p];
     // All capitalized options are passed as is and take priority because they are in native format
     for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
+    this.queryAWS(self.proto || options.proto || 'https://', 'POST', endpoint + '.' + region + '.amazonaws.com', '/', req, callback);
+}
 
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ec2.' + region + '.amazonaws.com', '/', req, callback);
+// AWS EC2 API request
+aws.queryEC2 = function(action, obj, options, callback)
+{
+    this.queryEndpoint("ec2", '2014-05-01', action, obj, options, callback);
 }
 
 // AWS ELB API request
 aws.queryELB = function(action, obj, options, callback)
 {
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    var req = { Action: action, Version: '2012-06-01' };
-    var region = this.region  || 'us-east-1';
-    for (var p in obj) req[p] = obj[p];
-    // All capitalized options are passed as is and take priority because they are in native format
-    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'elasticloadbalancing.' + region + '.amazonaws.com', '/', req, callback);
+    this.queryEndpoint("elasticloadbalancing", '2012-06-01', action, obj, options, callback);
 }
 
 // AWS SQS API request
 aws.querySQS = function(action, queue, obj, options, callback)
 {
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    var req = { Action: action, Version: '2012-11-05' };
-    var region = this.region  || 'us-east-1';
-    for (var p in obj) req[p] = obj[p];
-    // All capitalized options are passed as is and take priority because they are in native format
-    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sqs.' + region + '.amazonaws.com', '/', req, callback);
+    this.queryEndpoint("sqs", '2012-11-05', action, obj, options, callback);
 }
 
 // AWS SNS API request
 aws.querySNS = function(action, obj, options, callback)
 {
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    var req = { Action: action, Version: '2010-03-31' };
-    var region = this.region  || 'us-east-1';
-    for (var p in obj) req[p] = obj[p];
-    // All capitalized options are passed as is and take priority because they are in native format
-    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'sns.' + region + '.amazonaws.com', '/', req, callback);
+    this.queryEndpoint("sns", '2010-03-31', action, obj, options, callback);
 }
 
 // AWS SES API request
 aws.querySES = function(action, obj, options, callback)
 {
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    var req = { Action: action, Version: '2010-12-01' };
-    var region = this.region  || 'us-east-1';
-    for (var p in obj) req[p] = obj[p];
-    // All capitalized options are passed as is and take priority because they are in native format
-    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', 'ses.' + region + '.amazonaws.com', '/', req, callback);
+    this.queryEndpoint("ses", '2010-12-01', action, obj, options, callback);
+}
+
+// AWS CFN API request
+aws.queryCFN = function(action, obj, options, callback)
+{
+    this.queryEndpoint("cloudformation", '2010-05-15', action, obj, options, callback);
 }
 
 // Build version 4 signature headers

@@ -41,7 +41,7 @@ var core = {
     role: '',
 
     // Environment mode of the process or the application
-    runMode: 'production',
+    runMode: 'development',
 
     // Current instance attributes gathered by other modules
     instance: { id: process.pid, index: 0, tag: '', image: '', region: '', zone: '' },
