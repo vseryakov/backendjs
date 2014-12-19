@@ -134,14 +134,14 @@ server.start = function()
         return core.init({ role: "monitor", noInit: 1 }, function() { self.startMonitor(); });
     }
 
-    // Master server
+    // Master server, always create tables in the masters processes
     if (core.isArg("-master")) {
-        return core.init({ role: "master" }, function() { self.startMaster(); });
+        return core.init({ role: "master", noInitTables: 0 }, function() { self.startMaster(); });
     }
 
     // Backend Web server
     if (core.isArg("-web")) {
-        return core.init({ role: "web" }, function() { self.startWeb(); });
+        return core.init({ role: "web", noInitTables: 0 }, function() { self.startWeb(); });
     }
 }
 

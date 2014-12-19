@@ -448,7 +448,7 @@ core.parseConfig = function(data)
     var argv = [], lines = String(data).split("\n");
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
-        if (!line.match(/^([a-z_-]+)/)) continue;
+        if (!line.match(/^([a-z0-9_-]+)/)) continue;
         line = line.split("=");
         if (line[0]) argv.push('-' + line[0].trim());
         if (line[1]) argv.push(line.slice(1).join('=').trim());
@@ -545,11 +545,11 @@ core.processArgs = function(name, ctx, argv, pass)
                     kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
                 }
                 var key = self.toCamel(kname);
-                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (x.value || null);
+                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (x.value || x.novalue || null);
                 if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
                 // Ignore the value if it is a parameter
                 if (val && val[0] == '-') val = "";
-                logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, "=", val);
+                logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, key != x.name ? "(" + x.name + ")" : "", "=", val);
                 switch ((x.type || "").trim()) {
                 case "none":
                     break;

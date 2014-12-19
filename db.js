@@ -106,9 +106,6 @@ var db = {
     // Tables to be cached
     cacheTables: [],
 
-    // Which pools not to cache
-    noCacheColumns: [],
-
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
     sqlitePool: core.name,
@@ -119,29 +116,30 @@ var db = {
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type: "bool", descr: "Do not use other db pools except the default pool specified by 'db-pool'" },
-           { name: "no-cache-columns", array: 1, type: "list", descr: "Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions, this can be 'all' for all pools or a list of pool names separated by comma" },
+           { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
+           { name: "no-init-tables", type: "bool", value: true, descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, disabling this will turn on table creation in the shell and master processes" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
-           { name: "max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
-           { name: "min", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
-           { name: "idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
-           { name: "tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
-           { name: "init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
-           { name: "options", count: 3, match: "pool", type: "json", descr: "A DB pool driver options passed to every request" },
+           { name: "pool-max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
+           { name: "pool-min", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
+           { name: "pool-idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
+           { name: "pool-tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
+           { name: "pool-init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
+           { name: "pool-options", count: 3, match: "pool", type: "json", descr: "A DB pool driver options passed to every request" },
            { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name" },
-           { name: "pgsql-pool", count: 3, descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
-           { name: "mysql-pool", count: 3, descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
-           { name: "dynamodb-pool", count: 3, descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
-           { name: "mongodb-pool", count: 3, descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
-           { name: "cassandra-pool", count: 3, descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
+           { name: "pgsql-pool", count: 3, novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
+           { name: "mysql-pool", count: 3, novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
+           { name: "dynamodb-pool", count: 3, novalue: "default", descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
+           { name: "mongodb-pool", count: 3, novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
+           { name: "cassandra-pool", count: 3, novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
            { name: "lmdb-pool", count: 3, descr: "Path to the local LMDB database" },
            { name: "leveldb-pool", count: 3, descr: "Path to the local LevelDB database" },
-           { name: "redis-pool", count: 3, descr: "Redis host" },
-           { name: "elasticsearch-pool", count: 3, descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
-           { name: "couchdb-pool", count: 3, descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
-           { name: "riak-pool", count: 3, descr: "Riak url to the host in the format: http://hostname[:port]" },
+           { name: "redis-pool", count: 3, novalue: "127.0.0.1", descr: "Redis host" },
+           { name: "elasticsearch-pool", count: 3, novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
+           { name: "couchdb-pool", count: 3, novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
+           { name: "riak-pool", count: 3, novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
     ],
 
     // Default tables
@@ -178,8 +176,10 @@ module.exports = db;
 
 // Initialize database pools.
 // Options can have the following properties:
-// - noPools - disables all other pools except sqlite, similar to `-db-no-pools` config parameter, id db-local is configured and
-//     different than sqlite it is initialized always as well
+//   - noPools - disables all other pools except sqlite, similar to `-db-no-pools` config parameter, id db-local is configured and
+//       different than sqlite it is initialized always as well
+//   - noInitTables - if defined it is used instesd of the global parameter
+//   - noCacheColumns - if defined it is used instead fo the global parameter
 db.init = function(options, callback)
 {
     var self = this;
@@ -334,7 +334,13 @@ db.initPoolTables = function(name, tables, options, callback)
     for (var p in tables) pool.dbtables[p] = tables[p];
     options.pool = name;
     options.tables = tables;
-    if (self.noCacheColumns.indexOf("all") > -1 || self.noCacheColumns.indexOf(name) > -1) {
+
+    // These options can redefine behaviour of the initialization sequence
+    var noCacheColumns = typeof options.noCacheColumns != "undefined" ? options.noCacheColumns : self.noCacheColumns;
+    var noInitTables = typeof options.noInitTables != "undefined" ? options.noInitTables : self.noInitTables;
+
+    // Skip loading column definitions from the database, keep working with the javascript models only
+    if (noCacheColumns) {
         self.mergeColumns(pool);
         self.mergeKeys(pool);
         return callback ? callback() : null;
@@ -343,9 +349,10 @@ db.initPoolTables = function(name, tables, options, callback)
     logger.debug('initPoolTables:', name, Object.keys(tables));
     self.cacheColumns(options, function() {
         // Workers do not manage tables, only master process
-        if (cluster.isWorker || core.worker) {
+        if (cluster.isWorker || core.worker || noInitTables) {
             return callback ? callback() : null;
         }
+
         var changes = 0;
         core.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
             // We if have columns, SQL table must be checked for missing columns and indexes
