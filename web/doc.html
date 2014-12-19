@@ -1897,17 +1897,18 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. Default: &quot;sqlite&quot;. DNS TXT configurable.</li>
 <li><code>db-no-pools</code> - Do not use other db pools except the default pool specified by &#39;db-pool&#39;</li>
-<li><code>db-no-cache-columns</code> - Do not cache table columns from the database on startup, do not perform table upgrades for missing columns, only use internal table descriptons defined in the Javascript, this speeds up the starting time significantly but may potentially result in errors due to differences in actual db schema from the Javascript table definitions, this can be &#39;all&#39; for all pools or a list of pool names separated by comma. Default: []</li>
+<li><code>db-no-cache-columns</code> - Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database</li>
+<li><code>db-no-init-tables</code> - Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, disabling this will turn on table creation in the shell and master processes</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.. Default: []</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: &quot;sqlite&quot;</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db. Default: 300</li>
-<li><code>db-NAME-max</code> - Max number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: max-1 .. max-3.</li>
-<li><code>db-NAME-min</code> - Min number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: min-1 .. min-3.</li>
-<li><code>db-NAME-idle</code> - Number of ms for a db pool connection to be idle before being destroyed. Where NAME is the actual pool name.. 3 variants: idle-1 .. idle-3.</li>
-<li><code>db-NAME-tables</code> - A DB pool tables, list of tables that belong to this pool only. Where NAME is the actual pool name.. 3 variants: tables-1 .. tables-3.</li>
-<li><code>db-NAME-init-options</code> - Options for a DB pool driver passed during creation of a pool. Where NAME is the actual pool name.. 3 variants: init-options-1 .. init-options-3.</li>
-<li><code>db-NAME-options</code> - A DB pool driver options passed to every request. Where NAME is the actual pool name.. 3 variants: options-1 .. options-3.</li>
+<li><code>db-NAME-pool-max</code> - Max number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: pool-max-1 .. pool-max-3.</li>
+<li><code>db-NAME-pool-min</code> - Min number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: pool-min-1 .. pool-min-3.</li>
+<li><code>db-NAME-pool-idle</code> - Number of ms for a db pool connection to be idle before being destroyed. Where NAME is the actual pool name.. 3 variants: pool-idle-1 .. pool-idle-3.</li>
+<li><code>db-NAME-pool-tables</code> - A DB pool tables, list of tables that belong to this pool only. Where NAME is the actual pool name.. 3 variants: pool-tables-1 .. pool-tables-3.</li>
+<li><code>db-NAME-pool-init-options</code> - Options for a DB pool driver passed during creation of a pool. Where NAME is the actual pool name.. 3 variants: pool-init-options-1 .. pool-init-options-3.</li>
+<li><code>db-NAME-pool-options</code> - A DB pool driver options passed to every request. Where NAME is the actual pool name.. 3 variants: pool-options-1 .. pool-options-3.</li>
 <li><code>db-sqlite-pool</code> - SQLite pool db name, absolute path or just a name. Default: &quot;backend&quot;. 3 variants: sqlite-pool-1 .. sqlite-pool-3.</li>
 <li><code>db-pgsql-pool</code> - PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db. 3 variants: pgsql-pool-1 .. pgsql-pool-3.</li>
 <li><code>db-mysql-pool</code> - MySQL pool access url in the format: mysql://[user:password@]hostname/db. 3 variants: mysql-pool-1 .. mysql-pool-3.</li>
@@ -3210,7 +3211,7 @@ been processed.</p>
 </ul>
 
 <ul>
-<li><p><code>aws.querySign(service, host, method, path, body, headers)</code></p>
+<li><p><code>aws.querySign(region, service, host, method, path, body, headers)</code></p>
 <p> Build version 4 signature headers</p>
 </li>
 </ul>
@@ -4812,15 +4813,15 @@ then default db pool is used, sqlite is default if no -db-pool config parameter 
 faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an error but
 put extra requests into the waiting queue and execute once some requests finished.</p>
 <p>Example:</p>
-<pre><code>    db-pgsql-max = 100
-    db-dynamodb-max = 100
-</code></pre><p>Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-pool-tables</code> parameters
+<pre><code>    db-pgsql-pool-max = 100
+    db-dynamodb-pool-max = 100
+</code></pre><p>Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-X-pool-tables</code> parameters
 thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.</p>
 <p>Example, run the backend with default PostgreSQL database but keep all config parametrs in the DynamoDB table for availability:</p>
 <pre><code>    db-pool = pgsql
     db-dynamodb-pool = default
-    db-dynamodb-tables = bk_config
+    db-dynamodb-pool-tables = bk_config
 </code></pre></li>
 </ul>
 <p> The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB</p>
@@ -4832,7 +4833,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
 <p> Example:</p>
 <pre><code>      db-pgsql-pool = postgresql://locahost/backend
       db-pgsql-pool-1 = postgresql://localhost/billing
-      db-pgsql-max-1 = 100
+      db-pgsql-pool-max-1 = 100
 </code></pre>
 <ul>
 <li><p><code>Database tables</code></p>
@@ -4870,7 +4871,9 @@ database like DynamoDB for real-time requests and slower SQL database running on
 Options can have the following properties:</p>
 <ul>
 <li>noPools - disables all other pools except sqlite, similar to <code>-db-no-pools</code> config parameter, id db-local is configured and
- different than sqlite it is initialized always as well</li>
+  different than sqlite it is initialized always as well</li>
+<li>noInitTables - if defined it is used instesd of the global parameter</li>
+<li>noCacheColumns - if defined it is used instead fo the global parameter</li>
 </ul>
 </li>
 </ul>

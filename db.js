@@ -62,10 +62,10 @@ var metrics = require(__dirname + "/metrics");
 //
 //  Example:
 //
-//          db-pgsql-max = 100
-//          db-dynamodb-max = 100
+//          db-pgsql-pool-max = 100
+//          db-dynamodb-pool-max = 100
 //
-// Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using `db-pool-tables` parameters
+// Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using `db-X-pool-tables` parameters
 // thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
 // database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.
 //
@@ -73,7 +73,7 @@ var metrics = require(__dirname + "/metrics");
 //
 //          db-pool = pgsql
 //          db-dynamodb-pool = default
-//          db-dynamodb-tables = bk_config
+//          db-dynamodb-pool-tables = bk_config
 //
 //
 // The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB
@@ -89,7 +89,7 @@ var metrics = require(__dirname + "/metrics");
 //
 //          db-pgsql-pool = postgresql://locahost/backend
 //          db-pgsql-pool-1 = postgresql://localhost/billing
-//          db-pgsql-max-1 = 100
+//          db-pgsql-pool-max-1 = 100
 //
 var db = {
     name: 'db',
