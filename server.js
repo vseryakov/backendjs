@@ -693,6 +693,18 @@ server.startShell = function()
             });
         } else
 
+        // Import records from previous scan/select, the format MUST be json, one record per line
+        if (core.isArg("-db-import")) {
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), file = core.getArg("-file"), nostop = core.getArgInt("-nostop");
+            core.forEachLine(file, opts, function(line, next) {
+                var row = core.jsonParse(line, { logger: 1 });
+                if (!row) return next(nostop ? null : "ERROR: parse error, line: " + opts.lines);
+                db.put(table, row, opts, function(err) { next(nostop ? null : err) });
+            }, function(err) {
+                exit(err);
+            });
+        } else
+
         // Put config entry
         if (core.isArg("-db-get")) {
             var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");

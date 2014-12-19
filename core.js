@@ -545,11 +545,11 @@ core.processArgs = function(name, ctx, argv, pass)
                     kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
                 }
                 var key = self.toCamel(kname);
-                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (x.value || x.novalue || null);
-                if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
+                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (x.value || null);
+                if (val == null && !x.novalue && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
                 // Ignore the value if it is a parameter
-                if (val && val[0] == '-') val = "";
-                logger.dev("processArgs:", name, 'type:', x.type || "", "set:", key, key != x.name ? "(" + x.name + ")" : "", "=", val);
+                if (val[0] == '-') val = x.novalue || "";
+                logger.debug("processArgs:", x.type || "str", name + "." + key, "(" + x.name + ")", "=", val);
                 switch ((x.type || "").trim()) {
                 case "none":
                     break;
