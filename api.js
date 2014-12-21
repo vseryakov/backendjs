@@ -392,15 +392,20 @@ module.exports = api;
 // The reason not to do this by default is that this may not be the alwayse wanted case and distinguishing data coming in the request or in the body may be desirable,
 // also, this will needed only for Express handlers `.all`, when registering handler by method like `.get` or `.post` then the handler needs to deal with only either source of the request data.
 //
-api.init = function(callback)
+api.init = function(options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
     var db = core.modules.db;
 
     // Performance statistics
     self.initStatistics();
 
     self.app = express();
+    options.api = self;
+    options.app = self.app;
 
     // Setup toobusy timer to detect when our requests waiting in the queue for too long
     if (this.busyLatency) utils.initBusy(this.busyLatency);
@@ -520,7 +525,7 @@ api.init = function(callback)
     });
 
     // Assign custom middleware just after the security handler
-    core.runMethods("configureMiddleware", { api: self, app: self.app }, function() {
+    core.runMethods("configureMiddleware", options, function() {
 
         // Custom routes, if host defined only server API calls for matched domains
         var router = self.app.router;
@@ -602,13 +607,13 @@ api.init = function(callback)
         }
 
         // Custom application logic
-        core.runMethods("configureWeb", { app: self.app }, function(err) {
+        core.runMethods("configureWeb", options, function(err) {
 
             // Setup all tables
-            self.initTables(function(err) {
+            self.initTables(options, function(err) {
 
                 // Synchronously load external api modules
-                core.loadModules("web");
+                core.loadModules("web", options);
 
                 // Start http server
                 if (core.port) {
@@ -1231,8 +1236,8 @@ api.initFileAPI = function()
     this.app.all(/^\/file\/([a-z]+)$/, function(req, res) {
         var options = self.getOptions(req);
 
-        if (!req.query.prefix) return self.sendReply(res, 400, "prefix is required");
         if (!req.query.name) return self.sendReply(res, 400, "name is required");
+        if (!req.query.prefix) return self.sendReply(res, 400, "prefix is required");
         var file = req.query.prefix.replace("/", "") + "/" + req.query.name.replace("/", "");
         if (options.tm) file += options.tm;
 
@@ -1241,8 +1246,10 @@ api.initFileAPI = function()
             self.getFile(req, res, file, options);
             break;
 
+        case "add":
         case "put":
             options.name = file;
+            options.prefix = req.query.prefix;
             self.putFile(req, req.query._name || "data", options, function(err) {
                 self.sendReply(res, err);
             });
@@ -2487,6 +2494,7 @@ api.getFile = function(req, res, file, options)
 // - callback will be called with err and actual filename saved
 // Output file name is built according to the following options properties:
 // - name - defines the basename for the file, no extention, if not given same name as property will be used
+// - prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically
 // - ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.
 // - extkeep - tells always to keep actual extention from the uploaded file
 // - encoding - encoding of the body, default is base64
@@ -2497,7 +2505,7 @@ api.putFile = function(req, name, options, callback)
     if (!options) options = {};
 
     var btype = core.typeName(req.body);
-    var outfile = (options.name || name) + (options.ext || "");
+    var outfile = path.join(options.prefix || "", path.basename(options.name || name) + (options.ext || ""));
 
     logger.debug("putFile:", name, outfile, options);
 

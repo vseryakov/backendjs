@@ -346,7 +346,7 @@ db.initPoolTables = function(name, tables, options, callback)
         return callback ? callback() : null;
     }
 
-    logger.debug('initPoolTables:', name, Object.keys(tables));
+    logger.debug('initPoolTables:', core.role, name, noInitTables, Object.keys(tables));
     self.cacheColumns(options, function() {
         // Workers do not manage tables, only master process
         if (cluster.isWorker || core.worker || noInitTables) {
@@ -363,7 +363,7 @@ db.initPoolTables = function(name, tables, options, callback)
                 self.upgrade(table, options.tables[table], options, function(err, rows) { if (rows) changes++; next() });
             }
         }, function() {
-            logger.debug('db.initPoolTables:', options.pool, 'changes:', changes);
+            logger.debug('db.initPoolTables:', name, 'changes:', changes);
             if (!changes) return callback ? callback() : null;
             self.cacheColumns(options, function() {
                 if (callback) callback();

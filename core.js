@@ -388,7 +388,7 @@ core.init = function(options, callback)
         // Final callbacks
         function(err) {
             logger.debug("init:", err || "");
-            if (callback) callback.call(self, err);
+            if (callback) callback.call(self, err, options);
     });
 }
 
@@ -535,7 +535,7 @@ core.processArgs = function(name, ctx, argv, pass)
                     idx = argv.lastIndexOf(cname);
                 }
                 // Continue if we have default value defined
-                if (idx == -1 && !x.value) continue;
+                if (idx == -1 && typeof x.value == "undefined") continue;
 
                 // Place inside the object
                 if (x.obj) {
@@ -545,10 +545,10 @@ core.processArgs = function(name, ctx, argv, pass)
                     kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
                 }
                 var key = self.toCamel(kname);
-                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (x.value || null);
-                if (val == null && !x.novalue && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
+                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (typeof x.value != "undefined" ? x.value : null);
+                if (val == null && typeof x.novalue == "undefined" && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
                 // Ignore the value if it is a parameter
-                if (val[0] == '-') val = x.novalue || "";
+                if (val[0] == '-') val = typeof x.novalue != "undefined" ? x.novalue : "";
                 logger.debug("processArgs:", x.type || "str", name + "." + key, "(" + x.name + ")", "=", val);
                 switch ((x.type || "").trim()) {
                 case "none":
@@ -1443,6 +1443,7 @@ core.runMethods = function(name, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
 
     self.forEachSeries(Object.keys(self.modules), function(mod, next) {
         var ctx = self.modules[mod];
@@ -1645,13 +1646,13 @@ core.doWhilst = function(iterator, test, callback)
 }
 
 // Dynamically load services
-core.loadModules = function(type)
+core.loadModules = function(type, options)
 {
     var self = this;
     core.findFileSync(this.path.modules || "modules", { depth: 1, types: "f", include: new RegExp("_" + type + ".js$") }).forEach(function(file) {
         try {
             var mod = require(path.join(core.home, file));
-            if (typeof mod.init == "function") mod.init();
+            if (typeof mod.init == "function") mod.init(options);
             self.addModule(path.basename(file, ".js").slice(0, -type.length-1), mod);
             logger.log("loadModules:", file, "loaded");
         } catch (e) {

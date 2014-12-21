@@ -112,12 +112,12 @@ server.start = function()
 
     // REPL shell
     if (core.isArg("-shell")) {
-        return core.init({ role: "shell" }, function() { self.startShell(); });
+        return core.init({ role: "shell" }, function(err, opts) { self.startShell(opts); });
     }
 
     // Go to background
     if (core.isArg("-daemon")) {
-        return core.init({ role: "daemon", noInit: 1 }, function() { self.startDaemon(); });
+        return core.init({ role: "daemon", noInit: 1 }, function(err, opts) { self.startDaemon(opts); });
     }
 
     // Graceful shutdown, kill all children processes
@@ -126,27 +126,27 @@ server.start = function()
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
     if (core.isArg("-watch")) {
-        return core.init({ role: "watcher", noInit: 1 }, function() { self.startWatcher(); });
+        return core.init({ role: "watcher", noInit: 1 }, function(err, opts) { self.startWatcher(opts); });
     }
 
     // Start server monitor, it will watch the process and restart automatically
     if (core.isArg("-monitor")) {
-        return core.init({ role: "monitor", noInit: 1 }, function() { self.startMonitor(); });
+        return core.init({ role: "monitor", noInit: 1 }, function(err, opts) { self.startMonitor(opts); });
     }
 
     // Master server, always create tables in the masters processes
     if (core.isArg("-master")) {
-        return core.init({ role: "master", noInitTables: 0 }, function() { self.startMaster(); });
+        return core.init({ role: "master", noInitTables: 0 }, function(err, opts) { self.startMaster(opts); });
     }
 
     // Backend Web server
     if (core.isArg("-web")) {
-        return core.init({ role: "web", noInitTables: 0 }, function() { self.startWeb(); });
+        return core.init({ role: "web", noInitTables: 0 }, function(err, opts) { self.startWeb(opts); });
     }
 }
 
 // Start process monitor, running as root
-server.startMonitor = function()
+server.startMonitor = function(options)
 {
     var self = this;
     process.title = core.name + ': monitor';
@@ -157,7 +157,7 @@ server.startMonitor = function()
 }
 
 // Setup worker environment
-server.startMaster = function()
+server.startMaster = function(options)
 {
     var self = this;
 
@@ -212,7 +212,7 @@ server.startMaster = function()
 }
 
 // Job worker process
-server.startWorker = function()
+server.startWorker = function(options)
 {
     var self = this;
     core.role = 'worker';
@@ -248,7 +248,7 @@ server.startWorker = function()
 }
 
 // Create Express server, setup worker environment, call supplied callback to set initial environment
-server.startWeb = function(callback)
+server.startWeb = function(options)
 {
     var self = this;
     var api = core.modules.api;
@@ -350,12 +350,12 @@ server.startWeb = function(callback)
         if (self.workerArgs.length) process.execArgv = self.workerArgs;
 
         // Create tables and spawn Web workers
-        api.initTables(function(err) {
+        api.initTables(options, function(err) {
             for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
         });
 
         // API related initialization
-        core.runMethods("configureServer");
+        core.runMethods("configureServer", options);
 
         // Frontend server tasks
         setInterval(function() {
@@ -400,7 +400,7 @@ server.startWeb = function(callback)
         ipc.initClient();
 
         // Init API environment
-        api.init(function(err) {
+        api.init(options, function(err) {
             core.dropPrivileges();
 
             // Use proxy headers in the Express
@@ -535,7 +535,7 @@ server.startDaemon = function()
 }
 
 // Start REPL shell or execute any subcommand if specified
-server.startShell = function()
+server.startShell = function(options)
 {
     var self = this;
     var db = core.modules.db;
@@ -578,7 +578,7 @@ server.startShell = function()
         return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
     }
 
-    core.runMethods("configureShell", function(err, opts) {
+    core.runMethods("configureShell", options, function(err, opts) {
         if (opts.done) exit();
 
         // Add a user

@@ -68,12 +68,16 @@ To force internal nanomsg and ImageMagick to be compiled in the module the follo
 
         npm install backendjs --backend_nanomsg --backend_imagemagick
 
+This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
+applications but still part of the core of the system to be available once needed.
+
 To install from the git
 
         npm install git+https://github.com/vseryakov/backendjs.git
 
-This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
-applications but still part of the core of the system to be available once needed.
+or simply
+
+        npm install vseryakov/backendjs
 
 # Quick start
 
