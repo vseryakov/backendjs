@@ -128,11 +128,13 @@ on the system before installing the backendjs. Not everything is required, if no
 <pre><code>    npm install backendjs
 </code></pre><p>To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:</p>
 <pre><code>    npm install backendjs --backend_nanomsg --backend_imagemagick
-</code></pre><p>To install from the git</p>
-<pre><code>    npm install git+https://github.com/vseryakov/backendjs.git
 </code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
-<h1 id="quick-start">Quick start</h1>
+<p>To install from the git</p>
+<pre><code>    npm install git+https://github.com/vseryakov/backendjs.git
+</code></pre><p>or simply</p>
+<pre><code>    npm install vseryakov/backendjs
+</code></pre><h1 id="quick-start">Quick start</h1>
 <ul>
 <li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
 <pre><code>  # node
@@ -2218,7 +2220,7 @@ the worker processes if they die and restart them automatically. How many proces
 </ul>
 
 <ul>
-<li><p><code>api.init(callback)</code></p>
+<li><p><code>api.init(options, callback)</code></p>
 <p> Initialize API layer, this must be called before the <code>api</code> module can be used but it is called by the server module automatically so <code>api.init</code> is
 rearely need to called directly, only for new server implementation or if using in the shell for testing.</p>
 <p>During the init sequence, this function calls <code>api.initMiddleware</code> and <code>api.initApplication</code> methods which by default are empty but can be redefined in the user aplications.</p>
@@ -2764,6 +2766,7 @@ Verify icon limits before adding new icons</p>
 <li>callback will be called with err and actual filename saved
 Output file name is built according to the following options properties:</li>
 <li>name - defines the basename for the file, no extention, if not given same name as property will be used</li>
+<li>prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically</li>
 <li>ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
 <li>extkeep - tells always to keep actual extention from the uploaded file</li>
 <li>encoding - encoding of the body, default is base64</li>
@@ -4166,7 +4169,7 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 </ul>
 
 <ul>
-<li><p><code>core.loadModules(type)</code></p>
+<li><p><code>core.loadModules(type, options)</code></p>
 <p> Dynamically load services</p>
 </li>
 </ul>
@@ -6299,25 +6302,25 @@ connection to APN gateway.</p>
 </ul>
 
 <ul>
-<li><p><code>server.startMonitor()</code></p>
+<li><p><code>server.startMonitor(options)</code></p>
 <p> Start process monitor, running as root</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>server.startMaster()</code></p>
+<li><p><code>server.startMaster(options)</code></p>
 <p> Setup worker environment</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>server.startWorker()</code></p>
+<li><p><code>server.startWorker(options)</code></p>
 <p> Job worker process</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>server.startWeb(callback)</code></p>
+<li><p><code>server.startWeb(options)</code></p>
 <p> Create Express server, setup worker environment, call supplied callback to set initial environment</p>
 </li>
 </ul>
@@ -6359,7 +6362,7 @@ connection to APN gateway.</p>
 </ul>
 
 <ul>
-<li><p><code>server.startShell()</code></p>
+<li><p><code>server.startShell(options)</code></p>
 <p> Start REPL shell or execute any subcommand if specified</p>
 </li>
 </ul>
