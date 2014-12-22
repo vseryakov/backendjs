@@ -526,7 +526,7 @@ case "$ARG" in
        [ "$mod" = "$BKJS_MOD" ] && BKJS_PATH=node_modules/$BKJS_MOD
     fi
     [ "$BKJS_HOST" = "" ] && echo "Remote host required, specify with -host or BKJS_HOST" && exit
-    BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from .gitignore"
+    [ -f .gitignore ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from .gitignore"
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
     for h in $BKJS_HOST; do
         echo "Deploying the module to $BKJS_SSH_ARGS $BKJS_RSYNC_ARGS $h:$BKJS_PATH"
