@@ -86,7 +86,7 @@ aws.readCredentials = function(profile, callback)
     var self = this;
     if (typeof profile == "function") callback = profile, profile = null;
     fs.readFile(process.env.HOME + "/.aws/credentials", function(err, data) {
-        if (data.length) {
+        if (data && data.length) {
             var state = 0, lines = data.toString().split("\n");
             for (var i = 0; i < lines.length; i++) {
                 var x = lines[i].split("=");
