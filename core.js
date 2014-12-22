@@ -2310,6 +2310,7 @@ core.spawnProcess = function(cmd, args, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd };
     if (!options.stdio) options.stdio = "inherit";
+    if (!Array.isArray(args)) args = [ args ];
     var proc = child.spawn(cmd, args, options);
     proc.on("error", function(err) {
         logger.error("spawnProcess:", cmd, args, err);

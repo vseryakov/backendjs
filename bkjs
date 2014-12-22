@@ -876,12 +876,6 @@ case "$ARG" in
     [ -d deps/nanomsg ] && make -C deps/nanomsg clean distclean
     ;;
 
-  npm-deps)
-    shift;
-    modules=$($NODE_BIN -e 'try{console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))}catch(e){}' | sed "s/$BKJS//g")
-    [ "$modules" != "" ] && $NPM_BIN install $modules $@
-    ;;
-
   pack-app)
     [ ! -f package.json ] && $ECHO "No package.json found" && exit
     NAME=app
@@ -1125,7 +1119,6 @@ backend.server.start();
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
     echo "  clean-backend - clean the source directory"
     echo "  clean-deps - clean dependencies binary and object files"
-    echo "  npm-deps - install required node.js packages specified in the package.json as dependencies"
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh subcommands:"
