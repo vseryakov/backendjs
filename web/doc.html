@@ -1832,7 +1832,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>backlog</code> - The maximum length of the queue of pending connections, used by HTTP server in listen.. Default: 511</li>
 <li><code>ws-port</code> - port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers</li>
 <li><code>ws-bind</code> - Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports</li>
-<li><code>ssl-port</code> - port to listen for HTTPS server, this is global default</li>
+<li><code>ssl-port</code> - port to listen for HTTPS server, this is global default, be advised that proxy-port takes precedence, so to enable SSL set it to 0</li>
 <li><code>ssl-bind</code> - Bind to this address only for HTTPS server, if not specified listen on all interfaces</li>
 <li><code>ssl-key</code> - Path to SSL prvate key</li>
 <li><code>ssl-cert</code> - Path to SSL certificate</li>
