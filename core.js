@@ -170,7 +170,7 @@ var core = {
             { name: "backlog", descr: "The maximum length of the queue of pending connections, used by HTTP server in listen." },
             { name: "ws-port", type: "number", obj: 'ws', min: 0, descr: "port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers" },
             { name: "ws-bind", obj: 'ws', descr: "Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports" },
-            { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default" },
+            { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default, be advised that proxy-port takes precedence, so to enable SSL set it to 0" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
             { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },
             { name: "ssl-cert", type: "file", obj: 'ssl', descr: "Path to SSL certificate" },
@@ -548,7 +548,7 @@ core.processArgs = function(name, ctx, argv, pass)
                 var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (typeof x.value != "undefined" ? x.value : null);
                 if (val == null && typeof x.novalue == "undefined" && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
                 // Ignore the value if it is a parameter
-                if (val[0] == '-') val = typeof x.novalue != "undefined" ? x.novalue : "";
+                if (val && val[0] == '-') val = typeof x.novalue != "undefined" ? x.novalue : "";
                 logger.debug("processArgs:", x.type || "str", name + "." + key, "(" + x.name + ")", "=", val);
                 switch ((x.type || "").trim()) {
                 case "none":
@@ -611,7 +611,7 @@ core.processArgs = function(name, ctx, argv, pass)
                 self.argv[cname.substr(1)] = val || true;
             }
         } catch(e) {
-            logger.error('processArgs:', e, x);
+            logger.error('processArgs:', e.stack, x);
         }
     });
 }
@@ -999,6 +999,7 @@ core.createServer = function(options, callback)
     server.serverPort = options.port;
     if (options.name) server.serverName = options.name;
     try { server.listen(options.port, options.bind, this.backlog); } catch(e) { logger.error('server: listen:', options, e); server = null; }
+    logger.log("createServer:", options.port, options.bind);
     return server;
 }
 
@@ -2472,12 +2473,12 @@ core.findFileSync = function(file, options)
         var stat = this.statSync(file);
         if (stat.isFile()) {
             if (this.findFilter(file, stat, options)) {
-                list.push(options.base ? path.basename(file) : file);
+                list.push(options && options.base ? path.basename(file) : file);
             }
         } else
         if (stat.isDirectory()) {
             if (this.findFilter(file, stat, options)) {
-                list.push(options.base ? path.basename(file) : file);
+                list.push(options && options.base ? path.basename(file) : file);
             }
             // We reached our directory depth
             if (options && typeof options.depth == "number" && level >= options.depth) return list;
@@ -2487,7 +2488,7 @@ core.findFileSync = function(file, options)
             }
         }
     } catch(e) {
-        logger.error('findFileSync:', file, options, e);
+        logger.error('findFileSync:', file, options, e.stack);
     }
     return list;
 }

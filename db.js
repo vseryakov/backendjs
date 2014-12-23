@@ -1685,11 +1685,9 @@ db.prepare = function(op, table, obj, options)
         }
 
     case "update":
-        // Current timestamps, keep primary keys as if non empty
+        // Current timestamps, for primary keys only support add
         for (var p in cols) {
-            if (cols[p].now && (!obj[p] || !cols[p].primary)) {
-                obj[p] = now;
-            }
+            if (cols[p].now && !obj[p] && (!cols[p].primary || op == "add")) obj[p] = now;
         }
 
         // Keep only columns from the table definition if we have it
