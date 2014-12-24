@@ -114,7 +114,7 @@ aws.parseXMLResponse = function(err, params, callback)
     try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
     if (params.status != 200) {
         var errors = core.objGet(params.obj, "Response.Errors.Error", { list: 1 });
-        if (errors.length && errors[0].Message) err = core.newError({ message: errors[0].Message, name: obj.Action || "AWS", code: errors[0].Code, status: params.status });
+        if (errors.length && errors[0].Message) err = core.newError({ message: errors[0].Message, code: errors[0].Code, status: params.status });
         if (!err) err = core.newError({ message: "Error: " + params.data, status: params.status });
         logger.error('queryAWS:', params.href, params.search, err);
         return callback ? callback(err, params.obj) : null;
@@ -631,7 +631,7 @@ aws.ec2AssociateAddress = function(instanceId, elasticIp, options, callback)
             return self.queryEC2("AssociateAddress", params, options, callback);
         }
         // Get the allocation id
-        self.queryEC2("DescribeAddresses", { 'PublicIp.1': elasticIp }, function(err, obj) {
+        self.queryEC2("DescribeAddresses", { 'PublicIp.1': elasticIp }, options, function(err, obj) {
             params.AllocationId = core.objGet(obj, "DescribeAddressesResponse.AddressesSet.item.allocationId");
             if (!params.AllocationId) err = core.newError({ message: "EIP not found", name: "EC2", code: elasticIp });
             if (err) return callback ? callback(err) : null;
@@ -647,24 +647,25 @@ aws.ec2DeregisterImage = function(ami_id, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
 
     // Not deleting snapshots, just deregister
-    if (!options.snapshots) return self.queryEC2("DeregisterImage", { ImageId: ami_id }, callback);
+    if (!options.snapshots) return self.queryEC2("DeregisterImage", { ImageId: ami_id }, options, callback);
 
     // Pull the image meta data and delete all snapshots
-    self.queryEC2("DescribeImages", { 'ImageId.1': ami_id }, function(err, rc) {
-        if (err) return callback(err);
+    self.queryEC2("DescribeImages", { 'ImageId.1': ami_id }, options, function(err, rc) {
+        if (err) return callback ? callback(err) : null;
 
         var items = core.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
-        if (!items.length) return callback(core.newError({ message: "no AMI found", name: ami_id }));
+        if (!items.length) return calback ? callback(core.newError({ message: "no AMI found", name: ami_id })) : null;
 
         var volumes = core.objGet(items[0], "blockDeviceMapping.item", { list : 1 });
-        self.queryEC2("DeregisterImage", { ImageId: ami_id }, function(err) {
-            if (err) return callback(err);
+        self.queryEC2("DeregisterImage", { ImageId: ami_id }, options, function(err) {
+            if (err) return callback ? callback(err) : null;
 
             core.forEachSeries(volumes, function(vol, next) {
                 if (!vol.ebs || !vol.ebs.snapshotId) return next();
-                self.queryEC2("DeleteSnapshot", { SnapshotId: vol.ebs.snapshotId }, next);
+                self.queryEC2("DeleteSnapshot", { SnapshotId: vol.ebs.snapshotId }, options, next);
             }, callback)
         });
     });

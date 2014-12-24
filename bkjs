@@ -399,7 +399,7 @@ case "$ARG" in
     fi
     ;;
 
-  init-instance)
+  init-instancejob)
     # Instance mode, duplicate messages to the console for easier access
     echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
     truncate -c -s 0 /var/log/messages $BKJS_HOME/log/message.log $BKJS_HOME/log/error.log
@@ -1080,6 +1080,7 @@ backend.server.start();
     echo "  install - [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - make server setup and install all pakages including node and the $BKJS_MOD"
     echo "  init-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
     echo "  init-hostname [-host HOST] - set the hostname"
+    echo "  check-hostname - if needed update /etc/hosts with the hostname of eth0 interface IP address"
     echo "  init-user [-user NAME] - create a new user for the backend"
     echo "  init-ssh - setup SSH permissions, allow only public key auth"
     echo "  init-logrotate - setup logrotate for the backend log files"
@@ -1087,7 +1088,7 @@ backend.server.start();
     echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
-    echo "  init-instance - configure for temporary job instance"
+    echo "  init-instancejob - configure for temporary job instance"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
     echo "  init-sync - setup a cron job to run sync-backend command every 5 minites to check for new software on the \$BKJS_SYNC server"
     echo "  init-packages - install required packges and updates"
@@ -1123,7 +1124,7 @@ backend.server.start();
     echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
     echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
-    echo "  build-bkjs - build the $BKJS_MOD from the git"
+    echo "  build-bkjs - build the $BKJS_MOD from the git with all dependencies compiled"
     echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
