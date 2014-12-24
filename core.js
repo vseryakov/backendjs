@@ -72,7 +72,7 @@ var core = {
     ws: { port: 0, bind: "0.0.0.0", },
 
     // Proxy config
-    proxy: { port: 3000, bind: "127.0.0.1", ssl: false },
+    proxy: { port: 0, bind: "127.0.0.1", ssl: false },
 
     // Number of parallel tasks running at the same time, can be used by various modules
     concurrency: 2,
@@ -170,7 +170,7 @@ var core = {
             { name: "backlog", descr: "The maximum length of the queue of pending connections, used by HTTP server in listen." },
             { name: "ws-port", type: "number", obj: 'ws', min: 0, descr: "port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers" },
             { name: "ws-bind", obj: 'ws', descr: "Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports" },
-            { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default, be advised that proxy-port takes precedence, so to enable SSL set it to 0" },
+            { name: "ssl-port", type: "number", obj: 'ssl', min: 0, descr: "port to listen for HTTPS server, this is global default, be advised that proxy-port takes precedence" },
             { name: "ssl-bind", obj: 'ssl', descr: "Bind to this address only for HTTPS server, if not specified listen on all interfaces" },
             { name: "ssl-key", type: "file", obj: 'ssl', descr: "Path to SSL prvate key" },
             { name: "ssl-cert", type: "file", obj: 'ssl', descr: "Path to SSL certificate" },
@@ -188,7 +188,7 @@ var core = {
             { name: "monitor", type: "none", descr: "For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line" },
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
-            { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests " },
+            { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests, ssl-key/cert must be defined" },
             { name: "app-name", type: "callback", callback: function(v) { if (!v) return;v = v.split(/[\/-]/);this.appName=v[0].trim();if(v[1]) this.appVersion=v[1].trim();}, descr: "Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version", pass: 1 },
             { name: "instance-tag", obj: 'instance', descr: "Set instance tag explicitely, skip all meta data checks for it", pass: 1 },
             { name: "instance-region", obj: 'instance', obj: 'instance', descr: "Set instance region explicitely, skip all meta data checks for it", pass: 1 },
@@ -1128,7 +1128,7 @@ core.httpGet = function(uri, params, callback)
     if (!params.ignoreredirect) params.ignoreredirect = {};
     params.data = params.binary ? new Buffer(0) : '';
     params.size = 0, params.err = null, params.fd = 0, params.status = 0, params.poststream = null;
-    params.href = options.href, params.pathname = options.pathname, params.hostname = options.hostname;
+    params.href = options.href, params.pathname = options.pathname, params.hostname = options.hostname, params.search = options.search;
     var req = null;
     var mod = uri.indexOf("https://") == 0 ? https : http;
 

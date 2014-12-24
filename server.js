@@ -314,14 +314,14 @@ server.startWeb = function(options)
             }
             self.proxyServer = proxy.createServer({ xfwd : true });
             self.proxyServer.on("error", function(err) { if (err.code != "ECONNRESET") logger.error("proxy:", err.code, err.stack) })
-            self.server = core.createServer({ port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
+            self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
                 var target = self.getProxyTarget(req);
                 if (target) return self.proxyServer.web(req, res, target);
                 res.writeHead(500, "Not ready yet");
                 res.end();
             });
-            if (core.proxy.ssl) {
-                self.sslServer = core.createServer({ ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
+            if (core.proxy.ssl && (core.ssl.key || core.ssl.pfx)) {
+                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
                     var target = self.getProxyTarget(req);
                     if (target) return self.proxyServer.web(req, res, target);
                     res.writeHead(500, "Not ready yet");

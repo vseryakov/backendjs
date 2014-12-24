@@ -131,7 +131,7 @@ var db = {
            { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name" },
            { name: "pgsql-pool", count: 3, novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
            { name: "mysql-pool", count: 3, novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
-           { name: "dynamodb-pool", count: 3, novalue: "default", descr: "DynamoDB endpoint url or 'default' to use AWS account default region" },
+           { name: "dynamodb-pool", count: 3, novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
            { name: "mongodb-pool", count: 3, novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
            { name: "cassandra-pool", count: 3, novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
            { name: "lmdb-pool", count: 3, descr: "Path to the local LMDB database" },

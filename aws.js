@@ -96,15 +96,31 @@ aws.readCredentials = function(profile, callback)
 
                 if (state == 1) {
                     if (x[0][0] == '[') break;
-                    if (x[0].trim() == "aws_access_key_id" && x[1]) self.key = x[1].trim();
-                    if (x[0].trim() == "aws_secret_access_key" && x[1]) self.secret = x[1].trim();
-                    if (x[0].trim() == "region" && x[1]) self.region = x[1].trim();
+                    if (x[0].trim() == "aws_access_key_id" && x[1] && !self.key) self.key = x[1].trim();
+                    if (x[0].trim() == "aws_secret_access_key" && x[1] && !self.secret) self.secret = x[1].trim();
+                    if (x[0].trim() == "region" && x[1] && !self.region) self.region = x[1].trim();
                 }
             }
             logger.debug('readCredentials:', self.key, self.secret);
         }
         callback();
     });
+}
+
+// Parse AWS response and try to extract error code and message, convert XML into an object.
+aws.parseXMLResponse = function(err, params, callback)
+{
+    if (err || !params.data) return callback ? callback(err) : null;
+    try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
+    if (params.status != 200) {
+        var errors = core.objGet(params.obj, "Response.Errors.Error", { list: 1 });
+        if (errors.length && errors[0].Message) err = core.newError({ message: errors[0].Message, name: obj.Action || "AWS", code: errors[0].Code, status: params.status });
+        if (!err) err = core.newError({ message: "Error: " + params.data, status: params.status });
+        logger.error('queryAWS:', params.href, params.search, err);
+        return callback ? callback(err, params.obj) : null;
+    }
+    logger.debug('queryAWS:', params.href, params.search, params.obj);
+    if (callback) callback(err, params.obj);
 }
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
@@ -144,32 +160,28 @@ aws.queryAWS = function(proto, method, host, path, obj, callback)
     if (method == "POST") postdata = query, query = "";
 
     core.httpGet(proto + host + path + '?' + query, { method: method, postdata: postdata }, function(err, params) {
-        if (err || !params.data) return callback ? callback(err) : null;
-        try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
-        if (params.status != 200) {
-            var errors = core.objGet(params.obj, "Response.Errors.Error", { list: 1 });
-            if (errors.length && errors[0].Message) err = core.newError({ message: errors[0].Message, name: obj.Action || "AWS", code: errors[0].Code, status: params.status });
-            if (!err) err = core.newError({ message: "Error: " + params.data, name: obj.Action || "AWS", status: params.status });
-            logger.error('queryAWS:', query, err);
-            return callback ? callback(err, params.obj) : null;
-        }
-        logger.debug('queryAWS:', query, params.obj);
-        if (callback) callback(err, params.obj);
+        self.parseXMLResponse(err, params, callback);
     });
+}
+
+// Return a request object ready to be sent to AWS, properly formatted
+aws.queryPrepare = function(action, version, obj, options)
+{
+    var req = { Action: action, Version: version };
+    for (var p in obj) req[p] = obj[p];
+    // All capitalized options are passed as is and take priority because they are in native format
+    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
+    return req;
 }
 
 // AWS generic query interface
 aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
 {
-    var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    var req = { Action: action, Version: version };
     var region = options.region || this.region  || 'us-east-1';
-    for (var p in obj) req[p] = obj[p];
-    // All capitalized options are passed as is and take priority because they are in native format
-    for (var p in options) if (p[0] >= 'A' && p[0] <= 'Z') req[p] = options[p];
-    this.queryAWS(self.proto || options.proto || 'https://', 'POST', endpoint + '.' + region + '.amazonaws.com', '/', req, callback);
+    var req = this.queryPrepare(action, version, obj, options);
+    this.queryAWS(this.proto || options.proto || 'https://', 'POST', endpoint + '.' + region + '.amazonaws.com', '/', req, callback);
 }
 
 // AWS EC2 API request
@@ -206,6 +218,29 @@ aws.querySES = function(action, obj, options, callback)
 aws.queryCFN = function(action, obj, options, callback)
 {
     this.queryEndpoint("cloudformation", '2010-05-15', action, obj, options, callback);
+}
+
+// AWS Elastic Cache API request
+aws.queryElastiCache = function(action, obj, options, callback)
+{
+    this.queryEndpoint("elasticache", '2014-09-30', action, obj, options, callback);
+}
+
+// Make a request to Route53 service
+aws.queryRoute53 = function(method, path, data, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+
+    var curTime = new Date().toUTCString();
+    var uri = "https://route53.amazonaws.com/2013-04-01/" + path;
+    var headers = { "x-amz-date": curTime, "content-type": "text/xml; charset=UTF-8", "content-length": data.length };
+    headers["X-Amzn-Authorization"] = "AWS3-HTTPS AWSAccessKeyId=" + this.key + ",Algorithm=HmacSHA1,Signature=" + core.sign(this.secret, curTime);
+
+    core.httpGet(uri, { method: method, postdata: data, headers: headers }, function(err, params) {
+        self.parseXMLResponse(err, params, callback);
+    });
 }
 
 // Build version 4 signature headers
@@ -246,6 +281,7 @@ aws.queryDDB = function (action, obj, options, callback)
     if (!options) options = {};
     var start = Date.now();
     var region = options.region || this.region  || 'us-east-1';
+    if (options.db && options.db.match(/[a-z][a-z]-[a-z]+-[1-9]/)) region = options.db;
     var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ((self.proto || options.proto || 'http://') + 'dynamodb.' + region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
