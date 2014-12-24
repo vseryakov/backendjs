@@ -117,7 +117,7 @@ var db = {
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "no-pools", type: "bool", descr: "Do not use other db pools except the default pool specified by 'db-pool'" },
            { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
-           { name: "no-init-tables", type: "bool", value: true, descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, disabling this will turn on table creation in the shell and master processes" },
+           { name: "no-init-tables", type: "bool", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, disabling this will turn on table creation in the shell and master processes" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
@@ -336,8 +336,9 @@ db.initPoolTables = function(name, tables, options, callback)
     options.tables = tables;
 
     // These options can redefine behaviour of the initialization sequence
-    var noCacheColumns = typeof options.noCacheColumns != "undefined" ? options.noCacheColumns : self.noCacheColumns;
-    var noInitTables = typeof options.noInitTables != "undefined" ? options.noInitTables : self.noInitTables;
+    var noCacheColumns = options.noCacheColumns || self.noCacheColumns;
+    var noInitTables = options.noInitTables || self.noInitTables;
+    logger.debug('initPoolTables:', core.role, name, noCacheColumns || 0, noInitTables || 0, Object.keys(tables));
 
     // Skip loading column definitions from the database, keep working with the javascript models only
     if (noCacheColumns) {
@@ -345,8 +346,6 @@ db.initPoolTables = function(name, tables, options, callback)
         self.mergeKeys(pool);
         return callback ? callback() : null;
     }
-
-    logger.debug('initPoolTables:', core.role, name, noInitTables, Object.keys(tables));
     self.cacheColumns(options, function() {
         // Workers do not manage tables, only master process
         if (cluster.isWorker || core.worker || noInitTables) {

@@ -136,12 +136,12 @@ server.start = function()
 
     // Master server, always create tables in the masters processes
     if (core.isArg("-master")) {
-        return core.init({ role: "master", noInitTables: 0 }, function(err, opts) { self.startMaster(opts); });
+        return core.init({ role: "master" }, function(err, opts) { self.startMaster(opts); });
     }
 
     // Backend Web server
     if (core.isArg("-web")) {
-        return core.init({ role: "web", noInitTables: 0 }, function(err, opts) { self.startWeb(opts); });
+        return core.init({ role: "web" }, function(err, opts) { self.startWeb(opts); });
     }
 }
 

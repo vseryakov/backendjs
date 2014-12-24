@@ -341,6 +341,7 @@ var api = {
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
+           { name: "init-tables", type: "bool", key: 'initDbTables', descr: "Initialize/create API tables in the shell/worker or other non-API modules" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
            { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
@@ -689,12 +690,14 @@ api.shutdown = function(callback)
 // Allow access to API table in worker processes
 api.configureWorker = function(options, callback)
 {
+    if (!this.initDbTables) return callback();
     this.initTables(options, callback);
 }
 
 // Access to the API table in the shell
 api.configureShell = function(options, callback)
 {
+    if (!this.initDbTables) return callback();
     this.initTables(options, callback);
 }
 
