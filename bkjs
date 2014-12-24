@@ -180,6 +180,15 @@ case "$ARG" in
     fi
     ;;
 
+  init-host)
+    # Set hostname for the eth0 or localhost
+    if [ "$(grep -s $(hostname) /etc/hosts)" = "" ]; then
+       echo "127.0.0.1 localhost" > /etc/hosts
+       addr=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+       echo "${addr:-127.0.0.1} $(hostname)" >> /etc/hosts
+    fi
+    ;;
+
   init-user)
     # Add local user
     LHOME=/home/$BKJS_USER
