@@ -234,7 +234,7 @@ aws.queryRoute53 = function(method, path, data, options, callback)
     if (!options) options = {};
 
     var curTime = new Date().toUTCString();
-    var uri = "https://route53.amazonaws.com/2013-04-01/" + path;
+    var uri = "https://route53.amazonaws.com/2013-04-01" + path;
     var headers = { "x-amz-date": curTime, "content-type": "text/xml; charset=UTF-8", "content-length": data.length };
     headers["X-Amzn-Authorization"] = "AWS3-HTTPS AWSAccessKeyId=" + this.key + ",Algorithm=HmacSHA1,Signature=" + core.sign(this.secret, curTime);
 
