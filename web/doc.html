@@ -127,7 +127,7 @@ on the system before installing the backendjs. Not everything is required, if no
 <p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(PostgreSQL, MySQL) and nanomsg.</p>
 <pre><code>    npm install backendjs
 </code></pre><p>To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:</p>
-<pre><code>    npm install backendjs --backend_nanomsg --backend_imagemagick
+<pre><code>    npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
 </code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
 <p>To install from the git</p>
@@ -1538,7 +1538,7 @@ message being a JSON object with the request API path and mtime, other propertie
 <li>the connection that initiated <code>/account/subscribe</code> receives an event</li>
 </ul>
 <h2 id="nanomsg">nanomsg</h2>
-<p>To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with <code>--backend_nanomsg</code>
+<p>To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with <code>--backendjs_nanomsg</code>
 options to the npm install, see above how to install the package.</p>
 <p>All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
 The config parameter <code>msg-host</code> defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
@@ -1646,7 +1646,7 @@ new image configuration.</p>
 <li><p>install commands</p>
 <pre><code>  yum-config-manager --enable epel
   sudo yum install npm
-  npm install backendjs --backend_nanomsg --backend_imagemagick
+  npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
   sudo bkjs init-service
   bkjs restart
 </code></pre></li>
