@@ -6,13 +6,13 @@
 TEST=db
 
 all:
-	npm build . 
+	npm build .
 
 full:
-	npm build . --backend_nanomsg --backend_imagemagick
+	npm build . --backendjs_nanomsg --backendjs_imagemagick
 
 dev:
-	npm build . --backend_nanomsg --backend_nanomsg_dev --backend_imagemagick
+	npm build . --backendjs_nanomsg --backendjs_nanomsg_dev --backendjs_imagemagick
 
 run:
 	./bkjs run-backend

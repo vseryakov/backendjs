@@ -66,7 +66,7 @@ Note: if for example ImageMagick is not istalled it will be skipped, same goes t
 
 To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:
 
-        npm install backendjs --backend_nanomsg --backend_imagemagick
+        npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
 
 This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.
@@ -1589,7 +1589,7 @@ The flow of the pub/sub operations is the following:
 - the connection that initiated `/account/subscribe` receives an event
 
 ## nanomsg
-To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backend_nanomsg`
+To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backendjs_nanomsg`
 options to the npm install, see above how to install the package.
 
 All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
@@ -1728,7 +1728,7 @@ new image configuration.
 
         yum-config-manager --enable epel
         sudo yum install npm
-        npm install backendjs --backend_nanomsg --backend_imagemagick
+        npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
         sudo bkjs init-service
         bkjs restart
 

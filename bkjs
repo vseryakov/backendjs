@@ -44,7 +44,7 @@ esac
 # There are special commands that can be used as the script name
 NAME=$(echo $0 | awk -F/ '{print $NF}')
 case "$NAME" in
-  bksh|sync-backend|check-backend|backup-backend|log-watch|ntp)
+  bksh|sync-backend|check-backend|backup-backend|run-logwatcher|run-ntp)
     ARG=$NAME
     ;;
 
@@ -64,6 +64,7 @@ while [ $# -gt 1 ]; do
      -host) export BKJS_HOST=$2;shift;shift;;
      -sync) export BKJS_SYNC=$2;shift;shift;;
      -path) export BKJS_PATH=$2;shift;shift;;
+     -args) export BKJS_ARGS="$BKJS_ARGS $2";shift;shift;;
      -ssh) export BKJS_SSH_ARGS="$BKJS_SSH_ARGS $2";shift;shift;;
      -rsync) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS $2";shift;shift;;
      -exclude) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude $2";shift;shift;;
@@ -141,7 +142,7 @@ case "$ARG" in
     sudo $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
     sudo $0 init-devel
     [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -u $BKJS_USER -H $0 build-node)
-    (cd $BKJS_HOME && sudo -u $BKJS_USER -H $0 build-bkjs)
+    (cd $BKJS_HOME && sudo -u $BKJS_USER -H $0 build-bkjs -args $BKJS_ARGS)
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
@@ -415,6 +416,10 @@ case "$ARG" in
     chkconfig $BKJS on
     ;;
 
+  init-logwatcher)
+    ln -sf $BKJS_BIN /etc/cron.hourly/run-logwatcher
+    ;;
+
   init-sync)
     echo 'MAILTO=""' > /etc/cron.d/$BKJS
     echo "*/15 * * * * $BKJS_USER $BKJS_BIN sync-backend" >> /etc/cron.d/$BKJS
@@ -561,11 +566,11 @@ case "$ARG" in
     fi
     ;;
 
-  log-watch)
+  run-logwatcher)
     bkjs run-shell -log error -log-watch $@
     ;;
 
-  ntp)
+  run-ntp)
     ntpdate pool.ntp.org > /dev/null 2>&1
     ;;
 
@@ -805,13 +810,17 @@ case "$ARG" in
     rm -rf *~ *.o *.a *.so *.dylib *.node *.log build
     ;;
 
+  install-bkjs)
+    (cd $BKJS_HOME && npm install vseryakov/backendjs $BKJS_ARGS)
+    ;;
+
   build-bkjs)
     if [ ! -d node_modules/$BKJS_MOD ]; then
         mkdir -p node_modules
         (cd node_modules && git clone https://github.com/vseryakov/backendjs.git)
     fi
     (cd node_modules/$BKJS_MOD && git pull)
-    (cd node_modules/$BKJS_MOD && npm install --backend_nanomsg --backend_imagemagick)
+    (cd node_modules/$BKJS_MOD && npm install $BKJS_ARGS)
     ;;
 
   build-backend)
@@ -847,7 +856,7 @@ case "$ARG" in
     mkdir -p deps
 
     pkg-config --silence-errors --exists libopenjp2
-    if [ "$?" = "1" -a "$npm_config_backend_openjpeg" != "" -a "$npm_config_backend_imagemagick" != "" ]; then
+    if [ "$?" = "1" -a "$npm_config_backendjs_openjpeg" != "" -a "$npm_config_backendjs_imagemagick" != "" ]; then
         if [ ! -d deps/openjpeg ]; then
            (cd deps && svn -r r2871 checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
         fi
@@ -856,10 +865,10 @@ case "$ARG" in
     fi
 
     pkg-config --silence-errors --exists libnanomsg
-    if [ "$?" = "1" -a "$npm_config_backend_nanomsg" != "" ]; then
+    if [ "$?" = "1" -a "$npm_config_backendjs_nanomsg" != "" ]; then
         if [ ! -d deps/nanomsg ]; then
             nrepo=nanomsg
-            [ "$npm_config_backend_nanomsg_dev" != "" ] && nrepo=vseryakov
+            [ "$npm_config_backendjs_nanomsg_dev" != "" ] && nrepo=vseryakov
             (cd deps && git clone https://github.com/$nrepo/nanomsg.git)
         fi
         (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
@@ -868,7 +877,7 @@ case "$ARG" in
     fi
 
     pkg-config --silence-errors --exists Wand
-    if [ "$?" = "1" -a "$npm_config_backend_imagemagick" != "" ]; then
+    if [ "$?" = "1" -a "$npm_config_backendjs_imagemagick" != "" ]; then
         if [ ! -d deps/ImageMagick ]; then
            mkdir -p deps/ImageMagick
            curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
@@ -930,6 +939,7 @@ $(whoami)
 #db-cassandra-pool=cql://127.0.0.1/backend
 #db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 #db-dynamodb-pool=http://localhost:8181
+#db-dynamodb-pool=us-east-1
 #db-mongodb=mongodb://localhost
 #aws-key=XXXXX
 #aws-secret=XXXXX
@@ -1124,7 +1134,7 @@ backend.server.start();
     echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
     echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
-    echo "  build-bkjs - build the $BKJS_MOD from the git with all dependencies compiled"
+    echo "  build-bkjs - clone and build the $BKJS_MOD from the git with dependencies specified in parameter -args"
     echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
@@ -1157,6 +1167,8 @@ backend.server.start();
     echo "  -host host - host to be used transfer or sync, default is $BKJS_HOST"
     echo "  -path path - path to be used for transfer or sync, default is $BKJS_PATH"
     echo "  -ssh opts - pass additional parameters to the ssh command"
+    echo "  -rsync opts - pass additional parameters to the rsync command"
+    echo "  -args opts - generic parameters used by any specific command"
     ;;
 esac
 
