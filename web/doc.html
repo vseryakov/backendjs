@@ -413,9 +413,7 @@ for example with invitation codes....</p>
 add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
 all columns of this table are available as <code>req.account</code> object after the successful authentication where req is Express request object used in the middleware
 parameters.</p>
-<p><em>Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
-backend Web client is to scramble login/secret using HMAC-SHA1 and keep them in the local storage, this way the real login and secret is never exposed but
-the login popup will still asking for real name, see backend.js in the web/js folder for more details.</em></p>
+<p><em>Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields</em></p>
 <p>Example:</p>
 <pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
 </code></pre></li>
@@ -488,7 +486,7 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
 
   // To run in the browser:
   (function poll() {
-      Backend.send({ url: &quot;/account/subscribe&quot;, complete: poll }, function(data) {
+      Backendjs.send({ url: &quot;/account/subscribe&quot;, complete: poll }, function(data) {
           console.log(&quot;received event:&quot;, data);
        });
    })();
@@ -1570,22 +1568,21 @@ this assumes the default path &#39;/public&#39; still allowed without the signat
     &lt;script src=&quot;/js/jquery-ui.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
     &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
     &lt;script src=&quot;/js/crypto.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;js/backend.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;js/backend-jquery-ui.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;js/backendjs.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;js/backendjs-jquery-ui.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
     &lt;script&gt;
     $(function () {
-        Backend.session = true;
-        Backend.scramble = true;
-        ko.applyBindings(Backend);
+        Backendjs.session = true;
+        ko.applyBindings(Backendjs);
 
-        Backend.login(function(err, data) {
+        Backendjs.login(function(err, data) {
             if (err) window.location=&#39;/public/index.html&#39;;
         });
     });
     &lt;/script&gt;
 </code></pre><h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
 <p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page <code>Backend.session</code> must be set to true for all
+in case of error will be redirected to the login page by the server. Note, in the login page <code>Backendjs.session</code> must be set to true for all
 html pages to work after login without singing every API request.</p>
 <p>First we disable all allowed paths to the html and registration:</p>
 <pre><code>    app.configureMiddleware = function(options, callback) {
@@ -1744,7 +1741,7 @@ all config parameters support DNS store. To see which parmeteres can be stored i
 <p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.</p>
-<p>See web/js/backend.js for function Backend.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
+<p>See web/js/backendjs.js for function Backendjs.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
 <h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
 <ul>
 <li><p>for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:</p>
@@ -2225,7 +2222,7 @@ the worker processes if they die and restart them automatically. How many proces
 <p> Initialize API layer, this must be called before the <code>api</code> module can be used but it is called by the server module automatically so <code>api.init</code> is
 rearely need to called directly, only for new server implementation or if using in the shell for testing.</p>
 <p>During the init sequence, this function calls <code>api.initMiddleware</code> and <code>api.initApplication</code> methods which by default are empty but can be redefined in the user aplications.</p>
-<p>The backend.js uses its own request parser that places query parameters into <code>req.query</code> or <code>req.body</code> depending on the method.</p>
+<p>The backendjs.js uses its own request parser that places query parameters into <code>req.query</code> or <code>req.body</code> depending on the method.</p>
 <p>For GET method, <code>req.query</code> contains all url-encoded parameters, for POST method <code>req.body</code> contains url-encoded parameters or parsed JSON payload or multipart payload.</p>
 <p>The reason not to do this by default is that this may not be the alwayse wanted case and distinguishing data coming in the request or in the body may be desirable,
 also, this will needed only for Express handlers <code>.all</code>, when registering handler by method like <code>.get</code> or <code>.post</code> then the handler needs to deal with only either source of the request data.</p>
