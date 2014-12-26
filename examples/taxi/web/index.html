@@ -14,7 +14,7 @@
 <link href="/css/jquery-ui.css" rel="stylesheet" type="text/css" />
 <script src="/js/jquery-ui.js" type="text/javascript"></script>
 
-<script src="js/backend.js" type="text/javascript"></script>
+<script src="js/backendjs.js" type="text/javascript"></script>
 <script src="js/backend-jquery-ui.js" type="text/javascript"></script>
 
 <link rel="stylesheet" href="/css/bootstrap.css">
@@ -61,49 +61,49 @@
 
 $(document).ready(function() {
 
-    Backend.taxis = {};
+    Backendjs.taxis = {};
 
-    Backend.doRefresh = function(data, event) {
+    Backendjs.doRefresh = function(data, event) {
         this.send({ url: '/taxi/get', jsonType: "list" }, function(list) {
             list.forEach(function(x) {
                 var pos = new google.maps.LatLng(x.latitude, x.longitude);
-                if (!Backend.taxis[x.id]) {
-                    Backend.taxis[x.id] = x;
-                    x.marker = new google.maps.Marker({ map: Backend.map, position: pos, icon: 'taxi-' + x.status + '.png', title: x.id });
+                if (!Backendjs.taxis[x.id]) {
+                    Backendjs.taxis[x.id] = x;
+                    x.marker = new google.maps.Marker({ map: Backendjs.map, position: pos, icon: 'taxi-' + x.status + '.png', title: x.id });
                 } else {
-                    Backend.taxis[x.id].marker.setIcon('taxi-' + x.status + '.png');
-                    Backend.taxis[x.id].marker.animateTo(pos);
+                    Backendjs.taxis[x.id].marker.setIcon('taxi-' + x.status + '.png');
+                    Backendjs.taxis[x.id].marker.animateTo(pos);
                 }
             });
         });
     }
 
-    Backend.doConfirm = function(data, event) {
-        Backend.send({ url: '/taxi/set?status=Scheduled&id=' + data.id, jsonType: "list" }, function() {
-            Backend.doRefresh();
+    Backendjs.doConfirm = function(data, event) {
+        Backendjs.send({ url: '/taxi/set?status=Scheduled&id=' + data.id, jsonType: "list" }, function() {
+            Backendjs.doRefresh();
         });
     }
 
-    Backend.showLogin = function() {
+    Backendjs.showLogin = function() {
         this.login();
     }
-    Backend.showLogout = function() {
+    Backendjs.showLogout = function() {
         this.logout();
     }
 
-    Backend.setupMap = function() {
-        Backend.send({ url: '/taxi/center' }, function(center) {
-            Backend.center = new google.maps.LatLng(center.latitude, center.longitude);
-            Backend.map = new google.maps.Map(document.getElementById('map_canvas'), { zoom: 13, center: Backend.center, mapTypeId: google.maps.MapTypeId.ROADMAP });
-            Backend.doRefresh();
-            setInterval(function() { Backend.doRefresh() }, 5000);
+    Backendjs.setupMap = function() {
+        Backendjs.send({ url: '/taxi/center' }, function(center) {
+            Backendjs.center = new google.maps.LatLng(center.latitude, center.longitude);
+            Backendjs.map = new google.maps.Map(document.getElementById('map_canvas'), { zoom: 13, center: Backendjs.center, mapTypeId: google.maps.MapTypeId.ROADMAP });
+            Backendjs.doRefresh();
+            setInterval(function() { Backendjs.doRefresh() }, 5000);
         });
     }
 
-    ko.applyBindings(Backend);
-    Backend.login(function(err, data) {
+    ko.applyBindings(Backendjs);
+    Backendjs.login(function(err, data) {
         if (err) return true;
-        Backend.setupMap();
+        Backendjs.setupMap();
     });
 
 });

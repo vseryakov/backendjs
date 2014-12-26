@@ -600,6 +600,16 @@ server.startShell = function(options)
             });
         } else
 
+        // Change user password
+        if (core.isArg("-account-set-secret")) {
+            var query = getQuery();
+            getUser(query, function(row) {
+                api.setAccountSecret({ account: row, query: query }, {}, function(err, data) {
+                    exit(err, data);
+                });
+            });
+        } else
+
         // Delete a user and all its history according to the options
         if (core.isArg("-account-del")) {
             var query = getQuery();

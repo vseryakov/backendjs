@@ -909,27 +909,36 @@ case "$ARG" in
     [ "$1" != "" -a "${1:0:1}" != "-" ] && NAME=$1 && shift
     mkdir -p etc web
     if [ ! -e README.md ]; then
-       cat > README.md <<@@@
-# Backend.js application
+       cat > README.md <<EOF
+# Backendjs application
 
-# Installation
- - npm install
+1. To install
 
-# Running
- - ./app.sh
- - point the browser to http://localhost:8000/api.html
+        npm install
+
+2. Create a user
+
+        bksh -etc-dir \$(pwd)/etc -account-add login admin secret admin
+
+3. Run the app
+
+        ./app.sh
+
+4. Point browser to http://localhost:8000
+
+5. Login as admin:admin
 
 # Authors
 $(whoami)
 
-@@@
+EOF
     fi
 
-    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $NODE_BIN $NAME.js -watch \`pwd\` -web -debug -etc-dir \`pwd\`/etc -web-dir \`pwd\`/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $NODE_BIN $NAME.js -watch \$(pwd) -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
     [ ! -e .gitignore ] && $ECHO "*~\n.*\nbin/\ndocs/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
 
     if [ ! -e etc/config ]; then
-       cat > etc/config <<@@@
+       cat > etc/config <<EOF
 #debug=1
 #port=80
 #repl-port=2080
@@ -945,21 +954,22 @@ $(whoami)
 #aws-secret=XXXXX
 #api-images-s3=S3BucketName
 #server-max-processes=2
-#api-unsecure=data
+#api-unsecure=data,system
 #max-distance=160
 #logwatcher-interval=3600
 #logwatcher-email=logwatcher@dot.com
 #server-jobs-interval=0
 #api-caching=bk_auth,bk_counter
 #api-allow-path=^/open/url$
+#api-allow-admin=^/(system|data)
 #cache-host=10.1.1.1
 #msg-host=10.1.1.1
 #redis-host=10.1.1.1
-@@@
+EOF
     fi
 
     if [ ! -e $NAME.js ]; then
-      cat > $NAME.js <<@@@
+      cat > $NAME.js <<EOF
 //
 // Backend app
 // Created by $(whoami) on $(date)
@@ -1061,8 +1071,8 @@ api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) {
     callback(status);
 });
 
-backend.server.start();
-@@@
+bkjs.server.start();
+EOF
       $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"The backend\",\n \"repository\": { \"type\": \"git\", \"url\": \"http://github.com/vseryakov/backendjs.git\" },\n \"main\": \"app.js\",\n \"dependencies\": {\n    \"$BKJS_MOD\": \">=0.9.0\"\n },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
     fi
     ;;
@@ -1104,6 +1114,8 @@ backend.server.start();
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
+    echo "  init-logwatcher - creates a cron.hourly symlink to peridocially run the log watcher"
+    echo "  run-logwatcher - executes the log watcher"
     echo "  init-app - create application skeleton for an application based on the backend, app name can be specified as the first argument"
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
@@ -1145,6 +1157,7 @@ backend.server.start();
     echo "bksh subcommands:"
     echo "  -account-add login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value "
     echo "  -account-update [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value "
+    echo "  -account-set-secret login LOGIN|id id secret SECRET - change a user secret"
     echo "  -account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
     echo "  -location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account"
     echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"

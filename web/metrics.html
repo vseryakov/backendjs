@@ -15,8 +15,8 @@
 
  <script src="/js/crypto.js" type="text/javascript"></script>
 
- <script src="/js/backend.js" type="text/javascript"></script>
- <script src="/js/backend-jquery-ui.js" type="text/javascript"></script>
+ <script src="/js/backendjs.js" type="text/javascript"></script>
+ <script src="/js/backendjs-jquery-ui.js" type="text/javascript"></script>
 
  <link href="/css/nv.d3.css" rel="stylesheet" type="text/css">
  <script src="/js/d3.min.js"></script>
@@ -61,7 +61,7 @@ function showChart()
 
     var type = $('#type').val();
     var mtime = Date.now() - parseInt($('#period').val());
-    Backend.send({ url: "/system/stats/calc?_noscan=0&_ops=mtime,ge&mtime=" + mtime, jsonType: "list" }, function(rows) {
+    Backendjs.send({ url: "/system/stats/calc?_noscan=0&_ops=mtime,ge&mtime=" + mtime, jsonType: "list" }, function(rows) {
 
         var data = [];
         switch (type) {
@@ -144,7 +144,7 @@ function showChart()
            return chart;
         });
     }, function(err) {
-	console.log(err);
+    console.log(err);
     });
 }
 
@@ -153,7 +153,7 @@ $(function() {
      $('#period').on('change', function() { showChart(); });
 
      ko.applyBindings(Backend);
-     Backend.login(function(err) {
+     Backendjs.login(function(err) {
        if (!err) showChart();
        return 1;
      });

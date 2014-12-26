@@ -386,7 +386,7 @@ module.exports = api;
 //
 // During the init sequence, this function calls `api.initMiddleware` and `api.initApplication` methods which by default are empty but can be redefined in the user aplications.
 //
-// The backend.js uses its own request parser that places query parameters into `req.query` or `req.body` depending on the method.
+// The backendjs.js uses its own request parser that places query parameters into `req.query` or `req.body` depending on the method.
 //
 // For GET method, `req.query` contains all url-encoded parameters, for POST method `req.body` contains url-encoded parameters or parsed JSON payload or multipart payload.
 //

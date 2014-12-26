@@ -398,9 +398,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
   all columns of this table are available as `req.account` object after the successful authentication where req is Express request object used in the middleware
   parameters.
 
-  *Note: secret and login can be anything, the backend does not require any specific formats so one simple trick which is done by the
-  backend Web client is to scramble login/secret using HMAC-SHA1 and keep them in the local storage, this way the real login and secret is never exposed but
-  the login popup will still asking for real name, see backend.js in the web/js folder for more details.*
+  *Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields*
 
   Example:
 
@@ -489,7 +487,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
         // To run in the browser:
         (function poll() {
-            Backend.send({ url: "/account/subscribe", complete: poll }, function(data) {
+            Backendjs.send({ url: "/account/subscribe", complete: poll }, function(data) {
                 console.log("received event:", data);
              });
          })();
@@ -1633,15 +1631,14 @@ this assumes the default path '/public' still allowed without the signature:
         <script src="/js/jquery-ui.js" type="text/javascript"></script>
         <script src="/js/knockout.js" type="text/javascript"></script>
         <script src="/js/crypto.js" type="text/javascript"></script>
-        <script src="js/backend.js" type="text/javascript"></script>
-        <script src="js/backend-jquery-ui.js" type="text/javascript"></script>
+        <script src="js/backendjs.js" type="text/javascript"></script>
+        <script src="js/backendjs-jquery-ui.js" type="text/javascript"></script>
         <script>
         $(function () {
-            Backend.session = true;
-            Backend.scramble = true;
-            ko.applyBindings(Backend);
+            Backendjs.session = true;
+            ko.applyBindings(Backendjs);
 
-            Backend.login(function(err, data) {
+            Backendjs.login(function(err, data) {
                 if (err) window.location='/public/index.html';
             });
         });
@@ -1649,7 +1646,7 @@ this assumes the default path '/public' still allowed without the signature:
 
 ## Secure Web site, backend verification
 On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page `Backend.session` must be set to true for all
+in case of error will be redirected to the login page by the server. Note, in the login page `Backendjs.session` must be set to true for all
 html pages to work after login without singing every API request.
 
 First we disable all allowed paths to the html and registration:
@@ -1823,7 +1820,7 @@ For JSON content type, the method must be POST and no query parameters specified
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.
 
-See web/js/backend.js for function Backend.sign or function core.signRequest in the core.js for the Javascript implementation.
+See web/js/backendjs.js for function Backendjs.sign or function core.signRequest in the core.js for the Javascript implementation.
 
 # Backend framework development (Mac OS X, developers)
 
