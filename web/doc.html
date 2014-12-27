@@ -1902,13 +1902,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff. Default: &quot;sqlite&quot;</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db. Default: 300</li>
-<li><code>db-NAME-pool-max</code> - Max number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: pool-max-1 .. pool-max-3.</li>
-<li><code>db-NAME-pool-min</code> - Min number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: pool-min-1 .. pool-min-3.</li>
-<li><code>db-NAME-pool-idle</code> - Number of ms for a db pool connection to be idle before being destroyed. Where NAME is the actual pool name.. 3 variants: pool-idle-1 .. pool-idle-3.</li>
-<li><code>db-NAME-pool-tables</code> - A DB pool tables, list of tables that belong to this pool only. Where NAME is the actual pool name.. 3 variants: pool-tables-1 .. pool-tables-3.</li>
-<li><code>db-NAME-pool-init-options</code> - Options for a DB pool driver passed during creation of a pool. Where NAME is the actual pool name.. 3 variants: pool-init-options-1 .. pool-init-options-3.</li>
-<li><code>db-NAME-pool-options</code> - A DB pool driver options passed to every request. Where NAME is the actual pool name.. 3 variants: pool-options-1 .. pool-options-3.</li>
-<li><code>db-sqlite-pool</code> - SQLite pool db name, absolute path or just a name. Default: &quot;backendjs&quot;. 3 variants: sqlite-pool-1 .. sqlite-pool-3.</li>
+<li><code>db-sqlite-pool</code> - SQLite pool db name, absolute path or just a name for the db file created in var/. 3 variants: sqlite-pool-1 .. sqlite-pool-3.</li>
 <li><code>db-pgsql-pool</code> - PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db. 3 variants: pgsql-pool-1 .. pgsql-pool-3.</li>
 <li><code>db-mysql-pool</code> - MySQL pool access url in the format: mysql://[user:password@]hostname/db. 3 variants: mysql-pool-1 .. mysql-pool-3.</li>
 <li><code>db-dynamodb-pool</code> - DynamoDB endpoint url, a region or &#39;default&#39; to use AWS account default region. 3 variants: dynamodb-pool-1 .. dynamodb-pool-3.</li>
@@ -1920,6 +1914,12 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>db-elasticsearch-pool</code> - ElasticSearch url to the host in the format: <a href="http://hostname[:port">http://hostname[:port</a>]. 3 variants: elasticsearch-pool-1 .. elasticsearch-pool-3.</li>
 <li><code>db-couchdb-pool</code> - CouchDB url to the host in the format: <a href="http://hostname[:port]/dbname">http://hostname[:port]/dbname</a>. 3 variants: couchdb-pool-1 .. couchdb-pool-3.</li>
 <li><code>db-riak-pool</code> - Riak url to the host in the format: <a href="http://hostname[:port">http://hostname[:port</a>]. 3 variants: riak-pool-1 .. riak-pool-3.</li>
+<li><code>db-NAME-pool-max</code> - Max number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: pool-max-1 .. pool-max-3.</li>
+<li><code>db-NAME-pool-min</code> - Min number of open connections for a pool. Where NAME is the actual pool name.. 3 variants: pool-min-1 .. pool-min-3.</li>
+<li><code>db-NAME-pool-idle</code> - Number of ms for a db pool connection to be idle before being destroyed. Where NAME is the actual pool name.. 3 variants: pool-idle-1 .. pool-idle-3.</li>
+<li><code>db-NAME-pool-tables</code> - A DB pool tables, list of tables that belong to this pool only. Where NAME is the actual pool name.. 3 variants: pool-tables-1 .. pool-tables-3.</li>
+<li><code>db-NAME-pool-init-options</code> - Options for a DB pool driver passed during creation of a pool. Where NAME is the actual pool name.. 3 variants: pool-init-options-1 .. pool-init-options-3.</li>
+<li><code>db-NAME-pool-options</code> - A DB pool driver options passed to every request. Where NAME is the actual pool name.. 3 variants: pool-options-1 .. pool-options-3.</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region</li>
@@ -1960,7 +1960,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication. Default: 1209600000</li>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
 <li><code>api-token-secret</code> - Name of the property to be used for encrypting tokens, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
-<li><code>api-unsecure</code> - Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution. Default: []</li>
+<li><code>api-unsecure</code> - Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution, usually combined with -allow-admin. Default: []</li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: []</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: {}</li>
 <li><code>api-allow-connection</code> - Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op.... Default: {}</li>
@@ -5926,8 +5926,7 @@ options may define the following properties:</p>
 
 <ul>
 <li><p><code>db.sqliteInitPool(options)</code></p>
-<p> Initialize local SQLite cache database by name, the db files are open in read only mode and are watched for changes,
-if new file got copied from the master, we reopen local database</p>
+<p> Initialize local SQLite cache database by name or full path</p>
 </li>
 </ul>
 
