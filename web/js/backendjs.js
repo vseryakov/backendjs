@@ -122,7 +122,7 @@ var Backendjs = {
         if (!options) options = {};
         if (!method) method = "GET";
         var expires = options.expires || 0;
-        if (!expires || typeof expires != "number") expires = now + 30000;
+        if (!expires || typeof expires != "number") expires = now + 60000;
         if (expires < now) expires += now;
         var ctype = options.contentType || "";
         if (!ctype && method == "POST") ctype = "application/x-www-form-urlencoded; charset=UTF-8";

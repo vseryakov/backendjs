@@ -108,7 +108,7 @@ var db = {
 
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
-    sqlitePool: core.name,
+    sqlitePool: '',
 
     // Refresh config from the db
     configInterval: 300,
@@ -122,13 +122,7 @@ var db = {
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
-           { name: "pool-max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
-           { name: "pool-min", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
-           { name: "pool-idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
-           { name: "pool-tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
-           { name: "pool-init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
-           { name: "pool-options", count: 3, match: "pool", type: "json", descr: "A DB pool driver options passed to every request" },
-           { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name" },
+           { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name for the db file created in var/" },
            { name: "pgsql-pool", count: 3, novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
            { name: "mysql-pool", count: 3, novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
            { name: "dynamodb-pool", count: 3, novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
@@ -140,6 +134,12 @@ var db = {
            { name: "elasticsearch-pool", count: 3, novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
            { name: "couchdb-pool", count: 3, novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
            { name: "riak-pool", count: 3, novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
+           { name: "pool-max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
+           { name: "pool-min", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
+           { name: "pool-idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
+           { name: "pool-tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
+           { name: "pool-init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
+           { name: "pool-options", count: 3, match: "pool", type: "json", descr: "A DB pool driver options passed to every request" },
     ],
 
     // Default tables
@@ -196,22 +196,23 @@ db.init = function(options, callback)
         for (var i = 0; i < (x.count || 1); i++) {
             var n = i > 0 ? i : "";
             var name = pool + n;
+            if (self.pools[name]) continue;
             var db = self[pool + 'Pool' + n];
-            if (!db || self.pools[name]) continue;
+            if (typeof db == "undefined") continue;
             // local pool must be always initialized
             if (options.noPools || self.noPools) {
                 if (name != self.local && name != self.pool) continue;
             }
             var opts = { pool: name,
                          db: db,
-                         min: self[pool + 'Min' + n] || 0,
-                         max: self[pool + 'Max' + n] || Infinity,
-                         idle: self[pool + 'Idle' + n] || 86400000,
-                         dbinit: self[pool + 'InitOptions' + n],
-                         dboptions: self[pool + 'Options' + n] };
+                         min: self[pool + 'PoolMin' + n] || 0,
+                         max: self[pool + 'PoolMax' + n] || Infinity,
+                         idle: self[pool + 'PoolIdle' + n] || 86400000,
+                         dbinit: self[pool + 'PoolInitOptions' + n],
+                         dboptions: self[pool + 'PoolOptions' + n] };
             self[pool + 'InitPool'](opts);
             // Pool specific tables
-            (self[pool + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
+            (self[pool + 'PoolTables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
         }
     });
 
@@ -2946,8 +2947,7 @@ db.pgsqlBindValue = function(val, info)
     return val;
 }
 
-// Initialize local SQLite cache database by name, the db files are open in read only mode and are watched for changes,
-// if new file got copied from the master, we reopen local database
+// Initialize local SQLite cache database by name or full path
 db.sqliteInitPool = function(options)
 {
     var self = this;
@@ -2959,7 +2959,7 @@ db.sqliteInitPool = function(options)
 
     if (!options.pool) options.pool = "sqlite";
     options.type = "sqlite";
-    options.file = path.join(options.path || core.path.spool, (options.db || name)  + ".db");
+    options.file = path.join(options.path || core.path.spool, (options.db || core.name)  + ".db");
     options.dboptions = { noLengths: 1, noMultiSQL: 1 };
     var pool = this.sqlInitPool(options);
     pool.connect = self.sqliteConnect;
