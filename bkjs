@@ -124,17 +124,17 @@ case "$ARG" in
     ;;
 
   stop)
-    $KILLALL $1 'backend:'
+    $KILLALL $1 'backendjs:'
     sleep 1
-    $KILLALL $1 'backend:'
+    $KILLALL $1 'backendjs:'
     exit 0
     ;;
 
   stop-*)
     name=${ARG:5}
     [ "$name" = "" ] && exit 0
-    $KILLALL $1 "backend: $name"
-    $KILLALL $1 "backend: $name"
+    $KILLALL $1 "backendjs: $name"
+    $KILLALL $1 "backendjs: $name"
     exit 0
     ;;
 

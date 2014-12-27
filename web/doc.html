@@ -212,11 +212,11 @@ is only enabled by default in development mode, check app.sh for parameters befo
 </ul>
 <p>These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed one.</p>
 <p>This is the typical output from the ps command on Linux server:</p>
-<pre><code>        root       891  0.0  0.6 1071632 49504 ?       Ssl  14:33   0:01 backend: monitor
-        backend    899  0.0  0.6 1073844 52892 ?       Sl   14:33   0:01 backend: master
-        root       908  0.0  0.8 1081020 68780 ?       Sl   14:33   0:02 backend: server
-        backend    917  0.0  0.7 1072820 59008 ?       Sl   14:33   0:01 backend: web
-        backend    919  0.0  0.7 1072820 60792 ?       Sl   14:33   0:02 backend: web
+<pre><code>        root       891  0.0  0.6 1071632 49504 ?       Ssl  14:33   0:01 backendjs: monitor
+        backend    899  0.0  0.6 1073844 52892 ?       Sl   14:33   0:01 backendjs: master
+        root       908  0.0  0.8 1081020 68780 ?       Sl   14:33   0:02 backendjs: server
+        backend    917  0.0  0.7 1072820 59008 ?       Sl   14:33   0:01 backendjs: web
+        backend    919  0.0  0.7 1072820 60792 ?       Sl   14:33   0:02 backendjs: web
 </code></pre><p>To enable any task a command line parameter must be provided, it cannot be specified in the config file. The <code>bkjs</code> utility supports several
 commands that simplify running the backend in different modes.</p>
 <ul>
@@ -1908,7 +1908,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>db-NAME-pool-tables</code> - A DB pool tables, list of tables that belong to this pool only. Where NAME is the actual pool name.. 3 variants: pool-tables-1 .. pool-tables-3.</li>
 <li><code>db-NAME-pool-init-options</code> - Options for a DB pool driver passed during creation of a pool. Where NAME is the actual pool name.. 3 variants: pool-init-options-1 .. pool-init-options-3.</li>
 <li><code>db-NAME-pool-options</code> - A DB pool driver options passed to every request. Where NAME is the actual pool name.. 3 variants: pool-options-1 .. pool-options-3.</li>
-<li><code>db-sqlite-pool</code> - SQLite pool db name, absolute path or just a name. Default: &quot;backend&quot;. 3 variants: sqlite-pool-1 .. sqlite-pool-3.</li>
+<li><code>db-sqlite-pool</code> - SQLite pool db name, absolute path or just a name. Default: &quot;backendjs&quot;. 3 variants: sqlite-pool-1 .. sqlite-pool-3.</li>
 <li><code>db-pgsql-pool</code> - PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db. 3 variants: pgsql-pool-1 .. pgsql-pool-3.</li>
 <li><code>db-mysql-pool</code> - MySQL pool access url in the format: mysql://[user:password@]hostname/db. 3 variants: mysql-pool-1 .. mysql-pool-3.</li>
 <li><code>db-dynamodb-pool</code> - DynamoDB endpoint url, a region or &#39;default&#39; to use AWS account default region. 3 variants: dynamodb-pool-1 .. dynamodb-pool-3.</li>

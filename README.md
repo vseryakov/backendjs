@@ -166,11 +166,11 @@ These features can be run standalone or under the guard of the monitor which tra
 
 This is the typical output from the ps command on Linux server:
 
-            root       891  0.0  0.6 1071632 49504 ?       Ssl  14:33   0:01 backend: monitor
-            backend    899  0.0  0.6 1073844 52892 ?       Sl   14:33   0:01 backend: master
-            root       908  0.0  0.8 1081020 68780 ?       Sl   14:33   0:02 backend: server
-            backend    917  0.0  0.7 1072820 59008 ?       Sl   14:33   0:01 backend: web
-            backend    919  0.0  0.7 1072820 60792 ?       Sl   14:33   0:02 backend: web
+            root       891  0.0  0.6 1071632 49504 ?       Ssl  14:33   0:01 backendjs: monitor
+            backend    899  0.0  0.6 1073844 52892 ?       Sl   14:33   0:01 backendjs: master
+            root       908  0.0  0.8 1081020 68780 ?       Sl   14:33   0:02 backendjs: server
+            backend    917  0.0  0.7 1072820 59008 ?       Sl   14:33   0:01 backendjs: web
+            backend    919  0.0  0.7 1072820 60792 ?       Sl   14:33   0:02 backendjs: web
 
 
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
