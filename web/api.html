@@ -272,7 +272,7 @@ $(function() {
          enter: function() { Backendjs.doRun() }
      });
      document.title += ": " + window.location.hostname.split(".").shift();
-     ko.applyBindings(Backend);
+     ko.applyBindings(Backendjs);
      Backendjs.doLogin();
      Backendjs.initHistory();
  });

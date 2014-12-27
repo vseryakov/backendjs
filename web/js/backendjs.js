@@ -12,6 +12,9 @@ var Backendjs = {
     // Support sessions
     session: false,
 
+    // Only keep credentials in memory, not in local storage
+    temporary: false,
+
     // Current account
     account: null,
 
@@ -20,16 +23,16 @@ var Backendjs = {
 
     // Return current credentials
     getCredentials: function() {
-        return { login: localStorage.backendLogin || "",
-                 secret: localStorage.backendSecret || "",
-                 sigversion: parseInt(localStorage.backendSigVersion) || 1 };
+        var obj = this.temporary ? this : localStorage;
+        return { login: obj.backendLogin || "", secret: obj.backendSecret || "", sigversion: parseInt(obj.backendSigVersion) || 1 };
     },
 
     // Set new credentials, encrypt email for signature version 3, keep the secret encrypted
     setCredentials: function(login, secret, version) {
-        localStorage.backendLogin = login ? String(login) : "";
-        localStorage.backendSecret = secret ? String(secret) : "";
-        localStorage.backendSigVersion = version || this.sigversion || 1;
+        var obj = this.temporary ? this : localStorage;
+        obj.backendLogin = login ? String(login) : "";
+        obj.backendSecret = secret ? String(secret) : "";
+        obj.backendSigVersion = version || this.sigversion || 1;
         if (this.debug) this.log('set:', this.getCredentials());
     },
 
@@ -92,9 +95,10 @@ var Backendjs = {
     },
 
     // Logout and clear all local credentials
-    logout: function() {
-        self.loggedIn = false;
+    logout: function(url) {
+        this.loggedIn = false;
         this.setCredentials();
+        if (url) window.location.href = url;
     },
 
     // Try to login with the supplied credentials
@@ -108,7 +112,7 @@ var Backendjs = {
     sign: function(method, url, query, options) {
         var rc = {};
         var creds = this.getCredentials();
-        var now = (new Date()).getTime();
+        var now = Date.now();
         var host = window.location.hostname;
         if (url.indexOf('://') > -1) {
             var u = url.split('/');

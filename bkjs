@@ -935,7 +935,7 @@ EOF
     fi
 
     [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $NODE_BIN $NAME.js -watch \$(pwd) -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
-    [ ! -e .gitignore ] && $ECHO "*~\n.*\nbin/\ndocs/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
+    [ ! -e .gitignore ] && $ECHO "*~\n.*\netc/\nbin/\ndocs/\nbuild/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
 
     if [ ! -e etc/config ]; then
        cat > etc/config <<EOF

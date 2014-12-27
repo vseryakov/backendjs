@@ -23,14 +23,14 @@
 .history
 .project
 node_modules
-build
-deps
-etc
-bin
-var
-tmp
-images
-files
-log
-pages
+build/
+deps/
+etc/
+bin/
+var/
+tmp/
+images/
+files/
+log/
+pages/
 

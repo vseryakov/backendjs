@@ -1013,8 +1013,8 @@ api.checkSignature = function(req, callback)
                                                                        !sig.signature ? "no signature provided" : "") });
     }
 
-    // Make sure it is not expired, it may be milliseconds or ISO date
-    if (sig.expires <= Date.now() - this.signatureAge) {
+    // Make sure it is not expired, it must be in milliseconds
+    if (sig.expires < Date.now() - this.signatureAge) {
         return callback({ status: 406, message: "Expired request" });
     }
 

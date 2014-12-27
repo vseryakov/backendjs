@@ -304,7 +304,7 @@ core.init = function(options, callback)
                 var pkg = self.readFileSync("package.json", { json: 1 });
                 if (!pkg) pkg = self.readFileSync(self.cwd + "/package.json", { json: 1 });
                 if (pkg && pkg.name) self.appName = pkg.name;
-                if (pkg && pkg.vesion) self.appVersion = pkg.version;
+                if (pkg && pkg.version) self.appVersion = pkg.version;
                 if (!self.appName) self.appName = self.name;
             }
             next();
@@ -1249,7 +1249,7 @@ core.parseSignature = function(req)
 {
     var self = this;
     if (req.signature) return req.signature;
-    var rc = { sigversion : 1, expires : 0 };
+    var rc = { sigversion: 1, expires: 0, now: Date.now() };
     // Input parameters, convert to empty string if not present
     var url = (req.url || req.originalUrl || "/").split("?");
     rc.path = url[0];

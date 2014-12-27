@@ -6,7 +6,7 @@
 // jQuery-UI backend support
 
 // Return dialog button by name
-Backend.getButton = function(dialog, name)
+Backendjs.getButton = function(dialog, name)
 {
     var self = this;
     var button = null;
@@ -17,7 +17,7 @@ Backend.getButton = function(dialog, name)
 }
 
 // Enable or hide the button by name
-Backend.enableButton = function(dialog, name, enable)
+Backendjs.enableButton = function(dialog, name, enable)
 {
     var button = this.getButton(dialog, name);
     if (!button) return;
@@ -29,7 +29,7 @@ Backend.enableButton = function(dialog, name, enable)
 }
 
 // Set or clear error message for the dialog
-Backend.setError = function(dialog, msg)
+Backendjs.setError = function(dialog, msg)
 {
     if (msg) {
         $(dialog).find('.ui-error').text(msg).addClass("ui-state-highlight");
@@ -39,7 +39,7 @@ Backend.setError = function(dialog, msg)
 }
 
 // Verify if credentials are valid and if not raise popup dialog
-Backend.login = function(callback) {
+Backendjs.login = function(callback) {
     var self = this;
     this.getAccount(function(err, data) {
         if (!err) {
@@ -54,7 +54,7 @@ Backend.login = function(callback) {
 }
 
 // Login UI control
-Backend.dialogLogin = function(action, callback, errmsg)
+Backendjs.dialogLogin = function(action, callback, errmsg)
 {
     var self = this;
 
@@ -122,7 +122,7 @@ Backend.dialogLogin = function(action, callback, errmsg)
 }
 
 // Show alert popup with optional timeout for autoclose
-Backend.dialogAlert = function(msg, timeout)
+Backendjs.dialogAlert = function(msg, timeout)
 {
     var div = $('<div id="dialog-msg" title="Alert"><p class="ui-msg"/></div>');
     div.dialog({
@@ -153,7 +153,7 @@ Backend.dialogAlert = function(msg, timeout)
 },
 
 // Show confirm popup with a message and optional callbacks
-Backend.dialogConfirm = function(msg, onok, oncancel)
+Backendjs.dialogConfirm = function(msg, onok, oncancel)
 {
     var div = $('<div id="dialog-confirm" title="Confirm"><p class="ui-msg"/></div>');
     div.dialog({
@@ -183,7 +183,7 @@ Backend.dialogConfirm = function(msg, onok, oncancel)
 }
 
 // Show confirm dialog with optional select box
-Backend.dialogChoices = function(msg, list, onok, oncancel)
+Backendjs.dialogChoices = function(msg, list, onok, oncancel)
 {
     var div = $('<div id="dialog-choice" title="Confirm"><p class="ui-msg"/><hr/><select/></div>');
     div.dialog({

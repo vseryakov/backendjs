@@ -152,7 +152,7 @@ $(function() {
      $('#type').on('change', function() { showChart(); });
      $('#period').on('change', function() { showChart(); });
 
-     ko.applyBindings(Backend);
+     ko.applyBindings(Backendjs);
      Backendjs.login(function(err) {
        if (!err) showChart();
        return 1;
