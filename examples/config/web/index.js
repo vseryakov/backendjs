@@ -37,12 +37,13 @@ self.doFilter = function()
     });
     var tree = [];
     for (var p in types) {
-        tree.push({ text: p, icon: "glyphicon glyphicon-folder-open", nodes: types[p] });
+        tree.push({ text: p, type: p, name: "", value: "", icon: "glyphicon glyphicon-folder-open", nodes: types[p] });
     }
     var options = {
         data: tree,
         levels: self.levels(),
         onNodeSelected: function(event, node) {
+            self.selected = node;
             if (!node.nodes) self.doEdit(node)
         }
     }
@@ -72,6 +73,7 @@ self.doShow = function(data, event)
 self.doEdit = function(data, event)
 {
     if (!data || !data.type) {
+        self.row0.type = self.selected ? self.selected.type : "";
         ko.mapping.fromJS(self.row0, self.row);
         $('#config-form').modal("show");
         return;
