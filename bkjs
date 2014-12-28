@@ -934,7 +934,7 @@ $(whoami)
 EOF
     fi
 
-    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec $NODE_BIN $NAME.js -watch \$(pwd) -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec node $NAME.js -watch \$(pwd) -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
     [ ! -e .gitignore ] && $ECHO "*~\n.*\netc/\nbin/\ndocs/\nbuild/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
 
     if [ ! -e etc/config ]; then
@@ -950,6 +950,7 @@ EOF
 #db-dynamodb-pool=http://localhost:8181
 #db-dynamodb-pool=us-east-1
 #db-mongodb=mongodb://localhost
+#db-cache-tables=bk_auth,bk_counter
 #aws-key=XXXXX
 #aws-secret=XXXXX
 #api-images-s3=S3BucketName
@@ -959,7 +960,6 @@ EOF
 #logwatcher-interval=3600
 #logwatcher-email=logwatcher@dot.com
 #server-jobs-interval=0
-#db-cache-tables=bk_auth,bk_counter
 #api-allow-path=^/open/url$
 #api-allow-admin=^/(system|data)
 #cache-host=10.1.1.1

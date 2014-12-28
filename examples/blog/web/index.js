@@ -104,6 +104,7 @@ self.doLogin = function(data, event)
             $('#login-form').modal("show");
             return;
         }
+        $('#login-form').modal("hide");
         self.auth(self.loggedIn);
         self.showBlog();
     });

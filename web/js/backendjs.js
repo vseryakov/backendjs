@@ -95,10 +95,16 @@ var Backendjs = {
     },
 
     // Logout and clear all local credentials
-    logout: function(url) {
-        this.loggedIn = false;
-        this.setCredentials();
-        if (url) window.location.href = url;
+    logout: function(callback) {
+        var self = this;
+        self.loggedIn = false;
+        self.send("/account/get?_session=0", function() {
+            self.setCredentials();
+            if (typeof callback == "function") callback();
+        }, function(err) {
+            self.setCredentials();
+            if (typeof callback == "function") callback(err);
+        });
     },
 
     // Try to login with the supplied credentials
@@ -194,7 +200,7 @@ var Backendjs = {
                 if (!json || typeof json != "object") json = {};
                 break;
             }
-            if (onsuccess) onsuccess(json);
+            if (typeof onsuccess == "function") onsuccess(json);
         }
         // Parse error message
         options.error = function(xhr, status, error) {
@@ -202,7 +208,7 @@ var Backendjs = {
             var msg = "";
             try { msg = JSON.parse(xhr.responseText).message; } catch(e) { msg = status; }
             self.log('send: error:', status, msg, error, options);
-            if (onerror) onerror(msg || error, xhr, status, error);
+            if (typeof onerror == "function") onerror(msg || error, xhr, status, error);
         }
         if (!options.nosignature) {
             options.headers = this.sign(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });

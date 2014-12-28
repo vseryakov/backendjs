@@ -18,7 +18,7 @@ self.query.subscribe(function(val) {
 self.showAlert = function(type, text)
 {
     $(".form-error").append("<span class='form-" + type + "'>" + text + "</span>");
-    $(".form-error span").last().hide().fadeIn(200).delay(5000 + (type == "error" ? 5000 : 0)).fadeOut(1000, function () { $(this).remove(); });
+    $(".form-error span").hide().fadeIn(200).delay(5000 + (type == "error" ? 5000 : 0)).fadeOut(1000, function () { $(this).remove(); });
 }
 
 self.doFilter = function()
@@ -30,7 +30,7 @@ self.doFilter = function()
     var types = {};
     list.forEach(function(x) {
         x.icon = "glyphicon glyphicon-unchecked";
-        x.text = x.name + ":" + x.value;
+        x.text = x.name + " = " + x.value;
         x.mtime = x.mtime ? self.strftime(x.mtime, "%a, %b %d %Y, %H:%M%p") : "";
         if (!types[x.type]) types[x.type] = [];
         types[x.type].push(x);
@@ -140,18 +140,22 @@ self.doLogin = function(data, event)
 {
     self.login($('#login').val(),  $('#secret').val(), function(err) {
         if (err) {
-            $('#secret').val('');
             $('#login-form').modal("show");
-            return;
+            self.showAlert("error", err);
+        } else {
+            $('#login-form').modal("hide");
+            self.auth(self.loggedIn);
+            self.doShow();
         }
-        self.auth(self.loggedIn);
-        self.doShow();
     });
 }
 
 self.doLogout = function()
 {
-    self.logout("/");
+    $('#secret').val('');
+    self.logout(function() {
+        window.location.href = "/";
+    });
 }
 
 $(function() {

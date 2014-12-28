@@ -3262,7 +3262,7 @@ api.getAccount = function(req, options, callback)
             if (!row) return callback({ status: 404, message: "account not found" });
 
             // Setup session cookies for automatic authentication without signing
-            if (req.options.session && req.session) {
+            if (typeof req.options.session != "undefined" && req.session) {
                 if (options.session) {
                     var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
                     req.session["bk-signature"] = sig["bk-signature"];

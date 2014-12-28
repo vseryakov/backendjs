@@ -25,7 +25,7 @@
 
 <style>
 body {
-  margin-top: 50px;
+  margin-top: 60px;
   background-color: #ffffff;
 }
 
@@ -54,14 +54,19 @@ body {
           <a href=/><img id="logo" src="/img/logo.png" title="Config"/></a>Configuration
         </div>
         <div class="col-lg-2">
-          <input id="search" type="text" placeholder="Search" data-bind='textInput: query, visible: auth'/>
+          <div class="input-group" data-bind="visible: auth">
+            <span class="input-group-addon"><span class="glyphicon glyphicon-search"></span></span>
+              <input id="search" type="text" class="form-control" placeholder="Search" data-bind='textInput: query'/>
+            </div>
         </div>
         <div class="col-lg-4">
-          <a data-bind="click: doEdit, visible: auth">New Item</a> |
-          <a data-bind="click: doCollapse, visible: auth">Collapse</a> |
-          <a data-bind="click: doExpand, visible: auth">Expand</a> |
-          <a data-bind="click: doLogin, visible: !auth()">Login</a>
-          <a data-bind="click: doLogout, visible: auth">Logout</a>
+          <ul class="nav nav-pills">
+          <li><a data-bind="click: doEdit, visible: auth"><span class="glyphicon glyphicon-pencil"></span> New Item</a></li>
+          <li><a data-bind="click: doCollapse, visible: auth"><span class="glyphicon glyphicon-minus"></span> Collapse</a></li>
+          <li><a data-bind="click: doExpand, visible: auth"><span class="glyphicon glyphicon-plus"></span> Expand</a></li>
+          <li><a data-bind="click: doLogin, visible: !auth()"><span class="glyphicon glyphicon-log-in"></span> Login</a></li>
+          <li><a data-bind="click: doLogout, visible: auth"><span class="glyphicon glyphicon-log-out"></span> Logout</a></li>
+          </ul>
         </div>
         <div class="col-lg-2"></div>
     </div>
@@ -94,10 +99,13 @@ body {
                     <form role="form">
                         <fieldset>
                             <div class="form-group">
+                                <span class="form-error"></span>
+                            </div>
+                            <div class="form-group">
                                 <input class="form-control" placeholder="Login" id="login" autofocus>
                             </div>
                             <div class="form-group">
-                                <input class="form-control" placeholder="Password" id="secret" type="password" value="">
+                                <input class="form-control" placeholder="Password" id="secret" type="password" autocomplete=off value="">
                             </div>
                         </fieldset>
                     </form>
