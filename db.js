@@ -204,7 +204,7 @@ db.init = function(options, callback)
                 if (name != self.local && name != self.pool) continue;
             }
             var opts = { pool: name,
-                         db: db,
+                         db: db || "",
                          min: self[pool + 'PoolMin' + n] || 0,
                          max: self[pool + 'PoolMax' + n] || Infinity,
                          idle: self[pool + 'PoolIdle' + n] || 86400000,

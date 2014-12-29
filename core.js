@@ -548,7 +548,7 @@ core.processArgs = function(name, ctx, argv, pass)
                 var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (typeof x.value != "undefined" ? x.value : null);
                 if (val == null && typeof x.novalue == "undefined" && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
                 // Ignore the value if it is a parameter
-                if (val && val[0] == '-') val = typeof x.novalue != "undefined" ? x.novalue : "";
+                if ((val && val[0] == '-') || val == null) val = typeof x.novalue != "undefined" ? x.novalue : "";
                 logger.debug("processArgs:", x.type || "str", name + "." + key, "(" + x.name + ")", "=", val);
                 switch ((x.type || "").trim()) {
                 case "none":

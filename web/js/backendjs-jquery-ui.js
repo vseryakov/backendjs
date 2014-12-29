@@ -5,6 +5,76 @@
 
 // jQuery-UI backend support
 
+// Set or clear error message for the dialog
+Backendjs.showAlert = function(obj, type, text)
+{
+    if (typeof obj == "string") text = type, type = obj, obj = $("body");
+    if (text) $(obj).find('.ui-error').append("<span class='ui-state-" + type + "'>" + text + "</div>");
+    $(obj).find('.ui-error span').hide().fadeIn(200).delay(5000 + (type == "error" ? 5000 : 0)).fadeOut(1000, function() { $(this).remove(); });
+}
+
+Backendjs.hideLogin = function()
+{
+    $("#backendjs-login-modal").dialog("close");
+}
+
+// Login UI control
+Backendjs.showLogin = function(callback)
+{
+    var self = this;
+
+    var div = $('#backendjs-login-modal');
+    if (!div.length)
+        div= $(
+            '<div id=backendjs-login-modal>\
+            <p class="ui-title">Please provide your account login and password.</p>\
+            <p class="ui-error"></p>\
+            <form id=backendjs-login-form>\
+            <fieldset style="padding:10px;border:0;margin-top:25px;">\
+            <label for="backendjs-login" style="display:block">Login</label>\
+            <input type="text" id="backendjs-login" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
+            <label for="backendjs-secret" style="display:block">Password</label>\
+            <input type="password" id="backendjs-secret" value="" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
+            </fieldset>\
+            </form>\
+            </div>');
+
+    function submit(cb) {
+        self.login($('#backendjs-login').val(),  $('#backendjs-secret').val(), cb || div.dialog("option", "callback"));
+    }
+
+    div.dialog({
+        autoOpen: false,
+        modal: true,
+        stack: true,
+        width: "auto",
+        height: "auto",
+        title: "Please Sign In",
+        buttons: {
+            Login: function() {
+                submit();
+            },
+            Cancel: function() {
+                $(this).dialog("close");
+            }
+        },
+        create: function() {
+            var dialog = this;
+            $(this).find('form').submit(function() { submit(callback); return false; });
+            $(this).find('#backendjs-login').keyup(function(e) { if (e.which == 13) { $(dialog).find('#backendjs-secret').focus(); e.preventDefault(); } });
+            $(this).find('#backendjs-secret').keyup(function(e) { if (e.which == 13) { submit(); e.preventDefault(); } });
+        },
+        open: function() {
+            $(this).find('.ui-error').text($(this).dialog('option','msg') || "").removeClass("ui-state-highlight");
+            $('#backendjs-login').val("");
+            $('#backendjs-secret').val("");
+        },
+    });
+
+    div.dialog("option", "callback", callback || null).dialog("option", "msg", "");
+    return div.dialog("open");
+}
+
 // Return dialog button by name
 Backendjs.getButton = function(dialog, name)
 {
@@ -28,101 +98,8 @@ Backendjs.enableButton = function(dialog, name, enable)
     }
 }
 
-// Set or clear error message for the dialog
-Backendjs.setError = function(dialog, msg)
-{
-    if (msg) {
-        $(dialog).find('.ui-error').text(msg).addClass("ui-state-highlight");
-    } else {
-        $(dialog).find('.ui-error').text("").removeClass("ui-state-highlight");
-    }
-}
-
-// Verify if credentials are valid and if not raise popup dialog
-Backendjs.login = function(callback) {
-    var self = this;
-    this.getAccount(function(err, data) {
-        if (!err) {
-            self.dialogLogin("close", callback);
-            return callback ? callback(null, data) : null;
-        }
-        // Restart login if no callback or callback returned true
-        if (!callback || callback(err)) {
-            self.dialogLogin("open", callback, err);
-        }
-    });
-}
-
-// Login UI control
-Backendjs.dialogLogin = function(action, callback, errmsg)
-{
-    var self = this;
-
-    var div = $('#backend-login-div');
-    if (!div.length)
-        div= $(
-            '<div id=backend-login-div>\
-            <p class="ui-title">Please provide your account login and password.</p>\
-            <p class="ui-error"></p>\
-            <form id=backend-login-form>\
-            <fieldset style="padding:10px;border:0;margin-top:25px;">\
-            <label for="backend-login" style="display:block">Login</label>\
-            <input type="text" id="backend-login" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
-            <label for="backend-secret" style="display:block">Password</label>\
-            <input type="password" id="backend-secret" value="" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
-            </fieldset>\
-            </form>\
-            </div>');
-
-    function submit(cb) {
-        self.log('submit:', $('#backend-login').val(),  $('#backend-secret').val())
-        self.setCredentials($('#backend-login').val(),  $('#backend-secret').val());
-        $('#backend-secret').val('');
-        div.dialog("close");
-        self.login(cb || div.dialog("option", "callback"));
-    }
-
-    div.dialog({
-        autoOpen: false,
-        modal: true,
-        stack: true,
-        width: "auto",
-        height: "auto",
-        title: "Enter Credentials",
-        buttons: {
-            Login: function() {
-                submit();
-            },
-            Register: function() {
-                $(this).dialog("close");
-                $('#dialog-register').dialog('open');
-            },
-            Cancel: function() {
-                $(this).dialog("close");
-            }
-        },
-        create: function() {
-            var dialog = this;
-            $(this).find('form').submit(function() { submit(callback); return false; });
-            $(this).find('#backend-login').keyup(function(e) { if (e.which == 13) { $(dialog).find('#backend-secret').focus(); e.preventDefault(); } });
-            $(this).find('#backend-secret').keyup(function(e) { if (e.which == 13) { submit(); e.preventDefault(); } });
-        },
-        open: function() {
-            $(this).find('.ui-error').text($(this).dialog('option','msg') || "").removeClass("ui-state-highlight");
-            var reg = $('#dialog-register').length;
-            if (reg) $(this).find('.ui-title').html("Please provide your account email and password.<br/>If you dont have an account, please use Register button below.");
-            self.enableButton(this, 'Register', reg);
-            $('#backend-login').val("");
-            $('#backend-secret').val("");
-        },
-    });
-
-    div.dialog("option", "callback", callback || null).dialog("option", "msg", errmsg || "");
-    return div.dialog(action);
-}
-
 // Show alert popup with optional timeout for autoclose
-Backendjs.dialogAlert = function(msg, timeout)
+Backendjs.showPopup = function(msg, timeout)
 {
     var div = $('<div id="dialog-msg" title="Alert"><p class="ui-msg"/></div>');
     div.dialog({
@@ -153,7 +130,7 @@ Backendjs.dialogAlert = function(msg, timeout)
 },
 
 // Show confirm popup with a message and optional callbacks
-Backendjs.dialogConfirm = function(msg, onok, oncancel)
+Backendjs.showConfirm = function(msg, onok, oncancel)
 {
     var div = $('<div id="dialog-confirm" title="Confirm"><p class="ui-msg"/></div>');
     div.dialog({
@@ -183,7 +160,7 @@ Backendjs.dialogConfirm = function(msg, onok, oncancel)
 }
 
 // Show confirm dialog with optional select box
-Backendjs.dialogChoices = function(msg, list, onok, oncancel)
+Backendjs.showChoices = function(msg, list, onok, oncancel)
 {
     var div = $('<div id="dialog-choice" title="Confirm"><p class="ui-msg"/><hr/><select/></div>');
     div.dialog({

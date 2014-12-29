@@ -510,14 +510,14 @@ api.init = function(options, callback)
         self.app.use(session({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
     }
 
-    // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sistes on the same server
+    // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
     self.app.use(function(req, res, next) {
         if (!self.domain || req.host.match(self.domain)) return self.checkRequest(req, res, next);
         req._noBackend = 1;
         next();
     });
 
-    // Config options
+    // Config options for Express
     self.expressEnable.forEach(function(x) {
         x = x.split("=");
         if (x.length == 1) self.app.enable(x);

@@ -15,12 +15,12 @@
         Local<Value> name = Local<Value>::New(Null()); \
         const char *name ##_msg = PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY); \
         if (name ##_msg) { \
-        	Local<Object> name ##_obj = Local<Object>::Cast(Exception::Error(String::New(name ##_msg))); \
-        	for (int i = 0; errnames[i]; i++) { \
-        		name ##_msg = PQresultErrorField(result, errcodes[i]); \
-        		if (name ##_msg) name ##_obj->Set(String::NewSymbol(errnames[i]), String::New(name ##_msg)); \
-        	} \
-        	name = name ##_obj; \
+            Local<Object> name ##_obj = Local<Object>::Cast(Exception::Error(String::New(name ##_msg))); \
+            for (int i = 0; errnames[i]; i++) { \
+                name ##_msg = PQresultErrorField(result, errcodes[i]); \
+                if (name ##_msg) name ##_obj->Set(String::NewSymbol(errnames[i]), String::New(name ##_msg)); \
+            } \
+            name = name ##_obj; \
         }
 
 
@@ -42,7 +42,7 @@ public:
 
     PgSQLDatabase(): ObjectWrap(), fd(-1), handle(NULL), inserted_oid(0) {
         poll.data = timer.data = NULL;
-    	uv_timer_init(uv_default_loop(), &timer);
+        uv_timer_init(uv_default_loop(), &timer);
     }
 
     ~PgSQLDatabase() {
@@ -50,7 +50,7 @@ public:
     }
 
     void Destroy() {
-    	Clear();
+        Clear();
         POLL_STOP(poll);
         if (handle) PQfinish(handle);
         handle = NULL;
@@ -62,10 +62,10 @@ public:
     }
 
     void Clear() {
-    	for (uint i = 0; i < results.size(); i++) {
-    		PQclear(results[i]);
-    	}
-    	results.clear();
+        for (uint i = 0; i < results.size(); i++) {
+            PQclear(results[i]);
+        }
+        results.clear();
     }
 
     bool CallCallback(int id, string msg = string(), bool err = false, bool dispose = false) {
@@ -76,7 +76,7 @@ public:
             } else {
                 argv[0] = Local<Value>::New(Null());
             }
-            argv[1] = Array::New(0);
+            argv[1] = Local<Value>::New(Array::New(0));
             Persistent<Function> cb = callback[id];
             if (dispose) callback[id] = Persistent<Function>();
             TRY_CATCH_CALL(handle_, cb, 2, argv);
@@ -197,13 +197,13 @@ Handle<Value> PgSQLDatabase::New(const Arguments& args)
     EXPECT_ARGUMENT_FUNCTION(-1, cb);
     if (!cb.IsEmpty()) db->callback[CB_CONNECT] = Persistent < Function > ::New(cb);
 
-    // Run in timer to call callback properly on any error, new does not allow callbacks
+	// Run in timer to call callback properly on any error, new does not allow callbacks
 	db->timer.data = db;
 	uv_timer_start(&db->timer, Timer_Connect, 0, 0);
 
 	// To keep from garbage collection while waiting for event
 	db->Ref();
-    return args.This();
+	return args.This();
 }
 
 void PgSQLDatabase::Timer_Connect(uv_timer_t* req, int status)
@@ -224,8 +224,8 @@ void PgSQLDatabase::Timer_Connect(uv_timer_t* req, int status)
 
     // Start connection timer for timeouts
     if (db->conninfo.find("connect_timeout") == string::npos) {
-    	db->timer.data = db;
-    	uv_timer_start(&db->timer, Timer_Timeout, 3000, 0);
+        db->timer.data = db;
+        uv_timer_start(&db->timer, Timer_Timeout, 3000, 0);
     }
 }
 
@@ -241,12 +241,12 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
     if (status == -1) return;
     PgSQLDatabase *db = static_cast<PgSQLDatabase*>(w->data);
     PostgresPollingStatusType rc = PQconnectPoll(db->handle);
-	uv_timer_stop(&db->timer);
+    uv_timer_stop(&db->timer);
 
     switch (rc) {
     case PGRES_POLLING_READING:
         POLL_START(db->poll, UV_READABLE, Handle_Connect, db);
-    	break;
+        break;
 
     case PGRES_POLLING_WRITING:
         POLL_START(db->poll, UV_WRITABLE, Handle_Connect, db);
@@ -258,7 +258,7 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
         break;
 
     case PGRES_POLLING_FAILED:
-    	POLL_STOP(db->poll);
+        POLL_STOP(db->poll);
         db->CallCallback(CB_CONNECT, db->Error(), true, true);
         break;
 
@@ -283,8 +283,8 @@ Handle<Value> PgSQLDatabase::Close(const Arguments& args)
     db->Destroy();
 
     if (!cb.IsEmpty()) {
-    	Local<Value> argv[1];
-    	TRY_CATCH_CALL(Context::GetCurrent()->Global(), cb, 0, argv);
+        Local<Value> argv[1];
+        TRY_CATCH_CALL(Context::GetCurrent()->Global(), cb, 0, argv);
     }
     return args.This();
 }
@@ -322,8 +322,8 @@ Handle<Value> PgSQLDatabase::QuerySync(const Arguments& args)
 
     EXCEPTION(err, rc);
     if (!err->IsNull()) {
-    	PQclear(rc);
-    	return ThrowException(err);
+        PQclear(rc);
+        return ThrowException(err);
     }
 
     Local<Array> rows = db->getResult(rc);
@@ -377,17 +377,17 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
 
     if (revents & UV_READABLE) {
         if (!PQconsumeInput(db->handle)) {
-        	db->CallCallback(CB_NOTIFY, db->Error(), true);
+            db->CallCallback(CB_NOTIFY, db->Error(), true);
             return;
         }
 
         // Read all results until we get NULL,  this is required by libpq
         if (!PQisBusy(db->handle)) {
-        	PGresult *result;
-        	while ((result = PQgetResult(db->handle))) {
-        		db->Handle_Result(result);
-        	}
-        	db->Process_Result();
+            PGresult *result;
+            while ((result = PQgetResult(db->handle))) {
+                db->Handle_Result(result);
+            }
+            db->Process_Result();
         }
 
         PGnotify *notify;
@@ -415,7 +415,7 @@ void PgSQLDatabase::Handle_Result(PGresult* result)
         break;
 
     case PGRES_FATAL_ERROR:
-    	results.push_back(result);
+        results.push_back(result);
         break;
 
     case PGRES_COMMAND_OK:
@@ -437,39 +437,39 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
 	HandleScope scope;
 	inserted_oid = PQoidValue(result);
 	int rcount = PQntuples(result);
-	Local<Array> rc = Array::New(rcount);
-    for (int r = 0; r < rcount; r++) {
-        Local<Object> row = Object::New();
-        int ccount = PQnfields(result);
-        for (int c = 0; c < ccount; c++) {
-            Local<Value> value;
-            vector<string> list;
-            Buffer *buffer;
-            char* name = PQfname(result, c);
-            const char * val = PQgetvalue(result, r, c);
-            int len = PQgetlength(result, r, c);
-            int type = PQftype(result, c);
-            if (PQgetisnull(result, r, c)) type = -1;
-            switch (type) {
-            case -1:
-            	value = Local<Value>::New(Null());
-            	break;
+	Local<Array> rc = Local<Array>::New(Array::New(rcount));
+	for (int r = 0; r < rcount; r++) {
+		Local<Object> row = Local<Object>::New(Object::New());
+		int ccount = PQnfields(result);
+		for (int c = 0; c < ccount; c++) {
+			Local<Value> value;
+			vector<string> list;
+			Buffer *buffer;
+			char* name = PQfname(result, c);
+			const char * val = PQgetvalue(result, r, c);
+			int len = PQgetlength(result, r, c);
+			int type = PQftype(result, c);
+			if (PQgetisnull(result, r, c)) type = -1;
+			switch (type) {
+			case -1:
+				value = Local<Value>::New(Null());
+				break;
 
             case 17: // byteA
                 buffer = Buffer::New(val, PQgetlength(result, r, c));
                 value = Local<Value>::New(buffer->handle_);
-            	break;
+                break;
 
             case 20:
             case 21:
             case 23:
             case 26: // integer
-            	value = Local<Value>(Number::New(atoll(val)));
-            	break;
+                value = Local<Value>(Number::New(atoll(val)));
+                break;
 
             case 16: // bool
-            	value = Local<Value>::New(Boolean::New(val[0] == 't' ? true : false));
-            	break;
+                value = Local<Value>::New(Boolean::New(val[0] == 't' ? true : false));
+                break;
 
             case 114: // json
                 value = Local<Value>::New(jsonParse(string(val)));
@@ -478,31 +478,31 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
             case 700: // float32
             case 701: // float64
             case 1700: // numeric
-            	value = Local<Value>(Number::New(atof(val)));
-            	break;
+                value = Local<Value>(Number::New(atof(val)));
+                break;
 
             case 1003: // name
             case 1008: // regproc
             case 1009: // text
             case 1014: // char
             case 1015: // varchar
-            	list = strSplit(string(val, 1, len - 2), ",", "\"");
-            	value = Local<Value>::New(toArray(list));
-            	break;
+                list = strSplit(string(val, 1, len - 2), ",", "\"");
+                value = Local<Value>::New(toArray(list));
+                break;
 
             case 1005: // int2
             case 1007: // int4
             case 1016: // int8
-            	list = strSplit(string(val, 1, len - 2), ",");
-            	value = Local<Value>::New(toArray(list, 1));
-            	break;
+                list = strSplit(string(val, 1, len - 2), ",");
+                value = Local<Value>::New(toArray(list, 1));
+                break;
 
             case 1021: // float4
             case 1022: // float8
             case 1231: // numeric
-            	list = strSplit(string(val, 1, len - 2), ",");
-            	value = Local<Value>::New(toArray(list, 2));
-            	break;
+                list = strSplit(string(val, 1, len - 2), ",");
+                value = Local<Value>::New(toArray(list, 2));
+                break;
 
             case 1082: // date
             case 1114: // timestamp without timezone
@@ -510,7 +510,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
             case 1186: // interval
 
             default:
-            	value = Local<Value>(String::New(val));
+                value = Local<Value>(String::New(val));
             }
             row->Set(String::NewSymbol(name), value);
         }
@@ -522,12 +522,12 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
 void PgSQLDatabase::Process_Result()
 {
     if (callback[CB_QUERY].IsEmpty()) {
-    	Clear();
-    	return;
+        Clear();
+        return;
     }
     if (!results.size()) {
-    	CallCallback(CB_QUERY);
-    	return;
+        CallCallback(CB_QUERY);
+        return;
     }
     PGresult *result = results[0];
 
@@ -536,9 +536,9 @@ void PgSQLDatabase::Process_Result()
 
     EXCEPTION(err, result);
     if (err->IsNull()) {
-    	rc = getResult(result);
+        rc = getResult(result);
     } else {
-    	rc = Array::New(0);
+        rc = Local<Array>::New(Array::New(0));
     }
     Clear();
 

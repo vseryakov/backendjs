@@ -15,12 +15,6 @@ self.query.subscribe(function(val) {
     self.doFilter();
 });
 
-self.showAlert = function(type, text)
-{
-    $(".form-error").append("<span class='form-" + type + "'>" + text + "</span>");
-    $(".form-error span").hide().fadeIn(200).delay(5000 + (type == "error" ? 5000 : 0)).fadeOut(1000, function () { $(this).remove(); });
-}
-
 self.doFilter = function()
 {
     var list = self.rows;
@@ -94,10 +88,10 @@ self.doCopy = function(data, event)
             self.doShow();
         }, function(err) {
             $('#config-form').modal("hide");
-            self.showAlert("error", err);
+            self.showAlert("danger", err);
         });
     } else {
-        self.showAlert("error", "Type and/or name must be different for a copy");
+        self.showAlert($("#config-form"), "danger", "Type and/or name must be different for a copy");
     }
 }
 
@@ -113,13 +107,13 @@ self.doSave = function(data, event)
             self.send({ url: '/data/del/bk_config', data: { type: obj.old.type, name: obj.old.name }, type: "POST" }, function() {
                 self.doShow();
             }, function(err) {
-                self.showAlert("error", err);
+                self.showAlert("danger", err);
             });
         } else {
             self.doShow();
         }
     }, function(err) {
-        self.showAlert("error", err);
+        self.showAlert("danger", err);
         $('#config-form').modal("hide");
     });
 }
@@ -133,19 +127,18 @@ self.doDelete = function(data, event)
         self.doShow();
         $('#config-form').modal("hide");
     }, function(err) {
-        self.showAlert("error", err);
+        self.showAlert("danger", err);
         $('#config-form').modal("hide");
     });
 }
 
 self.doLogin = function(data, event)
 {
-    self.login($('#login').val(),  $('#secret').val(), function(err) {
+    self.showLogin(function(err) {
         if (err) {
-            $('#login-form').modal("show");
-            self.showAlert("error", err);
+            self.showAlert("danger", err);
         } else {
-            $('#login-form').modal("hide");
+            self.hideLogin()
             self.auth(self.loggedIn);
             self.doShow();
         }
@@ -160,11 +153,10 @@ self.doLogout = function()
     });
 }
 
-$(function() {
-
+$(function()
+{
     // Autofocus for dialogs
     $(".modal").on('shown.bs.modal', function () {
-        lastfocus = $(this);
         $(this).find('input:text:visible:first').focus();
     });
 

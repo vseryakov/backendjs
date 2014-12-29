@@ -9,11 +9,15 @@ var Backendjs = {
     // True if current credentials are good
     loggedIn: false,
 
-    // Support sessions
+    // Support sessions by storing wildcard signature in the cookies
     session: false,
 
-    // Only keep credentials in memory, not in local storage
-    temporary: false,
+    // Save credentials in the local storage, by default keep only in memory
+    persistent: false,
+
+    // Scramble login, save HMACs for login/secret instead of actual values, a user still
+    // need to enter the real values but the browser will never store them, only hashes
+    scramble: false,
 
     // Current account
     account: null,
@@ -23,22 +27,30 @@ var Backendjs = {
 
     // Return current credentials
     getCredentials: function() {
-        var obj = this.temporary ? this : localStorage;
-        return { login: obj.backendLogin || "", secret: obj.backendSecret || "", sigversion: parseInt(obj.backendSigVersion) || 1 };
+        var obj = this.persistent ? localStorage : this;
+        return { login: obj.backendjsLogin || "", secret: obj.backendjsSecret || "", sigversion: parseInt(obj.backendjsVersion) || 1 };
     },
 
-    // Set new credentials, encrypt email for signature version 3, keep the secret encrypted
+    // Set new credentials, save in memory or local storage
     setCredentials: function(login, secret, version) {
-        var obj = this.temporary ? this : localStorage;
-        obj.backendLogin = login ? String(login) : "";
-        obj.backendSecret = secret ? String(secret) : "";
-        obj.backendSigVersion = version || this.sigversion || 1;
-        if (this.debug) this.log('set:', this.getCredentials());
+        var obj = this.persistent ? localStorage : this;
+        obj.backendjsVersion = version || this.sigversion || 1;
+        if (this.scramble) {
+            obj.backendjsLogin = login ? b64_hmac_sha1(login, login) : "";
+            obj.backendjsSecret = secret ? b64_hmac_sha1(login, secret) : "";
+        } else {
+            obj.backendjsLogin = login ? String(login) : "";
+            obj.backendjsSecret = secret ? String(secret) : "";
+        }
+        if (this.debug) this.log('setCredentials:', login, this.getCredentials());
     },
 
     // Retrieve account record, call the callback with the object or error
-    getAccount: function(callback) {
+    getAccount: function(login, secret, callback) {
         var self = this;
+        if (typeof login == "function") callback = login, login = secret = null;
+        if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
+
         self.send("/account/get?" + (this.session ? "_session=1" : "_session=0"), function(data) {
             self.loggedIn = true;
             self.account = data;
@@ -55,7 +67,7 @@ var Backendjs = {
         var self = this;
         delete obj.secret2;
         this.setCredentials(obj.login, obj.secret);
-        // Replace the actual credentials form the storage in case of scrambling
+        // Replace the actual credentials from the storage in case of scrambling
         var creds = this.getCredentials();
         obj.login = creds.login;
         obj.secret = creds.secret;
@@ -109,15 +121,14 @@ var Backendjs = {
 
     // Try to login with the supplied credentials
     login: function(login, secret, callback) {
-        if (typeof login == "function") callback = login, login = secret = null;
-        if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
-        this.getAccount(callback);
+        this.getAccount(login, secret, callback);
     },
 
     // Sign request with key and secret
     sign: function(method, url, query, options) {
         var rc = {};
         var creds = this.getCredentials();
+        if (!creds.login || !creds.secret) return {};
         var now = Date.now();
         var host = window.location.hostname;
         if (url.indexOf('://') > -1) {
