@@ -3236,7 +3236,6 @@ api.delMessage = function(req, options, callback)
 // Delete the messages in the archive, used in /message/del/archive` API call
 api.delArchiveMessage = function(req, options, callback)
 {
-    var self = this;
     options.table = "bk_archive";
     options.sender = "sender";
     this.delMessage(req, options, callback);
@@ -3245,10 +3244,23 @@ api.delArchiveMessage = function(req, options, callback)
 // Delete the messages i sent, used in /message/del/sent` API call
 api.delSentMessage = function(req, options, callback)
 {
-    var self = this;
     options.table = "bk_sent";
     options.sender = "recipient";
     this.delMessage(req, options, callback);
+}
+
+// Setup session cookies for automatic authentication without signing, req must be complete with all required
+// properties after successful authorization.
+api.setAccountSession = function(req, options)
+{
+    if (typeof options.session != "undefined" && req.session) {
+        if (options.session) {
+            var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: this.sessionAge });
+            req.session["bk-signature"] = sig["bk-signature"];
+        } else {
+            delete req.session["bk-signature"];
+        }
+    }
 }
 
 // Return an account, used in /account/get API call
@@ -3260,16 +3272,7 @@ api.getAccount = function(req, options, callback)
         db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
             if (err) return callback(err);
             if (!row) return callback({ status: 404, message: "account not found" });
-
-            // Setup session cookies for automatic authentication without signing
-            if (typeof req.options.session != "undefined" && req.session) {
-                if (options.session) {
-                    var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: self.sessionAge });
-                    req.session["bk-signature"] = sig["bk-signature"];
-                } else {
-                    delete req.session["bk-signature"];
-                }
-            }
+            self.setAccountSession(req, options);
             callback(null, row, info);
         });
     } else {
@@ -3434,6 +3437,66 @@ api.addAccount = function(req, options, callback)
        },
        ], function(err) {
             callback(err, req.query);
+    });
+}
+
+// Given a profile data from some other system, check if there is an account or create a new account for the given
+// profile, return bk_account record in the callback. req.query contains profile fields converted to bk_auth/bk_account names
+// so the whole req.query can be saved as it is. `req.query.login` must exist.
+//
+// This method is supposed to be called after the user is authenticated and verified, it does not
+// check secrets but only existence of a user by login. If  user with login exists, this works as `api.getAccount`
+// with an extra call to bk_auth. On success the current account is active and set as `req.account`.
+//
+// If new account ws created, the generated secret will be returned and must be saved by the client for subsequent
+// API calls unless cookie session is established.
+//
+// if `req.query.icon' is set with the url of the profile image, it will be downloaded and saved as account icon type `0`. `options.width`
+// ifspecified will be used to resize the image.
+api.fetchAccount = function(req, options, callback)
+{
+    var self = this;
+    var db = core.modules.db;
+
+    db.get("bk_auth", { login: req.query.login }, function(err, auth) {
+        if (err) return callback(err);
+
+        if (auth) {
+            req.account = auth;
+            self.getAccount(req, options, function(err, row) {
+                if (err) return callback(err);
+                for (var p in row) req.account[p] = row[p];
+                callback(null, row);
+            });
+            return;
+        }
+
+        core.series([
+            function(next) {
+                self.addAccount(req, options, function(err, row) {
+                    if (err) return next(err);
+                    req.account = row;
+                    next();
+                });
+            },
+            function(next) {
+                if (!obj.icon) return next();
+                core.httpGet(obj.icon, { binary: 1 }, function(err, params) {
+                    if (err || !params.data.length) return next();
+                    self.storeIcon(params.data, req.account.id, { prefix: "account", type: "0", width: options.width }, function(err) {
+                        if (err) return next();
+                        db.put("bk_icon", { id: req.account.id, prefix: "account", type:"account:0" }, options, function(err, rows) { next() });
+                    });
+                });
+            },
+            function(next) {
+                // Set session cookies if needed for new account
+                self.setAccountSession(req, options);
+                next();
+            },
+            ], function(err) {
+                callback(err, req.account);
+            });
     });
 }
 
