@@ -155,9 +155,6 @@ case "$ARG" in
   init-server)
     echo "Installing in $BKJS_HOME for $BKJS_USER with prefix $BKJS_PREFIX ..."
 
-    # Wait for some until we have connectivity for cases when the instance is up but the routing is not ready yet
-    curl -s -I -m 30 --retry 5 --retry-max-time 180 -o /dev/null http://www.google.com
-
     # Install required packages and utilities
     ($0 init-packages)
 
@@ -198,7 +195,7 @@ case "$ARG" in
        [ -d /home/ec2-user -a "$BKJS_USER" != "ec2-user" ] && cp /home/ec2-user/.ssh/authorized_keys $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh/*
     fi
 
-    # Allow path in sudo
+    # Allow path in sudo and skip tty for our user so we can run commands via ssh
     if [ ! -f /etc/sudoers.d/$BKJS ]; then
        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
        echo "Defaults:$BKJS_USER !requiretty" >> /etc/sudoers.d/$BKJS

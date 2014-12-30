@@ -40,11 +40,8 @@
     };
 
     Tree.defaults = {
-
         injectStyle: true,
-
-        levels: 2,
-
+        levels: 1,
         expandIcon: 'glyphicon glyphicon-plus',
         collapseIcon: 'glyphicon glyphicon-minus',
         nodeIcon: 'glyphicon glyphicon-stop',
@@ -62,7 +59,9 @@
         showTags: false,
 
         // Event handler for when a node is selected
-        onNodeSelected: undefined
+        onNodeSelected: undefined,
+        expandedNodes: [],
+        collapsedNodes: [],
     };
 
     Tree.prototype = {
@@ -72,6 +71,11 @@
             this._destroy();
             $.removeData(this, 'plugin_' + pluginName);
             $('#' + this._styleId).remove();
+        },
+
+        nodes: function() {
+
+            return this.nodes;
         },
 
         _destroy: function() {
@@ -131,8 +135,7 @@
                 classList = target.attr('class') ? target.attr('class').split(' ') : [],
                 node = this._findNode(target);
 
-            if ((classList.indexOf('click-expand') != -1) ||
-                    (classList.indexOf('click-collapse') != -1)) {
+            if ((classList.indexOf('click-expand') != -1) || (classList.indexOf('click-collapse') != -1)) {
                 // Expand or collapse node by toggling child node visibility
                 this._toggleNodes(node);
                 this._render();
@@ -187,8 +190,8 @@
             var self = this;
             $.each(nodes, function addNodes(id, node) {
 
-                if (level >= self.options.levels) {
-                    self._toggleNodes(node);
+                if (level >= self.options.levels || (node.id && self.options.collapsedNodes.indexOf(node.id) > -1)) {
+                    if (!node.id || self.options.expandedNodes.indexOf(node.id) == -1) self._toggleNodes(node);
                 }
 
                 // Need to traverse both nodes and _nodes to ensure

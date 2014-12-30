@@ -9,7 +9,9 @@ self.query = ko.observable("");
 self.rows = [];
 self.row0 = { type: "", name: "", value: "" }
 self.row = ko.mapping.fromJS(self.row0);
-self.levels = ko.observable(2);
+self.levels = ko.observable(1);
+self.expandedNodes = [];
+self.collapsedNodes = [];
 
 self.query.subscribe(function(val) {
     self.doFilter();
@@ -31,11 +33,13 @@ self.doFilter = function()
     });
     var tree = [];
     for (var p in types) {
-        tree.push({ text: p, type: p, name: "", value: "", icon: "glyphicon glyphicon-folder-open", nodes: types[p] });
+        tree.push({ text: p, type: p, id: p, name: "", value: "", icon: "glyphicon glyphicon-folder-open", nodes: types[p] });
     }
     var options = {
         data: tree,
         levels: self.levels(),
+        expandedNodes: self.expandedNodes,
+        collapsedNodes: self.collapsedNodes,
         onNodeSelected: function(event, node) {
             self.selected = node;
             if (!node.nodes) self.doEdit(node)
