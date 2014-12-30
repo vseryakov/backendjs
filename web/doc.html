@@ -2951,6 +2951,13 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
+<li><p><code>api.setAccountSession(req, options)</code></p>
+<p> Setup session cookies for automatic authentication without signing, req must be complete with all required
+properties after successful authorization.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.getAccount(req, options, callback)</code></p>
 <p> Return an account, used in /account/get API call</p>
 </li>
@@ -2996,6 +3003,21 @@ If options.existing is 1 then return only record with found accounts, all other 
 <ul>
 <li><p><code>api.addAccount(req, options, callback)</code></p>
 <p> Register new account, used in /account/add API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.fetchAccount(req, options, callback)</code></p>
+<p> Given a profile data from some other system, check if there is an account or create a new account for the given
+profile, return bk_account record in the callback. req.query contains profile fields converted to bk_auth/bk_account names
+so the whole req.query can be saved as it is. <code>req.query.login</code> must exist.</p>
+<p>This method is supposed to be called after the user is authenticated and verified, it does not
+check secrets but only existence of a user by login. If  user with login exists, this works as <code>api.getAccount</code>
+with an extra call to bk_auth. On success the current account is active and set as <code>req.account</code>.</p>
+<p>If new account ws created, the generated secret will be returned and must be saved by the client for subsequent
+API calls unless cookie session is established.</p>
+<p>if <code>req.query.icon&#39; is set with the url of the profile image, it will be downloaded and saved as account icon type</code>0<code>.</code>options.width`
+ifspecified will be used to resize the image.</p>
 </li>
 </ul>
 
@@ -3170,14 +3192,20 @@ been processed.</p>
 </ul>
 
 <ul>
-<li><p><code>aws.queryAWS(proto, method, host, path, obj, callback)</code></p>
-<p> Make AWS request, return parsed response as Javascript object or null in case of error</p>
+<li><p><code>aws.querySign(region, service, host, method, path, body, headers)</code></p>
+<p> Build version 4 signature headers</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>aws.queryPrepare(action, version, obj, options)</code></p>
 <p> Return a request object ready to be sent to AWS, properly formatted</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryAWS(region, endpoint, proto, path, obj, callback)</code></p>
+<p> Make AWS request, return parsed response as Javascript object or null in case of error</p>
 </li>
 </ul>
 
@@ -3232,12 +3260,6 @@ been processed.</p>
 <ul>
 <li><p><code>aws.queryRoute53(method, path, data, options, callback)</code></p>
 <p> Make a request to Route53 service</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.querySign(region, service, host, method, path, body, headers)</code></p>
-<p> Build version 4 signature headers</p>
 </li>
 </ul>
 
