@@ -142,14 +142,14 @@ case "$ARG" in
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
     $0 init-devel
-    [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 build-node)
+    [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 build-node -prefix $BKJS_PREFIX)
     (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 build-bkjs -args $BKJS_ARGS)
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
 
   install-ec2)
-    $0 install -user ec2-user -prefix /home/ec2-user
+    $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user
     ;;
 
   init-server)
