@@ -17,6 +17,14 @@ self.query.subscribe(function(val) {
     self.doFilter();
 });
 
+self.saveNodes = function()
+{
+    var nodes = $('#config-tree').treeview("getNodes");
+    nodes.forEach(function(x) {
+        if (c.nodes)
+    });
+}
+
 self.doFilter = function()
 {
     var list = self.rows;
@@ -89,6 +97,7 @@ self.doCopy = function(data, event)
     if (obj.old && obj.old.type && obj.old.name && (obj.type != obj.old.type || obj.name != obj.old.name)) {
         self.send({ url: '/data/put/bk_config', data: { type: obj.type, name: obj.name, value: obj.value }, type: "POST" }, function() {
             $('#config-form').modal("hide");
+            self.saveNodes();
             self.doShow();
         }, function(err) {
             $('#config-form').modal("hide");
@@ -109,11 +118,13 @@ self.doSave = function(data, event)
         // Delete the old record
         if (obj.old && obj.old.type && obj.old.name && (obj.type != obj.old.type || obj.name != obj.old.name)) {
             self.send({ url: '/data/del/bk_config', data: { type: obj.old.type, name: obj.old.name }, type: "POST" }, function() {
+                self.saveNodes();
                 self.doShow();
             }, function(err) {
                 self.showAlert("danger", err);
             });
         } else {
+            self.saveNodes();
             self.doShow();
         }
     }, function(err) {
@@ -128,6 +139,7 @@ self.doDelete = function(data, event)
     if (!obj.name || !obj.type) return;
     if (!confirm("Delete this parameter?")) return;
     self.send({ url: '/data/del/bk_config', data: { type: obj.type, name: obj.name }, type: "POST" }, function() {
+        self.saveNodes();
         self.doShow();
         $('#config-form').modal("hide");
     }, function(err) {

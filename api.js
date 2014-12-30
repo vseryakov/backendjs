@@ -492,13 +492,18 @@ api.init = function(options, callback)
         next();
     });
 
-    // Auto redirect to SSL
-    if (self.redirectSsl.rx) {
-        self.app.use(function(req, res, next) {
-            if (req.path.match(self.redirectSsl.rx) && !req.secure) return res.redirect("https://" + req.headers.host + req.url);
-            next();
-        });
-    }
+    // Early path checks not related to account or session
+    self.app.use(function(req, res, next) {
+        // Auto redirect to SSL
+        if (self.redirectSsl.rx) {
+            if (!req.secure && req.path.match(self.redirectSsl.rx)) return res.redirect("https://" + req.headers.host + req.url);
+        }
+        // SSL only access
+        if (self.allowSsl.rx) {
+            if (req.socket.server != self.sslserver && req.path.match(self.allowSsl.rx)) return res.json(404, { status: 404, message: "ssl only" });
+        }
+        next();
+    });
 
     // Request parsers
     self.app.use(cookieParser());
@@ -562,10 +567,9 @@ api.init = function(options, callback)
 
         // For health checks
         self.app.all("/ping", function(req, res) {
-            if (!req.query.file) return res.json({});
+            if (!req.query.file) return self.sendJSON(req, null, {});
             fs.stat(core.path.web + "/public/" + req.query.file, function(err, stats) {
-                if (err) return res.send(404);
-                res.json({ size: stats.size, mtime: stats.mtime.getTime(), atime: stats.atime.getTime(), ctime: stats.ctime.getTime() });
+                self.sendJSON(req, err, { size: stats.size, mtime: stats.mtime.getTime(), atime: stats.atime.getTime(), ctime: stats.ctime.getTime() });
             });
         });
 
@@ -582,29 +586,18 @@ api.init = function(options, callback)
             if (self.disable.indexOf(p) == -1) self[self.endpoints[p]].call(self);
         }
 
-        // Disable access to endpoints if session exists, meaning Web app
-        if (self.disableSession.rx) {
-            self.registerPreProcess('', self.disableSession.rx, function(req, status, cb) {
-                if (req.session && req.session['bk-signature']) return cb({ status: 401, message: "Not authorized" });
-                cb();
-            });
-        }
-
-        // Admin only access
-        if (self.allowAdmin.rx) {
-            self.registerPreProcess('', self.allowAdmin.rx, function(req, status, cb) {
-                if (req.account.type != "admin") return cb({ status: 401, message: "access denied, admins only" });
-                cb();
-            });
-        }
-
-        // SSL only access
-        if (self.allowSsl.rx) {
-            self.registerPreProcess('', self.allowSsl.rx, function(req, status, cb) {
-                if (req.socket.server != self.sslserver) return cb({ status: 404, message: "ssl only" });
-                cb();
-            });
-        }
+        // Global pre-processor for common checks
+        self.registerPreProcess('', '/', function(req, status, cb) {
+            // Disable access to endpoints if session exists, meaning Web app
+            if (self.disableSession.rx) {
+                if (req.session && req.session['bk-signature'] && req.path.match(self.disableSession.rx)) return cb({ status: 401, message: "Not authorized" });
+            }
+            // Admin only access
+            if (self.allowAdmin.rx) {
+                if (req.account.type != "admin" && req.path.match(self.allowAdmin.rx)) return cb({ status: 401, message: "access denied, admins only" });
+            }
+            cb();
+        });
 
         // Custom application logic
         core.runMethods("configureWeb", options, function(err) {

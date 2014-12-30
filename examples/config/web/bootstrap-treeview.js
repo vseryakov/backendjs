@@ -31,15 +31,14 @@
         this._element = element;
         this._elementId = this._element.id;
         this._styleId = this._elementId + '-style';
-
         this.tree = [];
         this.nodes = [];
         this.selectedNode = {};
-
         this._init(options);
     };
 
     Tree.defaults = {
+
         injectStyle: true,
         levels: 1,
         expandIcon: 'glyphicon glyphicon-plus',
@@ -73,7 +72,7 @@
             $('#' + this._styleId).remove();
         },
 
-        nodes: function() {
+        getNodes: function() {
 
             return this.nodes;
         },
@@ -191,7 +190,9 @@
             $.each(nodes, function addNodes(id, node) {
 
                 if (level >= self.options.levels || (node.id && self.options.collapsedNodes.indexOf(node.id) > -1)) {
-                    if (!node.id || self.options.expandedNodes.indexOf(node.id) == -1) self._toggleNodes(node);
+                    if (!node.id || self.options.expandedNodes.indexOf(node.id) == -1) {
+                        self._toggleNodes(node);
+                    }
                 }
 
                 // Need to traverse both nodes and _nodes to ensure
