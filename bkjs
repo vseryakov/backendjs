@@ -139,8 +139,8 @@ case "$ARG" in
     ;;
 
   install)
-    sudo $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
-    sudo $0 init-devel
+    $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
+    $0 init-devel
     [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -u $BKJS_USER -H $0 build-node)
     (cd $BKJS_HOME && sudo -u $BKJS_USER -H $0 build-bkjs -args $BKJS_ARGS)
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
@@ -199,6 +199,7 @@ case "$ARG" in
     # Allow path in sudo
     if [ ! -f /etc/sudoers.d/$BKJS ]; then
        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
+       echo "Defaults:$BKJS_USER !requiretty" >> /etc/sudoers.d/$BKJS
     fi
 
     # Aliases and environment
