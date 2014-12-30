@@ -735,8 +735,12 @@ core.loadDnsConfig = function(options, callback)
 //          ! -> %21, * -> %2A, ' -> %27, ( -> %28, ) -> %29
 core.encodeURIComponent = function(str)
 {
-    return encodeURIComponent(str || "").replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
+    return encodeURIComponent(str).replace(/[!'()*]/g, function(m) {
+        return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m;
+    });
 }
+
+var efunc = function(m) { return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m; }
 
 // Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
 // making it usable for repeating environments or storage solutions.

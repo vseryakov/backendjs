@@ -153,6 +153,9 @@ case "$ARG" in
 
   init-server)
     echo "Installing in $BKJS_HOME for $BKJS_USER with prefix $BKJS_PREFIX ..."
+
+    # Wait for some until we have connectivity for cases when the instance is up but the routing is not ready yet
+
     # Install required packages and utilities
     ($0 init-packages)
 
@@ -308,12 +311,17 @@ case "$ARG" in
     ;;
 
   init-system)
-    # Disable firewall and SELinux
+    # Disable SELinux
     if [ -f /etc/selinux/config ]; then
         sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
     fi
+
+    # Disable internal firewall
     chkconfig iptables off
     service iptables stop
+
+    # Make sure monit is running all the time
+    service monit restart
 
     # Allow sudo use local binaries
     sed -i 's/requiretty/!requiretty/' /etc/sudoers
@@ -439,12 +447,12 @@ case "$ARG" in
             echo "Setting up PostgreSQL repo..."
             rpm -i http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
          fi
-         packages="$packages postgresql93-server redis"
+         packages="$packages postgresql93-server redis monit"
          ;;
 
       amazon)
          yum-config-manager --enable epel
-         packages="$packages postgresql9-server nodejs-devel npm redis"
+         packages="$packages postgresql9-server nodejs-devel npm redis monit"
          ;;
     esac
     sleep 10

@@ -92,7 +92,9 @@ app.login = function(config, accessToken, refreshToken, profile, callback)
     req.query.name = profile.displayName;
     req.query.gender = profile.gender;
     if (profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
-    if (profile.photos && profile.photos.length) req.query.icon = profile.photos[0].value;
+    // Deal with broken or not complete implementations
+    if (profile.photos && profile.photos.length) req.query.icon = profile.photos[0].value || profile.photos[0];
+    if (!req.query.icon && profile._json && profile._json.picture) req.query.icon = profile._json.picture;
 
     // Login or create new account for the profile
     api.fetchAccount(req, {}, function(err, row) {

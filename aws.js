@@ -101,7 +101,7 @@ aws.readCredentials = function(profile, callback)
                     if (x[0].trim() == "region" && x[1] && !self.region) self.region = x[1].trim();
                 }
             }
-            logger.debug('readCredentials:', self.key, self.secret);
+            logger.debug('readCredentials:', self.region, self.key, self.secret);
         }
         callback();
     });
@@ -123,45 +123,34 @@ aws.parseXMLResponse = function(err, params, callback)
     if (callback) callback(err, params.obj);
 }
 
-// Make AWS request, return parsed response as Javascript object or null in case of error
-aws.queryAWS = function(proto, method, host, path, obj, callback)
+// Build version 4 signature headers
+aws.querySign = function(region, service, host, method, path, body, headers)
 {
     var self = this;
+    var now = new Date();
+    var date = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
+    var datetime = date.substr(0, 8);
 
-    var sigValues = [];
-    var curTime = new Date();
-    var formattedTime = curTime.toISOString().replace(/\.[0-9]+Z$/, 'Z');
-    sigValues.push(["AWSAccessKeyId", this.key]);
-    sigValues.push(["SignatureMethod", "HmacSHA256"]);
-    sigValues.push(["SignatureVersion", "2"]);
-    sigValues.push(["Timestamp", formattedTime]);
-    if (this.securityToken) sigValues.push(["SecurityToken", this.securityToken]);
+    headers['Host'] = host;
+    headers['X-Amz-Date'] = date;
+    if (body && !headers['content-type']) headers['content-type'] = 'application/x-www-form-urlencoded; charset=utf-8';
+    if (body && !headers['content-length']) headers['content-length'] = Buffer.byteLength(body, 'utf8');
+    if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
 
-    // Mix in the primary request parameters
-    for (var p in obj) {
-        if (typeof obj[p] != "undefined") sigValues.push([p, obj[p]]);
-    }
-    var strSign = "", query = "", postdata = "";
+    function trimAll(header) { return header.toString().trim().replace(/\s+/g, ' '); }
+    var credString = [ datetime, region, service, 'aws4_request' ].join('/');
+    var pathParts = path.split('?', 2);
+    var signedHeaders = Object.keys(headers).map(function(key) { return key.toLowerCase(); }).sort().join(';');
+    var canonHeaders = Object.keys(headers).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; }).map(function(key) { return key.toLowerCase() + ':' + trimAll(String(headers[key])); }).join('\n');
+    var canonString = [ method, pathParts[0] || '/', pathParts[1] || '', canonHeaders + '\n', signedHeaders, core.hash(body || '', "sha256", "hex")].join('\n');
 
-    function encode(str) {
-        str = encodeURIComponent(str);
-        var efunc = function(m) { return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m; }
-        return str.replace(/[!'()*]/g, efunc);
-    }
-
-    sigValues.sort();
-    strSign = method + "\n" + host + "\n" + path + "\n";
-    for (var i = 0; i < sigValues.length; i++) {
-        var item = (i ? "&" : "") + sigValues[i][0] + "=" + encode(sigValues[i][1]);
-        strSign += item;
-        query += item;
-    }
-    query += "&Signature=" + encodeURIComponent(core.sign(this.secret, strSign, 'sha256'));
-    if (method == "POST") postdata = query, query = "";
-
-    core.httpGet(proto + host + path + '?' + query, { method: method, postdata: postdata }, function(err, params) {
-        self.parseXMLResponse(err, params, callback);
-    });
+    var strToSign = [ 'AWS4-HMAC-SHA256', date, credString, core.hash(canonString, "sha256", "hex") ].join('\n');
+    var kDate = core.sign('AWS4' + this.secret, datetime, "sha256", "binary");
+    var kRegion = core.sign(kDate, region, "sha256", "binary");
+    var kService = core.sign(kRegion, service, "sha256", "binary");
+    var kCredentials = core.sign(kService, 'aws4_request', "sha256", "binary");
+    var sig = core.sign(kCredentials, strToSign, "sha256", "hex");
+    headers['Authorization'] = [ 'AWS4-HMAC-SHA256 Credential=' + this.key + '/' + credString, 'SignedHeaders=' + signedHeaders, 'Signature=' + sig ].join(', ');
 }
 
 // Return a request object ready to be sent to AWS, properly formatted
@@ -174,6 +163,27 @@ aws.queryPrepare = function(action, version, obj, options)
     return req;
 }
 
+// Make AWS request, return parsed response as Javascript object or null in case of error
+aws.queryAWS = function(region, endpoint, proto, path, obj, callback)
+{
+    var self = this;
+
+    var headers = {}, params = [], query = "";
+    for (var p in obj) {
+        if (typeof obj[p] != "undefined") params.push([p, obj[p]]);
+    }
+    params.sort();
+    for (var i = 0; i < params.length; i++) {
+        query += (i ? "&" : "") + params[i][0] + "=" + core.encodeURIComponent(params[i][1]);
+    }
+    var host = endpoint + '.' + region + '.amazonaws.com';
+    this.querySign(region, endpoint, host, "POST", path, query, headers);
+
+    core.httpGet(proto + host + path, { method: "POST", postdata: query, headers: headers }, function(err, params) {
+        self.parseXMLResponse(err, params, callback);
+    });
+}
+
 // AWS generic query interface
 aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
 {
@@ -181,7 +191,7 @@ aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
     if (!options) options = {};
     var region = options.region || this.region  || 'us-east-1';
     var req = this.queryPrepare(action, version, obj, options);
-    this.queryAWS(this.proto || options.proto || 'https://', 'POST', endpoint + '.' + region + '.amazonaws.com', '/', req, callback);
+    this.queryAWS(region, endpoint, this.proto || options.proto || 'https://', '/', req, callback);
 }
 
 // AWS EC2 API request
@@ -241,36 +251,6 @@ aws.queryRoute53 = function(method, path, data, options, callback)
     core.httpGet(uri, { method: method, postdata: data, headers: headers }, function(err, params) {
         self.parseXMLResponse(err, params, callback);
     });
-}
-
-// Build version 4 signature headers
-aws.querySign = function(region, service, host, method, path, body, headers)
-{
-    var self = this;
-    var now = new Date();
-    var date = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
-    var datetime = date.substr(0, 8);
-
-    headers['Host'] = host;
-    headers['X-Amz-Date'] = date;
-    if (body && !headers['content-type']) headers['content-type'] = 'application/x-www-form-urlencoded; charset=utf-8';
-    if (body && !headers['content-length']) headers['content-length'] = Buffer.byteLength(body, 'utf8');
-    if (this.securityToken) headers["x-amz-security-token"] = this.securityToken;
-
-    function trimAll(header) { return header.toString().trim().replace(/\s+/g, ' '); }
-    var credString = [ datetime, region, service, 'aws4_request' ].join('/');
-    var pathParts = path.split('?', 2);
-    var signedHeaders = Object.keys(headers).map(function(key) { return key.toLowerCase(); }).sort().join(';');
-    var canonHeaders = Object.keys(headers).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; }).map(function(key) { return key.toLowerCase() + ':' + trimAll(String(headers[key])); }).join('\n');
-    var canonString = [ method, pathParts[0] || '/', pathParts[1] || '', canonHeaders + '\n', signedHeaders, core.hash(body || '', "sha256", "hex")].join('\n');
-
-    var strToSign = [ 'AWS4-HMAC-SHA256', date, credString, core.hash(canonString, "sha256", "hex") ].join('\n');
-    var kDate = core.sign('AWS4' + this.secret, datetime, "sha256", "binary");
-    var kRegion = core.sign(kDate, region, "sha256", "binary");
-    var kService = core.sign(kRegion, service, "sha256", "binary");
-    var kCredentials = core.sign(kService, 'aws4_request', "sha256", "binary");
-    var sig = core.sign(kCredentials, strToSign, "sha256", "hex");
-    headers['Authorization'] = [ 'AWS4-HMAC-SHA256 Credential=' + this.key + '/' + credString, 'SignedHeaders=' + signedHeaders, 'Signature=' + sig ].join(', ');
 }
 
 // DynamoDB requests

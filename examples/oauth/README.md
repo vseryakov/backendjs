@@ -4,17 +4,17 @@
 
         npm install
 
-2. Create a user
+2. Update ect/config with OAuth credentials
+
+3. Create a user for local authentication
 
         bksh -etc-dir $(pwd)/etc -account-add login admin secret admin
 
-3. Run the app
+4. Run the app
 
         ./app.sh
 
-4. Point browser to http://localhost:8000
-
-5. Login as admin:admin
+5. Point browser to http://localhost:8000
 
 # Authors
 vlad

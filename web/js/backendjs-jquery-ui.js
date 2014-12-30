@@ -23,27 +23,30 @@ Backendjs.showLogin = function(callback)
 {
     var self = this;
 
-    var div = $('#backendjs-login-modal');
-    if (!div.length)
-        div= $(
-            '<div id=backendjs-login-modal>\
-            <p class="ui-title">Please provide your account login and password.</p>\
-            <p class="ui-error"></p>\
-            <form id=backendjs-login-form>\
-            <fieldset style="padding:10px;border:0;margin-top:25px;">\
+    var modal = $('#backendjs-login-modal');
+    if (!modal.length) modal = $(
+        '<div id=backendjs-login-modal>\
+           <p class="ui-title">Please provide your account login and password.</p>\
+           <p class="ui-error"></p>\
+           <form id=backendjs-login-form>\
+           <fieldset style="padding:10px;border:0;margin-top:25px;">\
             <label for="backendjs-login" style="display:block">Login</label>\
             <input type="text" id="backendjs-login" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
             <label for="backendjs-secret" style="display:block">Password</label>\
             <input type="password" id="backendjs-secret" value="" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
-            </fieldset>\
-            </form>\
-            </div>');
+           </fieldset>\
+           </form>\
+         </div>');
 
     function submit(cb) {
-        self.login($('#backendjs-login').val(),  $('#backendjs-secret').val(), cb || div.dialog("option", "callback"));
+        self.login($('#backendjs-login').val(),  $('#backendjs-secret').val(), function(err, data) {
+            if (err) self.showAlert(modal, "error", err);
+            if (!cb) cb = modal.dialog("option", "callback");
+            if (cb) cb(err, data);
+        });
     }
 
-    div.dialog({
+    modal.dialog({
         autoOpen: false,
         modal: true,
         stack: true,
@@ -71,8 +74,8 @@ Backendjs.showLogin = function(callback)
         },
     });
 
-    div.dialog("option", "callback", callback || null).dialog("option", "msg", "");
-    return div.dialog("open");
+    modal.dialog("option", "callback", callback || null).dialog("option", "msg", "");
+    return modal.dialog("open");
 }
 
 // Return dialog button by name
