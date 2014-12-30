@@ -156,7 +156,7 @@ case "$ARG" in
     echo "Installing in $BKJS_HOME for $BKJS_USER with prefix $BKJS_PREFIX ..."
 
     # Wait for some until we have connectivity for cases when the instance is up but the routing is not ready yet
-    curl -s -I -m 60 --retry 5 --retry-max-time 60 -o /dev/null http://www.google.com
+    curl -s -I -m 30 --retry 5 --retry-max-time 180 -o /dev/null http://www.google.com
 
     # Install required packages and utilities
     ($0 init-packages)
