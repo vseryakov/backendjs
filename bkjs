@@ -141,8 +141,8 @@ case "$ARG" in
   install)
     $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
     $0 init-devel
-    [ "$(which node 2>/dev/null)" = "" ] && runuser -l -u $BKJS_USER $0 build-node -home $BKJS_HOME -prefix $BKJS_PREFIX
-    runuser -l -u $BKJS_USER $0 build-bkjs -home $BKJS_HOME -prefix $BKJS_PREFIX -args $BKJS_ARGS
+    [ "$(which node 2>/dev/null)" = "" ] && runuser -u $BKJS_USER $0 build-node -home $BKJS_HOME -prefix $BKJS_PREFIX
+    runuser -u $BKJS_USER $0 build-bkjs -home $BKJS_HOME -prefix $BKJS_PREFIX -args $BKJS_ARGS
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
