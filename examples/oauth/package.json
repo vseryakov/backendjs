@@ -6,7 +6,13 @@
  "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
  "main": "app.js",
  "dependencies": {
-    "backendjs": ">=0.9.0"
+    "backendjs": ">=0.9.0",
+    "passport": "",
+    "passport-google-oauth": "",
+    "passport-github": "",
+    "passport-facebook": "",
+    "passport-linkedin-oauth2": "",
+    "pas sport-twitter": ""
  },
  "engines": { "node": ">= 0.10" },
  "scripts": { "start": "node app.js" },
