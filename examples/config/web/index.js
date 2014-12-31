@@ -9,19 +9,25 @@ self.query = ko.observable("");
 self.rows = [];
 self.row0 = { type: "", name: "", value: "" }
 self.row = ko.mapping.fromJS(self.row0);
-self.levels = ko.observable(1);
-self.expandedNodes = [];
-self.collapsedNodes = [];
+self.openNodes = {};
 
 self.query.subscribe(function(val) {
+    self.openNodes();
     self.doFilter();
 });
 
 self.saveNodes = function()
 {
-    var nodes = $('#config-tree').treeview("getNodes");
-    nodes.forEach(function(x) {
-        if (c.nodes)
+    self.openNodes = {};
+    $('#config-tree').treeview("getNodes").forEach(function(x) {
+        if (x.id && x._open) self.openNodes[x.id] = 1;
+    });
+}
+
+self.openNodes = function()
+{
+    $('#config-tree').treeview("getNodes").forEach(function(x) {
+        if (x.id) self.openNodes[x.id] = 1;
     });
 }
 
@@ -39,18 +45,16 @@ self.doFilter = function()
         if (!types[x.type]) types[x.type] = [];
         types[x.type].push(x);
     });
-    var tree = [];
+    var nodes = [];
     for (var p in types) {
-        tree.push({ text: p, type: p, id: p, name: "", value: "", icon: "glyphicon glyphicon-folder-open", nodes: types[p] });
+        nodes.push({ text: p, type: p, id: p, name: "", value: "", icon: "glyphicon glyphicon-folder-open", nodes: types[p] });
     }
     var options = {
-        data: tree,
-        levels: self.levels(),
-        expandedNodes: self.expandedNodes,
-        collapsedNodes: self.collapsedNodes,
-        onNodeSelected: function(event, node) {
+        nodes: nodes,
+        open: self.openNodes,
+        onSelected: function(event, node) {
             self.selected = node;
-            if (!node.nodes) self.doEdit(node)
+            if (!node.nodes && !node._nodes) self.doEdit(node)
         }
     }
     $('#config-tree').treeview(options);
@@ -58,13 +62,13 @@ self.doFilter = function()
 
 self.doExpand = function(data, event)
 {
-    self.levels(2);
+    self.openNodes();
     self.doFilter();
 }
 
 self.doCollapse = function(data, event)
 {
-    self.levels(1);
+    self.openNodes = {};
     self.doFilter();
 }
 
