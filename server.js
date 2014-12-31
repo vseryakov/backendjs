@@ -585,6 +585,10 @@ server.startShell = function(options)
         if (core.isArg("-account-add")) {
             var query = getQuery();
             if (query.login && !query.name) query.name = query.login;
+            if (core.isArg("-scramble")) {
+                query.secret = core.sign(query.login, query.secret);
+                query.login = core.sign(query.login, query.login);
+            }
             api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err, data) {
                 exit(err, data);
             });
@@ -603,6 +607,10 @@ server.startShell = function(options)
         // Change user password
         if (core.isArg("-account-set-secret")) {
             var query = getQuery();
+            if (core.isArg("-scramble") && query.login) {
+                query.secret = core.sign(query.login, query.secret);
+                query.login = core.sign(query.login, query.login);
+            }
             getUser(query, function(row) {
                 api.setAccountSecret({ account: row, query: query }, {}, function(err, data) {
                     exit(err, data);

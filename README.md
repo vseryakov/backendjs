@@ -398,7 +398,9 @@ The accounts API manages accounts and authentication, it provides basic user acc
   all columns of this table are available as `req.account` object after the successful authentication where req is Express request object used in the middleware
   parameters.
 
-  *Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields*
+  *Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields. In the
+  Web client if Backendjs.scramble is set to true then login and secret are replaced by HMAC values derived from the login and sent to the server, no actual login/secret
+  are ever saved, only used in the login form*
 
   Example:
 

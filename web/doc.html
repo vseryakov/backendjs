@@ -413,7 +413,9 @@ for example with invitation codes....</p>
 add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
 all columns of this table are available as <code>req.account</code> object after the successful authentication where req is Express request object used in the middleware
 parameters.</p>
-<p><em>Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields</em></p>
+<p><em>Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields. In the
+Web client if Backendjs.scramble is set to true then login and secret are replaced by HMAC values derived from the login and sent to the server, no actual login/secret
+are ever saved, only used in the login form</em></p>
 <p>Example:</p>
 <pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
 </code></pre></li>

@@ -37,7 +37,7 @@ var Backendjs = {
         obj.backendjsVersion = version || this.sigversion || 1;
         if (this.scramble) {
             obj.backendjsLogin = login ? b64_hmac_sha1(login, login) : "";
-            obj.backendjsSecret = secret ? b64_hmac_sha1(login, secret) : "";
+            obj.backendjsSecret = login && secret ? b64_hmac_sha1(login, secret) : "";
         } else {
             obj.backendjsLogin = login ? String(login) : "";
             obj.backendjsSecret = secret ? String(secret) : "";
