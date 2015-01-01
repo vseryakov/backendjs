@@ -74,8 +74,8 @@ self.doCollapse = function(data, event)
 
 self.doShow = function(data, event)
 {
-    self.send({ url: '/data/select/bk_config', data: { _noscan: 0, _count: 1000 }, jsonType: "obj" }, function(data) {
-        self.rows = data.data;
+    self.send({ url: '/data/scan/bk_config', data: { _noscan: 0, _count: 1000 }, jsonType: "list" }, function(rows) {
+        self.rows = rows;
         self.doFilter();
     });
 }

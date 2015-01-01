@@ -1595,23 +1595,36 @@ api.initDataAPI = function()
     });
 
     // Basic operations on a table
-    this.app.all(/^\/data\/(select|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
+    this.app.all(/^\/data\/(select|scan|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
         // Table must exist
         var dbcols = db.getColumns(req.params[1]);
         if (!dbcols) return self.sendReply(res, "Unknown table");
 
         var options = self.getOptions(req);
 
-        db[req.params[0]](req.params[1], req.query, options, function(err, rows, info) {
-            switch (req.params[0]) {
-            case "select":
-            case "search":
-                self.sendJSON(req, err, self.getResultPage(req, options, rows, info));
-                break;
-            default:
+        switch (req.params[0]) {
+        case "scan":
+            var rows = [];
+            db.scan(req.params[1], req.query, options, function(row, next) {
+                rows.push(row);
+                next();
+            },function(err) {
                 self.sendJSON(req, err, rows);
-            }
-        });
+            });
+            break;
+
+        default:
+            db[req.params[0]](req.params[1], req.query, options, function(err, rows, info) {
+                switch (req.params[0]) {
+                case "select":
+                case "search":
+                    self.sendJSON(req, err, self.getResultPage(req, options, rows, info));
+                    break;
+                default:
+                    self.sendJSON(req, err, rows);
+                }
+            });
+        }
     });
 
 }

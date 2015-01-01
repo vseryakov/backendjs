@@ -540,6 +540,7 @@ case "$ARG" in
     fi
     [ "$BKJS_HOST" = "" ] && echo "Remote host required, specify with -host or BKJS_HOST" && exit
     [ -f .gitignore ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from .gitignore"
+    [ -f $HOME/.gitignore_global ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from $HOME/.gitignore_global"
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
     for h in $BKJS_HOST; do
         echo "Deploying the module to $BKJS_SSH_ARGS $BKJS_RSYNC_ARGS $h:$BKJS_PATH"
