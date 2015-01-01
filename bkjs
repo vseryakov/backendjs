@@ -124,17 +124,17 @@ case "$ARG" in
     ;;
 
   stop)
-    $KILLALL $1 "BKJS_MOD:"
+    $KILLALL $1 "$BKJS_MOD:"
     sleep 1
-    $KILLALL $1 "BKJS_MOD:"
+    $KILLALL $1 "$BKJS_MOD:"
     exit 0
     ;;
 
   stop-*)
     name=${ARG:5}
     [ "$name" = "" ] && exit 0
-    $KILLALL $1 "BKJS_MOD: $name"
-    $KILLALL $1 "BKJS_MOD: $name"
+    $KILLALL $1 "$BKJS_MOD: $name"
+    $KILLALL $1 "$BKJS_MOD: $name"
     exit 0
     ;;
 
