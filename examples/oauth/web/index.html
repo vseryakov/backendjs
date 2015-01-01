@@ -84,10 +84,10 @@ $(function()
           <ul class="nav nav-pills">
           <li><a><span data-bind="text: name"></span></a></li>
           <li><a data-bind="click: doLogin, visible: !auth()"><img id="logo" src="/img/logo.png"/></span> Login</a></li>
-          <li><a data-bind="visible: !auth()" href="/login/google"><span class="fa fa-google-plus fa-fw"></span>Sign In with Google</a><liv>
-          <li><a data-bind="visible: !auth()" href="/login/github"><span class="fa fa-github fa-fw"></span>Sign In with Github</a><liv>
-          <li><a data-bind="visible: !auth()" href="/login/facebook"><span class="fa fa-facebook fa-fw"></span>Sign In with Facebook</a><liv>
-          <li><a data-bind="visible: !auth()" href="/login/linkedin"><span class="fa fa-linkedin fa-fw"></span>Sign In with LinkedIn</a><liv>
+          <li><a data-bind="visible: !auth()" href="/oauth/google"><span class="fa fa-google-plus fa-fw"></span>Sign In with Google</a><liv>
+          <li><a data-bind="visible: !auth()" href="/oauth/github"><span class="fa fa-github fa-fw"></span>Sign In with Github</a><liv>
+          <li><a data-bind="visible: !auth()" href="/oauth/facebook"><span class="fa fa-facebook fa-fw"></span>Sign In with Facebook</a><liv>
+          <li><a data-bind="visible: !auth()" href="/oauth/linkedin"><span class="fa fa-linkedin fa-fw"></span>Sign In with LinkedIn</a><liv>
           <li><a data-bind="click: doLogout, visible: auth"><span class="fa fa-sign-out"></span>Logout</a></li>
           </ul>
         </div>

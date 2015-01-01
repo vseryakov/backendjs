@@ -12,7 +12,7 @@
     "passport-github": "",
     "passport-facebook": "",
     "passport-linkedin-oauth2": "",
-    "pas sport-twitter": ""
+    "passport-twitter": ""
  },
  "engines": { "node": ">= 0.10" },
  "scripts": { "start": "node app.js" },

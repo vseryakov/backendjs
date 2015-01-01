@@ -545,6 +545,10 @@ core.processArgs = function(name, ctx, argv, pass)
                     kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
                 }
                 var key = self.toCamel(kname);
+                // Update case according to the pattern(s)
+                if (x.ucase) key = key.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
+                if (x.lcase) key = key.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });
+                // Use supplied value of the default
                 var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (typeof x.value != "undefined" ? x.value : null);
                 if (val == null && typeof x.novalue == "undefined" && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
                 // Ignore the value if it is a parameter

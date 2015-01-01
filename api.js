@@ -3246,13 +3246,14 @@ api.delSentMessage = function(req, options, callback)
 // properties after successful authorization.
 api.setAccountSession = function(req, options)
 {
-    if (typeof options.session != "undefined" && req.session) {
-        if (options.session) {
-            var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: this.sessionAge });
-            req.session["bk-signature"] = sig["bk-signature"];
-        } else {
-            delete req.session["bk-signature"];
-        }
+    if (!req.account || !req.account.login || !req.account.secret) return;
+    if (!req.session || typeof options.session == "undefined") return;
+
+    if (options.session) {
+        var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: this.sessionAge });
+        req.session["bk-signature"] = sig["bk-signature"];
+    } else {
+        delete req.session["bk-signature"];
     }
 }
 
@@ -3400,14 +3401,14 @@ api.addAccount = function(req, options, callback)
            if (!req.query.login) return next({ status: 400, message: "login is required"});
            // Copy for the auth table in case we have different properties that needs to be cleared
            var query = core.cloneObj(req.query);
-           if (req.account.type != "admin") self.clearQuery(query, options, "bk_auth", "admin");
+           if (!req.account || req.account.type != "admin") self.clearQuery(query, options, "bk_auth", "admin");
            self.clearQuery(query, options, "bk_auth", "priv");
            db.add("bk_auth", query, options, next);
        },
        function(next) {
            var query = core.cloneObj(req.query);
            // Only admin can add accounts with admin properties
-           if (req.account.type != "admin") self.clearQuery(query, options, "bk_account", "admin");
+           if (!req.account || req.account.type != "admin") self.clearQuery(query, options, "bk_account", "admin");
            self.clearQuery(query, options, "bk_account", "priv");
            self.clearQuery(query, options, "bk_account", "location");
 
@@ -3445,7 +3446,7 @@ api.addAccount = function(req, options, callback)
 // API calls unless cookie session is established.
 //
 // if `req.query.icon' is set with the url of the profile image, it will be downloaded and saved as account icon type `0`. `options.width`
-// ifspecified will be used to resize the image.
+// if specified will be used to resize the image.
 api.fetchAccount = function(req, options, callback)
 {
     var self = this;
@@ -3459,7 +3460,7 @@ api.fetchAccount = function(req, options, callback)
             self.getAccount(req, options, function(err, row) {
                 if (err) return callback(err);
                 for (var p in row) req.account[p] = row[p];
-                callback(null, row);
+                callback(null, req.account);
             });
             return;
         }
@@ -3473,8 +3474,8 @@ api.fetchAccount = function(req, options, callback)
                 });
             },
             function(next) {
-                if (!obj.icon) return next();
-                core.httpGet(obj.icon, { binary: 1 }, function(err, params) {
+                if (!req.query.icon) return next();
+                core.httpGet(req.query.icon, { binary: 1 }, function(err, params) {
                     if (err || !params.data.length) return next();
                     self.storeIcon(params.data, req.account.id, { prefix: "account", type: "0", width: options.width }, function(err) {
                         if (err) return next();
