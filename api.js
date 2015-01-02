@@ -550,7 +550,9 @@ api.init = function(options, callback)
             self.app.engine('html', consolidate[self.templating || 'ejs']);
             self.app.set('view engine', 'html');
             // Use app specific views path if created even if it is empty
-            self.app.set('views', fs.existsSync(core.path.web + "/views") ? core.path.web + "/views" : __dirname + '/views');
+            self.app.set('views', fs.existsSync(core.home + "/views") ? core.home + "/views" :
+                                  fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" :
+                                  __dirname + '/views');
         }
 
         // Serve from default web location in the package or from application specific location
