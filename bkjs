@@ -618,7 +618,7 @@ case "$ARG" in
        $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_PG > $BKJS_BACKUP/$FILE.pgsql.dump
     fi
     if [ "$BACKUP_MYSQL" != "" -a -d $MYSQL_DIR/mysql ]; then
-       $MYSQL_PREFIX/bin/mysqldump --databases $BACKUP_MYSQL > $BKJS_BACKUP/$FILE.mysql.dump
+       $MYSQL_PREFIX/bin/mysqldump $BACKUP_MYSQL > $BKJS_BACKUP/$FILE.mysql.dump
     fi
 
     # Filesystem backup
