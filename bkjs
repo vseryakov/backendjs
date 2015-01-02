@@ -428,6 +428,10 @@ case "$ARG" in
     ln -sf $BKJS_BIN /etc/cron.hourly/run-logwatcher
     ;;
 
+  init-backup)
+    ln -sf $BKJS_BIN /etc/cron.daily/backup-backend
+    ;;
+
   init-sync)
     echo 'MAILTO=""' > /etc/cron.d/$BKJS
     echo "*/15 * * * * $BKJS_USER $BKJS_BIN sync-backend" >> /etc/cron.d/$BKJS
@@ -614,7 +618,7 @@ case "$ARG" in
        $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_PG > $BKJS_BACKUP/$FILE.pgsql.dump
     fi
     if [ "$BACKUP_MYSQL" != "" -a -d $MYSQL_DIR/mysql ]; then
-       $MYSQL_PREFIX/bin/mysqldump $BACKUP_MYSQL > $BKJS_BACKUP/$FILE.mysql.dump
+       $MYSQL_PREFIX/bin/mysqldump --databases $BACKUP_MYSQL > $BKJS_BACKUP/$FILE.mysql.dump
     fi
 
     # Filesystem backup
@@ -622,18 +626,26 @@ case "$ARG" in
        tar $BACKUP_TAR_ARGS -czf $BKJS_BACKUP/$FILE.tar.gz $BACKUP_FILES 2>&1 |egrep -v "tar: Removing leading|tar:.+ignored|as we read it"
     fi
 
-    # Send to remote host if configured, must be full ssh url with path like user@host:/path
-    [ "$BACKUP_REMOTE" = "" ] && exit
-
+    # Collect all files we just backed up
     FILES=""
     [ -f $BKJS_BACKUP/$FILE.tar.gz ] && FILES="$FILES $BKJS_BACKUP/$FILE.tar.gz"
     [ -f $BKJS_BACKUP/$FILE.pgsql.dump ] && FILES="$FILES $BKJS_BACKUP/$FILE.pgsql.dump"
     [ -f $BKJS_BACKUP/$FILE.mysql.dump ] && FILES="$FILES $BKJS_BACKUP/$FILE.mysql.dump"
     [ "$FILES" = "" ] && exit
 
-    for h in $BACKUP_REMOTE; do
-      su - $BKJS_USER -c "scp -q $FILES $h"
-    done
+    # Send to remote host if configured, must be full ssh url with path like user@host:/path
+    if [ "$BACKUP_REMOTE" != "" ]; then
+       for h in $BACKUP_REMOTE; do
+         su - $BKJS_USER -c "scp -q $FILES $h"
+       done
+    fi
+
+    # Send to the S3 bucket using AWS tools
+    if [ "$BACKUP_S3" != "" ]; then
+       for f in $FILES; do
+         aws s3 cp $f $BACKUP_S3/$(basename $f) --quiet
+       done
+    fi
     ;;
 
   get-java)
