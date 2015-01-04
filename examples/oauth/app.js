@@ -10,7 +10,6 @@ var api = bkjs.api;
 var app = bkjs.app;
 var core = bkjs.core;
 var logger = bkjs.logger;
-var passport = require('passport');
 var googleStrategy = require('passport-google-oauth').OAuth2Strategy;
 var githubStrategy = require('passport-github').Strategy;
 var facebookStrategy = require('passport-facebook').Strategy;
@@ -65,60 +64,13 @@ api.describeTables({
         },
 });
 
-passport.serializeUser(function(user, done) {
-    done(null, user.id);
-});
-
-passport.deserializeUser(function(user, done) {
-    done(err, user);
-});
-
-app.oauthRegister = function(strategy, name)
+// This is optional to show how an account can be post or pre processed on success
+app.fetchAccount = function(req, options, callback)
 {
-    var self = this;
-    var config = self[name];
-    if (!config || !config.clientID) return;
-
-    if (!config.callbackURL) config.callbackURL = 'http://localhost:' + core.port;
-    config.callbackURL += '/oauth/callback/' + name;
-    config.passReqToCallback = true;
-
-    passport.use(new strategy(config,
-             function(req, accessToken, refreshToken, profile, done) {
-                 app.oauthLogin(config, accessToken, refreshToken, profile, function(err, user) {
-                     if (err) logger.errro('oauth:', name, err);
-                     done(err, user);
-                 });
-             }));
-
-    api.app.get('/oauth/' + name, passport.authenticate(name, config));
-    api.app.get('/oauth/callback/' + name, passport.authenticate(name, { failureRedirect: '/' }), function(req, res) {
-        api.setAccountSession(req, { session: true });
-        res.redirect('/');
-    });
-    logger.debug("oauthRegister:", name, config.clientID, config.callbackURL);
-}
-
-app.oauthLogin = function(config, accessToken, refreshToken, profile, callback)
-{
-    logger.debug("oauthLogin:", profile);
-
-    req = { query: {} };
-    req.query.login = profile.provider + ":" + profile.id;
-    req.query.secret = core.uuid();
-    req.query.name = profile.displayName;
-    req.query.gender = profile.gender;
-    if (profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
-    // Deal with broken or not complete implementations
-    if (profile.photos && profile.photos.length) req.query.icon = profile.photos[0].value || profile.photos[0];
-    if (!req.query.icon && profile._json && profile._json.picture) req.query.icon = profile._json.picture;
-
-    // Login or create new account for the profile
     api.fetchAccount(req, {}, function(err, row) {
         if (err) return callback(err);
-
         // Save new access tokens in the account record
-        req = core.newObj('id', row.id, profile.provider + "_access_token", accessToken, profile.provider + "_refresh_token", refreshToken);
+        req = core.newObj('id', row.id, req.profile.provider + "_access_token", req.accessToken, req.profile.provider + "_refresh_token", req.refreshToken);
         db.update("bk_account", req, function(err) {
             callback(err, row);
         });
@@ -127,19 +79,18 @@ app.oauthLogin = function(config, accessToken, refreshToken, profile, callback)
 
 app.configureMiddleware = function(options, callback)
 {
-    api.app.use(passport.initialize({ userProperty: 'account' }));
-    callback();
-}
-
-app.configureWeb = function(options, callback)
-{
-    this.oauthRegister(googleStrategy, "google");
-    this.oauthRegister(githubStrategy, "github");
-    this.oauthRegister(facebookStrategy, "facebook");
-    this.oauthRegister(linkedinStrategy, "linkedin");
-    this.oauthRegister(twitterStrategy, "twitter");
+    api.registerOAuthStrategy(githubStrategy, core.extendObj(app.github, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(googleStrategy, core.extendObj(app.google, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(facebookStrategy, core.extendObj(app.facebook, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(linkedinStrategy, core.extendObj(app.linkedin, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(twitterStrategy, core.extendObj(app.twitter, { fetchAccount: app.fetchAccount }));
 
     callback()
 };
+
+app.configureWeb = function(options, callback)
+{
+    callback();
+}
 
 bkjs.server.start();

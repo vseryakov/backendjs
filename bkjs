@@ -44,7 +44,7 @@ esac
 # There are special commands that can be used as the script name
 NAME=$(echo $0 | awk -F/ '{print $NF}')
 case "$NAME" in
-  bksh|sync-backend|check-backend|backup-backend|run-logwatcher|run-ntp)
+  bksh|run-*)
     ARG=$NAME
     ;;
 
@@ -79,9 +79,9 @@ done
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
 
 # Setup all variables with defaults
+[ "$BKJS_HOST" = "" ] && export BKJS_HOST=$(uname -n)
 [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
 [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/usr/local
-[ "$BKJS_DOMAIN" = "" ] && export BKJS_DOMAIN=localhost
 [ "$BKJS_BACKUP" = "" ] && export BKJS_BACKUP=$BKJS_HOME/backup
 [ "$CASSANDRA_PREFIX" = "" ] && export CASSANDRA_PREFIX=$BKJS_PREFIX/cassandra
 [ "$CASSANDRA_DIR" = "" ] && export CASSANDRA_DIR=$BKJS_HOME/cassandra
@@ -172,7 +172,7 @@ case "$ARG" in
 
   init-hostname)
     # Set hostname with name and domain
-    [ "$BKJS_HOST" = "" ] && exit
+    [ "$BKJS_DOMAIN" = "" ] && exit
     hostname $BKJS_HOST.$BKJS_DOMAIN
     echo $BKJS_HOST.$BKJS_DOMAIN > /etc/hostname
     if [ -f /etc/sysconfig/network ]; then
@@ -290,9 +290,10 @@ case "$ARG" in
        echo '$ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat' >> /etc/rsyslog.conf
        echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
        echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
-       echo '*.info;cron.none,local0.none,local5.none /var/log/messages' >> /etc/rsyslog.conf
        echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
+       echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.conf
+       echo '*.info;cron.none,local0.none,local5.none /var/log/messages' >> /etc/rsyslog.conf
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
        touch /var/log/messages
        chown -R $BKJS_USER /var/log/messages
@@ -416,25 +417,35 @@ case "$ARG" in
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
     # Make sure instances are not running indefinitely
-    ln -sf $BKJS_BIN /etc/cron.hourly/check-backend
+    ln -sf $BKJS_BIN /etc/cron.hourly/run-check
     ;;
 
   init-service)
-    ln -sf $BKJS_BIN /etc/init.d/$BKJS
-    chkconfig $BKJS on
+    # Install service for a script or bkjs service
+    [ "$BKJS_PATH" = "" ] && BKJS_PATH=$BKJS_BIN
+    SERVICE=$(basename $BKJS_PATH | awk -F. '{print $1}')
+    ln -sf $BKJS_PATH /etc/init.d/$SERVICE
+    chkconfig $SERVICE on
+    # Start if command is given
+    [ "$BKJS_ARGS" != "" ] && service $SERVICE $BKJS_ARGS
     ;;
 
   init-logwatcher)
-    ln -sf $BKJS_BIN /etc/cron.hourly/run-logwatcher
+    [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="*/30 * * * *"
+    echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
+    echo "$BKJS_ARGS $BKJS_USER $BKJS_BIN run-logwatcher" >> /etc/cron.d/$BKJS-logwatcher
     ;;
 
   init-backup)
-    ln -sf $BKJS_BIN /etc/cron.daily/backup-backend
+    [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="30 3 * * *"
+    echo 'MAILTO=""' > /etc/cron.d/$BKJS-backup
+    echo "$BKJS_ARGS root $BKJS_BIN run-backup" >> /etc/cron.d/$BKJS-backup
     ;;
 
   init-sync)
-    echo 'MAILTO=""' > /etc/cron.d/$BKJS
-    echo "*/15 * * * * $BKJS_USER $BKJS_BIN sync-backend" >> /etc/cron.d/$BKJS
+    [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="*/15 * * * *"
+    echo 'MAILTO=""' > /etc/cron.d/$BKJS-sync
+    echo "$BKJS_ARGS $BKJS_USER $BKJS_BIN run-sync" >> /etc/cron.d/$BKJS-sync
     ;;
 
   init-packages)
@@ -514,7 +525,7 @@ case "$ARG" in
     esac
     ;;
 
-  sync-backend)
+  run-sync)
     # Sync code from the master, only inside backend home, must be explicitely configured
     [ "$BKJS_SYNC" = "" ] && exit
     cd $BKJS_HOME
@@ -552,7 +563,7 @@ case "$ARG" in
     done
     ;;
 
-  check-backend)
+  run-check)
     uptime=$(</proc/uptime)
     uptime=${uptime%%.*}
     if [ $uptime -gt $BKJS_IDLETIME ]; then
@@ -587,7 +598,7 @@ case "$ARG" in
     ntpdate pool.ntp.org > /dev/null 2>&1
     ;;
 
-  backup-backend)
+  run-backup)
     [ "$BKJS_BACKUP" = "" ] && exit
     DATE=$(date +%m-%d-%y)
     DOW=$(date +%w)
@@ -698,7 +709,8 @@ case "$ARG" in
   init-mysql)
     if [ ! -d $MYSQL_DIR/mysql ]; then
        mkdir -p $MYSQL_DIR
-       $ECHO "[client]\nuser=root\ndatabase=backend\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\ndatadir=$MYSQL_DIR\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" > ~/.my.cnf
+       $ECHO "[client]\nuser=root\ndatabase=backend\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n" > ~/.my.cnf
+       $ECHO "[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\ndatadir=$MYSQL_DIR\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" >> ~/.my.cnf
        $MYSQL_PREFIX/bin/mysql_install_db --force --skip-name-resolve --datadir=$MYSQL_DIR --defaults-file=$HOME/.my.cnf
        ($0 run-mysql)
        sleep 3
@@ -1135,16 +1147,17 @@ EOF
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
-    echo "  init-logwatcher - creates a cron.hourly symlink to peridocially run the log watcher"
+    echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -args can specify full cron time spec"
     echo "  run-logwatcher - executes the log watcher"
     echo "  init-app - create application skeleton for an application based on the backend, app name can be specified as the first argument"
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  put-backend path [-host HOST] [-path PATH] [-user USER] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
-    echo "  sync-backend - synchronize other directories from the master host, runs on the instance, must use BKJS_SYNC set to the host name where to get files"
-    echo "  check-backend - to be run on instances, check for idleness,if no jobs running then shutdown the host"
-    echo "  backup-backend - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"
+    echo "  run-sync - synchronize other directories from the master host, runs on the instance, must use BKJS_SYNC set to the host name where to get files"
+    echo "  run-check - to be run on instances, check for idleness,if no jobs running then shutdown the host"
+    echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -args can be used to specify the full cron time spec"
+    echo "  run-backup - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"
     echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"

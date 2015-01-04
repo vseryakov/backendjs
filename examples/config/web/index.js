@@ -34,7 +34,7 @@ self.openNodes = function()
 self.doFilter = function()
 {
     var list = self.rows;
-    if (self.query()) list = self.rows.filter(function(x) { return x.type.indexOf(self.query()) > -1 || x.name.indexOf(self.query()) > -1 | x.value.indexOf(self.query()) > -1 });
+    if (self.query()) list = self.rows.filter(function(x) { return x.type.indexOf(self.query()) > -1 || x.name.indexOf(self.query()) > -1 || x.value.indexOf(self.query()) > -1 });
     list.sort(function(a,b) { return a.type < b.type ? -1 : a.type > b.type ? 1 : (a.name < b.name ? -1 : a.name > b.name ? 1 : 0 )});
 
     var types = {};

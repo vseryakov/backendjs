@@ -33,6 +33,7 @@ var core = {
     // Application version, read from package.json if exists
     appName: '',
     appVersion: '0',
+    appDescr: "",
 
     // Process and config parameters
     argv: {},
@@ -52,7 +53,7 @@ var core = {
     cwd: process.cwd(),
 
     // Various folders, by default relative paths are used
-    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", files: "files", log: "log", modules: "modules" },
+    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", views: "", files: "files", log: "log", modules: "modules" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logFile: "log/message.log",
@@ -154,6 +155,7 @@ var core = {
             { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks", pass: 1 },
             { name: "etc-dir", type: "callback", callback: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
             { name: "web-dir", type: "callback", callback: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
+            { name: "views-dir", type: "callback", callback: function(v) { if (v) this.path.views = v; }, descr: "Path where to keep web template views" },
             { name: "tmp-dir", type: "callback", callback: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
             { name: "spool-dir", type: "callback", callback: function(v) { if (v) this.path.spool = v; }, descr: "Path where to keep modifiable files" },
             { name: "log-dir", type: "callback", callback: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
@@ -302,9 +304,11 @@ core.init = function(options, callback)
         function(next) {
             if (!self.appName) {
                 var pkg = self.readFileSync("package.json", { json: 1 });
-                if (!pkg) pkg = self.readFileSync(self.cwd + "/package.json", { json: 1 });
-                if (pkg && pkg.name) self.appName = pkg.name;
-                if (pkg && pkg.version) self.appVersion = pkg.version;
+                if (!pkg.version) pkg = self.readFileSync(self.cwd + "/package.json", { json: 1 });
+                if (!pkg.version) pkg = self.readFileSync(self.path.etc + "/../package.json", { json: 1 });
+                if (pkg.name) self.appName = pkg.name;
+                if (pkg.version) self.appVersion = pkg.version;
+                if (pkg.description) self.appDescr = pkg.description;
                 if (!self.appName) self.appName = self.name;
             }
             next();
@@ -463,7 +467,9 @@ core.parseArgs = function(argv)
     if (!Array.isArray(argv) || !argv.length) return;
 
     // Convert spaces if passed via command line
-    argv = argv.map(function(x) { return x.replace(/%20/g, ' ') });
+    argv = argv.map(function(x) {
+        return x.replace(/(\\n|%20|%0A)/ig, function(m) { return m == '\\n' || m == '%0a' || m == '%0A' ? '\n' : m == "%20" ? ' ' : m; });
+    });
     logger.dev('parseArgs:', argv.join(' '));
 
    // Core parameters
@@ -2825,10 +2831,19 @@ core.flattenObj = function(obj, options)
 }
 
 // Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
+// If the second argument is an object then add all properties from this object only.
+//
+//         core.extendObj({ a: 1 }, 'b', 2, 'c' 3 )
+//         core.extendObj({ a: 1 }, { b: 2, c: 3 })
+//
 core.extendObj = function()
 {
-    if (this.typeName(arguments[0]) != "object") arguments[0] = {}
-    for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
+    if (this.typeName(arguments[0]) != "object") arguments[0] = {};
+    if (this.typeName(arguments[1]) == "object") {
+        for (var p in arguments[1]) arguments[0][p] = arguments[1][p];
+    } else {
+        for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
+    }
     return arguments[0];
 }
 
@@ -3176,6 +3191,20 @@ core.watchFiles = function(dir, pattern, callback)
 {
     var self = this;
     logger.debug('watchFiles:', dir, pattern);
+
+    function watcher(event, file) {
+        // Check stat if no file name, Mac OS X does not provide it
+        var stat = self.statSync(file.name);
+        if (stat.size == file.stat.size && stat.mtime == file.stat.mtime) return;
+        logger.log('watchFiles:', event, file.name, file.ino, stat.size);
+        if (event == "rename") {
+            file.watcher.close();
+            file.watcher = fs.watch(file.name, function(event) { watcher(event, file); });
+        }
+        file.stat = stat;
+        callback(file);
+    }
+
     fs.readdir(dir, function(err, list) {
         if (err) return callback(err);
         list.filter(function(file) {
@@ -3184,13 +3213,8 @@ core.watchFiles = function(dir, pattern, callback)
             file = path.join(dir, file);
             return ({ name: file, stat: self.statSync(file) });
         }).forEach(function(file) {
-            logger.debug('watchFiles:', file.name, file.stat.size);
-            fs.watch(file.name, function(event, filename) {
-                // Check stat if no file name, Mac OS X does not provide it
-                if (!filename && self.statSync(file.name).size == file.stat.size) return;
-                logger.log('watchFiles:', event, filename || file.name);
-                callback(file);
-            });
+            logger.debug('watchFiles:', file.name, file.ino, file.stat.size);
+            file.watcher = fs.watch(file.name, function(event) { watcher(event, file); });
         });
     });
 }

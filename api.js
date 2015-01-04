@@ -14,6 +14,7 @@ var https = require('https');
 var cluster = require('cluster');
 var url = require('url');
 var qs = require('qs');
+var marked = require('marked');
 var crypto = require('crypto');
 var express = require('express');
 var cookieParser = require('cookie-parser');
@@ -23,6 +24,7 @@ var formidable = require('formidable');
 var ws = require("ws");
 var redis = require('redis');
 var mime = require('mime');
+var passport = require('passport');
 var consolidate = require('consolidate');
 var domain = require('domain');
 var core = require(__dirname + '/core');
@@ -155,6 +157,18 @@ var api = {
                      like1: { type: "counter", value: 0, autoincr: 1 },        // reversed, who likes me
                      follow0: { type: "counter", value: 0, autoincr: 1 },      // who i follow
                      follow1: { type: "counter", value: 0, autoincr: 1 }},     // reversed, who follows me
+
+        // Wiki pages
+        bk_pages: { id: { primary: 1, pub: 1 },
+                    title: { pub: 1 },
+                    subtitle: { pub: 1 },
+                    icon: { pub: 1 },                            // icon class, glyphicon, fa....
+                    link: { pub: 1 },                            // external link to the content
+                    content: { pub: 1 },                         // the page content
+                    toc: { type:" bool", pub: 1 },               // produce table of content
+                    pub: { type: "bool", pub: 1 },               // no account to see thos page
+                    userid: { pub: 1 },                          // id of the last user
+                    mtime: { type: "bigint", now: 1, pub: 1 }},
 
        // Collected metrics per worker process, basic columns are defined in the table to be collected like
        // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
@@ -327,6 +341,7 @@ var api = {
                  "counter": 'initCounterAPI',
                  "icon": 'initIconAPI',
                  "file": 'initFileAPI',
+                 "pages": "initPagesAPI",
                  "message": 'initMessageAPI',
                  "system": "initSystemAPI",
                  "data": 'initDataAPI' },
@@ -369,6 +384,8 @@ var api = {
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
+           { name: "pages-view", value: "pages", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
+           { name: "pages-main", descr: "A template for the main page to be created when starting the wiki engine for the first time, if not given a default simple welcome message will be used" },
            { name: "collect-host", descr: "The backend URL where all collected statistics should be sent over, if set to `pool` then each web worker will save metrics directly into the statistics database pool" },
            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
            { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
@@ -550,9 +567,21 @@ api.init = function(options, callback)
             self.app.engine('html', consolidate[self.templating || 'ejs']);
             self.app.set('view engine', 'html');
             // Use app specific views path if created even if it is empty
-            self.app.set('views', fs.existsSync(core.home + "/views") ? core.home + "/views" :
-                                  fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" :
-                                  __dirname + '/views');
+            self.app.set('views', core.path.views ||
+                         (fs.existsSync(core.home + "/views") ? core.home + "/views" :
+                          fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" : __dirname + '/views'));
+        }
+
+        // Process markdown files only if the view exists
+        if (self.pagesView && fs.existsSync(self.app.get("views") + "/" + self.pagesView + ".html")) {
+            api.app.use(function(req, res, next) {
+                if (req.query._raw || req.path.slice(-3) !== '.md') return next();
+                var file = core.path.web + '/' + req.path;
+                fs.readFile(file, 'utf8', function(err, data) {
+                    if (err) return next(err);
+                    self.sendPages(req, { id: file, content: data });
+                })
+            });
         }
 
         // Serve from default web location in the package or from application specific location
@@ -601,11 +630,13 @@ api.init = function(options, callback)
             cb();
         });
 
-        // Custom application logic
-        core.runMethods("configureWeb", options, function(err) {
+        // Setup all tables
+        self.initTables(options, function(err) {
+            if (err) return callback.call(self, err);
 
-            // Setup all tables
-            self.initTables(options, function(err) {
+            // Custom application logic
+            core.runMethods("configureWeb", options, function(err) {
+                if (err) return callback.call(self, err);
 
                 // Synchronously load external api modules
                 core.loadModules("web", options);
@@ -999,7 +1030,7 @@ api.checkSignature = function(req, callback)
     // Sanity checks, required headers must be present and not empty
     if (!sig.login || !sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
         req._noSignature = 1;
-        return callback({ status: 400, message: "Invalid request: " + (!sig.login ? "no login provided" :
+        return callback({ status: 417, message: "Invalid request: " + (!sig.login ? "no login provided" :
                                                                        !sig.method ? "no method provided" :
                                                                        !sig.host ? "no host provided" :
                                                                        !sig.login ? "no login provided" :
@@ -1445,6 +1476,71 @@ api.initLocationAPI = function()
         }
     });
 }
+
+// API for wiki pages support
+api.initPagesAPI = function()
+{
+    var self = this;
+    var db = core.modules.db;
+
+    this.app.all(/^\/pages\/([a-z]+)\/?([a-z0-9]+)?$/, function(req, res) {
+        var options = api.getOptions(req);
+
+        switch (req.params[0]) {
+        case "show":
+            db.get("bk_pages", { id: req.params[1] }, options, function(err, row) {
+                if (err) return self.sendReply(res, err);
+                if (!req.account.id && !row.pub) return self.sendReply(res, 400, "Access to page denied");
+                self.sendPages(req, row);
+            });
+            break;
+
+        case "select":
+            // Not logged in, return only public pages
+            if (!req.account.id) req.query.pub = 1;
+            options.noscan = 0;
+            db.select("bk_pages", req.query, options, function(err, rows) {
+                self.sendJSON(req, err, rows);
+            });
+            break;
+
+        case "get":
+            db.get("bk_pages", { id: req.params[1] || "1" }, options, function(err, row) {
+                if (err) return self.sendReply(res, err);
+                if (!row) return self.sendReply(res, 404, "no page found");
+                if (!req.account.id && !row.pub) return self.sendReply(res, 400, "Access to page denied");
+                row.render = core.toBool(req.query._render);
+                self.sendJSON(req, err, self.preparePages(row));
+            });
+            break;
+
+        case "put":
+            if (!req.query.title) return self.sendReply(res, 400, "title is required");
+            if (!req.query.content && !req.query.link) return self.sendReply(res, 400, "link or content is required");
+            if (!req.query.id) req.query.id = core.uuid();
+            req.query.userid = req.account.id;
+            db.put("bk_pages", req.query, options, function(err, data) {
+                self.sendJSON(req, err, data);
+            });
+            break;
+
+        case "del":
+            if (!req.params[1]) return self.sendReply(res, 400, "id is required");
+            db.put("bk_pages", { id: req.params[1] }, options, function(err, data) {
+                self.sendJSON(req, err, data);
+            });
+            break;
+
+        default:
+            self.sendReply(res, 400, "invalid command");
+        }
+    });
+
+    // Make sure we have the main page
+    db.get("bk_pages", { id: "1" }, function(err, row) {
+        if (!row) db.put("bk_pages", { id: "1", title: core.appDescr || core.appName, pub: 1, icon: "glyphicon glyphicon-home", content: self.pagesMain || "## Welcome to the Wiki" });
+    });
+};
 
 // API for internal provisioning and configuration
 api.initSystemAPI = function()
@@ -2019,6 +2115,74 @@ api.sendFile = function(req, res, file, redirect)
         if (redirect) return res.redirect(redirect);
         res.send(404);
     });
+}
+
+// Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
+// OAUTH authenticated account. The callback will be called as function(req,res) with `req.user` signifies the successful
+// login and hold the account properties.
+//
+// The following options properties are accepted:
+//  - cliendID,
+//  - clientSecret,
+//  - callbackURL - passport OAUTH properties
+//  - session - setup cookie session on success
+//  - successUrl - redirect url on success
+//  - failureUrl - redirect url on failure
+//  - fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
+//     for the given authenticated profile. This is for processing or customizing new account properties and doing
+//     some post processing work after the account has been created.
+//     For any function, `req.profile`, `req.accessToken`,`req.refreshToken` will be set for the authenticated profile object from the provider.
+api.registerOAuthStrategy = function(strategy, options, callback)
+{
+    var self = this;
+    if (!options || !options.clientID || !options.clientSecret) return;
+
+    // Initialize passport on first call
+    if (!this._passport) {
+        this._passport = 1;
+        // Keep only user id in the passport session
+        passport.serializeUser(function(user, done) {
+            done(null, user.id);
+        });
+        passport.deserializeUser(function(user, done) {
+            done(err, user);
+        });
+        this.app.use(passport.initialize({ userProperty: 'account' }));
+    }
+
+    strategy = new strategy(options, function(accessToken, refreshToken, profile, done) {
+        var req = { query: {},
+                    account: { type: "admin" },
+                    profile: profile,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken };
+        req.query.login = profile.provider + ":" + profile.id;
+        req.query.secret = core.uuid();
+        req.query.name = profile.displayName;
+        req.query.gender = profile.gender;
+        if (profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
+        // Deal with broken or not complete implementations
+        if (profile.photos && profile.photos.length) req.query.icon = profile.photos[0].value || profile.photos[0];
+        if (!req.query.icon && profile._json && profile._json.picture) req.query.icon = profile._json.picture;
+        // Login or create new account for the profile
+        var cb = options.fetchAccount || self.fetchAccount;
+        cb.call(self, req, options, function(err, user) {
+            if (err) logger.error('registerOAuthStrategy:', strategy.name, err);
+            logger.debug('registerOAuthStrategy:', strategy.name, user, profile)
+            done(err, user);
+        });
+    });
+    // Accessing internal properties is not good but this will save us an extra name to be passed arround
+    if (!strategy.callbackURL) strategy._callbackURL = 'http://localhost:' + core.port + '/oauth/callback/' + strategy.name;
+    passport.use(strategy);
+
+    this.app.get('/oauth/' + strategy.name, passport.authenticate(strategy.name, options));
+    this.app.get('/oauth/callback/' + strategy.name, passport.authenticate(strategy.name, { failureRedirect: options.failureUrl }), function(req, res) {
+        if (options.session) self.setAccountSession(req, { session: true });
+        if (options.successUrl) res.redirect(options.successUrl);
+        if (callback) callback(req, res);
+    });
+    logger.debug("registerOAuthStrategy:", strategy.name, options.clientID, strategy._callbackURL);
 }
 
 // Subscribe for events, this is used by `/acount/subscribe` API call but can be used in generic way, if no options
@@ -2649,6 +2813,54 @@ api.putStatus = function(obj, options, callback)
             callback(err, row);
         });
     });
+}
+
+// Prepare a markdown page, the following properties can be used in the options:
+//  - content - the markdown contents
+//  - title - tile to be rendered, this will be discovered by taking first # heading if not set
+//  - subtitle - subtitle or short description
+//  - toc - if not empty, then it is replaced with the table of contents by collecting all heading tags, i.e #
+//  - id - id or file name, if no title is specified or discovered it will be used as a title
+//  - render - if true render into html, otherwise return just markdown
+api.preparePages = function(options)
+{
+    var pages = { title: "", subtitle: "", toc: "", content: "", id: "" };
+    for (var p in options) pages[p] = options[p];
+    var toc = "";
+    if (pages.toc || !pages.title) {
+        String(pages.content || "").split("\n").forEach(function(x) {
+            var d = x.match(/^([#]+) (.+)/);
+            if (!d) return;
+            d[2] = d[2].trim();
+            if (pages.toc) {
+                for (var i = 0; i < d[1].length - 1; i++) toc += " ";
+                toc += "* [ " + d[2] + "](#" + d[2].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
+            }
+            if (!pages.title && d[1].trim() == "#") pages.title = d[2];
+        });
+    }
+    pages.toc = toc;
+    pages.title = pages.title || path.basename(pages.id || "");
+    if (pages.render) {
+        if (!this.markedRenderer) {
+            this.markedRenderer = new marked.Renderer();
+            this.markedRenderer.link = function(href, title, text) {
+                if (href && href.match(/[0-9a-z]+/)) href = "/pages/show/" + href;
+                return '<a class="pages-link" href="' + href + '"' + (title ? ' title="' + title + '"' : "") + '>' + text + '</a>';
+            }
+        }
+        pages.toc = marked(pages.toc || "", { renderer: this.markedRenderer });
+        pages.subtitle = marked(pages.subtitle || "", { renderer: this.markedRenderer });
+        pages.content = marked(pages.content || "", { renderer: this.markedRenderer });
+    }
+    return pages
+}
+
+// Send rendered markdown to the client response
+api.sendPages = function(req, options)
+{
+    var pages = this.preparePages(core.extendObj(options, 'render', 1));
+    req.res.render(this.pagesView, { pages: pages });
 }
 
 // Increase a counter, used in /counter/incr API call, options.op can be set to 'put'

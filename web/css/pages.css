@@ -1,0 +1,120 @@
+body {
+  font-family: "Avenir Next", Helvetica, Arial, sans-serif;
+  background-color: #ffffff;
+}
+
+.pages-logo {
+  height: 22px;
+}
+
+.modal.modal-wide .modal-dialog {
+  width: 70%;
+}
+
+.pages-modal-wide .modal-body {
+  overflow-y: auto;
+  min-height: 70vh;
+}
+
+.pages-small {
+  color: #aeaeae;
+  font-size: 70%;
+}
+
+.pages div {
+  padding: 5px;
+}
+
+.pages h1, h2, h3, h4, h5, h6 {
+  font-weight: bold;
+}
+
+.pages h1 {
+  color: #000000;
+  font-size: 28pt;
+}
+
+.pages h2 {
+  border-bottom: 1px solid #CCCCCC;
+  color: #000000;
+  font-size: 24px;
+}
+
+.pages h3 {
+  font-size: 18px;
+}
+
+.pages h4 {
+  font-size: 16px;
+}
+
+.pages h5 {
+  font-size: 14px;
+}
+
+.pages h6 {
+  color: #777777;
+  background-color: inherit;
+  font-size: 14px;
+}
+
+.pages hr {
+  height: 0.2em;
+  border: 0;
+  color: #CCCCCC;
+  background-color: #CCCCCC;
+}
+
+.pages p, blockquote, ul, ol, dl, li, table, pre {
+  margin: 15px 0;
+}
+
+.pages li, ul {
+  margin: 2px 0;
+}
+
+.pages a, a:visited {
+  color: #4183C4;
+  background-color: inherit;
+  text-decoration: none;
+}
+
+.pages button {
+  font-size: 10pt;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid #bbb;
+  background-color: #eee;
+}
+
+.pages code, pre {
+  font-family: Monaco;
+  font-size: 10pt;
+  border-radius: 3px;
+  background-color: #F8F8F8;
+  color: inherit;
+}
+
+.pages code {
+  border: 1px solid #EAEAEA;
+  margin: 0 2px;
+  padding: 0 5px;
+}
+
+.pages p > code {
+  font-size: 12pt;
+  font-weight: bold;
+  font-family: "Avenir Next", Helvetica, Arial, sans-serif;
+}
+
+.pages pre {
+  border: 1px solid #CCCCCC;
+  overflow: auto;
+  padding: 4px 8px;
+}
+
+.pages pre > code {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}

@@ -76,6 +76,7 @@ var server = {
     proxyUrl: {},
     proxyHost: null,
     proxyPort: 80,
+    proxyTarget: {},
 
     // Config parameters
     args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
@@ -89,6 +90,7 @@ var server = {
            { name: "proxy-url", type: "regexpmap", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
            { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
+           { name: "proxy-target", type: "json", descr: "An object with virtual host names as property and targets as value, if host: header match any property, use its value as full target in the form http://host:port" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
@@ -266,10 +268,10 @@ server.startWeb = function(options)
         // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
         if (core.proxy.port) {
             core.role = 'proxy';
-            self.proxyTargets = [];
+            self._proxyTargets = [];
 
             self.getProxyPort = function() {
-                var ports = self.proxyTargets.map(function(x) { return x.port }).sort();
+                var ports = self._proxyTargets.map(function(x) { return x.port }).sort();
                 if (ports.length && ports[0] != core.proxy.port) return core.proxy.port;
                 for (var i = 1; i < ports.length; i++) {
                     if (ports[i] - ports[i - 1] != 1) return ports[i - 1] + 1;
@@ -277,16 +279,18 @@ server.startWeb = function(options)
                 return ports.length ? ports[ports.length-1] + 1 : core.proxy.port;
             }
             self.getProxyTarget = function(req) {
-                // Proxy to the global Web server running behind us
+                // Virtual hosting proxy
+                if (self.proxyTarget && self.proxyTarget[req.host]) return { target: self.proxyTarget[req.host] };
+                // Proxy to the global Web server running behind us by url patterns
                 if (self.proxyHost && self.proxyUrl.rx) {
                     var d = req.url.match(self.proxyUrl.rx);
                     if ((self.proxyReverse && !d) || (!self.proxyReverse && d)) return { target: { host: self.proxyHost, port: self.proxyPort } };
                 }
                 // Forward api requests to the workers
-                for (var i = 0; i < self.proxyTargets.length; i++) {
-                    var target = self.proxyTargets.shift();
+                for (var i = 0; i < self._proxyTargets.length; i++) {
+                    var target = self._proxyTargets.shift();
                     if (!target) break;
-                    self.proxyTargets.push(target);
+                    self._proxyTargets.push(target);
                     if (!target.ready) continue;
                     return { target: { host: core.proxy.bind, port: target.port } };
                 }
@@ -295,19 +299,19 @@ server.startWeb = function(options)
             self.clusterFork = function() {
                 var port = self.getProxyPort();
                 var worker = cluster.fork({ BKJS_PORT: port });
-                self.proxyTargets.push({ id: worker.id, port: port });
+                self._proxyTargets.push({ id: worker.id, port: port });
             }
             ipc.onMessage = function(msg) {
                 switch (msg.op) {
                 case "api:ready":
-                    for (var i = 0; i < self.proxyTargets.length; i++) {
-                        if (self.proxyTargets[i].id == this.id) return self.proxyTargets[i] = msg.value;
+                    for (var i = 0; i < self._proxyTargets.length; i++) {
+                        if (self._proxyTargets[i].id == this.id) return self._proxyTargets[i] = msg.value;
                     }
                     break;
 
                 case "cluster:exit":
-                    for (var i = 0; i < self.proxyTargets.length; i++) {
-                        if (self.proxyTargets[i].id == this.id) return self.proxyTargets.splice(i, 1);
+                    for (var i = 0; i < self._proxyTargets.length; i++) {
+                        if (self._proxyTargets[i].id == this.id) return self._proxyTargets.splice(i, 1);
                     }
                     break;
                 }

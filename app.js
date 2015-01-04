@@ -29,7 +29,7 @@ module.exports = app;
 app.configure = function(options, callback) { callback(); }
 
 // Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
-// init steps that all processes require to have. All database pool and other confugration is ready at this point. This hook is
+// init steps that all processes require to have. All database pools and other confugration is ready at this point. This hook is
 // called regardless of what kind of server is about to start, it is always called before starting a server or shell.
 app.configureModule = function(options, callback) { callback(); }
 
