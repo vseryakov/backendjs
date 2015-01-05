@@ -7,13 +7,27 @@ body {
   height: 22px;
 }
 
-.modal.modal-wide .modal-dialog {
+.modal.pages-modal-wide .modal-dialog {
   width: 70%;
 }
 
 .pages-modal-wide .modal-body {
   overflow-y: auto;
   min-height: 70vh;
+}
+
+div.pages-picker {
+  display: none;
+  background-color: #eeeeee;
+  z-index: 9999;
+  y-overflow: auto;
+  position: absolute;
+  border: 1px solid black;
+  padding: 10px;
+  left: 5%;
+  top: 5%;
+  width: 90%;
+  height: 90%;
 }
 
 .pages-small {

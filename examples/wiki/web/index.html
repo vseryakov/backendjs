@@ -76,6 +76,12 @@
           <h4 class="modal-title" id="PageLabel">Edit Page</h4>
         </div>
         <div class="modal-body">
+          <div id="pages-picker" class="pages-picker">
+             <h4>Pick a page</h4>
+             <ul class="list-group" data-bind="foreach: $root.pages">
+               <li class="list-group-item"><span data-bind="css: icon"></span> <span data-bind="click: $root.pagesPickPage, text: title"></span></li>
+             </ul>
+          </div>
           <form role="form">
             <input id="pages-id" class="pages-field" type="hidden">
             <input id="pages-icon" class="pages-field" type="hidden">
@@ -110,11 +116,6 @@
               <div class="form-group">
                 <label>Page Content</label>
                 <textarea id="pages-content" class="pages-field" ></textarea>
-              </div>
-              <div id="pages-list">Pages:
-                 <ul data-bind="foreach: $root.pages">
-                   <li><span data-bind="text: title"></span></li>
-                 </ul>
               </div>
             </fieldset>
           </form>

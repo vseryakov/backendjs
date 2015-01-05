@@ -2,7 +2,7 @@
 // Vlad Seryakov 2014
 //
 
-Backendjs.pages = [];
+Backendjs.pages = ko.observableArray();
 Backendjs.pagesHistory = [];
 Backendjs.pagesList = ko.observableArray();
 Backendjs.pagesTitle = ko.observable();
@@ -19,9 +19,9 @@ Backendjs.pagesQuery.subscribe(function(val) {
 
 Backendjs.pagesFilter = function()
 {
-    var list = Backendjs.pages;
+    var list = Backendjs.pages();
     if (Backendjs.pagesQuery()) {
-        list = Backendjs.pages.filter(function(x) {
+        list = Backendjs.pages().filter(function(x) {
             return (x.title && x.title.indexOf(Backendjs.pagesQuery()) > -1) ||
                    (x.subtitle && x.subtitle.indexOf(Backendjs.pagesQuery()) > -1);
         });
@@ -36,7 +36,8 @@ Backendjs.pagesSelect = function(callback)
             x.icon = x.icon || "glyphicon glyphicon-book";
             x.time = Backendjs.strftime(x.mtime, "%Y-%m-%d %H:%M");
         });
-        Backendjs.pages = rows.filter(function(x) { return x.id != "1" }).sort(function(a,b) { return a.mtime < b.mtime ? -1 : a.mtime > b.mtime ? 1 : 0 });
+        rows = rows.filter(function(x) { return x.id != "1" }).sort(function(a,b) { return a.mtime < b.mtime ? -1 : a.mtime > b.mtime ? 1 : 0 });
+        Backendjs.pages(rows);
         if (callback) callback();
     });
 }
@@ -146,9 +147,28 @@ Backendjs.pagesDelete = function(data, event)
     });
 }
 
+Backendjs.pagesShowPicker = function(event)
+{
+    $("#pages-picker").toggle();
+}
+
+Backendjs.pagesPickPage = function(data, event)
+{
+    event.preventDefault();
+    var md = $('#pages-content').data().markdown;
+    var link = "[" + data.title + "](" + data.id + ")";
+    md.replaceSelection(link);
+    var selected = md.getSelection();
+    var cursor = selected.start;
+    md.setSelection(cursor, cursor + link.length);
+    $("#pages-picker").hide();
+}
+
 Backendjs.koShow = function()
 {
-    Backendjs.pagesShow();
+    Backendjs.pagesSelect(function() {
+        Backendjs.pagesShow();
+    });
 }
 
 $(function()
@@ -168,11 +188,7 @@ $(function()
                                      title: "Pages Index",
                                      icon: "fa fa-file-text-o",
                                      callback: function(e) {
-                                         var id, selected = e.getSelection();
-                                         // Choose a page
-                                         e.replaceSelection(id)
-                                         var cursor = selected.start
-                                         e.setSelection(cursor, cursor + id.length)
+                                         Backendjs.pagesShowPicker(e);
                                      }
                                  }]
                          }]
