@@ -11,6 +11,9 @@ Backendjs.pagesToc = ko.observable();
 Backendjs.pagesContent = ko.observable();
 Backendjs.pagesId = ko.observable();
 
+// 0 to render html locally, 1 to ask the server to render markdown to html
+Backendjs.pagesRender = 0;
+
 Backendjs.pagesQuery = ko.observable("");
 Backendjs.pagesQuery.subscribe(function(val) {
     if (!Backendjs.pages.length) return Backendjs.pagesIndex();
@@ -72,13 +75,14 @@ Backendjs.pagesLink = function(data, event)
 Backendjs.pagesShow = function(data, event)
 {
     var id = data && typeof data.id == "string" ? data.id : data && typeof data.id == "function" ? data.id() : "";
-    Backendjs.send({ url: "/pages/get/" + id, data: { _render: 1 }, jsonType: "obj" }, function(row) {
+    Backendjs.send({ url: "/pages/get/" + id, data: { _render: Backendjs.pagesRender }, jsonType: "obj" }, function(row) {
         document.title = row.title;
         Backendjs.pagesId(row.id);
-        Backendjs.pagesToc(row.toc);
-        Backendjs.pagesTitle(row.title);
-        Backendjs.pagesContent(row.content);
         Backendjs.pagesList([]);
+        Backendjs.pagesToc(Backendjs.pagesRender ? row.toc : marked(row.toc, { renderer: Backendjs.pagesRenderer }));
+        Backendjs.pagesTitle(marked(Backendjs.pagesRender ? row.title : row.title, { renderer: Backendjs.pagesRenderer }));
+        Backendjs.pagesContent(marked(Backendjs.pagesRender ? row.content : row.content, { renderer: Backendjs.pagesRenderer }));
+
         $("a.pages-link").each(function() {
             var d = $(this).attr('href').match(/^\/pages\/show\/([a-z0-9]+)/);
             if (d) $(this).on("click", function(e) { Backendjs.pagesLink({ id: d[1] }, e); });
@@ -177,6 +181,12 @@ $(function()
     $('#pages-iconpicker').on('change', function(e) {
         $('#pages-icon').val(e.icon.split("-")[0] + " " + e.icon);
     });
+
+    Backendjs.pagesRenderer = new marked.Renderer();
+    Backendjs.pagesRenderer.link = function(href, title, text) {
+        if (href && href.match(/[0-9a-z]+/)) href = "/pages/show/" + href;
+        return '<a class="pages-link" href="' + href + '"' + (title ? ' title="' + title + '"' : "") + '>' + text + '</a>';
+    }
 
     $('#pages-content').markdown(
                 { resize: "vertical", fullscreen: false, autofocus: true,

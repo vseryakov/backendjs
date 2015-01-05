@@ -1064,6 +1064,33 @@ who can access it.*
         /data/select/bk_account?name=john&_ops=name,gt&_select=name,alias,email
         /data/select/bk_connection?_noscan=0&_noprocessrows=1
 
+## Pages
+The pages API provides a simple Wiki like system with Markdown formatting. It keeps all pages in the database table `bk_pages` and
+exposes an API to manage and render pages.
+
+The pages support public mode, all pages with `pub` set to true will be returning without an account, this must be enabled with `api-allow-path=^/pages/(get|select|show)`
+to work.
+
+All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).
+
+- `/pages/get/ID`
+  Return a page with given id or the main page if id is empty. If the query parameter `_render=1` is given, the content will be rendered into html from markdown, otherwie
+  returns all data as is.
+
+- `/pages/select`
+  Return all pages or only ones which match the query criteria. This potentially scans the whole table to return all pages and
+  is used to show pages index.
+
+- `/pages/put`
+  Replace or add a new page.
+
+- `/pages/del`
+  Delete a page from the database
+
+- `/pages/show/ID`
+  Render a page with given id, markdown is converted into html using `marked`. A view must be condfigured in order to render to work, by default pages.html view
+  is provided to simply wrap the markdown in the page layout.
+
 ## System API
 The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.

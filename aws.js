@@ -532,7 +532,7 @@ aws.ec2RunInstances = function(options, callback)
            function(next) {
                // Add to the ELB
                if (!options.elbName) return next();
-               self.elbRegisterInstances(options.elbName, items.map(function() { return x.instanceId }), next);
+               self.elbRegisterInstances(options.elbName, items.map(function(x) { return x.instanceId }), next);
            },
            function(next) {
                // Elastic IP

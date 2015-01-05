@@ -262,7 +262,14 @@ var api = {
     hooks: { access: [], auth: [], post: [] },
 
     // No authentication for these urls
-    allow: core.toRegexpMap(null, ["^/$", "\\.html$", "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$", "\\.ttf$", "\\.eof$", "\\.woff$", "\\.js$", "\\.css$", "^/public", "^/account/add$" ]),
+    allow: core.toRegexpMap(null, ["^/$",
+                                   "\\.html$",
+                                   "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$",
+                                   "\\.ttf$", "\\.eof$", "\\.woff$",
+                                   "\\.js$", "\\.css$",
+                                   "^/public",
+                                   "^/account/add$",
+                                   "^/ping" ]),
     // Only for admins
     allowAdmin: {},
     // Allow only HTTPS requests
@@ -2824,6 +2831,7 @@ api.putStatus = function(obj, options, callback)
 //  - render - if true render into html, otherwise return just markdown
 api.preparePages = function(options)
 {
+    var self = this;
     var pages = { title: "", subtitle: "", toc: "", content: "", id: "" };
     for (var p in options) pages[p] = options[p];
     var toc = "";
@@ -2844,9 +2852,11 @@ api.preparePages = function(options)
     if (pages.render) {
         if (!this.markedRenderer) {
             this.markedRenderer = new marked.Renderer();
+            this.markedLink = this.markedRenderer.link;
+            // Just handle pages links, let marked to handle the output
             this.markedRenderer.link = function(href, title, text) {
                 if (href && href.match(/[0-9a-z]+/)) href = "/pages/show/" + href;
-                return '<a class="pages-link" href="' + href + '"' + (title ? ' title="' + title + '"' : "") + '>' + text + '</a>';
+                return self.markedLink.call(self.markedRenderer, href, title, text);
             }
         }
         pages.toc = marked(pages.toc || "", { renderer: this.markedRenderer });

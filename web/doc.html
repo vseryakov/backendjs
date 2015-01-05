@@ -24,6 +24,7 @@
 <li><a href="#counters"> Counters</a></li>
 <li><a href="#status"> Status</a></li>
 <li><a href="#data"> Data</a></li>
+<li><a href="#pages"> Pages</a></li>
 <li><a href="#system-api"> System API</a></li>
 </ul>
 </li>
@@ -1004,6 +1005,32 @@ separate fields. To return raw data pass the parameter <code>_noprocessrows=1</c
   /data/select/bk_connection?_noscan=0&amp;_noprocessrows=1
 </code></pre></li>
 </ul>
+<h2 id="pages">Pages</h2>
+<p>The pages API provides a simple Wiki like system with Markdown formatting. It keeps all pages in the database table <code>bk_pages</code> and
+exposes an API to manage and render pages.</p>
+<p>The pages support public mode, all pages with <code>pub</code> set to true will be returning without an account, this must be enabled with <code>api-allow-path=^/pages/(get|select|show)</code>
+to work.</p>
+<p>All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).</p>
+<ul>
+<li><p><code>/pages/get/ID</code>
+Return a page with given id or the main page if id is empty. If the query parameter <code>_render=1</code> is given, the content will be rendered into html from markdown, otherwie
+returns all data as is.</p>
+</li>
+<li><p><code>/pages/select</code>
+Return all pages or only ones which match the query criteria. This potentially scans the whole table to return all pages and
+is used to show pages index.</p>
+</li>
+<li><p><code>/pages/put</code>
+Replace or add a new page.</p>
+</li>
+<li><p><code>/pages/del</code>
+Delete a page from the database</p>
+</li>
+<li><p><code>/pages/show/ID</code>
+Render a page with given id, markdown is converted into html using <code>marked</code>. A view must be condfigured in order to render to work, by default pages.html view
+is provided to simply wrap the markdown in the page layout.</p>
+</li>
+</ul>
 <h2 id="system-api">System API</h2>
 <p>The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.</p>
@@ -1972,7 +1999,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints. Default: {}</li>
 <li><code>api-icon-limit</code> - Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type. Default: {}</li>
 <li><code>api-express-enable</code> - Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,..... Default: []</li>
-<li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: {&quot;list&quot;:[&quot;^/$&quot;,&quot;\.html$&quot;,&quot;\.ico$&quot;,&quot;\.gif$&quot;,&quot;\.png$&quot;,&quot;\.jpg$&quot;,&quot;\.svg$&quot;,&quot;\.ttf$&quot;,&quot;\.eof$&quot;,&quot;\.woff$&quot;,&quot;\.js$&quot;,&quot;\.css$&quot;,&quot;^/public&quot;,&quot;^/account/add$&quot;],&quot;rx&quot;:{}}</li>
+<li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: {&quot;list&quot;:[&quot;^/$&quot;,&quot;\.html$&quot;,&quot;\.ico$&quot;,&quot;\.gif$&quot;,&quot;\.png$&quot;,&quot;\.jpg$&quot;,&quot;\.svg$&quot;,&quot;\.ttf$&quot;,&quot;\.eof$&quot;,&quot;\.woff$&quot;,&quot;\.js$&quot;,&quot;\.css$&quot;,&quot;^/public&quot;,&quot;^/account/add$&quot;,&quot;^/ping&quot;],&quot;rx&quot;:{}}</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused. Default: {}</li>
