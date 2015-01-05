@@ -2003,7 +2003,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused. Default: {}</li>
-<li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy cases Express &#39;trust proxy&#39; option should be enabled. Default: {}</li>
+<li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects. Default: {}</li>
 <li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list. Default: {}</li>
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds. Default: 1800000</li>
@@ -2297,6 +2297,14 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 <ul>
 <li><p><code>api.handleServerRequest(req, res)</code></p>
 <p> Start Express middleware processing wrapped in the node domain</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleProxyRequest(req, res, callback)</code></p>
+<p> Process incoming proxy request, can be overriden for custom logic with frontend proxy server. If any
+response is sent or an error returned in the calback
+then the request will be aborted and will not be forwarded to the web processes</p>
 </li>
 </ul>
 

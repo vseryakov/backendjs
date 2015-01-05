@@ -626,10 +626,10 @@ case "$ARG" in
        BACKUP_FILES="$BACKUP_FILES $PG_DIR/*.conf"
        # PG directory on CentOS is separate
        [ -e $PG_PREFIX ] && BACKUP_FILES="$BACKUP_FILES $PG_PREFIX"
-       $PG_PREFIX/bin/pg_dump -Fc -U postgres $BACKUP_PG > $BKJS_BACKUP/$FILE.pgsql.dump
+       $PG_PREFIX/bin/pg_dump -Fc -U ${BACKUP_PG_USER:-postgres} $BACKUP_PG > $BKJS_BACKUP/$FILE.pgsql.dump
     fi
     if [ "$BACKUP_MYSQL" != "" -a -d $MYSQL_DIR/mysql ]; then
-       $MYSQL_PREFIX/bin/mysqldump $BACKUP_MYSQL > $BKJS_BACKUP/$FILE.mysql.dump
+       $MYSQL_PREFIX/bin/mysqldump -u ${BACKUP_MYSQL_USER:-root} $BACKUP_MYSQL > $BKJS_BACKUP/$FILE.mysql.dump
     fi
 
     # Filesystem backup

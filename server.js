@@ -9,6 +9,7 @@ var domain = require('domain');
 var cron = require('cron');
 var path = require('path');
 var util = require('util');
+var url = require('url');
 var fs = require('fs');
 var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
@@ -319,17 +320,40 @@ server.startWeb = function(options)
             self.proxyServer = proxy.createServer({ xfwd : true });
             self.proxyServer.on("error", function(err) { if (err.code != "ECONNRESET") logger.error("proxy:", err.code, err.stack) })
             self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
-                var target = self.getProxyTarget(req);
-                if (target) return self.proxyServer.web(req, res, target);
-                res.writeHead(500, "Not ready yet");
-                res.end();
-            });
-            if (core.proxy.ssl && (core.ssl.key || core.ssl.pfx)) {
-                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
+                api.handleProxyRequest(req, res, function(err) {
+                    if (res.headersSent) return;
+                    if (err) {
+                        res.writeHead(500, "Internal Error");
+                        return res.end(err.message);
+                    }
+                    if (api.redirectSsl.rx && !req.connection.encrypted && url.parse(req.url).pathname.match(api.redirectSsl.rx)) {
+                        res.writeHead(302, { "Location": "https://" + req.headers.host + req.url });
+                        return res.end();
+                    }
+                    if (api.allowSsl.rx && url.parse(req.url).pathname.match(api.allowSsl.rx)) {
+                        var body = JSON.stringify({ status: 400, message: "SSL only access" });
+                        res.writeHead(400, { 'Content-Type': 'application/json', "Content-Length": body.length });
+                        return res.end(body);
+                    }
                     var target = self.getProxyTarget(req);
                     if (target) return self.proxyServer.web(req, res, target);
                     res.writeHead(500, "Not ready yet");
                     res.end();
+                });
+            });
+            if (core.proxy.ssl && (core.ssl.key || core.ssl.pfx)) {
+                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
+                    api.handleProxyRequest(req, res, function(err) {
+                        if (res.headersSent) return;
+                        if (err) {
+                            res.writeHead(500, "Internal Error");
+                            return res.end(err.message);
+                        }
+                        var target = self.getProxyTarget(req);
+                        if (target) return self.proxyServer.web(req, res, target);
+                        res.writeHead(500, "Not ready yet");
+                        res.end();
+                    });
                 });
             }
             if (core.ws.port) {

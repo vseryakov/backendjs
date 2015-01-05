@@ -384,7 +384,7 @@ var api = {
            { name: "allow-path", type: "regexpmap", key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
            { name: "disallow-path", type: "regexpmap", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
            { name: "allow-ssl", type: "regexpmap", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
-           { name: "redirect-ssl", type: "regexpmap", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy cases Express 'trust proxy' option should be enabled" },
+           { name: "redirect-ssl", type: "regexpmap", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects" },
            { name: "deny", type:" regexpmap", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
            { name: "deny-path", type: "regexpmap", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
@@ -522,9 +522,9 @@ api.init = function(options, callback)
         if (self.redirectSsl.rx) {
             if (!req.secure && req.path.match(self.redirectSsl.rx)) return res.redirect("https://" + req.headers.host + req.url);
         }
-        // SSL only access
+        // SSL only access, deny access without redirect
         if (self.allowSsl.rx) {
-            if (req.socket.server != self.sslserver && req.path.match(self.allowSsl.rx)) return res.json(404, { status: 404, message: "ssl only" });
+            if (req.socket.server != self.sslserver && req.path.match(self.allowSsl.rx)) return res.json(400, { status: 400, message: "SSL only access" });
         }
         next();
     });
@@ -746,6 +746,14 @@ api.handleServerRequest = function(req, res)
     d.add(req);
     d.add(res);
     d.run(function() { api.app(req, res); });
+}
+
+// Process incoming proxy request, can be overriden for custom logic with frontend proxy server. If any
+// response is sent or an error returned in the calback
+// then the request will be aborted and will not be forwarded to the web processes
+api.handleProxyRequest = function(req, res, callback)
+{
+    callback(null, req, res);
 }
 
 // Called on new socket connection, supports all type of sockets

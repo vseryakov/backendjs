@@ -77,9 +77,19 @@
         </div>
         <div class="modal-body">
           <div id="pages-picker" class="pages-picker">
-             <h4>Pick a page</h4>
-             <ul class="list-group" data-bind="foreach: $root.pages">
-               <li class="list-group-item"><span data-bind="css: icon"></span> <span data-bind="click: $root.pagesPickPage, text: title"></span></li>
+             <div class="row">
+               <div class="col-lg-6">
+                 <h4>Pick a page</h4>
+               </div>
+               <div class="col-lg-6">
+                 <div class="input-group" data-bind="visible: koAuth">
+                   <span class="input-group-addon"><span class="glyphicon glyphicon-search"></span></span>
+                   <input id="search" type="text" class="form-control" placeholder="Search" data-bind='textInput: pagesPickerQuery'/>
+                 </div>
+               </div>
+             </div>
+             <ul class="list-group" data-bind="foreach: $root.pagesPickerList">
+               <li class="list-group-item"><span data-bind="css: icon"></span> <span data-bind="click: $root.pagesPickerLink, text: title"></span></li>
              </ul>
           </div>
           <form role="form">

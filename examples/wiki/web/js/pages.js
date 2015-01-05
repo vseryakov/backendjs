@@ -2,7 +2,10 @@
 // Vlad Seryakov 2014
 //
 
-Backendjs.pages = ko.observableArray();
+// 0 to render html locally, 1 to ask the server to render markdown to html
+Backendjs.pagesRender = 0;
+
+Backendjs.pages = [];
 Backendjs.pagesHistory = [];
 Backendjs.pagesList = ko.observableArray();
 Backendjs.pagesTitle = ko.observable();
@@ -10,9 +13,6 @@ Backendjs.pagesSubtitle = ko.observable();
 Backendjs.pagesToc = ko.observable();
 Backendjs.pagesContent = ko.observable();
 Backendjs.pagesId = ko.observable();
-
-// 0 to render html locally, 1 to ask the server to render markdown to html
-Backendjs.pagesRender = 0;
 
 Backendjs.pagesQuery = ko.observable("");
 Backendjs.pagesQuery.subscribe(function(val) {
@@ -22,9 +22,9 @@ Backendjs.pagesQuery.subscribe(function(val) {
 
 Backendjs.pagesFilter = function()
 {
-    var list = Backendjs.pages();
+    var list = Backendjs.pages;
     if (Backendjs.pagesQuery()) {
-        list = Backendjs.pages().filter(function(x) {
+        list = Backendjs.pages.filter(function(x) {
             return (x.title && x.title.indexOf(Backendjs.pagesQuery()) > -1) ||
                    (x.subtitle && x.subtitle.indexOf(Backendjs.pagesQuery()) > -1);
         });
@@ -40,7 +40,7 @@ Backendjs.pagesSelect = function(callback)
             x.time = Backendjs.strftime(x.mtime, "%Y-%m-%d %H:%M");
         });
         rows = rows.filter(function(x) { return x.id != "1" }).sort(function(a,b) { return a.mtime < b.mtime ? -1 : a.mtime > b.mtime ? 1 : 0 });
-        Backendjs.pages(rows);
+        Backendjs.pages = rows;
         if (callback) callback();
     });
 }
@@ -105,6 +105,7 @@ Backendjs.pagesNew = function(data, event)
 Backendjs.pagesEdit = function(data, event)
 {
     Backendjs.send({ url: "/pages/get/" + Backendjs.pagesId(), jsonType: "obj" }, function(row) {
+        Backendjs.pagesMtime = row.mtime;
         for (var p in row) {
             switch ($("#pages-" + p).attr("type")) {
             case "checkbox":
@@ -121,6 +122,16 @@ Backendjs.pagesEdit = function(data, event)
 }
 
 Backendjs.pagesSave = function(data, event)
+{
+    if (!Backendjs.pagesId()) return Backendjs.pagesPut();
+
+    Backendjs.send({ url: "/pages/get/" + Backendjs.pagesId(), data: { _select: "mtime" }, jsonType: "obj" }, function(row) {
+        if (row.mtime > Backendjs.pagesMtime && confirm("The page has been modified already, continuing will override previous data with your version of the page.\nDo you want to cancel?")) return;
+        Backendjs.pagesPut();
+    });
+}
+
+Backendjs.pagesPut = function(data, event)
 {
     var obj = {};
     $(".pages-field").each(function() {
@@ -151,12 +162,20 @@ Backendjs.pagesDelete = function(data, event)
     });
 }
 
+Backendjs.pagesPickerList = ko.observableArray();
+Backendjs.pagesPickerQuery = ko.observable("");
+Backendjs.pagesPickerQuery.subscribe(function(val) {
+    if (Backendjs.pages.length) return Backendjs.pagesPickerFilter();
+    Backendjs.pagesSelect(function() { Backendjs.pagesPickerFilter() })
+});
+
 Backendjs.pagesShowPicker = function(event)
 {
+    Backendjs.pagesPickerFilter();
     $("#pages-picker").toggle();
 }
 
-Backendjs.pagesPickPage = function(data, event)
+Backendjs.pagesPickerLink = function(data, event)
 {
     event.preventDefault();
     var md = $('#pages-content').data().markdown;
@@ -166,6 +185,18 @@ Backendjs.pagesPickPage = function(data, event)
     var cursor = selected.start;
     md.setSelection(cursor, cursor + link.length);
     $("#pages-picker").hide();
+}
+
+Backendjs.pagesPickerFilter = function()
+{
+    var list = Backendjs.pages;
+    if (Backendjs.pagesPickerQuery()) {
+        list = Backendjs.pages.filter(function(x) {
+            return (x.title && x.title.indexOf(Backendjs.pagesPickerQuery()) > -1) ||
+                   (x.subtitle && x.subtitle.indexOf(Backendjs.pagesPickerQuery()) > -1);
+        });
+    }
+    Backendjs.pagesPickerList(list);
 }
 
 Backendjs.koShow = function()
@@ -194,8 +225,8 @@ $(function()
                         [{
                              name: "pagesGroup",
                              data: [{
-                                     name: "index",
-                                     title: "Pages Index",
+                                     name: "picker",
+                                     title: "Pick a page to link",
                                      icon: "fa fa-file-text-o",
                                      callback: function(e) {
                                          Backendjs.pagesShowPicker(e);
