@@ -42,14 +42,14 @@ case "$PLATFORM" in
 esac
 
 # There are special commands that can be used as the script name
-NAME=$(echo $0 | awk -F/ '{print $NF}')
+NAME=$(basename $0)
 case "$NAME" in
-  bksh|run-*)
-    ARG=$NAME
+  bkjs)
+    ARG=$1;shift
     ;;
 
   *)
-    ARG=$1;shift
+    ARG=$NAME
     ;;
 esac
 
@@ -111,7 +111,7 @@ export PKG_CONFIG_PATH=$BKJS_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONF
 case "$ARG" in
   start)
     # Perform setup and possibly get newest source code if sync master is configured
-    ($0 sync-backend)
+    ($0 run-sync)
 
     echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_ARGS $@"
     $0 run-server
@@ -1121,7 +1121,7 @@ EOF
     ;;
 
   *)
-    [ "$ARG" != "" ] && echo "error: unknown command: $ARG: $@"
+    [ "$ARG" != "" ] && echo "error: unknown command: $ARG: $@" >&2
     echo ""
     echo "usage: $BK command ..."
     echo "  where command is:"
@@ -1143,7 +1143,7 @@ EOF
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instancejob - configure for temporary job instance"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
-    echo "  init-sync - setup a cron job to run sync-backend command every 5 minites to check for new software on the \$BKJS_SYNC server"
+    echo "  init-sync - setup a cron job to run run-sync command every 5 minites to check for new software on the \$BKJS_SYNC server"
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"

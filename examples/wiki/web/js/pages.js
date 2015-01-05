@@ -157,4 +157,25 @@ $(function()
     $('#pages-iconpicker').on('change', function(e) {
         $('#pages-icon').val(e.icon.split("-")[0] + " " + e.icon);
     });
+
+    $('#pages-content').markdown(
+                { resize: "vertical", fullscreen: false, autofocus: true,
+                    additionalButtons: [
+                        [{
+                             name: "pagesGroup",
+                             data: [{
+                                     name: "index",
+                                     title: "Pages Index",
+                                     icon: "fa fa-file-text-o",
+                                     callback: function(e) {
+                                         var id, selected = e.getSelection();
+                                         // Choose a page
+                                         e.replaceSelection(id)
+                                         var cursor = selected.start
+                                         e.setSelection(cursor, cursor + id.length)
+                                     }
+                                 }]
+                         }]
+                    ]
+                });
 });

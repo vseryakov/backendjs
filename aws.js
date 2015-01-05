@@ -449,7 +449,7 @@ aws.s3ParseUrl = function(url)
 //  - waitTimeout - how long to wait in ms for instance to be runnable
 //  - waitDelay  - now often in ms to poll for status while waiting
 //  - waitRunning - if 1 then wait for instance to be in running state, this is implied also by elbName, name, elasticIp properties in the options
-//  - name - assign a tag to the instance as Name:
+//  - name - assign a tag to the instance as `Name:`, any occurences of %i will be replaced with the instance index
 //  - elbName - join elastic balancer after the startup
 //  - elasticIp - asociate with the given Elastic IP address after the start
 //  - iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options['IamInstanceProfile.Name'] attribute
@@ -526,7 +526,7 @@ aws.ec2RunInstances = function(options, callback)
                // Set tag name for all instances
                if (!options.name) return next();
                core.forEachSeries(items, function(item, next2) {
-                   self.ec2CreateTags(item.instanceId, options.name, next2);
+                   self.ec2CreateTags(item.instanceId, options.name.replace("%i", core.toNumber(item.amiLaunchIndex) + 1), next2);
                }, next);
            },
            function(next) {

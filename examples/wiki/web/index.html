@@ -57,7 +57,7 @@
             <ul class="nav navbar-nav navbar-right">
               <li><a data-bind="click: pagesBack"><span class="fa fa-arrow-left"></span> Prev Page</a></li>
               <li><a data-bind="click: pagesShow"><span class="fa fa-home"></span> Main Page</a></li>
-              <li><a data-bind="click: pagesIndex"><span class="fa fa-list"></span> Page Index</a></li>
+              <li><a data-bind="click: pagesIndex"><span class="fa fa-file-text-o"></span> Page Index</a></li>
               <li><a data-bind="click: pagesNew, visible: koAuth" title="New page"><span class="fa fa-pencil"></span> New Page</a></li>
               <li><a data-bind="click: pagesEdit, visible: koAuth" title="Edit this page"><span class="fa fa-edit"></span> Edit Page</a></li>
               <li><a data-bind="click: koLogin, visible: !koAuth()"><span class="fa fa-sign-in fa-fw"></span>Login</a><liv>
@@ -109,7 +109,12 @@
               </div>
               <div class="form-group">
                 <label>Page Content</label>
-                <textarea id="pages-content" class="pages-field" data-resize="vertical" data-fullscreen="false" data-autofocus="true" data-provide="markdown"></textarea>
+                <textarea id="pages-content" class="pages-field" ></textarea>
+              </div>
+              <div id="pages-list">Pages:
+                 <ul data-bind="foreach: $root.pages">
+                   <li><span data-bind="text: title"></span></li>
+                 </ul>
               </div>
             </fieldset>
           </form>
