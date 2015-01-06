@@ -36,10 +36,10 @@ Backendjs.pagesSelect = function(callback)
 {
     Backendjs.send({ url: "/pages/select", data: { _select: "id,title,subtitle,icon,link,mtime" }, jsonType: "list" }, function(rows) {
         rows.forEach(function(x) {
+            x.subtitle = x.subtitle || "";
             x.icon = x.icon || "glyphicon glyphicon-book";
             x.time = Backendjs.strftime(x.mtime, "%Y-%m-%d %H:%M");
         });
-        rows = rows.filter(function(x) { return x.id != "1" }).sort(function(a,b) { return a.mtime < b.mtime ? -1 : a.mtime > b.mtime ? 1 : 0 });
         Backendjs.pages = rows;
         if (callback) callback();
     });

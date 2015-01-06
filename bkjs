@@ -79,7 +79,7 @@ done
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
 
 # Setup all variables with defaults
-[ "$BKJS_HOST" = "" ] && export BKJS_HOST=$(uname -n)
+[ "$BKJS_HOST" = "" ] && export BKJS_HOST=$(uname -n|awk -F. '{print $1}')
 [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
 [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/usr/local
 [ "$BKJS_BACKUP" = "" ] && export BKJS_BACKUP=$BKJS_HOME/backup
