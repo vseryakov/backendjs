@@ -711,7 +711,7 @@ aws.getInstanceInfo = function(callback)
         },
         function(next) {
             self.getInstanceMeta("/latest/user-data", function(err, data) {
-                if (!err && data) core.parseArgs(utils.strSplit(data, " ", '"\''));
+                if (!err && data && data[0] != "#") core.parseArgs(utils.strSplit(data, " ", '"\''));
                 next(err);
             });
         },
