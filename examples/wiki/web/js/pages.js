@@ -215,7 +215,7 @@ $(function()
 
     Backendjs.pagesRenderer = new marked.Renderer();
     Backendjs.pagesRenderer.link = function(href, title, text) {
-        if (href && href.match(/[0-9a-z]+/)) href = "/pages/show/" + href;
+        if (href && href.match(/^[0-9a-z]+$/)) href = "/pages/show/" + href;
         return '<a class="pages-link" href="' + href + '"' + (title ? ' title="' + title + '"' : "") + '>' + text + '</a>';
     }
 

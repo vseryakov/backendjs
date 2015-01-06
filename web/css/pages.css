@@ -1,10 +1,16 @@
 body {
   font-family: "Avenir Next", Helvetica, Arial, sans-serif;
   background-color: #ffffff;
+  font-size: 16px;
+}
+
+.pages-content {
+  padding: 10px;
 }
 
 .pages-logo {
-  height: 22px;
+  width: 22px;
+  max-width: 22px;
 }
 
 .modal.pages-modal-wide .modal-dialog {
@@ -45,13 +51,13 @@ div.pages-picker {
 
 .pages h1 {
   color: #000000;
-  font-size: 28pt;
+  font-size: 26pt;
 }
 
 .pages h2 {
   border-bottom: 1px solid #CCCCCC;
   color: #000000;
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .pages h3 {

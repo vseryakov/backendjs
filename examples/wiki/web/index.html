@@ -36,13 +36,15 @@
 <body>
     <nav class="navbar navbar-default" role="navigation">
       <div class="row">
-        <div class="col-lg-4">
-          <div class="navbar-header">
+        <div class="col-lg-1">
             <a class="navbar-brand" href="/">
-              <img class="logo" src="/img/logo.png"/>
+              <img class="pages-logo" src="/img/logo.png"/>
+            </a>
+        </div>
+        <div class="col-lg-3">
+            <a class="navbar-brand" href="/">
               <span data-bind="html: pagesTitle"></span>
             </a>
-          </div>
         </div>
         <div class="col-lg-2">
           <div class="nav navbar-brand">
@@ -53,9 +55,9 @@
           </div>
         </div>
         <div class="col-lg-6">
-          <div class="collapse navbar-collapse">
+          <div class="collapse navbar-collapse small">
             <ul class="nav navbar-nav navbar-right">
-              <li><a data-bind="click: pagesBack"><span class="fa fa-arrow-left"></span> Prev Page</a></li>
+              <li><a data-bind="click: pagesBack, visible: koAuth"><span class="fa fa-arrow-left"></span> Prev Page</a></li>
               <li><a data-bind="click: pagesShow"><span class="fa fa-home"></span> Main Page</a></li>
               <li><a data-bind="click: pagesIndex"><span class="fa fa-file-text-o"></span> Page Index</a></li>
               <li><a data-bind="click: pagesNew, visible: koAuth" title="New page"><span class="fa fa-pencil"></span> New Page</a></li>
@@ -76,9 +78,9 @@
           <h4 class="modal-title" id="PageLabel">Edit Page</h4>
         </div>
         <div class="modal-body">
-          <div id="pages-picker" class="pages-picker">
+          <div id="pages-picker" class="pages-picker modal-content">
              <div class="row">
-               <div class="col-lg-6">
+               <div class="col-lg-5">
                  <h4>Pick a page</h4>
                </div>
                <div class="col-lg-6">
@@ -86,6 +88,9 @@
                    <span class="input-group-addon"><span class="glyphicon glyphicon-search"></span></span>
                    <input id="search" type="text" class="form-control" placeholder="Search" data-bind='textInput: pagesPickerQuery'/>
                  </div>
+               </div>
+               <div class="col-lg-1">
+                 <button type="button" class="close" data-bind="click: $root.pagesShowPicker"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
                </div>
              </div>
              <ul class="list-group" data-bind="foreach: $root.pagesPickerList">
@@ -139,7 +144,7 @@
       </div>
     </div>
 
-    <div class="content content-pages">
+    <div class="pages-content">
       <div class="row">
         <div class="col-lg-12 alerts"></div>
       </div>
