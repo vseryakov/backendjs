@@ -255,6 +255,10 @@ core.init = function(options, callback)
     if (!options) options = {};
     var db = self.modules.db;
 
+    // Already initialized, skip the whole sequence so it is safe to run in the server the scripts which
+    // can be used as standalone node programs
+    if (this._initialized) return callback ? callback.call(self, null, options) : true;
+
     // Process role
     if (options.role) this.role = options.role;
     if (cluster.worker) this.workerId = cluster.worker.id;
@@ -392,6 +396,7 @@ core.init = function(options, callback)
         // Final callbacks
         function(err) {
             logger.debug("init:", err || "");
+            if (!err) self._initialized = true;
             if (callback) callback.call(self, err, options);
     });
 }

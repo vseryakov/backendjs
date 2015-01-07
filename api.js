@@ -49,8 +49,9 @@ var api = {
                    secret: {},                              // Account password
                    status: {},                              // Status of the account
                    type: { admin: 1 },                      // Account type: admin, ....
-                   acl_deny: { admin: 1 },                  // Deny access to matched url
-                   acl_allow: { admin: 1 },                 // Only grant access if matched this regexp
+                   acl_deny: { admin: 1 },                  // Deny access to matched url, a regexp
+                   acl_allow: { admin: 1 },                 // Only grant access if path matches this regexp
+                   query_deny: { admin: 1 },                // Ignore these query params, a regexp
                    expires: { type: "bigint", admin: 1 },   // Deny access to the account if this value is before current date, milliseconds
                    mtime: { type: "bigint", now: 1 } },
 
@@ -286,7 +287,6 @@ var api = {
     // Disabled API endpoints
     disable: [],
     disableSession: {},
-    unsecure: [],
     templating: "ejs",
     expressEnable: [],
 
@@ -373,7 +373,6 @@ var api = {
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "token-secret", descr: "Name of the property to be used for encrypting tokens, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
-           { name: "unsecure", type: "list", array: 1, descr: "Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution, usually combined with -allow-admin" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
@@ -1086,6 +1085,19 @@ api.checkSignature = function(req, callback)
         if (!core.verifySignature(sig, account)) {
             logger.debug('checkSignature:', 'failed', sig, account);
             return callback({ status: 401, message: "Not authenticated" });
+        }
+
+        // Cleanup not allowed parameters
+        if (account.query_deny) {
+            var rx = new RegExp(account.opts_deny, "i");
+            for (var p in req.query) {
+                if (rx.test(p)) delete req.query[p];
+            }
+            if (req.query != req.body) {
+                for (var p in req.body) {
+                    if (rx.test(p)) delete req.body[p];
+                }
+            }
         }
 
         // Save account and signature in the request, it will be used later
@@ -1807,7 +1819,9 @@ api.initTables = function(options, callback)
 api.getOptions = function(req)
 {
     // Boolean parameters that can be passed with 0 or 1
-    ["details", "consistent", "desc", "total", "connected", "check", "noreference", "nocounter", "publish", "archive", "trash"].forEach(function(x) {
+    ["details", "consistent", "desc", "total", "connected", "check",
+     "noscan", "noprocessrows", "noconvertrows", "noreference", "nocounter",
+     "publish", "archive", "trash"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x]);
     });
     if (req.query._session) req.options.session = core.toNumber(req.query._session);
@@ -1831,15 +1845,8 @@ api.getOptions = function(req)
         var ops = core.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
     }
-    // Disable check public verification and allow any pool to be used
-    if (this.unsecure.indexOf(req.options.path[0]) > -1) {
-        ["pool", "cleanup"].forEach(function(x) {
-            if (typeof req.query['_' + x] != "undefined") req.options[x] = req.query['_' + x];;
-        });
-        ["noscan", "noprocessrows", "noconvertrows"].forEach(function(x) {
-            if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x], req.options[x]);
-        });
-    }
+    if (req.query._pool) req.options.pool = req.query._pool;
+    if (req.query._cleanup) req.options.pool = req.query._cleanup;
     return req.options;
 }
 
@@ -2405,7 +2412,7 @@ api.formatIcon = function(row, options)
 {
     var self = this;
     if (!options) options = row;
-    var type = row.type.split(":");
+    var type = (row.type || "").split(":");
     row.type = type.slice(1).join(":");
     row.prefix = type[0];
 

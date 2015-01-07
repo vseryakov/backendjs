@@ -637,6 +637,8 @@ case "$ARG" in
     if [ "$BACKUP_FS" != "" ]; then
        tar $BACKUP_TAR_ARGS -czf $BKJS_BACKUP/$FILE.tar.gz $BACKUP_FILES 2>&1 |egrep -v "tar: Removing leading|tar:.+ignored|as we read it"
     fi
+    # Allow to be managed by the user
+    [ "$BACKUP_USER" != "" ] && chown -R $BACKUP_USER $BKJS_BACKUP
 
     # Collect all files we just backed up
     FILES=""

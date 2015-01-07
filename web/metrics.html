@@ -149,13 +149,15 @@ function showChart()
 }
 
 $(function() {
+     Backendjs.session = true;
+
      $('#type').on('change', function() { showChart(); });
      $('#period').on('change', function() { showChart(); });
 
      ko.applyBindings(Backendjs);
      Backendjs.login(function(err) {
-       if (!err) showChart();
-       return 1;
+       if (!err) return showChart();
+       $("#chart_canvas").html("Not logged in");
      });
  });
 

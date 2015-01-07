@@ -115,6 +115,7 @@ $(function() {
 
  $(function () {
      Backendjs.debug = 1;
+     Backendjs.session = 1;
      Backendjs.apiResponse = ko.observable('');
      Backendjs.apiUrl = ko.observable('');
      Backendjs.apiEmail = ko.observable();
@@ -129,11 +130,6 @@ $(function() {
      Backendjs.apiWS.subscribe(function(val) {
         if (!val) return Backendjs.wsClose();
         Backendjs.wsConnect("", function(data) { Backendjs.formatResponse(data); });
-     });
-     Backendjs.apiSession = ko.observable(0);
-     Backendjs.apiSession.subscribe(function(val) {
-        Backendjs.session = val;
-        Backendjs.getAccount();
      });
 
      Backendjs.getHistory = function(sort) {
@@ -161,20 +157,15 @@ $(function() {
         list.find('option:not(:first)').remove();
         this.getHistory(true).forEach(function(x) { list.append(new Option(x.substr(0, 150), x)); });
      }
-     Backendjs.doLogin = function() {
-        Backendjs.getAccount(function(err, data) {
+     Backendjs.koLogin = function() {
+        Backendjs.showLogin(function(err, data) {
             Backendjs.apiEmail(err || data.login);
+            if (!err) Backendjs.hideLogin();
         });
      }
-     Backendjs.doLogout = function() {
-        this.apiEmail("");
-        this.logout();
-     }
-     Backendjs.showLogin = function() {
-        this.login(function(err, data) {
-            Backendjs.apiEmail(err || data.login);
-            return 1;
-        });
+     Backendjs.koLogout = function() {
+        Backendjs.apiEmail("");
+        Backendjs.logout();
      }
      Backendjs.formatResponse = function(data) {
         try {
@@ -209,10 +200,6 @@ $(function() {
         if (!file.files.length) {
             if (Backendjs.apiEscape) options.url = Backendjs.encodeUrl(options.url);
             return true;
-        }
-        if (!Backendjs.session) {
-            Backendjs.apiResponse("Please enable session in order to upload files.");
-            return false;
         }
         var form = new FormData(), obj = {}, fn = "icon";
         if (options.url.indexOf("?") > -1) {
@@ -273,7 +260,10 @@ $(function() {
      });
      document.title += ": " + window.location.hostname.split(".").shift();
      ko.applyBindings(Backendjs);
-     Backendjs.doLogin();
+     Backendjs.login(function(err, data) {
+         Backendjs.apiEmail(err || data.login);
+         return 1;
+     });
      Backendjs.initHistory();
  });
  </script>
@@ -282,8 +272,8 @@ $(function() {
 <body>
 <div id="header" class="header">
    <div class='buttons'>
-     <span title="Login into the account" onclick="Backendjs.showLogin()">Login</span>
-     <span title="Logout and clear the session" onclick="Backendjs.doLogout()" >Logout</span>
+     <span title="Login into the account" onclick="Backendjs.koLogin()">Login</span>
+     <span title="Logout and clear the session" onclick="Backendjs.koLogout()" >Logout</span>
      <span title="Documentation" onclick="window.open('doc.html')" >Help</span>
    </div>
    <span class="title" title="Logged in account email or error status" style="float:right;" data-bind='text: apiEmail' ></span>
@@ -303,7 +293,6 @@ $(function() {
           <td colspan=2></td>
           <td><input type="checkbox" data-bind="checked: apiEscape" title="Encode url query, it is in the human readable form"/> Encode URL</td>
           <td><input type="checkbox" data-bind="checked: apiWS" title="Use WebSockets connection instead of HTTP"/> WebSockets</td>
-          <td><input type="checkbox" data-bind="checked: apiSession" title="Create a web session, it is needed to use file uploads from the console"/> Session</td>
           <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/> Tabular</td>
           <td><img id="loading" src="img/loading.gif"></td>
       </tr>
