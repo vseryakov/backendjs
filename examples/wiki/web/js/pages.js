@@ -109,7 +109,7 @@ Backendjs.pagesEdit = function(data, event)
         for (var p in row) {
             switch ($("#pages-" + p).attr("type")) {
             case "checkbox":
-                $("#pages-" + p).attr("checked", row[p] ? true : false);
+                $("#pages-" + p).prop("checked", row[p] ? true : false);
                 break;
             default:
                 $("#pages-" + p).val(row[p]);
@@ -138,7 +138,7 @@ Backendjs.pagesPut = function(data, event)
         var name = $(this).attr("id").split("-").pop();
         switch ($(this).attr("type")) {
         case "checkbox":
-            obj[name] = $(this).attr("checked");
+            obj[name] = $(this).prop("checked");
             break;
         default:
             obj[name] = $(this).val();

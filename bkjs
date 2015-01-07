@@ -424,6 +424,7 @@ case "$ARG" in
     # Install service for a script or bkjs service
     [ "$BKJS_PATH" = "" ] && BKJS_PATH=$BKJS_BIN
     SERVICE=$(basename $BKJS_PATH | awk -F. '{print $1}')
+    echo "Init service $SERVICE with $BKJS_PATH"
     ln -sf $BKJS_PATH /etc/init.d/$SERVICE
     chkconfig $SERVICE on
     # Start if command is given
