@@ -1992,7 +1992,6 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication. Default: 1209600000</li>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
 <li><code>api-token-secret</code> - Name of the property to be used for encrypting tokens, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
-<li><code>api-unsecure</code> - Allow API functions to retrieve and show all columns, not just public, this exposes the database to every authenticated call, use with caution, usually combined with -allow-admin. Default: []</li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: []</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: {}</li>
 <li><code>api-allow-connection</code> - Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op.... Default: {}</li>
@@ -2057,8 +2056,9 @@ the worker processes if they die and restart them automatically. How many proces
                  secret: {},                              // Account password
                  status: {},                              // Status of the account
                  type: { admin: 1 },                      // Account type: admin, ....
-                 acl_deny: { admin: 1 },                  // Deny access to matched url
-                 acl_allow: { admin: 1 },                 // Only grant access if matched this regexp
+                 acl_deny: { admin: 1 },                  // Deny access to matched url, a regexp
+                 acl_allow: { admin: 1 },                 // Only grant access if path matches this regexp
+                 query_deny: { admin: 1 },                // Ignore these query params, a regexp
                  expires: { type: &quot;bigint&quot;, admin: 1 },   // Deny access to the account if this value is before current date, milliseconds
                  mtime: { type: &quot;bigint&quot;, now: 1 } },
 
