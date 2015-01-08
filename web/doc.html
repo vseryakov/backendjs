@@ -1999,8 +1999,9 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-icon-limit</code> - Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type. Default: {}</li>
 <li><code>api-express-enable</code> - Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,..... Default: []</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: {&quot;list&quot;:[&quot;^/$&quot;,&quot;\.html$&quot;,&quot;\.ico$&quot;,&quot;\.gif$&quot;,&quot;\.png$&quot;,&quot;\.jpg$&quot;,&quot;\.svg$&quot;,&quot;\.ttf$&quot;,&quot;\.eof$&quot;,&quot;\.woff$&quot;,&quot;\.js$&quot;,&quot;\.css$&quot;,&quot;^/public&quot;,&quot;^/account/add$&quot;,&quot;^/ping&quot;],&quot;rx&quot;:{}}</li>
-<li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication</li>
+<li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication, return result before even checking for the signature</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
+<li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found. Default: {}</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused. Default: {}</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects. Default: {}</li>
 <li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list. Default: {}</li>
@@ -2380,7 +2381,7 @@ Check access permissions, calls the callback with the following argument:</p>
 <p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed</p>
 <ul>
 <li>req is Express request object</li>
-<li>status contains the signature verification status, an object with status: and message: properties</li>
+<li>status contains the signature verification status, an object with status: and message: properties, can be null</li>
 <li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
 </ul>
 </li>
