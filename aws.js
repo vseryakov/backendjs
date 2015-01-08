@@ -303,7 +303,7 @@ aws.queryDDB = function (action, obj, options, callback)
 }
 
 // Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well
-aws.signS3 = function(method, bucket, key, options)
+aws.signS3 = function(method, bucket, path, options)
 {
     var self = this;
     if (!options) options = {};
@@ -342,9 +342,9 @@ aws.signS3 = function(method, bucket, key, options)
     }
 
     // Run through the encoding so our signature match the real url sent by core.httpGet
-    key = url.parse(key).pathname;
+    path = url.parse(path).pathname;
 
-    strSign += (bucket ? "/" + bucket : "") + (key[0] != "/" ? "/" : "") + key + (rc.length ? "?" : "") + rc.sort().join("&");
+    strSign += (bucket ? "/" + bucket : "") + (path[0] != "/" ? "/" : "") + path + (rc.length ? "?" : "") + rc.sort().join("&");
     var signature = core.sign(options.secret || this.secret, strSign);
     options.headers["authorization"] = "AWS " + (options.key || this.key) + ":" + signature;
 
@@ -355,12 +355,12 @@ aws.signS3 = function(method, bucket, key, options)
     uri += dns ? bucket + "." : "";
     uri += "s3" + (region != "us-east-1" ? "-" + region : "") + ".amazonaws.com";
     uri += dns ? "" : "/" + bucket;
-    uri += (key[0] != "/" ? "/" : "") + key;
+    uri += (path[0] != "/" ? "/" : "") + path;
     uri += url.format({ query: options.query });
 
     // Build REST url
     if (options.url) {
-        uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + this.key + "&Signature=" + encodeURIComponent(signature);
+        uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + (options.key || this.key) + "&Signature=" + encodeURIComponent(signature);
         if (options.expires) uri += "&Expires=" + options.expires;
         if (options.securityToken || this.securityToken) uri += "&SecurityToken=" + (options.securityToken || this.securityToken);
     }
@@ -412,10 +412,11 @@ aws.s3PutFile = function(path, file, options, callback)
     if (!options.headers) options.headers = {};
     if (options.acl) options.headers['x-amz-acl'] = options.acl;
     if (options.contentType) options.headers['content-type'] = options.contentType;
-    if (!options.headers['content-type']) options.headers['content-type'] = mime.lookup(file);
+    if (!options.headers['content-type'] && typeof file == "string") options.headers['content-type'] = mime.lookup(file);
     options[Buffer.isBuffer(file) ? 'postdata' : 'postfile'] = file;
     var uri = self.s3ParseUrl(path);
     if (uri.query) options.query = uri.query;
+    logger.debug("s3PutFile:", uri, typeof file);
     aws.queryS3(uri.bucket, uri.path, options, callback);
 }
 
@@ -426,7 +427,7 @@ aws.s3ParseUrl = function(url)
     url = url.split("?");
     // Remove the protocol part and leading slashes
     url[0] = url[0].replace(/(^.+\:\/\/|^\/+)/, "");
-    var path = url[0].split("/");
+    var path = url[0].replace("//", "/").split("/");
     rc.bucket = path[0];
     rc.path = path.slice(1).join("/");
     if (url[1]) rc.query = qs.parse(url[1]);

@@ -326,11 +326,12 @@ server.startWeb = function(options)
                         res.writeHead(500, "Internal Error");
                         return res.end(err.message);
                     }
-                    if (api.redirectSsl.rx && !req.connection.encrypted && url.parse(req.url).pathname.match(api.redirectSsl.rx)) {
+                    var proto = req.headers["x-forwarded-proto"] || "";
+                    if (api.redirectSsl.rx && !proto.match(/https/) && url.parse(req.url).pathname.match(api.redirectSsl.rx)) {
                         res.writeHead(302, { "Location": "https://" + req.headers.host + req.url });
                         return res.end();
                     }
-                    if (api.allowSsl.rx && url.parse(req.url).pathname.match(api.allowSsl.rx)) {
+                    if (api.allowSsl.rx && url.parse(req.url).pathname.match(api.allowSsl.rx) && !proto.match(/https/)) {
                         var body = JSON.stringify({ status: 400, message: "SSL only access" });
                         res.writeHead(400, { 'Content-Type': 'application/json', "Content-Length": body.length });
                         return res.end(body);

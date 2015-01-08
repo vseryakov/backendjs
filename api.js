@@ -2559,7 +2559,7 @@ api.storeIcon = function(file, id, options, callback)
         this.scaleIcon(file, options, function(err, data) {
             if (err) return callback ? callback(err) : null;
 
-            core.modules.aws.s3PutFile(options.imagesS3 || self.imagesS3, icon, data, function(err) {
+            core.modules.aws.s3PutFile((options.imagesS3 || self.imagesS3) + "/" + icon, data, function(err) {
                 if (callback) callback(err, icon);
             });
         });
@@ -2669,7 +2669,7 @@ api.storeFile = function(tmpfile, outfile, options, callback)
     logger.debug("storeFile:", outfile);
 
     if (this.filesS3 || options.filesS3) {
-        core.modules.aws.s3PutFile(options.filesS3 || this.filesS3, outfile, tmpfile, callback);
+        core.modules.aws.s3PutFile((options.filesS3 || this.filesS3) + "/" + outfile, tmpfile, callback);
     } else {
         outfile = path.join(core.path.files, outfile);
         core.makePath(path.dirname(outfile), function(err) {

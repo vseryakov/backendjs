@@ -24,11 +24,15 @@ Backendjs.pagesFilter = function()
 {
     var list = Backendjs.pages;
     if (Backendjs.pagesQuery()) {
-        list = Backendjs.pages.filter(function(x) {
-            return (x.title && x.title.indexOf(Backendjs.pagesQuery()) > -1) ||
-                   (x.subtitle && x.subtitle.indexOf(Backendjs.pagesQuery()) > -1);
+        var rx = new RegExp(Backendjs.pagesQuery(), "i")
+        list = list.filter(function(x) {
+            return (x.title && x.title.match(rx)) || (x.subtitle && x.subtitle.match(rx));
         });
     }
+    Backendjs.pagesId("");
+    Backendjs.pagesToc("");
+    Backendjs.pagesTitle("Index of all pages");
+    Backendjs.pagesContent("");
     Backendjs.pagesList(list);
 }
 
@@ -48,10 +52,6 @@ Backendjs.pagesSelect = function(callback)
 Backendjs.pagesIndex = function(data, event)
 {
     Backendjs.pagesSelect(function() {
-        Backendjs.pagesId("");
-        Backendjs.pagesToc("");
-        Backendjs.pagesTitle("Index of all pages");
-        Backendjs.pagesContent("");
         Backendjs.pagesFilter();
     }, function(err) {
         Backendjs.showAlert("danger", err);
