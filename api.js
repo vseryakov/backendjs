@@ -273,6 +273,8 @@ var api = {
                                    "^/ping" ]),
     // Only for admins
     allowAdmin: {},
+    // Allow accounts and anonymous users
+    allowAnonymous: {},
     // Allow only HTTPS requests
     allowSsl: {},
     redirectSsl: {},
@@ -380,8 +382,9 @@ var api = {
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
            { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
-           { name: "allow-path", type: "regexpmap", key: "allow", descr: "Add to the list of allowed URL paths without authentication" },
+           { name: "allow-path", type: "regexpmap", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
            { name: "disallow-path", type: "regexpmap", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
+           { name: "allow-anonymous", type: "regexpmap", descr: "Add to the list of allowed URL paths that can be served with or without valid account, the difference with `allow-path` is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found" },
            { name: "allow-ssl", type: "regexpmap", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
            { name: "redirect-ssl", type: "regexpmap", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects" },
            { name: "deny", type:" regexpmap", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
@@ -1008,11 +1011,15 @@ api.checkAccess = function(req, callback)
 
 // Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed
 // - req is Express request object
-// - status contains the signature verification status, an object with status: and message: properties
+// - status contains the signature verification status, an object with status: and message: properties, can be null
 // - callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well
 api.checkAuthorization = function(req, status, callback)
 {
     var self = this;
+
+    // Ignore no login error if allowed
+    if (status && status.status == 417 && this.allowAnonymous.rx && req.path.match(this.allowAnonymous.rx)) status = null;
+
     var hooks = this.findHook('auth', req.method, req.path);
     if (hooks.length) {
         core.forEachSeries(hooks, function(hook, next) {
@@ -1042,17 +1049,17 @@ api.checkSignature = function(req, callback)
     logger.debug('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
     // Sanity checks, required headers must be present and not empty
-    if (!sig.login || !sig.method || !sig.host || !sig.expires || !sig.login || !sig.signature) {
-        req._noSignature = 1;
-        return callback({ status: 417, message: "Invalid request: " + (!sig.login ? "no login provided" :
-                                                                       !sig.method ? "no method provided" :
-                                                                       !sig.host ? "no host provided" :
-                                                                       !sig.login ? "no login provided" :
-                                                                       !sig.expires ? "no expiration provided" :
-                                                                       !sig.signature ? "no signature provided" : "") });
+    if (!sig.method || !sig.host) {
+        return callback({ status: 415, message: "Invalid request" });
     }
 
-    // Make sure it is not expired, it must be in milliseconds
+    // Bad or empty signature result in empty login
+    if (!sig.login) {
+        req._noSignature = 1;
+        return callback({ status: 417, message: "No login provided" });
+    }
+
+    // Make sure the request is not expired, it must be in milliseconds
     if (sig.expires < Date.now() - this.signatureAge) {
         return callback({ status: 406, message: "Expired request" });
     }

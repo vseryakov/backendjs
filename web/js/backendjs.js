@@ -361,7 +361,7 @@ var Backendjs = {
     log: function() {
         if (!console || !console.log) return;
         var args = "";
-        for (var i in arguments) args += JSON.stringify(arguments[i]) + " ";
+        for (var i in arguments) args += (typeof arguments[i] == "object" ? JSON.stringify(arguments[i]) : arguments[i]) + " ";
         console.log(args);
     },
 };
