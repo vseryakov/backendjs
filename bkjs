@@ -112,6 +112,7 @@ case "$ARG" in
   start)
     # Perform setup and possibly get newest source code if sync master is configured
     ($0 run-sync)
+    [ "$BKJS_UPDATE" != "" ] && ($0 run-update)
 
     echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_ARGS $@"
     $0 run-server
@@ -143,7 +144,7 @@ case "$ARG" in
     $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
     $0 init-devel
     [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 build-node -prefix $BKJS_PREFIX)
-    (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 build-bkjs -args $BKJS_ARGS)
+    (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-bkjs -args $BKJS_ARGS)
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
@@ -548,6 +549,17 @@ case "$ARG" in
     [ "$nversion" != "" -a "$version" != "$nversion" ] && npm restart
     ;;
 
+  run-update)
+    # Update npm dependencies
+    cd $BKJS_HOME
+    if [ -f package.json ]; then
+       npm install
+    else
+       npm update backendjs
+    fi
+
+    ;;
+
   put-backend)
     # Put backend code to the remote site
     if [ "$BKJS_PATH" = "" ]; then
@@ -847,16 +859,15 @@ case "$ARG" in
     ;;
 
   install-bkjs)
-    (cd $BKJS_HOME && npm install vseryakov/backendjs $BKJS_ARGS)
+    (cd $BKJS_HOME && npm install vseryakov/$BKJS_MOD $BKJS_ARGS)
     ;;
 
   build-bkjs)
-    if [ ! -d node_modules/$BKJS_MOD ]; then
-        mkdir -p node_modules
-        (cd node_modules && git clone https://github.com/vseryakov/backendjs.git)
+    if [ ! -d $BKJS_MOD ]; then
+        git clone https://github.com/vseryakov/$BKJS_MOD.git
     fi
-    (cd node_modules/$BKJS_MOD && git pull)
-    (cd node_modules/$BKJS_MOD && npm install $BKJS_ARGS)
+    (cd $BKJS_MOD && git pull)
+    (cd $BKJS_MOD && npm install $BKJS_ARGS)
     ;;
 
   build-backend)
@@ -1157,7 +1168,8 @@ EOF
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  put-backend path [-host HOST] [-path PATH] [-user USER] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
-    echo "  run-sync - synchronize other directories from the master host, runs on the instance, must use BKJS_SYNC set to the host name where to get files"
+    echo "  run-sync - synchronize other directories from the master host, runs on the start, must use BKJS_SYNC in the profile set to the host name where to get files"
+    echo "  run-update - update the app frpm npm using package.json, runs on the start, must set BKJS_UPDATE in the profile to enable the update"
     echo "  run-check - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -args can be used to specify the full cron time spec"
     echo "  run-backup - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"
@@ -1183,7 +1195,8 @@ EOF
     echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
     echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
-    echo "  build-bkjs - clone and build the $BKJS_MOD from the git with dependencies specified in parameter -args"
+    echo "  install-bkjs - install the $BKJS_MOD from the github using npm, build dependencies are passed in -args"
+    echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -args"
     echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"

@@ -4316,9 +4316,14 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 </ul>
 
 <ul>
-<li><p><code>core.loadModules(type, options)</code></p>
-<p> Dynamically load services</p>
-</li>
+<li><p><code>core.loadModules(type, options, callback)</code></p>
+<p> Dynamically load services from the <code>modules/</code> subdirectory. These are a Javascript files that must end with <code>_type</code> where type is
+the first arguments of this method. The modules are loaded using <code>require</code> as normal node module but in addition if the module exports
+<code>init</code> method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
+called on startup, not dynamically during a request processing.</p>
+<p>Example, to load all modules that end with _web.js</p>
+<pre><code> core.loadModules(&quot;web&quot;)
+</code></pre></li>
 </ul>
 
 <ul>

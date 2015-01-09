@@ -392,6 +392,10 @@ core.init = function(options, callback)
             if (!self.email) self.email = (self.appName || self.name) + "@" + self.domain;
             next();
         },
+        function(next) {
+            // Load external modules
+            self.loadModules("core", options, next);
+        },
         ],
         // Final callbacks
         function(err) {
@@ -1665,8 +1669,16 @@ core.doWhilst = function(iterator, test, callback)
     });
 }
 
-// Dynamically load services
-core.loadModules = function(type, options)
+// Dynamically load services from the `modules/` subdirectory. These are a Javascript files that must end with `_type` where type is
+// the first arguments of this method. The modules are loaded using `require` as normal node module but in addition if the module exports
+// `init` method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
+// called on startup, not dynamically during a request processing.
+//
+//  Example, to load all modules that end with _web.js
+//
+//       core.loadModules("web")
+//
+core.loadModules = function(type, options, callback)
 {
     var self = this;
     core.findFileSync(this.path.modules || "modules", { depth: 1, types: "f", include: new RegExp("_" + type + ".js$") }).forEach(function(file) {
@@ -1679,7 +1691,7 @@ core.loadModules = function(type, options)
             logger.error("loadModules:", file, e.stack);
         }
     });
-
+    if (typeof callback == "function") callback();
 }
 
 // Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
