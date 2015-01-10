@@ -138,7 +138,7 @@ or simply
 
 * To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
-        bksh
+        ./app.sh -shell
 
 * To access the database while in the shell
 
@@ -250,28 +250,30 @@ the application is structured.
 ## Modules
 
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
-home subdirectory `modules/`. The format is the same as for regular node.js modules but the file names should follow the following conventions:
- - for API modules the file name must be in the form `NAME_web.js`
- - for worker modules the file name must be in the format: `NAME_worker.js`
+home subdirectory `modules/`. The format is the same as for regular node.js modules and only top level .js files are loaded on the backend startup.
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the node nodules and setup. These modules are exposed in the `core.modules` the same way as all other core submodules.
+can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules.
 methods.
 
-Let's assuming the modules/ contains file facebook_web.js which implenents custom FB logic:
+Let's assuming the modules/ contains file facebook.js which implements custom FB logic:
+
+            var bkjs = require("backendjs");
+            var fb = {}
+            module.exports = fb;
+            fb.configureWeb = function(options, callback) {
+            }
+
+This is the main app code:
 
             var bkjs = require("backendjs");
             var core = bkjs.core;
             var fb;
 
-            app.configureWeb = function(options, callback) {
-                // Now the facebook module is loaded and can be referenced
-                fb = core.modules.facebook;
-            });
-
             // Using facebook module in the main app
             api.app.get("some url", function(req, res) {
 
+                fb = core.modules.facebook;
                 fb.makeRequest(function(err, data) {
                     ...
                 });

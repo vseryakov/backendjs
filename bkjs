@@ -44,12 +44,12 @@ esac
 # There are special commands that can be used as the script name
 NAME=$(basename $0)
 case "$NAME" in
-  bkjs)
-    ARG=$1;shift
+  bksh)
+    ARG=$NAME
     ;;
 
   *)
-    ARG=$NAME
+    ARG=$1;shift
     ;;
 esac
 
@@ -418,7 +418,9 @@ case "$ARG" in
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
     # Make sure instances are not running indefinitely
-    ln -sf $BKJS_BIN /etc/cron.hourly/run-check
+    [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="*/30 * * * *"
+    echo 'MAILTO=""' > /etc/cron.d/$BKJS-check
+    echo "$BKJS_ARGS * * * * root $BKJS_BIN run-check" >> /etc/cron.hourly/$BKJS-check
     ;;
 
   init-service)
@@ -981,7 +983,7 @@ $(whoami)
 EOF
     fi
 
-    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec node $NAME.js -watch \$(pwd) -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec node $NAME.js -watch \$(pwd) -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web -views-dir \$(pwd)/views -modules-dir \$(pwd)/modules \$@\n" > $NAME.sh && chmod 755 $NAME.sh
     [ ! -e .gitignore ] && $ECHO "*~\n.*\n*.local\nbin/\ndocs/\nbuild/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
 
     if [ ! -e etc/config ]; then
@@ -1120,7 +1122,7 @@ api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) {
 
 bkjs.server.start();
 EOF
-      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"The backend\",\n \"repository\": { \"type\": \"git\", \"url\": \"http://github.com/vseryakov/backendjs.git\" },\n \"main\": \"app.js\",\n \"dependencies\": {\n    \"$BKJS_MOD\": \">=0.10.0\"\n },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
+      $ECHO "{\n \"version\": \"0.1.0\",\n \"author\": \"$(whoami)\",\n \"name\": \"app\",\n \"description\": \"The app\",\n \"main\": \"app.js\",\n \"dependencies\": {\n    \"$BKJS_MOD\": \">=0.10.0\"\n },\n \"engines\": { \"node\": \">= 0.10\" },\n \"scripts\": { \"start\": \"node app.js\" },\n \"license\": \"BSD-3-Clause\" }" > package.json
     fi
     ;;
 

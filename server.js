@@ -243,7 +243,6 @@ server.startWorker = function(options)
 
     // At least API tables are needed for normal operations
     core.runMethods("configureWorker", function() {
-        core.loadModules("worker");
         process.send('ready');
     });
 
@@ -572,8 +571,6 @@ server.startShell = function(options)
     process.title = core.name + ": shell";
 
     logger.debug('startShell:', process.argv);
-
-    core.loadModules("shell");
 
     function exit(err, msg) {
         if (err) console.log(err);

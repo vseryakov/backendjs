@@ -647,9 +647,6 @@ api.init = function(options, callback)
             core.runMethods("configureWeb", options, function(err) {
                 if (err) return callback.call(self, err);
 
-                // Synchronously load external api modules
-                core.loadModules("web", options);
-
                 // Start http server
                 if (core.port) {
                     self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);

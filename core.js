@@ -161,7 +161,7 @@ var core = {
             { name: "log-dir", type: "callback", callback: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
             { name: "files-dir", type: "callback", callback: function(v) { if (v) this.path.files = v; }, descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "callback", callback: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
-            { name: "modules-dir", type: "callback", callback: function(v) { if (v) this.path.modules = v; }, descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point" },
+            { name: "modules-dir", type: "callback", callback: function(v) { if (v) this.path.modules = v; }, descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point", pass: 1 },
             { name: "uid", type: "callback", callback: function(v) { var u = utils.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
             { name: "gid", type: "callback", callback: function(v) { var g = utils.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
             { name: "email", descr: "Email address to be used when sending emails from the backend" },
@@ -291,6 +291,9 @@ core.init = function(options, callback)
     self.hostName = os.hostname().toLowerCase();
     self.domain = self.domainName(self.hostName);
 
+    // Load external modules
+    self.loadModules(core.path.modules, options);
+
     // Serialize initialization procedure, run each function one after another
     self.series([
         function(next) {
@@ -381,7 +384,6 @@ core.init = function(options, callback)
                 next();
             });
         },
-
         // Initialize all modules after core is done
         function(next) {
             if (options.noInit) return next();
@@ -391,10 +393,6 @@ core.init = function(options, callback)
             // Default email address
             if (!self.email) self.email = (self.appName || self.name) + "@" + self.domain;
             next();
-        },
-        function(next) {
-            // Load external modules
-            self.loadModules("core", options, next);
         },
         ],
         // Final callbacks
@@ -564,11 +562,21 @@ core.processArgs = function(name, ctx, argv, pass)
                 if (x.ucase) key = key.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
                 if (x.lcase) key = key.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });
                 // Use supplied value of the default
-                var val = idx > -1 && idx + 1 < argv.length ? argv[idx + 1].trim() : (typeof x.value != "undefined" ? x.value : null);
-                if (val == null && typeof x.novalue == "undefined" && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
-                // Ignore the value if it is a parameter
-                if ((val && val[0] == '-') || val == null) val = typeof x.novalue != "undefined" ? x.novalue : "";
-                logger.debug("processArgs:", x.type || "str", name + "." + key, "(" + x.name + ")", "=", val);
+                var val = null;
+                if (idx > -1 && idx + 1 < argv.length) {
+                    val = argv[idx + 1].trim();
+                    // Ignore the value if it is next parameter
+                    if (val && val[0] == '-') val = null;
+                }
+                // Use defaults only for the first time
+                if (val == null && typeof obj[key] == "undefined") {
+                    if (typeof x.value != "undefined") val = x.value; else
+                    if (typeof x.novalue != "undefined") val = x.novalue;
+                }
+                // Only some types allow no value case
+                if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
+
+                logger.debug("processArgs:", x.type || "str", idx + "/" + argv.length, name + "." + key, "(" + x.name + ")", "=", val);
                 switch ((x.type || "").trim()) {
                 case "none":
                     break;
@@ -1669,23 +1677,62 @@ core.doWhilst = function(iterator, test, callback)
     });
 }
 
-// Dynamically load services from the `modules/` subdirectory. These are a Javascript files that must end with `_type` where type is
-// the first arguments of this method. The modules are loaded using `require` as normal node module but in addition if the module exports
+// Adds reference to the objects in the core for further access, specify module name, module reference pairs.
+// This is used the the core itself to register all internal modules and makes it available in the shell and in the `core.modules` object.
+//
+// Also this is used when cresting modular backend application by separating the logic into different modules, by registering such
+// modules with the core it makes the module a first class citizen in the backendjs core and exposes all the callbacks and methods.
+//
+// For example, the module below will register API routes and some methods
+//
+//       var bkjs = require("backendjs");
+//       var mymod = {}
+//       exports.module = mymod;
+//       core.addModule("mymod", mymod);
+//       mymod.configureWeb = function(options, callback) {
+//          bkjs.api.app.all("/mymod", function(req, res) {
+//               res.json({});
+//          });
+//       }
+//
+//
+// In the main app.js just load it and the rest will be done automatically, i.e. routes will be created ...
+//
+//       var mymod = require("./mymod.js");
+//
+// Running the shell will make the object `mymod` available
+//
+//       ./app.sh -shell
+//       > mymod
+//         {}
+//
+core.addModule = function()
+{
+    for (var i = 0; i < arguments.length - 1; i+= 2) {
+        this.modules[arguments[i]] = arguments[i + 1];
+    }
+}
+
+// Dynamically load services from the specified directory. The modules are loaded using `require` as normal node module but in addition if the module exports
 // `init` method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
-// called on startup, not dynamically during a request processing.
+// called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. `core.addModule` is called
+// automatically.
 //
-//  Example, to load all modules that end with _web.js
+//  Example, to load all modules from the local relative directory
 //
-//       core.loadModules("web")
+//       core.loadModules("modules")
 //
-core.loadModules = function(type, options, callback)
+core.loadModules = function(name, options, callback)
 {
     var self = this;
-    core.findFileSync(this.path.modules || "modules", { depth: 1, types: "f", include: new RegExp("_" + type + ".js$") }).forEach(function(file) {
+    core.findFileSync(path.resolve(name), { depth: 1, types: "f", include: new RegExp(/\.js$/) }).sort().forEach(function(file) {
         try {
-            var mod = require(path.join(core.home, file));
-            if (typeof mod.init == "function") mod.init(options);
-            self.addModule(path.basename(file, ".js").slice(0, -type.length-1), mod);
+            var mod = require(file);
+            self.addModule(mod.name || path.basename(file, ".js"), mod);
+            // Call the initializer method for the module after it is registered
+            if (typeof mod.init == "function") {
+                mod.init(options);
+            }
             logger.log("loadModules:", file, "loaded");
         } catch (e) {
             logger.error("loadModules:", file, e.stack);
@@ -1912,14 +1959,17 @@ core.isArg = function(name)
 }
 
 // Send email
-core.sendmail = function(from, to, subject, text, callback)
+core.sendmail = function(options, callback)
 {
     var self = this;
     try {
-        if (!from) from = "admin";
-        if (from.indexOf("@") == -1) from += "@" + self.domain;
+        if (!options.from) options.from = "admin";
+        if (options.from.indexOf("@") == -1) options.from += "@" + self.domain;
+        if (!options.text) options.text = "";
+        if (!options.subject) options.subject = "";
+        if (options.to) options.to += ",";
         var server = emailjs.server.connect();
-        server.send({ text: text || '', from: from, to: to + ",", subject: subject || ''}, function(err, message) {
+        server.send(options, function(err, message) {
             if (err) logger.error('sendmail:', err);
             if (typeof callback == "function") callback(err);
         });
@@ -3122,14 +3172,6 @@ core.profiler = function(type, cmd)
     }
 }
 
-// Adds reference to the objects in the core for further access, specify module name, module reference pairs
-core.addModule = function()
-{
-    for (var i = 0; i < arguments.length - 1; i+= 2) {
-        this.modules[arguments[i]] = arguments[i + 1];
-    }
-}
-
 // Create REPL interface with all modules available
 core.createRepl = function(options)
 {
@@ -3319,7 +3361,10 @@ core.watchLogs = function(options, callback)
                     return;
                 }
                 if (self.logwatcherEmail) {
-                    self.sendmail(self.logwatcherFrom, self.logwatcherEmail, "logwatcher: " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + " errors", errors, callback);
+                    self.sendmail({ from: self.logwatcherFrom,
+                                    to: self.logwatcherEmail,
+                                    subject: "logwatcher: " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + " errors",
+                                    text: errors }, callback);
                     return;
                 }
             }

@@ -140,6 +140,8 @@ var db = {
            { name: "pool-tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
            { name: "pool-init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
            { name: "pool-options", count: 3, match: "pool", type: "json", descr: "A DB pool driver options passed to every request" },
+           { name: "pool-no-cache-columns", count: 3, match: "pool", type: "bool", descr: "disable caching table columns for this pool only" },
+           { name: "pool-no-init-tables", count: 3, match: "pool", type: "bool", descr: "Do not crate tables for this pool only" },
     ],
 
     // Default tables
@@ -208,6 +210,8 @@ db.init = function(options, callback)
                          min: self[pool + 'PoolMin' + n] || 0,
                          max: self[pool + 'PoolMax' + n] || Infinity,
                          idle: self[pool + 'PoolIdle' + n] || 86400000,
+                         noCacheColumns: self[pool + 'PoolNoCacheColumns' + n] || 0,
+                         noInitTables: self[pool + 'PoolNoInitTables' + n] || 0,
                          dbinit: self[pool + 'PoolInitOptions' + n],
                          dboptions: self[pool + 'PoolOptions' + n] };
             self[pool + 'InitPool'](opts);
@@ -337,9 +341,9 @@ db.initPoolTables = function(name, tables, options, callback)
     options.tables = tables;
 
     // These options can redefine behaviour of the initialization sequence
-    var noCacheColumns = options.noCacheColumns || self.noCacheColumns;
-    var noInitTables = options.noInitTables || self.noInitTables;
-    logger.debug('initPoolTables:', core.role, name, noCacheColumns || 0, noInitTables || 0, Object.keys(tables));
+    var noCacheColumns = options.noCacheColumns || pool.noCacheColumns || self.noCacheColumns;
+    var noInitTables = options.noInitTables || pool.noInitTables || self.noInitTables;
+    logger.debug('initPoolTables:', core.role, name, noCacheColumns || 0, '/', noInitTables || 0, Object.keys(tables));
 
     // Skip loading column definitions from the database, keep working with the javascript models only
     if (noCacheColumns) {
@@ -590,7 +594,7 @@ db.createPool = function(options)
 //
 db.showResult = function(err, rows, info)
 {
-    if (err) return console.log(err);
+    if (err) return console.log(err.stack);
     console.log(util.inspect(rows, { depth: 5 }), info);
 }
 
