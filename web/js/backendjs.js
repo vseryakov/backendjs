@@ -197,7 +197,7 @@ var Backendjs = {
         if (!window.loadingState) window.loadingState = { count: 0 };
         var state = window.loadingState;
 
-        options.dataType = 'json';
+        if (!options.dataType) options.dataType = 'json';
         // Success callback but if it throws exception we call error handler instead
         options.success = function(json, status, xhr) {
             if (--state.count <= 0) $('#loading').hide(), state.count = 0;
@@ -211,7 +211,7 @@ var Backendjs = {
                 if (!json || typeof json != "object") json = {};
                 break;
             }
-            if (typeof onsuccess == "function") onsuccess(json);
+            if (typeof onsuccess == "function") onsuccess(json, xhr);
         }
         // Parse error message
         options.error = function(xhr, status, error) {

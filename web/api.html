@@ -120,6 +120,7 @@ $(function() {
      Backendjs.apiUrl = ko.observable('');
      Backendjs.apiEmail = ko.observable();
      Backendjs.apiTable = false;
+     Backendjs.apiRaw = false;
      Backendjs.apiEscape = false;
      Backendjs.apiSocket = ko.observable(0);
      Backendjs.apiSocket.subscribe(function(val) {
@@ -167,28 +168,31 @@ $(function() {
         Backendjs.apiEmail("");
         Backendjs.logout();
      }
-     Backendjs.formatResponse = function(data) {
+     Backendjs.formatResponse = function(data, xhr) {
         try {
-            if (this.apiTable) {
-                var d = data.length ? data : (data.data || []);
-                var html = "<table><tr>";
-                for (var p in d[0]) {
-                    if (p.substr(-3) == "_ts") continue;
-                    html += "<th>" + p + "</th>"
-                }
-                html += "</tr>";
-                for (var i in d) {
-                    html += "<tr>"
-                    for (var p in d[i]) {
-                        if (String(d[i][p]).indexOf("http://") == 0) d[i][p] = "<a href=" + d[i][p] + ">" + d[i][p] + "</a>";
-                        html += "<td>" + d[i][p] + "</td>";
+            var ctype = xhr.getResponseHeader("content-type") || "";
+            if (ctype.indexOf("json") > -1) {
+                if (this.apiTable) {
+                    var d = data.length ? data : (data.data || []);
+                    var html = "<table><tr>";
+                    for (var p in d[0]) {
+                        if (p.substr(-3) == "_ts") continue;
+                        html += "<th>" + p + "</th>"
                     }
-                    html += "</tr>"
+                    html += "</tr>";
+                    for (var i in d) {
+                        html += "<tr>"
+                        for (var p in d[i]) {
+                            if (String(d[i][p]).indexOf("http://") == 0) d[i][p] = "<a href=" + d[i][p] + ">" + d[i][p] + "</a>";
+                            html += "<td>" + d[i][p] + "</td>";
+                        }
+                        html += "</tr>"
+                    }
+                    html += "</table>";
+                    data = html;
+                } else {
+                    data = this.formatJSON(data, " ");
                 }
-                html += "</table>";
-                data = html;
-            } else {
-                data = this.formatJSON(data, " ");
             }
             this.apiResponse(data);
         } catch(e) {
@@ -238,10 +242,11 @@ $(function() {
              if (Backendjs.io) return Backendjs.ioSend(url);
 
              var options = { url: url };
+             if (Backendjs.apiRaw) options.dataType = "text";
              if (!Backendjs.doPrepare(options)) return;
-             Backendjs.send(options, function(data) {
+             Backendjs.send(options, function(data, xhr) {
                  $("#file").val('');
-                 Backendjs.formatResponse(data);
+                 Backendjs.formatResponse(data, xhr);
              }, function(msg, xhr, status, error) {
                  $("#file").val('');
                  self.apiResponse(error + "\n" + xhr.responseText);
@@ -294,6 +299,7 @@ $(function() {
           <td><input type="checkbox" data-bind="checked: apiEscape" title="Encode url query, it is in the human readable form"/> Encode URL</td>
           <td><input type="checkbox" data-bind="checked: apiWS" title="Use WebSockets connection instead of HTTP"/> WebSockets</td>
           <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/> Tabular</td>
+          <td><input type="checkbox" data-bind="checked: apiRaw" title="Expeted result is not JSON"/> Not JSON</td>
           <td><img id="loading" src="img/loading.gif"></td>
       </tr>
      </table>
