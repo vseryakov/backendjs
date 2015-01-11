@@ -273,6 +273,8 @@ var api = {
                                    "^/ping" ]),
     // Only for admins
     allowAdmin: {},
+    // Allow by account type
+    allowAccount: {},
     // Allow accounts and anonymous users
     allowAnonymous: {},
     // Allow only HTTPS requests
@@ -303,9 +305,13 @@ var api = {
     // Collect body MIME types as binary blobs
     mimeBody: [],
 
-    // Sessions
+    // Web session age
     sessionAge: 86400 * 14 * 1000,
+    // How old can a signtature be to consider it valid, for clock drifts
     signatureAge: 0,
+    // Separate age for access token
+    accessTokenAge: 86400 * 7 * 1000,
+    accessTokenSecret: "",
 
     // Intervals between updating presence status table
     statusInterval: 900000,
@@ -374,11 +380,14 @@ var api = {
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
-           { name: "token-secret", descr: "Name of the property to be used for encrypting tokens, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
+           { name: "token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
+           { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests" },
+           { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
-           { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints" },
+           { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints" },
+           { name: "allow-account-", type: "regexpmap", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
            { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
@@ -630,6 +639,10 @@ api.init = function(options, callback)
             // Admin only access
             if (self.allowAdmin.rx) {
                 if (req.account.type != "admin" && req.path.match(self.allowAdmin.rx)) return cb({ status: 401, message: "access denied, admins only" });
+            }
+            // Verify access by account type
+            if (self.allowAccount[req.account.type] && self.allowAccount[req.account.type].rx) {
+                if (!req.path.match(self.allowAccount[req.account.type].rx)) return cb({ status: 401, message: "access not allowed" });
             }
             cb();
         });
@@ -896,7 +909,7 @@ api.checkQuery = function(req, res, next)
 
     req._body = true;
     var buf = '', size = 0;
-    var sig = core.parseSignature(req);
+    var sig = core.parseSignature(req, { secret: self.accessTokenSecret });
 
     req.on('data', function(chunk) {
         size += chunk.length;
@@ -1041,7 +1054,7 @@ api.checkSignature = function(req, callback)
     if (!callback) callback = function(x) { return x; }
 
     // Extract all signature components from the request
-    var sig = core.parseSignature(req);
+    var sig = core.parseSignature(req, { secret: self.accessTokenSecret });
 
     logger.debug('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
@@ -1829,6 +1842,7 @@ api.getOptions = function(req)
         if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x]);
     });
     if (req.query._session) req.options.session = core.toNumber(req.query._session);
+    if (req.query._accesstoken) req.options.accessToken = core.toNumber(req.query._accesstoken);
     if (req.query._select) req.options.select = req.query._select;
     if (req.query._count) req.options.count = core.toNumber(req.query._count, 0, 50, 0, this.selectLimit);
     if (req.query._start) req.options.start = core.base64ToJson(req.query._start, this.getTokenSecret(req));
@@ -3492,7 +3506,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
     this.app.get('/oauth/' + strategy.name, passport.authenticate(strategy.name, options));
     this.app.get('/oauth/callback/' + strategy.name, passport.authenticate(strategy.name, { failureRedirect: options.failureUrl }), function(req, res) {
         if (req.user && req.user.id) req.account = req.user;
-        if (options.session) self.setAccountSession(req, { session: true });
+        self.setAccountSession(req, options);
         if (options.successUrl) res.redirect(options.successUrl);
         if (callback) callback(req, res);
     });
@@ -3504,13 +3518,22 @@ api.registerOAuthStrategy = function(strategy, options, callback)
 api.setAccountSession = function(req, options)
 {
     if (!req.account || !req.account.login || !req.account.secret) return;
-    if (!req.session || typeof options.session == "undefined") return;
 
-    if (options.session) {
-        var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: this.sessionAge });
-        req.session["bk-signature"] = sig["bk-signature"];
-    } else {
-        delete req.session["bk-signature"];
+    if (typeof options.accessToken != "undefined") {
+        if (options.accessToken) {
+            var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: this.accessTokenAge });
+            req.account.accessToken = core.encrypt(this.accessTokenSecret, sig["bk-signature"], "", "hex");
+        } else {
+            delete req.account.accessToken;
+        }
+    } else
+    if (typeof options.session != "undefined") {
+        if (options.session) {
+            var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: this.sessionAge });
+            req.session["bk-signature"] = sig["bk-signature"];
+        } else {
+            delete req.session["bk-signature"];
+        }
     }
 }
 
@@ -3523,8 +3546,9 @@ api.getAccount = function(req, options, callback)
         db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
             if (err) return callback(err);
             if (!row) return callback({ status: 404, message: "account not found" });
+            for (var p in row) req.account[p] = row[p];
             self.setAccountSession(req, options);
-            callback(null, row, info);
+            callback(null, req.account, info);
         });
     } else {
         db.list("bk_account", req.query.id, options, callback);

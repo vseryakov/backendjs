@@ -51,14 +51,14 @@ var Backendjs = {
         if (typeof login == "function") callback = login, login = secret = null;
         if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
 
-        self.send("/account/get?" + (this.session ? "_session=1" : "_session=0"), function(data) {
+        self.send("/account/get?" + (this.session ? "_session=1" : "_session=0"), function(data, xhr) {
             self.loggedIn = true;
             self.account = data;
-            if (typeof callback == "function") callback(null, data);
-        }, function(err) {
+            if (typeof callback == "function") callback(null, data, xhr);
+        }, function(err, xhr) {
             self.loggedIn = false;
             self.setCredentials();
-            if (typeof callback == "function") callback(err);
+            if (typeof callback == "function") callback(err, xhr);
         });
     },
 
@@ -71,25 +71,25 @@ var Backendjs = {
         var creds = this.getCredentials();
         obj.login = creds.login;
         obj.secret = creds.secret;
-        self.send({ type: "POST", url: "/account/add", data: jQuery.param(obj), nosignature: 1 }, function(data) {
+        self.send({ type: "POST", url: "/account/add", data: jQuery.param(obj), nosignature: 1 }, function(data, xhr) {
             self.loggedIn = true;
-            if (typeof callback == "function") callback(null, data);
-        }, function(err) {
+            if (typeof callback == "function") callback(null, data, xhr);
+        }, function(err, xhr) {
             self.loggedIn = false;
             self.setCredentials();
-            if (typeof callback == "function") callback(err);
+            if (typeof callback == "function") callback(err, xhr);
         });
     },
 
     // Set new account secret
     saveSecret: function(secret, callback) {
         var self = this;
-        self.send({ url: '/account/put/secret', data: { secret: secret }, type: "POST", jsonType: "obj" }, function(data) {
+        self.send({ url: '/account/put/secret', data: { secret: secret }, type: "POST", jsonType: "obj" }, function(data, xhr) {
             self.setCredentials(self.getCredentials().login, secret);
-            if (typeof callback == "function") callback(null, data);
-        }, function(err) {
+            if (typeof callback == "function") callback(null, data, xhr);
+        }, function(err, xhr) {
             self.setCredentials();
-            if (typeof callback == "function") callback(err);
+            if (typeof callback == "function") callback(err, xhr);
         });
     },
 
@@ -98,8 +98,8 @@ var Backendjs = {
         var self = this;
         var errors = 0;
         (function poll() {
-            self.send({ url: "/account/subscribe", complete: self.unsubscribe ? null : poll }, function(data) {
-                callback(data);
+            self.send({ url: "/account/subscribe", complete: self.unsubscribe ? null : poll }, function(data, xhr) {
+                callback(data, xhr);
             }, function(err) {
                 if (errors++ > 3) self.unsubscribe = true;
             });
@@ -110,12 +110,12 @@ var Backendjs = {
     logout: function(callback) {
         var self = this;
         self.loggedIn = false;
-        self.send("/account/get?_session=0", function() {
+        self.send("/account/get?_session=0", function(data, xhr) {
             self.setCredentials();
-            if (typeof callback == "function") callback();
-        }, function(err) {
+            if (typeof callback == "function") callback(data, xhr);
+        }, function(err, xhr) {
             self.setCredentials();
-            if (typeof callback == "function") callback(err);
+            if (typeof callback == "function") callback(err, xhr);
         });
     },
 
@@ -268,6 +268,19 @@ var Backendjs = {
             if (isNaN(d)) d = 0;
         }
         return d;
+    },
+
+    // Return a cookie value by name
+    cookie: function(name) {
+        if (!document.cookie) return "";
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = jQuery.trim(cookies[i]);
+            if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                return decodeURIComponent(cookie.substring(name.length + 1));
+            }
+        }
+        return "";
     },
 
     // Determine type of the object

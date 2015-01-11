@@ -983,7 +983,7 @@ $(whoami)
 EOF
     fi
 
-    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec node $NAME.js -watch \$(pwd) -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web -views-dir \$(pwd)/views -modules-dir \$(pwd)/modules \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec node $NAME.js -watch \$(pwd) -watch \$(pwd)/modules -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web -views-dir \$(pwd)/views -modules-dir \$(pwd)/modules \$@\n" > $NAME.sh && chmod 755 $NAME.sh
     [ ! -e .gitignore ] && $ECHO "*~\n.*\n*.local\nbin/\ndocs/\nbuild/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
 
     if [ ! -e etc/config ]; then

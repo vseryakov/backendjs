@@ -532,6 +532,18 @@ core.processArgs = function(name, ctx, argv, pass)
                 // Name of the key variable in the contenxt, key. property specifies alternative name for the value
                 var kname = (x.key || x.name) + (i > 0 ? i : "");
                 var idx = -1;
+                // Prefixed parameters, match the leading part in the same module and use the whole parameter
+                if (x.name.slice(-1) == "-") {
+                    var rx = new RegExp("^" + cname);
+                    for (var n = argv.length - 1; idx == -1 && n >= 0; n--) {
+                        if (rx.test(argv[n])) idx = n;
+                    }
+                    // Found a match, update our base name with the leading part from the actual argument name
+                    if (idx > -1) {
+                        cname = argv[idx];
+                        kname = cname.slice(sname.length + 1);
+                    }
+                } else
                 // Matched property, scan and find the last match by the module prefix and suffix only,
                 // using the middle for the actual parameter
                 if (x.match) {
@@ -552,8 +564,9 @@ core.processArgs = function(name, ctx, argv, pass)
 
                 // Place inside the object
                 if (x.obj) {
-                    if (!ctx[x.obj]) ctx[x.obj] = {};
-                    obj = ctx[x.obj];
+                    obj = core.toCamel(x.obj);
+                    if (!ctx[obj]) ctx[obj] = {};
+                    obj = ctx[obj];
                     // Strip the prefix if starts with the same name
                     kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
                 }
@@ -644,7 +657,7 @@ core.processArgs = function(name, ctx, argv, pass)
 }
 
 // Add custom config parameters to be understood and processed by the config parser
-// - module - name of the module to add these params to, if it is an empty string then the module where any
+// - module - name of the module to add these params to, if it is an empty string or skipped then the module where any
 //    parameter goes is determined by the prefix, for example if name is 'aws-elastic-ip' then it will be added to the aws module,
 //    all not matched parameters will be added to the core module.
 // - args - a list of objects in the format: { name: N, type: T, descr: D, min: M, max: M, array: B }, all except name are optional.
@@ -652,10 +665,12 @@ core.processArgs = function(name, ctx, argv, pass)
 // Example:
 //
 //      core.describeArgs("api", [ { name: "num", type: "int", descr: "int param" }, { name: "list", array: 1, descr: "list of words" } ]);
+//      core.describeArgs([ { name: "api-list", array: 1, descr: "list of words" } ]);
 //
 core.describeArgs = function(module, args)
 {
     var self = this;
+    if (typeof module != "string") args = module, module = "";
     if (!Array.isArray(args)) return;
     function addArgs(ctx, args) {
         if (!ctx.args) ctx.args = [];
@@ -1276,7 +1291,7 @@ core.httpGet = function(uri, params, callback)
 //  - 1 regular signature signed with secret for specific requests
 //  - 2 to be sent in cookies and uses wild support for host and path
 // If the signature successfully recognized it is saved in the request for subsequent use as req.signature
-core.parseSignature = function(req)
+core.parseSignature = function(req, options)
 {
     var self = this;
     if (req.signature) return req.signature;
@@ -1289,6 +1304,11 @@ core.parseSignature = function(req)
     rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
     rc.type = (req.headers['content-type'] || "").toLowerCase();
     rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
+    if (!rc.signature) {
+        rc.signature = req.query['bk-access-token'] || req.headers['bk-access-token'];
+        if (rc.signature) rc.signature = this.decrypt(options.secret, rc.signature, "", "hex");
+        if (rc.signature) rc.session = true;
+    }
     if (!rc.signature) {
         rc.signature = (req.session || {})['bk-signature'] || "";
         if (rc.signature) rc.session = true;
@@ -1315,6 +1335,7 @@ core.verifySignature = function(sig, account)
     case 2:
         if (!sig.session) break;
         sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
+        shatype = "sha256";
         break;
 
     case 3:
@@ -1365,12 +1386,14 @@ core.signRequest = function(login, secret, method, host, uri, options)
         rc['bk-expires'] = expires;
         rc['bk-path'] = path;
         rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
+        shatype = "sha256";
         break;
 
     case 3:
         shatype = "sha256";
 
     default:
+        shatype = "sha1"
         rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
     }
     rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.tag || "") + '|' + (login || "") + '|' + this.sign(String(secret), rc.str, shatype) + '|' + expires + '|' + (options.checksum || "") + '|';
@@ -2115,13 +2138,13 @@ core.geoHashDistance = function(geohash1, geohash2, options)
 }
 
 // Encrypt data with the given key code
-core.encrypt = function(key, data, algorithm)
+core.encrypt = function(key, data, algorithm, encoding)
 {
     if (!key || !data) return '';
     try {
         var encrypt = crypto.createCipher(algorithm || 'aes192', key);
-        var b64 = encrypt.update(String(data), 'utf8', 'base64');
-        b64 += encrypt.final('base64');
+        var b64 = encrypt.update(String(data), 'utf8', encoding || 'base64');
+        b64 += encrypt.final(encoding || 'base64');
     } catch(e) {
         b64 = '';
         logger.debug('encrypt:', e.stack, data);
@@ -2130,12 +2153,12 @@ core.encrypt = function(key, data, algorithm)
 }
 
 // Decrypt data with the given key code
-core.decrypt = function(key, data, algorithm)
+core.decrypt = function(key, data, algorithm, encoding)
 {
     if (!key || !data) return '';
     try {
         var decrypt = crypto.createDecipher(algorithm || 'aes192', key);
-        var msg = decrypt.update(String(data), 'base64', 'utf8');
+        var msg = decrypt.update(String(data), encoding || 'base64', 'utf8');
         msg += decrypt.final('utf8');
     } catch(e) {
         msg = '';
