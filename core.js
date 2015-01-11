@@ -1160,7 +1160,7 @@ core.httpGet = function(uri, params, callback)
 
     // Sign request using internal backend credentials
     if (params.sign) {
-        var headers = this.signRequest(params.login, params.secret, options.method, options.hostname, options.path, { type: options.headers['content-type'], checksum: options.checksum });
+        var headers = this.modules.api.createSignature(params.login, params.secret, options.method, options.hostname, options.path, { type: options.headers['content-type'], checksum: options.checksum });
         for (var p in headers) options.headers[p] = headers[p];
     }
 
@@ -1283,57 +1283,6 @@ core.httpGet = function(uri, params, callback)
     }
     req.end();
     return req;
-}
-
-// Produce signed URL to be used in embedded cases or with expiration so the url can be passed and be valid for longer time.
-// Host passed here must be the actual host where the request will be sent
-core.signUrl = function(login, secret, host, uri, options)
-{
-    var hdrs = this.signRequest(login, secret, "GET", host, uri, options);
-    return uri + (uri.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
-}
-
-// Sign HTTP request for the API server:
-// url must include all query parameters already encoded and ready to be sent
-// options may contains the following:
-//  - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
-//  - version a version number defining how the signature will be signed
-//  - type - content-type header, may be omitted
-//  - tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion
-//  - checksum - SHA1 digest of the whole content body, may be omitted
-core.signRequest = function(login, secret, method, host, uri, options)
-{
-    if (!login || !secret) return {};
-    if (!options) options = {};
-    var now = Date.now();
-    var expires = options.expires || 0;
-    if (!expires) expires = now + 30000;
-    if (expires < now) expires += now;
-    var ver = options.version || 1;
-    var tag = options.tag || "";
-    var hostname = String(host || "").split(":").shift().toLowerCase();
-    var q = String(uri || "/").split("?");
-    var path = q[0];
-    var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-    var rc = { str: ver + '\n' + String(tag) + '\n' + String(login) + "\n" };
-    switch (ver) {
-    case 2:
-    case 3:
-        path = "/";
-        method = query = "*";
-        rc['bk-domain'] = hostname = this.domainName(hostname);
-        rc['bk-max-age'] = Math.floor((expires - now)/1000);
-        rc['bk-expires'] = expires;
-        rc['bk-path'] = path;
-        rc.str += String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
-        break;
-
-    default:
-        rc.str += String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
-    }
-    rc['bk-signature'] = ver + '|' + String(tag) + '|' + String(login) + '|' + this.sign(String(secret), rc.str, "sha256") + '|' + expires + '|' + (options.checksum || "") + '|';
-    if (logger.level > 1) logger.log('signRequest:', rc);
-    return rc;
 }
 
 // Make a request to the backend endpoint, save data in the queue in case of error, if data specified,

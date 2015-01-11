@@ -19,6 +19,9 @@ var Backendjs = {
     // need to enter the real values but the browser will never store them, only hashes
     scramble: false,
 
+    // Signature version
+    sigversion: 4,
+
     // Current account
     account: null,
 
@@ -28,13 +31,12 @@ var Backendjs = {
     // Return current credentials
     getCredentials: function() {
         var obj = this.persistent ? localStorage : this;
-        return { login: obj.backendjsLogin || "", secret: obj.backendjsSecret || "", version: parseInt(obj.backendjsVersion) || 1 };
+        return { login: obj.backendjsLogin || "", secret: obj.backendjsSecret || "" };
     },
 
     // Set new credentials, save in memory or local storage
-    setCredentials: function(login, secret, version) {
+    setCredentials: function(login, secret) {
         var obj = this.persistent ? localStorage : this;
-        obj.backendjsVersion = version || this.sigversion || 1;
         if (this.scramble) {
             obj.backendjsLogin = login ? b64_hmac_sha1(login, login) : "";
             obj.backendjsSecret = login && secret ? b64_hmac_sha1(login, secret) : "";
@@ -128,8 +130,8 @@ var Backendjs = {
     sign: function(method, url, query, options) {
         var rc = {};
         var creds = this.getCredentials();
-        if (!creds.login || !creds.secret) return {};
-        var now = Date.now();
+        if (!creds.login || !creds.secret) return rc;
+        var now = Date.now(), str, hmac;
         var host = window.location.hostname;
         if (url.indexOf('://') > -1) {
             var u = url.split('/');
@@ -149,9 +151,17 @@ var Backendjs = {
         if (query instanceof FormData) query = "";
         if (typeof query == "object") query = jQuery.param(query);
         query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
-        var str = creds.version + "\n" + String(options.tag || "") + "\n" + creds.login + "\n" + String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
-        var hmac = b64_hmac_sha256(creds.secret, str);
-        rc['bk-signature'] = creds.version + '|' + String(options.tag || "") + '|' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
+        switch (this.sigversion) {
+        case 1:
+            str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
+            hmac = b64_hmac_sha1(creds.secret, str);
+            break;
+
+        default:
+            str = this.sigversion + "\n" + String(options.tag || "") + "\n" + creds.login + "\n" + String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
+            hmac = b64_hmac_sha256(creds.secret, str);
+        }
+        rc['bk-signature'] = this.sigversion + '|' + String(options.tag || "") + '|' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
         if (this.debug) this.log('sign:', creds, str);
         return rc;
     },

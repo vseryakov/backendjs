@@ -25,3 +25,6 @@ exports.core.addModule('logger', exports.logger,
                        'server', exports.server,
                        'utils', exports.utils,
                        'app', exports.app);
+
+// Load all submodules after we have all singletons ready
+exports.core.findFileSync(__dirname + "/lib", { include: new RegExp(/\.js$/) }).forEach(function(file) { require(file); });
