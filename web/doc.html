@@ -72,6 +72,28 @@
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-server">server</a></li>
+<li><a href="#module-api_accounts">api_accounts</a></li>
+<li><a href="#module-api_connections">api_connections</a></li>
+<li><a href="#module-api_counter">api_counter</a></li>
+<li><a href="#module-api_data">api_data</a></li>
+<li><a href="#module-api_files">api_files</a></li>
+<li><a href="#module-api_icons">api_icons</a></li>
+<li><a href="#module-api_locations">api_locations</a></li>
+<li><a href="#module-api_messages">api_messages</a></li>
+<li><a href="#module-api_pages">api_pages</a></li>
+<li><a href="#module-api_status">api_status</a></li>
+<li><a href="#module-api_system">api_system</a></li>
+<li><a href="#module-db_cassandra">db_cassandra</a></li>
+<li><a href="#module-db_couchdb">db_couchdb</a></li>
+<li><a href="#module-db_dynamodb">db_dynamodb</a></li>
+<li><a href="#module-db_elasticsearch">db_elasticsearch</a></li>
+<li><a href="#module-db_lmdb">db_lmdb</a></li>
+<li><a href="#module-db_mongodb">db_mongodb</a></li>
+<li><a href="#module-db_mysql">db_mysql</a></li>
+<li><a href="#module-db_pgsql">db_pgsql</a></li>
+<li><a href="#module-db_redis">db_redis</a></li>
+<li><a href="#module-db_riak">db_riak</a></li>
+<li><a href="#module-db_sqlite">db_sqlite</a></li>
 </ul>
 </li>
 </ul>
@@ -2413,75 +2435,24 @@ If the signature successfully recognized it is saved in the request for subseque
 </ul>
 
 <ul>
-<li><p><code>api.setSessionSignature(req, options)</code></p>
-<p> Setup session cookies for automatic authentication without signing, req must be complete with all required
+<li><p><code>api.createSignature(login, secret, method, host, uri, options)</code></p>
+<p> Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.</p>
+<p>The options may contains the following:</p>
+<ul>
+<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
+<li>version a version number defining how the signature will be signed</li>
+<li>type - content-type header, may be omitted</li>
+<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
+<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
+<li>query - on object with query parameters to use instead of parameters in the uri</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.createSessionSignature(req, options)</code></p>
+<p> Setup session cookies or access token for automatic authentication without signing, req must be complete with all required
 properties after successful authorization.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initAccountAPI()</code></p>
-<p> Account management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initStatusAPI()</code></p>
-<p> Status/presence</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initIconAPI()</code></p>
-<p> Generic icon management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initFileAPI()</code></p>
-<p> Generic file management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initMessageAPI()</code></p>
-<p> Messaging management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initCounterAPI()</code></p>
-<p> Counters management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initConnectionAPI()</code></p>
-<p> Connections management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initLocationAPI()</code></p>
-<p> Geo locations management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initPagesAPI()</code></p>
-<p> API for wiki pages support</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initSystemAPI()</code></p>
-<p> API for internal provisioning and configuration</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initDataAPI()</code></p>
-<p> API for full access to all tables</p>
 </li>
 </ul>
 
@@ -2713,352 +2684,6 @@ events using account id as a key.</p>
 </ul>
 
 <ul>
-<li><p><code>api.iconPath(id, options)</code></p>
-<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.downloadIcon(uri, options, callback)</code></p>
-<p> Download image and convert into JPG, store under core.path.images
-Options may be controlled using the properties:</p>
-<ul>
-<li>force - force rescaling for all types even if already exists</li>
-<li>id - id for the icon</li>
-<li>type - type for the icon, prepended to the icon id</li>
-<li>prefix - where to store all scaled icons</li>
-<li>verify - check if the original icon is the same as at the source</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.saveIcon(file, id, options, callback)</code></p>
-<p> Save original or just downloaded file in the proper location according to the types for given id,
-this function is used after downloading new image or when moving images from other places. On success
-the callback will be called with the second argument set to the output file name where the image has been saved.
-Valid properties in the options:</p>
-<ul>
-<li>type - icon type, this will be prepended to the name of the icon</li>
-<li>prefix - top level subdirectory under images/</li>
-<li>force - to rescale even if it already exists</li>
-<li>width, height, filter, ext, quality for backend.resizeImage function</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.scaleIcon(infile, options, callback)</code></p>
-<p> Scale image using ImageMagick, return err if failed</p>
-<ul>
-<li>infile can be a string with file name or a Buffer with actual image data</li>
-<li>options can specify image properties:<ul>
-<li>outfile - if not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback as a buffer</li>
-<li>width, height - new image dimensions<ul>
-<li>if width or height is negative this means do not perform upscale, keep the original size if smaller than given positive value,</li>
-<li>if any is 0 that means keep the original size</li>
-</ul>
-</li>
-<li>filter - ImageMagick image filters, default is lanczos</li>
-<li>quality - 0-99 percent, image scaling quality</li>
-<li>ext - image format: png, gif, jpg, jp2</li>
-<li>flip - flip horizontally</li>
-<li>flop - flip vertically</li>
-<li>blue_radius, blur_sigma - perform adaptive blur on the image</li>
-<li>crop_x, crop_y, crop_width, crop_height - perform crop using given dimensions</li>
-<li>sharpen_radius, sharpen_sigma - perform sharpening of the image</li>
-<li>brightness - use thing to change brightness of the image</li>
-<li>contrast - set new contrast of the image</li>
-<li>rotate - rotation angle</li>
-<li>bgcolor - color for the background, used in rotation</li>
-<li>quantized - set number of colors for quantize</li>
-<li>treedepth - set tree depth for quantixe process</li>
-<li>dither - set 0 or 1 for quantixe and posterize processes</li>
-<li>posterize - set number of color levels</li>
-<li>normalize - normalize image</li>
-<li>opacity - set image opacity</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.handleIconRequest(req, res, options, callback)</code></p>
-<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
-Verify icon limits before adding new icons</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.formatIcon(row, options)</code></p>
-<p> Return formatted icon URL for the given account, verify permissions</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkIcon(row, options, cols)</code></p>
-<p> Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.selectIcon(req, options, callback)</code></p>
-<p> Return list of icons for the account, used in /icon/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getIcon(req, res, id, options)</code></p>
-<p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.sendIcon(req, res, id, options)</code></p>
-<p> Send an icon to the client, only handles files</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.putIcon(req, id, options, callback)</code></p>
-<p> Store an icon for account, .type defines icon prefix</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.storeIcon(file, id, options, callback)</code></p>
-<p> Place the icon data to the destination, if api.imagesS3 or options.imagesS3 specified then plave the image on the S3 drive</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delIcon(id, options, callback)</code></p>
-<p> Delete an icon for account, .type defines icon prefix</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getFile(req, res, file, options)</code></p>
-<p> Send a file to the client</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.putFile(req, name, options, callback)</code></p>
-<p> Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name</p>
-<ul>
-<li>name is the name property to look for in the multipart body or in the request body or query</li>
-<li>callback will be called with err and actual filename saved
-Output file name is built according to the following options properties:</li>
-<li>name - defines the basename for the file, no extention, if not given same name as property will be used</li>
-<li>prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically</li>
-<li>ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
-<li>extkeep - tells always to keep actual extention from the uploaded file</li>
-<li>encoding - encoding of the body, default is base64</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.storeFile(tmpfile, outfile, options, callback)</code></p>
-<p> Place the uploaded tmpfile to the destination pointed by outfile</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delFile(file, options, callback)</code></p>
-<p> Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getStatus(id, options, callback)</code></p>
-<p> Returns status record for given account, used in /status/get API call.
-It always returns status object even if it was never set before, on return the record contains
-a property <code>online</code> set to true of false according to the idle period and actual status.</p>
-<p>If id is an array, then return all status records for specified list of account ids.</p>
-<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to to other value,
-for other cases <code>status</code> property is not used, it is supposed for the application extention.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.putStatus(obj, options, callback)</code></p>
-<p> Maintain online status, update to db every status-interval seconds, if options.check is given only update db if last update happened
-longer than status-interval seconds ago, keep atime up-to-date in the cache on every status update.
-On return the row will have a property <code>saved</code> if it was flushed to db.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.preparePages(options)</code></p>
-<p> Prepare a markdown page, the following properties can be used in the options:</p>
-<ul>
-<li>content - the markdown contents</li>
-<li>title - tile to be rendered, this will be discovered by taking first # heading if not set</li>
-<li>subtitle - subtitle or short description</li>
-<li>toc - if not empty, then it is replaced with the table of contents by collecting all heading tags, i.e #</li>
-<li>id - id or file name, if no title is specified or discovered it will be used as a title</li>
-<li>render - if true render into html, otherwise return just markdown</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.sendPages(req, options)</code></p>
-<p> Send rendered markdown to the client response</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.incrCounter(req, options, callback)</code></p>
-<p> Increase a counter, used in /counter/incr API call, options.op can be set to &#39;put&#39;</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.incrAutoCounter(id, type, num, options, callback)</code></p>
-<p> Update auto counter for account and type</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getConnection(req, options, callback)</code></p>
-<p> Return all connections for the current account, this function is called by the <code>/connection/get</code> API call.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.selectConnection(req, options, callback)</code></p>
-<p> Return all connections for the current account, this function is called by the <code>/connection/select</code> API call.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.putConnection(req, options, callback)</code></p>
-<p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call with query parameters coming from the Express request.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delConnection(req, options, callback)</code></p>
-<p> Delete a connection, this function is called by the <code>/connection/del</code> API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.queryConnection(id, obj, options, callback)</code></p>
-<p> Return all connections for the account id with optional query properties, obj.type should not include :</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.readConnection(id, obj, options, callback)</code></p>
-<p> Return one connection for given id, obj must have .id and .type properties defined,
-if options.details is 1 then combine with account record.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.makeConnection(id, obj, options, callback)</code></p>
-<p> Lower level connection creation with all counters support, can be used outside of the current account scope for
-any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id and type for other account
-with other properties to be added. <code>obj</code> is left untouched.</p>
-<p>To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.</p>
-<p>The following properties can alter the actions:</p>
-<ul>
-<li>publish - send notification via pub/sub system if present</li>
-<li>nocounter - do not update auto increment counters</li>
-<li>noreference - do not create reference part of the connection</li>
-<li>connected - return existing connection record for the same type from the other account</li>
-<li>alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.</li>
-<li>account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
-be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.deleteConnection(id, obj, options, callback)</code></p>
-<p> Lower level connection deletion, for given account <code>id</code>, the other id and type is in the <code>obj</code>, performs deletion of all
-connections. If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getLocation(req, options, callback)</code></p>
-<p> Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
-is used in <code>/location/get</code> request. It can be used in the applications with customized input and output if neccesary for the application specific logic.</p>
-<p>Example</p>
-<pre><code>    # Request will look like: /recent/locations?latitude=34.1&amp;longitude=-118.1&amp;mtime=123456789
-    this.app.all(/^\/recent\/locations$/, function(req, res) {
-        var options = self.getOptions(req);
-        options.keys = [&quot;geohash&quot;,&quot;mtime&quot;];
-        options.ops = { mtime: &#39;gt&#39; };
-        options.details = true;
-        self.getLocations(req, options, function(err, data) {
-            self.sendJSON(req, err, data);
-        });
-    });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>api.putLocation(req, options, callback)</code></p>
-<p> Save location coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getArchiveMessage(req, options, callback)</code></p>
-<p> Return archived messages, used in /message/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getSentMessage(req, options, callback)</code></p>
-<p> Return sent messages to the specified account, used in /message/get/sent API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getMessage(req, options, callback)</code></p>
-<p> Return new/unread messages, used in /message/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.archiveMessage(req, options, callback)</code></p>
-<p> Mark a message as archived, used in /message/archive API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.addMessage(req, options, callback)</code></p>
-<p> Add new message, used in /message/add API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delMessage(req, options, callback)</code></p>
-<p> Delete a message or all messages for the given account from the given sender, used in /message/del` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delArchiveMessage(req, options, callback)</code></p>
-<p> Delete the messages in the archive, used in /message/del/archive` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delSentMessage(req, options, callback)</code></p>
-<p> Delete the messages i sent, used in /message/del/sent` API call</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.registerOAuthStrategy(strategy, options, callback)</code></p>
 <p> Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
 OAUTH authenticated account. The callback will be called as function(req,res) with <code>req.user</code> signifies the successful
@@ -3076,90 +2701,6 @@ login and hold the account properties.</p>
  some post processing work after the account has been created.
  For any function, <code>req.profile</code>, <code>req.accessToken</code>,<code>req.refreshToken</code> will be set for the authenticated profile object from the provider.</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getAccount(req, options, callback)</code></p>
-<p> Return an account, used in /account/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.notifyAccount(id, options, callback)</code></p>
-<p> Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
-as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
-&quot;offline&quot; according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
-The options may contain the following:</p>
-<ul>
-<li>msg - message text to send</li>
-<li>badge - a badge number to be sent</li>
-<li>prefix - prepend the message with this prefix</li>
-<li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
-<li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
-  all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
-<li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
-<li>logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number</li>
-<li>service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
-<li>device_id - the device to send the message to instesd of the device_id property fro the account record</li>
-</ul>
-<p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
-system will pick the right delivery service depending on the device id, the default service is apple.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.listAccount(rows, options, callback)</code></p>
-<p> Return account details for the list of rows, options.key specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
-The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.
-If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.selectAccount(req, options, callback)</code></p>
-<p> Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.addAccount(req, options, callback)</code></p>
-<p> Register new account, used in /account/add API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.fetchAccount(req, options, callback)</code></p>
-<p> Given a profile data from some other system, check if there is an account or create a new account for the given
-profile, return bk_account record in the callback. req.query contains profile fields converted to bk_auth/bk_account names
-so the whole req.query can be saved as it is. <code>req.query.login</code> must exist.</p>
-<p>This method is supposed to be called after the user is authenticated and verified, it does not
-check secrets but only existence of a user by login. If  user with login exists, this works as <code>api.getAccount</code>
-with an extra call to bk_auth. On success the current account is active and set as <code>req.account</code>.</p>
-<p>If new account ws created, the generated secret will be returned and must be saved by the client for subsequent
-API calls unless cookie session is established.</p>
-<p>if <code>req.query.icon&#39; is set with the url of the profile image, it will be downloaded and saved as account icon type</code>0<code>.</code>options.width`
-if specified will be used to resize the image.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.updateAccount(req, options, callback)</code></p>
-<p> Update existing account, used in /account/update API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.setAccountSecret(req, options, callback)</code></p>
-<p> Change account secret, used in /account/put/secret API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.deleteAccount(id, options, callback)</code></p>
-<p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
-The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
-delete an account but keep all messages and location: keep: { message: 1, location: 1 }</p>
 </li>
 </ul>
 
@@ -4164,28 +3705,6 @@ On end, the object params will contain the following updated properties:</li>
 <li>mtime - Date object with the last modified time of the requested file</li>
 <li>size - size of the response body or file
 Note: SIDE EFFECT: params object is modified in place so many options will be changed/removed or added</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.signUrl(login, secret, host, uri, options)</code></p>
-<p> Produce signed URL to be used in embedded cases or with expiration so the url can be passed and be valid for longer time.
-Host passed here must be the actual host where the request will be sent</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.signRequest(login, secret, method, host, uri, options)</code></p>
-<p> Sign HTTP request for the API server:
-url must include all query parameters already encoded and ready to be sent
-options may contains the following:</p>
-<ul>
-<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
-<li>version a version number defining how the signature will be signed</li>
-<li>type - content-type header, may be omitted</li>
-<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
-<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
 </ul>
 </li>
 </ul>
@@ -6059,120 +5578,6 @@ options may define the following properties:</p>
 </li>
 </ul>
 
-<ul>
-<li><p><code>db.pgsqlInitPool(options)</code></p>
-<p> Setup PostgreSQL pool driver</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.pgsqlCacheIndexes(options, callback)</code></p>
-<p> Cache indexes using the information_schema</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.pgsqlBindValue(val, info)</code></p>
-<p> Convert JS array into db PostgreSQL array format: {..}</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqliteInitPool(options)</code></p>
-<p> Initialize local SQLite cache database by name or full path</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqliteConnect(options, callback)</code></p>
-<p> Common code to open or create local SQLite databases, execute all required initialization statements, calls callback
-with error as first argument and database object as second</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.mysqlInitPool(options)</code></p>
-<p> Setup MySQL database driver</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.dynamodbInitPool(options)</code></p>
-<p> Setup DynamoDB database driver</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.mongodbInitPool(options)</code></p>
-<p> MongoDB pool</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.cassandraInitPool(options)</code></p>
-<p> Cassandra pool</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.leveldbInitPool(options)</code></p>
-<p> Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
-table parameter is ignored, the object only supports the properties name and value in the record objects.</p>
-<p>Because this driver supports 2 databases it requires type to be specified, possible values are: <code>lmdb, leveldb</code></p>
-<p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
-as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
-<p>The LevelDB database can only be shared by one process so if no unique options.db is given, it will create a unique database using core.processId()</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.nndbInitPool(options)</code></p>
-<p> Create a database pool that works with nanomsg server, all requests will be forwarded to the nanomsg socket,
-the server can be on the same machine or on the remote, 2 nanomsg socket types are supported: NN_PUSH or NN_REQ.
-In push mode no replies are expected, only sending db updates, in Req mode the server will reply on &#39;get&#39; command only,
-all other commands work as in push mode. Only &#39;get,put,del,incr&#39; comamnd are supported, add,update will be sent as put, LevelDB or LMDB
-on the other side only support simple key-value operations.
-Options can define the following:</p>
-<ul>
-<li>socket - nanomsg socket type, default is utils.NN_PUSH, can be utils.NN_REQ</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.redisInitPool(options)</code></p>
-<p> Redis database pool, uses Hash to store the records</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.elasticsearchInitPool(options)</code></p>
-<p> Create a database pool that works with ElasticSearch server</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.couchdbInitPool(options)</code></p>
-<p> Create a database pool that works with CouchDB server.</p>
-<p>In addition to the standard commands it can execute any CouchDB HTTP API directly</p>
-<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/db/url&quot; }, { pool: &quot;couchdb&quot; }, db.showResult)
-db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } }, { pool: &quot;couchdb&quot; }, db.showResult)
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.riakInitPool(options)</code></p>
-<p> Create a database pool that works with the Riak database.</p>
-<p>By default the driver uses simple key-value mode of operations, to enable bucket-type mode
-pass bucketType in the <code>-db-riak-options</code>:</p>
-<p>To use maps for the object records set <code>useMaps</code> in the <code>-db-riak-options</code></p>
-<pre><code>-db-riak-options &#39;{ &quot;bucketType&quot;: &quot;bk&quot;, &quot;useMaps&quot;: 1 }&#39;
-</code></pre><p>In addition to the standard commands it can execute any Riak HTTP API directly</p>
-<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/buckets?buckets=true&quot; }, { pool: &quot;riak&quot; }, db.showResult)
-db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;, obj: 1 }, { pool: &quot;riak&quot; }, db.showResult)
-</code></pre></li>
-</ul>
-
 <h2 id="module-ipc">Module: IPC</h2>
 <ul>
 <li><p><code>ipc</code></p>
@@ -6719,6 +6124,638 @@ cron jobs manually</p>
 <p> Load submitted jobs for execution, it is run by the master process every <code>-server-jobs-interval</code> seconds.
 Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
 the higher level management tool must take care when and what to run and in what order.</p>
+</li>
+</ul>
+
+<h2 id="module-api_accounts">Module: API_ACCOUNTS</h2>
+<ul>
+<li><p><code>api.initAccountsAPI()</code></p>
+<p> Account management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getAccount(req, options, callback)</code></p>
+<p> Return an account, used in /account/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.notifyAccount(id, options, callback)</code></p>
+<p> Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
+as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
+&quot;offline&quot; according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
+The options may contain the following:</p>
+<ul>
+<li>msg - message text to send</li>
+<li>badge - a badge number to be sent</li>
+<li>prefix - prepend the message with this prefix</li>
+<li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
+<li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
+  all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
+<li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
+<li>logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number</li>
+<li>service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
+<li>device_id - the device to send the message to instesd of the device_id property fro the account record</li>
+</ul>
+<p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
+system will pick the right delivery service depending on the device id, the default service is apple.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.listAccount(rows, options, callback)</code></p>
+<p> Return account details for the list of rows, options.key specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
+The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.
+If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.selectAccount(req, options, callback)</code></p>
+<p> Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.addAccount(req, options, callback)</code></p>
+<p> Register new account, used in /account/add API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.fetchAccount(req, options, callback)</code></p>
+<p> Given a profile data from some other system, check if there is an account or create a new account for the given
+profile, return bk_account record in the callback. req.query contains profile fields converted to bk_auth/bk_account names
+so the whole req.query can be saved as it is. <code>req.query.login</code> must exist.</p>
+<p>This method is supposed to be called after the user is authenticated and verified, it does not
+check secrets but only existence of a user by login. If  user with login exists, this works as <code>api.getAccount</code>
+with an extra call to bk_auth. On success the current account is active and set as <code>req.account</code>.</p>
+<p>If new account ws created, the generated secret will be returned and must be saved by the client for subsequent
+API calls unless cookie session is established.</p>
+<p>if <code>req.query.icon&#39; is set with the url of the profile image, it will be downloaded and saved as account icon type</code>0<code>.</code>options.width`
+if specified will be used to resize the image.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.updateAccount(req, options, callback)</code></p>
+<p> Update existing account, used in /account/update API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.setAccountSecret(req, options, callback)</code></p>
+<p> Change account secret, used in /account/put/secret API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.deleteAccount(id, options, callback)</code></p>
+<p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
+The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
+delete an account but keep all messages and location: keep: { message: 1, location: 1 }</p>
+</li>
+</ul>
+
+<h2 id="module-api_connections">Module: API_CONNECTIONS</h2>
+<ul>
+<li><p><code>api.initConnectionsAPI()</code></p>
+<p> Connections management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getConnection(req, options, callback)</code></p>
+<p> Return all connections for the current account, this function is called by the <code>/connection/get</code> API call.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.selectConnection(req, options, callback)</code></p>
+<p> Return all connections for the current account, this function is called by the <code>/connection/select</code> API call.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putConnection(req, options, callback)</code></p>
+<p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call with query parameters coming from the Express request.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delConnection(req, options, callback)</code></p>
+<p> Delete a connection, this function is called by the <code>/connection/del</code> API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.queryConnection(id, obj, options, callback)</code></p>
+<p> Return all connections for the account id with optional query properties, obj.type should not include :</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.readConnection(id, obj, options, callback)</code></p>
+<p> Return one connection for given id, obj must have .id and .type properties defined,
+if options.details is 1 then combine with account record.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.makeConnection(id, obj, options, callback)</code></p>
+<p> Lower level connection creation with all counters support, can be used outside of the current account scope for
+any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id and type for other account
+with other properties to be added. <code>obj</code> is left untouched.</p>
+<p>To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.</p>
+<p>The following properties can alter the actions:</p>
+<ul>
+<li>publish - send notification via pub/sub system if present</li>
+<li>nocounter - do not update auto increment counters</li>
+<li>noreference - do not create reference part of the connection</li>
+<li>connected - return existing connection record for the same type from the other account</li>
+<li>alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.</li>
+<li>account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
+be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.deleteConnection(id, obj, options, callback)</code></p>
+<p> Lower level connection deletion, for given account <code>id</code>, the other id and type is in the <code>obj</code>, performs deletion of all
+connections. If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.</p>
+</li>
+</ul>
+
+<h2 id="module-api_counter">Module: API_COUNTER</h2>
+<ul>
+<li><p><code>api.initCounterAPI()</code></p>
+<p> Counters management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.incrCounter(req, options, callback)</code></p>
+<p> Increase a counter, used in /counter/incr API call, options.op can be set to &#39;put&#39;</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.incrAutoCounter(id, type, num, options, callback)</code></p>
+<p> Update auto counter for account and type</p>
+</li>
+</ul>
+
+<h2 id="module-api_data">Module: API_DATA</h2>
+<ul>
+<li><p><code>api.initDataAPI()</code></p>
+<p> API for full access to all tables</p>
+</li>
+</ul>
+
+<h2 id="module-api_files">Module: API_FILES</h2>
+<ul>
+<li><p><code>api.initFilesAPI()</code></p>
+<p> Generic file management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getFile(req, res, file, options)</code></p>
+<p> Send a file to the client</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putFile(req, name, options, callback)</code></p>
+<p> Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name</p>
+<ul>
+<li>name is the name property to look for in the multipart body or in the request body or query</li>
+<li>callback will be called with err and actual filename saved
+Output file name is built according to the following options properties:</li>
+<li>name - defines the basename for the file, no extention, if not given same name as property will be used</li>
+<li>prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically</li>
+<li>ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
+<li>extkeep - tells always to keep actual extention from the uploaded file</li>
+<li>encoding - encoding of the body, default is base64</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.storeFile(tmpfile, outfile, options, callback)</code></p>
+<p> Place the uploaded tmpfile to the destination pointed by outfile</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delFile(file, options, callback)</code></p>
+<p> Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects</p>
+</li>
+</ul>
+
+<h2 id="module-api_icons">Module: API_ICONS</h2>
+<ul>
+<li><p><code>api.initIconsAPI()</code></p>
+<p> Generic icon management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.iconPath(id, options)</code></p>
+<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.downloadIcon(uri, options, callback)</code></p>
+<p> Download image and convert into JPG, store under core.path.images
+Options may be controlled using the properties:</p>
+<ul>
+<li>force - force rescaling for all types even if already exists</li>
+<li>id - id for the icon</li>
+<li>type - type for the icon, prepended to the icon id</li>
+<li>prefix - where to store all scaled icons</li>
+<li>verify - check if the original icon is the same as at the source</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.saveIcon(file, id, options, callback)</code></p>
+<p> Save original or just downloaded file in the proper location according to the types for given id,
+this function is used after downloading new image or when moving images from other places. On success
+the callback will be called with the second argument set to the output file name where the image has been saved.
+Valid properties in the options:</p>
+<ul>
+<li>type - icon type, this will be prepended to the name of the icon</li>
+<li>prefix - top level subdirectory under images/</li>
+<li>force - to rescale even if it already exists</li>
+<li>width, height, filter, ext, quality for backend.resizeImage function</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.scaleIcon(infile, options, callback)</code></p>
+<p> Scale image using ImageMagick, return err if failed</p>
+<ul>
+<li>infile can be a string with file name or a Buffer with actual image data</li>
+<li>options can specify image properties:<ul>
+<li>outfile - if not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback as a buffer</li>
+<li>width, height - new image dimensions<ul>
+<li>if width or height is negative this means do not perform upscale, keep the original size if smaller than given positive value,</li>
+<li>if any is 0 that means keep the original size</li>
+</ul>
+</li>
+<li>filter - ImageMagick image filters, default is lanczos</li>
+<li>quality - 0-99 percent, image scaling quality</li>
+<li>ext - image format: png, gif, jpg, jp2</li>
+<li>flip - flip horizontally</li>
+<li>flop - flip vertically</li>
+<li>blue_radius, blur_sigma - perform adaptive blur on the image</li>
+<li>crop_x, crop_y, crop_width, crop_height - perform crop using given dimensions</li>
+<li>sharpen_radius, sharpen_sigma - perform sharpening of the image</li>
+<li>brightness - use thing to change brightness of the image</li>
+<li>contrast - set new contrast of the image</li>
+<li>rotate - rotation angle</li>
+<li>bgcolor - color for the background, used in rotation</li>
+<li>quantized - set number of colors for quantize</li>
+<li>treedepth - set tree depth for quantixe process</li>
+<li>dither - set 0 or 1 for quantixe and posterize processes</li>
+<li>posterize - set number of color levels</li>
+<li>normalize - normalize image</li>
+<li>opacity - set image opacity</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleIconRequest(req, res, options, callback)</code></p>
+<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
+Verify icon limits before adding new icons</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.formatIcon(row, options)</code></p>
+<p> Return formatted icon URL for the given account, verify permissions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkIcon(row, options, cols)</code></p>
+<p> Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.selectIcon(req, options, callback)</code></p>
+<p> Return list of icons for the account, used in /icon/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getIcon(req, res, id, options)</code></p>
+<p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendIcon(req, res, id, options)</code></p>
+<p> Send an icon to the client, only handles files</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putIcon(req, id, options, callback)</code></p>
+<p> Store an icon for account, .type defines icon prefix</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.storeIcon(file, id, options, callback)</code></p>
+<p> Place the icon data to the destination, if api.imagesS3 or options.imagesS3 specified then plave the image on the S3 drive</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delIcon(id, options, callback)</code></p>
+<p> Delete an icon for account, .type defines icon prefix</p>
+</li>
+</ul>
+
+<h2 id="module-api_locations">Module: API_LOCATIONS</h2>
+<ul>
+<li><p><code>api.initLocationsAPI()</code></p>
+<p> Geo locations management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getLocation(req, options, callback)</code></p>
+<p> Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
+is used in <code>/location/get</code> request. It can be used in the applications with customized input and output if neccesary for the application specific logic.</p>
+<p>Example</p>
+<pre><code>    # Request will look like: /recent/locations?latitude=34.1&amp;longitude=-118.1&amp;mtime=123456789
+    this.app.all(/^\/recent\/locations$/, function(req, res) {
+        var options = self.getOptions(req);
+        options.keys = [&quot;geohash&quot;,&quot;mtime&quot;];
+        options.ops = { mtime: &#39;gt&#39; };
+        options.details = true;
+        self.getLocations(req, options, function(err, data) {
+            self.sendJSON(req, err, data);
+        });
+    });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>api.putLocation(req, options, callback)</code></p>
+<p> Save location coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
+</li>
+</ul>
+
+<h2 id="module-api_messages">Module: API_MESSAGES</h2>
+<ul>
+<li><p><code>api.initMessagesAPI()</code></p>
+<p> Messaging management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getArchiveMessage(req, options, callback)</code></p>
+<p> Return archived messages, used in /message/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getSentMessage(req, options, callback)</code></p>
+<p> Return sent messages to the specified account, used in /message/get/sent API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getMessage(req, options, callback)</code></p>
+<p> Return new/unread messages, used in /message/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.archiveMessage(req, options, callback)</code></p>
+<p> Mark a message as archived, used in /message/archive API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.addMessage(req, options, callback)</code></p>
+<p> Add new message, used in /message/add API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delMessage(req, options, callback)</code></p>
+<p> Delete a message or all messages for the given account from the given sender, used in /message/del` API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delArchiveMessage(req, options, callback)</code></p>
+<p> Delete the messages in the archive, used in /message/del/archive` API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delSentMessage(req, options, callback)</code></p>
+<p> Delete the messages i sent, used in /message/del/sent` API call</p>
+</li>
+</ul>
+
+<h2 id="module-api_pages">Module: API_PAGES</h2>
+<ul>
+<li><p><code>api.initPagesAPI()</code></p>
+<p> API for wiki pages support</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.preparePages(options)</code></p>
+<p> Prepare a markdown page, the following properties can be used in the options:</p>
+<ul>
+<li>content - the markdown contents</li>
+<li>title - tile to be rendered, this will be discovered by taking first # heading if not set</li>
+<li>subtitle - subtitle or short description</li>
+<li>toc - if not empty, then it is replaced with the table of contents by collecting all heading tags, i.e #</li>
+<li>id - id or file name, if no title is specified or discovered it will be used as a title</li>
+<li>render - if true render into html, otherwise return just markdown</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendPages(req, options)</code></p>
+<p> Send rendered markdown to the client response</p>
+</li>
+</ul>
+
+<h2 id="module-api_status">Module: API_STATUS</h2>
+<ul>
+<li><p><code>api.initStatusAPI()</code></p>
+<p> Status/presence</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getStatus(id, options, callback)</code></p>
+<p> Returns status record for given account, used in /status/get API call.
+It always returns status object even if it was never set before, on return the record contains
+a property <code>online</code> set to true of false according to the idle period and actual status.</p>
+<p>If id is an array, then return all status records for specified list of account ids.</p>
+<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to to other value,
+for other cases <code>status</code> property is not used, it is supposed for the application extention.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putStatus(obj, options, callback)</code></p>
+<p> Maintain online status, update to db every status-interval seconds, if options.check is given only update db if last update happened
+longer than status-interval seconds ago, keep atime up-to-date in the cache on every status update.
+On return the row will have a property <code>saved</code> if it was flushed to db.</p>
+</li>
+</ul>
+
+<h2 id="module-api_system">Module: API_SYSTEM</h2>
+<ul>
+<li><p><code>api.initSystemAPI()</code></p>
+<p> API for internal provisioning and configuration</p>
+</li>
+</ul>
+
+<h2 id="module-db_cassandra">Module: DB_CASSANDRA</h2>
+<ul>
+<li><p><code>db.cassandraInitPool(options)</code></p>
+<p> Cassandra pool</p>
+</li>
+</ul>
+
+<h2 id="module-db_couchdb">Module: DB_COUCHDB</h2>
+<ul>
+<li><p><code>db.couchdbInitPool(options)</code></p>
+<p> Create a database pool that works with CouchDB server.</p>
+<p>In addition to the standard commands it can execute any CouchDB HTTP API directly</p>
+<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/db/url&quot; }, { pool: &quot;couchdb&quot; }, db.showResult)
+db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } }, { pool: &quot;couchdb&quot; }, db.showResult)
+</code></pre></li>
+</ul>
+
+<h2 id="module-db_dynamodb">Module: DB_DYNAMODB</h2>
+<ul>
+<li><p><code>db.dynamodbInitPool(options)</code></p>
+<p> Setup DynamoDB database driver</p>
+</li>
+</ul>
+
+<h2 id="module-db_elasticsearch">Module: DB_ELASTICSEARCH</h2>
+<ul>
+<li><p><code>db.elasticsearchInitPool(options)</code></p>
+<p> Create a database pool that works with ElasticSearch server</p>
+</li>
+</ul>
+
+<h2 id="module-db_lmdb">Module: DB_LMDB</h2>
+<ul>
+<li><p><code>db.leveldbInitPool(options)</code></p>
+<p> Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
+table parameter is ignored, the object only supports the properties name and value in the record objects.</p>
+<p>Because this driver supports 2 databases it requires type to be specified, possible values are: <code>lmdb, leveldb</code></p>
+<p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
+as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
+<p>The LevelDB database can only be shared by one process so if no unique options.db is given, it will create a unique database using core.processId()</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.nndbInitPool(options)</code></p>
+<p> Create a database pool that works with nanomsg server, all requests will be forwarded to the nanomsg socket,
+the server can be on the same machine or on the remote, 2 nanomsg socket types are supported: NN_PUSH or NN_REQ.
+In push mode no replies are expected, only sending db updates, in Req mode the server will reply on &#39;get&#39; command only,
+all other commands work as in push mode. Only &#39;get,put,del,incr&#39; comamnd are supported, add,update will be sent as put, LevelDB or LMDB
+on the other side only support simple key-value operations.
+Options can define the following:</p>
+<ul>
+<li>socket - nanomsg socket type, default is utils.NN_PUSH, can be utils.NN_REQ</li>
+</ul>
+</li>
+</ul>
+
+<h2 id="module-db_mongodb">Module: DB_MONGODB</h2>
+<ul>
+<li><p><code>db.mongodbInitPool(options)</code></p>
+<p> MongoDB pool</p>
+</li>
+</ul>
+
+<h2 id="module-db_mysql">Module: DB_MYSQL</h2>
+<ul>
+<li><p><code>db.mysqlInitPool(options)</code></p>
+<p> Setup MySQL database driver</p>
+</li>
+</ul>
+
+<h2 id="module-db_pgsql">Module: DB_PGSQL</h2>
+<ul>
+<li><p><code>db.pgsqlInitPool(options)</code></p>
+<p> Setup PostgreSQL pool driver</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.pgsqlCacheIndexes(options, callback)</code></p>
+<p> Cache indexes using the information_schema</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.pgsqlBindValue(val, info)</code></p>
+<p> Convert JS array into db PostgreSQL array format: {..}</p>
+</li>
+</ul>
+
+<h2 id="module-db_redis">Module: DB_REDIS</h2>
+<ul>
+<li><p><code>db.redisInitPool(options)</code></p>
+<p> Redis database pool, uses Hash to store the records</p>
+</li>
+</ul>
+
+<h2 id="module-db_riak">Module: DB_RIAK</h2>
+<ul>
+<li><p><code>db.riakInitPool(options)</code></p>
+<p> Create a database pool that works with the Riak database.</p>
+<p>By default the driver uses simple key-value mode of operations, to enable bucket-type mode
+pass bucketType in the <code>-db-riak-options</code>:</p>
+<p>To use maps for the object records set <code>useMaps</code> in the <code>-db-riak-options</code></p>
+<pre><code>-db-riak-options &#39;{ &quot;bucketType&quot;: &quot;bk&quot;, &quot;useMaps&quot;: 1 }&#39;
+</code></pre><p>In addition to the standard commands it can execute any Riak HTTP API directly</p>
+<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/buckets?buckets=true&quot; }, { pool: &quot;riak&quot; }, db.showResult)
+db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;, obj: 1 }, { pool: &quot;riak&quot; }, db.showResult)
+</code></pre></li>
+</ul>
+
+<h2 id="module-db_sqlite">Module: DB_SQLITE</h2>
+<ul>
+<li><p><code>db.sqliteInitPool(options)</code></p>
+<p> Initialize local SQLite cache database by name or full path</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqliteConnect(options, callback)</code></p>
+<p> Common code to open or create local SQLite databases, execute all required initialization statements, calls callback
+with error as first argument and database object as second</p>
 </li>
 </ul>
 

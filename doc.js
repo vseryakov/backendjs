@@ -9,6 +9,7 @@ var marked = require("marked");
 var bkjs = require('backendjs');
 
 var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && ["index.js", "tests.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/); });
+files = files.concat(fs.readdirSync("lib/").filter(function(x) { return fs.statSync("lib/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "lib/" + x }));
 
 marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, sanitize: true, smartLists: true, smartypants: false });
 
