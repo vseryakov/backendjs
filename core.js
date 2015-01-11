@@ -1285,69 +1285,6 @@ core.httpGet = function(uri, params, callback)
     return req;
 }
 
-// Parse incoming request for signature and return all pieces wrapped in an object, this object
-// will be used by verifySignature function for verification against an account
-// signature version:
-//  - 1 regular signature signed with secret for specific requests
-//  - 2 to be sent in cookies and uses wild support for host and path
-// If the signature successfully recognized it is saved in the request for subsequent use as req.signature
-core.parseSignature = function(req, options)
-{
-    var self = this;
-    if (req.signature) return req.signature;
-    var rc = { sigversion: 1, expires: 0, now: Date.now() };
-    // Input parameters, convert to empty string if not present
-    var url = (req.url || req.originalUrl || "/").split("?");
-    rc.path = url[0];
-    rc.query = url[1] || "";
-    rc.method = req.method || "";
-    rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
-    rc.type = (req.headers['content-type'] || "").toLowerCase();
-    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
-    if (!rc.signature) {
-        rc.signature = req.query['bk-access-token'] || req.headers['bk-access-token'];
-        if (rc.signature) rc.signature = this.decrypt(options.secret, rc.signature, "", "hex");
-        if (rc.signature) rc.session = true;
-    }
-    if (!rc.signature) {
-        rc.signature = (req.session || {})['bk-signature'] || "";
-        if (rc.signature) rc.session = true;
-    }
-    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
-    if (!d) return rc;
-    rc.sigversion = this.toNumber(d[1]);
-    if (d[2]) rc.tag = d[2];
-    if (d[3]) rc.login = d[3].trim();
-    if (d[4]) rc.signature = d[4];
-    rc.expires = this.toNumber(d[5]);
-    rc.checksum = d[6] || "";
-    req.signature = rc;
-    return rc;
-}
-
-// Verify signature with given account, signature is an object returned by parseSignature
-core.verifySignature = function(sig, account)
-{
-    var self = this;
-    var shatype = "sha1";
-    var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != "bk-signature"; }).join("&");
-    switch (sig.sigversion) {
-    case 2:
-        if (!sig.session) break;
-        sig.str = "*" + "\n" + this.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
-        shatype = "sha256";
-        break;
-
-    case 3:
-        shatype = "sha256";
-
-    default:
-        sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
-    }
-    sig.hash = this.sign(account.secret, sig.str, shatype);
-    return sig.signature == sig.hash;
-}
-
 // Produce signed URL to be used in embedded cases or with expiration so the url can be passed and be valid for longer time.
 // Host passed here must be the actual host where the request will be sent
 core.signUrl = function(login, secret, host, uri, options)
@@ -1360,43 +1297,41 @@ core.signUrl = function(login, secret, host, uri, options)
 // url must include all query parameters already encoded and ready to be sent
 // options may contains the following:
 //  - expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now
-//  - sigversion a version number defining how the signature will be signed
+//  - version a version number defining how the signature will be signed
 //  - type - content-type header, may be omitted
 //  - tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion
 //  - checksum - SHA1 digest of the whole content body, may be omitted
 core.signRequest = function(login, secret, method, host, uri, options)
 {
+    if (!login || !secret) return {};
     if (!options) options = {};
     var now = Date.now();
     var expires = options.expires || 0;
     if (!expires) expires = now + 30000;
     if (expires < now) expires += now;
+    var ver = options.version || 1;
+    var tag = options.tag || "";
     var hostname = String(host || "").split(":").shift().toLowerCase();
     var q = String(uri || "/").split("?");
     var path = q[0];
     var query = (q[1] || "").split("&").sort().filter(function(x) { return x != ""; }).join("&");
-    var shatype = "sha1";
-    var rc = {};
-    switch (options.sigversion || 1) {
+    var rc = { str: ver + '\n' + String(tag) + '\n' + String(login) + "\n" };
+    switch (ver) {
     case 2:
+    case 3:
         path = "/";
         method = query = "*";
         rc['bk-domain'] = hostname = this.domainName(hostname);
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
         rc['bk-path'] = path;
-        rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
-        shatype = "sha256";
+        rc.str += String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
         break;
 
-    case 3:
-        shatype = "sha256";
-
     default:
-        shatype = "sha1"
-        rc.str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
+        rc.str += String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(options.type || "").toLowerCase() + "\n" + (options.checksum || "") + "\n";
     }
-    rc['bk-signature'] = (options.sigversion || 1) + '|' + (options.tag || "") + '|' + (login || "") + '|' + this.sign(String(secret), rc.str, shatype) + '|' + expires + '|' + (options.checksum || "") + '|';
+    rc['bk-signature'] = ver + '|' + String(tag) + '|' + String(login) + '|' + this.sign(String(secret), rc.str, "sha256") + '|' + expires + '|' + (options.checksum || "") + '|';
     if (logger.level > 1) logger.log('signRequest:', rc);
     return rc;
 }

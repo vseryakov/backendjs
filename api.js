@@ -47,6 +47,7 @@ var api = {
                    id: {},                                  // Auto generated UUID
                    alias: {},                               // Account alias
                    secret: {},                              // Account password
+                   token_secret: {},                        // Secret for access tokens
                    status: {},                              // Status of the account
                    type: { admin: 1 },                      // Account type: admin, ....
                    acl_deny: { admin: 1 },                  // Deny access to matched url, a regexp
@@ -380,7 +381,7 @@ var api = {
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
-           { name: "token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
+           { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests" },
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
            { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
@@ -909,7 +910,7 @@ api.checkQuery = function(req, res, next)
 
     req._body = true;
     var buf = '', size = 0;
-    var sig = core.parseSignature(req, { secret: self.accessTokenSecret });
+    var sig = self.parseSignature(req);
 
     req.on('data', function(chunk) {
         size += chunk.length;
@@ -1054,7 +1055,7 @@ api.checkSignature = function(req, callback)
     if (!callback) callback = function(x) { return x; }
 
     // Extract all signature components from the request
-    var sig = core.parseSignature(req, { secret: self.accessTokenSecret });
+    var sig = self.parseSignature(req);
 
     logger.debug('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
@@ -1098,8 +1099,23 @@ api.checkSignature = function(req, callback)
             req.body = core.decrypt(account.secret, req.body);
         }
 
-        // Verify the signature with account secret
-        if (!core.verifySignature(sig, account)) {
+        // Verify the signature
+        var secret = account.secret;
+        var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != "bk-signature"; }).join("&");
+        sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n";
+        switch (sig.version) {
+        case 3:
+            secret += ":" + (account.token_secret || "");
+
+        case 2:
+            sig.str += "*" + "\n" + core.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
+            break;
+
+        default:
+            sig.str += sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
+        }
+        sig.hash = core.sign(secret, sig.str, "sha256");
+        if (sig.signature != sig.hash) {
             logger.debug('checkSignature:', 'failed', sig, account);
             return callback({ status: 401, message: "Not authenticated" });
         }
@@ -1123,6 +1139,67 @@ api.checkSignature = function(req, callback)
         req.options.account = { id: req.account.id, login: req.account.login, alias: req.account.alias };
         return callback({ status: 200, message: "Ok" });
     });
+}
+
+// Parse incoming request for signature and return all pieces wrapped in an object, this object
+// will be used by verifySignature function for verification against an account
+// signature version:
+//  - 1 regular signature signed with secret for specific requests
+//  - 2 to be sent in cookies and uses wild support for host and path
+// If the signature successfully recognized it is saved in the request for subsequent use as req.signature
+api.parseSignature = function(req)
+{
+    if (req.signature) return req.signature;
+    var rc = { version: 1, expires: 0, now: Date.now() };
+    // Input parameters, convert to empty string if not present
+    var url = (req.url || req.originalUrl || "/").split("?");
+    rc.path = url[0];
+    rc.query = url[1] || "";
+    rc.method = req.method || "";
+    rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
+    rc.type = (req.headers['content-type'] || "").toLowerCase();
+    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
+    if (!rc.signature) {
+        rc.signature = req.query['bk-access-token'] || req.headers['bk-access-token'];
+        if (rc.signature) rc.signature = core.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
+    }
+    if (!rc.signature) {
+        rc.signature = (req.session || {})['bk-signature'] || "";
+    }
+    var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
+    if (!d) return rc;
+    rc.version = core.toNumber(d[1]);
+    if (d[2]) rc.tag = d[2];
+    if (d[3]) rc.login = d[3].trim();
+    if (d[4]) rc.signature = d[4];
+    rc.expires = core.toNumber(d[5]);
+    rc.checksum = d[6] || "";
+    req.signature = rc;
+    return rc;
+}
+
+// Setup session cookies for automatic authentication without signing, req must be complete with all required
+// properties after successful authorization.
+api.setSessionSignature = function(req, options)
+{
+    if (!req.account || !req.account.login || !req.account.secret) return;
+
+    if (typeof options.accessToken != "undefined") {
+        if (options.accessToken) {
+            var sig = core.signRequest(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: this.accessTokenAge });
+            req.account.accessToken = core.encrypt(this.accessTokenSecret, sig["bk-signature"], "", "hex");
+        } else {
+            delete req.account.accessToken;
+        }
+    } else
+    if (typeof options.session != "undefined") {
+        if (options.session) {
+            var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { version: 2, expires: this.sessionAge });
+            req.session["bk-signature"] = sig["bk-signature"];
+        } else {
+            delete req.session["bk-signature"];
+        }
+    }
 }
 
 // Account management
@@ -1871,8 +1948,8 @@ api.getOptions = function(req)
 // Return a secret to be used for enrypting tokens
 api.getTokenSecret = function(req)
 {
-    if (!this.tokenSecret) return "";
-    return req.account[this.tokenSecret] || this.tokenSecret;
+    if (!this.queryTokenSecret) return "";
+    return req.account[this.queryTokenSecret] || this.queryTokenSecret;
 }
 
 // Return an object to be returned to the client as a page of result data with possibly next token
@@ -3506,35 +3583,11 @@ api.registerOAuthStrategy = function(strategy, options, callback)
     this.app.get('/oauth/' + strategy.name, passport.authenticate(strategy.name, options));
     this.app.get('/oauth/callback/' + strategy.name, passport.authenticate(strategy.name, { failureRedirect: options.failureUrl }), function(req, res) {
         if (req.user && req.user.id) req.account = req.user;
-        self.setAccountSession(req, options);
+        self.setSessionSignature(req, options);
         if (options.successUrl) res.redirect(options.successUrl);
         if (callback) callback(req, res);
     });
     logger.debug("registerOAuthStrategy:", strategy.name, options.clientID, strategy._callbackURL);
-}
-
-// Setup session cookies for automatic authentication without signing, req must be complete with all required
-// properties after successful authorization.
-api.setAccountSession = function(req, options)
-{
-    if (!req.account || !req.account.login || !req.account.secret) return;
-
-    if (typeof options.accessToken != "undefined") {
-        if (options.accessToken) {
-            var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: this.accessTokenAge });
-            req.account.accessToken = core.encrypt(this.accessTokenSecret, sig["bk-signature"], "", "hex");
-        } else {
-            delete req.account.accessToken;
-        }
-    } else
-    if (typeof options.session != "undefined") {
-        if (options.session) {
-            var sig = core.signRequest(req.account.login, req.account.secret, "", req.headers.host, "", { sigversion: 2, expires: this.sessionAge });
-            req.session["bk-signature"] = sig["bk-signature"];
-        } else {
-            delete req.session["bk-signature"];
-        }
-    }
 }
 
 // Return an account, used in /account/get API call
@@ -3547,7 +3600,7 @@ api.getAccount = function(req, options, callback)
             if (err) return callback(err);
             if (!row) return callback({ status: 404, message: "account not found" });
             for (var p in row) req.account[p] = row[p];
-            self.setAccountSession(req, options);
+            self.setSessionSignature(req, options);
             callback(null, req.account, info);
         });
     } else {
@@ -3673,6 +3726,7 @@ api.addAccount = function(req, options, callback)
     if (!req.query.name) return callback({ status: 400, message: "name is required"});
     if (!req.query.alias) req.query.alias = req.query.name;
     req.query.id = core.uuid();
+    req.query.token_secret = core.uuid();
     req.query.mtime = req.query.ctime = Date.now();
 
     core.series([
@@ -3766,7 +3820,7 @@ api.fetchAccount = function(req, options, callback)
             },
             function(next) {
                 // Set session cookies if needed for new account
-                self.setAccountSession(req, options);
+                self.setSessionSignature(req, options);
                 next();
             },
             ], function(err) {

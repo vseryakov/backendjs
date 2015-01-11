@@ -369,6 +369,8 @@ The accounts API manages accounts and authentication, it provides basic user acc
     - no id is given, return only one current account record as JSON
     - id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma
     - _session - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore
+    - _accesstoken - after successful login, return new access token that ca be used to make requests without signing every request, it can be
+       passed in the query or headers with the name `bk-access-token`
 
   Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as `pub` in the
   `bk_account` table will be returned.

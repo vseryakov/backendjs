@@ -28,7 +28,7 @@ var Backendjs = {
     // Return current credentials
     getCredentials: function() {
         var obj = this.persistent ? localStorage : this;
-        return { login: obj.backendjsLogin || "", secret: obj.backendjsSecret || "", sigversion: parseInt(obj.backendjsVersion) || 1 };
+        return { login: obj.backendjsLogin || "", secret: obj.backendjsSecret || "", version: parseInt(obj.backendjsVersion) || 1 };
     },
 
     // Set new credentials, save in memory or local storage
@@ -149,19 +149,9 @@ var Backendjs = {
         if (query instanceof FormData) query = "";
         if (typeof query == "object") query = jQuery.param(query);
         query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
-        var str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
-        switch (creds.sigversion) {
-        case 1:
-            hmac = b64_hmac_sha1(creds.secret, str);
-            break;
-        case 3:
-            hmac = b64_hmac_sha256(creds.secret, str);
-            break;
-        default:
-            this.log('sign:', 'invalid sigversion:', creds.sigversion);
-            return rc;
-        }
-        rc['bk-signature'] = creds.sigversion + '||' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
+        var str = creds.version + "\n" + String(options.tag || "") + "\n" + creds.login + "\n" + String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
+        var hmac = b64_hmac_sha256(creds.secret, str);
+        rc['bk-signature'] = creds.version + '|' + String(options.tag || "") + '|' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
         if (this.debug) this.log('sign:', creds, str);
         return rc;
     },
