@@ -386,6 +386,8 @@ verifying if the given login and secret are valid, there is no special login API
 <li>no id is given, return only one current account record as JSON</li>
 <li>id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma</li>
 <li>_session - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore</li>
+<li>_accesstoken - after successful login, return new access token that ca be used to make requests without signing every request, it can be
+ passed in the query or headers with the name <code>bk-access-token</code></li>
 </ul>
 <p>Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as <code>pub</code> in the
 <code>bk_account</code> table will be returned.</p>
@@ -1991,11 +1993,14 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication. Default: 1209600000</li>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
-<li><code>api-token-secret</code> - Name of the property to be used for encrypting tokens, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
+<li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
+<li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests</li>
+<li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only. Default: 604800000</li>
 <li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: []</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: {}</li>
 <li><code>api-allow-connection</code> - Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op.... Default: {}</li>
-<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient options which registers AuthCheck callback for the given endpoints. Default: {}</li>
+<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints. Default: {}</li>
+<li><code>api-allow-account-</code> - URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types</li>
 <li><code>api-icon-limit</code> - Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type. Default: {}</li>
 <li><code>api-express-enable</code> - Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,..... Default: []</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list. Default: {&quot;list&quot;:[&quot;^/$&quot;,&quot;\.html$&quot;,&quot;\.ico$&quot;,&quot;\.gif$&quot;,&quot;\.png$&quot;,&quot;\.jpg$&quot;,&quot;\.svg$&quot;,&quot;\.ttf$&quot;,&quot;\.eof$&quot;,&quot;\.woff$&quot;,&quot;\.js$&quot;,&quot;\.css$&quot;,&quot;^/public&quot;,&quot;^/account/add$&quot;,&quot;^/ping&quot;],&quot;rx&quot;:{}}</li>
@@ -2055,6 +2060,7 @@ the worker processes if they die and restart them automatically. How many proces
                  id: {},                                  // Auto generated UUID
                  alias: {},                               // Account alias
                  secret: {},                              // Account password
+                 token_secret: {},                        // Secret for access tokens
                  status: {},                              // Status of the account
                  type: { admin: 1 },                      // Account type: admin, ....
                  acl_deny: { admin: 1 },                  // Deny access to matched url, a regexp
@@ -2390,6 +2396,26 @@ Check access permissions, calls the callback with the following argument:</p>
 <ul>
 <li><p><code>api.checkSignature(req, callback)</code></p>
 <p> Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.parseSignature(req)</code></p>
+<p> Parse incoming request for signature and return all pieces wrapped in an object, this object
+will be used by verifySignature function for verification against an account
+signature version:</p>
+<ul>
+<li>1 regular signature signed with secret for specific requests</li>
+<li>2 to be sent in cookies and uses wild support for host and path
+If the signature successfully recognized it is saved in the request for subsequent use as req.signature</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.setSessionSignature(req, options)</code></p>
+<p> Setup session cookies for automatic authentication without signing, req must be complete with all required
+properties after successful authorization.</p>
 </li>
 </ul>
 
@@ -3050,13 +3076,6 @@ login and hold the account properties.</p>
  some post processing work after the account has been created.
  For any function, <code>req.profile</code>, <code>req.accessToken</code>,<code>req.refreshToken</code> will be set for the authenticated profile object from the provider.</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.setAccountSession(req, options)</code></p>
-<p> Setup session cookies for automatic authentication without signing, req must be complete with all required
-properties after successful authorization.</p>
 </li>
 </ul>
 
@@ -4001,13 +4020,14 @@ type can be bool, number, list, json</p>
 <li><p><code>core.describeArgs(module, args)</code></p>
 <p> Add custom config parameters to be understood and processed by the config parser</p>
 <ul>
-<li>module - name of the module to add these params to, if it is an empty string then the module where any
+<li>module - name of the module to add these params to, if it is an empty string or skipped then the module where any
 parameter goes is determined by the prefix, for example if name is &#39;aws-elastic-ip&#39; then it will be added to the aws module,
 all not matched parameters will be added to the core module.</li>
 <li>args - a list of objects in the format: { name: N, type: T, descr: D, min: M, max: M, array: B }, all except name are optional.</li>
 </ul>
 <p>Example:</p>
 <pre><code>core.describeArgs(&quot;api&quot;, [ { name: &quot;num&quot;, type: &quot;int&quot;, descr: &quot;int param&quot; }, { name: &quot;list&quot;, array: 1, descr: &quot;list of words&quot; } ]);
+core.describeArgs([ { name: &quot;api-list&quot;, array: 1, descr: &quot;list of words&quot; } ]);
 </code></pre></li>
 </ul>
 
@@ -4149,25 +4169,6 @@ Note: SIDE EFFECT: params object is modified in place so many options will be ch
 </ul>
 
 <ul>
-<li><p><code>core.parseSignature(req)</code></p>
-<p> Parse incoming request for signature and return all pieces wrapped in an object, this object
-will be used by verifySignature function for verification against an account
-signature version:</p>
-<ul>
-<li>1 regular signature signed with secret for specific requests</li>
-<li>2 to be sent in cookies and uses wild support for host and path
-If the signature successfully recognized it is saved in the request for subsequent use as req.signature</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.verifySignature(sig, account)</code></p>
-<p> Verify signature with given account, signature is an object returned by parseSignature</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.signUrl(login, secret, host, uri, options)</code></p>
 <p> Produce signed URL to be used in embedded cases or with expiration so the url can be passed and be valid for longer time.
 Host passed here must be the actual host where the request will be sent</p>
@@ -4181,7 +4182,7 @@ url must include all query parameters already encoded and ready to be sent
 options may contains the following:</p>
 <ul>
 <li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
-<li>sigversion a version number defining how the signature will be signed</li>
+<li>version a version number defining how the signature will be signed</li>
 <li>type - content-type header, may be omitted</li>
 <li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
 <li>checksum - SHA1 digest of the whole content body, may be omitted</li>
@@ -4437,13 +4438,13 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>core.encrypt(key, data, algorithm)</code></p>
+<li><p><code>core.encrypt(key, data, algorithm, encoding)</code></p>
 <p> Encrypt data with the given key code</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.decrypt(key, data, algorithm)</code></p>
+<li><p><code>core.decrypt(key, data, algorithm, encoding)</code></p>
 <p> Decrypt data with the given key code</p>
 </li>
 </ul>
