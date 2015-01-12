@@ -54,7 +54,7 @@
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --static --libs Wand)"
         ],
         "sources": [
-           "lib/node_backend.cpp",
+           "src/node_backend.cpp",
            "src/node_debug.cpp",
            "src/node_image.cpp",
            "src/node_sqlite.cpp",

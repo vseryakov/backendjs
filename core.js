@@ -477,7 +477,7 @@ core.parseArgs = function(argv)
     argv = argv.map(function(x) {
         return x.replace(/(\\n|%20|%0A)/ig, function(m) { return m == '\\n' || m == '%0a' || m == '%0A' ? '\n' : m == "%20" ? ' ' : m; });
     });
-    logger.dev('parseArgs:', argv.join(' '));
+    logger.debug('parseArgs:', argv.join(' '));
 
    // Core parameters
     self.processArgs("core", self, argv);
@@ -586,6 +586,8 @@ core.processArgs = function(name, ctx, argv, pass)
                     if (typeof x.value != "undefined") val = x.value; else
                     if (typeof x.novalue != "undefined") val = x.novalue;
                 }
+                // Explicit empty value
+                if (val == "''" || val == '""') val = "";
                 // Only some types allow no value case
                 if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
 
