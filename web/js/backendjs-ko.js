@@ -4,6 +4,7 @@
 
 Backendjs.session = true;
 Backendjs.koAuth = ko.observable(0);
+Backendjs.koAdmin = ko.observable(0);
 
 Backendjs.koLogin = function(data, event)
 {
@@ -11,6 +12,7 @@ Backendjs.koLogin = function(data, event)
         if (err) return;
         Backendjs.hideLogin();
         Backendjs.koAuth(Backendjs.loggedIn);
+        Backendjs.koAdmin(Backendjs.loggedIn && Backendjs.account.type == "admin");
         if (Backendjs.koShow) Backendjs.koShow();
     });
 }
@@ -29,6 +31,7 @@ $(function()
     Backendjs.login(function() {
         if (!Backendjs.loggedIn && window.location.pathname != "/") window.location.href = "/";
         Backendjs.koAuth(Backendjs.loggedIn);
+        Backendjs.koAdmin(Backendjs.loggedIn && Backendjs.account.type == "admin");
         if (Backendjs.koShow) Backendjs.koShow();
     });
 });

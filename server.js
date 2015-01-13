@@ -14,10 +14,12 @@ var fs = require('fs');
 var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
 var core = require(__dirname + '/core');
+var corelib = require(__dirname + '/corelib');
 var logger = require(__dirname + '/logger');
 var db = require(__dirname + '/db');
 var aws = require(__dirname + '/aws');
 var ipc = require(__dirname + '/ipc');
+var api = require(__dirname + '/api');
 var os = require('os');
 var express = require('express');
 var stream = require('stream');
@@ -80,17 +82,17 @@ var server = {
     proxyTarget: {},
 
     // Config parameters
-    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=core.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
+    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=corelib.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
            { name: "job-max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed, for instance mode only" },
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
-           { name: "job", type: "callback", callback: function(v) { this.queueJob(core.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
+           { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "proxy-url", type: "regexpmap", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
-           { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = core.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
+           { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = corelib.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "proxy-target", type: "json", descr: "An object with virtual host names as property and targets as value, if host: header match any property, use its value as full target in the form http://host:port" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
@@ -253,7 +255,6 @@ server.startWorker = function(options)
 server.startWeb = function(options)
 {
     var self = this;
-    var api = core.modules.api;
 
     if (cluster.isMaster) {
         core.role = 'server';
@@ -416,13 +417,13 @@ server.startWeb = function(options)
         // Port to listen in case of reverse proxy configuration, all other ports become offsets from the base
         if (core.proxy.port) {
             core.bind = process.env.BKJS_BIND || core.proxy.bind;
-            core.port = core.toNumber(process.env.BKJS_PORT || core.proxy.port);
+            core.port = corelib.toNumber(process.env.BKJS_PORT || core.proxy.port);
             if (core.ssl.port) core.ssl.port = core.port + 100;
             if (core.ws.port) core.ws.port = core.port + 200;
         }
 
         // REPL command prompt over TCP
-        if (core.replPortWeb) self.startRepl(core.replPortWeb + 1 + core.toNumber(cluster.worker.id), core.replBindWeb);
+        if (core.replPortWeb) self.startRepl(core.replPortWeb + 1 + corelib.toNumber(cluster.worker.id), core.replBindWeb);
 
         // Setup IPC communication
         ipc.initClient();
@@ -510,7 +511,7 @@ server.startWatcher = function()
     // REPL command prompt over TCP instead of the master process
     if (core.replPort && !core.isArg("-master")) self.startRepl(core.replPort, core.replBind);
 
-    if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname);
+    if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname, __dirname + "/lib");
     logger.debug('startWatcher:', core.watchdirs);
     core.watchdirs.forEach(function(dir) {
         core.watchFiles(dir, /\.js$/, function(file) {
@@ -549,14 +550,14 @@ server.startDaemon = function()
     var log = "ignore";
 
     // Rotate if the file is too big, keep 2 files but big enough to be analyzed in case the logwatcher is not used
-    var st = core.statSync(core.errFile);
+    var st = corelib.statSync(core.errFile);
     if (st.size > 1024*1024*100) {
         fs.rename(core.errFile, core.errFile + ".old", function(err) { logger.error('rotate:', err) });
     }
     try { log = fs.openSync(core.errFile, 'a'); } catch(e) { logger.error('startDaemon:', e); }
 
     // Allow clients to write to it otherwise there will be no messages written if no permissions
-    core.chownSync(core.errFile);
+    corelib.chownSync(core.uid, core.gid, core.errFile);
 
     spawn(process.argv[0], argv, { stdio: [ 'ignore', log, log ], detached: true });
     process.exit(0);
@@ -566,8 +567,6 @@ server.startDaemon = function()
 server.startShell = function(options)
 {
     var self = this;
-    var db = core.modules.db;
-    var api = core.modules.api;
     process.title = core.name + ": shell";
 
     logger.debug('startShell:', process.argv);
@@ -612,8 +611,8 @@ server.startShell = function(options)
             var query = getQuery();
             if (query.login && !query.name) query.name = query.login;
             if (core.isArg("-scramble")) {
-                query.secret = core.sign(query.login, query.secret);
-                query.login = core.sign(query.login, query.login);
+                query.secret = corelib.sign(query.login, query.secret);
+                query.login = corelib.sign(query.login, query.login);
             }
             api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err, data) {
                 exit(err, data);
@@ -634,8 +633,8 @@ server.startShell = function(options)
         if (core.isArg("-account-set-secret")) {
             var query = getQuery();
             if (core.isArg("-scramble") && query.login) {
-                query.secret = core.sign(query.login, query.secret);
-                query.login = core.sign(query.login, query.login);
+                query.secret = corelib.sign(query.login, query.secret);
+                query.login = corelib.sign(query.login, query.login);
             }
             getUser(query, function(row) {
                 api.setAccountSecret({ account: row, query: query }, {}, function(err, data) {
@@ -740,8 +739,8 @@ server.startShell = function(options)
         // Import records from previous scan/select, the format MUST be json, one record per line
         if (core.isArg("-db-import")) {
             var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), file = core.getArg("-file"), nostop = core.getArgInt("-nostop");
-            core.forEachLine(file, opts, function(line, next) {
-                var row = core.jsonParse(line, { logger: 1 });
+            corelib.forEachLine(file, opts, function(line, next) {
+                var row = corelib.jsonParse(line, { logger: 1 });
                 if (!row) return next(nostop ? null : "ERROR: parse error, line: " + opts.lines);
                 db.put(table, row, opts, function(err) { next(nostop ? null : err) });
             }, function(err) {
@@ -803,7 +802,7 @@ server.startTestServer = function(options)
 
     if (!options.master) {
         options.running = options.stime = options.etime = options.id = 0;
-        core.modules.aws.getInstanceInfo(function() {
+        aws.getInstanceInfo(function() {
             setInterval(function() {
                 core.sendRequest({ url: options.host + '/ping/' + core.instance.id + '/' + options.id }, function(err, params) {
                     if (err) return;
@@ -858,7 +857,7 @@ server.startTestServer = function(options)
     var nodes = {};
     var app = express();
     app.on('error', function (e) { logger.error(e); });
-    app.use(function(req, res, next) { return core.modules.api.checkQuery(req, res, next); });
+    app.use(function(req, res, next) { return api.checkQuery(req, res, next); });
     app.use(app.routes);
     app.use(function(err, req, res, next) {
         logger.error('startTestMaster:', req.path, err, err.stack);
@@ -882,7 +881,7 @@ server.startTestServer = function(options)
             obj.cmd = node.state;
         } else {
             obj.cmd = 'register';
-            obj.id = core.uuid();
+            obj.id = corelib.uuid();
             nodes[obj.id] = { state: 'stop', ip: req.connection.remoteAddress, mtime: now, stime: now };
         }
         logger.debug(obj);
@@ -1069,7 +1068,7 @@ server.runJob = function(job)
         }
 
         // Pass as first argument the options object, then callback
-        var args = [ core.typeName(job[name]) == "object" ? job[name] : {} ];
+        var args = [ corelib.typeName(job[name]) == "object" ? job[name] : {} ];
 
         // The callback to finalize job execution
         (function (jname) {
@@ -1135,7 +1134,7 @@ server.execJob = function(job)
 
     try {
         // Build job object with canonical name
-        if (typeof job == "string") job = core.newObj(job, null);
+        if (typeof job == "string") job = corelib.newObj(job, null);
         if (typeof job != "object") return logger.error('exec:', 'invalid job', job);
 
         // Do not exceed max number of running workers
@@ -1222,10 +1221,10 @@ server.launchJob = function(job, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    if (typeof job == "string") job = core.newObj(job, null);
+    if (typeof job == "string") job = corelib.newObj(job, null);
     if (!Object.keys(job).length) return logger.error('launchJob:', 'no valid jobs:', job);
 
-    job = core.cloneObj(job);
+    job = corelib.cloneObj(job);
     self.jobTime = Date.now();
     logger.log('launchJob:', job, 'options:', options);
 
@@ -1235,10 +1234,10 @@ server.launchJob = function(job, options, callback)
                 "-backend-key", core.backendKey || "",
                 "-backend-secret", core.backendSecret || "",
                 "-server-jobname", Object.keys(job).join(","),
-                "-server-job", core.jsonToBase64(job) ];
+                "-server-job", corelib.jsonToBase64(job) ];
 
     if (!options.noshutdown) {
-        args.push("-server-job", core.jsonToBase64({ 'server.shutdown': { runlast: 1 } }));
+        args.push("-server-job", corelib.jsonToBase64({ 'server.shutdown': { runlast: 1 } }));
     }
 
     // Command line arguments for the instance, must begin with -
@@ -1264,14 +1263,14 @@ server.launchJob = function(job, options, callback)
 server.queueJob = function(job)
 {
     var self = this;
-    switch (core.typeName(job)) {
+    switch (corelib.typeName(job)) {
     case "object":
         if (Object.keys(job).length) return this.queue.push(job);
         break;
 
     case "string":
         job = job.trim();
-        if (job) return this.queue.push(core.newObj(job, null));
+        if (job) return this.queue.push(corelib.newObj(job, null));
         break;
     }
     logger.error("queueJob:", "invalid job: ", job);
@@ -1338,8 +1337,8 @@ server.runCronjob = function(id)
 server.scheduleJob = function(options, callback)
 {
     var self = this;
-    if (typeof callback != "function") callback = core.noop;
-    if (core.typeName(options) != "object" || !options.job) options = { type: "error" };
+    if (typeof callback != "function") callback = corelib.noop;
+    if (corelib.typeName(options) != "object" || !options.job) options = { type: "error" };
 
     switch (options.type || "") {
     case "error":
@@ -1391,10 +1390,10 @@ server.loadSchedules = function()
 
     var list = [];
     fs.readFile(core.path.etc + "/crontab", function(err, data) {
-        if (data && data.length) list = core.jsonParse(data.toString(), { list: 1 });
+        if (data && data.length) list = corelib.jsonParse(data.toString(), { list: 1 });
 
         fs.readFile(core.path.etc + "/crontab.local", function(err, data) {
-            if (data && data.length) list = list.concat(core.jsonParse(data.toString(), { list: 1 }));
+            if (data && data.length) list = list.concat(corelib.jsonParse(data.toString(), { list: 1 }));
 
             if (!list.length) return;
             self.crontab.forEach(function(x) { x.stop(); delete x; });
@@ -1426,7 +1425,7 @@ server.loadSchedules = function()
 server.submitJob = function(options, callback)
 {
     var self = this;
-    if (!options || core.typeName(options) != "object" || !options.job) {
+    if (!options || corelib.typeName(options) != "object" || !options.job) {
         logger.error('submitJob:', 'invalid job spec, must be an object:', options);
         return callback ? callback("invalid job") : null;
     }
@@ -1453,8 +1452,8 @@ server.processSQS = function(options, callback)
 
     aws.sqsReceiveMessage(queue, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
-        core.forEachSeries(rows || [], function(item, next) {
-            var job = core.jsonParse(item.Body, { obj: 1, error: 1 });
+        corelib.forEachSeries(rows || [], function(item, next) {
+            var job = corelib.jsonParse(item.Body, { obj: 1, error: 1 });
             if (job && row.job) self.scheduleJob(row.type, row.job, row.args);
 
             aws.querySQS("DeleteMessage", { QueueUrl: queue, ReceiptHandle: item.ReceiptHandle }, function(err) {
@@ -1484,7 +1483,7 @@ server.processQueue = function(options, callback)
             return !x.tag || x.tag == core.ipaddr || x.tag == self.jobsTag;
         }).sort(function(a,b) { return a.mtime - b.mtime });
 
-        core.forEachSeries(rows, function(row, next) {
+        corelib.forEachSeries(rows, function(row, next) {
             // Cleanup expired records
             if (row.etime && row.etime < now) {
                 return db.del('bk_queue', row, function() { next() });

@@ -13,6 +13,7 @@ var mime = require('mime');
 var cluster = require('cluster');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
+var corelib = require(__dirname + '/corelib');
 var utils = require(__dirname + '/build/Release/backend');
 var xml2json = require('xml2json');
 
@@ -68,7 +69,7 @@ aws.configureServer = function(options, callback)
 
     // Make sure we are running on EC2 instance
     if (!core.instance.id || !core.instance.image) return callback();
-    core.series([
+    corelib.series([
        function(next) {
            if (core.instance.tag) return next();
            self.ec2CreateTags(core.instance.id, core.runMode + "-" + core.appName + "-" + core.appVersion, function() { next() });
@@ -113,9 +114,9 @@ aws.parseXMLResponse = function(err, params, callback)
     if (err || !params.data) return callback ? callback(err) : null;
     try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
     if (params.status != 200) {
-        var errors = core.objGet(params.obj, "Response.Errors.Error", { list: 1 });
-        if (errors.length && errors[0].Message) err = core.newError({ message: errors[0].Message, code: errors[0].Code, status: params.status });
-        if (!err) err = core.newError({ message: "Error: " + params.data, status: params.status });
+        var errors = corelib.objGet(params.obj, "Response.Errors.Error", { list: 1 });
+        if (errors.length && errors[0].Message) err = corelib.newError({ message: errors[0].Message, code: errors[0].Code, status: params.status });
+        if (!err) err = corelib.newError({ message: "Error: " + params.data, status: params.status });
         logger.error('queryAWS:', params.href, params.search, err);
         return callback ? callback(err, params.obj) : null;
     }
@@ -142,14 +143,14 @@ aws.querySign = function(region, service, host, method, path, body, headers)
     var pathParts = path.split('?', 2);
     var signedHeaders = Object.keys(headers).map(function(key) { return key.toLowerCase(); }).sort().join(';');
     var canonHeaders = Object.keys(headers).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; }).map(function(key) { return key.toLowerCase() + ':' + trimAll(String(headers[key])); }).join('\n');
-    var canonString = [ method, pathParts[0] || '/', pathParts[1] || '', canonHeaders + '\n', signedHeaders, core.hash(body || '', "sha256", "hex")].join('\n');
+    var canonString = [ method, pathParts[0] || '/', pathParts[1] || '', canonHeaders + '\n', signedHeaders, corelib.hash(body || '', "sha256", "hex")].join('\n');
 
-    var strToSign = [ 'AWS4-HMAC-SHA256', date, credString, core.hash(canonString, "sha256", "hex") ].join('\n');
-    var kDate = core.sign('AWS4' + this.secret, datetime, "sha256", "binary");
-    var kRegion = core.sign(kDate, region, "sha256", "binary");
-    var kService = core.sign(kRegion, service, "sha256", "binary");
-    var kCredentials = core.sign(kService, 'aws4_request', "sha256", "binary");
-    var sig = core.sign(kCredentials, strToSign, "sha256", "hex");
+    var strToSign = [ 'AWS4-HMAC-SHA256', date, credString, corelib.hash(canonString, "sha256", "hex") ].join('\n');
+    var kDate = corelib.sign('AWS4' + this.secret, datetime, "sha256", "binary");
+    var kRegion = corelib.sign(kDate, region, "sha256", "binary");
+    var kService = corelib.sign(kRegion, service, "sha256", "binary");
+    var kCredentials = corelib.sign(kService, 'aws4_request', "sha256", "binary");
+    var sig = corelib.sign(kCredentials, strToSign, "sha256", "hex");
     headers['Authorization'] = [ 'AWS4-HMAC-SHA256 Credential=' + this.key + '/' + credString, 'SignedHeaders=' + signedHeaders, 'Signature=' + sig ].join(', ');
 }
 
@@ -174,7 +175,7 @@ aws.queryAWS = function(region, endpoint, proto, path, obj, callback)
     }
     params.sort();
     for (var i = 0; i < params.length; i++) {
-        query += (i ? "&" : "") + params[i][0] + "=" + core.encodeURIComponent(params[i][1]);
+        query += (i ? "&" : "") + params[i][0] + "=" + corelib.encodeURIComponent(params[i][1]);
     }
     var host = endpoint + '.' + region + '.amazonaws.com';
     this.querySign(region, endpoint, host, "POST", path, query, headers);
@@ -246,7 +247,7 @@ aws.queryRoute53 = function(method, path, data, options, callback)
     var curTime = new Date().toUTCString();
     var uri = "https://route53.amazonaws.com/2013-04-01" + path;
     var headers = { "x-amz-date": curTime, "content-type": "text/xml; charset=UTF-8", "content-length": data.length };
-    headers["X-Amzn-Authorization"] = "AWS3-HTTPS AWSAccessKeyId=" + this.key + ",Algorithm=HmacSHA1,Signature=" + core.sign(this.secret, curTime);
+    headers["X-Amzn-Authorization"] = "AWS3-HTTPS AWSAccessKeyId=" + this.key + ",Algorithm=HmacSHA1,Signature=" + corelib.sign(this.secret, curTime);
 
     core.httpGet(uri, { method: method, postdata: data, headers: headers }, function(err, params) {
         self.parseXMLResponse(err, params, callback);
@@ -345,7 +346,7 @@ aws.signS3 = function(method, bucket, path, options)
     path = url.parse(path).pathname;
 
     strSign += (bucket ? "/" + bucket : "") + (path[0] != "/" ? "/" : "") + path + (rc.length ? "?" : "") + rc.sort().join("&");
-    var signature = core.sign(options.secret || this.secret, strSign);
+    var signature = corelib.sign(options.secret || this.secret, strSign);
     options.headers["authorization"] = "AWS " + (options.key || this.key) + ":" + signature;
 
     // DNS compatible or not, use path-style if not for access otherwise virtual host style
@@ -385,7 +386,7 @@ aws.queryS3 = function(bucket, path, options, callback)
 
     var uri = this.signS3(options.method, bucket, path, options);
     core.httpGet(uri, options, function(err, params) {
-        if (err || params.status != 200) return callback ? callback(err || core.newError({ message: "Error: " + params.status, name: "S3", status : params.status}), params.data) : null;
+        if (err || params.status != 200) return callback ? callback(err || corelib.newError({ message: "Error: " + params.status, name: "S3", status : params.status}), params.data) : null;
         if (callback) callback(err, params);
     });
 }
@@ -474,7 +475,7 @@ aws.ec2RunInstances = function(options, callback)
     if (options.availZone || this.availZone) req["Placement.AvailabilityZone"] = options.availZone || this.availZone;
     if (options.subnetId || this.subnetId) {
         if (!options["SecurityGroupId.0"]) {
-            var groups = core.strSplitUnique(options.groupId || this.groupId || []);
+            var groups = corelib.strSplitUnique(options.groupId || this.groupId || []);
             groups.forEach(function(x, i) { req["NetworkInterface.0.SecurityGroupId." + i] = x; });
             if (groups.length) {
                 req["NetworkInterface.0.DeviceIndex"] = 0;
@@ -496,21 +497,21 @@ aws.ec2RunInstances = function(options, callback)
         }
     } else {
         if (!options["SecurityGroupId.0"]) {
-            var groups = core.strSplitUnique(options.groupId || this.groupId || []);
+            var groups = corelib.strSplitUnique(options.groupId || this.groupId || []);
             groups.forEach(function(x, i) { req["SecurityGroupId." + i] = x; });
         }
         if (options.ip) {
             req.PrivateIpAddress = ip;
         }
     }
-    if (options.file) req.UserData = core.readFileSync(options.file).toString("base64");
+    if (options.file) req.UserData = corelib.readFileSync(options.file).toString("base64");
 
     logger.debug('runInstances:', this.name, req, options);
     this.queryEC2("RunInstances", req, options, function(err, obj) {
         if (err) return callback ? callback(err) : null;
 
         // Instances list
-        var items = core.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
+        var items = corelib.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
         if (!items.length) return callback ? callback(err, obj) : null;
 
         // Dont wait for instance to be running
@@ -519,15 +520,15 @@ aws.ec2RunInstances = function(options, callback)
         }
         var instanceId = items[0].instanceId;
 
-        core.series([
+        corelib.series([
            function(next) {
                self.ec2WaitForInstance(instanceId, "running", { waitTimeout: 300000, waitDelay: 5000 }, next);
            },
            function(next) {
                // Set tag name for all instances
                if (!options.name) return next();
-               core.forEachSeries(items, function(item, next2) {
-                   self.ec2CreateTags(item.instanceId, options.name.replace("%i", core.toNumber(item.amiLaunchIndex) + 1), next2);
+               corelib.forEachSeries(items, function(item, next2) {
+                   self.ec2CreateTags(item.instanceId, options.name.replace("%i", corelib.toNumber(item.amiLaunchIndex) + 1), next2);
                }, next);
            },
            function(next) {
@@ -557,11 +558,11 @@ aws.ec2WaitForInstance = function(instanceId, status, options, callback)
     if (typeof options == "function") callback = options, options = {};
 
     var state = "", num = 0, expires = Date.now() + (options.waitTimeout || 60000);
-    core.doWhilst(
+    corelib.doWhilst(
       function(next) {
           self.queryEC2("DescribeInstances", { 'Filter.1.Name': 'instance-id', 'Filter.1.Value.1': instanceId }, function(err, rc) {
               if (err) return next(err);
-              state = core.objGet(rc, "DescribeInstancesResponse.reservationSet.item.instancesSet.item.instanceState.name");
+              state = corelib.objGet(rc, "DescribeInstancesResponse.reservationSet.item.instancesSet.item.instanceState.name");
               setTimeout(next, num++ ? (options.waitDelay || 5000) : 0);
           });
       },
@@ -613,8 +614,8 @@ aws.ec2AssociateAddress = function(instanceId, elasticIp, options, callback)
         }
         // Get the allocation id
         self.queryEC2("DescribeAddresses", { 'PublicIp.1': elasticIp }, options, function(err, obj) {
-            params.AllocationId = core.objGet(obj, "DescribeAddressesResponse.AddressesSet.item.allocationId");
-            if (!params.AllocationId) err = core.newError({ message: "EIP not found", name: "EC2", code: elasticIp });
+            params.AllocationId = corelib.objGet(obj, "DescribeAddressesResponse.AddressesSet.item.allocationId");
+            if (!params.AllocationId) err = corelib.newError({ message: "EIP not found", name: "EC2", code: elasticIp });
             if (err) return callback ? callback(err) : null;
             self.queryEC2("AssociateAddress", params, options, callback);
         });
@@ -637,14 +638,14 @@ aws.ec2DeregisterImage = function(ami_id, options, callback)
     self.queryEC2("DescribeImages", { 'ImageId.1': ami_id }, options, function(err, rc) {
         if (err) return callback ? callback(err) : null;
 
-        var items = core.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
-        if (!items.length) return calback ? callback(core.newError({ message: "no AMI found", name: ami_id })) : null;
+        var items = corelib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
+        if (!items.length) return calback ? callback(corelib.newError({ message: "no AMI found", name: ami_id })) : null;
 
-        var volumes = core.objGet(items[0], "blockDeviceMapping.item", { list : 1 });
+        var volumes = corelib.objGet(items[0], "blockDeviceMapping.item", { list : 1 });
         self.queryEC2("DeregisterImage", { ImageId: ami_id }, options, function(err) {
             if (err) return callback ? callback(err) : null;
 
-            core.forEachSeries(volumes, function(vol, next) {
+            corelib.forEachSeries(volumes, function(vol, next) {
                 if (!vol.ebs || !vol.ebs.snapshotId) return next();
                 self.queryEC2("DeleteSnapshot", { SnapshotId: vol.ebs.snapshotId }, options, next);
             }, callback)
@@ -670,12 +671,12 @@ aws.getInstanceCredentials = function(callback)
     var self = this;
     self.getInstanceMeta("/latest/meta-data/iam/security-credentials/" + self.amiProfile, function(err, data) {
         if (!err && data) {
-            var obj = core.jsonParse(data, { obj: 1 });
+            var obj = corelib.jsonParse(data, { obj: 1 });
             if (obj.Code === 'Success') {
                 self.key = obj.AccessKeyId;
                 self.secret = obj.SecretAccessKey;
                 self.securityToken = obj.Token;
-                self.tokenExpiration = core.toDate(obj.Expiration).getTime();
+                self.tokenExpiration = corelib.toDate(obj.Expiration).getTime();
             }
         }
         // Poll every ~5mins
@@ -691,7 +692,7 @@ aws.getInstanceInfo = function(callback)
 {
     var self = this;
 
-    core.series([
+    corelib.series([
         function(next) {
             self.getInstanceMeta("/latest/meta-data/instance-id", function(err, data) {
                 if (!err && data) core.instance.id = data;
@@ -706,7 +707,7 @@ aws.getInstanceInfo = function(callback)
         },
         function(next) {
             self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, data) {
-                if (!err && data) core.instance.index = core.toNumber(data);
+                if (!err && data) core.instance.index = corelib.toNumber(data);
                 next(err);
             });
         },
@@ -739,7 +740,7 @@ aws.getInstanceInfo = function(callback)
         function(next) {
             if (!self.secret || !core.instance.id) return next();
             self.queryEC2("DescribeTags", { 'Filter.1.Name': 'resource-id', 'Filter.1.Value': core.instance.id }, function(err, tags) {
-                if (!err) self.tags = core.objGet(tags, "DescribeTagsResponse.tagSet.item", { list: 1 });
+                if (!err) self.tags = corelib.objGet(tags, "DescribeTagsResponse.tagSet.item", { list: 1 });
                 if (!core.instance.tag) core.instance.tag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
                 next();
             });
@@ -793,7 +794,7 @@ aws.sqsReceiveMessage = function(url, options, callback)
     if (options.timeout) params.WaitTimeSeconds = options.timeout;
     this.querySQS("ReceiveMessage", params, options, function(err, obj) {
         var rows = [];
-        if (!err) rows = core.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
+        if (!err) rows = corelib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
         if (callback) callback(err, rows);
     });
 }
@@ -822,7 +823,7 @@ aws.sqsSendMessage = function(url, body, options, callback)
     }
     this.querySQS("SendMessage", params, options, function(err, obj) {
         var rows = [];
-        if (!err) rows = core.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
+        if (!err) rows = corelib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
         if (callback) callback(err, rows);
     });
 }
@@ -845,7 +846,7 @@ aws.snsCreatePlatformEndpoint = function(token, options, callback)
 
     this.querySNS("CreatePlatformEndpoint", params, options, function(err, obj) {
         var arn = null;
-        if (!err) arn = core.objGet(obj, "CreatePlatformEndpointResponse.CreatePlatformEndpointResult.EndpointArn", { str: 1 });
+        if (!err) arn = corelib.objGet(obj, "CreatePlatformEndpointResponse.CreatePlatformEndpointResult.EndpointArn", { str: 1 });
         if (callback) callback(err, arn);
     });
 }
@@ -910,7 +911,7 @@ aws.snsCreateTopic = function(name, options, callback)
     var params = { Name: name };
     this.querySNS("CreateTopic", params, options, function(err, obj) {
         var arn = null;
-        if (!err) arn = core.objGet(obj, "CreateTopicResponse.CreateTopicResult.TopicArn", { str: 1 });
+        if (!err) arn = corelib.objGet(obj, "CreateTopicResponse.CreateTopicResult.TopicArn", { str: 1 });
         if (callback) callback(err, arn);
     });
 }
@@ -956,7 +957,7 @@ aws.snsSetTopicAttributes = function(arn, options, callback)
         }
         if (policy && options.protocol) {
             params.AttrributeName = "DeliveryPolicy";
-            params.AttributeValue = JSON.stringify(core.newObj(options.protocol, policy));
+            params.AttributeValue = JSON.stringify(corelib.newObj(options.protocol, policy));
         }
     }
 
@@ -994,7 +995,7 @@ aws.snsSubscribe = function(arn, endpoint, options, callback)
     var params = { TopicARN: arn, Protocol: options.protocol, Endpoint: endpoint };
     this.querySNS("Subscribe", params, options, function(err, obj) {
         var arn = null;
-        if (!err) arn = core.objGet(obj, "SubscribeResponse.SubscribeResult.SubscriptionArn", { str: 1 });
+        if (!err) arn = corelib.objGet(obj, "SubscribeResponse.SubscribeResult.SubscriptionArn", { str: 1 });
         if (callback) callback(err, arn);
     });
 }
@@ -1011,7 +1012,7 @@ aws.snsConfirmSubscription = function(arn, token, options, callback)
     var params = { TopicARN: arn, Token: token };
     this.querySNS("ConfirmSubscription", params, options, function(err, obj) {
         var arn = null;
-        if (!err) arn = core.objGet(obj, "SubscribeResponse.SubscribeResult.SubscriptionArn", { str: 1 });
+        if (!err) arn = corelib.objGet(obj, "SubscribeResponse.SubscribeResult.SubscriptionArn", { str: 1 });
         if (callback) callback(err, arn);
     });
 }
@@ -1087,10 +1088,10 @@ aws.sesSendEmail = function(to, subject, body, options, callback)
     params["Message.Body." + (options.html ? "Html" : "Text") + ".Data"] = body;
     params["Message.Body." + (options.html ? "Html" : "Text") + ".Charset"] = options.charset || "UTF-8";
     params["Source"] = options.from || core.email;
-    core.strSplit(to).forEach(function(x, i) { params["Destination.ToAddresses.member." + (i + 1)] = x; })
-    if (options.cc) core.strSplit(options.cc).forEach(function(x, i) { params["Destination.CcAddresses.member." + (i + 1)] = x; })
-    if (options.bcc) core.strSplit(options.bcc).forEach(function(x, i) { params["Destination.BccAddresses.member." + (i + 1)] = x; })
-    if (options.replyTo) core.strSplit(options.replyTo).forEach(function(x, i) { params["ReplyToAddresses.member." + (i + 1)] = x; })
+    corelib.strSplit(to).forEach(function(x, i) { params["Destination.ToAddresses.member." + (i + 1)] = x; })
+    if (options.cc) corelib.strSplit(options.cc).forEach(function(x, i) { params["Destination.CcAddresses.member." + (i + 1)] = x; })
+    if (options.bcc) corelib.strSplit(options.bcc).forEach(function(x, i) { params["Destination.BccAddresses.member." + (i + 1)] = x; })
+    if (options.replyTo) corelib.strSplit(options.replyTo).forEach(function(x, i) { params["ReplyToAddresses.member." + (i + 1)] = x; })
     if (options.returnPath) params["ReturnPath"] = options.returnPath;
     this.querySES("SendEmail", params, options, callback);
 }
@@ -1107,7 +1108,7 @@ aws.sesSendRawEmail = function(body, options, callback)
 
     var params = { "RawMessage.Data": body };
     if (options.from) params["Source"] = options.from;
-    if (options.to) core.strSplit(options.to).forEach(function(x, i) { params["Destinations.member." + (i + 1)] = x; })
+    if (options.to) corelib.strSplit(options.to).forEach(function(x, i) { params["Destinations.member." + (i + 1)] = x; })
     this.querySES("SendRawEmail", params, options, callback);
 }
 
@@ -1115,7 +1116,7 @@ aws.sesSendRawEmail = function(body, options, callback)
 aws.toDynamoDB = function(value, level)
 {
     var self = this;
-    switch (core.typeName(value)) {
+    switch (corelib.typeName(value)) {
     case 'null':
         return { "NULL": 'true' };
 
@@ -1157,7 +1158,7 @@ aws.toDynamoDB = function(value, level)
 aws.fromDynamoDB = function(value)
 {
     var self = this;
-    switch (core.typeName(value)) {
+    switch (corelib.typeName(value)) {
     case 'array':
         return value.map(function(x) { return self.fromDynamoDB(x) });
 
@@ -1166,7 +1167,7 @@ aws.fromDynamoDB = function(value)
         for (var i in value) {
             if (!value.hasOwnProperty(i)) continue;
             if (value[i]['BOOL'])
-                res[i] = core.toBool(value[i]['BOOL']);
+                res[i] = corelib.toBool(value[i]['BOOL']);
             else
             if (value[i]['NULL'])
                 res[i] = null;
@@ -1222,7 +1223,7 @@ aws.queryFilter = function(obj, options)
         if (this.opsMap[op]) op = this.opsMap[op];
         if (val == null) op = "null";
         // A value with its own operator
-        if (core.typeName(val) == "object") {
+        if (corelib.typeName(val) == "object") {
             var keys = Object.keys(val);
             if (keys.length == 1 && ops.indexOf(keys[0].toLowerCase()) > -1) {
                 op = keys[0];
@@ -1411,7 +1412,7 @@ aws.ddbWaitForTable = function(name, item, options, callback)
 
     var expires = Date.now() + options.waitTimeout;
     var status = item.TableDescription.TableStatus;
-    core.whilst(
+    corelib.whilst(
       function() {
           return status == options.waitStatus && Date.now() < expires;
       },
@@ -1550,7 +1551,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         params.AttributeUpdates = {};
         for (var p in item) {
             if (params.Key[p]) continue;
-            switch (core.typeName(item[p])) {
+            switch (corelib.typeName(item[p])) {
                 case 'null':
                 case 'undefined':
                     params.AttributeUpdates[p] = { Action: 'DELETE' };
@@ -1663,7 +1664,7 @@ aws.ddbBatchGetItem = function(items, options, callback)
     for (var p in items) {
         var obj = {};
         obj.Keys = items[p].keys.map(function(x) { return self.toDynamoDB(x); });
-        if (items[p].select) obj.AttributesToGet = core.strSplit(items[p].select);
+        if (items[p].select) obj.AttributesToGet = corelib.strSplit(items[p].select);
         if (items[p].consistent) obj.ConsistentRead = true;
         params.RequestItems[p] = obj;
     }
@@ -1695,7 +1696,7 @@ aws.ddbGetItem = function(name, keys, options, callback)
     if (!options) options = {};
     var params = { TableName: name, Key: {} };
     if (options.select) {
-        params.AttributesToGet = core.strSplit(options.select);
+        params.AttributesToGet = corelib.strSplit(options.select);
     }
     if (options.names) {
         params.ExpressionAttributeNames = self.toDynamoDB(options.names);
@@ -1772,7 +1773,7 @@ aws.ddbQueryTable = function(name, condition, options, callback)
         params.ScanIndexForward = false;
     }
     if (options.select) {
-        params.AttributesToGet = core.strSplit(options.select);
+        params.AttributesToGet = corelib.strSplit(options.select);
     }
     if (options.count) {
         params.Limit = options.count;
@@ -1833,7 +1834,7 @@ aws.ddbScanTable = function(name, condition, options, callback)
         params.ExclusiveStartKey = self.toDynamoDB(options.start);
     }
     if (options.select) {
-        params.AttributesToGet = core.strSplit(options.select);
+        params.AttributesToGet = corelib.strSplit(options.select);
     }
     if (options.count) {
         params.Limit = options.count;

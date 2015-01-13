@@ -9,6 +9,7 @@ var db = bkjs.db;
 var api = bkjs.api;
 var app = bkjs.app;
 var core = bkjs.core;
+var corelib = bkjs.corelib;
 var logger = bkjs.logger;
 var googleStrategy = require('passport-google-oauth').OAuth2Strategy;
 var githubStrategy = require('passport-github').Strategy;
@@ -70,7 +71,7 @@ app.fetchAccount = function(req, options, callback)
     api.fetchAccount(req, {}, function(err, row) {
         if (err) return callback(err);
         // Save new access tokens in the account record
-        req = core.newObj('id', row.id, req.profile.provider + "_access_token", req.accessToken, req.profile.provider + "_refresh_token", req.refreshToken);
+        req = corelib.newObj('id', row.id, req.profile.provider + "_access_token", req.accessToken, req.profile.provider + "_refresh_token", req.refreshToken);
         db.update("bk_account", req, function(err) {
             callback(err, row);
         });
@@ -79,11 +80,11 @@ app.fetchAccount = function(req, options, callback)
 
 app.configureMiddleware = function(options, callback)
 {
-    api.registerOAuthStrategy(githubStrategy, core.extendObj(app.github, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(googleStrategy, core.extendObj(app.google, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(facebookStrategy, core.extendObj(app.facebook, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(linkedinStrategy, core.extendObj(app.linkedin, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(twitterStrategy, core.extendObj(app.twitter, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(githubStrategy, corelib.extendObj(app.github, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(googleStrategy, corelib.extendObj(app.google, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(facebookStrategy, corelib.extendObj(app.facebook, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(linkedinStrategy, corelib.extendObj(app.linkedin, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(twitterStrategy, corelib.extendObj(app.twitter, { fetchAccount: app.fetchAccount }));
 
     callback()
 };

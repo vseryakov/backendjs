@@ -26,6 +26,7 @@ var passport = require('passport');
 var consolidate = require('consolidate');
 var domain = require('domain');
 var core = require(__dirname + '/core');
+var corelib = require(__dirname + '/corelib');
 var ipc = require(__dirname + '/ipc');
 var msg = require(__dirname + '/msg');
 var app = require(__dirname + '/app');
@@ -102,7 +103,7 @@ var api = {
                   mtime: { type: "bigint", now: 1 }},         // Last time added/updated
 
        // Locations for all accounts to support distance searches
-       bk_location: { geohash: { primary: 1 },                    // geohash, core.minDistance defines the size
+       bk_location: { geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
                       id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
                       latitude: { type: "real" },
                       longitude: { type: "real" },
@@ -262,7 +263,7 @@ var api = {
     hooks: { access: [], auth: [], post: [] },
 
     // No authentication for these urls
-    allow: core.toRegexpMap(null, ["^/$",
+    allow: corelib.toRegexpMap(null, ["^/$",
                                    "\\.html$",
                                    "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$",
                                    "\\.ttf$", "\\.eof$", "\\.woff$",
@@ -321,6 +322,11 @@ var api = {
     // API related limts
     allowConnection: {},
     iconLimit: {},
+
+    // Geo min distance for the hash key, km
+    minDistance: 5,
+    // Max searchable distance, km
+    maxDistance: 50,
 
     // Metrics and stats
     metrics: new metrics.Metrics('id', '',
@@ -391,7 +397,7 @@ var api = {
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
-           { name: "pages-view", value: "pages", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
+           { name: "pages-view", value: "pages.html", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
            { name: "pages-main", descr: "A template for the main page to be created when starting the wiki engine for the first time, if not given a default simple welcome message will be used" },
            { name: "collect-host", descr: "The backend URL where all collected statistics should be sent over, if set to `pool` then each web worker will save metrics directly into the statistics database pool" },
            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
@@ -399,7 +405,10 @@ var api = {
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "select-limit", type: "int", descr: "Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database" },
-           { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  }],
+           { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
+           { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
+           { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
+    ],
 }
 
 module.exports = api;
@@ -584,18 +593,6 @@ api.init = function(options, callback)
                           fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" : __dirname + '/views'));
         }
 
-        // Process markdown files only if the view exists
-        if (self.pagesView && fs.existsSync(self.app.get("views") + "/" + self.pagesView + ".html")) {
-            api.app.use(function(req, res, next) {
-                if (req.query._raw || req.path.slice(-3) !== '.md') return next();
-                var file = core.path.web + '/' + req.path;
-                fs.readFile(file, 'utf8', function(err, data) {
-                    if (err) return next(err);
-                    self.sendPages(req, { id: file, content: data });
-                })
-            });
-        }
-
         // Serve from default web location in the package or from application specific location
         if (!self.noStatic) {
             self.app.use(serveStatic(core.path.web));
@@ -706,7 +703,7 @@ api.shutdown = function(callback)
     logger.log('api.shutdown: started');
     var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
     var db = core.modules.db;
-    core.parallel([
+    corelib.parallel([
         function(next) {
             if (!self.wsServer) return next();
             try { self.wsServer.close(); next(); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
@@ -913,7 +910,7 @@ api.checkQuery = function(req, res, next)
     req.on('end', function() {
         try {
             // Verify data checksum before parsing
-            if (sig && sig.checksum && core.hash(buf) != sig.checksum) {
+            if (sig && sig.checksum && corelib.hash(buf) != sig.checksum) {
                 var err = new Error("invalid data checksum");
                 err.status = 400;
                 return next(err);
@@ -921,7 +918,7 @@ api.checkQuery = function(req, res, next)
             switch (type) {
             case 'application/json':
                 if (req.method != "POST") break;
-                req.body = core.jsonParse(buf, { obj: 1, debug: 1 });
+                req.body = corelib.jsonParse(buf, { obj: 1, debug: 1 });
                 req.query = req.body;
                 break;
 
@@ -1004,7 +1001,7 @@ api.checkAccess = function(req, callback)
     // Call custom access handler for the endpoint
     var hooks = this.findHook('access', req.method, req.path);
     if (hooks.length) {
-        core.forEachSeries(hooks, function(hook, next) {
+        corelib.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAccess:', req.method, req.path, hook.path);
             hook.callbacks.call(self, req, next);
         }, callback);
@@ -1026,7 +1023,7 @@ api.checkAuthorization = function(req, status, callback)
 
     var hooks = this.findHook('auth', req.method, req.path);
     if (hooks.length) {
-        core.forEachSeries(hooks, function(hook, next) {
+        corelib.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAuthorization:', req.method, req.path, hook.path);
             hook.callbacks.call(self, req, status, function(err) {
                 if (err && err.status != 200) return next(err);
@@ -1089,7 +1086,7 @@ api.checkSignature = function(req, callback)
         // Deal with encrypted body, use our account secret to decrypt, this is for raw data requests
         // if it is JSON or query it needs to be reparsed in the application
         if (req.body && req.get("content-encoding") == "encrypted") {
-            req.body = core.decrypt(account.secret, req.body);
+            req.body = corelib.decrypt(account.secret, req.body);
         }
 
         // Verify the signature
@@ -1099,20 +1096,20 @@ api.checkSignature = function(req, callback)
         case 1:
             sig.str = "";
             sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
-            sig.hash = core.sign(secret, sig.str, "sha1");
+            sig.hash = corelib.sign(secret, sig.str, "sha1");
             break;
 
         case 3:
             secret += ":" + (account.token_secret || "");
         case 2:
-            sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + "*" + "\n" + core.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
-            sig.hash = core.sign(secret, sig.str, "sha256");
+            sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + "*" + "\n" + corelib.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
+            sig.hash = corelib.sign(secret, sig.str, "sha256");
             break;
 
         case 4:
         default:
             sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
-            sig.hash = core.sign(secret, sig.str, "sha256");
+            sig.hash = corelib.sign(secret, sig.str, "sha256");
         }
         if (sig.signature != sig.hash) {
             logger.debug('checkSignature:', 'failed', sig, account);
@@ -1160,18 +1157,18 @@ api.parseSignature = function(req)
     rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
     if (!rc.signature) {
         rc.signature = req.query['bk-access-token'] || req.headers['bk-access-token'];
-        if (rc.signature) rc.signature = core.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
+        if (rc.signature) rc.signature = corelib.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
     }
     if (!rc.signature) {
         rc.signature = (req.session || {})['bk-signature'] || "";
     }
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
-    rc.version = core.toNumber(d[1]);
+    rc.version = corelib.toNumber(d[1]);
     if (d[2]) rc.tag = d[2];
     if (d[3]) rc.login = d[3].trim();
     if (d[4]) rc.signature = d[4];
-    rc.expires = core.toNumber(d[5]);
+    rc.expires = corelib.toNumber(d[5]);
     rc.checksum = d[6] || "";
     req.signature = rc;
     return rc;
@@ -1208,25 +1205,25 @@ api.createSignature = function(login, secret, method, host, uri, options)
     switch (ver) {
     case 1:
         str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
-        hmac = core.sign(String(secret), str, "sha1")
+        hmac = corelib.sign(String(secret), str, "sha1")
         break;
 
     case 2:
     case 3:
         path = "/";
         method = query = "*";
-        rc['bk-domain'] = hostname = core.domainName(hostname);
+        rc['bk-domain'] = hostname = corelib.domainName(hostname);
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
         rc['bk-path'] = path;
         str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
-        hmac = core.sign(String(secret), str, "sha256")
+        hmac = corelib.sign(String(secret), str, "sha256")
         break;
 
     case 4:
     default:
         str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
-        hmac = core.sign(String(secret), str, "sha256")
+        hmac = corelib.sign(String(secret), str, "sha256")
     }
     rc['bk-signature'] = ver + '|' + tag + '|' + String(login) + '|' + hmac + '|' + expires + '|' + checksum + '|';
     if (logger.level > 1) logger.log('createSignature:', rc);
@@ -1241,15 +1238,16 @@ api.createSessionSignature = function(req, options)
 
     if (typeof options.accessToken != "undefined") {
         if (options.accessToken) {
-            var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: this.accessTokenAge });
-            req.account.accessToken = core.encrypt(this.accessTokenSecret, sig["bk-signature"], "", "hex");
+            var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
+            req.account['bk-access-token'] = corelib.encrypt(this.accessTokenSecret, sig["bk-signature"], "", "hex");
+            req.account['bk-access-token-age'] = options.sessionAge || this.accessTokenAge; 
         } else {
             delete req.account.accessToken;
         }
     } else
     if (typeof options.session != "undefined") {
         if (options.session) {
-            var sig = this.createSignature(req.account.login, req.account.secret, "", req.headers.host, "", { version: 2, expires: this.sessionAge });
+            var sig = this.createSignature(req.account.login, req.account.secret, "", req.headers.host, "", { version: 2, expires: options.sessionAge || this.sessionAge });
             req.session["bk-signature"] = sig["bk-signature"];
         } else {
             delete req.session["bk-signature"];
@@ -1275,7 +1273,7 @@ api.initTables = function(options, callback)
                 delete row.recipient;
                 if (row.mtime) {
                     var mtime = row.mtime.split(":");
-                    row.mtime = core.toNumber(mtime[0]);
+                    row.mtime = corelib.toNumber(mtime[0]);
                     row.id = row.sender = mtime[1];
                 }
                 if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
@@ -1285,7 +1283,7 @@ api.initTables = function(options, callback)
                 delete row.sender;
                 if (row.mtime) {
                     var mtime = row.mtime.split(":");
-                    row.mtime = core.toNumber(mtime[0]);
+                    row.mtime = corelib.toNumber(mtime[0]);
                     row.id = row.recipient = mtime[1];
                 }
                 if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
@@ -1301,7 +1299,7 @@ api.initTables = function(options, callback)
 
             function onAccountRow(row, options, cols) {
                 if (row.birthday) {
-                    row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+                    row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
                 }
             }
 
@@ -1326,28 +1324,28 @@ api.getOptions = function(req)
     ["details", "consistent", "desc", "total", "connected", "check",
      "noscan", "noprocessrows", "noconvertrows", "noreference", "nocounter",
      "publish", "archive", "trash"].forEach(function(x) {
-        if (typeof req.query["_" + x] != "undefined") req.options[x] = core.toBool(req.query["_" + x]);
+        if (typeof req.query["_" + x] != "undefined") req.options[x] = corelib.toBool(req.query["_" + x]);
     });
-    if (req.query._session) req.options.session = core.toNumber(req.query._session);
-    if (req.query._accesstoken) req.options.accessToken = core.toNumber(req.query._accesstoken);
+    if (req.query._session) req.options.session = corelib.toNumber(req.query._session);
+    if (req.query._accesstoken) req.options.accessToken = corelib.toNumber(req.query._accesstoken);
     if (req.query._select) req.options.select = req.query._select;
-    if (req.query._count) req.options.count = core.toNumber(req.query._count, 0, 50, 0, this.selectLimit);
-    if (req.query._start) req.options.start = core.base64ToJson(req.query._start, this.getTokenSecret(req));
-    if (req.query._token) req.options.token = core.base64ToJson(req.query._token, this.getTokenSecret(req));
+    if (req.query._count) req.options.count = corelib.toNumber(req.query._count, 0, 50, 0, this.selectLimit);
+    if (req.query._start) req.options.start = corelib.base64ToJson(req.query._start, this.getTokenSecret(req));
+    if (req.query._token) req.options.token = corelib.base64ToJson(req.query._token, this.getTokenSecret(req));
     if (req.query._sort) req.options.sort = req.query._sort;
-    if (req.query._page) req.options.page = core.toNumber(req.query._page, 0, 0, 0);
-    if (req.query._width) req.options.width = core.toNumber(req.query._width);
-    if (req.query._height) req.options.height = core.toNumber(req.query._height);
+    if (req.query._page) req.options.page = corelib.toNumber(req.query._page, 0, 0, 0);
+    if (req.query._width) req.options.width = corelib.toNumber(req.query._width);
+    if (req.query._height) req.options.height = corelib.toNumber(req.query._height);
     if (req.query._ext) req.options.ext = req.query._ext;
     if (req.query._encoding) req.options.encoding = req.query._encoding;
-    if (req.query._tm) req.options.tm = core.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
-    if (req.query._quality) req.options.quality = core.toNumber(req.query._quality);
-    if (req.query._round) req.options.round = core.toNumber(req.query._round);
-    if (req.query._interval) req.options.interval = core.toNumber(req.query._interval);
+    if (req.query._tm) req.options.tm = corelib.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
+    if (req.query._quality) req.options.quality = corelib.toNumber(req.query._quality);
+    if (req.query._round) req.options.round = corelib.toNumber(req.query._round);
+    if (req.query._interval) req.options.interval = corelib.toNumber(req.query._interval);
     if (req.query._alias) req.options.alias = req.query._alias;
     if (req.query._name) req.options.name = req.query._name;
     if (req.query._ops) {
-        var ops = core.strSplit(req.query._ops);
+        var ops = corelib.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
     }
     if (req.query._pool) req.options.pool = req.query._pool;
@@ -1368,7 +1366,7 @@ api.getResultPage = function(req, options, rows, info)
 {
     if (options.total) return { count: rows.length && rows[0].count ? rows[0].count : 0 };
     var token = { count: rows.length, data: rows };
-    if (info && info.next_token) token.next_token = core.jsonToBase64(info.next_token, this.getTokenSecret(req));
+    if (info && info.next_token) token.next_token = corelib.jsonToBase64(info.next_token, this.getTokenSecret(req));
     return token;
 }
 
@@ -1404,7 +1402,7 @@ api.checkPublicColumns = function(table, rows, options)
     if (!options) options = {};
     var db = core.modules.db;
     var cols = {};
-    core.strSplit(table).forEach(function(x) {
+    corelib.strSplit(table).forEach(function(x) {
         var c = db.getColumns(x, options);
         for (var p in c) cols[p] = c[p].pub || 0;
     });
@@ -1577,7 +1575,7 @@ api.sendJSON = function(req, err, rows)
     if (!rows) rows = [];
     var sent = 0;
     var hooks = this.findHook('post', req.method, req.path);
-    core.forEachSeries(hooks, function(hook, next) {
+    corelib.forEachSeries(hooks, function(hook, next) {
         try { sent = hook.callbacks.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.path, e.stack); }
         logger.debug('sendJSON:', req.method, req.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
         next(sent || req.res.headersSent);
@@ -1753,7 +1751,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
                     accessToken: accessToken,
                     refreshToken: refreshToken };
         req.query.login = profile.provider + ":" + profile.id;
-        req.query.secret = core.uuid();
+        req.query.secret = corelib.uuid();
         req.query.name = profile.displayName;
         req.query.gender = profile.gender;
         if (profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
@@ -1787,7 +1785,7 @@ api.initStatistics = function()
 {
     var self = this;
     // Add some delay to make all workers collect not at the same time
-    var delay = core.randomShort();
+    var delay = corelib.randomShort();
 
     self.getStatistics();
     setInterval(function() { self.getStatistics(); }, self.collectInterval * 1000);
@@ -1827,7 +1825,7 @@ api.getStatistics = function(options)
     this.metrics.pool = core.modules.db.getPool().metrics;
 
     // Convert into simple object with all deep properties using names concatenated with dots
-    var obj = core.flattenObj(this.metrics.toJSON(), { separator: '_' });
+    var obj = corelib.flattenObj(this.metrics.toJSON(), { separator: '_' });
 
     // Clear all counters to make a snapshot and start over, this way in the monitoring station it is only needd to be summed up without
     // tracking any other states, the naming convention is to use _0 for snapshot counters.
@@ -1851,7 +1849,7 @@ api.sendStatistics = function()
 
     // Send to the collection host for storing in the special databze or due to security restrictions when
     // only HTTP is open and authentication is required
-    core.sendRequest({ url: self.collectHost, method: "POST", postdata: obj, quiet: self.collectQuiet }, function(err) {
+    corelib.sendRequest({ url: self.collectHost, method: "POST", postdata: obj, quiet: self.collectQuiet }, function(err) {
         logger.debug("sendStatistics:", self.collectHost, self.collectErrors, err || "");
         if (!err) {
             self.collectErrors = self.collectQuiet = 0;
@@ -1921,7 +1919,7 @@ api.calcStatistics = function(query, options, callback)
         });
         rows = [];
         Object.keys(series).sort().forEach(function(x) {
-            var obj = { mtime: core.toNumber(x) };
+            var obj = { mtime: corelib.toNumber(x) };
             for (var y in series[x]) {
                 if (totals[x][y]) series[x][y] /= totals[x][y];
                 obj[y] = series[x][y];

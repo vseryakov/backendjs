@@ -10,6 +10,7 @@ var path = require('path');
 var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
+var corelib = require(__dirname + '/corelib');
 var cluster = require('cluster');
 var memcached = require('memcached');
 var redis = require("redis");
@@ -358,7 +359,7 @@ ipc.send = function(op, name, value, options, callback)
     if (typeof options == "function") callback = options, options = null;
     var msg = { op: op };
     if (name) msg.name = name;
-    if (value) msg.value = typeof value == "object" ? core.stringify(value) : value;
+    if (value) msg.value = typeof value == "object" ? corelib.stringify(value) : value;
     if (options && options.local) msg.local = true;
     this.command(msg, callback, options ? options.timeout : 0);
 }
@@ -405,7 +406,7 @@ ipc.connect = function(name, type, host, port, options, callback)
         try {
             switch (type) {
             case "amqp":
-                this[type][name] = amqp.createConnection(core.cloneObj(options, "host", host));
+                this[type][name] = amqp.createConnection(corelib.cloneObj(options, "host", host));
                 break;
             case "redis":
                 this[type][name] = redis.createClient(port, host, options || {});
@@ -426,7 +427,7 @@ ipc.connect = function(name, type, host, port, options, callback)
         if (!utils.NNSocket) break;
         if (!this[type][name]) this[type][name] = new utils.NNSocket(utils.AF_SP, options.type);
         if (this[type][name] instanceof utils.NNSocket) {
-            host = core.strSplit(host).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
+            host = corelib.strSplit(host).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
             var err = this[type][name].connect(host);
             if (!err) err = this.setup(name, type, options, callback);
             if (err) logger.error('ipc.connect:', host, this[type][name]);
@@ -514,7 +515,7 @@ ipc.keys = function(callback)
                 var item = items[0], keys = [];
                 var keys = Object.keys(item);
                 keys.pop();
-                core.forEachSeries(keys, function(stats, next) {
+                corelib.forEachSeries(keys, function(stats, next) {
                     memcached.cachedump(item.server, stats, item[stats].number, function(err, response) {
                         if (response) keys.push(response.key);
                         next(err);

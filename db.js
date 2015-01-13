@@ -12,6 +12,7 @@ var domain = require('domain');
 var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
+var corelib = require(__dirname + '/corelib');
 var ipc = require(__dirname + '/ipc');
 var aws = require(__dirname + '/aws');
 var cluster = require('cluster');
@@ -278,7 +279,7 @@ db.initConfig = function(options, callback)
         if (x != core.runMode && x != core.appName) types.push(core.runMode + "-" + core.appName + "-" + x);
     });
     // Make sure we have only unique items in the list, skip empty or incomplete items
-    types = core.strSplitUnique(types);
+    types = corelib.strSplitUnique(types);
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
         if (err) return callback ? callback(err, []) : null;
@@ -298,7 +299,7 @@ db.initConfig = function(options, callback)
         // Refresh from time to time with new or modified parameters, randomize a little to spread across all servers, we run in at the end
         // in order to pickup any new config parameters that we just loaded
         clearInterval(self.configTimer);
-        if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + core.randomShort());
+        if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + corelib.randomShort());
 
         // Return the normalized argument list to the caller for extra processing
         if (callback) callback(null, argv);
@@ -311,7 +312,7 @@ db.initTables = function(tables, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
 
-    core.forEachSeries(Object.keys(self.pools), function(name, next) {
+    corelib.forEachSeries(Object.keys(self.pools), function(name, next) {
         if (name == "none") return next();
         self.initPoolTables(name, tables, options, next);
     }, function(err) {
@@ -355,7 +356,7 @@ db.initPoolTables = function(name, tables, options, callback)
         }
 
         var changes = 0;
-        core.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
+        corelib.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
             // We if have columns, SQL table must be checked for missing columns and indexes
             var cols = self.getColumns(table, options);
             if (!cols || Object.keys(cols).every(function(x) { return cols[x].fake })) {
@@ -377,7 +378,7 @@ db.initPoolTables = function(name, tables, options, callback)
 db.shutdownWeb = function(optios, callback)
 {
     var pools = this.getPools();
-    core.forEachLimit(pools, pools.length, function(pool, next) {
+    corelib.forEachLimit(pools, pools.length, function(pool, next) {
         db.pools[pool.name].shutdown(next);
     }, callback);
 }
@@ -392,7 +393,7 @@ db.dropPoolTables = function(name, tables, options, callback)
 
     if (name) options.pool = name;
     var pool = self.getPool('', options);
-    core.forEachSeries(Object.keys(tables || {}), function(table, next) {
+    corelib.forEachSeries(Object.keys(tables || {}), function(table, next) {
         self.drop(table, options, function() { next() });
     }, callback);
 }
@@ -575,7 +576,7 @@ db.createPool = function(options)
     pool.dbindexes = {};
     pool.dbcache = {};
     pool.metrics = new metrics.Metrics('name', pool.name);
-    [ 'dbinit', 'dboptions'].forEach(function(x) { if (core.typeName(pool[x]) != "object") pool[x] = {}; });
+    [ 'dbinit', 'dboptions'].forEach(function(x) { if (corelib.typeName(pool[x]) != "object") pool[x] = {}; });
     [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
     if (!pool.type) pool.type = "unknown";
     this.pools[pool.name] = pool;
@@ -691,7 +692,7 @@ db.query = function(req, options, callback)
 
                     // Make sure no duplicates
                     if (options.unique) {
-                        items = core.arrayUnique(items, options.unique);
+                        items = corelib.arrayUnique(items, options.unique);
                     }
 
                     // With total we only have one property 'count'
@@ -707,7 +708,7 @@ db.query = function(req, options, callback)
                             // Convert from JSON type
                             if (options.noJson && col.type == "json") {
                                 rows.forEach(function(row) {
-                                    if (typeof row[p] == "string" && row[p]) row[p] = core.jsonParse(row[p], { logging : 1 });
+                                    if (typeof row[p] == "string" && row[p]) row[p] = corelib.jsonParse(row[p], { logging : 1 });
                                 });
                             }
                             // Extract joined values and place into separate columns
@@ -829,7 +830,7 @@ db.update = function(table, obj, options, callback)
 // The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
 // to finish due to sequential update every record one by one.
 // Special properties that can be in the options for this call:
-//   - concurrency - how many update queries to execute at the same time, default is 1, this is done by using core.forEachLimit.
+//   - concurrency - how many update queries to execute at the same time, default is 1, this is done by using corelib.forEachLimit.
 //   - process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
 //      in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 //      as `options.process(row, options)`
@@ -842,7 +843,7 @@ db.update = function(table, obj, options, callback)
 //                      { ops: { birthday: "not null" },
 //                        concurrency: 2,
 //                        process: function(r, o) {
-//                              r.birthday = core.strftime(new Date(r.birthday, "%Y-%m-D"));
+//                              r.birthday = corelib.strftime(new Date(r.birthday, "%Y-%m-D"));
 //                        } },
 //                        function(err, rows) {
 //          });
@@ -862,7 +863,7 @@ db.updateAll = function(table, query, obj, options, callback)
         if (err) return callback ? callback(err) : null;
 
         options.ops = {};
-        core.forEachLimit(rows, options.concurrency || 1, function(row, next) {
+        corelib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             for (var p in obj) row[p] = obj[p];
             if (options && options.process) options.process(row, options);
             self.update(table, row, options, next);
@@ -915,7 +916,7 @@ db.del = function(table, obj, options, callback)
 // Delete all records that match given condition, one by one, the input is the same as for `db.select` and every record
 // returned will be deleted using `db.del` call. The callback will receive on completion the err and all rows found and deleted.
 // Special properties that can be in the options for this call:
-// - concurrency - how many delete requests to execute at the same time by using core.forEachLimit.
+// - concurrency - how many delete requests to execute at the same time by using corelib.forEachLimit.
 // - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 //   in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 //   as `options.process(row, options)`
@@ -931,11 +932,11 @@ db.delAll = function(table, query, options, callback)
     if (pool.delAll && !options.process) return pool.delAll(table, query, options, callback);
 
     // Options without ops for delete
-    var opts = core.cloneObj(options, 'ops', {});
+    var opts = corelib.cloneObj(options, 'ops', {});
     self.select(table, query, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
 
-        core.forEachLimit(rows, options.concurrency || 1, function(row, next) {
+        corelib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             if (options && options.process) options.process(row, opts);
             self.del(table, row, opts, next);
         }, function(err) {
@@ -987,7 +988,7 @@ db.replace = function(table, obj, options, callback)
     }
 
     // Create deep copy of the object so we have it complete inside the callback
-    obj = core.cloneObj(obj);
+    obj = corelib.cloneObj(obj);
 
     self.query(req, options, function(err, rows) {
         if (err) return callback ? callback(err, []) : null;
@@ -995,7 +996,7 @@ db.replace = function(table, obj, options, callback)
         logger.debug('db.replace:', req, rows.length);
         if (rows.length) {
             // Skip update if specified or mtime is less or equal
-            if (options.add_only || (select == options.check_mtime && core.toDate(rows[0][options.check_mtime]) >= core.toDate(obj[options.check_mtime]))) {
+            if (options.add_only || (select == options.check_mtime && corelib.toDate(rows[0][options.check_mtime]) >= corelib.toDate(obj[options.check_mtime]))) {
                 return callback ? callback(null, []) : null;
             }
             // Verify all fields by value
@@ -1022,14 +1023,14 @@ db.list = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
 
-    switch (core.typeName(query)) {
+    switch (corelib.typeName(query)) {
     case "string":
     case "array":
-        query = core.strSplit(query);
+        query = corelib.strSplit(query);
         if (typeof query[0] == "string") {
             var keys = this.getKeys(table, options);
             if (!keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
-            query = query.map(function(x) { return core.newObj(keys[0], x) });
+            query = query.map(function(x) { return corelib.newObj(keys[0], x) });
         }
         break;
 
@@ -1063,7 +1064,7 @@ db.batch = function(table, op, objs, options, callback)
     if (pool.batch) return pool.batch(table, op, objs, options, callback);
     var info = [];
 
-    core.forEachLimit(objs, options.concurrency || 1, function(obj, next) {
+    corelib.forEachLimit(objs, options.concurrency || 1, function(obj, next) {
         db[op](table, obj, options, function(err) {
             if (err && options.ignore_error) {
                 info.push([ err, obj ]);
@@ -1107,7 +1108,7 @@ db.scan = function(table, query, options, rowCallback, endCallback)
     options.start = "";
     if (typeof options.noprocessrows == "undefined") options.noprocessrows = 1;
 
-    core.whilst(
+    corelib.whilst(
       function() {
           return options.start != null;
       },
@@ -1118,7 +1119,7 @@ db.scan = function(table, query, options, rowCallback, endCallback)
               if (options.batch) {
                   rowCallback(rows, next);
               } else {
-                  core.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next);
+                  corelib.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next);
               }
           });
       }, endCallback);
@@ -1141,7 +1142,7 @@ db.migrate = function(table, options, callback)
     var tmptable = table + "_tmp";
     var obj = pool.dbtables[table];
 
-    core.series([
+    corelib.series([
         function(next) {
             if (!pool.dbcolumns[tmptable]) return next();
             db.drop(tmptable, { pool: options.tmppool }, next);
@@ -1318,13 +1319,13 @@ db.getLocations = function(table, query, options, callback)
 
     // New location search
     if (!options.geohash) {
-        options.count = options.gcount = core.toNumber(options.count, 0, 10, 0, 50);
+        options.count = options.gcount = corelib.toNumber(options.count, 0, 10, 0, 50);
         options.geokey = lcols[0] = options.geokey && cols[options.geokey] ? options.geokey : 'geohash';
-        options.distance = core.toNumber(query.distance, 0, core.minDistance, 0, 999);
+        options.distance = corelib.toNumber(query.distance, 0, options.minDistance || 1, 0, 999);
         options.start = null;
         // Have to maintain sorting order for pagination
         if (!options.sort && keys.length > 1) options.sort = keys[1];
-        var geo = core.geoHash(query.latitude, query.longitude, { distance: options.distance });
+        var geo = corelib.geoHash(query.latitude, query.longitude, { distance: options.distance, minDistance: options.minDistance });
         for (var p in geo) options[p] = geo[p];
         query[options.geokey] = geo.geohash;
         options.gquery = query;
@@ -1338,7 +1339,7 @@ db.getLocations = function(table, query, options, callback)
     logger.debug('getLocations:', table, 'OBJ:', query, 'GEO:', options.geokey, options.geohash, options.distance, 'km', 'START:', options.start, 'COUNT:', options.count, 'NEIGHBORS:', options.neighbors);
 
     // Collect all matching records until specified count
-    core.doWhilst(
+    corelib.doWhilst(
       function(next) {
           db.select(table, query, options, function(err, items, info) {
               if (err) return next(err);
@@ -1348,7 +1349,7 @@ db.getLocations = function(table, query, options, callback)
 
               // If no coordinates but only geohash decode it
               items.forEach(function(row) {
-                  row.distance = core.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
+                  row.distance = corelib.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
                   if (row.distance == null) return;
                   // Limit the distance within the allowed range
                   if (options.round > 0 && row.distance - options.distance > options.round) return;
@@ -1512,7 +1513,7 @@ db.getCached = function(op, table, query, options, callback)
     this.getCache(table, query, options, function(rc) {
         m.end();
         // Cached value retrieved
-        if (rc) rc = core.jsonParse(rc);
+        if (rc) rc = corelib.jsonParse(rc);
         // Parse errors treated as miss
         if (rc) {
             pool.metrics.Counter("hits").inc();
@@ -1541,7 +1542,7 @@ db.getCache = function(table, query, options, callback)
 db.putCache = function(table, obj, options)
 {
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, obj, options);
-    if (key) ipc.put(key, core.stringify(obj), options);
+    if (key) ipc.put(key, corelib.stringify(obj), options);
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
@@ -1662,7 +1663,7 @@ db.prepare = function(op, table, obj, options)
     if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
 
     // Keep an object in the format we support
-    if (["object","string","array"].indexOf(core.typeName(obj)) == -1) obj = {};
+    if (["object","string","array"].indexOf(corelib.typeName(obj)) == -1) obj = {};
 
     // Process special columns
     var keys = pool.dbkeys[table.toLowerCase()] || [];
@@ -1677,14 +1678,14 @@ db.prepare = function(op, table, obj, options)
             // Counters must have default value or use 0 is implied
             if (typeof obj[p] == "undefined") {
                 if (cols[p].type == "counter") obj[p] = 0;
-                if (cols[p].type == "uuid") obj[p] = core.uuid();
+                if (cols[p].type == "uuid") obj[p] = corelib.uuid();
             }
         }
 
     case "incr":
         // All values must be numbers
         for (var p in cols) {
-            if (typeof obj[p] != "undefined" && cols[p].type == "counter") obj[p] = core.toNumber(obj[p]);
+            if (typeof obj[p] != "undefined" && cols[p].type == "counter") obj[p] = corelib.toNumber(obj[p]);
         }
 
     case "update":
@@ -1707,7 +1708,7 @@ db.prepare = function(op, table, obj, options)
                 // Handle json separately in sync with processRows
                 if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
                 // Convert into native data type
-                if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = core.toValue(v, col.type);
+                if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = corelib.toValue(v, col.type);
                 // Verify against allowed values
                 if (Array.isArray(col.values) && col.values.indexOf(String(v)) == -1) continue;
                 // The field is combined from several values contatenated for complex primary keys
@@ -1729,7 +1730,7 @@ db.prepare = function(op, table, obj, options)
             var col = cols[p];
             if (!col) continue;
             // Convert into native data type
-            if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = core.toValue(v, col.type);
+            if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = corelib.toValue(v, col.type);
             // The field is combined from several values contatenated for complex primary keys
             if (col.join && typeof obj[p] != "undefined") v = col.join.map(function(x) { return obj[x] || "" }).join("|");
             o[p] = v;
@@ -1745,7 +1746,7 @@ db.prepare = function(op, table, obj, options)
                 case "between":
                     if (obj[p] && !Array.isArray(obj[p])) {
                         var type = cols[p] ? cols[p].type : "";
-                        obj[p] = core.strSplit(obj[p], null, core.isNumeric(type));
+                        obj[p] = corelib.strSplit(obj[p], null, corelib.isNumeric(type));
                     }
                     break;
                 }
@@ -1756,8 +1757,8 @@ db.prepare = function(op, table, obj, options)
         // that strict and can be more arrays which we should not convert due to options.ops
         if (options.strictTypes) {
             for (var p in cols) {
-                if (core.isNumeric(cols[p].type)) {
-                    if (typeof obj[p] == "string") obj[p] = core.toNumber(obj[p]);
+                if (corelib.isNumeric(cols[p].type)) {
+                    if (typeof obj[p] == "string") obj[p] = corelib.toNumber(obj[p]);
                 } else {
                     if (typeof obj[p] == "number") obj[p] = String(obj[p]);
                 }
@@ -1792,7 +1793,7 @@ db.getOptions = function(table, options)
 {
     if (options && options._merged) return options;
     var pool = this.getPool(table, options);
-    options = core.mergeObj(pool.dboptions, options);
+    options = corelib.mergeObj(pool.dboptions, options);
     options._merged = 1;
     return options;
 }
@@ -1850,7 +1851,7 @@ db.getSelectedColumns = function(table, options)
     var select = [];
     if (options.select && options.select.length) {
         var cols = this.getColumns(table, options);
-        options.select = core.strSplitUnique(options.select);
+        options.select = corelib.strSplitUnique(options.select);
         select = Object.keys(cols).filter(function(x) { return !self.skipColumn(x, "", options, cols) && options.select.indexOf(x) > -1; });
     } else
     if (options.skip_columns) {
@@ -1886,7 +1887,7 @@ db.filterColumns = function(obj, rows, options)
     // Keep rows which satisfy all conditions
     return rows.filter(function(row) {
         return (options.keys || []).every(function(name) {
-            return core.isTrue(row[name], obj[name], options.ops[name], options.typesMap[name] || (options.cols[name] || {}).type);
+            return corelib.isTrue(row[name], obj[name], options.ops[name], options.typesMap[name] || (options.cols[name] || {}).type);
         });
     });
 }
@@ -2000,7 +2001,7 @@ db.mergeKeys = function(pool)
     var dbcolumns = pool.dbcolumns;
     var dbkeys = pool.dbkeys;
     for (var table in dbcolumns) {
-        if (!dbkeys[table]) dbkeys[table] = core.searchObj(dbcolumns[table], { name: 'primary', sort: 1, names: 1 });
+        if (!dbkeys[table]) dbkeys[table] = corelib.searchObj(dbcolumns[table], { name: 'primary', sort: 1, names: 1 });
     }
 }
 
@@ -2045,7 +2046,7 @@ db.processRows = function(pool, table, rows, options)
 //  Example
 //
 //      db.setProcessRow("bk_account", function(row, opts, cols) {
-//          if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+//          if (row.birthday) row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
 //      });
 //
 //      db.setProcessRow("bk_icon", function(row, opts, cols) {
@@ -2078,14 +2079,14 @@ db.sqlInitPool = function(options)
     options.pooling = true;
     // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
     var dboptions = { sql: true, schema: [], typesMap: { counter: "int", bigint: "int", smallint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
-    options.dboptions = core.mergeObj(dboptions, options.dboptions);
+    options.dboptions = corelib.mergeObj(dboptions, options.dboptions);
     var pool = this.createPool(options);
 
     // Execute initial statements to setup the environment, like pragmas
     pool.setup = function(client, callback) {
         var me = this;
         var init = Array.isArray(options.init) ? options.init : [];
-        core.forEachSeries(init, function(sql, next) {
+        corelib.forEachSeries(init, function(sql, next) {
             client.query(sql, next);
         }, function(err) {
             if (err) logger.error('db.setup:', me.name, err);
@@ -2109,7 +2110,7 @@ db.sqlInitPool = function(options)
             client.query(req.text, req.values, opts, callback);
         }  else {
             var rows = [];
-            core.forEachSeries(req.text, function(text, next) {
+            corelib.forEachSeries(req.text, function(text, next) {
                 client.query(text, null, opts, function(err, rc) { if (rc) rows = rc; next(err); });
             }, function(err) {
                 callback(err, rows);
@@ -2118,7 +2119,7 @@ db.sqlInitPool = function(options)
     }
     // Support for pagination, for SQL this is the OFFSET for the next request
     pool.nextToken = function(client, req, rows, opts) {
-        return  opts.count && rows.length == opts.count ? core.toNumber(opts.start) + core.toNumber(opts.count) : null;
+        return  opts.count && rows.length == opts.count ? corelib.toNumber(opts.start) + corelib.toNumber(opts.count) : null;
     }
     return pool;
 }
@@ -2205,13 +2206,13 @@ db.sqlPrepare = function(op, table, obj, options)
         req = this.sqlDrop(table, obj, options);
         break;
     case "get":
-        req = this.sqlSelect(table, obj, core.extendObj(options, "count", 1, "keys", this.getKeys(table, options)));
+        req = this.sqlSelect(table, obj, corelib.extendObj(options, "count", 1, "keys", this.getKeys(table, options)));
         break;
     case "add":
         req = this.sqlInsert(table, obj, options);
         break;
     case "put":
-        req = this.sqlInsert(table, obj, core.extendObj(options, "replace", !options.noReplace));
+        req = this.sqlInsert(table, obj, corelib.extendObj(options, "replace", !options.noReplace));
         break;
     case "incr":
         req = this.sqlUpdate(table, obj, options);
@@ -2242,7 +2243,7 @@ db.sqlValue = function(value, type, dflt, min, max)
 {
     var self = this;
     if (value == "null") return "NULL";
-    switch ((type || core.typeName(value))) {
+    switch ((type || corelib.typeName(value))) {
     case "expr":
     case "buffer":
         return value;
@@ -2250,7 +2251,7 @@ db.sqlValue = function(value, type, dflt, min, max)
     case "real":
     case "float":
     case "double":
-        return core.toNumber(value, true, dflt, min, max);
+        return corelib.toNumber(value, true, dflt, min, max);
 
     case "int":
     case "bigint":
@@ -2258,11 +2259,11 @@ db.sqlValue = function(value, type, dflt, min, max)
     case "integer":
     case "number":
     case "counter":
-        return core.toNumber(value, null, dflt, min, max);
+        return corelib.toNumber(value, null, dflt, min, max);
 
     case "bool":
     case "boolean":
-        return core.toBool(value);
+        return corelib.toBool(value);
 
     case "date":
         return this.sqlQuote((new Date(value)).toISOString());
@@ -2305,7 +2306,7 @@ db.sqlExpr = function(name, value, options)
     case "in":
         var list = [];
         // Convert type into array
-        switch (core.typeName(value)) {
+        switch (corelib.typeName(value)) {
         case "object":
             for (var p in value) list.push(value[p]);
             break;
@@ -2336,7 +2337,7 @@ db.sqlExpr = function(name, value, options)
     case "not between":
         // If we cannot parse out 2 values, treat this as exact operator
         var list = [];
-        switch (core.typeName(value)) {
+        switch (corelib.typeName(value)) {
         case "array":
             list = value;
             break;
@@ -2369,7 +2370,7 @@ db.sqlExpr = function(name, value, options)
         break;
 
     case '@@':
-        switch (core.typeName(value)) {
+        switch (corelib.typeName(value)) {
         case "string":
             if (value.indexOf('|') > -1) {
                 value = value.split('|');
@@ -2563,15 +2564,15 @@ db.sqlLimit = function(options)
     ["", "1", "2"].forEach(function(x) {
         var sort = options['sort' + x];
         if (!sort) return;
-        var desc = core.toBool(options['desc' + x]);
+        var desc = corelib.toBool(options['desc' + x]);
         orderby += (orderby ? "," : "") + sort + (desc ? " DESC" : "");
     });
     if (orderby) rc += " ORDER BY " + orderby;
 
     // Limit clause
-    var page = core.toNumber(options.page, false, 0, 0);
-    var count = core.toNumber(options.count, false, 50, 0);
-    var start = core.toNumber(options.start, false, 0, 0);
+    var page = corelib.toNumber(options.page, false, 0, 0);
+    var count = corelib.toNumber(options.count, false, 50, 0);
+    var start = corelib.toNumber(options.start, false, 0, 0);
     if (count) {
         rc += " LIMIT " + count;
     }
@@ -2609,7 +2610,7 @@ db.sqlWhere = function(table, query, keys, options)
         return query.map(function(x) { return "(" + keys.map(function(y) { return y + "=" + self.sqlQuote(self.getBindValue(table, options, x[y])) }).join(" AND ") + ")" }).join(" OR ");
     }
     // Regular object with conditions
-    var opts = core.cloneObj(options);
+    var opts = corelib.cloneObj(options);
     var where = [], c = {};
     (keys || []).forEach(function(k) {
         if (k[0] == "_") return;
@@ -2621,7 +2622,7 @@ db.sqlWhere = function(table, query, keys, options)
         if (!opts.op && v == null) opts.op = "null";
         if (!opts.op && Array.isArray(v)) opts.op = "in";
         if (options.opsMap && options.opsMap[opts.op]) opts.op = options.opsMap[opts.op];
-        if (options.typesMap && options.typesMap[opts.type]) type = options.typesMap[opts.type];
+        if (options.typesMap && options.typesMap[opts.type]) opts.type = options.typesMap[opts.type];
         var sql = self.sqlExpr(k, v, opts);
         if (sql) where.push(sql);
     });
@@ -2701,7 +2702,7 @@ db.sqlCreate = function(table, obj, options)
 db.sqlUpgrade = function(table, obj, options)
 {
     var self = this;
-    return this.sqlCreate(table, obj, core.cloneObj(options, "upgrade", 1));
+    return this.sqlCreate(table, obj, corelib.cloneObj(options, "upgrade", 1));
 }
 
 // Create SQL DROP TABLE statement
@@ -2757,7 +2758,7 @@ db.sqlInsert = function(table, obj, options)
         // Avoid int parse errors with empty strings
         if ((v === "null" || v === "") && ["number","json"].indexOf(col.db_type) > -1) v = null;
         // Pass number as number, some databases strict about this
-        if (v && col.db_type == "number" && typeof v != "number") v = core.toNumber(v);
+        if (v && col.db_type == "number" && typeof v != "number") v = corelib.toNumber(v);
         names.push(p);
         pnums.push(options.sqlPlaceholder || ("$" + i));
         v = this.getBindValue(table, options, v, col);
@@ -2796,7 +2797,7 @@ db.sqlUpdate = function(table, obj, options)
         // Avoid int parse errors with empty strings
         if ((v === "null" || v === "") && ["number","json"].indexOf(col.db_type) > -1) v = null;
         // Pass number as number, some databases strict about this
-        if (v && col.db_type == "number" && typeof v != "number") v = core.toNumber(v);
+        if (v && col.db_type == "number" && typeof v != "number") v = corelib.toNumber(v);
         var placeholder = (options.sqlPlaceholder || ("$" + i));
         // Update only if the value is null, otherwise skip
         if (options.coalesce && options.coalesce.indexOf(p) > -1) {
@@ -2829,7 +2830,7 @@ db.sqlUpdate = function(table, obj, options)
     if (options.returning) req.text += " RETURNING " + options.returning;
     if (options.expected) {
         var expected = Object.keys(options.expected).
-                              filter(function(x) { return ["string","number"].indexOf(core.typeName(options.expected[x])) > -1 }).
+                              filter(function(x) { return ["string","number"].indexOf(corelib.typeName(options.expected[x])) > -1 }).
                               map(function(x) { return x + "=" + self.sqlValue(options.expected[x]) }).
                               join(" AND ");
         if (expected) req.text += " IF " + expected;

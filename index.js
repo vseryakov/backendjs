@@ -5,6 +5,7 @@
 
 exports.utils = require(__dirname + '/build/Release/backend');
 exports.core = require(__dirname + '/core');
+exports.corelib = require(__dirname + '/corelib');
 exports.logger = require(__dirname + '/logger');
 exports.ipc = require(__dirname + '/ipc');
 exports.aws = require(__dirname + '/aws');
@@ -17,6 +18,7 @@ exports.app = require(__dirname + '/app');
 exports.run = function(callback) { this.core.run(callback); }
 
 exports.core.addModule('logger', exports.logger,
+                       'corelib', exports.corelib,
                        'ipc', exports.ipc,
                        'db', exports.db,
                        'aws', exports.aws,
@@ -27,4 +29,4 @@ exports.core.addModule('logger', exports.logger,
                        'app', exports.app);
 
 // Load all submodules after we have all singletons ready
-exports.core.findFileSync(__dirname + "/lib", { include: new RegExp(/\.js$/) }).forEach(function(file) { require(file); });
+exports.corelib.findFileSync(__dirname + "/lib", { include: new RegExp(/\.js$/) }).forEach(function(file) { require(file); });

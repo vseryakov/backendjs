@@ -13,6 +13,7 @@ var path = require('path');
 var child_process = require('child_process');
 var bkjs = require('backendjs')
 core = bkjs.core;
+corelib = bkjs.corelib;
 ipc = bkjs.ipc;
 api = bkjs.api;
 db = bkjs.db;
@@ -45,20 +46,20 @@ var tests = {
 tests.account = function(callback)
 {
     var myid, otherid;
-    var login = core.random();
-	var secret = login;
-    var gender = ['m','f'][core.randomInt(0,1)];
-    var bday = new Date(core.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
-    var latitude = core.randomNum(this.bbox[0], this.bbox[2]);
-    var longitude = core.randomNum(this.bbox[1], this.bbox[3]);
-    var name = core.toTitle(gender == 'm' ? males[core.randomInt(0, males.length - 1)] : females[core.randomInt(0, females.length - 1)]);
+    var login = corelib.random();
+    var secret = login;
+    var gender = ['m','f'][corelib.randomInt(0,1)];
+    var bday = new Date(corelib.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
+    var latitude = corelib.randomNum(this.bbox[0], this.bbox[2]);
+    var longitude = corelib.randomNum(this.bbox[1], this.bbox[3]);
+    var name = corelib.toTitle(gender == 'm' ? males[corelib.randomInt(0, males.length - 1)] : females[corelib.randomInt(0, females.length - 1)]);
     var email = "test@test.com"
     var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
     var msgs = null, icons = [];
 
-    core.series([
+    corelib.series([
         function(next) {
-            var query = { login: login, secret: secret, name: name, gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
+            var query = { login: login, secret: secret, name: name, gender: gender, birthday: corelib.strftime(bday, "%Y-%m-%d") }
             core.sendRequest({ url: "/account/add", sign: false, query: query }, function(err, params) {
                 next(err);
             });
@@ -70,14 +71,14 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var query = { login: login + 'other', secret: secret, name: name + ' Other', gender: gender, birthday: core.strftime(bday, "%Y-%m-%d") }
+            var query = { login: login + 'other', secret: secret, name: name + ' Other', gender: gender, birthday: corelib.strftime(bday, "%Y-%m-%d") }
             core.sendRequest({ url: "/account/add", sign: false, query: query }, function(err, params) {
                 otherid = params.obj.id;
                 next(err);
             });
         },
         function(next) {
-            var query = { login: login, secret: secret, name: name, gender: gender, email: email, birthday: core.strftime(bday, "%Y-%m-%d") }
+            var query = { login: login, secret: secret, name: name, gender: gender, email: email, birthday: corelib.strftime(bday, "%Y-%m-%d") }
             for (var i = 1; i < process.argv.length - 1; i++) {
                 var d = process.argv[i].match(/^\-account\-(.+)$/);
                 if (!d) continue;
@@ -96,8 +97,8 @@ tests.account = function(callback)
             if (!icons.length) return next();
             // Add all icons from the files
             var type = 0;
-            core.forEachSeries(icons, function(icon, next2) {
-                icon = core.readFileSync(icon, { encoding : "base64" });
+            corelib.forEachSeries(icons, function(icon, next2) {
+                icon = corelib.readFileSync(icon, { encoding : "base64" });
                 var options = { url: "/account/put/icon", login: login, secret: secret, method: "POST", postdata: { icon: icon, type: type++, acl_allow: "allow" }  }
                 core.sendRequest(options, function(err, params) {
                     next2(err);
@@ -318,25 +319,25 @@ tests.resetTables = function(tables, callback)
 
 tests.location = function(callback)
 {
-	var self = this;
-	var tables = {
-			geo: { geohash: { primary: 1, index: 1, semipub: 1 },
-			       id: { type: "int", primary: 1, pub: 1 },
+    var self = this;
+    var tables = {
+            geo: { geohash: { primary: 1, index: 1, semipub: 1 },
+                   id: { type: "int", primary: 1, pub: 1 },
                    latitude: { type: "real", semipub: 1, projection: 1 },
                    longitude: { type: "real", semipub: 1, projection: 1 },
                    distance: { type: "real" },
                    rank: { type: 'int', index: 1 },
                    status: { value: 'good', projection: 1 },
-			       mtime: { type: "bigint", now: 1 }
-			},
-	};
-	var bbox = this.bbox;
+                   mtime: { type: "bigint", now: 1 }
+            },
+    };
+    var bbox = this.bbox;
     var rows = core.getArgInt("-rows", 10);
     var distance = core.getArgInt("-distance", 25);
     var round = core.getArgInt("-round", 0);
     var reset = core.getArgInt("-reset", 1);
-    var latitude = core.getArgInt("-lat", core.randomNum(bbox[0], bbox[2]))
-    var longitude = core.getArgInt("-lon", core.randomNum(bbox[1], bbox[3]))
+    var latitude = core.getArgInt("-lat", corelib.randomNum(bbox[0], bbox[2]))
+    var longitude = core.getArgInt("-lon", corelib.randomNum(bbox[1], bbox[3]))
 
     var rc = [], top = {}, bad = 0, good = 0, error = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
@@ -344,58 +345,58 @@ tests.location = function(callback)
     bbox = bkjs.utils.geoBoundingBox(latitude, longitude, distance);
     // To get all neighbors, we can only guarantee searches in the neighboring areas, even if the distance is within it
     // still can be in the box outside of the immediate neighbors, minDistance is an approximation
-    var geo = core.geoHash(latitude, longitude, { distance: distance });
+    var geo = corelib.geoHash(latitude, longitude, { distance: distance });
 
-    core.series([
+    corelib.series([
         function(next) {
             if (!cluster.isMaster && !reset) return next();
             self.resetTables(tables, next);
         },
         function(next) {
             if (!reset) return next();
-        	core.whilst(
-        		function () { return good < rows + count; },
-        		function (next2) {
-        		    var lat = core.randomNum(bbox[0], bbox[2]);
-        		    var lon = core.randomNum(bbox[1], bbox[3]);
-        		    var obj = core.geoHash(lat, lon);
-                    obj.distance = core.geoDistance(latitude, longitude, lat, lon, { round: round });
+            corelib.whilst(
+                function () { return good < rows + count; },
+                function (next2) {
+                    var lat = corelib.randomNum(bbox[0], bbox[2]);
+                    var lon = corelib.randomNum(bbox[1], bbox[3]);
+                    var obj = corelib.geoHash(lat, lon);
+                    obj.distance = corelib.geoDistance(latitude, longitude, lat, lon, { round: round });
                     if (obj.distance == null || obj.distance > distance) return next2();
                     // Make sure its in the neighbors
                     if (geo.neighbors.indexOf(obj.geohash) == -1) return next2();
                     // Create several records in the same geohash box
                     if (good > rows && ghash != obj.geohash) return next2();
                     good++;
-        		    obj.id = String(good);
-        		    obj.rank = good;
+                    obj.id = String(good);
+                    obj.rank = good;
                     ghash = obj.geohash;
-        		    db.add("geo", obj, { silence_error: 1 }, function(err) {
-        		        if (!err) {
-      	                    // Keep track of all records by area for top search by rank
-        		            if (!top[obj.geohash]) top[obj.geohash] = [];
+                    db.add("geo", obj, { silence_error: 1 }, function(err) {
+                        if (!err) {
+                            // Keep track of all records by area for top search by rank
+                            if (!top[obj.geohash]) top[obj.geohash] = [];
                             top[obj.geohash].push(obj.rank);
-        		        } else {
-        		            good--;
-        		            if (error++ < 10) err = null;
-        		        }
-        		        next2(err);
-        		    });
-        		},
-        		function(err) {
-        		    next(err);
-        		});
+                        } else {
+                            good--;
+                            if (error++ < 10) err = null;
+                        }
+                        next2(err);
+                    });
+                },
+                function(err) {
+                    next(err);
+                });
         },
         function(next) {
             if (!reset) return next();
             // Records beyond our distance
             bad = good;
-            core.whilst(
+            corelib.whilst(
                 function () { return bad < good + count; },
                 function (next2) {
-                    var lat = core.randomNum(bbox[0], bbox[2]);
-                    var lon = core.randomNum(bbox[1], bbox[3]);
-                    var obj = core.geoHash(lat, lon);
-                    obj.distance = core.geoDistance(latitude, longitude, lat, lon, { round: round });
+                    var lat = corelib.randomNum(bbox[0], bbox[2]);
+                    var lon = corelib.randomNum(bbox[1], bbox[3]);
+                    var obj = corelib.geoHash(lat, lon);
+                    obj.distance = corelib.geoDistance(latitude, longitude, lat, lon, { round: round });
                     if (obj.distance == null || obj.distance <= distance || obj.distance > distance*2) return next2();
                     bad++;
                     obj.id = String(bad);
@@ -417,7 +418,7 @@ tests.location = function(callback)
             // Scan all locations, do it in small chunks to verify we can continue within the same geohash area
             var query = { latitude: latitude, longitude: longitude, distance: distance };
             var options = { count: gcount, round: round };
-            core.doWhilst(
+            corelib.doWhilst(
                 function(next2) {
                     db.getLocations("geo", query, options, function(err, rows, info) {
                         options = info.next_token;
@@ -468,46 +469,46 @@ tests.location = function(callback)
 
 tests.db = function(callback)
 {
-	var self = this;
-	var tables = {
-	        test1: { id: { primary: 1, pub: 1 },
-	                 num: { type: "int" },
-	                 num2: {},
-	                 num3: { join: ["id","num"] },
-	                 email: {} },
-			test2: { id: { primary: 1, pub: 1, index: 1 },
-			         id2: { primary: 1, projection: 1 },
-			         email: { projection: 1 },
-			         alias: { pub: 1 },
-			         birthday: { semipub: 1 },
-			         json: { type: "json" },
-			         num: { type: "int", index: 1, projection: 1 },
-			         num2: { type: "real" },
-			         mtime: { type: "int" } },
-			test3: { id : { primary: 1, pub: 1 },
-			         num: { type: "counter", value: 0, pub: 1 } },
-			test4: { id: { primary: 1, pub: 1 },
-	                 type: { pub: 1 } },
-	};
-	var now = Date.now();
-	var id = core.random(64);
-	var id2 = core.random(128);
-    var num2 = core.randomNum(this.bbox[0], this.bbox[2]);
-	var next_token = null;
+    var self = this;
+    var tables = {
+            test1: { id: { primary: 1, pub: 1 },
+                     num: { type: "int" },
+                     num2: {},
+                     num3: { join: ["id","num"] },
+                     email: {} },
+            test2: { id: { primary: 1, pub: 1, index: 1 },
+                     id2: { primary: 1, projection: 1 },
+                     email: { projection: 1 },
+                     alias: { pub: 1 },
+                     birthday: { semipub: 1 },
+                     json: { type: "json" },
+                     num: { type: "int", index: 1, projection: 1 },
+                     num2: { type: "real" },
+                     mtime: { type: "int" } },
+            test3: { id : { primary: 1, pub: 1 },
+                     num: { type: "counter", value: 0, pub: 1 } },
+            test4: { id: { primary: 1, pub: 1 },
+                     type: { pub: 1 } },
+    };
+    var now = Date.now();
+    var id = corelib.random(64);
+    var id2 = corelib.random(128);
+    var num2 = corelib.randomNum(this.bbox[0], this.bbox[2]);
+    var next_token = null;
 
-	db.setProcessRow("test4", function(row, options, cols) {
-	    logger.log(row, options, cols)
-	    var type = row.type.split(":");
-	    row.type = type[0];
-	    row.mtime = type[1];
+    db.setProcessRow("test4", function(row, options, cols) {
+        logger.log(row, options, cols)
+        var type = row.type.split(":");
+        row.type = type[0];
+        row.mtime = type[1];
         return row;
     });
 
-	core.series([
-	    function(next) {
-	         self.resetTables(tables, next);
-	    },
-	    function(next) {
+    corelib.series([
+        function(next) {
+             self.resetTables(tables, next);
+        },
+        function(next) {
             db.add("test1", { id: id, email: id, num: '1', num2: null, num3: 1, num4: 1 }, function(err) {
                 if (err) return next(err);
                 db.put("test1", { id: id2, email: id2, num: '2', num2: null, num3: 1 }, function(err) {
@@ -540,16 +541,16 @@ tests.db = function(callback)
                 core.checkTest(next, err, rows.length!=2 || !isok, "err3:", rows.length, isok, rows);
             });
         },
-	    function(next) {
-	    	db.add("test2", { id: id, id2: '1', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
-	    },
-	    function(next) {
-	    	db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: num2, mtime: now }, next);
-	    },
-	    function(next) {
-	    	db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 1, num2: num2, mtime: now }, next);
-	    },
-	    function(next) {
+        function(next) {
+            db.add("test2", { id: id, id2: '1', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
+        },
+        function(next) {
+            db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: num2, mtime: now }, next);
+        },
+        function(next) {
+            db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 1, num2: num2, mtime: now }, next);
+        },
+        function(next) {
             db.put("test3", { id: id2, num: 2, emai: id2 }, next);
         },
         function(next) {
@@ -563,7 +564,7 @@ tests.db = function(callback)
         function(next) {
             db.delAll("test1", { id: id }, next);
         },
-	    function(next) {
+        function(next) {
             db.select("test2", { id: id2 }, { filter: function(row, o) { return row.id2 == '1' } }, function(err, rows) {
                 core.checkTest(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", num2, rows);
             });
@@ -586,26 +587,26 @@ tests.db = function(callback)
                 core.checkTest(next, err, rows.length!=2, "err6:", rows);
             });
         },
-	    function(next) {
-	    	db.incr("test3", { id: id, num: 1 }, { mtime: 1 }, function(err) {
-	    	    if (err) return next(err);
-	    		db.incr("test3", { id: id, num: 2 }, function(err) {
-	    		    if (err) return next(err);
-	    		    db.incr("test3", { id: id, num: -1 }, next);
-	    		});
-	    	});
-	    },
-	    function(next) {
-	    	db.get("test3", { id: id }, function(err, row) {
-	    		core.checkTest(next, err, !row || row.id != id && row.num != 2, "err7:", row);
-	    	});
-	    },
-	    function(next) {
-	    	db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-	    		core.checkTest(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
-	    	});
-	    },
-	    function(next) {
+        function(next) {
+            db.incr("test3", { id: id, num: 1 }, { mtime: 1 }, function(err) {
+                if (err) return next(err);
+                db.incr("test3", { id: id, num: 2 }, function(err) {
+                    if (err) return next(err);
+                    db.incr("test3", { id: id, num: -1 }, next);
+                });
+            });
+        },
+        function(next) {
+            db.get("test3", { id: id }, function(err, row) {
+                core.checkTest(next, err, !row || row.id != id && row.num != 2, "err7:", row);
+            });
+        },
+        function(next) {
+            db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
+                core.checkTest(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
+            });
+        },
+        function(next) {
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
                 core.checkTest(next, err, rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2, "err8-1:", rows);
             });
@@ -620,26 +621,26 @@ tests.db = function(callback)
                 core.checkTest(next, err, rows.length!=2, "err8-3:", rows);
             });
         },
-	    function(next) {
-	    	db.update("test2", { id: id, id2: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
-	    	    if (err) return next(err);
-	    		db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
-	    	});
-	    },
-	    function(next) {
-	    	db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
-	    		core.checkTest(next, err, !row || row.id != id  || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json), "err9:", row);
-	    	});
-	    },
-	    function(next) {
-	    	now = Date.now();
-	    	db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, num2: 9, json: { a: 1, b: 2 }, mtime: now }, { check_data: 1 }, next);
-	    },
-	    function(next) {
-	    	db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, row) {
-	    		core.checkTest(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || core.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
-	    	});
-	    },
+        function(next) {
+            db.update("test2", { id: id, id2: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
+                if (err) return next(err);
+                db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
+            });
+        },
+        function(next) {
+            db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
+                core.checkTest(next, err, !row || row.id != id  || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json), "err9:", row);
+            });
+        },
+        function(next) {
+            now = Date.now();
+            db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, num2: 9, json: { a: 1, b: 2 }, mtime: now }, { check_data: 1 }, next);
+        },
+        function(next) {
+            db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, row) {
+                core.checkTest(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || corelib.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
+            });
+        },
         function(next) {
             db.update("test2", { id: id, id2: '1', mtime: now+1 }, next);
         },
@@ -648,26 +649,26 @@ tests.db = function(callback)
                 core.checkTest(next, err, !row || row.id != id  || row.email != id+"@test" || row.num != 9, "err9-2:", row);
             });
         },
-	    function(next) {
-	    	db.del("test2", { id: id2, id2: '1' }, next);
-	    },
-	    function(next) {
-	    	db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, row) {
-	    		core.checkTest(next, err, row, "del:", row);
-	    	});
-	    },
-	    function(next) {
-	    	core.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
-	    		db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, num: i, num2: i, mtime: now }, next2);
-	    	}, function(err) {
-	    		next(err);
-	    	});
-	    },
+        function(next) {
+            db.del("test2", { id: id2, id2: '1' }, next);
+        },
+        function(next) {
+            db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, row) {
+                core.checkTest(next, err, row, "del:", row);
+            });
+        },
+        function(next) {
+            corelib.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
+                db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, num: i, num2: i, mtime: now }, next2);
+            }, function(err) {
+                next(err);
+            });
+        },
         function(next) {
             // Check pagination
-	        var rc = [];
+            var rc = [];
             next_token = null;
-            core.forEachSeries([2, 3], function(n, next2) {
+            corelib.forEachSeries([2, 3], function(n, next2) {
                 db.select("test2", { id: id2 }, { sort: "id2", start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
                     rc.push.apply(rc, rows);
@@ -678,34 +679,34 @@ tests.db = function(callback)
                 var isok = db.pool == "redis" ? rc.length>=5 : rc.length==5 && (rc[0].id2 == 1 && rc[rc.length-1].id2 == 5);
                 core.checkTest(next, err, !isok, "err10:", rc.length, isok, rc, next_token);
             })
-	    },
-	    function(next) {
-	        // Check pagination with small page size with condition on the range key
-            next_token = null;
-	        core.forEachSeries([2, 3], function(n, next2) {
-	            db.select("test2", { id: id2, id2: '0' }, { sort: "id2", ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
-	                next_token = info.next_token;
-	                var isok = db.pool == "redis" ? rows.length>=n : rows.length==n;
-	                core.checkTest(next2, err, !isok || !info.next_token, "err11:", rows.length, n, info, rows);
-	            });
-	        },
-	        function(err) {
-	            if (err) return next(err);
-	            db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: 5, select: 'id,id2' }, function(err, rows, info) {
-	                next_token = info.next_token;
-	                var isnum = db.pool == "redis" ? rows.length>=3 : rows.length==4;
-	                var isok = rows.every(function(x) { return x.id2 > '0' });
-	                core.checkTest(next, err, !isnum || !isok, "err12:", isok, rows.length, rows, info);
-	            });
-	        });
         },
-	    function(next) {
-	        core.checkTest(next, null, next_token, "err13: next_token must be null", next_token);
-	    },
+        function(next) {
+            // Check pagination with small page size with condition on the range key
+            next_token = null;
+            corelib.forEachSeries([2, 3], function(n, next2) {
+                db.select("test2", { id: id2, id2: '0' }, { sort: "id2", ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
+                    next_token = info.next_token;
+                    var isok = db.pool == "redis" ? rows.length>=n : rows.length==n;
+                    core.checkTest(next2, err, !isok || !info.next_token, "err11:", rows.length, n, info, rows);
+                });
+            },
+            function(err) {
+                if (err) return next(err);
+                db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: 5, select: 'id,id2' }, function(err, rows, info) {
+                    next_token = info.next_token;
+                    var isnum = db.pool == "redis" ? rows.length>=3 : rows.length==4;
+                    var isok = rows.every(function(x) { return x.id2 > '0' });
+                    core.checkTest(next, err, !isnum || !isok, "err12:", isok, rows.length, rows, info);
+                });
+            });
+        },
+        function(next) {
+            core.checkTest(next, null, next_token, "err13: next_token must be null", next_token);
+        },
         function(next) {
             db.add("test2", { id: id, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
         },
-	    function(next) {
+        function(next) {
             // Select by primary key and other filter
             db.select("test2", { id: id, num: 9, num2: 9 }, {  ops: { num: 'ge', num2: 'ge' } }, function(err, rows, info) {
                 core.checkTest(next, err, rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
@@ -743,10 +744,10 @@ tests.db = function(callback)
                 core.checkTest(next, err, rows.length==0 || rows[0].num!=9 , "err18:", rows, info);
             });
         },
-	],
-	function(err) {
-		callback(err);
-	});
+    ],
+    function(err) {
+        callback(err);
+    });
 }
 
 tests.s3icon = function(callback)
@@ -755,7 +756,7 @@ tests.s3icon = function(callback)
     api.storeIconS3("../web/img/loading.gif", id, { prefix: "account" }, function(err) {
         var icon = api.iconPath(id, { prefix: "account" });
         aws.queryS3(api.imagesS3, icon, { file: "tmp/" + path.basename(icon) }, function(err, params) {
-            console.log('icon:', core.statSync(params.file));
+            console.log('icon:', corelib.statSync(params.file));
             callback(err);
         });
     });
@@ -813,13 +814,13 @@ tests.msg = function(callback)
         var sock = new bk.NNSocket(bk.AF_SP, bk.NN_PUB);
         sock.bind(addr);
 
-        core.whilst(
+        corelib.whilst(
            function () { return count > 0; },
            function (next) {
                count--;
-               sock.send(addr + ':' + core.random());
+               sock.send(addr + ':' + corelib.random());
                logger.log('publish:', sock, addr, count);
-               setTimeout(next, core.randomInt(1000));
+               setTimeout(next, corelib.randomInt(1000));
            },
            function(err) {
                sock.send("exit");
@@ -838,7 +839,7 @@ tests.cache = function(callback)
     if (!nworkers) logger.error("need -test-workers 1 argument");
 
     function run1(cb) {
-        core.series([
+        corelib.series([
            function(next) {
                ipc.put("a", "1");
                ipc.put("b", "1");
@@ -891,7 +892,7 @@ tests.cache = function(callback)
                 if (!err) return cb();
                 ipc.keys(function(keys) {
                     var vals = {};
-                    core.forEachSeries(keys || [], function(key, next) {
+                    corelib.forEachSeries(keys || [], function(key, next) {
                         ipc.get(key, function(val) { vals[key] = val; next(); })
                     }, function() {
                         logger.log("keys:", vals);
@@ -902,7 +903,7 @@ tests.cache = function(callback)
     }
 
     function run2(cb) {
-        core.series([
+        corelib.series([
            function(next) {
                ipc.get("a", function(val) {
                    core.checkTest(next, null, val!="4", "value must be 4, got", val)
@@ -979,7 +980,7 @@ tests.nndb = function(callback)
 
     } else {
         pool = db.nndbInitPool({ db: bind, socket: socket == "NN_REP" ? "NN_REQ" : "NN_PUSH" });
-        core.series([
+        corelib.series([
            function(next) {
                db.put("", { name: "1", value: 1 }, { pool: pool.name }, next);
            },
@@ -1010,7 +1011,7 @@ tests.pool = function(callback)
     }
     var list = [];
     var pool = core.createPool(options)
-    core.series([
+    corelib.series([
        function(next) {
            console.log('pool0:', pool.stats(), 'list:', list.length);
            for (var i = 0; i < 5; i++) {

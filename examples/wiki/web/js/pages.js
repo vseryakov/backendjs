@@ -81,7 +81,7 @@ Backendjs.pagesShow = function(data, event)
         Backendjs.pagesList([]);
         Backendjs.pagesToc(Backendjs.pagesRender ? row.toc : marked(row.toc, { renderer: Backendjs.pagesRenderer }));
         Backendjs.pagesTitle(marked(Backendjs.pagesRender ? row.title : row.title, { renderer: Backendjs.pagesRenderer }));
-        Backendjs.pagesContent(marked(Backendjs.pagesRender ? row.content : row.content, { renderer: Backendjs.pagesRenderer }));
+        Backendjs.pagesContent(Backendjs.pagesRender ? row.content : marked(row.content, { renderer: Backendjs.pagesRenderer }));
 
         $("a.pages-link").each(function() {
             var d = $(this).attr('href').match(/^\/pages\/show\/([a-z0-9]+)/);

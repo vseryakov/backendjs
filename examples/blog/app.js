@@ -4,6 +4,7 @@
 //
 var bkjs = require('backendjs');
 var core = bkjs.core;
+var corelib = bkjs.corelib;
 var db = bkjs.db;
 var api = bkjs.api;
 var app = bkjs.app;

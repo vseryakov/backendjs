@@ -16,8 +16,9 @@ var Backendjs = {
     persistent: false,
 
     // Scramble login, save HMACs for login/secret instead of actual values, a user still
-    // need to enter the real values but the browser will never store them, only hashes
-    scramble: false,
+    // need to enter the real values but the browser will never store them, only hashes.
+    // The value is: 0 - no scramble, 1 - scramble secret, 2 - scramble secret and login
+    scramble: 0,
 
     // Signature version
     sigversion: 4,
@@ -38,8 +39,8 @@ var Backendjs = {
     setCredentials: function(login, secret) {
         var obj = this.persistent ? localStorage : this;
         if (this.scramble) {
-            obj.backendjsLogin = login ? b64_hmac_sha1(login, login) : "";
-            obj.backendjsSecret = login && secret ? b64_hmac_sha1(login, secret) : "";
+            obj.backendjsLogin = login ? (this.scramble > 1 ? b64_hmac_sha1(String(login), String(login)) : String(login)) : "";
+            obj.backendjsSecret = login && secret ? b64_hmac_sha1(String(login), String(secret)) : "";
         } else {
             obj.backendjsLogin = login ? String(login) : "";
             obj.backendjsSecret = secret ? String(secret) : "";

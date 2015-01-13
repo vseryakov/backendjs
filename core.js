@@ -15,11 +15,11 @@ var https = require('https');
 var child = require('child_process');
 var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
+var corelib = require(__dirname + '/corelib');
 var cluster = require('cluster');
 var os = require('os');
 var emailjs = require('emailjs');
 var xml2json = require('xml2json');
-var uuid = require('uuid');
 var dns = require('dns');
 
 // The primary object containing all config options and common functions
@@ -113,11 +113,6 @@ var core = {
     // User agent
     userAgent: [],
 
-    // Geo min distance for the hash key, km
-    minDistance: 5,
-    // Max searchable distance, km
-    maxDistance: 50,
-
     // Inter-process messages
     deferTimeout: 50,
     lruMax: 100000,
@@ -140,7 +135,7 @@ var core = {
     subCallbacks: {},
 
     // Config parameters
-    args: [ { name: "help", type: "callback", callback: function() { core.showHelp() }, descr: "Print help and exit" },
+    args: [ { name: "help", type: "callback", callback: function() { this.showHelp() }, descr: "Print help and exit" },
             { name: "debug", type: "callback", callback: function(v) { logger.setDebug(v == "0" ? 'log' : 'debug'); }, descr: "Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable", pass: 1 },
             { name: "debug-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
             { name: "debug-run-segv", type: "callback", callback: function(v) { if(v) utils.runSEGV(); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
@@ -148,7 +143,7 @@ var core = {
             { name: "debug-set-backtrace", type: "callback", callback: function(v) { if(v) utils.setbacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
             { name: "log", type: "callback", callback: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
             { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
-            { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? this.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
+            { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? corelib.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
             { name: "console", type: "callback", callback: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
             { name: "home", type: "callback", callback: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "conf-file", descr: "Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path", pass: 1 },
@@ -233,10 +228,8 @@ var core = {
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access when using core.sendRequest" },
-            { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = this.domainName(this.hostName); }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
+            { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = corelib.domainName(this.hostName); }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
-            { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
-            { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
             { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
     ],
 }
@@ -289,13 +282,13 @@ core.init = function(options, callback)
     self.subnet = self.ipaddr.split(".").slice(0, 3).join(".");
     self.network = self.ipaddr.split(".").slice(0, 2).join(".");
     self.hostName = os.hostname().toLowerCase();
-    self.domain = self.domainName(self.hostName);
+    self.domain = corelib.domainName(self.hostName);
 
     // Load external modules
-    self.loadModules(core.path.modules, options);
+    self.loadModules(self.path.modules, options);
 
     // Serialize initialization procedure, run each function one after another
-    self.series([
+    corelib.series([
         function(next) {
             // Default config file, locate in the etc if just name is given
             if (self.confFile.indexOf("/") == -1) self.confFile = path.join(self.path.etc, self.confFile);
@@ -310,9 +303,9 @@ core.init = function(options, callback)
         // Application version from the package.json
         function(next) {
             if (!self.appName) {
-                var pkg = self.readFileSync("package.json", { json: 1 });
-                if (!pkg.version) pkg = self.readFileSync(self.cwd + "/package.json", { json: 1 });
-                if (!pkg.version) pkg = self.readFileSync(self.path.etc + "/../package.json", { json: 1 });
+                var pkg = corelib.readFileSync("package.json", { json: 1 });
+                if (!pkg.version) pkg = corelib.readFileSync(self.cwd + "/package.json", { json: 1 });
+                if (!pkg.version) pkg = corelib.readFileSync(self.path.etc + "/../package.json", { json: 1 });
                 if (pkg.name) self.appName = pkg.name;
                 if (pkg.version) self.appVersion = pkg.version;
                 if (pkg.description) self.appDescr = pkg.description;
@@ -340,8 +333,8 @@ core.init = function(options, callback)
             // Create all subfolders with permissions, run it before initializing db which may create files in the spool folder
             if (!cluster.isWorker && !self.worker) {
                 Object.keys(self.path).forEach(function(p) {
-                    self.mkdirSync(self.path[p]);
-                    self.chownSync(self.path[p]);
+                    corelib.mkdirSync(self.path[p]);
+                    corelib.chownSync(this.uid, this.gid, self.path[p]);
                 });
             }
             next();
@@ -368,7 +361,7 @@ core.init = function(options, callback)
         // Make sure spool and db files are owned by regular user, not the root
         function(next) {
             if (!cluster.isWorker && !self.worker && process.getuid() == 0) {
-                self.findFileSync(self.path.spool).forEach(function(p) { self.chownSync(p); });
+                corelib.findFileSync(self.path.spool).forEach(function(p) { corelib.chownSync(self.uid, self.gid, p); });
             }
             next();
         },
@@ -403,9 +396,6 @@ core.init = function(options, callback)
     });
 }
 
-// Empty function to be used when callback was no provided
-core.noop = function() {}
-
 // Run any backend function after environment has been initialized, this is to be used in shell scripts,
 // core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
 // default environment or pass -home dir so the script will reuse same config and paths as the server
@@ -436,20 +426,19 @@ core.exit = function(code, msg)
 // it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that.
 core.setHome = function(home)
 {
-    var self = this;
-    if ((home || self.home) && cluster.isMaster) {
-        if (home) self.home = path.resolve(home);
+    if ((home || this.home) && cluster.isMaster) {
+        if (home) this.home = path.resolve(home);
         // On create set permissions
-        if (self.makePathSync(self.home)) self.chownSync(self.home);
+        if (corelib.makePathSync(this.home)) corelib.chownSync(this.uid, this.gid, this.home);
         try {
-            process.chdir(self.home);
+            process.chdir(this.home);
         } catch(e) {
-            logger.error('setHome: cannot set home directory', self.home, e);
+            logger.error('setHome: cannot set home directory', this.home, e);
             process.exit(1);
         }
-        logger.dev('setHome:', self.home);
+        logger.dev('setHome:', this.home);
     }
-    self.home = process.cwd();
+    this.home = process.cwd();
 }
 
 // Parse config lines for the file or other place
@@ -564,13 +553,13 @@ core.processArgs = function(name, ctx, argv, pass)
 
                 // Place inside the object
                 if (x.obj) {
-                    obj = core.toCamel(x.obj);
+                    obj = corelib.toCamel(x.obj);
                     if (!ctx[obj]) ctx[obj] = {};
                     obj = ctx[obj];
                     // Strip the prefix if starts with the same name
                     kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
                 }
-                var key = self.toCamel(kname);
+                var key = corelib.toCamel(kname);
                 // Update case according to the pattern(s)
                 if (x.ucase) key = key.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
                 if (x.lcase) key = key.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });
@@ -596,21 +585,21 @@ core.processArgs = function(name, ctx, argv, pass)
                 case "none":
                     break;
                 case "bool":
-                    put(obj, key, !val ? true : self.toBool(val), x);
+                    put(obj, key, !val ? true : corelib.toBool(val), x);
                     break;
                 case "int":
                 case "real":
                 case "number":
-                    put(obj, key, self.toNumber(val, x.decimals, x.value, x.min, x.max), x);
+                    put(obj, key, corelib.toNumber(val, x.decimals, x.value, x.min, x.max), x);
                     break;
                 case "map":
-                    put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
+                    put(obj, key, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
                     break;
                 case "intmap":
-                    put(obj, key, self.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = self.toNumber(y[1]); return x }, {}), x);
+                    put(obj, key, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = corelib.toNumber(y[1]); return x }, {}), x);
                     break;
                 case "list":
-                    put(obj, key, self.strSplitUnique(val, x.separator), x);
+                    put(obj, key, corelib.strSplitUnique(val, x.separator), x);
                     break;
                 case "regexp":
                     put(obj, key, new RegExp(val), x);
@@ -619,11 +608,11 @@ core.processArgs = function(name, ctx, argv, pass)
                     if (val == "<null>") {
                         obj[key] = {};
                     } else {
-                        obj[key] = self.toRegexpMap(x.set ? null : obj[key], val, x.del);
+                        obj[key] = corelib.toRegexpMap(x.set ? null : obj[key], val, x.del);
                     }
                     break;
                 case "json":
-                    put(obj, key, self.jsonParse(val), x);
+                    put(obj, key, corelib.jsonParse(val), x);
                     break;
                 case "path":
                     // Check if it starts with local path, use the actual path not the current dir for such cases
@@ -711,7 +700,7 @@ core.showHelp = function(options)
     args.forEach(function(x) {
         x[1].forEach(function(y) {
             if (!y.name || !y.descr) return;
-            var dflt = y.match ? "" : ((x[0] ? self.modules[x[0]] : core)[self.toCamel(y.name)] || "");
+            var dflt = y.match ? "" : ((x[0] ? self.modules[x[0]] : core)[corelib.toCamel(y.name)] || "");
             var line = (x[0] ? x[0] + '-' : '') + (y.match ? 'NAME-' : '') + y.name + (options.markdown ? "`" : "") + " - " + y.descr + (dflt ? ". Default: " + JSON.stringify(dflt) : "");
             if (y.dns) line += ". DNS TXT configurable.";
             if (y.match) line += ". Where NAME is the actual " + y.match + " name.";
@@ -754,10 +743,10 @@ core.loadDnsConfig = function(options, callback)
         var ctx = self.modules[p];
         if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
     }
-    self.forEachSeries(args, function(ctx, next1) {
-        core.forEachLimit(ctx.args, 5, function(arg, next2) {
+    corelib.forEachSeries(args, function(ctx, next1) {
+        corelib.forEachLimit(ctx.args, 5, function(arg, next2) {
             var cname = ctx.name + arg.name;
-            self.series([
+            corelib.series([
                 function(next3) {
                     // Get DNS TXT record
                     if (!arg.dns) return next3();
@@ -774,251 +763,11 @@ core.loadDnsConfig = function(options, callback)
     }, callback);
 }
 
-// Encode with additional symbols, convert these into percent encoded:
-//
-//          ! -> %21, * -> %2A, ' -> %27, ( -> %28, ) -> %29
-core.encodeURIComponent = function(str)
-{
-    return encodeURIComponent(str).replace(/[!'()*]/g, function(m) {
-        return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m;
-    });
-}
-
-var efunc = function(m) { return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m; }
-
 // Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
 // making it usable for repeating environments or storage solutions.
 core.processName = function()
 {
     return (this.role || this.name) + this.workerId;
-}
-
-// Convert text into capitalized words
-core.toTitle = function(name)
-{
-    return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y[0].toUpperCase() + y.substr(1) + " "; }, "").trim();
-}
-
-// Convert into camelized form
-core.toCamel = function(name)
-{
-    return (name || "").replace(/(?:[-_])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; });
-}
-
-// Convert Camel names into names with dashes
-core.toUncamel = function(str)
-{
-    return str.replace(/([A-Z])/g, function(letter) { return '-' + letter.toLowerCase(); });
-}
-
-// Safe version, use 0 instead of NaN, handle booleans, if decimals specified, returns float
-core.toNumber = function(str, decimals, dflt, min, max)
-{
-    var n = 0;
-    if (typeof str == "number") {
-        n = str;
-    } else {
-        if (typeof dflt == "undefined") dflt = 0;
-        if (typeof str != "string") {
-            n = dflt;
-        } else {
-            // Autodetect floating number
-            if (typeof decimals == "undefined" || decimals == null) decimals = /^[0-9-]+\.[0-9]+$/.test(str);
-            n = str[0] == 't' ? 1 : str[0] == 'f' ? 0 : str == "infinity" ? Infinity : (decimals ? parseFloat(str,10) : parseInt(str,10));
-            n = isNaN(n) ? dflt : n;
-        }
-    }
-    if (typeof min == "number" && n < min) n = min;
-    if (typeof max == "number" && n > max) n = max;
-    return n;
-}
-
-// Return true if value represents true condition
-core.toBool = function(val, dflt)
-{
-    if (typeof val == "undefined") val = dflt;
-    return !val || val == "false" || val == "FALSE" || val == "f" || val == "F" || val == "0" ? false : true;
-}
-
-// Return Date object for given text or numeric date representation, for invalid date returns 1969
-core.toDate = function(val, dflt)
-{
-    var d = null;
-    // String that looks like a number
-    if (/^[0-9\.]+$/.test(val)) val = this.toNumber(val);
-    // Assume it is seconds which we use for most mtime columns, convert to milliseconds
-    if (typeof val == "number" && val < 2147483647) val *= 1000;
-    try { d = new Date(val); } catch(e) {}
-    return !isNaN(d) ? d : new Date(dflt || 0);
-}
-
-// Convert value to the proper type
-core.toValue = function(val, type)
-{
-    switch ((type || "").trim()) {
-    case 'array':
-        return Array.isArray(val) ? val : String(val).split(/[,\|]/);
-
-    case "expr":
-    case "buffer":
-        return val;
-
-    case "real":
-    case "float":
-    case "double":
-        return core.toNumber(val, true);
-
-    case "int":
-    case "smallint":
-    case "integer":
-    case "number":
-    case "bigint":
-    case "numeric":
-    case "counter":
-        return core.toNumber(val);
-
-    case "bool":
-    case "boolean":
-        return core.toBool(val);
-
-    case "date":
-    case "time":
-        return this.toDate(val);
-
-    case "mtime":
-        return /^[0-9\.]+$/.test(value) ? this.toNumber(val) : (new Date(val));
-
-    case "json":
-        return JSON.stringify(val);
-
-    default:
-        return String(val);
-    }
-}
-
-// Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in config type `regexpmap`
-core.toRegexpMap = function(obj, val, del)
-{
-    if (this.typeName(obj) != "object") obj = {};
-    if (!Array.isArray(obj.list)) obj.list = [];
-    if (val) {
-        if (del) {
-            obj.list.splice(obj.list.indexOf(val), 1);
-        } else {
-            if (Array.isArray(val)) obj.list = obj.list.concat(val); else obj.list.push(val);
-        }
-    }
-    obj.rx = null;
-    if (obj.list.length) {
-        try {
-            obj.rx = new RegExp(obj.list.map(function(x) { return "(" + x + ")"}).join("|"));
-        } catch(e) {
-            logger.error('toRegexpMap:', val, e);
-        }
-    }
-    return obj;
-}
-
-// Returns true if the given type belongs to the numeric family
-core.isNumeric = function(type)
-{
-    return ["int","bigint","counter","real","float","double","numeric"].indexOf(String(type).trim()) > -1;
-}
-
-// Evaluate expr, compare 2 values with optional type and operation
-core.isTrue = function(val1, val2, op, type)
-{
-    if (typeof val1 == "undefined" || typeof val2 == "undefined") return false;
-
-    op = (op ||"").toLowerCase();
-    var no = false, yes = true;
-    if (op.substr(0, 4) == "not ") no = true, yes = false;
-
-    switch (op) {
-    case 'null':
-    case "not null":
-        if (val1) return no;
-        break;
-
-    case ">":
-    case "gt":
-        if (this.toValue(val1, type) <= this.toValue(val2, type)) return false;
-        break;
-
-    case "<":
-    case "lt":
-        if (this.toValue(val1, type) >= this.toValue(val2, type)) return false;
-        break;
-
-    case ">=":
-    case "ge":
-        if (this.toValue(val1, type) < this.toValue(val2, type)) return false;
-        break;
-
-    case "<=":
-    case "le":
-        if (this.toValue(val1, type) > this.toValue(val2, type)) return false;
-        break;
-
-    case "between":
-        // If we cannot parse out 2 values, treat this as exact operator
-        var list = Array.isArray(val2) ? val2 : this.strSplit(val2);
-        if (list.length > 1) {
-            if (this.toValue(val1, type) < this.toValue(list[0], type) || this.toValue(val1, type) > this.toValue(list[1], type)) return false;
-        } else {
-            if (this.toValue(val1, type) != this.toValue(val2, type)) return false;
-        }
-        break;
-
-    case "in":
-    case "not in":
-        var list = Array.isArray(val2) ? val2 : this.strSplit(val2);
-        if (list.indexOf(String(val1)) == -1) return no;
-        break;
-
-    case 'like%':
-    case "not like%":
-    case 'begins_with':
-    case 'not begins_with':
-        var v1 = String(val1);
-        if (String(val2).substr(0, v1.length) != v1) return no;
-        break;
-
-    case "ilike%":
-    case "not ilike%":
-        var v1 = String(val1).toLowerCase();
-        if (String(val2).substr(0, v1.length).toLowerCase() != v1) return no;
-        break;
-
-    case "!~":
-    case "!~*":
-    case "iregexp":
-    case "not iregexp":
-        if (!String(val1).match(new RegExp(String(val2), 'i'))) return no;
-        break;
-
-    case "~":
-    case "~*":
-    case "regexp":
-    case "not regexp":
-        if (!String(val1).match(new RegExp(String(val2)))) return false;
-        break;
-
-    case "contains":
-    case "not contains":
-        if (!String(val2).indexOf(String(val1)) > -1) return false;
-        break;
-
-    case "!=":
-    case "<>":
-    case "ne":
-        if (this.toValue(val1, type) == this.toValue(val2, type)) return false;
-        break;
-
-    default:
-        if (this.toValue(val1, type) != this.toValue(val2, type)) return false;
-    }
-    return yes;
 }
 
 // Create a Web server with options and request handler, returns a server object.
@@ -1079,8 +828,8 @@ core.httpGet = function(uri, params, callback)
     if (!params) params = {};
 
     // Additional query parameters as an object
-    var qtype = this.typeName(params.query);
-    switch (this.typeName(uri)) {
+    var qtype = corelib.typeName(params.query);
+    switch (corelib.typeName(uri)) {
     case "object":
         uri = url.format(uri);
         break;
@@ -1133,7 +882,7 @@ core.httpGet = function(uri, params, callback)
 
     // Data to be sent over in the body
     if (params.postdata) {
-        switch (this.typeName(params.postdata)) {
+        switch (corelib.typeName(params.postdata)) {
         case "string":
             if (!options.headers['content-length']) options.headers['content-length'] = Buffer.byteLength(params.postdata, 'utf8');
             break;
@@ -1158,7 +907,7 @@ core.httpGet = function(uri, params, callback)
     }
 
     // Make sure our data is not corrupted
-    if (params.checksum) options.checksum = params.postdata ? this.hash(params.postdata) : null;
+    if (params.checksum) options.checksum = params.postdata ? corelib.hash(params.postdata) : null;
 
     // Sign request using internal backend credentials
     if (params.sign) {
@@ -1225,8 +974,8 @@ core.httpGet = function(uri, params, callback)
           params.headers = res.headers;
           params.status = res.statusCode;
           params.type = (res.headers['content-type'] || '').split(';')[0];
-          params.mtime = res.headers.date ? self.toDate(res.headers.date) : null;
-          if (!params.size) params.size = self.toNumber(res.headers['content-length'] || 0);
+          params.mtime = res.headers.date ? corelib.toDate(res.headers.date) : null;
+          if (!params.size) params.size = corelib.toNumber(res.headers['content-length'] || 0);
           if (params.fd) try { fs.closeSync(params.fd); } catch(e) {}
           if (params.stream) try { params.stream.end(params.onfinish); } catch(e) {}
           params.fd = 0;
@@ -1319,7 +1068,7 @@ core.sendRequest = function(options, callback)
     }
     var db = self.modules.db;
 
-    this.httpGet(options.url, core.cloneObj(options), function(err, params, res) {
+    this.httpGet(options.url, corelib.cloneObj(options), function(err, params, res) {
         if (options.queue) {
             if (params.status == 200) {
                 if (options.id) db.del("bk_queue", { id: options.id }, { pool: db.local });
@@ -1331,7 +1080,7 @@ core.sendRequest = function(options, callback)
 
         // If the contents are encrypted, decrypt before processing content type
         if ((options.headers || {})['content-encoding'] == "encrypted") {
-            params.data = self.decrypt(options.secret, params.data);
+            params.data = corelib.decrypt(options.secret, params.data);
         }
         // Parse JSON and store in the params, set error if cannot be parsed, the caller will deal with it
         if (params.data) {
@@ -1348,7 +1097,7 @@ core.sendRequest = function(options, callback)
         }
         if (!params.obj) params.obj = {};
         if (params.status != 200 && !err && !options.anystatus) {
-            err = self.newError({ message: util.format("ResponseError: %d: %j", params.status, params.obj), name: "HTTP", status: params.status });
+            err = corelib.newError({ message: util.format("ResponseError: %d: %j", params.status, params.obj), name: "HTTP", status: params.status });
         }
         if (typeof callback == "function") callback(err, options.obj ? params.obj : params, options.obj ? null : res);
     });
@@ -1386,7 +1135,7 @@ core.runMethods = function(name, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
 
-    self.forEachSeries(Object.keys(self.modules), function(mod, next) {
+    corelib.forEachSeries(Object.keys(self.modules), function(mod, next) {
         var ctx = self.modules[mod];
         if (!ctx[name]) return next();
         logger.debug("runMethods:", name, mod);
@@ -1422,167 +1171,6 @@ core.runCallback = function(obj, msg)
         } catch(e) {
             logger.error('runCallback:', e, msg, e.stack);
         }
-    });
-}
-
-// Apply an iterator function to each item in an array in parallel. Execute a callback when all items
-// have been completed or immediately if there is an error provided.
-//
-//          core.forEach([ 1, 2, 3 ], function (i, next) {
-//              console.log(i);
-//              next();
-//          }, function (err) {
-//              console.log('done');
-//          });
-core.forEach = function(list, iterator, callback)
-{
-    var self = this;
-    callback = typeof callback == "function" ? callback : this.noop;
-    if (!list || !list.length) return callback();
-    var count = list.length;
-    for (var i = 0; i < list.length; i++) {
-        iterator(list[i], function(err) {
-            if (err) {
-                callback(err);
-                callback = self.noop;
-                i = list.length + 1;
-            } else {
-                if (--count == 0) callback();
-            }
-        });
-    }
-}
-
-// Apply an iterator function to each item in an array serially. Execute a callback when all items
-// have been completed or immediately if there is is an error provided.
-//
-//          core.forEachSeries([ 1, 2, 3 ], function (i, next) {
-//            console.log(i);
-//            next();
-//          }, function (err) {
-//            console.log('done');
-//          });
-core.forEachSeries = function(list, iterator, callback)
-{
-    var self = this;
-    callback = typeof callback == "function" ? callback : this.noop;
-    if (!list || !list.length) return callback();
-    function iterate(i) {
-        if (i >= list.length) return callback();
-        iterator(list[i], function(err) {
-            if (err) {
-                callback(err);
-                callback = self.noop;
-            } else {
-                iterate(++i);
-            }
-        });
-    }
-    iterate(0);
-}
-
-// Apply an iterator function to each item in an array in parallel as many as specified in `limit` at a time. Execute a callback when all items
-// have been completed or immediately if there is is an error provided.
-core.forEachLimit = function(list, limit, iterator, callback)
-{
-    var self = this;
-    callback = typeof callback == "function" ? callback : this.noop;
-    if (!list || !list.length || typeof iterator != "function") return callback();
-    if (!limit) limit = 1;
-    var idx = 0, done = 0, running = 0;
-    function iterate() {
-        if (done >= list.length) return callback();
-        while (running < limit && idx < list.length) {
-            running++;
-            iterator(list[idx++], function(err) {
-                running--;
-                if (err) {
-                    callback(err);
-                    callback = self.noop;
-                    idx = done = list.length + 1;
-                } else {
-                    if (++done >= list.length) {
-                        callback();
-                        callback = self.noop;
-                    } else {
-                        iterate();
-                    }
-                }
-            });
-        }
-    }
-    iterate();
-}
-
-// Execute a list of functions in parellel and execute a callback upon completion or occurance of an error. Each function will be passed
-// a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
-// called via setImmediate function to allow the main loop to process I/O.
-core.parallel = function(tasks, callback)
-{
-    this.forEach(tasks, function(task, next) {
-        task(function(err) {
-            setImmediate(next, err);
-        });
-    }, function(err) {
-        if (typeof callback == "function") setImmediate(callback, err);
-    });
-}
-
-// Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
-// a callback to signal completion. The callback accepts either an error for the first argument. The iterator and callback will be
-// called via setImmediate function to allow the main loop to process I/O.
-//
-//          core.series([
-//             function(next) {
-//                setTimeout(function () { next(); }, 100);
-//             },
-//             function(next) {
-//                setTimeout(function () { next(); }, 100);
-//             },
-//          ], function(err) {
-//              console.log(err);
-//          });
-core.series = function(tasks, callback)
-{
-    this.forEachSeries(tasks, function(task, next) {
-        task(function(err) {
-            setImmediate(next, err);
-        });
-    }, function(err) {
-        if (typeof callback == "function") setImmediate(callback, err);
-    });
-}
-
-// While the test function returns true keep running the iterator, call the callback at the end if specified. All functions are called via setImmediate.
-//
-//          var count = 0;
-//          core.whilst(function() { return count < 5; },
-//                      function (callback) {
-//                          count++;
-//                          setTimeout(callback, 1000);
-//                      }, function (err) {
-//                          console.log(count);
-//                      });
-core.whilst = function(test, iterator, callback)
-{
-    var self = this;
-    callback = typeof callback == "function" ? callback : this.noop;
-    if (!test()) return callback();
-    iterator(function (err) {
-        if (err) return callback(err);
-        setImmediate(function() { self.whilst(test, iterator, callback); });
-    });
-};
-
-// Keep running iterator while the test function returns true, call the callback at the end if specified. All functions are called via setImmediate.
-core.doWhilst = function(iterator, test, callback)
-{
-    var self = this;
-    callback = typeof callback == "function" ? callback : this.noop;
-    iterator(function(err) {
-        if (err) return callback(err);
-        if (!test()) return callback();
-        setImmediate(function() { self.doWhilst(iterator, test, callback); });
     });
 }
 
@@ -1634,7 +1222,7 @@ core.addModule = function()
 core.loadModules = function(name, options, callback)
 {
     var self = this;
-    core.findFileSync(path.resolve(name), { depth: 1, types: "f", include: new RegExp(/\.js$/) }).sort().forEach(function(file) {
+    corelib.findFileSync(path.resolve(name), { depth: 1, types: "f", include: new RegExp(/\.js$/) }).sort().forEach(function(file) {
         try {
             var mod = require(file);
             self.addModule(mod.name || path.basename(file, ".js"), mod);
@@ -1664,11 +1252,11 @@ core.createPool = function(options)
 {
     var self = this;
 
-    var pool = { _pmin: core.toNumber(options.min, 0, 0, 0),
-                 _pmax: core.toNumber(options.max, 0, 10, 0),
-                 _pmax_queue: core.toNumber(options.interval, 0, 100, 0),
-                 _ptimeout: core.toNumber(options.timeout, 0, 5000, 1),
-                 _pidle: core.toNumber(options.idle, 0, 300000, 0),
+    var pool = { _pmin: corelib.toNumber(options.min, 0, 0, 0),
+                 _pmax: corelib.toNumber(options.max, 0, 10, 0),
+                 _pmax_queue: corelib.toNumber(options.interval, 0, 100, 0),
+                 _ptimeout: corelib.toNumber(options.timeout, 0, 5000, 1),
+                 _pidle: corelib.toNumber(options.idle, 0, 300000, 0),
                  _pcreate: options.create || function(cb) { cb(null, {}) },
                  _pdestroy: options.destroy || function() {},
                  _pvalidate: options.validate || function() { return true },
@@ -1857,7 +1445,7 @@ core.getArg = function(name, dflt)
 // Return commandline argument value as a number
 core.getArgInt = function(name, dflt)
 {
-    return this.toNumber(this.getArg(name, dflt));
+    return corelib.toNumber(this.getArg(name, dflt));
 }
 
 // Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.
@@ -1888,474 +1476,17 @@ core.sendmail = function(options, callback)
     }
 }
 
-// Call callback for each line in the file
-// options may specify the following parameters:
-// - sync - read file synchronously and call callback for every line
-// - abort - signal to stop processing
-// - limit - number of lines to process and exit
-// - progress - if > 0 report how many lines processed so far every specified lines
-// - until - skip lines until this regexp matches
-core.forEachLine = function(file, options, lineCallback, endCallback)
-{
-    var self = this;
-    if (!options) options = {};
-    var buffer = new Buffer(4096);
-    var data = '';
-    options.lines = 0;
-
-    function readData(fd, pos, finish) {
-        fs.read(fd, buffer, 0, buffer.length, pos, function(err, nread, buf) {
-            data += buffer.slice(0, nread).toString(options.encoding || 'utf8');
-            var lines = data.split("\n");
-            data = lines.pop();
-            self.forEachSeries(lines, function(line, next) {
-                options.lines++;
-                if (options.progress && options.lines % options.progress == 0) logger.log('forEachLine:', file, 'lines:', options.lines);
-                // Skip lines until we see our pattern
-                if (options.until && !options.until_seen) {
-                    options.until_seen = line.match(options.until);
-                    return next();
-                }
-                lineCallback(line.trim(), next);
-            }, function(err2) {
-                // Stop on reaching limit or end of file
-                if (options.abort || (options.limit && options.lines >= options.limit) || nread < buffer.length) return finish(err2);
-                setImmediate(function() { readData(fd, null, finish); });
-            });
-        });
-    }
-
-    fs.open(file, 'r', function(err, fd) {
-        if (err) {
-            logger.error('forEachLine:', file, err);
-            return (endCallback ? endCallback(err) : null);
-        }
-        // Synchronous version, read every line and call callback which may not do any async operations
-        // because they will not be executed right away but only after all lines processed
-        if (options.sync) {
-            while (!options.abort) {
-                var nread = fs.readSync(fd, buffer, 0, buffer.length, options.lines == 0 ? options.start : null);
-                data += buffer.slice(0, nread).toString(options.encoding || 'utf8');
-                var lines = data.split("\n");
-                data = lines.pop();
-                for (var i = 0; i < lines.length; i++) {
-                    options.lines++;
-                    if (options.progress && options.lines % options.progress == 0) logger.log('forEachLine:', file, 'lines:', options.lines);
-                    // Skip lines until we see our pattern
-                    if (options.until && !options.until_seen) {
-                        options.until_seen = lines[i].match(options.until);
-                        continue;
-                    }
-                    lineCallback(lines[i].trim());
-                }
-                // Stop on reaching limit or end of file
-                if (nread < buffer.length) break;
-                if (options.limit && options.lines >= options.limit) break;
-            }
-            fs.close(fd, function() {});
-            return (endCallback ? endCallback() : null);
-        }
-
-        // Start reading data from the optional position or from the beginning
-        readData(fd, options.start, function(err2) {
-            fs.close(fd, function() {});
-            return (endCallback ? endCallback() : null);
-        });
-    });
-}
-
-// Return object with geohash for given coordinates to be used for location search
-// options may contain the following properties:
-//   - distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted
-//   - minDistance - radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
-//      this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table
-//      if not specified default `min-distance` value will be used.
-core.geoHash = function(latitude, longitude, options)
-{
-    if (!options) options = {};
-    var minDistance = options.minDistance || this.minDistance;
-    if (options.distance && options.distance < minDistance) options.distance = minDistance;
-
-    // Geohash ranges for different lengths in km, take the first greater than our min distance
-    var range = [ [12, 0], [8, 0.019], [7, 0.076],
-                  [6, 0.61], [5, 2.4], [4, 20.0],
-                  [3, 78.0], [2, 630.0], [1, 2500.0],
-                  [1, 99999]
-                ].filter(function(x) { return x[1] > minDistance })[0];
-
-    var geohash = utils.geoHashEncode(latitude, longitude);
-    return { geohash: geohash.substr(0, range[0]),
-             _geohash: geohash,
-             neighbors: options.distance ? utils.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
-             latitude: latitude,
-             longitude: longitude,
-             minRange: range[1],
-             minDistance: minDistance,
-             distance: options.distance || 0 };
-}
-
-// Return distance between two locations, options can specify the following properties:
-// - round - a number how to round the distance
-//
-//  Example: round to the nearest full 5 km and use only 1 decimal point, if the distance is 13, it will be 15.0
-//
-//      core.geoDistance(34, -188, 34.4, -119, { round: 5.1 })
-//
-core.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
-{
-    var distance = utils.geoDistance(latitude1, longitude1, latitude2, longitude2);
-    if (isNaN(distance) || distance === null) return null;
-
-    // Round the distance to the closes edge and fixed number of decimals
-    if (options && typeof options.round == "number" && options.round > 0) {
-        var decs = String(options.round).split(".")[1];
-        distance = parseFloat(Number(Math.floor(distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
-        if (isNaN(distance)) return null;
-    }
-    return distance;
-}
-
-// Same as geoDistance but operates on 2 geohashes instead of coordinates.
-core.geoHashDistance = function(geohash1, geohash2, options)
-{
-    var coords1 = utils.geoHashDecode(geohash1);
-    var coords2 = utils.geoHashDecode(geohash2);
-    return this.geoDistance(coords1[0], coords1[1], coords2[0], coords2[1], options);
-}
-
-// Encrypt data with the given key code
-core.encrypt = function(key, data, algorithm, encoding)
-{
-    if (!key || !data) return '';
-    try {
-        var encrypt = crypto.createCipher(algorithm || 'aes192', key);
-        var b64 = encrypt.update(String(data), 'utf8', encoding || 'base64');
-        b64 += encrypt.final(encoding || 'base64');
-    } catch(e) {
-        b64 = '';
-        logger.debug('encrypt:', e.stack, data);
-    }
-    return b64;
-}
-
-// Decrypt data with the given key code
-core.decrypt = function(key, data, algorithm, encoding)
-{
-    if (!key || !data) return '';
-    try {
-        var decrypt = crypto.createDecipher(algorithm || 'aes192', key);
-        var msg = decrypt.update(String(data), encoding || 'base64', 'utf8');
-        msg += decrypt.final('utf8');
-    } catch(e) {
-        msg = '';
-        logger.debug('decrypt:', e.stack, data);
-    };
-    return msg;
-}
-
-// HMAC signing and base64 encoded, default algorithm is sha1
-core.sign = function (key, data, algorithm, encode)
-{
-    try {
-        return crypto.createHmac(algorithm || "sha1", String(key)).update(String(data), "utf8").digest(encode || "base64");
-    } catch(e) {
-        logger.error('sing:', algorithm, encode, e.stack);
-        return "";
-    }
-}
-
-// Hash and base64 encoded, default algorithm is sha1
-core.hash = function (data, algorithm, encode)
-{
-    try {
-        return crypto.createHash(algorithm || "sha1").update(String(data), "utf8").digest(encode || "base64");
-    } catch(e) {
-        logger.error('hash:', algorithm, encode, e.stack);
-        return "";
-    }
-}
-
-// Return unique Id without any special characters and in lower case
-core.uuid = function()
-{
-    return uuid.v4().replace(/[-]/g, '').toLowerCase();
-}
-
-// Generate random key, size if specified defines how many random bits to generate
-core.random = function(size)
-{
-    return this.sign(crypto.randomBytes(64), crypto.randomBytes(size || 256), 'sha256').replace(/[=+%]/g, '');
-}
-
-// Return random number between 0 and USHORT_MAX
-core.randomUShort = function()
-{
-    return crypto.randomBytes(2).readUInt16LE(0);
-}
-
-// Return random number between 0 and SHORT_MAX
-core.randomShort = function()
-{
-    return Math.abs(crypto.randomBytes(2).readInt16LE(0));
-}
-
-// Return rando number between 0 and UINT_MAX
-core.randomUInt = function()
-{
-    return crypto.randomBytes(4).readUInt32LE(0);
-}
-
-// Return random integer between min and max inclusive
-core.randomInt = function(min, max)
-{
-    return min + (0 | Math.random() * (max - min + 1));
-}
-
-// Generates a random number between given min and max (required)
-// Optional third parameter indicates the number of decimal points to return:
-//   - If it is not given or is NaN, random number is unmodified
-//   - If >0, then that many decimal points are returned (e.g., "2" -> 12.52
-core.randomNum = function(min, max, decs)
-{
-    var num = min + (Math.random() * (max - min));
-    return (typeof decs !== 'number' || decs <= 0) ? num : parseFloat(num.toFixed(decs));
-}
-
-// Return number of seconds for current time
-core.now = function()
-{
-    return Math.round(Date.now()/1000);
-}
-
-// Format date object
-core.strftime = function(date, fmt, utc)
-{
-    if (typeof date == "string" || typeof date == "number") try { date = new Date(date); } catch(e) {}
-    if (!date || isNaN(date)) return "";
-    function zeropad(n) { return n > 9 ? n : '0' + n; }
-    var handlers = {
-        a: function(t) { return [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ][utc ? t.getUTCDay() : t.getDay()] },
-        A: function(t) { return [ 'Sunday', 'Monday', 'Tuedsay', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ][utc ? t.getUTCDay() : t.getDay()] },
-        b: function(t) { return [ 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' ][utc ? t.getUTCMonth() : t.getMonth()] },
-        B: function(t) { return [ 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December' ][utc ? t.getUTCMonth() : t.getMonth()] },
-        c: function(t) { return utc ? t.toUTCString() : t.toString() },
-        d: function(t) { return zeropad(utc ? t.getUTCDate() : t.getDate()) },
-        H: function(t) { return zeropad(utc ? t.getUTCHours() : t.getHours()) },
-        I: function(t) { return zeropad(((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) },
-        L: function(t) { return zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds()) },
-        m: function(t) { return zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1) }, // month-1
-        M: function(t) { return zeropad(utc ? t.getUTCMinutes() : t.getMinutes()) },
-        p: function(t) { return this.H(t) < 12 ? 'AM' : 'PM'; },
-        S: function(t) { return zeropad(utc ? t.getUTCSeconds() : t.getSeconds()) },
-        w: function(t) { return utc ? t.getUTCDay() : t.getDay() }, // 0..6 == sun..sat
-        W: function(t) { var d = new Date(t.getFullYear(), 0, 1); return zeropad(Math.ceil((((t - d) / 86400000) + (utc ? d.getUTCDay() : d.getDay()) + 1) / 7)); },
-        y: function(t) { return zeropad(this.Y(t) % 100); },
-        Y: function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
-        t: function(t) { return t.getTime() },
-        u: function(t) { return Math.floor(t.getTime()/1000) },
-        '%': function(t) { return '%' },
-    };
-    for (var h in handlers) {
-        fmt = fmt.replace('%' + h, handlers[h](date));
-    }
-    return fmt;
-}
-
-// Split string into array, ignore empty items, `sep` is an RegExp to use as a separator instead of default  pattern `[,\|]`, if num is 1, then convert all items into numbers
-core.strSplit = function(str, sep, num)
-{
-    var self = this;
-    if (!str) return [];
-    return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).
-            map(function(x) { return num ? self.toNumber(x) : typeof x == "string" ? x.trim() : x }).
-            filter(function(x) { return typeof x == "string" ? x : 1 });
-}
-
-// Split as above but keep only unique items
-core.strSplitUnique = function(str, sep, num)
-{
-    var rc = [];
-    this.strSplit(str, sep, num).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
-    return rc;
-}
-
-// Returns only unique items in the array, optional `key` specified the name of the column to use when determining uniqueness if items are objects.
-core.arrayUnique = function(list, key)
-{
-    if (!Array.isArray(list)) return this.strSplitUnique(list);
-    var rc = [], keys = {};
-    list.forEach(function(x) {
-        if (key) {
-            if (!keys[x[key]]) rc.push(x);
-            keys[x[key]] = 1;
-        } else {
-            if (rc.indexOf(x) == -1) rc.push(x);
-        }
-    });
-    return rc;
-}
-
-// Stringify JSON into base64 string, if secret is given, sign the data with it
-core.jsonToBase64 = function(data, secret)
-{
-    data = JSON.stringify(data);
-    if (secret) return this.encrypt(secret, data);
-    return new Buffer(data).toString("base64");
-}
-
-// Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
-// that data is not chnaged and was signed with the same secret
-core.base64ToJson = function(data, secret)
-{
-    var rc = "";
-    if (secret) data = this.decrypt(secret, data);
-    try {
-        if (data.match(/^[0-9]+$/)) {
-            rc = this.toNumber(data);
-        } else {
-            if (!secret) data = new Buffer(data, "base64").toString();
-            if (data) rc = JSON.parse(data);
-        }
-    } catch(e) {
-        logger.debug("base64ToJson:", e.stack, data);
-    }
-    return rc;
-}
 
 // Given a string with list of urls try to find if any points to our local server using IP address or host name, returns the url
 // in format: protocol://*:port, mostly to be used with nanomsg sockets
 core.parseLocalAddress = function(str)
 {
     var url = "", ips = this.ipaddrs, host = os.hostname().toLowerCase();
-    this.strSplit(str).forEach(function(x) {
+    corelib.strSplit(str).forEach(function(x) {
         var u = url.parse(x);
         if (ips.indexOf(u.hostname) > -1 || u.hostname.toLowerCase() == host) url = u.protocol + "//*:" + u.port;
     });
     return url;
-}
-
-// Copy file and then remove the source, do not overwrite existing file
-core.moveFile = function(src, dst, overwrite, callback)
-{
-    var self = this;
-    if (typeof overwrite == "function") callback = overwrite, overwrite = false;
-
-    function copyIfFailed(err) {
-        if (!err) return (callback ? callback(null) : null);
-        self.copyFile(src, dst, overwrite, function(err2) {
-            if (!err2) {
-                fs.unlink(src, callback);
-            } else {
-                if (callback) callback(err2);
-            }
-        });
-    }
-
-    logger.debug('moveFile:', src, dst, overwrite);
-    fs.stat(dst, function (err) {
-        if (!err && !overwrite) return callback(new Error("File " + dst + " exists."));
-        fs.rename(src, dst, copyIfFailed);
-    });
-}
-
-// Copy file, overwrite is optional flag, by default do not overwrite
-core.copyFile = function(src, dst, overwrite, callback)
-{
-    if (typeof overwrite == "function") callback = overwrite, overwrite = false;
-
-    function copy(err) {
-        var ist, ost;
-        if (!err && !overwrite) return callback ? callback(new Error("File " + dst + " exists.")) : null;
-        fs.stat(src, function (err2) {
-            if (err2) return callback ? callback(err2) : null;
-            ist = fs.createReadStream(src);
-            ost = fs.createWriteStream(dst);
-            ist.on('end', function() { if (callback) callback() });
-            ist.pipe(ost);
-        });
-    }
-    logger.debug('copyFile:', src, dst, overwrite);
-    fs.stat(dstopy);
-}
-
-// Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the core.runProcess
-// can be used without importing the child_processes module. All fatal errors are logged.
-core.execProcess = function(cmd, callback)
-{
-    var self = this;
-    child.exec(cmd, function (err, stdout, stderr) {
-        if (err) logger.error('execProcess:', cmd, err);
-        if (callback) callback(err, stdout, stderr);
-    });
-}
-
-// Run specified command with the optional arguments, this is similar to child_process.spawn with callback being called after the process exited
-//
-//  Example
-//
-//          core.spawProcess("ls", "-ls", { cwd: "/tmp" }, db.showResult)
-//
-core.spawnProcess = function(cmd, args, options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = null;
-    if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd };
-    if (!options.stdio) options.stdio = "inherit";
-    if (!Array.isArray(args)) args = [ args ];
-    var proc = child.spawn(cmd, args, options);
-    proc.on("error", function(err) {
-        logger.error("spawnProcess:", cmd, args, err);
-        if (callback) callback(err);
-    });
-    proc.on('exit', function (code, signal) {
-        logger.debug("spawnProcess:", cmd, args, "exit", code || signal);
-        if (callback) callback(code || signal);
-    });
-    return proc;
-}
-
-// Run a series of commands, `cmds` is an object where a property name is a command to execute and the value is an array of arguments or null.
-// if `options.error` is 1, then stop on first error or if non-zero status on a process exit.
-//
-//  Example:
-//
-//          core.spawnSeries({"ls": "-la",
-//                            "ps": "augx",
-//                            "du": { argv: "-sh", stdio: "inherit", cwd: "/tmp" },
-//                            "uname": ["-a"] },
-//                           db.showResult)
-//
-core.spawnSeries = function(cmds, options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = null;
-    if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd };
-    this.forEachSeries(Object.keys(cmds), function(cmd, next) {
-        var argv = cmds[cmd], opts = options;
-        switch (self.typeName(argv)) {
-        case "null":
-            argv = [];
-            break;
-
-        case "object":
-            opts = argv;
-            argv = opts.argv;
-            break;
-
-        case "array":
-        case "string":
-            break;
-
-        default:
-            logger.error("spawnSeries:", "invalid arguments", cmd, argv);
-            return next(options.error ? self.newError("invalid args", cmd) : null);
-        }
-        if (!options.stdio) options.stdio = "inherit";
-        if (typeof argv == "string") argv = [ argv ];
-        self.spawnProcess(cmd, argv, opts, function(err) {
-            next(options.error ? err : null);
-        });
-    }, callback);
 }
 
 // Kill all backend processes that match name and not the current process
@@ -2365,10 +1496,10 @@ core.killBackend = function(name, signal, callback)
     if (typeof signal == "function") callback = signal, signal = '';
     if (!signal) signal = 'SIGTERM';
 
-    self.execProcess("/bin/ps agx", function(stderr, stdout) {
+    corelib.execProcess("/bin/ps agx", function(stderr, stdout) {
         stdout.split("\n").
                filter(function(x) { return x.match(core.name + ":") && (!name || x.match(name)); }).
-               map(function(x) { return self.toNumber(x) }).
+               map(function(x) { return corelib.toNumber(x) }).
                filter(function(x) { return x != process.pid }).
                forEach(function(x) { try { process.kill(x, signal); } catch(e) { logger.error('killBackend:', name, x, e); } });
         if (callback) callback();
@@ -2382,260 +1513,6 @@ core.shutdown = function()
     child.exec("/sbin/halt", function(err, stdout, stderr) {
         logger.log('shutdown:', stdout || "", stderr || "", err || "");
     });
-}
-
-// Non-exception version, returns empty object,
-// mtime is 0 in case file does not exist or number of seconds of last modified time
-// mdate is a Date object with last modified time
-core.statSync = function(file)
-{
-    var stat = { size: 0, mtime: 0, mdate: "", isFile: function() {return false}, isDirectory: function() {return false} }
-    try {
-        stat = fs.statSync(file);
-        stat.mdate = stat.mtime.toISOString();
-        stat.mtime = stat.mtime.getTime()/1000;
-    } catch(e) {
-        if (e.code != "ENOENT") logger.error('statSync:', e, e.stack);
-    }
-    return stat;
-}
-
-// Return contents of a file, empty if not exist or on error.
-// Options can specify the format:
-// - json - parse file as JSON, return an object, in case of error an empty object
-// - list - split contents with the given separator
-// - encoding - file encoding when converting to string
-// - logger - if 1 log all errors
-core.readFileSync = function(file, options)
-{
-    if (!file) return "";
-    try {
-        var data = fs.readFileSync(file).toString(options && options.encoding ? options.encoding : "utf8");
-        if (options) {
-            if (options.json) data = JSON.parse(data);
-            if (options.list) data = data.split(options.list);
-        }
-        return data;
-    } catch(e) {
-        if (options) {
-            if (options.logger) logger.error('readFileSync:', file, e);
-            if (options.json) return {};
-            if (options.list) return [];
-        }
-        return "";
-    }
-}
-
-// Filter function to be used in findFile methods
-core.findFilter = function(file, stat, options)
-{
-    if (!options) return 1;
-    if (options.filter) return options.filter(file, stat);
-    if (options.exclude instanceof RegExp && options.exclude.test(file)) return 0;
-    if (options.include instanceof RegExp && !options.include.test(file)) return 0;
-    if (options.types) {
-        if (stat.isFile() && options.types.indexOf("f") == -1) return 0;
-        if (stat.isDirectory() && options.types.indexOf("d") == -1) return 0;
-        if (stat.isBlockDevice() && options.types.indexOf("b") == -1) return 0;
-        if (stat.isCharacterDevice() && options.types.indexOf("c") == -1) return 0;
-        if (stat.isSymbolicLink() && options.types.indexOf("l") == -1) return 0;
-        if (stat.isFIFO() && options.types.indexOf("p") == -1) return 0;
-        if (stat.isSocket() && options.types.indexOf("s") == -1) return 0;
-    }
-    return 1;
-}
-
-// Return list of files than match filter recursively starting with given path, file is the starting path.
-// The options may contain the following:
-//   - include - a regexp with file pattern to include
-//   - exclude - a regexp with file pattern to exclude
-//   - filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync
-//   - depth - if a number it specifies max depth to go into the subfolders, starts with 1
-//   - types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO
-//   - base - if set only keep base file name in the result, not full path
-core.findFileSync = function(file, options)
-{
-    var list = [];
-    var level = arguments[2];
-    if (typeof level != "number") level = 0;
-
-    try {
-        var stat = this.statSync(file);
-        if (stat.isFile()) {
-            if (this.findFilter(file, stat, options)) {
-                list.push(options && options.base ? path.basename(file) : file);
-            }
-        } else
-        if (stat.isDirectory()) {
-            if (this.findFilter(file, stat, options)) {
-                list.push(options && options.base ? path.basename(file) : file);
-            }
-            // We reached our directory depth
-            if (options && typeof options.depth == "number" && level >= options.depth) return list;
-            var files = fs.readdirSync(file);
-            for (var i in files) {
-                list = list.concat(this.findFileSync(path.join(file, files[i]), options, level + 1));
-            }
-        }
-    } catch(e) {
-        logger.error('findFileSync:', file, options, e.stack);
-    }
-    return list;
-}
-
-// Async version of find file, same options as in the sync version
-core.findFile = function(dir, options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {}
-    if (!options.files) options.files = [];
-
-    var level = arguments[3];
-    if (typeof level != "number") level = 0;
-
-    fs.readdir(dir, function(err, files) {
-        if (err) return callback(err);
-
-        self.forEachSeries(files, function(file, next) {
-            if (options.done) return next();
-            var full = path.join(dir, file);
-
-            fs.stat(full, function(err, stat) {
-                if (err) return next(err);
-
-                if (stat.isFile()) {
-                    if (self.findFilter(full, stat, options)) {
-                        options.files.push(options.base ? file : full);
-                    }
-                    next();
-                } else
-                if (stat.isDirectory()) {
-                    if (self.findFilter(full, stat, options)) {
-                        options.files.push(options.base ? file : full);
-                    }
-                    // We reached our directory depth
-                    if (options && typeof options.depth == "number" && level >= options.depth) return next();
-                    self.findFile(full, options, next, level + 1);
-                } else {
-                    next()
-                }
-            });
-        }, function(err) {
-            if (callback) callback(err, options.files);
-        });
-    });
-}
-
-// Recursively create all directories, return 1 if created or 0 on error or if exists, no exceptions are raised, error is logged only
-core.makePathSync = function(dir)
-{
-    var rc = 0;
-    var list = path.normalize(dir).split("/");
-    for (var i = 0, dir = ''; i < list.length; i++) {
-        dir += list[i] + '/';
-        try {
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir);
-                rc = 1;
-            }
-        } catch(e) {
-            logger.error('makePath:', dir, e);
-            return 0;
-        }
-    }
-    return rc;
-}
-
-// Async version of makePath, stops on first error
-core.makePath = function(dir, callback)
-{
-    var self = this;
-    var list = path.normalize(dir).split("/");
-    var full = "";
-    self.forEachSeries(list, function(d, next) {
-        full += d + '/';
-        fs.exists(full, function(yes) {
-            if (yes) return next();
-            fs.mkdir(full, function(err) {
-                next(err && err.code != 'EEXIST' && err.code != 'EISDIR' ? err : null);
-            });
-        });
-    }, function(err) {
-        if (err) logger.error('makePath:', err);
-        if (callback) callback(err);
-    });
-}
-
-// Recursively remove all files and folders in the given path, returns an error to the callback if any
-core.unlinkPath = function(dir, callback)
-{
-    var self = this;
-    fs.stat(dir, function(err, stat) {
-        if (err) return callback ? callback(err) : null;
-        if (stat.isDirectory()) {
-            fs.readdir(dir, function(err, files) {
-                if (err) return next(err);
-                self.forEachSeries(files, function(f, next) {
-                    self.unlinkPath(path.join(dir, f), next);
-                }, function(err) {
-                    if (err) return callback ? callback(err) : null;
-                    fs.rmdir(dir, callback);
-                });
-            });
-        } else {
-            fs.unlink(dir, callback);
-        }
-    });
-}
-
-// Recursively remove all files and folders in the given path, stops on first error
-core.unlinkPathSync = function(dir)
-{
-    var files = this.findFileSync(dir);
-    // Start from the end to delete files first, then folders
-    for (var i = files.length - 1; i >= 0; i--) {
-        try {
-            var stat = this.statSync(files[i]);
-            if (stat.isDirectory()) {
-                fs.rmdirSync(files[i]);
-            } else {
-                fs.unlinkSync(files[i]);
-            }
-        } catch(e) {
-            logger.error("unlinkPath:", dir, e);
-            return 0;
-        }
-    }
-    return 1;
-}
-
-// Create a directories if do not exist, multiple dirs can be specified
-core.mkdirSync = function()
-{
-    for (var i = 0; i < arguments.length; i++) {
-        var dir = arguments[i];
-        if (!dir) continue;
-        if (!fs.existsSync(dir)) {
-            try { fs.mkdirSync(dir) } catch(e) { logger.error('mkdirSync:', dir, e); }
-        }
-    }
-}
-
-// Change file owner, multiples files can be specified, do not report errors about non existent files, the uid/gid must be set to non-root user
-// for this function to work and it is called by the root only
-core.chownSync = function()
-{
-    if (process.getuid() || !this.uid) return;
-    for (var i = 0; i < arguments.length; i++) {
-        var file = arguments[i];
-        if (!file) continue;
-        try {
-            fs.chownSync(file, this.uid, this.gid);
-        } catch(e) {
-            if (e.code != 'ENOENT') logger.error('chownSync:', this.uid, this.gid, file, e);
-        }
-    }
 }
 
 // Drop root privileges and switch to regular user
@@ -2655,316 +1532,6 @@ core.setTimeout = function(name, callback, timeout)
     this.timers[name] = setTimeout(callback, timeout);
 }
 
-// Extract domain from local host name
-core.domainName = function(host)
-{
-    var name = String(host || "").split('.');
-    return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
-}
-
-// Return object type, try to detect any distinguished type
-core.typeName = function(v)
-{
-    var t = typeof(v);
-    if (v === null) return "null";
-    if (t !== "object") return t;
-    if (Array.isArray(v)) return "array";
-    if (Buffer.isBuffer(v)) return "buffer";
-    if (v instanceof Date) return "date";
-    if (v instanceof RegExp) return "regex";
-    return "object";
-}
-
-// Return true of the given value considered empty
-core.isEmpty = function(val)
-{
-    switch (this.typeName(val)) {
-    case "null":
-    case "undefined":
-        return true;
-    case "buffer":
-    case "array":
-        return val.length == 0;
-    case "number":
-    case "regex":
-    case "boolean":
-        return false;
-    case "date":
-        return isNaN(val);
-    default:
-        return val ? false: true;
-    }
-}
-
-// Return true if a variable or property in the object exists, just a syntax sugar
-core.exists = function(obj, name)
-{
-    if (typeof obj == "undefined") return false;
-    if (typeof obj == "obj" && typeof obj[name] == "undefined") return false;
-    return true;
-}
-
-// A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object
-// - first argument is the object to clone, can be null
-// - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
-// Example:
-//          core.cloneObj({ 1: 2 }, "3", 3, "4", 4)
-core.cloneObj = function()
-{
-    var obj = arguments[0];
-    var rc = {};
-    for (var p in obj) {
-        switch (this.typeName(obj[p])) {
-        case "object":
-            rc[p] = {};
-            for (var k in obj[p]) rc[p][k] = obj[p][k];
-            break;
-        case "array":
-            rc[p] = [];
-            for (var k in obj[p]) rc[p][k] = obj[p][k];
-            break;
-        default:
-            rc[p] = obj[p];
-        }
-    }
-    for (var i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
-    return rc;
-}
-
-// Return a new Error object, options can be a string which will create an error with a message only
-// or an object with message, code, status, and name properties to build full error
-core.newError = function(options)
-{
-    if (typeof options == "string") options = { message: options };
-    if (!options) options = {};
-    var err = new Error(options.message || "Unknown error");
-    if (options.name) err.name = options.name;
-    if (options.code) err.code = options.code;
-    if (options.status) err.status = options.status;
-    if (err.code && !err.status) err.status = err.code;
-    if (err.status && !err.code) err.code = err.status;
-    return err;
-}
-
-// Return new object using arguments as name value pairs for new object properties
-core.newObj = function()
-{
-    var obj = {};
-    for (var i = 0; i < arguments.length - 1; i += 2) obj[arguments[i]] = arguments[i + 1];
-    return obj;
-}
-
-// Merge an object with the options, all properties in the options override existing in the object, returns a new object
-//
-//  Example
-//
-//       var o = core.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
-//       o = { a:1, b:2, c:5, d:1 }
-core.mergeObj = function(obj, options)
-{
-    var rc = {};
-    for (var p in options) rc[p] = options[p];
-    for (var p in obj) {
-        var val = obj[p];
-        switch (core.typeName(val)) {
-        case "object":
-            if (!rc[p]) rc[p] = {};
-            for (var c in val) {
-                if (!rc[p][c]) rc[p][c] = val[c];
-            }
-            break;
-        case "null":
-        case "undefined":
-            break;
-        default:
-            if (!rc[p]) rc[p] = val;
-        }
-    }
-    return rc;
-}
-
-// Flatten a javascript object into a single-depth object, all nested values will have property names appended separated by comma
-//
-// Example
-//
-//          > core.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
-//          { 'a.c': 1, 'b.d': 1 }
-core.flattenObj = function(obj, options)
-{
-    var rc = {};
-
-    for (var p in obj) {
-        if (typeof obj[p] == 'object') {
-            var o = this.flattenObj(obj[p], options);
-            for (var x in o) {
-                rc[p + (options && options.separator ? options.separator : '.') + x] = o[x];
-            }
-        } else {
-            rc[p] = obj[p];
-        }
-    }
-    return rc;
-}
-
-// Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
-// If the second argument is an object then add all properties from this object only.
-//
-//         core.extendObj({ a: 1 }, 'b', 2, 'c' 3 )
-//         core.extendObj({ a: 1 }, { b: 2, c: 3 })
-//
-core.extendObj = function()
-{
-    if (this.typeName(arguments[0]) != "object") arguments[0] = {};
-    if (this.typeName(arguments[1]) == "object") {
-        for (var p in arguments[1]) arguments[0][p] = arguments[1][p];
-    } else {
-        for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
-    }
-    return arguments[0];
-}
-
-// Delete properties from the object, first arg is an object, the rest are properties to be deleted
-core.delObj = function()
-{
-    if (this.typeName(arguments[0]) != "object") return;
-    for (var i = 1; i < arguments.length; i++) delete arguments[0][arguments[i]];
-    return arguments[0];
-}
-
-// Return an object consisting of properties that matched given criteria in the given object.
-// optins can define the following properties:
-// - name - search by property name, return all objects that contain given property
-// - value - search by value, return all objects that have a property with given value
-// - sort if true then sort found columns by the property value.
-// - names - if true just return list of column names
-// - flag - if true, return object with all properties set to flag value
-//
-// Example
-//
-//          core.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { name: 'index', sort: 1 });
-//          { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
-//
-core.searchObj = function(obj, options)
-{
-    if (!options) options = {};
-    var name = options.name;
-    var val = options.value;
-    var rc = Object.keys(obj).
-                    filter(function(x) {
-                        if (typeof obj[x] != "object") return 0;
-                        if (typeof name != "undefined" && typeof obj[x][name] == "undefined") return 0;
-                        if (typeof val != "undefined" && !Object.keys(obj[x]).some(function(y) { return obj[x][y] == val })) return 0;
-                        return 1;
-                    }).
-                    sort(function(a, b) {
-                        if (options.sort) return obj[a][name] - obj[b][name];
-                        return 0;
-                    }).
-                    reduce(function(x,y) { x[y] = options.flag || obj[y]; return x; }, {});
-
-    if (options.names) return Object.keys(rc);
-    return rc;
-}
-
-// Return a property from the object, name specifies the path to the property, if the required property belong to another object inside the top one
-// the name uses . to separate objects. This is a convenient method to extract properties from nested objects easily.
-// Options may contains the following properties:
-//   - list - return the value as a list even if there is only one value found
-//   - obj - return the value as an object, if the result is a simple type, wrap into an object like { name: name, value: result }
-//   - str - return the value as a string, convert any other type into string
-//   - num - return the value as a number, convert any other type by using toNumber
-//
-// Example:
-//
-//          > core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
-//          "Test"
-//          > core.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
-//          [ "Test" ]
-core.objGet = function(obj, name, options)
-{
-    if (!obj) return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
-    var path = !Array.isArray(name) ? String(name).split(".") : name;
-    for (var i = 0; i < path.length; i++) {
-        obj = obj[path[i]];
-        if (typeof obj == "undefined") return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
-    }
-    if (obj && options) {
-        if (options.list && !Array.isArray(obj)) return [ obj ];
-        if (options.obj && typeof obj != "object") return { name: name, value: obj };
-        if (options.str && typeof obj != "string") return String(obj);
-        if (options.num && typeof obj != "number") return this.toNumber(obj);
-    }
-    return obj;
-}
-
-// Set a property of the object, name can be an array or a string with property path inside the object, all non existent intermediate
-// objects will be create automatically. The options can have the folowing properties:
-// - incr - if 1 the numeric value will be added to the existing if any
-// - push - add to the array, if it is not an array a new empty aray is created
-//
-// Example
-//
-//          var a = core.objSet({}, "response.item.count", 1)
-//          core.objSet(a, "response.item.count", 1, { incr: 1 })
-//
-core.objSet = function(obj, name, value, options)
-{
-    if (!obj) obj = {};
-    if (!Array.isArray(name)) name = String(name).split(".");
-    if (!name || !name.length) return obj;
-    var p = name[name.length - 1], v = obj;
-    for (var i = 0; i < name.length - 1; i++) {
-        if (typeof obj[name[i]] == "undefined") obj[name[i]] = {};
-        obj = obj[name[i]];
-    }
-    if (options && options.push) {
-        if (!Array.isArray(obj[p])) obj[p] = [];
-        obj[p].push(value);
-    } else
-    if (options && options.incr) {
-        if (!obj[p]) obj[p] = 0;
-        obj[p] += value;
-    } else {
-        obj[p] = value;
-    }
-    return v;
-}
-
-// JSON stringify without exceptions, on error just returns an empty string and logs the error
-core.stringify = function(obj, filter)
-{
-    try { return JSON.stringify(obj, filter); } catch(e) { logger.error("stringify:", e); return "" }
-}
-
-// Silent JSON parse, returns null on error, no exceptions raised.
-// options can specify the output in case of an error:
-// - list - return empty list
-// - obj - return empty obj
-// - str - return empty string
-core.jsonParse = function(obj, options)
-{
-    function onerror(e) {
-        if (options) {
-            if (options.error) logger.error('jsonParse:', e, obj);
-            if (options.debug) logger.debug('jsonParse:', e, obj);
-            if (options.obj) return {};
-            if (options.list) return [];
-            if (options.str) return "";
-        }
-        return null;
-    }
-    if (!obj) return onerror("empty");
-    try {
-        obj = JSON.parse(obj);
-        if (options && options.obj && this.typeName(obj) != "object") obj = {};
-        if (options && options.list && this.typeName(obj) != "array") obj = [];
-        if (options && options.str && this.typeName(obj) != "string") obj = "";
-    } catch(e) {
-        obj = onerror(e);
-    }
-    return obj;
-}
-
 // Return cookies that match given domain
 core.cookieGet = function(domain, callback)
 {
@@ -2973,7 +1540,7 @@ core.cookieGet = function(domain, callback)
     var cookies = [];
     db.scan("bk_property", {}, { pool: db.local }, function(row, next) {
         if (!row.name.match(/^bk:cookie:/)) return next();
-        var cookie = self.jsonParse(row.value, { obj: 1 })
+        var cookie = corelib.jsonParse(row.value, { obj: 1 })
         if (cookie.expires <= Date.now()) return next();
         if (cookie.domain == domain) {
             cookies.push(cookie);
@@ -3008,7 +1575,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
             var value = pair[2];
             switch(key) {
             case "expires":
-                obj.expires = value ? Number(self.toDate(value)) : Infinity;
+                obj.expires = value ? Number(corelib.toDate(value)) : Infinity;
                 break;
 
             case "path":
@@ -3038,9 +1605,9 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
         });
         if (!found) cookiejar.push(obj);
     });
-    self.forEachSeries(cookiejar, function(rec, next) {
+    corelib.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
-        if (!rec.id) rec.id = core.hash(rec.name + ':' + rec.domain + ':' + rec.path);
+        if (!rec.id) rec.id = corelib.hash(rec.name + ':' + rec.domain + ':' + rec.path);
         db.put("bk_property", { name: "bk:cookie:" + rec.id, value: rec }, { pool: db.local }, function() { next() });
     }, function() {
         if (callback) callback();
@@ -3097,7 +1664,7 @@ core.createRepl = function(options)
 
     // Support history
     if (this.replFile) {
-        r.rli.history = this.readFileSync(this.replFile, { list: '\n' }).reverse();
+        r.rli.history = corelib.readFileSync(this.replFile, { list: '\n' }).reverse();
         r.rli.addListener('line', function(code) {
             if (code) {
                 fs.appendFile(self.replFile, code + '\n', function() {});
@@ -3127,7 +1694,7 @@ core.watchTmp = function(dir, options, callback)
     fs.readdir(dir, function(err, files) {
         if (err) return callback ? callback(err) : null;
 
-        self.forEachSeries(files, function(file, next) {
+        corelib.forEachSeries(files, function(file, next) {
             if (file == "." || file == "..") return next();
             if (options.match && !file.match(options.match)) return next();
             if (options.ignore && file.match(options.ignore)) return next();
@@ -3139,7 +1706,7 @@ core.watchTmp = function(dir, options, callback)
                 if (now - st.mtime < options.seconds*1000) return next();
                 logger.log('watchTmp: delete', dir, file, (now - st.mtime)/1000, 'sec old');
                 if (st.isDirectory()) {
-                    self.unlinkPath(file, function(err) {
+                    corelib.unlinkPath(file, function(err) {
                         if (err) logger.error('watchTmp:', file, err);
                         next();
                     });
@@ -3162,7 +1729,7 @@ core.watchFiles = function(dir, pattern, callback)
 
     function watcher(event, file) {
         // Check stat if no file name, Mac OS X does not provide it
-        var stat = self.statSync(file.name);
+        var stat = corelib.statSync(file.name);
         if (stat.size == file.stat.size && stat.mtime == file.stat.mtime) return;
         logger.log('watchFiles:', event, file.name, file.ino, stat.size);
         if (event == "rename") {
@@ -3179,7 +1746,7 @@ core.watchFiles = function(dir, pattern, callback)
             return file.match(pattern);
         }).map(function(file) {
             file = path.join(dir, file);
-            return ({ name: file, stat: self.statSync(file) });
+            return ({ name: file, stat: corelib.statSync(file) });
         }).forEach(function(file) {
             logger.debug('watchFiles:', file.name, file.ino, file.stat.size);
             file.watcher = fs.watch(file.name, function(event) { watcher(event, file); });
@@ -3221,7 +1788,7 @@ core.watchLogs = function(options, callback)
         var errors = "";
 
         // For every log file
-        self.forEachSeries(self.logwatcherFiles, function(log, next) {
+        corelib.forEachSeries(self.logwatcherFiles, function(log, next) {
             var file = log.file;
             if (!file && self[log.name]) file = self[log.name];
             if (!file) return next();
@@ -3229,7 +1796,7 @@ core.watchLogs = function(options, callback)
             fs.stat(file, function(err2, st) {
                if (err2) return next();
                // Last saved position, start from the end if the log file is too big or got rotated
-               var pos = core.toNumber(lastpos['logwatcher:' + file] || 0);
+               var pos = corelib.toNumber(lastpos['logwatcher:' + file] || 0);
                if (st.size - pos > self.logwatcherMax || pos > st.size) pos = st.size - self.logwatcherMax;
 
                fs.open(file, "r", function(err3, fd) {
@@ -3371,7 +1938,7 @@ core.runTest = function(obj, options, callback)
 
     logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', this.test.cmd, 'db-pool:', this.modules.db.pool);
 
-    this.whilst(
+    corelib.whilst(
         function () { return self.test.countdown > 0 || self.test.forever || options.running; },
         function (next) {
             self.test.countdown--;

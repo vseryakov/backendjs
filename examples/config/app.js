@@ -7,6 +7,7 @@ var db = bkjs.db;
 var api = bkjs.api;
 var app = bkjs.app;
 var core = bkjs.core;
+var corelib = bkjs.corelib;
 var logger = bkjs.logger;
 
 // Create API endpoints and routes

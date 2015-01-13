@@ -124,7 +124,7 @@
                    "-g -fPIC",
                    "$(shell mysql_config --cflags)",
                    "$(shell pkg-config --silence-errors --cflags libpq)",
-                   "$(shell PKG_CONFIG_PATH=$$(pwd)/src/pkgconfig pkg-config --silence-errors --cflags Wand)"
+                   "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --cflags Wand)"
                 ],
              }
            }],
@@ -137,7 +137,7 @@
                 "$(shell mysql_config --cflags)",
                 "$(shell pkg-config --silence-errors --cflags libpq)",
                 "$(shell if test -f /usr/include/pgsql/libpq-fe.h; then echo -I/usr/include/pgsql; fi)",
-                "$(shell PKG_CONFIG_PATH=$$(pwd)/src/pkgconfig pkg-config --silence-errors --cflags Wand)",
+                "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --cflags Wand)",
              ]
            }]
         ]
