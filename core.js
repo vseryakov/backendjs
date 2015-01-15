@@ -216,7 +216,8 @@ var core = {
             { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used" },
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
-            { name: "worker", type:" bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
+            { name: "worker", type:"bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
+            { name: "no-modules", type: "regexp", descr: "A regexp with modules names to be excluded form loading on startup", pass: 1 },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of sending over email" },
             { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
@@ -285,7 +286,7 @@ core.init = function(options, callback)
     self.domain = corelib.domainName(self.hostName);
 
     // Load external modules
-    self.loadModules(self.path.modules, options);
+    self.loadModules(self.path.modules, { exclude: self.noModules });
 
     // Serialize initialization procedure, run each function one after another
     corelib.series([
@@ -1129,6 +1130,10 @@ core.deferCallback = function(obj, msg, callback, timeout)
 // Run a method for every module, a method must conform to the following signature: `function(options, callback)` and
 // call the callback when finished. The callback second argument will be the options, so it is possible to pass anything
 // in the options back to the caller. Errors from a module is never propagated and simply ignored.
+//
+// The following properties can be specified in the options:
+//  - noModules - a regexp of the modules names to be excluded form calling the method
+//
 core.runMethods = function(name, options, callback)
 {
     var self = this;
@@ -1136,6 +1141,7 @@ core.runMethods = function(name, options, callback)
     if (!options) options = {};
 
     corelib.forEachSeries(Object.keys(self.modules), function(mod, next) {
+        if (options.noModules instanceof RegExp && options.noModules.test(mod)) return next();
         var ctx = self.modules[mod];
         if (!ctx[name]) return next();
         logger.debug("runMethods:", name, mod);
@@ -1215,6 +1221,9 @@ core.addModule = function()
 // called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. `core.addModule` is called
 // automatically.
 //
+// The following options properties can be specified:
+//  - noModules - a regexp with modules name/file to be excluded from loading, the whole file name is checked
+//
 //  Example, to load all modules from the local relative directory
 //
 //       core.loadModules("modules")
@@ -1222,7 +1231,7 @@ core.addModule = function()
 core.loadModules = function(name, options, callback)
 {
     var self = this;
-    corelib.findFileSync(path.resolve(name), { depth: 1, types: "f", include: new RegExp(/\.js$/) }).sort().forEach(function(file) {
+    corelib.findFileSync(path.resolve(name), { depth: 1, types: "f", exclude: options.noModules, include: new RegExp(/\.js$/) }).sort().forEach(function(file) {
         try {
             var mod = require(file);
             self.addModule(mod.name || path.basename(file, ".js"), mod);

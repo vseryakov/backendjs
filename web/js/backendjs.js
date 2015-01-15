@@ -229,6 +229,21 @@ var Backendjs = {
         $.ajax(options);
     },
 
+    // Send a file as multi-part upload
+    sendFile: function(options, callback) {
+        if (!options || !options.file || !options.file.files.length) return callback ? callback() : null;
+        var form = new FormData();
+        for (var p in options.data) form.append(p, options.data[p])
+        form.append("data", options.file.files[0]);
+        // Send within the session, multipart is not supported by signature
+        var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
+        this.send(rc, function(rc) {
+            if (typeof options.callback == "function") options.callback();
+        }, function(err, xhr) {
+            if (typeof options.callback == "function") options.callback(err, xhr);
+        });
+    },
+
     // WebSokets helper functions
     wsConnect: function(url, options, onmessage, onerror) {
         var self = this;

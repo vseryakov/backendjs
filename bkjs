@@ -53,26 +53,27 @@ case "$NAME" in
     ;;
 esac
 
-# Global options
-while [ $# -gt 1 ]; do
-    case "$1" in
-     -debug) export BKJS_DEBUG=$2;shift;shift;;
-     -home) export BKJS_HOME=$2;shift;shift;;
-     -prefix) export BKJS_PREFIX=$2;shift;shift;;
-     -user) export BKJS_USER=$2;shift;shift;;
-     -domain) export BKJS_DOMAIN=$2;shift;shift;;
-     -host) export BKJS_HOST=$2;shift;shift;;
-     -sync) export BKJS_SYNC=$2;shift;shift;;
-     -path) export BKJS_PATH=$2;shift;shift;;
-     -args) export BKJS_ARGS="$BKJS_ARGS $2";shift;shift;;
-     -ssh) export BKJS_SSH_ARGS="$BKJS_SSH_ARGS $2";shift;shift;;
-     -rsync) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS $2";shift;shift;;
-     -exclude) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude $2";shift;shift;;
-     -include) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --include $2";shift;shift;;
-     -delete) export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --delete-after";shift;;
-     *) break;;
-    esac
-done
+# Return argument value by name, format is -name value
+ARGS=("$@")
+get_arg() {
+  for ((i = 0;i < ${#ARGS[@]}; ++i)); do
+    [ "$1" = "${ARGS[i]}" ] && echo "${ARGS[i+1]}" && return 0
+  done
+  [ "$2" != "" ] && echo $2
+}
+
+# Global options that are used thoughout the script
+export BKJS_DEBUG=$(get_arg -debug $BKJS_DEBUG)
+export BKJS_HOME=$(get_arg -home $BKJS_HOME)
+export BKJS_PREFIX=$(get_arg -prefix $BKJSPREFIX)
+export BKJS_USER=$(get_arg -user $BKJS_USER)
+export BKJS_DOMAIN=$(get_arg -domain $BKJS_DOMAIN)
+export BKJS_HOST=$(get_arg -host $BKJS_HOST)
+export BKJS_SYNC=$(get_arg -sync $BKJS_SYNC)
+export BKJS_PATH=$(get_arg -path $BKJS_PATH)
+export BKJS_ARGS="$BKJS_ARGS $(get_arg -args)"
+export BKJS_SSH_ARGS="$BKJS_SSH_ARGS $(get_arg -ssh)"
+export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS $(get_arg -rsync)"
 
 # Home must be specified for the script to work properly
 [ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
@@ -559,7 +560,6 @@ case "$ARG" in
     else
        npm update backendjs
     fi
-
     ;;
 
   put-backend)
@@ -1208,9 +1208,9 @@ EOF
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh subcommands:"
-    echo "  -account-add [-scramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values "
-    echo "  -account-update [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value "
-    echo "  -account-set-secret login LOGIN|id id secret SECRET - change a user secret"
+    echo "  -account-add [_scramble 0|1|2] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values "
+    echo "  -account-update [_scramble 0|1|2] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value "
+    echo "  -account-set-secret [_scramble 0|1|2] login LOGIN|id id secret SECRET - change a user secret"
     echo "  -account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
     echo "  -location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account"
     echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"

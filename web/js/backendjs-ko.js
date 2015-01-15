@@ -20,8 +20,7 @@ Backendjs.koLogin = function(data, event)
 Backendjs.koLogout = function(callback)
 {
     Backendjs.logout(function() {
-        if (typeof callback == "function") callback();
-        window.location.href = "/";
+        if (typeof callback == "function") return callback();
     });
 }
 
@@ -29,7 +28,6 @@ $(function()
 {
     ko.applyBindings(Backendjs);
     Backendjs.login(function() {
-        if (!Backendjs.loggedIn && window.location.pathname != "/") window.location.href = "/";
         Backendjs.koAuth(Backendjs.loggedIn);
         Backendjs.koAdmin(Backendjs.loggedIn && Backendjs.account.type == "admin");
         if (Backendjs.koShow) Backendjs.koShow();

@@ -1934,6 +1934,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests. Default: 20100</li>
 <li><code>cache-bind</code> - Listen only on specified address for cache sockets server in the master process</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
+<li><code>no-modules</code> - A regexp with modules names to be excluded form loading on startup</li>
 <li><code>logwatcher-url</code> - The backend URL where logwatcher reports should be sent instead of sending over email</li>
 <li><code>logwatcher-email</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen. DNS TXT configurable.</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
@@ -2018,7 +2019,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests</li>
 <li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only. Default: 604800000</li>
-<li><code>api-disable</code> - Disable default API by endpoint name: account, message, icon...... Default: []</li>
+<li><code>api-no-modules</code> - A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly. Default: {}</li>
 <li><code>api-allow-connection</code> - Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op.... Default: {}</li>
 <li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints. Default: {}</li>
@@ -3675,6 +3676,10 @@ any errors must be passed, use the message object for it, no other arguments are
 <p> Run a method for every module, a method must conform to the following signature: <code>function(options, callback)</code> and
 call the callback when finished. The callback second argument will be the options, so it is possible to pass anything
 in the options back to the caller. Errors from a module is never propagated and simply ignored.</p>
+<p>The following properties can be specified in the options:</p>
+<ul>
+<li>noModules - a regexp of the modules names to be excluded form calling the method</li>
+</ul>
 </li>
 </ul>
 
@@ -3716,6 +3721,10 @@ modules with the core it makes the module a first class citizen in the backendjs
 <code>init</code> method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
 called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. <code>core.addModule</code> is called
 automatically.</p>
+<p>The following options properties can be specified:</p>
+<ul>
+<li>noModules - a regexp with modules name/file to be excluded from loading, the whole file name is checked</li>
+</ul>
 <p>Example, to load all modules from the local relative directory</p>
 <pre><code> core.loadModules(&quot;modules&quot;)
 </code></pre></li>
@@ -6177,12 +6186,6 @@ If options.existing is 1 then return only record with found accounts, all other 
 </ul>
 
 <ul>
-<li><p><code>api.addAccount(req, options, callback)</code></p>
-<p> Register new account, used in /account/add API call</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.fetchAccount(req, options, callback)</code></p>
 <p> Given a profile data from some other system, check if there is an account or create a new account for the given
 profile, return bk_account record in the callback. req.query contains profile fields converted to bk_auth/bk_account names
@@ -6198,8 +6201,24 @@ if specified will be used to resize the image.</p>
 </ul>
 
 <ul>
+<li><p><code>api.addAccount(req, options, callback)</code></p>
+<p> Register new account, used in /account/add API call</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.updateAccount(req, options, callback)</code></p>
 <p> Update existing account, used in /account/update API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.prepareAccountSecret(query, options)</code></p>
+<p> If specified in the options, prepare credentials to be stored in the db:</p>
+<ul>
+<li>scramble can be used to sign the secret and login so the db never stores cleartext credentials:
+1 - scramble secret, 2 - scramble login and secret</li>
+</ul>
 </li>
 </ul>
 

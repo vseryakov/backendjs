@@ -608,22 +608,18 @@ server.startShell = function(options)
 
         // Add a user
         if (core.isArg("-account-add")) {
-            var query = getQuery();
+            var query = getQuery(), opts = getOptions();
             if (query.login && !query.name) query.name = query.login;
-            if (core.isArg("-scramble")) {
-                query.secret = corelib.sign(query.login, query.secret);
-                query.login = corelib.sign(query.login, query.login);
-            }
-            api.addAccount({ query: query, account: { type: 'admin' } }, {}, function(err, data) {
+            api.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
                 exit(err, data);
             });
         } else
 
         // Delete a user and all its history according to the options
         if (core.isArg("-account-update")) {
-            var query = getQuery();
+            var query = getQuery(), opts = getOptions();
             getUser(query, function(row) {
-                api.updateAccount({ account: row, query: query }, {}, function(err, data) {
+                api.updateAccount({ account: row, query: query }, opts, function(err, data) {
                     exit(err, data);
                 });
             });
@@ -631,13 +627,9 @@ server.startShell = function(options)
 
         // Change user password
         if (core.isArg("-account-set-secret")) {
-            var query = getQuery();
-            if (core.isArg("-scramble") && query.login) {
-                query.secret = corelib.sign(query.login, query.secret);
-                query.login = corelib.sign(query.login, query.login);
-            }
+            var query = getQuery(), opts = getOptions();
             getUser(query, function(row) {
-                api.setAccountSecret({ account: row, query: query }, {}, function(err, data) {
+                api.setAccountSecret({ account: row, query: query }, opts, function(err, data) {
                     exit(err, data);
                 });
             });

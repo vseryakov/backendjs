@@ -288,8 +288,6 @@ var api = {
     imagesS3: '',
     filesS3: '',
 
-    // Disabled API endpoints
-    disable: [],
     disableSession: {},
     templating: "ejs",
     expressEnable: [],
@@ -378,7 +376,7 @@ var api = {
            { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests" },
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
-           { name: "disable", type: "list", descr: "Disable default API by endpoint name: account, message, icon....." },
+           { name: "no-modules", type: "regexp", descr: "A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it" },
            { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
            { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints" },
@@ -644,10 +642,13 @@ api.init = function(options, callback)
 
             // Default endpoints
             for (var p in self.endpoints) {
-                if (self.disable.indexOf(p) == -1) self[self.endpoints[p]].call(self);
+                if (!self.noModules || !self.noModules.test(p)) self[self.endpoints[p]].call(self);
             }
 
-            // Custom application logic
+            // Pass disabled endponts to skip installing routes for disable dmodules
+            if (self.noModules) options.noModules = self.noModules;
+
+            // Setup routes from the loaded modules
             core.runMethods("configureWeb", options, function(err) {
                 if (err) return callback.call(self, err);
 
@@ -1240,7 +1241,7 @@ api.createSessionSignature = function(req, options)
         if (options.accessToken) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
             req.account['bk-access-token'] = corelib.encrypt(this.accessTokenSecret, sig["bk-signature"], "", "hex");
-            req.account['bk-access-token-age'] = options.sessionAge || this.accessTokenAge; 
+            req.account['bk-access-token-age'] = options.sessionAge || this.accessTokenAge;
         } else {
             delete req.account.accessToken;
         }

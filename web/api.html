@@ -1,27 +1,24 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
- <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
- <title>Backend API</title>
- <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
- <link rel="icon" href="/img/logo.png" type="image/png" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Backend API</title>
+<link rel="shortcut icon" href="/img/logo.png" type="image/png" />
+<link rel="icon" href="/img/logo.png" type="image/png" />
 
- <link href="/css/font-awesome.css" rel="stylesheet">
+<link href="/css/font-awesome.css" rel="stylesheet">
 
- <script src="js/jquery.js" type="text/javascript" ></script>
+<script src="js/jquery.js" type="text/javascript" ></script>
 
- <script src="js/jquery-ui.js" type="text/javascript" ></script>
- <link href="css/jquery-ui.css" rel="stylesheet" type="text/css" />
+<script src="js/jquery-ui.js" type="text/javascript" ></script>
+<link href="css/jquery-ui.css" rel="stylesheet" type="text/css" />
 
- <script src="js/knockout.js" type="text/javascript"></script>
+<script src="js/knockout.js" type="text/javascript"></script>
+<script src="js/crypto.js" type="text/javascript"></script>
+<script src="js/backendjs.js" type="text/javascript"></script>
+<script src="js/backendjs-jquery-ui.js" type="text/javascript"></script>
 
- <script src="js/crypto.js" type="text/javascript"></script>
-
- <script src="js/backendjs.js" type="text/javascript"></script>
- <script src="js/backendjs-jquery-ui.js" type="text/javascript"></script>
-
- <style>
-
+<style>
 #loading {
     display:none;
     width: 20px;
@@ -71,10 +68,9 @@ li {
     border-bottom: 1px dotted black;
     cursor: pointer;
 }
-
 </style>
 
- <script type="text/javascript">
+<script type="text/javascript">
 
 // Based on https://github.com/ngn/jquery-input-history.git
 $(function() {
@@ -129,7 +125,7 @@ $(function() {
     }});
 });
 
- $(function () {
+$(function() {
      Backendjs.debug = 1;
      Backendjs.session = 1;
      Backendjs.apiResponse = ko.observable('');
@@ -139,11 +135,6 @@ $(function() {
      Backendjs.apiRaw = false;
      Backendjs.apiEscape = false;
      Backendjs.apiHistory = ko.observableArray();
-     Backendjs.apiSocket = ko.observable(0);
-     Backendjs.apiSocket.subscribe(function(val) {
-        if (!val) return Backendjs.ioClose();
-        Backendjs.ioConnect("", function(data) { Backendjs.formatResponse(data); });
-     });
      Backendjs.apiWS = ko.observable(0);
      Backendjs.apiWS.subscribe(function(val) {
         if (!val) return Backendjs.wsClose();
@@ -180,16 +171,6 @@ $(function() {
      Backendjs.showHistory = function() {
         Backendjs.apiHistory(this.getHistory(true));
         $("#dialog-history").dialog("open");
-     }
-     Backendjs.koLogin = function() {
-        Backendjs.showLogin(function(err, data) {
-            Backendjs.apiEmail(err || data.login);
-            if (!err) Backendjs.hideLogin();
-        });
-     }
-     Backendjs.koLogout = function() {
-        Backendjs.apiEmail("");
-        Backendjs.logout();
      }
      Backendjs.formatResponse = function(data, xhr) {
         try {
@@ -276,14 +257,12 @@ $(function() {
              });
          }
      }
+     Backendjs.koShow = function() {
+        Backendjs.apiEmail(Backendjs.loggedIn ? Backendjs.account.login : "");
+     }
 
      $('#url').inputHistory({
          enter: function() { Backendjs.doRun() }
-     });
-     document.title += ": " + window.location.hostname.split(".").shift();
-     ko.applyBindings(Backendjs);
-     Backendjs.login(function(err, data, xhr) {
-        Backendjs.apiEmail(err || data.login);
      });
 
      $("#dialog-history").dialog({
@@ -291,15 +270,19 @@ $(function() {
         modal: true,
         width: "80%"
      });
- });
- </script>
+
+     document.title += ": " + window.location.hostname.split(".").shift();
+});
+</script>
+
+<script src="js/backendjs-ko.js" type="text/javascript"></script>
 
 </head>
 <body>
 <div id="header" class="header">
    <div class='buttons'>
-     <span title="Login into the account" onclick="Backendjs.koLogin()">Login</span>
-     <span title="Logout and clear the session" onclick="Backendjs.koLogout()" >Logout</span>
+     <span title="Login into the account" data-bind="click: koLogin">Login</span>
+     <span title="Logout and clear the session" data-bind="click: koLogout" >Logout</span>
      <span title="Documentation" onclick="window.open('doc.html')" >Help</span>
    </div>
    <span class="title" title="Logged in account email or error status" style="float:right;" data-bind='text: apiEmail' ></span>
@@ -311,7 +294,7 @@ $(function() {
       <tr><td>URL:</td>
           <td><input id="url" type="search" size=100" /></td>
           <td><button type="submit" >Run</button></td>
-          <td><button onclick="Backendjs.showHistory()" title="Chow all commands from history">History...</button></td>
+          <td><button data-bind="click: showHistory" title="Show all commands from history">History...</button></td>
           <td colspan=3><input type="file" id="file" name="file" title="Upload a file, the last param in url must be empty like '/account/put/icon?type=0&icon=', it will be used for a file"/></td>
        </tr>
        <tr>
