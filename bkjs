@@ -62,6 +62,14 @@ get_arg() {
   [ "$2" != "" ] && echo $2
 }
 
+# Concatenate args
+concat_arg() {
+  _v=$(get_arg $1)
+  [ "$_v" == "" ] && echo $2
+  [ "$2" != "" ] && _v="$2 $_v"
+  echo $_v
+}
+
 # Global options that are used thoughout the script
 export BKJS_DEBUG=$(get_arg -debug $BKJS_DEBUG)
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
@@ -71,9 +79,9 @@ export BKJS_DOMAIN=$(get_arg -domain $BKJS_DOMAIN)
 export BKJS_HOST=$(get_arg -host $BKJS_HOST)
 export BKJS_SYNC=$(get_arg -sync $BKJS_SYNC)
 export BKJS_PATH=$(get_arg -path $BKJS_PATH)
-export BKJS_ARGS="$BKJS_ARGS $(get_arg -args)"
-export BKJS_SSH_ARGS="$BKJS_SSH_ARGS $(get_arg -ssh)"
-export BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS $(get_arg -rsync)"
+export BKJS_ARGS=$(concat_arg -args $BKJS_ARGS)
+export BKJS_SSH_ARGS=$(concat_arg -ssh $BKJS_SSH_ARGS)
+export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
 
 # Home must be specified for the script to work properly
 [ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")

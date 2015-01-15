@@ -2853,6 +2853,24 @@ been processed.</p>
 </ul>
 
 <ul>
+<li><p><code>aws.getInstanceMeta(path, callback)</code></p>
+<p> Retrieve instance meta data</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getInstanceCredentials(callback)</code></p>
+<p> Retrieve instance credentials using EC2 instance profile and setup for AWS access</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getInstanceInfo(callback)</code></p>
+<p> Retrieve instance launch index from the meta data if running on AWS instance</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.parseXMLResponse(err, params, callback)</code></p>
 <p> Parse AWS response and try to extract error code and message, convert XML into an object.</p>
 </li>
@@ -3038,24 +3056,6 @@ The options can specify the following:</p>
 <ul>
 <li><p><code>aws.ec2DeregisterImage(ami_id, options, callback)</code></p>
 <p> Deregister an AMI by id. If <code>options.snapshots</code> is set, then delete all snapshots for this image as well</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.getInstanceMeta(path, callback)</code></p>
-<p> Retrieve instance meta data</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.getInstanceCredentials(callback)</code></p>
-<p> Retrieve instance credentials using EC2 instance profile and setup for AWS access</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.getInstanceInfo(callback)</code></p>
-<p> Retrieve instance launch index from the meta data if running on AWS instance</p>
 </li>
 </ul>
 

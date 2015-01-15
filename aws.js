@@ -108,6 +108,104 @@ aws.readCredentials = function(profile, callback)
     });
 }
 
+// Retrieve instance meta data
+aws.getInstanceMeta = function(path, callback)
+{
+    var self = this;
+    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params) {
+        logger.debug('getInstanceMeta:', path, params.status, params.data, err || "");
+        if (callback) callback(err, params.status == 200 ? params.data : "");
+    });
+}
+
+// Retrieve instance credentials using EC2 instance profile and setup for AWS access
+aws.getInstanceCredentials = function(callback)
+{
+    if (!this.amiProfile) return callback ? callback() : null;
+
+    var self = this;
+    self.getInstanceMeta("/latest/meta-data/iam/security-credentials/" + self.amiProfile, function(err, data) {
+        if (!err && data) {
+            var obj = corelib.jsonParse(data, { obj: 1 });
+            if (obj.Code === 'Success') {
+                self.key = obj.AccessKeyId;
+                self.secret = obj.SecretAccessKey;
+                self.securityToken = obj.Token;
+                self.tokenExpiration = corelib.toDate(obj.Expiration).getTime();
+            }
+        }
+        // Poll every ~5mins
+        if (!self.tokenTimer) {
+            self.tokenTimer = setInterval(function() { self.getInstanceCredentials() }, 258 * 1000);
+        }
+        if (callback) callback(err);
+    });
+}
+
+// Retrieve instance launch index from the meta data if running on AWS instance
+aws.getInstanceInfo = function(callback)
+{
+    var self = this;
+
+    corelib.series([
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/instance-id", function(err, data) {
+                if (!err && data) core.instance.id = data;
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/ami-id", function(err, data) {
+                if (!err && data) core.instance.image = data;
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, data) {
+                if (!err && data) core.instance.index = corelib.toNumber(data);
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/user-data", function(err, data) {
+                if (!err && data && data[0] != "#") core.parseArgs(utils.strSplit(data, " ", '"\''));
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/placement/availability-zone/", function(err, data) {
+                if (!err && data) self.zone = data;
+                if (self.zone && !core.instance.zone) core.instance.zone = self.zone;
+                if (self.zone && !core.instance.region) core.instance.region = self.zone.slice(0, -1);
+                if (!self.region && data) self.region = data.slice(0, -1);
+                next(err);
+            });
+        },
+        function(next) {
+            self.getInstanceMeta("/latest/meta-data/iam/security-credentials/", function(err, data) {
+                if (!err && data) self.amiProfile = data;
+                next(err);
+            });
+        },
+        function(next) {
+            // If access key is configured then skip profile meta
+            if (self.key) return next();
+            self.getInstanceCredentials(next);
+        },
+        function(next) {
+            if (!self.secret || !core.instance.id) return next();
+            self.queryEC2("DescribeTags", { 'Filter.1.Name': 'resource-id', 'Filter.1.Value': core.instance.id }, function(err, tags) {
+                if (!err) self.tags = corelib.objGet(tags, "DescribeTagsResponse.tagSet.item", { list: 1 });
+                if (!core.instance.tag) core.instance.tag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
+                next();
+            });
+        },
+        ], function(err) {
+            logger.debug('getInstanceInfo:', self.name, core.instance, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration, err || "");
+            if (callback) callback();
+    });
+}
+
 // Parse AWS response and try to extract error code and message, convert XML into an object.
 aws.parseXMLResponse = function(err, params, callback)
 {
@@ -650,104 +748,6 @@ aws.ec2DeregisterImage = function(ami_id, options, callback)
                 self.queryEC2("DeleteSnapshot", { SnapshotId: vol.ebs.snapshotId }, options, next);
             }, callback)
         });
-    });
-}
-
-// Retrieve instance meta data
-aws.getInstanceMeta = function(path, callback)
-{
-    var self = this;
-    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params) {
-        logger.debug('getInstanceMeta:', path, params.status, params.data, err || "");
-        if (callback) callback(err, params.status == 200 ? params.data : "");
-    });
-}
-
-// Retrieve instance credentials using EC2 instance profile and setup for AWS access
-aws.getInstanceCredentials = function(callback)
-{
-    if (!this.amiProfile) return callback ? callback() : null;
-
-    var self = this;
-    self.getInstanceMeta("/latest/meta-data/iam/security-credentials/" + self.amiProfile, function(err, data) {
-        if (!err && data) {
-            var obj = corelib.jsonParse(data, { obj: 1 });
-            if (obj.Code === 'Success') {
-                self.key = obj.AccessKeyId;
-                self.secret = obj.SecretAccessKey;
-                self.securityToken = obj.Token;
-                self.tokenExpiration = corelib.toDate(obj.Expiration).getTime();
-            }
-        }
-        // Poll every ~5mins
-        if (!self.tokenTimer) {
-            self.tokenTimer = setInterval(function() { self.getInstanceCredentials() }, 258 * 1000);
-        }
-        if (callback) callback(err);
-    });
-}
-
-// Retrieve instance launch index from the meta data if running on AWS instance
-aws.getInstanceInfo = function(callback)
-{
-    var self = this;
-
-    corelib.series([
-        function(next) {
-            self.getInstanceMeta("/latest/meta-data/instance-id", function(err, data) {
-                if (!err && data) core.instance.id = data;
-                next(err);
-            });
-        },
-        function(next) {
-            self.getInstanceMeta("/latest/meta-data/ami-id", function(err, data) {
-                if (!err && data) core.instance.image = data;
-                next(err);
-            });
-        },
-        function(next) {
-            self.getInstanceMeta("/latest/meta-data/ami-launch-index", function(err, data) {
-                if (!err && data) core.instance.index = corelib.toNumber(data);
-                next(err);
-            });
-        },
-        function(next) {
-            self.getInstanceMeta("/latest/user-data", function(err, data) {
-                if (!err && data && data[0] != "#") core.parseArgs(utils.strSplit(data, " ", '"\''));
-                next(err);
-            });
-        },
-        function(next) {
-            self.getInstanceMeta("/latest/meta-data/placement/availability-zone/", function(err, data) {
-                if (!err && data) self.zone = data;
-                if (self.zone && !core.instance.zone) core.instance.zone = self.zone;
-                if (self.zone && !core.instance.region) core.instance.region = self.zone.slice(0, -1);
-                if (!self.region && data) self.region = data.slice(0, -1);
-                next(err);
-            });
-        },
-        function(next) {
-            self.getInstanceMeta("/latest/meta-data/iam/security-credentials/", function(err, data) {
-                if (!err && data) self.amiProfile = data;
-                next(err);
-            });
-        },
-        function(next) {
-            // If access key is configured then skip profile meta
-            if (self.key) return next();
-            self.getInstanceCredentials(next);
-        },
-        function(next) {
-            if (!self.secret || !core.instance.id) return next();
-            self.queryEC2("DescribeTags", { 'Filter.1.Name': 'resource-id', 'Filter.1.Value': core.instance.id }, function(err, tags) {
-                if (!err) self.tags = corelib.objGet(tags, "DescribeTagsResponse.tagSet.item", { list: 1 });
-                if (!core.instance.tag) core.instance.tag = self.tags.filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).join(",");
-                next();
-            });
-        },
-        ], function(err) {
-            logger.debug('getInstanceInfo:', self.name, core.instance, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration, err || "");
-            if (callback) callback();
     });
 }
 
