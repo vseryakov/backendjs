@@ -23,8 +23,8 @@ var Backendjs = {
     // Signature version
     sigversion: 4,
 
-    // Current account
-    account: null,
+    // Current account record
+    account: {},
 
     // Websockets
     wsconf: { host: null, port: 8000, errors: 0 },
@@ -35,17 +35,21 @@ var Backendjs = {
         return { login: obj.backendjsLogin || "", secret: obj.backendjsSecret || "" };
     },
 
+    // Possibly scramble credentials and return as an object
+    checkCredentials: function(login, secret) {
+        login = login ? String(login) : "";
+        secret = secret ? String(secret) : "";
+        if (this.scramble && login && secret) secret = b64_hmac_sha256(login, secret);
+        return { login: login, secret: secret };
+    },
+
     // Set new credentials, save in memory or local storage
     setCredentials: function(login, secret) {
         var obj = this.persistent ? localStorage : this;
-        if (this.scramble) {
-            obj.backendjsLogin = login ? (this.scramble > 1 ? b64_hmac_sha1(String(login), String(login)) : String(login)) : "";
-            obj.backendjsSecret = login && secret ? b64_hmac_sha1(String(login), String(secret)) : "";
-        } else {
-            obj.backendjsLogin = login ? String(login) : "";
-            obj.backendjsSecret = secret ? String(secret) : "";
-        }
-        if (this.debug) this.log('setCredentials:', login, this.getCredentials());
+        var creds = this.checkCredentials(login, secret);
+        obj.backendjsLogin = creds.login;
+        obj.backendjsSecret = creds.secret;
+        if (this.debug) this.log('setCredentials:', creds);
     },
 
     // Retrieve account record, call the callback with the object or error
@@ -54,14 +58,15 @@ var Backendjs = {
         if (typeof login == "function") callback = login, login = secret = null;
         if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
 
-        self.send("/account/get?" + (this.session ? "_session=1" : "_session=0"), function(data, xhr) {
+        self.send({ url: "/account/get?" + (this.session ? "_session=1" : "_session=0"), jsonType: "obj" }, function(data, xhr) {
             self.loggedIn = true;
             self.account = data;
             if (typeof callback == "function") callback(null, data, xhr);
         }, function(err, xhr) {
             self.loggedIn = false;
+            self.account = {};
             self.setCredentials();
-            if (typeof callback == "function") callback(err, xhr);
+            if (typeof callback == "function") callback(err, null, xhr);
         });
     },
 
@@ -69,31 +74,22 @@ var Backendjs = {
     addAccount: function(obj, callback) {
         var self = this;
         delete obj.secret2;
-        this.setCredentials(obj.login, obj.secret);
+        var creds = this.checkCredentials(obj.login, obj.secret);
         // Replace the actual credentials from the storage in case of scrambling
-        var creds = this.getCredentials();
         obj.login = creds.login;
         obj.secret = creds.secret;
-        self.send({ type: "POST", url: "/account/add", data: jQuery.param(obj), nosignature: 1 }, function(data, xhr) {
-            self.loggedIn = true;
-            if (typeof callback == "function") callback(null, data, xhr);
-        }, function(err, xhr) {
-            self.loggedIn = false;
-            self.setCredentials();
-            if (typeof callback == "function") callback(err, xhr);
-        });
+        self.sendRequest({ type: "POST", url: "/account/add", data: jQuery.param(obj), jsonType: "obj", nosignature: 1 }, callback);
     },
 
-    // Set new account secret
-    saveSecret: function(secret, callback) {
+    // Update current account
+    updateAccount: function(obj, callback) {
         var self = this;
-        self.send({ url: '/account/put/secret', data: { secret: secret }, type: "POST", jsonType: "obj" }, function(data, xhr) {
-            self.setCredentials(self.getCredentials().login, secret);
-            if (typeof callback == "function") callback(null, data, xhr);
-        }, function(err, xhr) {
-            self.setCredentials();
-            if (typeof callback == "function") callback(err, xhr);
-        });
+        if (obj.secret) {
+            delete obj.secret2;
+            var creds = this.checkCredentials(obj.login || this.account.login, obj.secret);
+            obj.secret = creds.secret;
+        }
+        self.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);
     },
 
     // Wait for events and call the callback, this runs until Backend.unsubscribe is set to true
@@ -113,12 +109,10 @@ var Backendjs = {
     logout: function(callback) {
         var self = this;
         self.loggedIn = false;
-        self.send("/account/get?_session=0", function(data, xhr) {
+        self.account = {};
+        self.sendRequest("/account/get?_session=0", function(err, data, xhr) {
             self.setCredentials();
-            if (typeof callback == "function") callback(data, xhr);
-        }, function(err, xhr) {
-            self.setCredentials();
-            if (typeof callback == "function") callback(err, xhr);
+            if (typeof callback == "function") callback(err, data, xhr);
         });
     },
 
@@ -229,6 +223,15 @@ var Backendjs = {
         $.ajax(options);
     },
 
+    // Make a request and use single callback with error as the first argument or null if no error
+    sendRequest: function(options, callback) {
+        this.send(options, function(data, xhr) {
+            if (typeof callback == "function") callback(null, data, xhr);
+        }, function(err, xhr) {
+            if (typeof callback == "function") callback(err, null, xhr);
+        });
+    },
+
     // Send a file as multi-part upload
     sendFile: function(options, callback) {
         if (!options || !options.file || !options.file.files.length) return callback ? callback() : null;
@@ -237,10 +240,10 @@ var Backendjs = {
         form.append("data", options.file.files[0]);
         // Send within the session, multipart is not supported by signature
         var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
-        this.send(rc, function(rc) {
-            if (typeof options.callback == "function") options.callback();
+        this.send(rc, function(data, xhr) {
+            if (typeof callback == "function") callback(null, data, xhr);
         }, function(err, xhr) {
-            if (typeof options.callback == "function") options.callback(err, xhr);
+            if (typeof callback == "function") callback(err, null, xhr);
         });
     },
 

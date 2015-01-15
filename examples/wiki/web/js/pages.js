@@ -220,24 +220,24 @@ $(function()
     });
 
     $("body").on("click", 'a[href^="/pages/get"], a[href^="/pages/show"], a[href$=".md"]', function(e) {
-        if (e) e.preventDefault()
+        e.preventDefault()
         Backendjs.pagesLink({ id: $(this).attr('href') }, e);
     });
 
     $('#pages-content').markdown(
-                { resize: "vertical", fullscreen: false, autofocus: true,
-                    additionalButtons: [
-                        [{
-                             name: "pagesGroup",
-                             data: [{
-                                     name: "picker",
-                                     title: "Pick a page to link",
-                                     icon: "fa fa-file-text-o",
-                                     callback: function(e) {
-                                         Backendjs.pagesShowPicker(e);
-                                     }
-                                 }]
-                         }]
-                    ]
-                });
+        { resize: "vertical", fullscreen: false, autofocus: true,
+           additionalButtons: [
+              [{
+                   name: "pagesGroup",
+                   data: [{
+                           name: "picker",
+                           title: "Pick a page to link",
+                           icon: "fa fa-file-text-o",
+                           callback: function(e) {
+                               Backendjs.pagesShowPicker(e);
+                           }
+                       }]
+               }]
+           ]
+        });
 });

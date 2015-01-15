@@ -370,6 +370,7 @@ var api = {
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
            { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
+           { name: "scramble", type: "int", descr: "Scramble credentials to keep them in the db not in clear text, 0 - disable, 1 - scramble the secret." },
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },

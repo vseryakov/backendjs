@@ -603,12 +603,16 @@ server.startShell = function(options)
         return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
     }
 
+    // Force API tables
+    if (core.isArg("-account-add") || core.isArg("-account-update")) api.dbInitTables = 1;
+
     core.runMethods("configureShell", options, function(err, opts) {
         if (opts.done) exit();
 
         // Add a user
         if (core.isArg("-account-add")) {
             var query = getQuery(), opts = getOptions();
+            if (core.isArg("-scramble")) opts.scramble = 1;
             if (query.login && !query.name) query.name = query.login;
             api.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
                 exit(err, data);
@@ -618,18 +622,9 @@ server.startShell = function(options)
         // Delete a user and all its history according to the options
         if (core.isArg("-account-update")) {
             var query = getQuery(), opts = getOptions();
+            if (core.isArg("-scramble")) opts.scramble = 1;
             getUser(query, function(row) {
                 api.updateAccount({ account: row, query: query }, opts, function(err, data) {
-                    exit(err, data);
-                });
-            });
-        } else
-
-        // Change user password
-        if (core.isArg("-account-set-secret")) {
-            var query = getQuery(), opts = getOptions();
-            getUser(query, function(row) {
-                api.setAccountSecret({ account: row, query: query }, opts, function(err, data) {
                     exit(err, data);
                 });
             });

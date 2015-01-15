@@ -438,8 +438,8 @@ add other accounts with this type specified, this column can also be used in acc
 all columns of this table are available as <code>req.account</code> object after the successful authentication where req is Express request object used in the middleware
 parameters.</p>
 <p><em>Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields. In the
-Web client if Backendjs.scramble is set to 1 then the secret is replaced by HMAC value derived from the login and sent to the server, no actual login/secret
-are ever saved, only used in the login form</em>. If scramble is set to 2, then both lign and secret are scrambled.</p>
+Web client if Backendjs.scramble is set to 1 then the secret is replaced by the HMAC value derived from the login and sent to the server, no actual login/secret
+are ever saved, only used in the login form</em>.</p>
 <p>Example:</p>
 <pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
 </code></pre></li>
@@ -2013,6 +2013,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
 <li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines, default is ejs. Default: &quot;ejs&quot;</li>
+<li><code>api-scramble</code> - Scramble credentials to keep them in the db not in clear text, 0 - disable, 1 - scramble the secret.</li>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication. Default: 1209600000</li>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
@@ -6216,8 +6217,7 @@ if specified will be used to resize the image.</p>
 <li><p><code>api.prepareAccountSecret(query, options)</code></p>
 <p> If specified in the options, prepare credentials to be stored in the db:</p>
 <ul>
-<li>scramble can be used to sign the secret and login so the db never stores cleartext credentials:
-1 - scramble secret, 2 - scramble login and secret</li>
+<li>scramble can be used to sign the secret with login so the db never stores cleartext credentials</li>
 </ul>
 </li>
 </ul>

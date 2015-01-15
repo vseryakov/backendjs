@@ -403,8 +403,8 @@ The accounts API manages accounts and authentication, it provides basic user acc
   parameters.
 
   *Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields. In the
-  Web client if Backendjs.scramble is set to 1 then the secret is replaced by HMAC value derived from the login and sent to the server, no actual login/secret
-  are ever saved, only used in the login form*. If scramble is set to 2, then both lign and secret are scrambled.
+  Web client if Backendjs.scramble is set to 1 then the secret is replaced by the HMAC value derived from the login and sent to the server, no actual login/secret
+  are ever saved, only used in the login form*.
 
   Example:
 
