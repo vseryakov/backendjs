@@ -1757,7 +1757,7 @@ core.watchFiles = function(dir, pattern, callback)
             file = path.join(dir, file);
             return ({ name: file, stat: corelib.statSync(file) });
         }).forEach(function(file) {
-            logger.debug('watchFiles:', file.name, file.ino, file.stat.size);
+            logger.debug('watchFiles:', file.name, file.stat.ino, file.stat.size);
             file.watcher = fs.watch(file.name, function(event) { watcher(event, file); });
         });
     });

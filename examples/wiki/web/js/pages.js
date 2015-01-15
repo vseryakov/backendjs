@@ -2,9 +2,7 @@
 // Vlad Seryakov 2014
 //
 
-// 0 to render html locally, 1 to ask the server to render markdown to html
-Backendjs.pagesRender = 0;
-
+Backendjs.logoutUrl = "/";
 Backendjs.pages = [];
 Backendjs.pagesHistory = [];
 Backendjs.pagesList = ko.observableArray();
@@ -61,13 +59,14 @@ Backendjs.pagesIndex = function(data, event)
 Backendjs.pagesBack = function(data, event)
 {
     var id = Backendjs.pagesHistory.pop();
-    if (!Backendjs.pagesHistory.length) window.location.href = "/";
+    if (!Backendjs.pagesHistory.length) return;
     Backendjs.pagesShow({ id: Backendjs.pagesHistory[Backendjs.pagesHistory.length - 1] });
 }
 
 Backendjs.pagesLink = function(data, event)
 {
     event.preventDefault();
+    // External link
     if (data.link) window.location.href = data.link;
     Backendjs.pagesShow(data);
 }
@@ -75,18 +74,25 @@ Backendjs.pagesLink = function(data, event)
 Backendjs.pagesShow = function(data, event)
 {
     var id = data && typeof data.id == "string" ? data.id : data && typeof data.id == "function" ? data.id() : "";
-    Backendjs.send({ url: "/pages/get/" + id, data: { _render: Backendjs.pagesRender }, jsonType: "obj" }, function(row) {
-        document.title = row.title;
-        Backendjs.pagesId(row.id);
+    var url = id.match(/^$|^[a-z0-9]+$/) ? "/pages/get/" + id : id.replace("/pages/show", "/pages/get");
+    if (url.match("^/pages/get")) {
+        var req = { url: url, jsonType: "obj" };
+    } else {
+        var req = { url: url, dataType: "text" };
+    }
+    Backendjs.send(req, function(row) {
+        if (typeof row == "string") {
+            document.title = url;
+            Backendjs.pagesContent(marked(row));
+        } else {
+            document.title = row.title;
+            Backendjs.pagesId(row.id);
+            Backendjs.pagesToc(marked(row.toc));
+            Backendjs.pagesTitle(marked(row.title));
+            Backendjs.pagesContent(marked(row.content));
+        }
         Backendjs.pagesList([]);
-        Backendjs.pagesToc(Backendjs.pagesRender ? row.toc : marked(row.toc, { renderer: Backendjs.pagesRenderer }));
-        Backendjs.pagesTitle(marked(Backendjs.pagesRender ? row.title : row.title, { renderer: Backendjs.pagesRenderer }));
-        Backendjs.pagesContent(Backendjs.pagesRender ? row.content : marked(row.content, { renderer: Backendjs.pagesRenderer }));
 
-        $("a.pages-link").each(function() {
-            var d = $(this).attr('href').match(/^\/pages\/show\/([a-z0-9]+)/);
-            if (d) $(this).on("click", function(e) { Backendjs.pagesLink({ id: d[1] }, e); });
-        });
         // Keep the browsing history
         if (id != Backendjs.pagesHistory[Backendjs.pagesHistory.length - 1]) Backendjs.pagesHistory.push(id);
         if (Backendjs.pagesHistory.length > 10) Backendjs.pagesHistory.splice(0, Backendjs.pagesHistory.length - 10);
@@ -144,7 +150,7 @@ Backendjs.pagesPut = function(data, event)
             obj[name] = $(this).val();
         }
     });
-    Backendjs.send({ url: '/pages/put', data: obj, type: "POST" }, function() {
+    Backendjs.send({ url: '/pages/put/' + (obj.id || ""), data: obj, type: "POST" }, function() {
         Backendjs.pagesShow(obj.id)
         $('#pages-form').modal("hide");
     }, function(err) {
@@ -179,7 +185,7 @@ Backendjs.pagesPickerLink = function(data, event)
 {
     event.preventDefault();
     var md = $('#pages-content').data().markdown;
-    var link = "[" + data.title + "](" + data.id + ")";
+    var link = "[" + data.title + "](/pages/get/" + data.id + ")";
     md.replaceSelection(link);
     var selected = md.getSelection();
     var cursor = selected.start;
@@ -213,11 +219,10 @@ $(function()
         $('#pages-icon').val(e.icon.split("-")[0] + " " + e.icon);
     });
 
-    Backendjs.pagesRenderer = new marked.Renderer();
-    Backendjs.pagesRenderer.link = function(href, title, text) {
-        if (href && href.match(/^[0-9a-z]+$/)) href = "/pages/show/" + href;
-        return '<a class="pages-link" href="' + href + '"' + (title ? ' title="' + title + '"' : "") + '>' + text + '</a>';
-    }
+    $("body").on("click", 'a[href^="/pages/get"], a[href^="/pages/show"], a[href$=".md"]', function(e) {
+        if (e) e.preventDefault()
+        Backendjs.pagesLink({ id: $(this).attr('href') }, e);
+    });
 
     $('#pages-content').markdown(
                 { resize: "vertical", fullscreen: false, autofocus: true,

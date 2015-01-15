@@ -1,2 +1,1 @@
-api-unsecure=data
 api-allow-admin=^/(system|data)
