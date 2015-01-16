@@ -20,14 +20,20 @@
     <script src="/js/backendjs-bootstrap.js" type="text/javascript"></script>
     <script src="/js/backendjs-ko.js" type="text/javascript"></script>
 
-    <link href="/css/treeview.css" rel="stylesheet">
-    <script src="/js/treeview.js"></script>
+    <link href="treeview.css" rel="stylesheet">
+    <script src="treeview.js"></script>
 
-    <script src="/js/config.js"></script>
+    <script src="config.js"></script>
+
+    <script type="text/javascript">
+    $(function() {
+        Backendjs.koInit();
+    });
+    </script>
 
 </head>
 <body>
-    <nav class="navbar navbar-fixed-top navbar-default" role="navigation">
+    <nav class="navbar navbar-default" role="navigation">
       <div class="container-fluid">
         <div class="navbar-header">
             <a href="/" class="navbar-brand">

@@ -2102,7 +2102,7 @@ the worker processes if they die and restart them automatically. How many proces
                     first_name: {},
                     last_name: {},
                     alias: { pub: 1 },
-                    status: { value: &quot;ok&quot; },
+                    status: {},
                     type: { admin: 1 },
                     email: {},
                     phone: {},
@@ -2620,6 +2620,27 @@ the callback may not return data back to the client, in this next post process h
 </ul>
 
 <ul>
+<li><p><code>api.registerOAuthStrategy(strategy, options, callback)</code></p>
+<p> Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
+OAUTH authenticated account. The callback will be called as function(req,res) with <code>req.user</code> signifies the successful
+login and hold the account properties.</p>
+<p>The following options properties are accepted:</p>
+<ul>
+<li>cliendID,</li>
+<li>clientSecret,</li>
+<li>callbackURL - passport OAUTH properties</li>
+<li>session - setup cookie session on success</li>
+<li>successUrl - redirect url on success</li>
+<li>failureUrl - redirect url on failure</li>
+<li>fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
+ for the given authenticated profile. This is for processing or customizing new account properties and doing
+ some post processing work after the account has been created.
+ For any function, <code>req.profile</code>, <code>req.accessToken</code>,<code>req.refreshToken</code> will be set for the authenticated profile object from the provider.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.sendJSON(req, err, rows)</code></p>
 <p> Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in the apps.
 If err is not null the error message is returned immediately.</p>
@@ -2684,27 +2705,6 @@ events using account id as a key.</p>
 <ul>
 <li><p><code>api.sendEvent(req, key, data)</code></p>
 <p> Process a message received from subscription server or other even notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.registerOAuthStrategy(strategy, options, callback)</code></p>
-<p> Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
-OAUTH authenticated account. The callback will be called as function(req,res) with <code>req.user</code> signifies the successful
-login and hold the account properties.</p>
-<p>The following options properties are accepted:</p>
-<ul>
-<li>cliendID,</li>
-<li>clientSecret,</li>
-<li>callbackURL - passport OAUTH properties</li>
-<li>session - setup cookie session on success</li>
-<li>successUrl - redirect url on success</li>
-<li>failureUrl - redirect url on failure</li>
-<li>fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
- for the given authenticated profile. This is for processing or customizing new account properties and doing
- some post processing work after the account has been created.
- For any function, <code>req.profile</code>, <code>req.accessToken</code>,<code>req.refreshToken</code> will be set for the authenticated profile object from the provider.</li>
-</ul>
 </li>
 </ul>
 

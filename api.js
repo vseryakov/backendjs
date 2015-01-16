@@ -62,7 +62,7 @@ var api = {
                       first_name: {},
                       last_name: {},
                       alias: { pub: 1 },
-                      status: { value: "ok" },
+                      status: {},
                       type: { admin: 1 },
                       email: {},
                       phone: {},
@@ -621,7 +621,7 @@ api.init = function(options, callback)
         });
 
         // Global pre-processor for common checks
-        self.registerPreProcess('', '/', function(req, status, cb) {
+        self.registerPreProcess('', /^\//, function(req, status, cb) {
             // Disable access to endpoints if session exists, meaning Web app
             if (self.disableSession.rx) {
                 if (req.session && req.session['bk-signature'] && req.path.match(self.disableSession.rx)) return cb({ status: 401, message: "Not authorized" });
@@ -1022,6 +1022,8 @@ api.checkAuthorization = function(req, status, callback)
 
     // Ignore no login error if allowed
     if (status && status.status == 417 && this.allowAnonymous.rx && req.path.match(this.allowAnonymous.rx)) status = null;
+    // Status for hooks is never null
+    if (!status) status = { status: 200, message: "ok" };
 
     var hooks = this.findHook('auth', req.method, req.path);
     if (hooks.length) {
@@ -1567,6 +1569,76 @@ api.registerPostProcess = function(method, path, callback)
     this.addHook('post', method, path, callback);
 }
 
+
+// Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
+// OAUTH authenticated account. The callback will be called as function(req,res) with `req.user` signifies the successful
+// login and hold the account properties.
+//
+// The following options properties are accepted:
+//  - cliendID,
+//  - clientSecret,
+//  - callbackURL - passport OAUTH properties
+//  - session - setup cookie session on success
+//  - successUrl - redirect url on success
+//  - failureUrl - redirect url on failure
+//  - fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
+//     for the given authenticated profile. This is for processing or customizing new account properties and doing
+//     some post processing work after the account has been created.
+//     For any function, `req.profile`, `req.accessToken`,`req.refreshToken` will be set for the authenticated profile object from the provider.
+api.registerOAuthStrategy = function(strategy, options, callback)
+{
+    var self = this;
+    if (!options || !options.clientID || !options.clientSecret) return;
+
+    // Initialize passport on first call
+    if (!this._passport) {
+        this._passport = 1;
+        // Keep only user id in the passport session
+        passport.serializeUser(function(user, done) {
+            done(null, user.id);
+        });
+        passport.deserializeUser(function(user, done) {
+            done(null, user);
+        });
+        this.app.use(passport.initialize());
+    }
+
+    strategy = new strategy(options, function(accessToken, refreshToken, profile, done) {
+        var req = { query: {},
+                    account: { type: "admin" },
+                    profile: profile,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken };
+        req.query.login = profile.provider + ":" + profile.id;
+        req.query.secret = corelib.uuid();
+        req.query.name = profile.displayName;
+        req.query.gender = profile.gender;
+        if (profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
+        // Deal with broken or not complete implementations
+        if (profile.photos && profile.photos.length) req.query.icon = profile.photos[0].value || profile.photos[0];
+        if (!req.query.icon && profile._json && profile._json.picture) req.query.icon = profile._json.picture;
+        // Login or create new account for the profile
+        var cb = options.fetchAccount || self.fetchAccount;
+        cb.call(self, req, options, function(err, user) {
+            if (err) logger.error('registerOAuthStrategy:', strategy.name, err);
+            logger.debug('registerOAuthStrategy:', strategy.name, user, profile)
+            done(err, user);
+        });
+    });
+    // Accessing internal properties is not good but this will save us an extra name to be passed arround
+    if (!strategy._callbackURL) strategy._callbackURL = 'http://localhost:' + core.port + '/oauth/callback/' + strategy.name;
+    passport.use(strategy);
+
+    this.app.get('/oauth/' + strategy.name, passport.authenticate(strategy.name, options));
+    this.app.get('/oauth/callback/' + strategy.name, passport.authenticate(strategy.name, { failureRedirect: options.failureUrl }), function(req, res) {
+        if (req.user && req.user.id) req.account = req.user;
+        self.createSessionSignature(req, options);
+        if (options.successUrl) res.redirect(options.successUrl);
+        if (callback) callback(req, res);
+    });
+    logger.debug("registerOAuthStrategy:", strategy.name, options.clientID, strategy._callbackURL);
+}
+
 // Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in the apps.
 // If err is not null the error message is returned immediately.
 api.sendJSON = function(req, err, rows)
@@ -1710,76 +1782,6 @@ api.sendEvent = function(req, key, data)
             if (!req.httpProtocol) ipc.unsubscribe(key);
         }, req.msgInterval);
     }
-}
-
-
-// Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
-// OAUTH authenticated account. The callback will be called as function(req,res) with `req.user` signifies the successful
-// login and hold the account properties.
-//
-// The following options properties are accepted:
-//  - cliendID,
-//  - clientSecret,
-//  - callbackURL - passport OAUTH properties
-//  - session - setup cookie session on success
-//  - successUrl - redirect url on success
-//  - failureUrl - redirect url on failure
-//  - fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
-//     for the given authenticated profile. This is for processing or customizing new account properties and doing
-//     some post processing work after the account has been created.
-//     For any function, `req.profile`, `req.accessToken`,`req.refreshToken` will be set for the authenticated profile object from the provider.
-api.registerOAuthStrategy = function(strategy, options, callback)
-{
-    var self = this;
-    if (!options || !options.clientID || !options.clientSecret) return;
-
-    // Initialize passport on first call
-    if (!this._passport) {
-        this._passport = 1;
-        // Keep only user id in the passport session
-        passport.serializeUser(function(user, done) {
-            done(null, user.id);
-        });
-        passport.deserializeUser(function(user, done) {
-            done(null, user);
-        });
-        this.app.use(passport.initialize());
-    }
-
-    strategy = new strategy(options, function(accessToken, refreshToken, profile, done) {
-        var req = { query: {},
-                    account: { type: "admin" },
-                    profile: profile,
-                    accessToken: accessToken,
-                    refreshToken: refreshToken };
-        req.query.login = profile.provider + ":" + profile.id;
-        req.query.secret = corelib.uuid();
-        req.query.name = profile.displayName;
-        req.query.gender = profile.gender;
-        if (profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
-        // Deal with broken or not complete implementations
-        if (profile.photos && profile.photos.length) req.query.icon = profile.photos[0].value || profile.photos[0];
-        if (!req.query.icon && profile._json && profile._json.picture) req.query.icon = profile._json.picture;
-        // Login or create new account for the profile
-        var cb = options.fetchAccount || self.fetchAccount;
-        cb.call(self, req, options, function(err, user) {
-            if (err) logger.error('registerOAuthStrategy:', strategy.name, err);
-            logger.debug('registerOAuthStrategy:', strategy.name, user, profile)
-            done(err, user);
-        });
-    });
-    // Accessing internal properties is not good but this will save us an extra name to be passed arround
-    if (!strategy._callbackURL) strategy._callbackURL = 'http://localhost:' + core.port + '/oauth/callback/' + strategy.name;
-    passport.use(strategy);
-
-    this.app.get('/oauth/' + strategy.name, passport.authenticate(strategy.name, options));
-    this.app.get('/oauth/callback/' + strategy.name, passport.authenticate(strategy.name, { failureRedirect: options.failureUrl }), function(req, res) {
-        if (req.user && req.user.id) req.account = req.user;
-        self.createSessionSignature(req, options);
-        if (options.successUrl) res.redirect(options.successUrl);
-        if (callback) callback(req, res);
-    });
-    logger.debug("registerOAuthStrategy:", strategy.name, options.clientID, strategy._callbackURL);
 }
 
 // Setup statistics collections
