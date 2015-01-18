@@ -370,13 +370,14 @@ core.init = function(options, callback)
         function(next) {
             if (options.noInit) return next();
             // Can only watch existing files
-            fs.exists(self.confFile, function(exists) {
-                if (!exists) return next();
-                fs.watch(self.confFile, function (event, filename) {
-                    self.setTimeout(filename, function() { self.loadConfig(self.confFile); }, 5000);
+            corelib.forEach([self.confFile, self.confFile + ".local"], function(file, next2) {
+                fs.exists(file, function(exists) {
+                    if (!exists) return next2();
+                    fs.watch(file, function (event, filename) {
+                        self.setTimeout(file, function() { self.loadConfig(file); }, 5000);
+                    });
                 });
-                next();
-            });
+            }, next);
         },
         // Initialize all modules after core is done
         function(next) {
@@ -605,12 +606,11 @@ core.processArgs = function(name, ctx, argv, pass)
                 case "regexp":
                     put(obj, key, new RegExp(val), x);
                     break;
+                case "regexpobj":
+                    obj[key] = corelib.toRegexpObj(x.set ? null : obj[key], val, x.del);
+                    break;
                 case "regexpmap":
-                    if (val == "<null>") {
-                        obj[key] = {};
-                    } else {
-                        obj[key] = corelib.toRegexpMap(x.set ? null : obj[key], val, x.del);
-                    }
+                    obj[key] = corelib.toRegexpMap(x.set ? null : obj[key], val);
                     break;
                 case "json":
                     put(obj, key, corelib.jsonParse(val), x);

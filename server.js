@@ -90,7 +90,7 @@ var server = {
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
            { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
-           { name: "proxy-url", type: "regexpmap", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
+           { name: "proxy-url", type: "regexpobj", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
            { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = corelib.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "proxy-target", type: "json", descr: "An object with virtual host names as property and targets as value, if host: header match any property, use its value as full target in the form http://host:port" },

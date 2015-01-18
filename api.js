@@ -263,7 +263,7 @@ var api = {
     hooks: { access: [], auth: [], post: [] },
 
     // No authentication for these urls
-    allow: corelib.toRegexpMap(null, ["^/$",
+    allow: corelib.toRegexpObj(null, ["^/$",
                                    "\\.html$",
                                    "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$",
                                    "\\.ttf$", "\\.eof$", "\\.woff$",
@@ -282,6 +282,9 @@ var api = {
     redirectSsl: {},
     // Refuse access to these urls
     deny: {},
+
+    // Global redirect rules, each rule must match host/path to be redirected
+    redirectUrl: [],
 
     // Where images/file are kept
     imagesUrl: '',
@@ -377,20 +380,21 @@ var api = {
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests" },
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
            { name: "no-modules", type: "regexp", descr: "A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it" },
-           { name: "disable-session", type: "regexpmap", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
+           { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
-           { name: "allow-admin", type: "regexpmap", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints" },
-           { name: "allow-account-", type: "regexpmap", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
+           { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints" },
+           { name: "allow-account-", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
-           { name: "allow", type: "regexpmap", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
-           { name: "allow-path", type: "regexpmap", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
-           { name: "disallow-path", type: "regexpmap", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
-           { name: "allow-anonymous", type: "regexpmap", descr: "Add to the list of allowed URL paths that can be served with or without valid account, the difference with `allow-path` is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found" },
-           { name: "allow-ssl", type: "regexpmap", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
-           { name: "redirect-ssl", type: "regexpmap", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects" },
-           { name: "deny", type:" regexpmap", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
-           { name: "deny-path", type: "regexpmap", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
+           { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
+           { name: "allow-path", type: "regexpobj", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
+           { name: "disallow-path", type: "regexpobj", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
+           { name: "allow-anonymous", type: "regexpobj", descr: "Add to the list of allowed URL paths that can be served with or without valid account, the difference with `allow-path` is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found" },
+           { name: "allow-ssl", type: "regexpobj", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
+           { name: "redirect-ssl", type: "regexpobj", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects" },
+           { name: "redirect-url", type: "regexpmap", descr: "Add to the list a JSON object with property name defining the host/path regexp to be matched agaisnt in order to redirect using the value of the property, if the regexp starts with !, that mans negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { '^[^/]+/path/$': '/path2/index.html', '.+/$': '@PATH@/index.html' } " },
+           { name: "deny", type:" regexpobj", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
+           { name: "deny-path", type: "regexpobj", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
@@ -537,6 +541,17 @@ api.init = function(options, callback)
         // SSL only access, deny access without redirect
         if (self.allowSsl.rx) {
             if (req.socket.server != self.sslserver && req.path.match(self.allowSsl.rx)) return res.json(400, { status: 400, message: "SSL only access" });
+        }
+        // Simple redirect rules
+        var location = req.host + req.url;
+        for (var i = 0; i < self.redirectUrl.length; i++) {
+            if (self.redirectUrl[i].rx.test(location)) {
+                var url = self.redirectUrl[i].url.replace(/@(HOST|PATH|URL)@/g, function(m) {
+                    return m == "HOST" ? req.host : m == "PATH" ? req.path : m == "URL" ? req.url : "";
+                });
+                logger.debug("redirect:", location, "=>", url, self.redirectUrl[i]);
+                return res.redirect(url);
+            }
         }
         next();
     });
@@ -969,12 +984,14 @@ api.checkBody = function(req, res, next)
     form.parse(req);
 }
 
-// Perform URL based access checks
-// Check access permissions, calls the callback with the following argument:
+// Perform URL based access checks, this is called before the signature verification, very early in the request processing step.
+//
+// Checks access permissions, calls the callback with the following argument:
 // - nothing if checkSignature needs to be called
-// - an object with status: 200 to skip authorization and proceed with routes processing
+// - an object with status: 200 to skip authorization and proceed with other routes
 // - an object with status: 0 means response has been sent, just stop
-// - an object with status other than 0 or 200 to return the status and stop request processing
+// - an object with status other than 0 or 200 to return the status and stop request processing,
+//    for statuses 301,302 there should be url property in the object returned
 api.checkAccess = function(req, callback)
 {
     var self = this;
@@ -1504,7 +1521,7 @@ api.addHook = function(type, method, path, callback)
 //
 // Example:
 //
-//          api.registerAccessCheck('', 'account', function(req, cb) { cb({status:500,message:"access disabled"}) }))
+//          api.registerAccessCheck('', 'account', function(req, cb) { cb({ status: 500, message: "access disabled"}) }))
 //
 //          api.registerAccessCheck('POST', '/account/add', function(req, cb) {
 //             if (!req.query.invitecode) return cb({ status: 400, message: "invitation code is required" });
@@ -1678,6 +1695,38 @@ api.sendReply = function(res, status, text)
     if (typeof status == "string" && status) text = status, status = 500;
     if (!status) status = 200, text = "";
     return this.sendStatus(res, { status: status, message: String(text || "") });
+}
+
+// Send result back formatting according to the options properties:
+//  - format - json, csv, xml, JSON is degfault
+//  - separator - a separator to use for CSV and other formats
+api.sendFormatted = function(req, rows, options)
+{
+    if (!options) options = {};
+
+    switch (options.format) {
+    case "xml":
+        var data = "<data>";
+        rows.forEach(function(x) {
+            data += "<row>";
+            for (var y in x) data += "<" + y + ">" + String(x[y]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&apos;').replace(/"/g, '&quot;') + "</" + y + ">";
+            data += "</row>\n";
+        });
+        data += "</data>";
+        req.res.set('Content-Type', 'application/xml');
+        req.res.send(200, data);
+        break;
+
+    case "csv":
+        var data = Object.keys(rows[0]).join(options.separator || "|") + "\n";
+        rows.forEach(function(x) { data += Object.keys(x).map(function(y) { return x[y]} ).join(options.separator || "|") + "\n"; });
+        req.res.set('Content-Type', 'text/plain');
+        req.res.send(200, data);
+        break;
+
+    default:
+        api.sendJSON(req, null, rows);
+    }
 }
 
 // Return reply to the client using the options object, it cantains the following properties:

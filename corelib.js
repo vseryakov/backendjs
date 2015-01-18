@@ -142,9 +142,25 @@ corelib.toValue = function(val, type)
     }
 }
 
-// Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in config type `regexpmap`
-corelib.toRegexpMap = function(obj, val, del)
+// Add a regexp to the object map that consist of pattern and compiled regexp, this is used in the config type `regexpobj`.
+corelib.toRegexpMap = function(obj, val)
 {
+    if (val == "<null>") obj = null;
+    if (this.typeName(obj) != "array") obj = [];
+    val = this.jsonParse(val, { obj: 1, error: 1 });
+    for (var p in val) {
+        var item = this.toRegexpObj(null, p);
+        item.url = val[p];
+        if (item.reset) obj = [];
+        obj.push(item);
+    }
+    return obj;
+}
+
+// Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in the config type `regexpobj`
+corelib.toRegexpObj = function(obj, val, del)
+{
+    if (val == "<null>") obj = null;
     if (this.typeName(obj) != "object") obj = {};
     if (!Array.isArray(obj.list)) obj.list = [];
     if (val) {
@@ -1355,9 +1371,11 @@ corelib.stringify = function(obj, filter)
 
 // Silent JSON parse, returns null on error, no exceptions raised.
 // options can specify the output in case of an error:
-// - list - return empty list
-// - obj - return empty obj
-// - str - return empty string
+//  - list - return empty list
+//  - obj - return empty obj
+//  - str - return empty string
+//  - error - report all errors
+//  - debug - report errors in debug level
 corelib.jsonParse = function(obj, options)
 {
     function onerror(e) {
