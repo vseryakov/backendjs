@@ -348,6 +348,7 @@ case "$ARG" in
     service iptables stop
 
     # Make sure monit is running all the time
+    chkconfig monit on
     service monit restart
 
     # Allow sudo use local binaries

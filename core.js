@@ -239,7 +239,7 @@ module.exports = core;
 
 // Main initialization, must be called prior to perform any actions.
 // If options are given they may contain the following properties:
-// - noPools - if true do not initialize database pools except default sqlite
+// - noInit - if true do not initialize database and do not run all configure methods
 // - noDns - do not retrieve config from DNS
 core.init = function(options, callback)
 {

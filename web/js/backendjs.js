@@ -17,7 +17,7 @@ var Backendjs = {
 
     // Scramble login, save HMACs for login/secret instead of actual values, a user still
     // need to enter the real values but the browser will never store them, only hashes.
-    // The value is: 0 - no scramble, 1 - scramble secret, 2 - scramble secret and login
+    // The value is: 0 - no scramble, 1 - scramble secret as HMAC
     scramble: 0,
 
     // Signature version
@@ -78,7 +78,7 @@ var Backendjs = {
         // Replace the actual credentials from the storage in case of scrambling
         obj.login = creds.login;
         obj.secret = creds.secret;
-        self.sendRequest({ type: "POST", url: "/account/add", data: jQuery.param(obj), jsonType: "obj", nosignature: 1 }, callback);
+        self.sendRequest({ type: "POST", url: "/account/add", data: obj, jsonType: "obj", nosignature: 1 }, callback);
     },
 
     // Update current account

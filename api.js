@@ -42,17 +42,17 @@ var api = {
     // Main tables to support default endpoints
     tables: {
         // Authentication by login, only keeps id and secret to check the siganture
-        bk_auth: { login: { primary: 1 },                   // Account login
-                   id: {},                                  // Auto generated UUID
-                   alias: {},                               // Account alias
-                   secret: {},                              // Account password
-                   token_secret: {},                        // Secret for access tokens
-                   status: {},                              // Status of the account
-                   type: { admin: 1 },                      // Account type: admin, ....
-                   acl_deny: { admin: 1 },                  // Deny access to matched url, a regexp
-                   acl_allow: { admin: 1 },                 // Only grant access if path matches this regexp
-                   query_deny: { admin: 1 },                // Ignore these query params, a regexp
-                   expires: { type: "bigint", admin: 1 },   // Deny access to the account if this value is before current date, milliseconds
+        bk_auth: { login: { primary: 1 },                              // Account login
+                   id: {},                                             // Auto generated UUID
+                   alias: {},                                          // Account alias
+                   status: {},                                         // Status of the account
+                   type: { admin: 1 },                                 // Account type: admin, ....
+                   secret: { secure: 1 },                              // Account password
+                   token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
+                   acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
+                   acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
+                   query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
+                   expires: { type: "bigint", admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
                    mtime: { type: "bigint", now: 1 } },
 
         // Basic account information
@@ -370,7 +370,6 @@ var api = {
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
            { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
-           { name: "scramble", type: "int", descr: "Scramble credentials to keep them in the db not in clear text, 0 - disable, 1 - scramble the secret." },
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
@@ -620,23 +619,6 @@ api.init = function(options, callback)
             self.sendIcon(req, res, req.params[1], options);
         });
 
-        // Global pre-processor for common checks
-        self.registerPreProcess('', /^\//, function(req, status, cb) {
-            // Disable access to endpoints if session exists, meaning Web app
-            if (self.disableSession.rx) {
-                if (req.session && req.session['bk-signature'] && req.path.match(self.disableSession.rx)) return cb({ status: 401, message: "Not authorized" });
-            }
-            // Admin only access
-            if (self.allowAdmin.rx) {
-                if (req.account.type != "admin" && req.path.match(self.allowAdmin.rx)) return cb({ status: 401, message: "access denied, admins only" });
-            }
-            // Verify access by account type
-            if (self.allowAccount[req.account.type] && self.allowAccount[req.account.type].rx) {
-                if (!req.path.match(self.allowAccount[req.account.type].rx)) return cb({ status: 401, message: "access not allowed" });
-            }
-            cb();
-        });
-
         // Setup all tables
         self.initTables(options, function(err) {
             if (err) return callback.call(self, err);
@@ -704,7 +686,6 @@ api.shutdown = function(callback)
     this.exiting = true;
     logger.log('api.shutdown: started');
     var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
-    var db = core.modules.db;
     corelib.parallel([
         function(next) {
             if (!self.wsServer) return next();
@@ -1025,6 +1006,19 @@ api.checkAuthorization = function(req, status, callback)
     // Status for hooks is never null
     if (!status) status = { status: 200, message: "ok" };
 
+    // Disable access to endpoints if session exists, meaning Web app
+    if (self.disableSession.rx) {
+        if (req.session && req.session['bk-signature'] && req.path.match(self.disableSession.rx)) return callback({ status: 401, message: "Not authorized" });
+    }
+    // Admin only access
+    if (self.allowAdmin.rx) {
+        if (!self.checkAccountType(req, "admin") && req.path.match(self.allowAdmin.rx)) return callback({ status: 401, message: "Restricted access" });
+    }
+    // Verify access by account type
+    if (self.allowAccount[req.account.type] && self.allowAccount[req.account.type].rx) {
+        if (!req.path.match(self.allowAccount[req.account.type].rx)) return callback({ status: 401, message: "Access is not allowed" });
+    }
+
     var hooks = this.findHook('auth', req.method, req.path);
     if (hooks.length) {
         corelib.forEachSeries(hooks, function(hook, next) {
@@ -1164,7 +1158,7 @@ api.parseSignature = function(req)
         if (rc.signature) rc.signature = corelib.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
     }
     if (!rc.signature) {
-        rc.signature = (req.session || {})['bk-signature'] || "";
+        rc.signature = req.session ? req.session['bk-signature'] : "";
     }
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
@@ -1319,6 +1313,12 @@ api.initTables = function(options, callback)
     });
 }
 
+// Return true if the current user belong to the specified type, account type may contain more than one type
+api.checkAccountType = function(req, type)
+{
+    return req.account && req.account.type && corelib.strSplit(req.account.type).indexOf(type) > -1;
+}
+
 // Convert query options into database options, most options are the same as for `db.select` but prepended with underscore to
 // distinguish control parameters from query parameters.
 api.getOptions = function(req)
@@ -1400,24 +1400,29 @@ api.getPublicColumns = function(table, options)
 //
 // By default primary keys are not kept and must be marked with `pub` property in the table definition to be returned.
 //
-api.checkPublicColumns = function(table, rows, options)
+// If any column is marked with `secure` property this means never return that column in the result even for the owner of the record
+//
+//
+api.checkResultColumns = function(table, rows, options)
 {
-    if (!table || !rows || !rows.length) return;
+    if (!table || !rows) return;
     if (!options) options = {};
     var db = core.modules.db;
     var cols = {};
     corelib.strSplit(table).forEach(function(x) {
         var c = db.getColumns(x, options);
-        for (var p in c) cols[p] = c[p].pub || 0;
+        for (var p in c) cols[p] = c[p].pub ? 1 : c[p].secure ? -1 : 0;
     });
     if (!Array.isArray(rows)) rows = [ rows ];
-    logger.debug("checkPublicColumns:", table, cols, rows.length, options);
+    logger.debug("checkResultColumns:", table, cols, rows.length, options);
     rows.forEach(function(row) {
-        // Skip personal account records, all data is returned
-        if (options.account && options.account.id == row[options.key || 'id']) return;
+        // For personal records, skip only special columns
+        var owner = options.account && options.account.id == row[options.key || 'id'];
         for (var p in row) {
             if (typeof cols[p] == "undefined") continue;
-            if (!cols[p]) delete row[p];
+            // Owners only skip secure columns
+            if (owner && cols[p] < 0) delete row[p];
+            if (!owner && cols[p] <= 0) delete row[p];
         }
     });
 }
@@ -1657,7 +1662,7 @@ api.sendJSON = function(req, err, rows)
         if (sent || req.res.headersSent) return;
         // Keep only public columns for the combination of all tables specified
         if (req.options.cleanup) {
-            self.checkPublicColumns(req.options.cleanup, rows && rows.count && rows.data ? rows.data : rows, req.options);
+            self.checkResultColumns(req.options.cleanup, rows && rows.count && rows.data ? rows.data : rows, req.options);
         }
         req.res.json(rows);
     });

@@ -2,7 +2,6 @@
 // Vlad Seryakov 2014
 //
 
-Backendjs.logoutUrl = "/";
 Backendjs.pages = [];
 Backendjs.pagesHistory = [];
 Backendjs.pagesList = ko.observableArray();

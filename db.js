@@ -113,7 +113,6 @@ var db = {
 
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
-           { name: "no-pools", type: "bool", descr: "Do not use other db pools except the default pool specified by 'db-pool'" },
            { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
            { name: "no-init-tables", type: "bool", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, disabling this will turn on table creation in the shell and master processes" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
@@ -174,12 +173,7 @@ var db = {
 
 module.exports = db;
 
-// Initialize database pools.
-// Options can have the following properties:
-//   - noPools - disables all other pools except sqlite, similar to `-db-no-pools` config parameter, id db-local is configured and
-//       different than sqlite it is initialized always as well
-//   - noInitTables - if defined it is used instesd of the global parameter
-//   - noCacheColumns - if defined it is used instead fo the global parameter
+// Initialize all database pools.
 db.init = function(options, callback)
 {
     var self = this;
@@ -190,36 +184,68 @@ db.init = function(options, callback)
     if (this.config == "default") this.config = this.pool;
 
     // Configured pools for supported databases
-    self.args.filter(function(x) { return x.name.match(/\-pool$/) }).forEach(function(x) {
+    var pools = [];
+    self.args.filter(function(x) { return x.name.match(/\-pool$/) }).forEach(function(x, next) {
         var pool = x.name.replace('-pool', '');
         // Several drivers can be defined
         for (var i = 0; i < (x.count || 1); i++) {
             var n = i > 0 ? i : "";
-            var name = pool + n;
-            if (self.pools[name]) continue;
             var db = self[pool + 'Pool' + n];
-            if (typeof db == "undefined") continue;
-            // local pool must be always initialized
-            if (options.noPools || self.noPools) {
-                if (name != self.local && name != self.pool) continue;
-            }
-            var opts = { pool: name,
-                         db: db || "",
-                         min: self[pool + 'PoolMin' + n] || 0,
-                         max: self[pool + 'PoolMax' + n] || Infinity,
-                         idle: self[pool + 'PoolIdle' + n] || 86400000,
-                         noCacheColumns: self[pool + 'PoolNoCacheColumns' + n] || 0,
-                         noInitTables: self[pool + 'PoolNoInitTables' + n] || 0,
-                         dbinit: self[pool + 'PoolInitOptions' + n],
-                         dboptions: self[pool + 'PoolOptions' + n] };
-            self[pool + 'InitPool'](opts);
-            // Pool specific tables
-            (self[pool + 'PoolTables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
+            if (typeof db != "undefined") pools.push("db-" + pool +"-pool" + (n ? "-" + n : ""));
         }
     });
 
-    // Initialize all pools with common tables
-    self.initTables(self.tables, options, callback);
+    corelib.forEachSeries(pools, function(pool, next) {
+        self.initPool(pool, options, next);
+    }, callback);
+}
+
+// Initialize a db pool by parameter name.
+// Options can have the following properties:
+//   - noInitTables - if defined it is used instead of the global parameter
+//   - noCacheColumns - if defined it is used instead fo the global parameter
+//   - force - if true, close existing pool with the same name, otherwise skip existing pools
+db.initPool = function(name, options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    if (typeof callback != "function") callback = corelib.noop;
+
+    var d = name.match(/^-?db-([a-z0-9]+)-pool-?([0-9]+)?$/);
+    if (!d) return callback("invalid pool name: " + name);
+    var type = d[1];
+    var n = d[2] || '';
+    var pool = type + n;
+
+    // Pool db connection parameter must exists even if empty
+    var db = this[type + 'Pool' + n];
+    if (typeof db == "undefined") return callback();
+
+    // Do not re-init the pool if not forced
+    if (this.pools[pool]) {
+        if (!options.force) return callback();
+        this.pools[pool].shutdown();
+    }
+
+    // Pool specific tables
+    (this[type + 'PoolTables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
+
+    // All pool specific parameters
+    var opts = { pool: pool,
+                 type: type,
+                 db: db || "",
+                 min: this[type + 'PoolMin' + n] || 0,
+                 max: this[type + 'PoolMax' + n] || Infinity,
+                 idle: this[type + 'PoolIdle' + n] || 86400000,
+                 noCacheColumns: this[type + 'PoolNoCacheColumns' + n] || 0,
+                 noInitTables: this[type + 'PoolNoInitTables' + n] || 0,
+                 dbinit: this[type + 'PoolInitOptions' + n],
+                 dboptions: this[type + 'PoolOptions' + n] };
+    logger.log("init:", opts);
+
+    this[type + 'InitPool'](opts);
+    this.initPoolTables(pool, this.tables, options, callback);
 }
 
 // Load configuration from the config database, must be configured with `db-config-type` pointing to the database pool where bk_config table contains
@@ -252,8 +278,9 @@ db.initConfig = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null
     if (!options) options = {};
+    if (typeof callback != "function") callback = corelib.noop;
 
-    if (!self.config || !db.getPoolByName(self.config)) return callback ? callback(null, []) : null;
+    if (!self.config || !db.getPoolByName(self.config)) return callback(null, []);
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
     var types = [];
@@ -284,7 +311,7 @@ db.initConfig = function(options, callback)
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
         if (err) return callback ? callback(err, []) : null;
 
-        var argv = [];
+        var argv = [], pools = [];
         // Sort inside to be persistent across databases
         rows.sort(function(a,b) { return types.indexOf(b.type) - types.indexOf(a.type); });
         // Only keep the most specific value, it is sorted in descendent order most specific at the end
@@ -293,6 +320,8 @@ db.initConfig = function(options, callback)
             if (argv.indexOf(name) > -1) return;
             if (x.name) argv.push(name);
             if (x.value) argv.push(x.value);
+            // Collect additional db pools defined in the remote config
+            if (x.name.match(/^db\-([a-z0-9]+)\-pool\-?([0-9]+)?$/)) pools.push(x.name);
         });
         core.parseArgs(argv);
 
@@ -302,7 +331,15 @@ db.initConfig = function(options, callback)
         if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + corelib.randomShort());
 
         // Return the normalized argument list to the caller for extra processing
-        if (callback) callback(null, argv);
+        if (!pools.length) return callback(null, argv);
+
+        // Init more db pools, override existing
+        options = corelib.cloneObj(options, "force", 1);
+        corelib.forEachSeries(pools, function(pool, next) {
+            self.initPool(pool, options, next);
+        }, function(err) {
+            callback(err, argv);
+        });
     });
 }
 
@@ -313,11 +350,8 @@ db.initTables = function(tables, options, callback)
     if (typeof options == "function") callback = options, options = null;
 
     corelib.forEachSeries(Object.keys(self.pools), function(name, next) {
-        if (name == "none") return next();
         self.initPoolTables(name, tables, options, next);
-    }, function(err) {
-        if (callback) callback(err);
-    });
+    }, callback);
 }
 
 
@@ -329,6 +363,8 @@ db.initPoolTables = function(name, tables, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
+    if (typeof callback != "function") callback = corelib.noop;
+    if (name == "none") return callback();
 
     // Add tables to the list of all tables this pool supports
     var pool = self.getPool('', { pool: name });
@@ -347,13 +383,11 @@ db.initPoolTables = function(name, tables, options, callback)
     if (noCacheColumns) {
         self.mergeColumns(pool);
         self.mergeKeys(pool);
-        return callback ? callback() : null;
+        return callback();
     }
     self.cacheColumns(options, function() {
         // Workers do not manage tables, only master process
-        if (cluster.isWorker || core.worker || noInitTables) {
-            return callback ? callback() : null;
-        }
+        if (cluster.isWorker || core.worker || noInitTables) return callback();
 
         var changes = 0;
         corelib.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
@@ -366,10 +400,8 @@ db.initPoolTables = function(name, tables, options, callback)
             }
         }, function() {
             logger.debug('db.initPoolTables:', name, 'changes:', changes);
-            if (!changes) return callback ? callback() : null;
-            self.cacheColumns(options, function() {
-                if (callback) callback();
-            });
+            if (!changes) return callback();
+            self.cacheColumns(options, callback);
         });
     });
 }

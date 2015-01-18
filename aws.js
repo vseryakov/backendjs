@@ -1246,6 +1246,7 @@ aws.queryFilter = function(obj, options)
 
         case 'IN':
             if (Array.isArray(val)) {
+                if (!val.length) continue;
                 cond.AttributeValueList = [];
                 val.forEach(function(x) { cond.AttributeValueList.push(self.toDynamoDB(x));});
             } else {

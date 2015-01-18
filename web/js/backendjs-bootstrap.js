@@ -8,8 +8,9 @@
 Backendjs.showAlert = function(obj, type, text, dismiss)
 {
     if (typeof obj == "string") text = type, type = obj, obj = $("body");
-    text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + text + "</div>";
+    text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + text
     if (dismiss) text += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
+    text += "</div>";
     $(obj).find(".alerts").empty().append(text);
     if (!dismiss) $(obj).find(".alerts div").hide().fadeIn(200).delay(5000 + (type == "error" ? 5000 : 0)).fadeOut(1000, function () { $(this).remove(); });
 }
