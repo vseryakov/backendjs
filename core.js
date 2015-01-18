@@ -372,10 +372,10 @@ core.init = function(options, callback)
             // Can only watch existing files
             corelib.forEach([self.confFile, self.confFile + ".local"], function(file, next2) {
                 fs.exists(file, function(exists) {
-                    if (!exists) return next2();
-                    fs.watch(file, function (event, filename) {
+                    if (exists) fs.watch(file, function (event, filename) {
                         self.setTimeout(file, function() { self.loadConfig(file); }, 5000);
                     });
+                    next2();
                 });
             }, next);
         },
