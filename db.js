@@ -242,7 +242,7 @@ db.initPool = function(name, options, callback)
                  noInitTables: this[type + 'PoolNoInitTables' + n] || 0,
                  dbinit: this[type + 'PoolInitOptions' + n],
                  dboptions: this[type + 'PoolOptions' + n] };
-    logger.log("init:", opts);
+    logger.debug("initPool:", opts);
 
     this[type + 'InitPool'](opts);
     this.initPoolTables(pool, this.tables, options, callback);
