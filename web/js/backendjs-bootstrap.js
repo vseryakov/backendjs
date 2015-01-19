@@ -7,7 +7,7 @@
 
 Backendjs.showAlert = function(obj, type, text, dismiss)
 {
-    if (typeof obj == "string") text = type, type = obj, obj = $("body");
+    if (typeof obj == "string") dismiss = text, text = type, type = obj, obj = $("body");
     text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + text
     if (dismiss) text += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
     text += "</div>";

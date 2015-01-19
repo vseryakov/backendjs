@@ -1652,11 +1652,23 @@ api.registerOAuthStrategy = function(strategy, options, callback)
     passport.use(strategy);
 
     this.app.get('/oauth/' + strategy.name, passport.authenticate(strategy.name, options));
-    this.app.get('/oauth/callback/' + strategy.name, passport.authenticate(strategy.name, { failureRedirect: options.failureUrl }), function(req, res) {
-        if (req.user && req.user.id) req.account = req.user;
-        self.createSessionSignature(req, options);
-        if (options.successUrl) res.redirect(options.successUrl);
-        if (callback) callback(req, res);
+    this.app.get('/oauth/callback/' + strategy.name, function(req, res, next) {
+        passport.authenticate(strategy.name, function(err, user, info) {
+            logger.debug("registerOAuthStrategy: auth:", err, user, info)
+            if (err) return next(err);
+            if (!user) {
+                if (options.failureRedirect) return res.redirect(options.failureRedirect);
+                if (callback) callback(req, options, info);
+                return;
+            }
+            req.logIn(user, function(err) {
+                if (err) return next(err);
+                if (user.id) req.account = user;
+                self.createSessionSignature(req, options);
+                if (options.successRedirect) return res.redirect(options.successRedirect);
+                if (callback) callback(req, options, info);
+            });
+        })(req, res, next);
     });
     logger.debug("registerOAuthStrategy:", strategy.name, options.clientID, strategy._callbackURL);
 }
