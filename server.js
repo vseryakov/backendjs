@@ -182,10 +182,9 @@ server.startMaster = function(options)
         var d = domain.create();
         d.on('error', function(err) { logger.error('master:', err, err.stack); });
 
-        // Log watcher job
-        if (core.logwatcherEmail || core.logwatcherUrl) {
-            setInterval(function() { d.run(function() { core.watchLogs(); }); }, core.logwatcherInterval * 60000);
-        }
+        // Log watcher job, always runs even if no email configured, if enabled it will
+        // start sending only new errors and not from the past
+        setInterval(function() { d.run(function() { core.watchLogs(); }); }, core.logwatcherInterval * 60000);
 
         // Primary cron jobs
         if (self.jobsInterval > 0) setInterval(function() { d.run(function() { self.processQueue(); }); }, self.jobsInterval * 1000);

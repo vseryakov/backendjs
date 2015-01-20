@@ -18,33 +18,33 @@ var linkedinStrategy = require('passport-linkedin-oauth2').Strategy;
 var twitterStrategy = require('passport-twitter').Strategy;
 
 // Initialize oauth objects
-app.google = {}
-app.github = {}
-app.facebook = {}
-app.linkedin = { state: true };
+app.google = { scope: "https://www.googleapis.com/auth/userinfo.email" }
+app.github = { scope: "user" }
+app.facebook = { scope: "email" }
+app.linkedin = { state: true, scpe: "r_emailaddress,r_basicprofile"  };
 app.twitter = { _version: 1 }
 
 core.describeArgs('app',
      [ { name: "google-client-id", obj: 'google', ucase: "Id$", descr: "OAuth2 client id" },
        { name: "google-client-secret", obj: 'google', descr: "v client secret secret" },
        { name: "google-callback-url", obj: 'google', ucase: "Url$", descr: "OAuth2 client calback url" },
-       { name: "google-scope", type: "list", obj: 'google', value: "https://www.googleapis.com/auth/userinfo.email", descr: "OAuth2 client oauth scope" },
+       { name: "google-scope", type: "list", obj: 'google', descr: "OAuth2 client oauth scope" },
        { name: "linkedin-client-id", obj: 'linkedin', ucase: "Id$", descr: "OAuth2 client id" },
        { name: "linkedin-client-secret", obj: 'linkedin', descr: "OAuth2 client secret secret" },
        { name: "linkedin-callback-url", obj: 'linkedin', ucase: "Url$", descr: "OAuth2 client calback url" },
-       { name: "linkedin-scope", type: "list", obj: 'linkedin', value: "r_emailaddress,r_basicprofile", descr: "OAuth2 client oauth scope" },
+       { name: "linkedin-scope", type: "list", obj: 'linkedin', descr: "OAuth2 client oauth scope" },
        { name: "linkedin-state", obj: "linkedin", type: "bool", descr: "Handle state property automatically" },
        { name: "github-client-id", obj: 'github', ucase: "Id$", descr: "OAuth2 client id" },
        { name: "github-client-secret", obj: 'github', descr: "OAuth2 client secret secret" },
        { name: "github-callback-url", obj: 'github', ucase: "Url$", descr: "OAuth2 client calback url" },
-       { name: "github-scope", type: "list", obj: 'github', value: "user", descr: "OAuth2 client oauth scope" },
+       { name: "github-scope", type: "list", obj: 'github', descr: "OAuth2 client oauth scope" },
        { name: "twitter-consumer-key", obj: 'twitter', descr: "OAuth1 consumer key" },
        { name: "twitter-consumer-client-secret", obj: 'twitter', descr: "OAuth1 consumer secret" },
        { name: "twitter-callback-url", obj: 'twitter', ucase: "Url$", descr: "OAuth1 consumer calback url" },
        { name: "facebook-client-id", obj: 'facebook', ucase: "Id$", descr: "OAuth2 client id" },
        { name: "facebook-client-secret", obj: 'facebook', descr: "OAuth2 client secret secret" },
        { name: "facebook-callback-url", obj: 'facebook', ucase: "Url$", descr: "OAuth2 client calback url" },
-       { name: "facebook-scope", type: "list", obj: 'facebook', value: "email", descr: "OAuth2 client oauth scope" },
+       { name: "facebook-scope", type: "list", obj: 'facebook', descr: "OAuth2 client oauth scope" },
        { name: "facebook-profile-fields", type: "list", obj: 'facebook', descr: "List of profile fields to return" },
        { name: "facebook-display", obj: 'facebook', descr: "Mode of the content to render in dialogs" },
        { name: "facebook-enable-proof", obj: "facebook", type: "bool", descr: "Sign with client secret all API requests" },

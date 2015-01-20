@@ -98,17 +98,26 @@ var core = {
     watchdirs: [],
     timers: {},
 
-    // Log watcher config, watch for server restarts as well
+    // Log watcher config, define different named channels for different patterns, email notification can be global or per channel
     logwatcherMax: 1000000,
     logwatcherInterval: 60,
-    logwatcherIgnore: [" (NOTICE|DEBUG|DEV): "],
-    logwatcherMatch: [' (ERROR|WARNING|WARN|ALERT|EMERG|CRIT): ', 'message":"ERROR:'],
+    logwatcherEmail: {},
+    logwatcherIgnore: {},
+    logwatcherMatch: {
+        error: [ ' (ERROR|ALERT|EMERG|CRIT): ", "message":"ERROR:' ],
+        warning: [ ' (WARNING|WARN): ' ],
+    },
     // List of files to watch, every file is an object with the following properties:
     //   - file: absolute pth to the log file - or -
     //   - name: name of the property in the core which hold the file path
     //   - ignore: a regexp with the pattern to ignore
-    //   - match: a regexp with the pttern to match and report
-    logwatcherFiles: [ { file: "/var/log/messages" }, { name: "logFile" }, { name: "errFile", match: /.+/, } ],
+    //   - match: a regexp with the pattern to match and report
+    //   - type: channel if match is specified, otherwise it will go to the channel 'all'
+    logwatcherFile: [
+        { file: "/var/log/messages" },
+        { name: "logFile" },
+        { name: "errFile", match: /.+/, type: "error" }
+    ],
 
     // User agent
     userAgent: [],
@@ -219,12 +228,12 @@ var core = {
             { name: "worker", type:"bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "no-modules", type: "regexp", descr: "A regexp with modules names to be excluded form loading on startup", pass: 1 },
             { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of sending over email" },
-            { name: "logwatcher-email", dns: 1, descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
-            { name: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns" },
-            { name: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns" },
             { name: "logwatcher-interval", type: "number", min: 1, descr: "How often to check for errors in the log files in minutes" },
-            { name: "logwatcher-file", type: "callback", callback: function(v) { if (v) this.logwatcherFiles.push({file:v}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
+            { name: "logwatcher-match-", obj: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, one of error, warning, info, all. Example: `-logwatcher-match-error=^failed:`" },
+            { name: "logwatcher-email-", dns: 1, obj: "logwatcher-email", descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define an email separately, one of error, warning, info, all. Example: `-logwatcher-email-error=help@error.com`" },
+            { name: "logwatcher-ignore-", obj: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately" },
+            { name: "logwatcher-file-", obj: "logwatcher-file", type: "callback", callback: function(v,k) { if (v) this.push({file:v,type:k}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
@@ -261,7 +270,7 @@ core.init = function(options, callback)
     self.pid = crypto.randomBytes(4).toString('hex');
 
     // Initial args to run before the config file
-    self.processArgs("core", self, process.argv, 1);
+    self.processArgs(self, process.argv, 1);
 
     // Default home as absolute path from the command line or custom config file passed
     self.setHome(self.home);
@@ -471,28 +480,74 @@ core.parseArgs = function(argv)
     logger.debug('parseArgs:', argv.join(' '));
 
    // Core parameters
-    self.processArgs("core", self, argv);
+    self.processArgs(self, argv);
 
     // Run registered handlers for each module
     for (var n in this.modules) {
-        var ctx = this.modules[n];
-        self.processArgs(n, ctx, argv);
+        self.processArgs(this.modules[n], argv);
     }
 }
 
 // Config parameters defined in a module as a list of parameter names prefixed with module name, a parameters can be
 // a string which defines text parameter or an object with the properties: name, type, value, decimals, min, max, separator
 // type can be bool, number, list, json
-core.processArgs = function(name, ctx, argv, pass)
+core.processArgs = function(ctx, argv, pass)
 {
     var self = this;
     if (!ctx || !Array.isArray(ctx.args) || !Array.isArray(argv) || !argv.length) return;
-    function put(obj, key, val, x) {
-        if (x.array) {
+
+    for (var i = 0; i < argv.length; i++) {
+        var key = String(argv[i]);
+        if (!key || key[0] != "-") continue;
+        var val = argv[i + 1] || null;
+        if (val) {
+            val = String(val);
+            if (val[0] == "-") val = null; else i++;
+        }
+
+        ctx.args.forEach(function(x) {
+            if (!x.name) return;
+            // Process only equal to the given pass phase
+            if (pass && x.pass != pass) return;
+
+            // Module prefix and name of the key variable in the contenxt, key. property specifies alternative name for the value
+            var prefix = ctx == self ? "-" : "-" + ctx.name + "-";
+            var arg = prefix + x.name;
+            var name = x.key || x.name;
+            // Prefixed parameters, match the leading part in the same module and use the whole parameter
+            if (x.name[0] == "-" && x.name.slice(-1) == "-") {
+                if (!key.match("^" + prefix + ".+" + x.name)) return;
+                name = key;
+            } else
+            if (x.name[0] == "-") {
+                if (!key.match("^" + prefix + ".+" + x.name + "$")) return;
+                name = key;
+            } else
+            if (x.name.slice(-1) == "-") {
+                if (key.substr(0, arg.length) != arg && key != arg.slice(0, -1)) return;
+                name = key;
+            } else {
+                if (key != arg) return;
+            }
+            // Continue if we have default value defined
+            if (val == null && typeof x.novalue == "undefined") return;
+            name = key.substr(prefix.length);
+            self.updateArg(ctx, name, val, x);
+        });
+    }
+}
+
+// Update a config parameter in the given context with the name value pair. options is matched argument definition.
+core.updateArg = function(ctx, name, val, options)
+{
+    if (!options) options = {};
+
+    function put(obj, key, val) {
+        if (options.array) {
             if (val == "<null>") {
                 obj[key] = [];
             } else {
-                if (!Array.isArray(obj[key]) || x.set) obj[key] = [];
+                if (!Array.isArray(obj[key]) || options.set) obj[key] = [];
                 if (Array.isArray(val)) {
                     val.forEach(function(x) { if (obj[key].indexOf(x) == -1) obj[key].push(x); });
                 } else {
@@ -507,145 +562,92 @@ core.processArgs = function(name, ctx, argv, pass)
             }
         }
     }
-    ctx.args.forEach(function(x) {
-        try {
-            var obj = ctx;
-            // Process only equal to the given pass phase
-            if (pass && x.pass != pass) return;
-            if (typeof x == "string") x = { name: x };
-            if (!x.name) return;
-            // Support for multiple arguments with numeric suffix, name-1...n
-            for (var i = 0; i < (x.count || 1); i++) {
-                // Core sets global parameters, all others by module
-                var sname = (name == "core" ? "" : "-" + name);
-                var ename = '-' + x.name + (i > 0 ? "-" + i : "");
-                var cname = sname + ename;
-                // Name of the key variable in the contenxt, key. property specifies alternative name for the value
-                var kname = (x.key || x.name) + (i > 0 ? i : "");
-                var idx = -1;
-                // Prefixed parameters, match the leading part in the same module and use the whole parameter
-                if (x.name.slice(-1) == "-") {
-                    var rx = new RegExp("^" + cname);
-                    for (var n = argv.length - 1; idx == -1 && n >= 0; n--) {
-                        if (rx.test(argv[n])) idx = n;
-                    }
-                    // Found a match, update our base name with the leading part from the actual argument name
-                    if (idx > -1) {
-                        cname = argv[idx];
-                        kname = cname.slice(sname.length + 1);
-                    }
-                } else
-                // Matched property, scan and find the last match by the module prefix and suffix only,
-                // using the middle for the actual parameter
-                if (x.match) {
-                    var rx = new RegExp("^" + (name == "core" ? "" : "\-" + name) + "\-.+" + ename + "$");
-                    for (var n = argv.length - 1; idx == -1 && n >= 0; n--) {
-                        if (rx.test(argv[n])) idx = n;
-                    }
-                    // Found a match, update our base name with the leading part from the actual argument name
-                    if (idx > -1) {
-                        kname = argv[idx].slice(sname.length + 1);
-                        cname = sname + '-' + kname;
-                    }
-                } else {
-                    idx = argv.lastIndexOf(cname);
-                }
-                // Continue if we have default value defined
-                if (idx == -1 && typeof x.value == "undefined") continue;
-
-                // Place inside the object
-                if (x.obj) {
-                    obj = corelib.toCamel(x.obj);
-                    if (!ctx[obj]) ctx[obj] = {};
-                    obj = ctx[obj];
-                    // Strip the prefix if starts with the same name
-                    kname = kname.replace(new RegExp("^" + x.obj + "-"), "");
-                }
-                var key = corelib.toCamel(kname);
-                // Update case according to the pattern(s)
-                if (x.ucase) key = key.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
-                if (x.lcase) key = key.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });
-                // Use supplied value of the default
-                var val = null;
-                if (idx > -1 && idx + 1 < argv.length) {
-                    val = argv[idx + 1].trim();
-                    // Ignore the value if it is next parameter
-                    if (val && val[0] == '-') val = null;
-                }
-                // Use defaults only for the first time
-                if (val == null && typeof obj[key] == "undefined") {
-                    if (typeof x.value != "undefined") val = x.value; else
-                    if (typeof x.novalue != "undefined") val = x.novalue;
-                }
-                // Explicit empty value
-                if (val == "''" || val == '""') val = "";
-                // Only some types allow no value case
-                if (val == null && x.type != "bool" && x.type != "callback" && x.type != "none") continue;
-
-                logger.debug("processArgs:", x.type || "str", idx + "/" + argv.length, name + "." + key, "(" + x.name + ")", "=", val);
-                switch ((x.type || "").trim()) {
-                case "none":
-                    break;
-                case "bool":
-                    put(obj, key, !val ? true : corelib.toBool(val), x);
-                    break;
-                case "int":
-                case "real":
-                case "number":
-                    put(obj, key, corelib.toNumber(val, x.decimals, x.value, x.min, x.max), x);
-                    break;
-                case "map":
-                    put(obj, key, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
-                    break;
-                case "intmap":
-                    put(obj, key, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = corelib.toNumber(y[1]); return x }, {}), x);
-                    break;
-                case "list":
-                    put(obj, key, corelib.strSplitUnique(val, x.separator), x);
-                    break;
-                case "regexp":
-                    put(obj, key, new RegExp(val), x);
-                    break;
-                case "regexpobj":
-                    obj[key] = corelib.toRegexpObj(x.set ? null : obj[key], val, x.del);
-                    break;
-                case "regexpmap":
-                    obj[key] = corelib.toRegexpMap(x.set ? null : obj[key], val);
-                    break;
-                case "json":
-                    put(obj, key, corelib.jsonParse(val), x);
-                    break;
-                case "path":
-                    // Check if it starts with local path, use the actual path not the current dir for such cases
-                    for (var p in self.path) {
-                        if (val.substr(0, p.length + 1) == p + "/") {
-                            val = self.path[p] + val.substr(p.length);
-                            break;
-                        }
-                    }
-                    put(obj, key, path.resolve(val), x);
-                    break;
-                case "file":
-                    try { put(obj, key, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', key, val, e); }
-                    break;
-                case "callback":
-                    if (typeof x.callback == "string") {
-                        obj[x.callback](val);
-                    } else
-                        if (typeof x.callback == "function") {
-                            x.callback.call(obj, val);
-                        }
-                    break;
-                default:
-                    put(obj, key, val, x);
-                }
-                // Append all processed arguments into internal list when we processing all arguments, not in a pass
-                self.argv[cname.substr(1)] = val || true;
-            }
-        } catch(e) {
-            logger.error('processArgs:', e.stack, x);
+    try {
+        var obj = ctx;
+        // Place inside the object
+        if (options.obj) {
+            obj = corelib.toCamel(options.obj);
+            if (!ctx[obj]) ctx[obj] = {};
+            obj = ctx[obj];
+            // Strip the prefix if starts with the same name
+            name = name.replace(new RegExp("^" + options.obj + "-"), "");
         }
-    });
+        var key = corelib.toCamel(name);
+        // Update case according to the pattern(s)
+        if (options.ucase) key = key.replace(new RegExp(options.ucase, 'g'), function(v) { return v.toUpperCase(); });
+        if (options.lcase) key = key.replace(new RegExp(options.lcase, 'g'), function(v) { return v.toLowerCase(); });
+        // Use defaults only for the first time
+        if (val == null && typeof obj[key] == "undefined") {
+            if (typeof options.novalue != "undefined") val = options.novalue;
+        }
+        // Explicit empty value
+        if (val == "''" || val == '""') val = "";
+        // Only some types allow no value case
+        var type = (options.type || "").trim();
+        if (val == null && type != "bool" && type != "callback" && type != "none") return false;
+
+        logger.debug("processArgs:", options.type || "str", ctx.name + "." + key, "(" + options.name + ")", "=", val);
+        switch (type) {
+        case "none":
+            break;
+        case "bool":
+            put(obj, key, !val ? true : corelib.toBool(val));
+            break;
+        case "int":
+        case "real":
+        case "number":
+            put(obj, key, corelib.toNumber(val, options.decimals, options.value, options.min, options.max));
+            break;
+        case "map":
+            put(obj, key, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}));
+            break;
+        case "intmap":
+            put(obj, key, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = corelib.toNumber(y[1]); return x }, {}));
+        break;
+        case "list":
+            put(obj, key, corelib.strSplitUnique(val, x.separator));
+            break;
+        case "regexp":
+            put(obj, key, new RegExp(val));
+            break;
+        case "regexpobj":
+            obj[key] = corelib.toRegexpObj(options.set ? null : obj[key], val, options.del);
+            break;
+        case "regexpmap":
+            obj[key] = corelib.toRegexpMap(options.set ? null : obj[key], val);
+            break;
+        case "json":
+            put(obj, key, corelib.jsonParse(val));
+            break;
+        case "path":
+            // Check if it starts with local path, use the actual path not the current dir for such cases
+            for (var p in this.path) {
+                if (val.substr(0, p.length + 1) == p + "/") {
+                    val = this.path[p] + val.substr(p.length);
+                    break;
+                }
+            }
+            put(obj, key, path.resolve(val));
+            break;
+        case "file":
+            try { put(obj, key, fs.readFileSync(path.resolve(val))); } catch(e) { logger.error('procesArgs:', key, val, e); }
+            break;
+        case "callback":
+            if (typeof options.callback == "string") {
+                obj[options.callback](val, key);
+            } else
+                if (typeof options.callback == "function") {
+                    options.callback.call(obj, val, key);
+                }
+            break;
+        default:
+            put(obj, key, val);
+        }
+        return true;
+    } catch(e) {
+        logger.error("updateArg:", name, val, e.stack);
+    }
+    return false;
 }
 
 // Add custom config parameters to be understood and processed by the config parser
@@ -1213,6 +1215,7 @@ core.addModule = function()
 {
     for (var i = 0; i < arguments.length - 1; i+= 2) {
         this.modules[arguments[i]] = arguments[i + 1];
+        if (!arguments[i + 1].name) arguments[i + 1].name = arguments[i];
     }
 }
 
@@ -1777,13 +1780,27 @@ core.watchLogs = function(options, callback)
     // From address, use current hostname
     if (!self.logwatcherFrom) self.logwatcherFrom = "logwatcher@" + self.domain;
 
-    var match = null;
-    if (self.logwatcherMatch) {
-        try { match = new RegExp(self.logwatcherMatch.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) { logger.error('watchLogs:', e, self.logwatcherMatch) }
+    var match = {};
+    for (var p in self.logwatcherMatch) {
+        try {
+            match[p] = new RegExp(self.logwatcherMatch[p].map(function(x) { return "(" + x + ")"}).join("|"));
+        } catch(e) {
+            logger.error('watchLogs:', e, self.logwatcherMatch[p]);
+        }
     }
-    var ignore = null
-    if (self.logwatcherIgnore) {
-        try { ignore = new RegExp(self.logwatcherIgnore.map(function(x) { return "(" + x + ")"}).join("|")); } catch(e) { logger.error('watchLogs:', e, self.logwatcherIgnore) }
+    var ignore = {}
+    for (var p in self.logwatcherIgnore) {
+        try {
+            ignore[p] = new RegExp(self.logwatcherIgnore[p].map(function(x) { return "(" + x + ")"}).join("|"));
+        } catch(e) {
+            logger.error('watchLogs:', e, self.logwatcherIgnore[p]);
+        }
+    }
+
+    // Run over all regexps in the object, return channel name if any matched
+    function matchObj(obj, line) {
+        for (var p in obj) if (obj[p].test(line)) return p;
+        return "";
     }
 
     logger.debug('watchLogs:', self.logwatcherEmail, self.logwatcherUrl, self.logwatcherFiles);
@@ -1794,7 +1811,7 @@ core.watchLogs = function(options, callback)
         for (var i = 0; i < rows.length; i++) {
             lastpos[rows[i].name] = rows[i].value;
         }
-        var errors = "";
+        var errors = {};
 
         // For every log file
         corelib.forEachSeries(self.logwatcherFiles, function(log, next) {
@@ -1802,58 +1819,67 @@ core.watchLogs = function(options, callback)
             if (!file && self[log.name]) file = self[log.name];
             if (!file) return next();
 
-            fs.stat(file, function(err2, st) {
-               if (err2) return next();
+            fs.stat(file, function(err, st) {
+               if (err) return next();
                // Last saved position, start from the end if the log file is too big or got rotated
                var pos = corelib.toNumber(lastpos['logwatcher:' + file] || 0);
                if (st.size - pos > self.logwatcherMax || pos > st.size) pos = st.size - self.logwatcherMax;
 
-               fs.open(file, "r", function(err3, fd) {
-                   if (err3) return next();
+               fs.open(file, "r", function(err, fd) {
+                   if (err) return next();
                    var buf = new Buffer(self.logwatcherMax);
-                   fs.read(fd, buf, 0, buf.length, Math.max(0, pos), function(err4, nread, buffer) {
+                   fs.read(fd, buf, 0, buf.length, Math.max(0, pos), function(err, nread, buffer) {
                        fs.close(fd, function() {});
-                       if (err4 || !nread) return next();
+                       if (err || !nread) return next();
 
                        var lines = buffer.slice(0, nread).toString().split("\n");
                        for (var i = 0; i < lines.length; i++) {
                            // Skip local or global ignore list first
-                           if ((log.ignore && log.ignore.test(lines[i])) || (ignore && ignore.test(lines[i]))) continue;
+                           if ((log.ignore && log.ignore.test(lines[i])) || matchObj(ignore, lines[i])) continue;
                            // Match both global or local filters
-                           if ((log.match && log.match.test(lines[i])) || (match && match.test(lines[i]))) {
-                               errors += lines[i] + "\n";
+                           var chan = log.match && log.match.test(lines[i]) ? (log.type || "all") : "";
+                           if (!chan) chan = matchObj(match, lines[i]);
+                           if (chan) {
+                               if (!errors[chan]) errors[chan] = "";
+                               errors[chan] += lines[i] + "\n";
                                // Add all subsequent lines starting with a space or tab, those are continuations of the error or stack traces
                                while (i < lines.length && (lines[i + 1][0] == ' ' || lines[i + 1][0] == '\t')) {
-                                   errors += lines[++i] + "\n";
+                                   errors[chan] += lines[++i] + "\n";
                                }
                            }
                        }
-                       // Separator between log files
-                       if (errors.length > 1) errors += "\n\n";
                        // Save current size to start next time from
-                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, { pool: db.local }, function(e) {
-                           if (e) logger.error('watchLogs:', file, e);
+                       db.put("bk_property", { name: 'logwatcher:' + file, value: st.size }, { pool: db.local }, function(err) {
+                           if (err) logger.error('watchLogs:', file, err);
                            next();
                        });
                    });
                });
             });
         }, function(err) {
-            if (errors.length > 1) {
-                logger.log('logwatcher:', 'found errors, sending report to', self.logwatcherEmail || "", self.logwatcherUrl || "");
-                if (self.logwatcherUrl) {
-                    self.sendRequest({ url: self.logwatcherUrl, queue: true, headers: { "content-type": "text/plain" }, method: "POST", postdata: errors }, callback);
+            corelib.forEach(Object.keys(errors), function(type, next) {
+                if (!errors[type].length) return next();
+                logger.log('logwatcher:', type, 'found matches, sending to', self.logwatcherEmail[type] || "", self.logwatcherUrl[type] || "");
+
+                if (self.logwatcherUrl[type]) {
+                    self.sendRequest({ url: self.logwatcherUrl[type],
+                                       queue: true,
+                                       headers: { "content-type": "text/plain" },
+                                       method: "POST",
+                                       postdata: errors[type] }, function() { next() });
                     return;
                 }
-                if (self.logwatcherEmail) {
+                if (self.logwatcherEmail[type]) {
                     self.sendmail({ from: self.logwatcherFrom,
-                                    to: self.logwatcherEmail,
-                                    subject: "logwatcher: " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + " errors",
-                                    text: errors }, callback);
+                                    to: self.logwatcherEmail[type],
+                                    subject: "logwatcher: " + type + ": " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + "/" + self.runMode,
+                                    text: errors[type] }, function() { next() });
                     return;
                 }
-            }
-            if (typeof callback == "function") callback(err, errors);
+                next();
+            }, function(err) {
+                if (typeof callback == "function") callback(err, errors);
+            });
         });
     });
 }

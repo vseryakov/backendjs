@@ -119,26 +119,26 @@ var db = {
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
-           { name: "sqlite-pool", count: 3, descr: "SQLite pool db name, absolute path or just a name for the db file created in var/" },
-           { name: "pgsql-pool", count: 3, novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
-           { name: "mysql-pool", count: 3, novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
-           { name: "dynamodb-pool", count: 3, novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
-           { name: "mongodb-pool", count: 3, novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
-           { name: "cassandra-pool", count: 3, novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
-           { name: "lmdb-pool", count: 3, descr: "Path to the local LMDB database" },
-           { name: "leveldb-pool", count: 3, descr: "Path to the local LevelDB database" },
-           { name: "redis-pool", count: 3, novalue: "127.0.0.1", descr: "Redis host" },
-           { name: "elasticsearch-pool", count: 3, novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
-           { name: "couchdb-pool", count: 3, novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
-           { name: "riak-pool", count: 3, novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
-           { name: "pool-max", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
-           { name: "pool-min", count: 3, match: "pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
-           { name: "pool-idle", count: 3, match: "pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
-           { name: "pool-tables", count: 3, match: "pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
-           { name: "pool-init-options", count: 3, match: "pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
-           { name: "pool-options", count: 3, match: "pool", type: "json", descr: "A DB pool driver options passed to every request" },
-           { name: "pool-no-cache-columns", count: 3, match: "pool", type: "bool", descr: "disable caching table columns for this pool only" },
-           { name: "pool-no-init-tables", count: 3, match: "pool", type: "bool", descr: "Do not crate tables for this pool only" },
+           { name: "sqlite-pool-", descr: "SQLite pool db name, absolute path or just a name for the db file created in var/" },
+           { name: "pgsql-pool-", novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
+           { name: "mysql-pool-", novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
+           { name: "dynamodb-pool-", novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
+           { name: "mongodb-pool-", novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
+           { name: "cassandra-pool-", novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
+           { name: "lmdb-pool-", descr: "Path to the local LMDB database" },
+           { name: "leveldb-pool-", descr: "Path to the local LevelDB database" },
+           { name: "redis-pool-", novalue: "127.0.0.1", descr: "Redis host" },
+           { name: "elasticsearch-pool-", novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
+           { name: "couchdb-pool-", novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
+           { name: "riak-pool-", novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
+           { name: "-pool-max-", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
+           { name: "-pool-min-", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
+           { name: "-pool-idle-", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
+           { name: "-pool-tables-", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
+           { name: "-pool-init-options-", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
+           { name: "-pool-options-", type: "json", descr: "A DB pool driver options passed to every request" },
+           { name: "-pool-no-cache-columns-", type: "bool", descr: "disable caching table columns for this pool only" },
+           { name: "-pool-no-init-tables-", type: "bool", descr: "Do not crate tables for this pool only" },
     ],
 
     // Default tables
@@ -185,10 +185,10 @@ db.init = function(options, callback)
 
     // Configured pools for supported databases
     var pools = [];
-    self.args.filter(function(x) { return x.name.match(/\-pool$/) }).forEach(function(x, next) {
-        var pool = x.name.replace('-pool', '');
+    self.args.filter(function(x) { return x.name.match(/\-pool-$/) }).forEach(function(x, next) {
+        var pool = x.name.replace('-pool-', '');
         // Several drivers can be defined
-        for (var i = 0; i < (x.count || 1); i++) {
+        for (var i = 0; i < 5; i++) {
             var n = i > 0 ? i : "";
             var db = self[pool + 'Pool' + n];
             if (typeof db != "undefined") pools.push("db-" + pool +"-pool" + (n ? "-" + n : ""));

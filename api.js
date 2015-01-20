@@ -290,6 +290,7 @@ var api = {
     imagesUrl: '',
     imagesS3: '',
     filesS3: '',
+    pagesView: "pages.html",
 
     disableSession: {},
     templating: "ejs",
@@ -399,7 +400,7 @@ var api = {
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
            { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
-           { name: "pages-view", value: "pages.html", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
+           { name: "pages-view", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
            { name: "pages-main", descr: "A template for the main page to be created when starting the wiki engine for the first time, if not given a default simple welcome message will be used" },
            { name: "collect-host", descr: "The backend URL where all collected statistics should be sent over, if set to `pool` then each web worker will save metrics directly into the statistics database pool" },
            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
@@ -1643,7 +1644,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
         var cb = options.fetchAccount || self.fetchAccount;
         cb.call(self, req, options, function(err, user) {
             if (err) logger.error('registerOAuthStrategy:', strategy.name, err);
-            logger.debug('registerOAuthStrategy:', strategy.name, user, profile)
+            logger.debug('registerOAuthStrategy: account:', strategy.name, user, profile)
             done(err, user);
         });
     });
@@ -1654,19 +1655,20 @@ api.registerOAuthStrategy = function(strategy, options, callback)
     this.app.get('/oauth/' + strategy.name, passport.authenticate(strategy.name, options));
     this.app.get('/oauth/callback/' + strategy.name, function(req, res, next) {
         passport.authenticate(strategy.name, function(err, user, info) {
-            logger.debug("registerOAuthStrategy: auth:", err, user, info)
+            logger.debug("registerOAuthStrategy: authenticate:", err, user, info)
             if (err) return next(err);
             if (!user) {
                 if (options.failureRedirect) return res.redirect(options.failureRedirect);
-                if (callback) callback(req, options, info);
-                return;
+                if (callback) return callback(req, options, info);
+                next();
             }
             req.logIn(user, function(err) {
                 if (err) return next(err);
                 if (user.id) req.account = user;
                 self.createSessionSignature(req, options);
                 if (options.successRedirect) return res.redirect(options.successRedirect);
-                if (callback) callback(req, options, info);
+                if (callback) return callback(req, options, info);
+                next();
             });
         })(req, res, next);
     });
