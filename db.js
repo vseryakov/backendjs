@@ -81,7 +81,7 @@ var metrics = require(__dirname + "/metrics");
 // opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
 // other database will not require any application code changes.
 //
-// Multiple connections of the same tipy can be opened, just add -n suffix to all database config parameters where n is 1 to `count` property in the config descriptor.
+// Multiple connections of the same tipy can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as `pgsql1`.
 //
 // Example:
 //
@@ -92,8 +92,42 @@ var metrics = require(__dirname + "/metrics");
 var db = {
     name: 'db',
 
+    // Config parameters
+    args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
+           { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
+           { name: "no-init-tables", type: "bool", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, disabling this will turn on table creation in the shell and master processes" },
+           { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
+           { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
+           { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
+           { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
+           { name: "sqlite-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", descr: "SQLite pool db name, absolute path or just a name for the db file created in var/" },
+           { name: "pgsql-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
+           { name: "mysql-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
+           { name: "dynamodb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
+           { name: "mongodb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
+           { name: "cassandra-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
+           { name: "lmdb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", descr: "Path to the local LMDB database" },
+           { name: "leveldb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", descr: "Path to the local LevelDB database" },
+           { name: "redis-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "127.0.0.1", descr: "Redis host" },
+           { name: "elasticsearch-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
+           { name: "couchdb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
+           { name: "riak-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
+           { name: "(.+)-pool-max(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
+           { name: "(.+)-pool-min(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
+           { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
+           { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
+           { name: "(.+)-pool-init-options(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
+           { name: "(.+)-pool-options(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "json", descr: "A DB pool driver options passed to every request" },
+           { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "bool", descr: "disable caching table columns for this pool only" },
+           { name: "(.+)-pool-no-init-tables(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "bool", descr: "Do not create tables for this pool only" },
+    ],
+
     // Default database pool for the backend
     pool: 'sqlite',
+
+    // Configuration parameters
+    npools: {  sqlite: "" },
+    cpools: {},
 
     // Database connection pools by pool name
     pools: {},
@@ -106,40 +140,9 @@ var db = {
 
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
-    sqlitePool: '',
 
     // Refresh config from the db
     configInterval: 300,
-
-    // Config parameters
-    args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
-           { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
-           { name: "no-init-tables", type: "bool", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, disabling this will turn on table creation in the shell and master processes" },
-           { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
-           { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
-           { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
-           { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
-           { name: "sqlite-pool-", descr: "SQLite pool db name, absolute path or just a name for the db file created in var/" },
-           { name: "pgsql-pool-", novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
-           { name: "mysql-pool-", novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
-           { name: "dynamodb-pool-", novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
-           { name: "mongodb-pool-", novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
-           { name: "cassandra-pool-", novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
-           { name: "lmdb-pool-", descr: "Path to the local LMDB database" },
-           { name: "leveldb-pool-", descr: "Path to the local LevelDB database" },
-           { name: "redis-pool-", novalue: "127.0.0.1", descr: "Redis host" },
-           { name: "elasticsearch-pool-", novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
-           { name: "couchdb-pool-", novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
-           { name: "riak-pool-", novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
-           { name: "-pool-max-", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
-           { name: "-pool-min-", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
-           { name: "-pool-idle-", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
-           { name: "-pool-tables-", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
-           { name: "-pool-init-options-", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
-           { name: "-pool-options-", type: "json", descr: "A DB pool driver options passed to every request" },
-           { name: "-pool-no-cache-columns-", type: "bool", descr: "disable caching table columns for this pool only" },
-           { name: "-pool-no-init-tables-", type: "bool", descr: "Do not crate tables for this pool only" },
-    ],
 
     // Default tables
     tables: {
@@ -173,6 +176,15 @@ var db = {
 
 module.exports = db;
 
+// Gracefully close all database pools when the shutdown is initiated by a Web process
+db.shutdownWeb = function(optios, callback)
+{
+    var pools = this.getPools();
+    corelib.forEachLimit(pools, pools.length, function(pool, next) {
+        db.pools[pool.name].shutdown(next);
+    }, callback);
+}
+
 // Initialize all database pools.
 db.init = function(options, callback)
 {
@@ -184,19 +196,11 @@ db.init = function(options, callback)
     if (this.config == "default") this.config = this.pool;
 
     // Configured pools for supported databases
-    var pools = [];
-    self.args.filter(function(x) { return x.name.match(/\-pool-$/) }).forEach(function(x, next) {
-        var pool = x.name.replace('-pool-', '');
-        // Several drivers can be defined
-        for (var i = 0; i < 5; i++) {
-            var n = i > 0 ? i : "";
-            var db = self[pool + 'Pool' + n];
-            if (typeof db != "undefined") pools.push("db-" + pool +"-pool" + (n ? "-" + n : ""));
-        }
-    });
-
-    corelib.forEachSeries(pools, function(pool, next) {
-        self.initPool(pool, options, next);
+    corelib.forEachSeries(Object.keys(this.npools), function(pool, next) {
+        self.initPool(pool, options, function(err) {
+            if (err) logger.error("init:", pool, err);
+            next();
+        });
     }, callback);
 }
 
@@ -212,40 +216,41 @@ db.initPool = function(name, options, callback)
     if (!options) options = {};
     if (typeof callback != "function") callback = corelib.noop;
 
-    var d = name.match(/^-?db-([a-z0-9]+)-pool-?([0-9]+)?$/);
-    if (!d) return callback("invalid pool name: " + name);
-    var type = d[1];
-    var n = d[2] || '';
-    var pool = type + n;
-
     // Pool db connection parameter must exists even if empty
-    var db = this[type + 'Pool' + n];
+    var db = this.npools[name];
     if (typeof db == "undefined") return callback();
 
     // Do not re-init the pool if not forced
-    if (this.pools[pool]) {
+    if (this.pools[name]) {
         if (!options.force) return callback();
-        this.pools[pool].shutdown();
+        this.pools[name].shutdown();
+        delete this.pools[name];
     }
 
+    var d = name.match(/^([a-z]+)([0-9]+)?$/);
+    if (!d) return callback(new Error("invalid pool " + name));
+    var type = d[1];
+    var n = d[2] || "";
+    if (!self[type + "InitPool"]) return callback(new Error("invalid pool type " + name));
+
     // Pool specific tables
-    (this[type + 'PoolTables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
+    (this.cpools[type + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
 
     // All pool specific parameters
-    var opts = { pool: pool,
+    var opts = { pool: name,
                  type: type,
                  db: db || "",
-                 min: this[type + 'PoolMin' + n] || 0,
-                 max: this[type + 'PoolMax' + n] || Infinity,
-                 idle: this[type + 'PoolIdle' + n] || 86400000,
-                 noCacheColumns: this[type + 'PoolNoCacheColumns' + n] || 0,
-                 noInitTables: this[type + 'PoolNoInitTables' + n] || 0,
-                 dbinit: this[type + 'PoolInitOptions' + n],
-                 dboptions: this[type + 'PoolOptions' + n] };
+                 min: this.cpools[type + 'Min' + n] || 0,
+                 max: this.cpools[type + 'Max' + n] || Infinity,
+                 idle: this.cpools[type + 'Idle' + n] || 300000,
+                 noCacheColumns: this.cpools[type + 'NoCacheColumns' + n] || 0,
+                 noInitTables: this.cpools[type + 'NoInitTables' + n] || 0,
+                 dbinit: this.cpools[type + 'InitOptions' + n],
+                 dboptions: this.cpools[type + 'Options' + n] };
     logger.debug("initPool:", opts);
 
     this[type + 'InitPool'](opts);
-    this.initPoolTables(pool, this.tables, options, callback);
+    this.initPoolTables(name, this.tables, options, callback);
 }
 
 // Load configuration from the config database, must be configured with `db-config-type` pointing to the database pool where bk_config table contains
@@ -283,7 +288,7 @@ db.initConfig = function(options, callback)
     if (!self.config || !db.getPoolByName(self.config)) return callback(null, []);
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
-    var types = [];
+    var types = [], argv = [];
 
     // All other entries in order of priority with all common prefixes
     var items = [ core.runMode,
@@ -311,17 +316,13 @@ db.initConfig = function(options, callback)
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
         if (err) return callback ? callback(err, []) : null;
 
-        var argv = [], pools = [];
         // Sort inside to be persistent across databases
         rows.sort(function(a,b) { return types.indexOf(b.type) - types.indexOf(a.type); });
         // Only keep the most specific value, it is sorted in descendent order most specific at the end
         rows.forEach(function(x) {
             var name = '-' + x.name;
-            if (argv.indexOf(name) > -1) return;
             if (x.name) argv.push(name);
             if (x.value) argv.push(x.value);
-            // Collect additional db pools defined in the remote config
-            if (x.name.match(/^db\-([a-z0-9]+)\-pool\-?([0-9]+)?$/)) pools.push(x.name);
         });
         core.parseArgs(argv);
 
@@ -330,14 +331,8 @@ db.initConfig = function(options, callback)
         clearInterval(self.configTimer);
         if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + corelib.randomShort());
 
-        // Return the normalized argument list to the caller for extra processing
-        if (!pools.length) return callback(null, argv);
-
-        // Init more db pools, override existing
-        options = corelib.cloneObj(options, "force", 1);
-        corelib.forEachSeries(pools, function(pool, next) {
-            self.initPool(pool, options, next);
-        }, function(err) {
+        // Init more db pools
+        self.init(options, function(err) {
             callback(err, argv);
         });
     });
@@ -404,15 +399,6 @@ db.initPoolTables = function(name, tables, options, callback)
             self.cacheColumns(options, callback);
         });
     });
-}
-
-// Gracefully close all database pools when the shutdown is initiated by a Web process
-db.shutdownWeb = function(optios, callback)
-{
-    var pools = this.getPools();
-    corelib.forEachLimit(pools, pools.length, function(pool, next) {
-        db.pools[pool.name].shutdown(next);
-    }, callback);
 }
 
 // Delete all specified tables from the pool, if `name` is empty then default pool will be used, `tables` is an object with table names as
@@ -488,7 +474,7 @@ db.createPool = function(options)
     logger.debug('createPool:', options);
 
     if (options.pooling || (options.max > 0 && options.max != Infinity)) {
-        var pool = core.createPool({
+        var pool = corelib.createPool({
             min: options.min,
             max: options.max,
             idle: options.idle,
@@ -585,7 +571,7 @@ db.createPool = function(options)
 
     // Default methods if not setup from the options
     if (typeof pool.connect != "function") pool.connect = function(pool, callback) { callback(null, {}); };
-    if (typeof pool.close != "function") pool.close = function(client, callback) { callback() }
+    if (typeof pool.close != "function") pool.close = function(client, callback) { if (client && typeof client.close == "function") client.close(callback); else callback() }
     if (typeof pool.setup != "function") pool.setup = function(client, callback) { callback(null, client); };
     if (typeof pool.query != "function") pool.query = function(client, req, opts, callback) { callback(null, []); };
     if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { callback(); }
@@ -2110,7 +2096,7 @@ db.sqlInitPool = function(options)
 
     options.pooling = true;
     // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
-    var dboptions = { sql: true, schema: [], typesMap: { counter: "int", bigint: "int", smallint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
+    var dboptions = { sql: true, schema: [], typesMap: { uuid: 'text', counter: "int", bigint: "int", smallint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
     options.dboptions = corelib.mergeObj(dboptions, options.dboptions);
     var pool = this.createPool(options);
 

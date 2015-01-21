@@ -45,7 +45,7 @@ ipc.initClient = function()
     // Event handler for the worker to process response and fire callback
     process.on("message", function(msg) {
         logger.dev('msg:worker:', msg)
-        core.runCallback(self.msgs, msg);
+        corelib.runCallback(self.msgs, msg);
 
         try {
             switch (msg.op || "") {
@@ -348,7 +348,7 @@ ipc.command = function(msg, callback, timeout)
     if (typeof callback == "function") {
         msg.reply = true;
         msg.id = this.msgId++;
-        core.deferCallback(this.msgs, msg, function(m) { callback(m.value); }, timeout);
+        corelib.deferCallback(this.msgs, msg, function(m) { callback(m.value); }, timeout);
     }
     try { process.send(msg); } catch(e) { logger.error('send:', e, msg.op, msg.name); }
 }

@@ -498,7 +498,7 @@ tests.db = function(callback)
 
     db.setProcessRow("test4", function(row, options, cols) {
         logger.log(row, options, cols)
-        var type = row.type.split(":");
+        var type = (row.type || "").split(":");
         row.type = type[0];
         row.mtime = type[1];
         return row;
@@ -1010,7 +1010,7 @@ tests.pool = function(callback)
                     create: function(cb) { cb(null,{ id:Date.now()}) }
     }
     var list = [];
-    var pool = core.createPool(options)
+    var pool = corelib.createPool(options)
     corelib.series([
        function(next) {
            console.log('pool0:', pool.stats(), 'list:', list.length);
@@ -1043,6 +1043,69 @@ tests.pool = function(callback)
            }, options.idle*2);
        }], callback);
 }
+
+tests.config = function(callback)
+{
+    var argv = ["-uid", "1",
+                "-proxy-port", "3000",
+                "-db-sqlite-pool-no-init-tables",
+                "-api-allow-path", "^/a",
+                "-api-allow-admin", "^/a",
+                "-api-allow-account-dev=^/a",
+                "-api-allow-anonymous=^/a",
+                "-api-init-tables","1",
+                "-api-redirect-url", '{ "^a/$": "a", "^b": "b" }',
+                "-logwatcher-email-error", "a",
+                "-logwatcher-file-error", "a",
+                "-logwatcher-file", "b",
+                "-logwatcher-match-error", "a",
+                "-db-sqlite-pool-max", "10",
+                "-db-sqlite-pool-1", "a",
+                "-db-sqlite-pool-max-1", "10"
+            ];
+    core.parseArgs(argv);
+    if (core.uid != 1) return callback("invalid uid");
+    if (core.proxy.port != 3000) return callback("invalid proxy-port");
+    if (!db.cpools.sqliteNoInitTables) return callback("invalid sqlite no init tables");
+    if (db.cpools.sqliteMax != 10) return callback("invalid sqlite max");
+    if (db.npools.sqlite1 != "a") return callback("invalid sqlite1");
+    if (db.cpools.sqliteMax1 != 10) return callback("invalid sqlite1 max");
+    if (!api.dbInitTables) return callback("invalid api init tables");
+    if (core.logwatcherEmail.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherEmail));
+    if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));
+    if (!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));
+    if (!core.logwatcherFile.some(function(x) { return x.file == "b"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));
+    if (!api.allow.list.some(function(x) { return x == "^/a"})) return callback("invalid allow path");
+    if (!api.allowAdmin.list.some(function(x) { return x == "^/a"})) return callback("invalid allow admin");
+    callback();
+}
+
+tests.logwatcher = function(callback)
+{
+    var email = core.getArg("-email");
+    if (!email) return callback("-email is required")
+
+    var argv = ["-logwatcher-email-error", email,
+                "-logwatcher-email-test", email,
+                "-logwatcher-email-warning", email,
+                "-logwatcher-match-test", "TEST: "
+            ];
+    var lines = [
+                " ERROR: error1",
+                " continue error1",
+                "[] WARN: warning1",
+                "[] TEST: test1",
+                "[] ERROR: error2",
+                "no error string"
+            ];
+    core.parseArgs(argv);
+    fs.appendFile(core.logFile, lines.join("\n"));
+    core.watchLogs(function(err, errors) {
+        console.log(errors);
+        callback();
+    });
+}
+
 
 bkjs.run(function() {
     var l = locations[core.getArg("-city", "LA")] || locations.LA;

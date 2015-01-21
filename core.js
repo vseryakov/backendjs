@@ -102,9 +102,10 @@ var core = {
     logwatcherMax: 1000000,
     logwatcherInterval: 60,
     logwatcherEmail: {},
+    logwatcherUrl: {},
     logwatcherIgnore: {},
     logwatcherMatch: {
-        error: [ ' (ERROR|ALERT|EMERG|CRIT): ", "message":"ERROR:' ],
+        error: [ ' (ERROR|ALERT|EMERG|CRIT): ', 'message":"ERROR:' ],
         warning: [ ' (WARNING|WARN): ' ],
     },
     // List of files to watch, every file is an object with the following properties:
@@ -227,13 +228,13 @@ var core = {
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
             { name: "worker", type:"bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "no-modules", type: "regexp", descr: "A regexp with modules names to be excluded form loading on startup", pass: 1 },
-            { name: "logwatcher-url", descr: "The backend URL where logwatcher reports should be sent instead of sending over email" },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-interval", type: "number", min: 1, descr: "How often to check for errors in the log files in minutes" },
-            { name: "logwatcher-match-", obj: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, one of error, warning, info, all. Example: `-logwatcher-match-error=^failed:`" },
-            { name: "logwatcher-email-", dns: 1, obj: "logwatcher-email", descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define an email separately, one of error, warning, info, all. Example: `-logwatcher-email-error=help@error.com`" },
-            { name: "logwatcher-ignore-", obj: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately" },
-            { name: "logwatcher-file-", obj: "logwatcher-file", type: "callback", callback: function(v,k) { if (v) this.push({file:v,type:k}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
+            { name: "logwatcher-match-[a-z]+", obj: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, one of error, warning, info, all. Example: `-logwatcher-match-error=^failed:`" },
+            { name: "logwatcher-email-[a-z]+", obj: "logwatcher-email", descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define an email separately, one of error, warning, info, all. Example: `-logwatcher-email-error=help@error.com`" },
+            { name: "logwatcher-ignore-[a-z]+", obj: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately" },
+            { name: "logwatcher-file(-[a-z]+)?", obj: "logwatcher-file", type: "callback", callback: function(v,k) { if (v) this.push({file:v,type:k}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
+            { name: "logwatcher-url(-[a-z]+)?", descr: "The backend URL(s) where logwatcher reports should be sent instead of sending over email" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
@@ -496,58 +497,12 @@ core.processArgs = function(ctx, argv, pass)
     var self = this;
     if (!ctx || !Array.isArray(ctx.args) || !Array.isArray(argv) || !argv.length) return;
 
-    for (var i = 0; i < argv.length; i++) {
-        var key = String(argv[i]);
-        if (!key || key[0] != "-") continue;
-        var val = argv[i + 1] || null;
-        if (val) {
-            val = String(val);
-            if (val[0] == "-") val = null; else i++;
-        }
-
-        ctx.args.forEach(function(x) {
-            if (!x.name) return;
-            // Process only equal to the given pass phase
-            if (pass && x.pass != pass) return;
-
-            // Module prefix and name of the key variable in the contenxt, key. property specifies alternative name for the value
-            var prefix = ctx == self ? "-" : "-" + ctx.name + "-";
-            var arg = prefix + x.name;
-            var name = x.key || x.name;
-            // Prefixed parameters, match the leading part in the same module and use the whole parameter
-            if (x.name[0] == "-" && x.name.slice(-1) == "-") {
-                if (!key.match("^" + prefix + ".+" + x.name)) return;
-                name = key;
-            } else
-            if (x.name[0] == "-") {
-                if (!key.match("^" + prefix + ".+" + x.name + "$")) return;
-                name = key;
-            } else
-            if (x.name.slice(-1) == "-") {
-                if (key.substr(0, arg.length) != arg && key != arg.slice(0, -1)) return;
-                name = key;
-            } else {
-                if (key != arg) return;
-            }
-            // Continue if we have default value defined
-            if (val == null && typeof x.novalue == "undefined") return;
-            name = key.substr(prefix.length);
-            self.updateArg(ctx, name, val, x);
-        });
-    }
-}
-
-// Update a config parameter in the given context with the name value pair. options is matched argument definition.
-core.updateArg = function(ctx, name, val, options)
-{
-    if (!options) options = {};
-
-    function put(obj, key, val) {
-        if (options.array) {
+    function put(obj, key, val, x) {
+        if (x.array) {
             if (val == "<null>") {
                 obj[key] = [];
             } else {
-                if (!Array.isArray(obj[key]) || options.set) obj[key] = [];
+                if (!Array.isArray(obj[key]) || x.set) obj[key] = [];
                 if (Array.isArray(val)) {
                     val.forEach(function(x) { if (obj[key].indexOf(x) == -1) obj[key].push(x); });
                 } else {
@@ -562,92 +517,113 @@ core.updateArg = function(ctx, name, val, options)
             }
         }
     }
-    try {
-        var obj = ctx;
-        // Place inside the object
-        if (options.obj) {
-            obj = corelib.toCamel(options.obj);
-            if (!ctx[obj]) ctx[obj] = {};
-            obj = ctx[obj];
-            // Strip the prefix if starts with the same name
-            name = name.replace(new RegExp("^" + options.obj + "-"), "");
-        }
-        var key = corelib.toCamel(name);
-        // Update case according to the pattern(s)
-        if (options.ucase) key = key.replace(new RegExp(options.ucase, 'g'), function(v) { return v.toUpperCase(); });
-        if (options.lcase) key = key.replace(new RegExp(options.lcase, 'g'), function(v) { return v.toLowerCase(); });
-        // Use defaults only for the first time
-        if (val == null && typeof obj[key] == "undefined") {
-            if (typeof options.novalue != "undefined") val = options.novalue;
-        }
-        // Explicit empty value
-        if (val == "''" || val == '""') val = "";
-        // Only some types allow no value case
-        var type = (options.type || "").trim();
-        if (val == null && type != "bool" && type != "callback" && type != "none") return false;
 
-        logger.debug("processArgs:", options.type || "str", ctx.name + "." + key, "(" + options.name + ")", "=", val);
-        switch (type) {
-        case "none":
-            break;
-        case "bool":
-            put(obj, key, !val ? true : corelib.toBool(val));
-            break;
-        case "int":
-        case "real":
-        case "number":
-            put(obj, key, corelib.toNumber(val, options.decimals, options.value, options.min, options.max));
-            break;
-        case "map":
-            put(obj, key, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}));
-            break;
-        case "intmap":
-            put(obj, key, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = corelib.toNumber(y[1]); return x }, {}));
-        break;
-        case "list":
-            put(obj, key, corelib.strSplitUnique(val, x.separator));
-            break;
-        case "regexp":
-            put(obj, key, new RegExp(val));
-            break;
-        case "regexpobj":
-            obj[key] = corelib.toRegexpObj(options.set ? null : obj[key], val, options.del);
-            break;
-        case "regexpmap":
-            obj[key] = corelib.toRegexpMap(options.set ? null : obj[key], val);
-            break;
-        case "json":
-            put(obj, key, corelib.jsonParse(val));
-            break;
-        case "path":
-            // Check if it starts with local path, use the actual path not the current dir for such cases
-            for (var p in this.path) {
-                if (val.substr(0, p.length + 1) == p + "/") {
-                    val = this.path[p] + val.substr(p.length);
-                    break;
-                }
-            }
-            put(obj, key, path.resolve(val));
-            break;
-        case "file":
-            try { put(obj, key, fs.readFileSync(path.resolve(val))); } catch(e) { logger.error('procesArgs:', key, val, e); }
-            break;
-        case "callback":
-            if (typeof options.callback == "string") {
-                obj[options.callback](val, key);
-            } else
-                if (typeof options.callback == "function") {
-                    options.callback.call(obj, val, key);
-                }
-            break;
-        default:
-            put(obj, key, val);
+    for (var i = 0; i < argv.length; i++) {
+        var key = String(argv[i]);
+        if (!key || key[0] != "-") continue;
+        var val = argv[i + 1] || null;
+        if (val) {
+            val = String(val);
+            if (val[0] == "-") val = null; else i++;
         }
-        return true;
-    } catch(e) {
-        logger.error("updateArg:", name, val, e.stack);
+
+        ctx.args.forEach(function(x) {
+            if (!x.name) return;
+            // Process only equal to the given pass phase
+            if (pass && x.pass != pass) return;
+            var obj = ctx;
+            // Module prefix and name of the key variable in the contenxt, key. property specifies alternative name for the value
+            var prefix = ctx == self ? "-" : "-" + ctx.name + "-";
+            // Name can be a regexp
+            if (!key.match("^" + prefix + x.name + "$")) return;
+            var name = x.key || key.substr(prefix.length);
+
+            try {
+                // Place inside the object
+                if (x.obj) {
+                    obj = corelib.toCamel(x.obj);
+                    if (!ctx[obj]) ctx[obj] = {};
+                    obj = ctx[obj];
+                    // Strip the prefix if starts with the same name
+                    name = name.replace(new RegExp("^" + x.obj + "-"), "");
+                }
+                name = corelib.toCamel(name);
+                // Update case according to the pattern(s)
+                if (x.ucase) name = name.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
+                if (x.lcase) name = name.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });
+                if (x.strip) name = name.replace(new RegExp(x.strip, 'g'), "");
+                // Use defaults only for the first time
+                if (val == null && typeof obj[name] == "undefined") {
+                    if (typeof x.novalue != "undefined") val = x.novalue;
+                }
+                // Explicit empty value
+                if (val == "''" || val == '""') val = "";
+                // Only some types allow no value case
+                var type = (x.type || "").trim();
+                if (val == null && type != "bool" && type != "callback" && type != "none") return false;
+
+                logger.debug("processArgs:", x.type || "str", ctx.name + "." + name, "(" + key + ")", "=", val);
+                switch (type) {
+                case "none":
+                    break;
+                case "bool":
+                    put(obj, name, !val ? true : corelib.toBool(val), x);
+                    break;
+                case "int":
+                case "real":
+                case "number":
+                    put(obj, name, corelib.toNumber(val, x.decimals, x.value, x.min, x.max), x);
+                    break;
+                case "map":
+                    put(obj, name, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
+                    break;
+                case "intmap":
+                    put(obj, name, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = corelib.toNumber(y[1]); return x }, {}), x);
+                break;
+                case "list":
+                    put(obj, name, corelib.strSplitUnique(val, x.separator), x);
+                    break;
+                case "regexp":
+                    put(obj, name, new RegExp(val), x);
+                    break;
+                case "regexpobj":
+                    obj[name] = corelib.toRegexpObj(x.set ? null : obj[name], val, x.del);
+                    break;
+                case "regexpmap":
+                    obj[name] = corelib.toRegexpMap(x.set ? null : obj[name], val);
+                    break;
+                case "json":
+                    put(obj, name, corelib.jsonParse(val), x);
+                    break;
+                case "path":
+                    // Check if it starts with local path, use the actual path not the current dir for such cases
+                    for (var p in this.path) {
+                        if (val.substr(0, p.length + 1) == p + "/") {
+                            val = this.path[p] + val.substr(p.length);
+                            break;
+                        }
+                    }
+                    put(obj, name, path.resolve(val), x);
+                    break;
+                case "file":
+                    try { put(obj, name, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', name, val, e); }
+                    break;
+                case "callback":
+                    if (typeof x.callback == "string") {
+                        obj[x.callback](val, name);
+                    } else
+                        if (typeof x.callback == "function") {
+                            x.callback.call(obj, val, name);
+                        }
+                    break;
+                default:
+                    put(obj, name, val, x);
+                }
+            } catch(e) {
+                logger.error("processArgs:", name, val, e.stack);
+            }
+        });
     }
-    return false;
 }
 
 // Add custom config parameters to be understood and processed by the config parser
@@ -723,12 +699,13 @@ core.showHelp = function(options)
 core.loadConfig = function(file, callback)
 {
     var self = this;
+    if (typeof callback != "function") callback = corelib.noop;
 
     logger.debug('loadConfig:', file);
 
     fs.readFile(file || "", function(err, data) {
         if (!err) self.parseConfig(data);
-        if (callback) callback(err);
+        callback(err);
     });
 }
 
@@ -738,32 +715,28 @@ core.loadDnsConfig = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null
     if (!options) options = {};
+    if (typeof callback != "function") callback = corelib.noop;
 
-    if (options.noDns || !self.configDomain) return callback ? callback() : null;
+    if (options.noDns || !self.configDomain) return callback();
 
-    var args = [ { name: "", args: self.args } ];
+    var args = [], argv = [];
+    this.args.forEach(function(x) { if (x.name && x.dns) push(["", x]); });
     for (var p in this.modules) {
-        var ctx = self.modules[p];
-        if (Array.isArray(ctx.args)) args.push({ name: p + "-", args: ctx.args });
+        if (Array.isArray(this.modules[p].args)) this.modules[p].args.forEach(function(x) { if (x.name && x.dns) push([p + "-", x]); });
     }
-    corelib.forEachSeries(args, function(ctx, next1) {
-        corelib.forEachLimit(ctx.args, 5, function(arg, next2) {
-            var cname = ctx.name + arg.name;
-            corelib.series([
-                function(next3) {
-                    // Get DNS TXT record
-                    if (!arg.dns) return next3();
-                    dns.resolveTxt(cname + "." + self.configDomain, function(err, list) {
-                        if (!err && list && list.length) {
-                            self.argv.push("-" + cname, list[0]);
-                            logger.debug('dns.config:', cname, list[0]);
-                        }
-                        next3();
-                    });
-                }],
-                next2);
-        }, next1);
-    }, callback);
+    corelib.forEachLimit(args, options.concurrency || 5, function(x, next) {
+        var cname = x[0] + x[1].name;
+        dns.resolveTxt(cname + "." + self.configDomain, function(err, list) {
+            if (!err && list && list.length) {
+                argv.push("-" + cname, list[0]);
+                logger.debug('dns.config:', cname, list[0]);
+            }
+            next();
+        });
+    }, function() {
+        self.parseArgs(argv);
+        callback();
+    });
 }
 
 // Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
@@ -829,6 +802,7 @@ core.httpGet = function(uri, params, callback)
     var self = this;
     if (typeof params == "function") callback = params, params = null;
     if (!params) params = {};
+    if (typeof callback != "function") callback = corelib.noop;
 
     // Additional query parameters as an object
     var qtype = corelib.typeName(params.query);
@@ -843,7 +817,7 @@ core.httpGet = function(uri, params, callback)
         break;
 
     default:
-        return typeof callback == "function" ? callback(new Error("invalid url: " + uri)) : null;
+        return callback(new Error("invalid url: " + uri));
     }
 
     var options = url.parse(uri);
@@ -1009,7 +983,7 @@ core.httpGet = function(uri, params, callback)
           }
           logger.debug("httpGet: done", options.method, "url:", uri, "size:", params.size, "status:", res.statusCode, 'type:', params.type, 'location:', res.headers.location || '');
 
-          if (typeof callback == "function") callback(params.err, params, res);
+          callback(params.err, params, res);
       });
 
     }).on('error', function(err) {
@@ -1020,7 +994,7 @@ core.httpGet = function(uri, params, callback)
             setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout || 500);
             return;
         }
-        if (typeof callback == "function") callback(err, params, {});
+        callback(err, params, {});
     });
     if (params.httpTimeout) {
         req.setTimeout(params.httpTimeout, function() {
@@ -1106,29 +1080,6 @@ core.sendRequest = function(options, callback)
     });
 }
 
-// Register the callback to be run later for the given message, the message must have id property which will be used for keeping track of the replies.
-// A timeout is created for this message, if runCallback for this message will not be called in time the timeout handler will call the callback
-// anyways with the original message.
-// The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
-// any errors must be passed, use the message object for it, no other arguments are expected.
-core.deferCallback = function(obj, msg, callback, timeout)
-{
-    var self = this;
-    if (!msg || !msg.id || !callback) return;
-
-    obj[msg.id] = {
-         timeout: setTimeout(function() {
-             delete obj[msg.id];
-             try { callback(msg); } catch(e) { logger.error('callback:', e, msg, e.stack); }
-         }, timeout || this.deferTimeout),
-
-         callback: function(data) {
-             clearTimeout(this.timeout);
-             try { callback(data); } catch(e) { logger.error('callback:', e, data, e.stack); }
-         }
-    };
-}
-
 // Run a method for every module, a method must conform to the following signature: `function(options, callback)` and
 // call the callback when finished. The callback second argument will be the options, so it is possible to pass anything
 // in the options back to the caller. Errors from a module is never propagated and simply ignored.
@@ -1153,32 +1104,6 @@ core.runMethods = function(name, options, callback)
         });
     }, function(err) {
         if (typeof callback == "function") callback(err, options);
-    });
-}
-
-// Run delayed callback for the message previously registered with the `deferCallback` method.
-// The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
-core.runCallback = function(obj, msg)
-{
-    var self = this;
-    if (!msg) return;
-    if (typeof msg == "string") {
-        try { msg = JSON.parse(msg); } catch(e) { logger.error('runCallback:', e, msg); }
-    }
-    if (!msg.id || !obj[msg.id]) return;
-    // Only keep reference for the callback
-    var item = obj[msg.id];
-    delete obj[msg.id];
-
-    // Make sure the timeout will not fire before the immediate call
-    clearTimeout(item.timeout);
-    // Call in the next loop cycle
-    setImmediate(function() {
-        try {
-            item.callback(msg);
-        } catch(e) {
-            logger.error('runCallback:', e, msg, e.stack);
-        }
     });
 }
 
@@ -1250,202 +1175,6 @@ core.loadModules = function(name, options, callback)
     if (typeof callback == "function") callback();
 }
 
-// Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
-// Options defines the following properties:
-// - create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)
-// - destroy - method to be called to destroy a resource item
-// - validate - method to verify actibe resource item, return false if it needs to be destroyed
-// - min - min number of active resource items
-// - max - max number of active resource items
-// - max_queue - how big the waiting queue can be, above this all requests will be rejected immediately
-// - timeout - number of milliseconds to wait for the next available resource item, cannot be 0
-// - idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.
-core.createPool = function(options)
-{
-    var self = this;
-
-    var pool = { _pmin: corelib.toNumber(options.min, 0, 0, 0),
-                 _pmax: corelib.toNumber(options.max, 0, 10, 0),
-                 _pmax_queue: corelib.toNumber(options.interval, 0, 100, 0),
-                 _ptimeout: corelib.toNumber(options.timeout, 0, 5000, 1),
-                 _pidle: corelib.toNumber(options.idle, 0, 300000, 0),
-                 _pcreate: options.create || function(cb) { cb(null, {}) },
-                 _pdestroy: options.destroy || function() {},
-                 _pvalidate: options.validate || function() { return true },
-                 _pqueue_count: 0,
-                 _pnum: 1,
-                 _pqueue_count: 0,
-                 _pqueue: {},
-                 _pavail: [],
-                 _pmtime: [],
-                 _pbusy: [] };
-
-    // Return next available resource item, if not available immediately wait for defined amount of time before calling the
-    // callback with an error. The callback second argument is active resource item.
-    pool.acquire = function(callback) {
-        if (typeof callback != "function") return;
-
-        // We have idle clients
-        if (this._pavail.length) {
-            var mtime = this._pmtime.shift();
-            var client = this._pavail.shift();
-            this._pbusy.push(client);
-            return callback.call(this, null, client);
-        }
-        // Put into waiting queue
-        if (this._pbusy.length >= this._pmax) {
-            if (this._pqueue_count >= this._pmax_queue) return callback(new Error("no more resources"));
-
-            this._pqueue_count++;
-            return self.deferCallback(this._pqueue, { id: this._pnum++ }, function(m) {
-                callback(m.client ? null : new Error("timeout waiting for the resource"), m.client);
-            }, this._ptimeout);
-        }
-        // New item
-        var me = this;
-        this._palloc(function(err, client) {
-            if (!err) me._pbusy.push(client);
-            callback(err, client);
-        });
-    }
-
-    // Destroy the resource item calling the provided close callback
-    pool.destroy = function(client) {
-        if (!client) return;
-
-        var idx = this._pbusy.indexOf(client);
-        if (idx > -1) {
-            this._pbusy.splice(idx, 1);
-            this._pclose(client);
-            return;
-        }
-        var idx = this._pavail.indexOf(client);
-        if (idx > -1) {
-            this._pavail.splice(idx, 1);
-            this._pmtime.splice(idx, 1);
-            this._pclose(client);
-            return;
-        }
-    }
-
-    // Return the resource item back to the list of available resources.
-    pool.release = function(client) {
-        if (!client) return;
-
-        var idx = this._pbusy.indexOf(client);
-        if (idx == -1) {
-            logger.error('pool.release:', 'not known', client);
-            return;
-        }
-
-        // Pass it to the next waiting client
-        for (var id in this._pqueue) {
-            this._pqueue_count--;
-            this._pqueue[id].id = id;
-            this._pqueue[id].client = client;
-            return self.runCallback(this._pqueue, this._pqueue[id]);
-        }
-
-        this._pbusy.splice(idx, 1);
-
-        // Destroy if above the limit or invalid
-        if (this._pavail.length > this._pmax || !this._pcheck(client)) {
-            return this._pclose(client);
-        }
-        // Add to the available list
-        this._pavail.unshift(client);
-        this._pmtime.unshift(Date.now());
-    }
-
-    pool.stats = function() {
-        return { avail: this._pavail.length, busy: this._pbusy.length, queue: this._pqueue_count, min: this._pmin, max: this._pmax, max_queue: this._pmax_queue };
-    }
-
-    // Close all active clients
-    pool.closeAll = function() {
-        while (this._pavail.length > 0) this.destroy(this._pavail[0]);
-    }
-
-    // Close all connections and shutdown the pool, no more clients will be open and the pool cannot be used without re-initialization,
-    // if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
-    // all items to be released, when expired the callback will be called
-    pool.shutdown = function(callback, maxtime) {
-        logger.debug('pool.close:', 'shutdown:', this.name, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
-        var self = this;
-        this._pmax = -1;
-        this.closeAll();
-        this._pqueue = {};
-        clearInterval(this._pinterval);
-        if (!callback) return;
-        this._ptime = Date.now();
-        this._pinterval = setInterval(function() {
-            if (self._pbusy.length && (!maxtime || Date.now() - self._ptime < maxtime)) return;
-            clearInterval(this);
-            callback();
-        }, 500);
-    }
-
-    // Allocate a new client
-    pool._palloc = function(callback) {
-        try {
-            this._pcreate.call(this, callback);
-            logger.dev('pool.alloc:', 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
-        } catch(e) {
-            logger.error('pool.alloc:', e);
-            callback(e);
-        }
-    }
-
-    // Destroy the resource item calling the provided close callback
-    pool._pclose = function(client) {
-        try {
-            this._pdestroy.call(this, client);
-            logger.dev('pool.close:', 'destroy:', this._pavail.length, 'busy:', this._pbusy.length);
-        } catch(e) {
-            logger.error('pool.close:', e);
-        }
-    }
-
-    // Verify if the resource item is valid
-    pool._pcheck = function(client) {
-        try {
-            return this._pvalidate.call(this, client);
-        } catch(e) {
-            logger.error('pool.check:', e);
-            return false;
-        }
-    }
-    // Timer to ensure pool integrity
-    pool._ptimer = function() {
-        var me = this;
-        var now = Date.now();
-
-        // Expire idle items
-        if (this._pidle > 0) {
-            for (var i = 0; i < this._pavail.length; i++) {
-                if (now - this._pmtime[i] > this._pidle && this._pavail.length + this._pbusy.length > this._pmin) {
-                    logger.dev('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
-                    this.destroy(this._pavail[i]);
-                    i--;
-                }
-            }
-        }
-
-        // Ensure min number of items
-        var min = this._pmin - this._pavail.length - this._pbusy.length;
-        for (var i = 0; i < min; i++) {
-            this._palloc(function(err, client) { if (!err) me._pavail.push(client); });
-        }
-    }
-
-    // Periodic housekeeping if interval is set
-    if (pool._pidle > 0) {
-        this._pinterval = setInterval(function() { pool._ptimer() }, Math.max(1000, pool._pidle/3));
-        setImmediate(function() { pool._ptimer(); });
-    }
-
-    return pool;
-}
 
 // Return commandline argument value by name
 core.getArg = function(name, dflt)
@@ -1814,7 +1543,7 @@ core.watchLogs = function(options, callback)
         var errors = {};
 
         // For every log file
-        corelib.forEachSeries(self.logwatcherFiles, function(log, next) {
+        corelib.forEachSeries(self.logwatcherFile, function(log, next) {
             var file = log.file;
             if (!file && self[log.name]) file = self[log.name];
             if (!file) return next();
@@ -1843,7 +1572,7 @@ core.watchLogs = function(options, callback)
                                if (!errors[chan]) errors[chan] = "";
                                errors[chan] += lines[i] + "\n";
                                // Add all subsequent lines starting with a space or tab, those are continuations of the error or stack traces
-                               while (i < lines.length && (lines[i + 1][0] == ' ' || lines[i + 1][0] == '\t')) {
+                               while (i < lines.length -1 && (lines[i + 1][0] == ' ' || lines[i + 1][0] == '\t')) {
                                    errors[chan] += lines[++i] + "\n";
                                }
                            }

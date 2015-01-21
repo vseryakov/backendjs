@@ -444,6 +444,252 @@ corelib.doWhilst = function(iterator, test, callback)
     });
 }
 
+// Register the callback to be run later for the given message, the message must have id property which will be used for keeping track of the replies.
+// A timeout is created for this message, if runCallback for this message will not be called in time the timeout handler will call the callback
+// anyways with the original message.
+// The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
+// any errors must be passed, use the message object for it, no other arguments are expected.
+corelib.deferCallback = function(obj, msg, callback, timeout)
+{
+    var self = this;
+    if (!msg || !msg.id || !callback) return;
+
+    obj[msg.id] = {
+         timeout: setTimeout(function() {
+             delete obj[msg.id];
+             try { callback(msg); } catch(e) { logger.error('callback:', e, msg, e.stack); }
+         }, timeout || this.deferTimeout),
+
+         callback: function(data) {
+             clearTimeout(this.timeout);
+             try { callback(data); } catch(e) { logger.error('callback:', e, data, e.stack); }
+         }
+    };
+}
+
+// Run delayed callback for the message previously registered with the `deferCallback` method.
+// The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
+corelib.runCallback = function(obj, msg)
+{
+    var self = this;
+    if (!msg) return;
+    if (typeof msg == "string") {
+        try { msg = JSON.parse(msg); } catch(e) { logger.error('runCallback:', e, msg); }
+    }
+    if (!msg.id || !obj[msg.id]) return;
+    // Only keep reference for the callback
+    var item = obj[msg.id];
+    delete obj[msg.id];
+
+    // Make sure the timeout will not fire before the immediate call
+    clearTimeout(item.timeout);
+    // Call in the next loop cycle
+    setImmediate(function() {
+        try {
+            item.callback(msg);
+        } catch(e) {
+            logger.error('runCallback:', e, msg, e.stack);
+        }
+    });
+}
+
+// Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
+// Options defines the following properties:
+// - create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)
+// - destroy - method to be called to destroy a resource item
+// - validate - method to verify actibe resource item, return false if it needs to be destroyed
+// - min - min number of active resource items
+// - max - max number of active resource items
+// - max_queue - how big the waiting queue can be, above this all requests will be rejected immediately
+// - timeout - number of milliseconds to wait for the next available resource item, cannot be 0
+// - idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.
+corelib.createPool = function(options)
+{
+    var self = this;
+
+    var pool = { _pmin: this.toNumber(options.min, 0, 0, 0),
+                 _pmax: this.toNumber(options.max, 0, 10, 0),
+                 _pmax_queue: this.toNumber(options.interval, 0, 100, 0),
+                 _ptimeout: this.toNumber(options.timeout, 0, 5000, 1),
+                 _pidle: this.toNumber(options.idle, 0, 300000, 0),
+                 _pcreate: options.create || function(cb) { cb(null, {}) },
+                 _pdestroy: options.destroy || function() {},
+                 _pvalidate: options.validate || function() { return true },
+                 _pqueue_count: 0,
+                 _pnum: 1,
+                 _pqueue_count: 0,
+                 _pqueue: {},
+                 _pavail: [],
+                 _pmtime: [],
+                 _pbusy: [] };
+
+    // Return next available resource item, if not available immediately wait for defined amount of time before calling the
+    // callback with an error. The callback second argument is active resource item.
+    pool.acquire = function(callback) {
+        if (typeof callback != "function") return;
+
+        // We have idle clients
+        if (this._pavail.length) {
+            var mtime = this._pmtime.shift();
+            var client = this._pavail.shift();
+            this._pbusy.push(client);
+            return callback.call(this, null, client);
+        }
+        // Put into waiting queue
+        if (this._pbusy.length >= this._pmax) {
+            if (this._pqueue_count >= this._pmax_queue) return callback(new Error("no more resources"));
+
+            this._pqueue_count++;
+            return self.deferCallback(this._pqueue, { id: this._pnum++ }, function(m) {
+                callback(m.client ? null : new Error("timeout waiting for the resource"), m.client);
+            }, this._ptimeout);
+        }
+        // New item
+        var me = this;
+        this._palloc(function(err, client) {
+            if (!err) me._pbusy.push(client);
+            callback(err, client);
+        });
+    }
+
+    // Destroy the resource item calling the provided close callback
+    pool.destroy = function(client) {
+        if (!client) return;
+
+        var idx = this._pbusy.indexOf(client);
+        if (idx > -1) {
+            this._pbusy.splice(idx, 1);
+            this._pclose(client);
+            return;
+        }
+        var idx = this._pavail.indexOf(client);
+        if (idx > -1) {
+            this._pavail.splice(idx, 1);
+            this._pmtime.splice(idx, 1);
+            this._pclose(client);
+            return;
+        }
+    }
+
+    // Return the resource item back to the list of available resources.
+    pool.release = function(client) {
+        if (!client) return;
+
+        var idx = this._pbusy.indexOf(client);
+        if (idx == -1) {
+            logger.error('pool.release:', 'not known', client);
+            return;
+        }
+
+        // Pass it to the next waiting client
+        for (var id in this._pqueue) {
+            this._pqueue_count--;
+            this._pqueue[id].id = id;
+            this._pqueue[id].client = client;
+            return self.runCallback(this._pqueue, this._pqueue[id]);
+        }
+
+        this._pbusy.splice(idx, 1);
+
+        // Destroy if above the limit or invalid
+        if (this._pavail.length > this._pmax || !this._pcheck(client)) {
+            return this._pclose(client);
+        }
+        // Add to the available list
+        this._pavail.unshift(client);
+        this._pmtime.unshift(Date.now());
+    }
+
+    pool.stats = function() {
+        return { avail: this._pavail.length, busy: this._pbusy.length, queue: this._pqueue_count, min: this._pmin, max: this._pmax, max_queue: this._pmax_queue };
+    }
+
+    // Close all active clients
+    pool.closeAll = function() {
+        while (this._pavail.length > 0) this.destroy(this._pavail[0]);
+    }
+
+    // Close all connections and shutdown the pool, no more clients will be open and the pool cannot be used without re-initialization,
+    // if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
+    // all items to be released, when expired the callback will be called
+    pool.shutdown = function(callback, maxtime) {
+        logger.debug('pool.close:', 'shutdown:', this.name, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+        var self = this;
+        this._pmax = -1;
+        this.closeAll();
+        this._pqueue = {};
+        clearInterval(this._pinterval);
+        if (!callback) return;
+        this._ptime = Date.now();
+        this._pinterval = setInterval(function() {
+            if (self._pbusy.length && (!maxtime || Date.now() - self._ptime < maxtime)) return;
+            clearInterval(this);
+            callback();
+        }, 500);
+    }
+
+    // Allocate a new client
+    pool._palloc = function(callback) {
+        try {
+            this._pcreate.call(this, callback);
+            logger.dev('pool.alloc:', 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+        } catch(e) {
+            logger.error('pool.alloc:', e);
+            callback(e);
+        }
+    }
+
+    // Destroy the resource item calling the provided close callback
+    pool._pclose = function(client) {
+        try {
+            this._pdestroy.call(this, client);
+            logger.dev('pool.close:', 'destroy:', this._pavail.length, 'busy:', this._pbusy.length);
+        } catch(e) {
+            logger.error('pool.close:', e);
+        }
+    }
+
+    // Verify if the resource item is valid
+    pool._pcheck = function(client) {
+        try {
+            return this._pvalidate.call(this, client);
+        } catch(e) {
+            logger.error('pool.check:', e);
+            return false;
+        }
+    }
+    // Timer to ensure pool integrity
+    pool._ptimer = function() {
+        var me = this;
+        var now = Date.now();
+
+        // Expire idle items
+        if (this._pidle > 0) {
+            for (var i = 0; i < this._pavail.length; i++) {
+                if (now - this._pmtime[i] > this._pidle && this._pavail.length + this._pbusy.length > this._pmin) {
+                    logger.dev('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+                    this.destroy(this._pavail[i]);
+                    i--;
+                }
+            }
+        }
+
+        // Ensure min number of items
+        var min = this._pmin - this._pavail.length - this._pbusy.length;
+        for (var i = 0; i < min; i++) {
+            this._palloc(function(err, client) { if (!err) me._pavail.push(client); });
+        }
+    }
+
+    // Periodic housekeeping if interval is set
+    if (pool._pidle > 0) {
+        this._pinterval = setInterval(function() { pool._ptimer() }, Math.max(1000, pool._pidle/3));
+        setImmediate(function() { pool._ptimer(); });
+    }
+
+    return pool;
+}
+
 // Return object with geohash for given coordinates to be used for location search
 // options may contain the following properties:
 //   - distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted
