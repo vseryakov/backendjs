@@ -1088,15 +1088,24 @@ tests.logwatcher = function(callback)
     var argv = ["-logwatcher-email-error", email,
                 "-logwatcher-email-test", email,
                 "-logwatcher-email-warning", email,
-                "-logwatcher-match-test", "TEST: "
+                "-logwatcher-email-any", email,
+                "-logwatcher-match-test", "TEST: ",
+                "-logwatcher-match-any", "line:[0-9]+"
             ];
     var lines = [
                 " ERROR: error1",
                 " continue error1",
                 "[] WARN: warning1",
+                " backtrace test line:123",
                 "[] TEST: test1",
                 "[] ERROR: error2",
-                "no error string"
+                "no error string",
+                "no error string",
+                "no error string",
+                "no error string",
+                "no error string",
+                "no error string",
+                " backtrace test line:456",
             ];
     core.parseArgs(argv);
     fs.appendFile(core.logFile, lines.join("\n"));

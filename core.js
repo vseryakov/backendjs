@@ -101,6 +101,7 @@ var core = {
     // Log watcher config, define different named channels for different patterns, email notification can be global or per channel
     logwatcherMax: 1000000,
     logwatcherInterval: 60,
+    logwatcherAnyRange: 5,
     logwatcherEmail: {},
     logwatcherUrl: {},
     logwatcherIgnore: {},
@@ -230,7 +231,8 @@ var core = {
             { name: "no-modules", type: "regexp", descr: "A regexp with modules names to be excluded form loading on startup", pass: 1 },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-interval", type: "number", min: 1, descr: "How often to check for errors in the log files in minutes" },
-            { name: "logwatcher-match-[a-z]+", obj: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, one of error, warning, info, all. Example: `-logwatcher-match-error=^failed:`" },
+            { name: "logwatcher-any-range", type: "number", min: 1, descr: "Number of lines for matched channel `any` to be attached to the previous matched channel, if more than this number use the channel `any` on its own" },
+            { name: "logwatcher-match-[a-z]+", obj: "logwatcher-match", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel `any` is reserved to send matched lines to the previously matched channel if within configured range. Example: `-logwatcher-match-error=^failed:` `-logwatcher-match-any=line:[0-9]+`" },
             { name: "logwatcher-email-[a-z]+", obj: "logwatcher-email", descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define an email separately, one of error, warning, info, all. Example: `-logwatcher-email-error=help@error.com`" },
             { name: "logwatcher-ignore-[a-z]+", obj: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately" },
             { name: "logwatcher-file(-[a-z]+)?", obj: "logwatcher-file", type: "callback", callback: function(v,k) { if (v) this.push({file:v,type:k}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
@@ -1540,7 +1542,7 @@ core.watchLogs = function(options, callback)
         for (var i = 0; i < rows.length; i++) {
             lastpos[rows[i].name] = rows[i].value;
         }
-        var errors = {};
+        var errors = {}, echan = "", eline = 0;
 
         // For every log file
         corelib.forEachSeries(self.logwatcherFile, function(log, next) {
@@ -1569,12 +1571,17 @@ core.watchLogs = function(options, callback)
                            var chan = log.match && log.match.test(lines[i]) ? (log.type || "all") : "";
                            if (!chan) chan = matchObj(match, lines[i]);
                            if (chan) {
+                               // Attach to the previous channel, for cases when more error into like backtraces are matched with
+                               // a separate pattern. If no channel previously matched use any as the channel itself.
+                               chan = chan == "any" && i - eline <= self.logwatcherAnyRange ? (channel || "any") : chan;
                                if (!errors[chan]) errors[chan] = "";
                                errors[chan] += lines[i] + "\n";
                                // Add all subsequent lines starting with a space or tab, those are continuations of the error or stack traces
                                while (i < lines.length -1 && (lines[i + 1][0] == ' ' || lines[i + 1][0] == '\t')) {
                                    errors[chan] += lines[++i] + "\n";
                                }
+                               channel = chan;
+                               eline = i;
                            }
                        }
                        // Save current size to start next time from
