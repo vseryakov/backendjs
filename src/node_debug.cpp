@@ -143,10 +143,10 @@ class ProfileNode {
    static Handle<Value> GetChild(const Arguments& args) {
        HandleScope scope;
        if (args.Length() < 1) {
-         return ThrowException(Exception::Error(String::New("No index specified")));
+         return ThrowException(Exception::Error(String::NewSymbol("No index specified")));
        } else
        if (!args[0]->IsInt32()) {
-         return ThrowException(Exception::Error(String::New("Argument must be integer")));
+         return ThrowException(Exception::Error(String::NewSymbol("Argument must be integer")));
        }
        int32_t index = args[0]->Int32Value();
        Handle<Object> self = args.This();
@@ -157,16 +157,16 @@ class ProfileNode {
    static void Initialize() {
        node_template_ = Persistent<ObjectTemplate>::New(ObjectTemplate::New());
        node_template_->SetInternalFieldCount(1);
-       node_template_->SetAccessor(String::New("functionName"), ProfileNode::GetFunctionName);
-       node_template_->SetAccessor(String::New("scriptName"), ProfileNode::GetScriptName);
-       node_template_->SetAccessor(String::New("lineNumber"), ProfileNode::GetLineNumber);
-       node_template_->SetAccessor(String::New("totalTime"), ProfileNode::GetTotalTime);
-       node_template_->SetAccessor(String::New("selfTime"), ProfileNode::GetSelfTime);
-       node_template_->SetAccessor(String::New("totalSamplesCount"), ProfileNode::GetTotalSamplesCount);
-       node_template_->SetAccessor(String::New("selfSamplesCount"), ProfileNode::GetSelfSamplesCount);
-       node_template_->SetAccessor(String::New("callUid"), ProfileNode::GetCallUid);
+       node_template_->SetAccessor(String::NewSymbol("functionName"), ProfileNode::GetFunctionName);
+       node_template_->SetAccessor(String::NewSymbol("scriptName"), ProfileNode::GetScriptName);
+       node_template_->SetAccessor(String::NewSymbol("lineNumber"), ProfileNode::GetLineNumber);
+       node_template_->SetAccessor(String::NewSymbol("totalTime"), ProfileNode::GetTotalTime);
+       node_template_->SetAccessor(String::NewSymbol("selfTime"), ProfileNode::GetSelfTime);
+       node_template_->SetAccessor(String::NewSymbol("totalSamplesCount"), ProfileNode::GetTotalSamplesCount);
+       node_template_->SetAccessor(String::NewSymbol("selfSamplesCount"), ProfileNode::GetSelfSamplesCount);
+       node_template_->SetAccessor(String::NewSymbol("callUid"), ProfileNode::GetCallUid);
        node_template_->SetAccessor(String::New("childrenCount"), ProfileNode::GetChildrenCount);
-       node_template_->Set(String::New("getChild"), FunctionTemplate::New(ProfileNode::GetChild));
+       node_template_->Set(String::NewSymbol("getChild"), FunctionTemplate::New(ProfileNode::GetChild));
    }
    static Persistent<ObjectTemplate> node_template_;
 };
@@ -221,11 +221,11 @@ private:
     static void Initialize() {
         profile_template_ = Persistent<ObjectTemplate>::New(ObjectTemplate::New());
         profile_template_->SetInternalFieldCount(1);
-        profile_template_->SetAccessor(String::New("title"), Profile::GetTitle);
-        profile_template_->SetAccessor(String::New("uid"), Profile::GetUid);
-        profile_template_->SetAccessor(String::New("topRoot"), Profile::GetTopRoot);
-        profile_template_->SetAccessor(String::New("bottomRoot"), Profile::GetBottomRoot);
-        profile_template_->Set(String::New("delete"), FunctionTemplate::New(Profile::Delete));
+        profile_template_->SetAccessor(String::NewSymbol("title"), Profile::GetTitle);
+        profile_template_->SetAccessor(String::NewSymbol("uid"), Profile::GetUid);
+        profile_template_->SetAccessor(String::NewSymbol("topRoot"), Profile::GetTopRoot);
+        profile_template_->SetAccessor(String::NewSymbol("bottomRoot"), Profile::GetBottomRoot);
+        profile_template_->Set(String::NewSymbol("delete"), FunctionTemplate::New(Profile::Delete));
     }
     static Persistent<ObjectTemplate> profile_template_;
 };
@@ -261,7 +261,7 @@ private:
         Local<Object> self = info.Holder();
         void* ptr = self->GetPointerFromInternalField(0);
         HeapSnapshot::Type type = static_cast<HeapSnapshot*>(ptr)->GetType();
-        Local<String> t = String::New(type == HeapSnapshot::kFull ? "Full" : "Unknown");
+        Local<String> t = String::NewSymbol(type == HeapSnapshot::kFull ? "Full" : "Unknown");
         return scope.Close(t);
     }
     static Handle<Value> Delete(const Arguments& args) {
@@ -286,7 +286,7 @@ private:
         Handle<Object> self = args.This();
         REQUIRE_ARGUMENT_STRING(0, name);
         FILE *fp = fopen(*name, "w");
-        if (!fp) return ThrowException(Exception::Error(String::New("Cannot create file")));
+        if (!fp) return ThrowException(Exception::Error(String::NewSymbol("Cannot create file")));
         FileOutputStream *stream = new FileOutputStream(fp);
         void* ptr = self->GetPointerFromInternalField(0);
         static_cast<HeapSnapshot*>(ptr)->Serialize(stream, HeapSnapshot::kJSON);
@@ -296,12 +296,12 @@ private:
     static void Initialize() {
         snapshot_template_ = Persistent<ObjectTemplate>::New(ObjectTemplate::New());
         snapshot_template_->SetInternalFieldCount(1);
-        snapshot_template_->SetAccessor(String::New("title"), Snapshot::GetTitle);
-        snapshot_template_->SetAccessor(String::New("uid"), Snapshot::GetUid);
-        snapshot_template_->SetAccessor(String::New("type"), Snapshot::GetType);
-        snapshot_template_->Set(String::New("delete"), FunctionTemplate::New(Snapshot::Delete));
-        snapshot_template_->Set(String::New("serialize"), FunctionTemplate::New(Snapshot::Serialize));
-        snapshot_template_->Set(String::New("save"), FunctionTemplate::New(Snapshot::Save));
+        snapshot_template_->SetAccessor(String::NewSymbol("title"), Snapshot::GetTitle);
+        snapshot_template_->SetAccessor(String::NewSymbol("uid"), Snapshot::GetUid);
+        snapshot_template_->SetAccessor(String::NewSymbol("type"), Snapshot::GetType);
+        snapshot_template_->Set(String::NewSymbol("delete"), FunctionTemplate::New(Snapshot::Delete));
+        snapshot_template_->Set(String::NewSymbol("serialize"), FunctionTemplate::New(Snapshot::Serialize));
+        snapshot_template_->Set(String::NewSymbol("save"), FunctionTemplate::New(Snapshot::Save));
     }
     static Persistent<ObjectTemplate> snapshot_template_;
 };
@@ -456,6 +456,7 @@ static void jsBacktrace(void)
 static void sigBacktrace(int)
 {
     jsBacktrace();
+    fprintf(stderr, "SEGV: ERROR: keep running=%d\n", run_segv);
     while (run_segv) sleep(1);
     raise(SIGABRT);
 }
@@ -466,6 +467,7 @@ static void sigSEGV(int)
     int size;
     size = backtrace(array, 50);
     backtrace_symbols_fd(array, size, 2);
+    fprintf(stderr, "SEGV: ERROR: keep running=%d\n", run_segv);
     while (run_segv) sleep(1);
     raise(SIGSEGV);
 }
@@ -540,7 +542,7 @@ static Handle<Value> FindSnapshot(const Arguments& args)
 static Handle<Value> TakeSnapshot(const Arguments& args)
 {
     HandleScope scope;
-    const v8::HeapSnapshot* snapshot = v8::HeapProfiler::TakeSnapshot(args.Length() > 0 ? args[0]->ToString() : Local<String>::New(String::New("")));
+    const v8::HeapSnapshot* snapshot = v8::HeapProfiler::TakeSnapshot(args.Length() > 0 ? args[0]->ToString() : Local<String>::New(String::NewSymbol("")));
     return scope.Close(Snapshot::New(snapshot));
 }
 
@@ -576,7 +578,7 @@ static Handle<Value> FindProfile(const Arguments& args)
 static Handle<Value> StartProfiling(const Arguments& args)
 {
     HandleScope scope;
-    Local<String> title = args.Length() > 0 ? args[0]->ToString() : String::New("");
+    Local<String> title = args.Length() > 0 ? args[0]->ToString() : String::NewSymbol("");
     v8::CpuProfiler::StartProfiling(title);
     return Undefined();
 }
@@ -584,7 +586,7 @@ static Handle<Value> StartProfiling(const Arguments& args)
 static Handle<Value> StopProfiling(const Arguments& args)
 {
     HandleScope scope;
-    Local<String> title = args.Length() > 0 ? args[0]->ToString() : String::New("");
+    Local<String> title = args.Length() > 0 ? args[0]->ToString() : String::NewSymbol("");
     const CpuProfile* profile = v8::CpuProfiler::StopProfiling(title);
     return scope.Close(Profile::New(profile));
 }

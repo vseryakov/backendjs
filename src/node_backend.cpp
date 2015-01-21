@@ -45,7 +45,7 @@ static Handle<Value> loggingChannel(const Arguments& args)
         VLog::setChannel(!strcmp(*name, "stderr") ? stderr : NULL);
     }
     FILE *fp = VLog::getChannel();
-    return scope.Close(String::New(fp == stderr ? "stderr" : "stdout"));
+    return scope.Close(String::NewSymbol(fp == stderr ? "stderr" : "stdout"));
 }
 
 string jsonStringify(Local<Value> obj)
@@ -53,8 +53,8 @@ string jsonStringify(Local<Value> obj)
     HandleScope scope;
 
     Local<Value> argv[1] = { obj };
-    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::New("JSON"))->ToObject();
-    Handle<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(String::New("stringify")));
+    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::NewSymbol("JSON"))->ToObject();
+    Handle<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(String::NewSymbol("stringify")));
     Local<Value> val = Local<Value>::New(JSON_stringify->Call(JSON, 1, argv));
     String::Utf8Value json(val);
     return *json;
@@ -65,13 +65,13 @@ Handle<Value> jsonParse(string str)
     HandleScope scope;
 
     Local<Value> argv[1] = { Local<String>::New(String::New(str.c_str())) };
-    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::New("JSON"))->ToObject();
-    Handle<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::New("parse")));
+    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::NewSymbol("JSON"))->ToObject();
+    Handle<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::NewSymbol("parse")));
     Local<Value> val;
     {
-    	TryCatch try_catch;
-    	val = Local<Value>::New(JSON_parse->Call(JSON, 1, argv));
-    	if (try_catch.HasCaught()) val = Local<Value>::New(Null());
+        TryCatch try_catch;
+        val = Local<Value>::New(JSON_parse->Call(JSON, 1, argv));
+        if (try_catch.HasCaught()) val = Local<Value>::New(Null());
     }
     return scope.Close(val);
 }
@@ -81,18 +81,18 @@ Handle<Value> toArray(vector<string> &list, int numeric)
     HandleScope scope;
     Local<Array> rc = Local<Array>::New(Array::New(list.size()));
     for (uint i = 0; i < list.size(); i++) {
-    	switch (numeric) {
-    	case 1:
-    		rc->Set(Integer::New(i), Local<Number>::New(Number::New(atol(list[i].c_str()))));
-    		break;
+        switch (numeric) {
+        case 1:
+            rc->Set(Integer::New(i), Local<Number>::New(Number::New(atol(list[i].c_str()))));
+            break;
 
-    	case 2:
-    		rc->Set(Integer::New(i), Local<Number>::New(Number::New(atof(list[i].c_str()))));
-    		break;
+        case 2:
+            rc->Set(Integer::New(i), Local<Number>::New(Number::New(atof(list[i].c_str()))));
+            break;
 
-    	default:
-    		rc->Set(Integer::New(i), Local<String>::New(String::New(list[i].c_str())));
-    	}
+        default:
+            rc->Set(Integer::New(i), Local<String>::New(String::New(list[i].c_str())));
+        }
     }
     return scope.Close(rc);
 }
@@ -241,12 +241,12 @@ static Handle<Value> countAllWords(const Arguments& args)
         }
     }
     Local<Object> obj = Object::New();
-    obj->Set(String::New("count"), Local<Integer>::New(Integer::New(cw->count)));
-    obj->Set(String::New("value"), Local<Integer>::New(Integer::New(cw->value)));
-    obj->Set(String::New("mode"), Local<String>::New(String::New(cw->modeName().c_str())));
-    obj->Set(String::New("matches"), list);
-    obj->Set(String::New("counters"), counters);
-    obj->Set(String::New("values"), values);
+    obj->Set(String::NewSymbol("count"), Local<Integer>::New(Integer::New(cw->count)));
+    obj->Set(String::NewSymbol("value"), Local<Integer>::New(Integer::New(cw->value)));
+    obj->Set(String::NewSymbol("mode"), Local<String>::New(String::New(cw->modeName().c_str())));
+    obj->Set(String::NewSymbol("matches"), list);
+    obj->Set(String::NewSymbol("counters"), counters);
+    obj->Set(String::NewSymbol("values"), values);
 
     return scope.Close(obj);
 }
@@ -273,7 +273,7 @@ static Handle<Value> geoHashDecode(const Arguments& args)
    vector<double> rc = vGeoHashDecode(*hash);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));
    for (uint i = 0; i < rc.size(); i++) {
-	   result->Set(Integer::New(i), Local<Number>::New(Number::New(rc[i])));
+       result->Set(Integer::New(i), Local<Number>::New(Number::New(rc[i])));
    }
    return scope.Close(result);
 }
@@ -329,7 +329,7 @@ static Handle<Value> geoBoundingBox(const Arguments& args)
    vector<double> rc = vBoundingBox(lat1, lon1, distance);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));
    for (uint i = 0; i < rc.size(); i++) {
-	   result->Set(Integer::New(i), Local<Number>::New(Number::New(rc[i])));
+       result->Set(Integer::New(i), Local<Number>::New(Number::New(rc[i])));
    }
    return scope.Close(result);
 }

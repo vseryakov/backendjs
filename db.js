@@ -489,7 +489,7 @@ db.createPool = function(options)
                     });
                 } catch(e) {
                     logger.error('pool.create:', this.name, e);
-                    callback(e);
+                    if (typeof callback == "function") callback(e);
                 }
             },
             validate: function(client) {
@@ -509,7 +509,7 @@ db.createPool = function(options)
         pool.get = function(callback) {
             this.acquire(function(err, client) {
                 if (err) logger.error('pool.get:', pool.name, err);
-                callback(err, client);
+                if (typeof callback == "function") callback(err, client);
             });
         }
         // Release or destroy a client depending on the database watch counter
@@ -522,11 +522,11 @@ db.createPool = function(options)
         }
     } else {
         var pool = {};
-        pool.get = function(callback) { callback(null, {}); };
+        pool.get = function(callback) { if (typeof callback == "function" ) callback(null, {}); else logger.error("pool.get:", "invalid callback", callback); };
         pool.free = function(client) {};
         pool.closeAll = function() {};
         pool.stats = function() { return null };
-        pool.shutdown = function(cb) { if (cb) cb() }
+        pool.shutdown = function(cb) { if (typeof cb == "function") cb() }
     }
 
     // Save all options and methods
@@ -570,12 +570,12 @@ db.createPool = function(options)
     }
 
     // Default methods if not setup from the options
-    if (typeof pool.connect != "function") pool.connect = function(pool, callback) { callback(null, {}); };
-    if (typeof pool.close != "function") pool.close = function(client, callback) { if (client && typeof client.close == "function") client.close(callback); else callback() }
-    if (typeof pool.setup != "function") pool.setup = function(client, callback) { callback(null, client); };
-    if (typeof pool.query != "function") pool.query = function(client, req, opts, callback) { callback(null, []); };
-    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { callback(); }
-    if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, callback) { callback(); };
+    if (typeof pool.connect != "function") pool.connect = function(pool, callback) { if (typeof callback == "function" ) callback(null, {}); };
+    if (typeof pool.close != "function") pool.close = function(client, callback) { if (typeof callback == "function" ) callback() }
+    if (typeof pool.setup != "function") pool.setup = function(client, callback) { if (typeof callback == "function" ) callback(null, client); };
+    if (typeof pool.query != "function") pool.query = function(client, req, opts, callback) { if (typeof callback == "function" ) callback(null, []); };
+    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { if (typeof callback == "function" ) callback(); }
+    if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, callback) { if (typeof callback == "function" ) callback(); };
     if (typeof pool.nextToken != "function") pool.nextToken = function(client, req, rows, opts) { return client.next_token || null };
     // Pass all request in an object with predefined properties
     if (typeof pool.prepare != "function") {
@@ -651,6 +651,7 @@ db.query = function(req, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
+    if (typeof callback != "function") callback = corelib.noop;
 
     var table = req.table || "";
     var pool = this.getPool(table, options);
@@ -871,6 +872,7 @@ db.updateAll = function(table, query, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
+    if (typeof callback != "function") callback = corelib.noop;
 
     // Custom handler for the operation
     var pool = this.getPool(table, options);
@@ -878,7 +880,7 @@ db.updateAll = function(table, query, obj, options, callback)
 
     options.noprocessrows = 1;
     self.select(table, query, options, function(err, rows) {
-        if (err) return callback ? callback(err) : null;
+        if (err) return callback(err);
 
         options.ops = {};
         corelib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
@@ -886,7 +888,7 @@ db.updateAll = function(table, query, obj, options, callback)
             if (options && options.process) options.process(row, options);
             self.update(table, row, options, next);
         }, function(err) {
-            if (callback) callback(err, rows);
+            callback(err, rows);
         });
     });
 }
@@ -943,6 +945,7 @@ db.delAll = function(table, query, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
+    if (typeof callback != "function") callback = corelib.noop;
     options.noprocessrows = 1;
 
     // Custom handler for the operation
@@ -952,13 +955,13 @@ db.delAll = function(table, query, options, callback)
     // Options without ops for delete
     var opts = corelib.cloneObj(options, 'ops', {});
     self.select(table, query, options, function(err, rows) {
-        if (err) return callback ? callback(err) : null;
+        if (err) return callback(err);
 
         corelib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             if (options && options.process) options.process(row, opts);
             self.del(table, row, opts, next);
         }, function(err) {
-            if (callback) callback(err, rows);
+            callback(err, rows);
         });
     });
 }
@@ -984,6 +987,7 @@ db.replace = function(table, obj, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
+    if (typeof callback != "function") callback = corelib.noop;
 
     var keys = this.getKeys(table, options);
     var select = keys[0];
@@ -1001,7 +1005,7 @@ db.replace = function(table, obj, options, callback)
 
     var req = this.prepare("get", table, obj, { select: select, pool: options.pool });
     if (!req) {
-        if (options.put_only) return callback ? callback(null, []) : null;
+        if (options.put_only) return callback(null, []);
         return self.add(table, obj, options, callback);
     }
 
@@ -1009,23 +1013,23 @@ db.replace = function(table, obj, options, callback)
     obj = corelib.cloneObj(obj);
 
     self.query(req, options, function(err, rows) {
-        if (err) return callback ? callback(err, []) : null;
+        if (err) return callback(err, []);
 
         logger.debug('db.replace:', req, rows.length);
         if (rows.length) {
             // Skip update if specified or mtime is less or equal
             if (options.add_only || (select == options.check_mtime && corelib.toDate(rows[0][options.check_mtime]) >= corelib.toDate(obj[options.check_mtime]))) {
-                return callback ? callback(null, []) : null;
+                return callback(null, []);
             }
             // Verify all fields by value
             if (options.check_data) {
                 var same = select == "1" || Object.keys(rows[0]).every(function(x) { return String(rows[0][x]) == String(obj[x]) });
                 // Nothing has changed
-                if (same) return callback ? callback(null, []) : null;
+                if (same) return callback(null, []);
             }
             self.update(table, obj, options, callback);
         } else {
-            if (options.put_only) return callback ? callback(null, []) : null;
+            if (options.put_only) return callback(null, []);
             self.add(table, obj, options, callback);
         }
     });
@@ -1040,6 +1044,7 @@ db.replace = function(table, obj, options, callback)
 db.list = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
+    if (typeof callback != "function") callback = corelib.noop;
 
     switch (corelib.typeName(query)) {
     case "string":
@@ -1047,15 +1052,15 @@ db.list = function(table, query, options, callback)
         query = corelib.strSplit(query);
         if (typeof query[0] == "string") {
             var keys = this.getKeys(table, options);
-            if (!keys.length) return callback ? callback(new Error("invalid keys"), []) : null;
+            if (!keys.length) return callback(new Error("invalid keys"), []);
             query = query.map(function(x) { return corelib.newObj(keys[0], x) });
         }
         break;
 
     default:
-        return callback ? callback(new Error("invalid list"), []) : null;
+        return callback(new Error("invalid list"), []);
     }
-    if (!query.length) return callback ? callback(null, []) : null;
+    if (!query.length) return callback(null, []);
     this.select(table, query, options, callback);
 }
 
@@ -1076,6 +1081,7 @@ db.batch = function(table, op, objs, options, callback)
     var self = this;
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
+    if (typeof callback != "function") callback = corelib.noop;
 
     // Custom handler for the operation
     var pool = this.getPool(table, options);
@@ -1091,7 +1097,7 @@ db.batch = function(table, op, objs, options, callback)
             next(err);
         });
     }, function(err) {
-        if (callback) callback(err, [], info);
+        callback(err, [], info);
     });
 }
 
@@ -1151,6 +1157,7 @@ db.scan = function(table, query, options, rowCallback, endCallback)
 // - tpmdrop - if 1 then the temporary table willbe dropped at the end in case of success, by default it is kept
 db.migrate = function(table, options, callback)
 {
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     if (!options.preprocess) options.preprocess = function(row, options, next) { next() }
     if (!options.postprocess) options.postprocess = function(row, options, next) { next() }
@@ -1212,7 +1219,7 @@ db.migrate = function(table, options, callback)
             db.drop(tmptable, options, next);
         }],
         function(err) {
-            if (callback) callback(err);
+            callback(err);
     });
 }
 
@@ -1245,6 +1252,7 @@ db.join = function(table, rows, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     options = this.getOptions(table, options);
+    if (typeof callback != "function") callback = corelib.noop;
 
     var map = {}, ids = [];
     var keys = options.keys || self.getKeys(table, options);
@@ -1329,6 +1337,7 @@ db.getLocations = function(table, query, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     options = this.getOptions(table, options);
     var cols = db.getColumns(table, options);
     var keys = db.getKeys(table, options);
@@ -1409,7 +1418,7 @@ db.getLocations = function(table, query, options, callback)
                   if (typeof options[x] != "undefined") info.next_token[x] = options[x];
               });
           }
-          if (callback) callback(err, rows, info);
+          callback(err, rows, info);
     });
 }
 
@@ -1498,6 +1507,7 @@ db.select = function(table, query, options, callback)
 db.get = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     options = this.getOptions(table, options);
     if (!options._cached && (options.cached || this.cacheTables.indexOf(table) > -1)) {
         options._cached = 1;
@@ -1505,7 +1515,7 @@ db.get = function(table, query, options, callback)
     }
     var req = this.prepare("get", table, query, options);
     this.query(req, options, function(err, rows) {
-        if (callback) callback(err, rows.length ? rows[0] : null);
+        callback(err, rows.length ? rows[0] : null);
     });
 }
 
@@ -1525,6 +1535,7 @@ db.getCached = function(op, table, query, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options,options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     options = this.getOptions(table, options);
     var pool = this.getPool(table, options);
     var m = pool.metrics.Timer('cache').start();
@@ -1535,14 +1546,14 @@ db.getCached = function(op, table, query, options, callback)
         // Parse errors treated as miss
         if (rc) {
             pool.metrics.Counter("hits").inc();
-            return callback ? callback(null, rc, {}) : null;
+            return callback(null, rc, {});
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
         self[op](table, query, options, function(err, row, info) {
             // Store in cache if no error
             if (row && !err) self.putCache(table, row, options);
-            if (callback) callback(err, row, info);
+            callback(err, row, info);
         });
     });
 }
@@ -1654,9 +1665,10 @@ db.drop = function(table, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options,options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     options = this.getOptions(table, options);
     var req = this.prepare("drop", table, {}, options);
-    if (!req.text) return callback ? callback() : null;
+    if (!req.text) return callback();
     this.query(req, options, function(err, rows, info) {
         // Clear table cache
         if (!err) {
@@ -1664,7 +1676,7 @@ db.drop = function(table, options, callback)
             delete pool.dbcolumns[table];
             delete pool.dbkeys[table];
         }
-        if (callback) callback(err, rows, info);
+        callback(err, rows, info);
     });
 }
 
@@ -1977,6 +1989,7 @@ db.cacheColumns = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var pool = this.getPool('', options);
@@ -1986,7 +1999,7 @@ db.cacheColumns = function(options, callback)
         pool.cacheIndexes.call(pool, options, function(err) {
             if (err) logger.error('cacheIndexes:', pool.name, err);
             self.mergeKeys(pool);
-            if (callback) callback(err);
+            callback(err);
         });
     });
 }
@@ -2147,11 +2160,12 @@ db.sqlCacheColumns = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var pool = this.getPool('', options);
     pool.get(function(err, client) {
-        if (err) return callback ? callback(err, []) : null;
+        if (err) return callback(err, []);
 
         // Use current database name for schema if not specified
         if (!pool.dboptions.schema.length) pool.dboptions.schema.push(client.name);
@@ -2197,7 +2211,7 @@ db.sqlCacheColumns = function(options, callback)
                 pool.dbcolumns[table][rows[i].column_name.toLowerCase()] = { id: rows[i].ordinal_position, value: val, db_type: db_type, data_type: rows[i].data_type, isnull: rows[i].is_nullable == "YES", isserial: isserial };
             }
             pool.free(client);
-            if (callback) callback(err);
+            callback(err);
         });
     });
 }

@@ -432,6 +432,7 @@ api.init = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var db = core.modules.db;
@@ -682,10 +683,10 @@ api.init = function(options, callback)
                 // Allow push notifications in the API handlers
                 if (self.notifications) {
                     msg.init(function() {
-                        if (callback) callback.call(self, err);
+                        callback.call(self, err);
                     });
                 } else {
-                    if (callback) callback.call(self, err);
+                    callback.call(self, err);
                 }
             });
         });
@@ -699,6 +700,7 @@ api.shutdown = function(callback)
 {
     var self = this;
     if (this.exiting) return;
+    if (typeof callback != "function") callback = corelib.noop;
     this.exiting = true;
     logger.log('api.shutdown: started');
     var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
@@ -1278,6 +1280,7 @@ api.initTables = function(options, callback)
     var db = core.modules.db;
 
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     db.initTables(this.tables, options, function(err) {
@@ -1327,7 +1330,7 @@ api.initTables = function(options, callback)
             db.setProcessRow("bk_reference", options, onConnectionRow);
             db.setProcessRow("bk_icon", options, self.checkIcon);
         }
-        if (typeof callback == "function") callback(err);
+        callback(err);
     });
 }
 
@@ -1461,12 +1464,13 @@ api.describeTables = function(tables)
 {
     var self = this;
     for (var p in tables) {
-        if (!self.tables[p]) self.tables[p] = {};
+        var dbtables = self.tables[p] ? self.tables : core.modules.db.tables[p] ? core.modules.db.tables : self.tables;
+        if (!dbtables[p]) dbtables[p] = {};
         for (var c in tables[p]) {
-            if (!self.tables[p][c]) self.tables[p][c] = {};
+            if (!dbtables[p][c]) dbtables[p][c] = {};
             // Merge columns
             for (var k in tables[p][c]) {
-                self.tables[p][c][k] = tables[p][c][k];
+                dbtables[p][c][k] = tables[p][c][k];
             }
         }
     }
@@ -1659,7 +1663,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
             if (err) return next(err);
             if (!user) {
                 if (options.failureRedirect) return res.redirect(options.failureRedirect);
-                if (callback) return callback(req, options, info);
+                if (typeof callback == "function") return callback(req, options, info);
                 next();
             }
             req.logIn(user, function(err) {
@@ -1667,7 +1671,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
                 if (user.id) req.account = user;
                 self.createSessionSignature(req, options);
                 if (options.successRedirect) return res.redirect(options.successRedirect);
-                if (callback) return callback(req, options, info);
+                if (typeof callback == "function") callback(req, options, info);
                 next();
             });
         })(req, res, next);

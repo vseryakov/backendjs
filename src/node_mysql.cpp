@@ -546,7 +546,7 @@ static bool ParseParameters(Row &params, const Arguments& args, int idx)
             params.push_back(MysqlField(pos, MYSQL_TYPE_DOUBLE, source->NumberValue()));
         } else
         if (source->IsObject()) {
-        	params.push_back(MysqlField(pos, MYSQL_TYPE_STRING, 0, jsonStringify(source)));
+            params.push_back(MysqlField(pos, MYSQL_TYPE_STRING, 0, jsonStringify(source)));
         } else
         if (source->IsUndefined()) {
             params.push_back(MysqlField(pos));
@@ -620,7 +620,7 @@ Handle<Value> MysqlDatabase::New(const Arguments& args)
 {
     HandleScope scope;
 
-    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::New("Use the new operator to create new Database objects")));
+    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::NewSymbol("Use the new operator to create new Database objects")));
 
     REQUIRE_ARGUMENT_STRING(0, info);
     int arg = 1, mode = 0;
@@ -892,9 +892,9 @@ Handle<Value> MysqlStatement::New(const Arguments& args)
 {
     HandleScope scope;
 
-    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::New("Use the new operator to create new Statement objects")));
+    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::NewSymbol("Use the new operator to create new Statement objects")));
 
-    if (args.Length() < 1 || !MysqlDatabase::HasInstance(args[0])) return ThrowException(Exception::TypeError(String::New("Database object expected")));
+    if (args.Length() < 1 || !MysqlDatabase::HasInstance(args[0])) return ThrowException(Exception::TypeError(String::NewSymbol("Database object expected")));
     REQUIRE_ARGUMENT_STRING(1, sql);
     EXPECT_ARGUMENT_FUNCTION(2, callback);
 

@@ -186,7 +186,7 @@ Handle<Value> PgSQLDatabase::New(const Arguments& args)
 {
     HandleScope scope;
 
-    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::New("Use the new operator to create new Database objects")));
+    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::NewSymbol("Use the new operator to create new Database objects")));
     REQUIRE_ARGUMENT_STRING(0, info);
 
     PgSQLDatabase* db = new PgSQLDatabase();

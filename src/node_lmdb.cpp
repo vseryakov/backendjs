@@ -311,9 +311,9 @@ public:
 
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
-        if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::New("Use the new operator to create new LMDB objects")));
+        if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::NewSymbol("Use the new operator to create new LMDB objects")));
         REQUIRE_ARGUMENT_OBJECT(0, obj);
-        if (!LMDB_ENV::HasInstance(obj)) return ThrowException(Exception::TypeError(String::New("First arg must be LMDBENV instance")));
+        if (!LMDB_ENV::HasInstance(obj)) return ThrowException(Exception::TypeError(String::NewSymbol("First arg must be LMDBENV instance")));
         LMDB_ENV *env = ObjectWrap::Unwrap < LMDB_ENV > (obj);
         REQUIRE_ARGUMENT_OBJECT(1, opts);
         OPTIONAL_ARGUMENT_FUNCTION(-1, cb);

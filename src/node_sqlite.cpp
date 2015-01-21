@@ -353,7 +353,7 @@ static bool ParseParameters(Row &params, const Arguments& args, int idx)
             params.push_back(SQLiteField(pos, SQLITE_FLOAT, source->NumberValue()));
         } else
         if (source->IsObject()) {
-        	params.push_back(SQLiteField(pos, SQLITE_TEXT, 0, jsonStringify(source)));
+            params.push_back(SQLiteField(pos, SQLITE_TEXT, 0, jsonStringify(source)));
         } else
         if (source->IsUndefined()) {
             params.push_back(SQLiteField(pos));
@@ -451,8 +451,8 @@ static Local<Object> RowToJS(Row &row)
         Local<Value> value;
         switch (field.type) {
         case SQLITE_JSON:
-        	value = Local<Value>::New(jsonParse(field.svalue));
-        	break;
+            value = Local<Value>::New(jsonParse(field.svalue));
+            break;
         case SQLITE_INTEGER:
             value = Local<Value>(Number::New(field.nvalue));
             break;
@@ -567,7 +567,7 @@ Handle<Value> SQLiteDatabase::New(const Arguments& args)
 {
     HandleScope scope;
 
-    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::New("Use the new operator to create new Database objects")));
+    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::NewSymbol("Use the new operator to create new Database objects")));
 
     REQUIRE_ARGUMENT_STRING(0, filename);
     int arg = 1, mode = 0;
@@ -876,7 +876,7 @@ Handle<Value> SQLiteDatabase::Copy(const Arguments& args)
             return ThrowException(Exception::Error(String::New(errmsg.c_str())));
         }
     } else {
-        return ThrowException(Exception::TypeError(String::New("Database object or database file name expected")));
+        return ThrowException(Exception::TypeError(String::NewSymbol("Database object or database file name expected")));
     }
 
     sqlite3_backup *backup;
@@ -929,9 +929,9 @@ Handle<Value> SQLiteStatement::New(const Arguments& args)
 {
     HandleScope scope;
 
-    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::New("Use the new operator to create new Statement objects")));
+    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::NewSymbol("Use the new operator to create new Statement objects")));
 
-    if (args.Length() < 1 || !SQLiteDatabase::HasInstance(args[0])) return ThrowException(Exception::TypeError(String::New("Database object expected")));
+    if (args.Length() < 1 || !SQLiteDatabase::HasInstance(args[0])) return ThrowException(Exception::TypeError(String::NewSymbol("Database object expected")));
     REQUIRE_ARGUMENT_STRING(1, sql);
     EXPECT_ARGUMENT_FUNCTION(2, callback);
 

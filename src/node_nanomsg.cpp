@@ -101,7 +101,7 @@ public:
         if (sock < 0) return err = ENOTSOCK;
         vector<string> urls = strSplit(addr, " ,");
         for (uint i = 0; i < urls.size(); i++) {
-        	if (!urls[i].size()) continue;
+            if (!urls[i].size()) continue;
             if (baddr.find(urls[i]) != baddr.end()) continue;
             int rc = nn_bind(sock, urls[i].c_str());
             if (nn_slow(rc <= -1)) return err = nn_errno();
@@ -165,17 +165,17 @@ public:
     int SetOption(int opt, int n) {
         op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
-    	int rc = nn_setsockopt(sock, type, opt, &n, sizeof(n));
-    	if (nn_slow(rc == -1)) return err = nn_errno();
-    	return 0;
+        int rc = nn_setsockopt(sock, type, opt, &n, sizeof(n));
+        if (nn_slow(rc == -1)) return err = nn_errno();
+        return 0;
     }
 
     int SetOption(int opt, string s) {
         op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
-    	int rc = nn_setsockopt(sock, type, opt, s.c_str(), 0);
-    	if (nn_slow(rc == -1)) return err = nn_errno();
-    	return 0;
+        int rc = nn_setsockopt(sock, type, opt, s.c_str(), 0);
+        if (nn_slow(rc == -1)) return err = nn_errno();
+        return 0;
     }
 
     int Send(void *data, int len) {
@@ -308,18 +308,18 @@ public:
     int SetForward(NNSocket *p) {
         op = __FUNCTION__;
         if (sock < 0) return err = ENOTSOCK;
-    	if (!p) return err = EINVAL;
-    	if (rfd == -1 || p->wfd == -1) {
-    		LogError("%d: invalid direction of sockets: %d/%d - %d/%d", sock, rfd, wfd, p->rfd, p->wfd);
-    		return err = EINVAL;
-    	}
+        if (!p) return err = EINVAL;
+        if (rfd == -1 || p->wfd == -1) {
+            LogError("%d: invalid direction of sockets: %d/%d - %d/%d", sock, rfd, wfd, p->rfd, p->wfd);
+            return err = EINVAL;
+        }
 
-    	ClosePoll();
-    	peer = p->sock;
-    	uv_poll_init(uv_default_loop(), &poll, rfd);
-    	uv_poll_start(&poll, UV_READABLE, HandleForward);
-    	poll.data = (void*)this;
-    	return 0;
+        ClosePoll();
+        peer = p->sock;
+        uv_poll_init(uv_default_loop(), &poll, rfd);
+        uv_poll_start(&poll, UV_READABLE, HandleForward);
+        poll.data = (void*)this;
+        return 0;
     }
 
     static void _device(void *arg) {
@@ -346,7 +346,7 @@ public:
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
 
-        if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::New("Use the new operator to create new NNSocket objects")));
+        if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::NewSymbol("Use the new operator to create new NNSocket objects")));
 
         REQUIRE_ARGUMENT_INT(0, domain);
         REQUIRE_ARGUMENT_INT(1, type);

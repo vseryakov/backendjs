@@ -41,7 +41,10 @@ using namespace std;
             if (!args[(i) >= 0 ? (i) : args.Length() - 1]->IsFunction()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a function"))); \
             var = Local<Function>::Cast(args[(i) >= 0 ? (i) : args.Length() - 1]); }
 
-#define OPTIONAL_ARGUMENT_FUNCTION(i, var) Local<Function> var; if (args.Length() > 0 && args.Length() > (i) && args[(i) >= 0 ? (i) : args.Length() - 1]->IsFunction()) var = Local<Function>::Cast(args[(i) >= 0 ? (i) : args.Length() - 1]);
+#define OPTIONAL_ARGUMENT_FUNCTION(i, var) Local<Function> var; \
+        if (args.Length() > 0 && args.Length() > (i) && args[(i) >= 0 ? (i) : args.Length() - 1]->IsFunction()) \
+        var = Local<Function>::Cast(args[(i) >= 0 ? (i) : args.Length() - 1]);
+
 #define OPTIONAL_ARGUMENT_INT(i, var) int var = (args.Length() > (i) && args[i]->IsInt32() ? args[i]->Int32Value() : 0);
 #define OPTIONAL_ARGUMENT_INT2(i, var, dflt) int var = (args.Length() > (i) && args[i]->IsInt32() ? args[i]->Int32Value() : dflt);
 #define OPTIONAL_ARGUMENT_NUMBER(i, var) float var = (args.Length() > (i) && args[i]->IsNumber() ? args[i]->NumberValue() : 0);

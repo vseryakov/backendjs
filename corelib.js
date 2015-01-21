@@ -619,11 +619,11 @@ corelib.createPool = function(options)
         this.closeAll();
         this._pqueue = {};
         clearInterval(this._pinterval);
-        if (!callback) return;
+        if (typeof callback != "function") return;
         this._ptime = Date.now();
         this._pinterval = setInterval(function() {
             if (self._pbusy.length && (!maxtime || Date.now() - self._ptime < maxtime)) return;
-            clearInterval(this);
+            clearInterval(this._pinterval);
             callback();
         }, 500);
     }

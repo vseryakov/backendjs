@@ -51,6 +51,7 @@ module.exports = aws;
 aws.configure = function(options, callback)
 {
     var self = this;
+    if (typeof callback != "function") callback = corelib.noop;
     // Do not retrieve metadata if not running inside important process
     if (os.platform() != "linux" || options.noInit || ["shell","web","master","worker"].indexOf(core.role) == -1) {
         if (!self.key) return self.readCredentials(self.sdkProfile, callback);
@@ -66,6 +67,7 @@ aws.configure = function(options, callback)
 aws.configureServer = function(options, callback)
 {
     var self = this;
+    if (typeof callback != "function") callback = corelib.noop;
 
     // Make sure we are running on EC2 instance
     if (!core.instance.id || !core.instance.image) return callback();
@@ -86,6 +88,8 @@ aws.readCredentials = function(profile, callback)
 {
     var self = this;
     if (typeof profile == "function") callback = profile, profile = null;
+    if (typeof callback != "function") callback = corelib.noop;
+
     fs.readFile(process.env.HOME + "/.aws/credentials", function(err, data) {
         if (data && data.length) {
             var state = 0, lines = data.toString().split("\n");
@@ -112,16 +116,18 @@ aws.readCredentials = function(profile, callback)
 aws.getInstanceMeta = function(path, callback)
 {
     var self = this;
+    if (typeof callback != "function") callback = corelib.noop;
     core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params) {
         logger.debug('getInstanceMeta:', path, params.status, params.data, err || "");
-        if (callback) callback(err, params.status == 200 ? params.data : "");
+        callback(err, params.status == 200 ? params.data : "");
     });
 }
 
 // Retrieve instance credentials using EC2 instance profile and setup for AWS access
 aws.getInstanceCredentials = function(callback)
 {
-    if (!this.amiProfile) return callback ? callback() : null;
+    if (typeof callback != "function") callback = corelib.noop;
+    if (!this.amiProfile) return callback();
 
     var self = this;
     self.getInstanceMeta("/latest/meta-data/iam/security-credentials/" + self.amiProfile, function(err, data) {
@@ -138,7 +144,7 @@ aws.getInstanceCredentials = function(callback)
         if (!self.tokenTimer) {
             self.tokenTimer = setInterval(function() { self.getInstanceCredentials() }, 258 * 1000);
         }
-        if (callback) callback(err);
+        callback(err);
     });
 }
 
@@ -146,6 +152,7 @@ aws.getInstanceCredentials = function(callback)
 aws.getInstanceInfo = function(callback)
 {
     var self = this;
+    if (typeof callback != "function") callback = corelib.noop;
 
     corelib.series([
         function(next) {
@@ -202,24 +209,25 @@ aws.getInstanceInfo = function(callback)
         },
         ], function(err) {
             logger.debug('getInstanceInfo:', self.name, core.instance, 'profile:', self.amiProfile, 'expire:', self.tokenExpiration, err || "");
-            if (callback) callback();
+            callback();
     });
 }
 
 // Parse AWS response and try to extract error code and message, convert XML into an object.
 aws.parseXMLResponse = function(err, params, callback)
 {
-    if (err || !params.data) return callback ? callback(err) : null;
+    if (typeof callback != "function") callback = corelib.noop;
+    if (err || !params.data) return callback(err);
     try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
     if (params.status != 200) {
         var errors = corelib.objGet(params.obj, "Response.Errors.Error", { list: 1 });
         if (errors.length && errors[0].Message) err = corelib.newError({ message: errors[0].Message, code: errors[0].Code, status: params.status });
         if (!err) err = corelib.newError({ message: "Error: " + params.data, status: params.status });
         logger.error('queryAWS:', params.href, params.search, err);
-        return callback ? callback(err, params.obj) : null;
+        return callback(err, params.obj);
     }
     logger.debug('queryAWS:', params.href, params.search, params.obj);
-    if (callback) callback(err, params.obj);
+    callback(err, params.obj);
 }
 
 // Build version 4 signature headers
@@ -357,6 +365,7 @@ aws.queryDDB = function (action, obj, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var start = Date.now();
     var region = options.region || this.region  || 'us-east-1';
@@ -376,7 +385,7 @@ aws.queryDDB = function (action, obj, options, callback)
     core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
         if (err) {
             logger.error("queryDDB:", self.key, action, obj, err);
-            return callback ? callback(err, {}) : null;
+            return callback(err, {});
         }
 
         // Reply is always JSON but we dont take any chances
@@ -394,10 +403,10 @@ aws.queryDDB = function (action, obj, options, callback)
                 err.code = (params.json.__type || params.json.code).split('#').pop();
             }
             logger[options.silence_error || err.code == "ConditionalCheckFailedException" ? "debug" : "error"]('queryDDB:', action, obj, err || params.data);
-            return callback ? callback(err, {}) : null;
+            return callback(err, {});
         }
         logger.debug('queryDDB:', action, 'finished:', Date.now() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', params.json.ConsumedCapacity || "");
-        if (callback) callback(err, params.json || {});
+        callback(err, params.json || {});
     });
 }
 
@@ -480,12 +489,13 @@ aws.queryS3 = function(bucket, path, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var uri = this.signS3(options.method, bucket, path, options);
     core.httpGet(uri, options, function(err, params) {
-        if (err || params.status != 200) return callback ? callback(err || corelib.newError({ message: "Error: " + params.status, name: "S3", status : params.status}), params.data) : null;
-        if (callback) callback(err, params);
+        if (err || params.status != 200) return callback(err || corelib.newError({ message: "Error: " + params.status, name: "S3", status : params.status}), params.data);
+        callback(err, params);
     });
 }
 
@@ -559,6 +569,7 @@ aws.ec2RunInstances = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
 
     var req = { MinCount: options.min || options.count || 1,
                 MaxCount: options.max || options.count || 1,
@@ -606,7 +617,7 @@ aws.ec2RunInstances = function(options, callback)
 
     logger.debug('runInstances:', this.name, req, options);
     this.queryEC2("RunInstances", req, options, function(err, obj) {
-        if (err) return callback ? callback(err) : null;
+        if (err) return callback(err);
 
         // Instances list
         var items = corelib.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
@@ -614,7 +625,7 @@ aws.ec2RunInstances = function(options, callback)
 
         // Dont wait for instance to be running
         if (!options.waitRunning && !options.name && !options.elbName && !options.elasticIp) {
-            return callback ? callback(err, obj) : null;
+            return callback(err, obj);
         }
         var instanceId = items[0].instanceId;
 
@@ -640,7 +651,7 @@ aws.ec2RunInstances = function(options, callback)
                self.ec2AssociateAddress(instanceId, options.elasticIp, { subnetId: req.SubnetId || req["NetworkInterface.0.SubnetId"] }, next);
            },
            ], function() {
-                if (callback) callback(err, obj);
+                callback(err, obj);
         });
     });
 }
@@ -654,6 +665,7 @@ aws.ec2WaitForInstance = function(instanceId, status, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
 
     var state = "", num = 0, expires = Date.now() + (options.waitTimeout || 60000);
     corelib.doWhilst(
@@ -786,6 +798,7 @@ aws.sqsReceiveMessage = function(url, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var params = { QueueUrl: url };
@@ -795,7 +808,7 @@ aws.sqsReceiveMessage = function(url, options, callback)
     this.querySQS("ReceiveMessage", params, options, function(err, obj) {
         var rows = [];
         if (!err) rows = corelib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
-        if (callback) callback(err, rows);
+        callback(err, rows);
     });
 }
 
@@ -807,6 +820,7 @@ aws.sqsSendMessage = function(url, body, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var params = { QueueUrl: url, MessageBody: body };
@@ -824,7 +838,7 @@ aws.sqsSendMessage = function(url, body, options, callback)
     this.querySQS("SendMessage", params, options, function(err, obj) {
         var rows = [];
         if (!err) rows = corelib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
-        if (callback) callback(err, rows);
+        callback(err, rows);
     });
 }
 
@@ -839,6 +853,7 @@ aws.snsCreatePlatformEndpoint = function(token, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var params = { PlatformApplicationArn: options.appArn || self.snsAppArn, Token: token };
@@ -847,7 +862,7 @@ aws.snsCreatePlatformEndpoint = function(token, options, callback)
     this.querySNS("CreatePlatformEndpoint", params, options, function(err, obj) {
         var arn = null;
         if (!err) arn = corelib.objGet(obj, "CreatePlatformEndpointResponse.CreatePlatformEndpointResult.EndpointArn", { str: 1 });
-        if (callback) callback(err, arn);
+        callback(err, arn);
     });
 }
 
@@ -906,13 +921,14 @@ aws.snsCreateTopic = function(name, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var params = { Name: name };
     this.querySNS("CreateTopic", params, options, function(err, obj) {
         var arn = null;
         if (!err) arn = corelib.objGet(obj, "CreateTopicResponse.CreateTopicResult.TopicArn", { str: 1 });
-        if (callback) callback(err, arn);
+        callback(err, arn);
     });
 }
 
@@ -925,6 +941,7 @@ aws.snsSetTopicAttributes = function(arn, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var params = { TopicArn: arn };
