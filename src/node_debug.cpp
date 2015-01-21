@@ -485,7 +485,7 @@ static void install_handler(sig_t func)
 
 static Handle<Value> runSEGV(const Arguments& args)
 {
-    OPTIONAL_ARGUMENT_INT(0, on);
+    OPTIONAL_ARGUMENT_AS_INT(0, on);
     run_segv = on;
     return Undefined();
 }
