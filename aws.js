@@ -998,6 +998,7 @@ aws.snsSubscribe = function(arn, endpoint, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     // Detect the protocol form the ARN
@@ -1013,7 +1014,7 @@ aws.snsSubscribe = function(arn, endpoint, options, callback)
     this.querySNS("Subscribe", params, options, function(err, obj) {
         var arn = null;
         if (!err) arn = corelib.objGet(obj, "SubscribeResponse.SubscribeResult.SubscriptionArn", { str: 1 });
-        if (callback) callback(err, arn);
+        callback(err, arn);
     });
 }
 
@@ -1024,13 +1025,14 @@ aws.snsConfirmSubscription = function(arn, token, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var params = { TopicARN: arn, Token: token };
     this.querySNS("ConfirmSubscription", params, options, function(err, obj) {
         var arn = null;
         if (!err) arn = corelib.objGet(obj, "SubscribeResponse.SubscribeResult.SubscriptionArn", { str: 1 });
-        if (callback) callback(err, arn);
+        callback(err, arn);
     });
 }
 
@@ -1310,10 +1312,11 @@ aws.ddbListTables = function(options, callback)
 aws.ddbDescribeTable = function(name, options, callback)
 {
     var self = this;
+    if (typeof callback != "function") callback = corelib.noop;
     var params = { TableName: name };
     this.queryDDB('DescribeTable', params, options, function(err, rc) {
         logger.debug('DescribeTable:', name, rc);
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }
 
@@ -1344,6 +1347,7 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { TableName: name,
                    AttributeDefinitions: [],
@@ -1426,6 +1430,7 @@ aws.ddbDeleteTable = function(name, options, callback)
 aws.ddbWaitForTable = function(name, item, options, callback)
 {
     var self = this;
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options.waitTimeout) return callback(null, item);
 
     var expires = Date.now() + options.waitTimeout;
@@ -1488,6 +1493,7 @@ aws.ddbPutItem = function(name, item, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { TableName: name, Item: self.toDynamoDB(item) };
     // Sugar-candy syntax for expected values
@@ -1513,7 +1519,7 @@ aws.ddbPutItem = function(name, item, options, callback)
     }
     this.queryDDB('PutItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }
 
@@ -1544,6 +1550,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { TableName: name, Key: {} };
     for (var p in keys) {
@@ -1596,7 +1603,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
     }
     this.queryDDB('UpdateItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }
 
@@ -1617,6 +1624,7 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { TableName: name, Key: {} };
     for (var p in keys) {
@@ -1633,7 +1641,7 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
     }
     this.queryDDB('DeleteItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }
 
@@ -1648,6 +1656,7 @@ aws.ddbBatchWriteItem = function(items, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { RequestItems: {} };
     for (var p in items) {
@@ -1662,7 +1671,7 @@ aws.ddbBatchWriteItem = function(items, options, callback)
     }
     this.queryDDB('BatchWriteItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }
 
@@ -1677,6 +1686,7 @@ aws.ddbBatchGetItem = function(items, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { RequestItems: {} };
     for (var p in items) {
@@ -1690,7 +1700,7 @@ aws.ddbBatchGetItem = function(items, options, callback)
         for (var p in rc.Responses) {
             rc.Responses[p] = self.fromDynamoDB(rc.Responses[p]);
         }
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }
 
@@ -1711,6 +1721,7 @@ aws.ddbGetItem = function(name, keys, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { TableName: name, Key: {} };
     if (options.select) {
@@ -1730,7 +1741,7 @@ aws.ddbGetItem = function(name, keys, options, callback)
     }
     this.queryDDB('GetItem', params, options, function(err, rc) {
         rc.Item = rc.Item ? self.fromDynamoDB(rc.Item) : null;
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }
 
@@ -1764,6 +1775,7 @@ aws.ddbQueryTable = function(name, condition, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { TableName: name, KeyConditions: {} };
     if (options.names) {
@@ -1810,7 +1822,7 @@ aws.ddbQueryTable = function(name, condition, options, callback)
 
     this.queryDDB('Query', params, options, function(err, rc) {
         rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }
 
@@ -1834,6 +1846,7 @@ aws.ddbScanTable = function(name, condition, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { TableName: name, ScanFilter: {} };
     if (options.projection) {
@@ -1868,6 +1881,6 @@ aws.ddbScanTable = function(name, condition, options, callback)
 
     this.queryDDB('Scan', params, options, function(err, rc) {
         rc.Items = rc.Items ? self.fromDynamoDB(rc.Items) : [];
-        if (callback) callback(err, rc);
+        callback(err, rc);
     });
 }

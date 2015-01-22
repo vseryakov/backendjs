@@ -180,7 +180,7 @@ msg.initAPN = function()
 msg.closeAPN = function(callback)
 {
     var self = this;
-    if (!this.apnAgent) return callback ? callback() : null;
+    if (!this.apnAgent) return typeof callback == "function" ? callback() : null;
 
     logger.debug('closeAPN:', this.apnAgent.settings, 'connected:', this.apnAgent.connected, 'queue:', this.apnAgent.queue.length, 'sent:', this.apnSent);
 
@@ -190,7 +190,7 @@ msg.closeAPN = function(callback)
         self.apnAgent = null;
         self.apnFeedback = null;
         logger.log('closeAPN: done');
-        if (callback) callback();
+        if (typeof callback == "function") callback();
     });
 }
 
@@ -204,7 +204,7 @@ msg.closeAPN = function(callback)
 msg.sendAPN = function(device_id, options, callback)
 {
     var self = this;
-    if (!this.apnAgent) return callback ? callback("APN is not initialized") : false;
+    if (!this.apnAgent) return typeof callback == "function" ? callback("APN is not initialized") : false;
 
     var pkt = this.apnAgent.createMessage().device(device_id);
     if (options.msg) pkt.alert(options.msg);
@@ -212,7 +212,7 @@ msg.sendAPN = function(device_id, options, callback)
     if (options.type) pkt.set("type", options.type);
     if (options.id) pkt.set("id", options.id);
     pkt.send(function(err) { if (!err) self.apnSent++; });
-    if (callback) process.nextTick(callback);
+    if (typeof callback == "function") process.nextTick(callback);
     return true;
 }
 
@@ -229,7 +229,7 @@ msg.initGCM = function()
 msg.closeGCM = function(callback)
 {
     var self = this;
-    if (!self.gcmAgent || !self.gcmQueue) return callback ? callback() : null;
+    if (!self.gcmAgent || !self.gcmQueue) return typeof callback == "function" ? callback() : null;
 
     logger.debug('closeGCM:', 'queue:', self.gcmQueue, 'sent:', this.gcmSent);
 
@@ -251,7 +251,7 @@ msg.closeGCM = function(callback)
 msg.sendGCM = function(device_id, options, callback)
 {
     var self = this;
-    if (!this.gcmAgent) return callback ? callback("GCM is not initialized") : false;
+    if (!this.gcmAgent) return typeof callback == "function" ? callback("GCM is not initialized") : false;
 
     this.gcmQueue++;
     var pkt = new gcm.Message();
@@ -262,7 +262,7 @@ msg.sendGCM = function(device_id, options, callback)
     this.gcmAgent.send(pkg, [device_id], 2, function() {
         self.gcmQueue--;
         self.gcmSent++;
-        if (callback) process.nextTick(callback);
+        if (typeof callback == "function") process.nextTick(callback);
     });
     return true;
 }
@@ -291,7 +291,7 @@ msg.sendAWS = function(device_id, options, callback)
     }
     aws.snsPublish(device_id, pkt, function(err) {
         if (!err) self.awsSent++;
-        if (callback) callback(err);
+        if (typeof callback == "function") callback(err);
     });
     return true;
 }

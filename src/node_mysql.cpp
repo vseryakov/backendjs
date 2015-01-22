@@ -546,7 +546,7 @@ static bool ParseParameters(Row &params, const Arguments& args, int idx)
             params.push_back(MysqlField(pos, MYSQL_TYPE_DOUBLE, source->NumberValue()));
         } else
         if (source->IsObject()) {
-            params.push_back(MysqlField(pos, MYSQL_TYPE_STRING, 0, jsonStringify(source)));
+            params.push_back(MysqlField(pos, MYSQL_TYPE_STRING, 0, stringifyJSON(source)));
         } else
         if (source->IsUndefined()) {
             params.push_back(MysqlField(pos));

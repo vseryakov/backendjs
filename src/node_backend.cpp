@@ -48,7 +48,7 @@ static Handle<Value> loggingChannel(const Arguments& args)
     return scope.Close(String::NewSymbol(fp == stderr ? "stderr" : "stdout"));
 }
 
-string jsonStringify(Local<Value> obj)
+string stringifyJSON(Local<Value> obj)
 {
     HandleScope scope;
 
@@ -60,11 +60,11 @@ string jsonStringify(Local<Value> obj)
     return *json;
 }
 
-Handle<Value> jsonParse(string str)
+Handle<Value> parseJSON(const char* str)
 {
     HandleScope scope;
 
-    Local<Value> argv[1] = { Local<String>::New(String::New(str.c_str())) };
+    Local<Value> argv[1] = { Local<String>::New(String::New(str)) };
     Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::NewSymbol("JSON"))->ToObject();
     Handle<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::NewSymbol("parse")));
     Local<Value> val;

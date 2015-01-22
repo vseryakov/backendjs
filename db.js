@@ -318,10 +318,14 @@ db.initConfig = function(options, callback)
 
         // Sort inside to be persistent across databases
         rows.sort(function(a,b) { return types.indexOf(b.type) - types.indexOf(a.type); });
-        // Only keep the most specific value, it is sorted in descendent order most specific at the end
+        logger.dev("initConfig:", rows);
+
+        // Only keep the most specific value, it is sorted in descendent order most specific at the top
+        var args = {};
         rows.forEach(function(x) {
-            var name = '-' + x.name;
-            if (x.name) argv.push(name);
+            if (args[x.name]) return;
+            args[x.name] = 1;
+            argv.push('-' + x.name);
             if (x.value) argv.push(x.value);
         });
         core.parseArgs(argv);
@@ -481,6 +485,7 @@ db.createPool = function(options)
 
             create: function(callback) {
                 var me = this;
+                if (typeof callback != "function") callback = corelib.noop;
                 try {
                     me.connect.call(self, me, function(err, client) {
                         if (err) return callback(err, client);
@@ -489,18 +494,19 @@ db.createPool = function(options)
                     });
                 } catch(e) {
                     logger.error('pool.create:', this.name, e);
-                    if (typeof callback == "function") callback(e);
+                    callback(e);
                 }
             },
             validate: function(client) {
                 return self.pools[this.name].serialNum == client.pool_serial;
             },
             destroy: function(client) {
-                logger.debug('pool.destroy', client.pool_name, "#", client.pool_serial);
+                var me = this;
+                logger.debug('pool.destroy', this.name, "#", client.pool_serial);
                 try {
-                    this.close(client, function(err) { if (err) logger.error("db.close:", client.pool_name, err || "") });
+                    this.close(client, function(err) { if (err) logger.error("db.close:", me.name, err) });
                 } catch(e) {
-                    logger.error("pool.destroy:", client.pool_name, e);
+                    logger.error("pool.destroy:", thus.name, e);
                 }
             },
         });
@@ -522,7 +528,7 @@ db.createPool = function(options)
         }
     } else {
         var pool = {};
-        pool.get = function(callback) { if (typeof callback == "function" ) callback(null, {}); else logger.error("pool.get:", "invalid callback", callback); };
+        pool.get = function(cb) { if (typeof cb == "function" ) cb(null, {}); else logger.error("pool.get:", "invalid callback", cb); };
         pool.free = function(client) {};
         pool.closeAll = function() {};
         pool.stats = function() { return null };
@@ -570,12 +576,12 @@ db.createPool = function(options)
     }
 
     // Default methods if not setup from the options
-    if (typeof pool.connect != "function") pool.connect = function(pool, callback) { if (typeof callback == "function" ) callback(null, {}); };
-    if (typeof pool.close != "function") pool.close = function(client, callback) { if (typeof callback == "function" ) callback() }
-    if (typeof pool.setup != "function") pool.setup = function(client, callback) { if (typeof callback == "function" ) callback(null, client); };
-    if (typeof pool.query != "function") pool.query = function(client, req, opts, callback) { if (typeof callback == "function" ) callback(null, []); };
-    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, callback) { if (typeof callback == "function" ) callback(); }
-    if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, callback) { if (typeof callback == "function" ) callback(); };
+    if (typeof pool.connect != "function") pool.connect = function(pool, cb) { if (typeof cb == "function" ) cb(null, {}); };
+    if (typeof pool.close != "function") pool.close = function(client, cb) { if (typeof cb == "function" ) cb() }
+    if (typeof pool.setup != "function") pool.setup = function(client, cb) { if (typeof cb == "function" ) cb(null, client); };
+    if (typeof pool.query != "function") pool.query = function(client, req, opts, cb) { if (typeof cb == "function" ) cb(null, []); };
+    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, cb) { if (typeof cb == "function" ) cb(); }
+    if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, cb) { if (typeof cb == "function" ) cb(); };
     if (typeof pool.nextToken != "function") pool.nextToken = function(client, req, rows, opts) { return client.next_token || null };
     // Pass all request in an object with predefined properties
     if (typeof pool.prepare != "function") {

@@ -81,8 +81,8 @@ string exceptionString(TryCatch* try_catch);
 Handle<Value> toArray(vector<string> &list, int numeric = 0);
 Handle<Value> toArray(vector<pair<string,string> > &list);
 
-Handle<Value> jsonParse(string str);
-string jsonStringify(Local<Value> obj);
+Handle<Value> parseJSON(const char* str);
+string stringifyJSON(Local<Value> obj);
 
 #endif
 

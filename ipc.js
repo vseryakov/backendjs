@@ -448,7 +448,7 @@ ipc.setup = function(name, type, options, callback)
         if (!err && typeof options.forward != "undefined") err = this[type][name].setForward(options.forward);
         if (!err && Array.isArray(options.subscribe)) options.subscribe.forEach(function(x) { if (!err) err = self[type][name].subscribe(x); });
         if (!err && Array.isArray(options.opts)) options.opts.forEach(function(x) { if (!err) err = self[type][name].setOption(x[0], x[1]); });
-        if (!err && callback) err = this[type][name].setCallback(callback);
+        if (!err && typeof callback == "function") err = this[type][name].setCallback(callback);
         return err;
     }
 }
@@ -506,6 +506,7 @@ ipc.stats = function(callback)
 
 ipc.keys = function(callback)
 {
+    if (typeof callback != "function") callback = corelib.noop;
     try {
         switch (core.cacheType) {
         case "memcache":
@@ -573,6 +574,7 @@ ipc.clear = function()
 ipc.get = function(key, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
 
     try {
         switch (core.cacheType) {

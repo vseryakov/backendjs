@@ -57,8 +57,8 @@ public:
         for (int i = 0; i < CB_MAX; i++) {
             if (!callback[i].IsEmpty()) callback[i].Dispose();
         }
-        if (timer.data) Unref();
         timer.data = NULL;
+        Unref();
     }
 
     void Clear() {
@@ -200,8 +200,6 @@ Handle<Value> PgSQLDatabase::New(const Arguments& args)
 	// Run in timer to call callback properly on any error, new does not allow callbacks
 	db->timer.data = db;
 	uv_timer_start(&db->timer, Timer_Connect, 0, 0);
-
-	// To keep from garbage collection while waiting for event
 	db->Ref();
 	return args.This();
 }
@@ -283,8 +281,8 @@ Handle<Value> PgSQLDatabase::Close(const Arguments& args)
     db->Destroy();
 
     if (!cb.IsEmpty()) {
-        Local<Value> argv[1];
-        TRY_CATCH_CALL(Context::GetCurrent()->Global(), cb, 0, argv);
+        Local<Value> argv[1] = { Local<Value>::New(Null()) };
+        TRY_CATCH_CALL(Context::GetCurrent()->Global(), cb, 1, argv);
     }
     return args.This();
 }
@@ -456,7 +454,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
 				break;
 
             case 17: // byteA
-                buffer = Buffer::New(val, PQgetlength(result, r, c));
+                buffer = Buffer::New(val, len);
                 value = Local<Value>::New(buffer->handle_);
                 break;
 
@@ -472,7 +470,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
                 break;
 
             case 114: // json
-                value = Local<Value>::New(jsonParse(string(val)));
+                value = Local<Value>::New(parseJSON(val));
                 break;
 
             case 700: // float32

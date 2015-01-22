@@ -353,7 +353,7 @@ static bool ParseParameters(Row &params, const Arguments& args, int idx)
             params.push_back(SQLiteField(pos, SQLITE_FLOAT, source->NumberValue()));
         } else
         if (source->IsObject()) {
-            params.push_back(SQLiteField(pos, SQLITE_TEXT, 0, jsonStringify(source)));
+            params.push_back(SQLiteField(pos, SQLITE_TEXT, 0, stringifyJSON(source)));
         } else
         if (source->IsUndefined()) {
             params.push_back(SQLiteField(pos));
@@ -424,7 +424,7 @@ static Local<Object> GetRow(sqlite3_stmt *stmt)
             value = Local<Value>(String::New((const char*) sqlite3_column_text(stmt, i)));
             break;
         case SQLITE_JSON:
-            value = Local<Value>::New(jsonParse(string((char*)sqlite3_column_text(stmt, i))));
+            value = Local<Value>::New(parseJSON((const char*)sqlite3_column_text(stmt, i)));
             break;
         case SQLITE_BLOB:
             text = (const char*)sqlite3_column_blob(stmt, i);
@@ -451,7 +451,7 @@ static Local<Object> RowToJS(Row &row)
         Local<Value> value;
         switch (field.type) {
         case SQLITE_JSON:
-            value = Local<Value>::New(jsonParse(field.svalue));
+            value = Local<Value>::New(parseJSON(field.svalue.c_str()));
             break;
         case SQLITE_INTEGER:
             value = Local<Value>(Number::New(field.nvalue));

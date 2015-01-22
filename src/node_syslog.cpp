@@ -227,7 +227,7 @@ static void _syslogSendV(int severity, const char *fmt, va_list ap)
 
     // output to stderr if requested
     if (log->options & LOG_PERROR) {
-        write(2, buf.c_str() + offset, buf.size() - offset);
+        n = write(2, buf.c_str() + offset, buf.size() - offset);
     }
 
     // output to the syslog socket
@@ -239,7 +239,7 @@ static void _syslogSendV(int severity, const char *fmt, va_list ap)
         if ((fd = open("/dev/console", O_WRONLY|O_NOCTTY, 0)) < 0) return;
         buf += "\r\n";
         const char *p = index(buf.c_str(), '>') + 1;
-        write(fd, p, buf.size() - (p - buf.c_str()));
+        n = write(fd, p, buf.size() - (p - buf.c_str()));
         close(fd);
     }
 }

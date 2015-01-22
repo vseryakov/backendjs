@@ -40,7 +40,8 @@ struct FileOutputStream: public OutputStream {
     void EndOfStream() { fflush(out); }
     int GetChunkSize() { return 32*1024; }
     OutputStream::WriteResult WriteAsciiChunk(char *data, int size) {
-        write(fileno(out), data, size);
+        int n = write(fileno(out), data, size);
+        if (n <= 0) return kAbort;
         return kContinue;
     }
 };
@@ -456,7 +457,7 @@ static void jsBacktrace(void)
 static void sigBacktrace(int)
 {
     jsBacktrace();
-    fprintf(stderr, "SEGV: ERROR: keep running=%d\n", run_segv);
+    fprintf(stderr, "SEGV[%d]: ERROR: keep running=%d\n", getpid(), run_segv);
     while (run_segv) sleep(1);
     raise(SIGABRT);
 }
@@ -467,7 +468,7 @@ static void sigSEGV(int)
     int size;
     size = backtrace(array, 50);
     backtrace_symbols_fd(array, size, 2);
-    fprintf(stderr, "SEGV: ERROR: keep running=%d\n", run_segv);
+    fprintf(stderr, "SEGV[%d]: ERROR: keep running=%d\n", getpid(), run_segv);
     while (run_segv) sleep(1);
     raise(SIGSEGV);
 }
