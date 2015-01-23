@@ -758,17 +758,18 @@ core.processName = function()
 // - name - server name to be assigned
 core.createServer = function(options, callback)
 {
+    var self = this;
     if (!options || !options.port) {
         logger.error('createServer:', 'invalid options', options);
         return null;
     }
     var server = options.ssl ? https.createServer(options.ssl, callback) : http.createServer(callback);
     if (options.timeout) server.timeout = options.timeout;
-    server.on('error', function onError(err) {
-        logger.error('web:', options, err.stack);
+    server.on('error', function(err) {
+        logger.error(this.role + ':', 'port:', options.port, err.stack);
         // Restart backend processes on address in use
         if (err.code == 'EADDRINUSE' && options.restart) {
-            core.killBackend(options.restart, "SIGKILL", function() { process.exit(0) });
+            self.killBackend(options.restart, "SIGKILL", function() { process.exit(0) });
         }
     });
     server.serverPort = options.port;
@@ -1093,19 +1094,20 @@ core.runMethods = function(name, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
+    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     corelib.forEachSeries(Object.keys(self.modules), function(mod, next) {
         if (options.noModules instanceof RegExp && options.noModules.test(mod)) return next();
         var ctx = self.modules[mod];
-        if (!ctx[name]) return next();
+        if (typeof ctx[name] != "function") return next();
         logger.debug("runMethods:", name, mod);
         ctx[name](options, function(err) {
             if (err) logger.error('runMethods:', name, mod, err);
             next();
         });
     }, function(err) {
-        if (typeof callback == "function") callback(err, options);
+        callback(err, options);
     });
 }
 
@@ -1245,7 +1247,7 @@ core.killBackend = function(name, signal, callback)
                map(function(x) { return corelib.toNumber(x) }).
                filter(function(x) { return x != process.pid }).
                forEach(function(x) { try { process.kill(x, signal); } catch(e) { logger.error('killBackend:', name, x, e); } });
-        if (callback) callback();
+        if (typeof callback == "function") callback();
     });
 }
 

@@ -80,6 +80,7 @@ var server = {
     proxyHost: null,
     proxyPort: 80,
     proxyTarget: {},
+    _proxyTargets: [],
 
     // Config parameters
     args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=corelib.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
@@ -173,42 +174,44 @@ server.startMaster = function(options)
         // Start other master processes
         if (!core.noWeb) this.startWebProcess();
 
-        // REPL command prompt over TCP
-        if (core.replPort) self.startRepl(core.replPort, core.replBind);
-
-        // Setup background tasks
-        this.loadSchedules();
-
         var d = domain.create();
-        d.on('error', function(err) { logger.error('master:', err, err.stack); });
+        d.on('error', function(err) { logger.error('master:', err.stack); });
+        d.run(function() {
 
-        // Log watcher job, always runs even if no email configured, if enabled it will
-        // start sending only new errors and not from the past
-        setInterval(function() { d.run(function() { core.watchLogs(); }); }, core.logwatcherInterval * 60000);
+            // REPL command prompt over TCP
+            if (core.replPort) self.startRepl(core.replPort, core.replBind);
 
-        // Primary cron jobs
-        if (self.jobsInterval > 0) setInterval(function() { d.run(function() { self.processQueue(); }); }, self.jobsInterval * 1000);
+            // Setup background tasks
+            self.loadSchedules();
 
-        // Watch temp files
-        setInterval(function() { d.run(function() { core.watchTmp("tmp", { seconds: 86400 }) }); }, 43200000);
-        setInterval(function() { d.run(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }); }, 86400000);
+            // Log watcher job, always runs even if no email configured, if enabled it will
+            // start sending only new errors and not from the past
+            setInterval(function() { d.run(function() { core.watchLogs(); }); }, core.logwatcherInterval * 60000);
 
-        // Maintenance tasks
-        setInterval(function() {
-            // Submit pending jobs
-            self.execJobQueue();
+            // Primary cron jobs
+            if (self.jobsInterval > 0) setInterval(function() { d.run(function() { self.processQueue(); }); }, self.jobsInterval * 1000);
 
-            // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
-            if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - self.jobTime > self.idleTime) {
-                logger.log('startMaster:', 'idle:', self.idleTime);
-                self.shutdown();
-            }
-        }, 30000);
+            // Watch temp files
+            setInterval(function() { d.run(function() { core.watchTmp("tmp", { seconds: 86400 }) }); }, 43200000);
+            setInterval(function() { d.run(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }); }, 86400000);
 
-        // API related initialization
-        core.runMethods("configureMaster");
+            // Maintenance tasks
+            setInterval(function() {
+                // Submit pending jobs
+                self.execJobQueue();
 
-        logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
+                // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
+                if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - self.jobTime > self.idleTime) {
+                    logger.log('startMaster:', 'idle:', self.idleTime);
+                    self.shutdown();
+                }
+            }, 30000);
+
+            // API related initialization
+            core.runMethods("configureMaster");
+
+            logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
+        });
     } else {
         core.dropPrivileges();
         this.startWorker();
@@ -255,160 +258,111 @@ server.startWeb = function(options)
 {
     var self = this;
 
+    process.on("uncaughtException", function(err) {
+        logger.error('fatal:', core.role, err.stack);
+        self.onkill();
+    });
+
     if (cluster.isMaster) {
         core.role = 'server';
         process.title = core.name + ': server';
 
-        // Setup IPC communication
-        ipc.initServer();
+        var d = domain.create();
+        d.on('error', function(err) { logger.error(core.role + ':', err.stack); });
+        d.run(function() {
+            // Setup IPC communication
+            ipc.initServer();
 
-        // REPL command prompt over TCP
-        if (core.replPortWeb) self.startRepl(core.replPortWeb, core.replBindWeb);
+            // REPL command prompt over TCP
+            if (core.replPortWeb) self.startRepl(core.replPortWeb, core.replBindWeb);
 
-        // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
-        if (core.proxy.port) {
-            core.role = 'proxy';
-            self._proxyTargets = [];
+            // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
+            if (core.proxy.port) {
+                core.role = 'proxy';
 
-            self.getProxyPort = function() {
-                var ports = self._proxyTargets.map(function(x) { return x.port }).sort();
-                if (ports.length && ports[0] != core.proxy.port) return core.proxy.port;
-                for (var i = 1; i < ports.length; i++) {
-                    if (ports[i] - ports[i - 1] != 1) return ports[i - 1] + 1;
-                }
-                return ports.length ? ports[ports.length-1] + 1 : core.proxy.port;
-            }
-            self.getProxyTarget = function(req) {
-                // Virtual hosting proxy
-                if (self.proxyTarget && self.proxyTarget[req.host]) return { target: self.proxyTarget[req.host] };
-                // Proxy to the global Web server running behind us by url patterns
-                if (self.proxyHost && self.proxyUrl.rx) {
-                    var d = req.url.match(self.proxyUrl.rx);
-                    if ((self.proxyReverse && !d) || (!self.proxyReverse && d)) return { target: { host: self.proxyHost, port: self.proxyPort } };
-                }
-                // Forward api requests to the workers
-                for (var i = 0; i < self._proxyTargets.length; i++) {
-                    var target = self._proxyTargets.shift();
-                    if (!target) break;
-                    self._proxyTargets.push(target);
-                    if (!target.ready) continue;
-                    return { target: { host: core.proxy.bind, port: target.port } };
-                }
-                return null;
-            }
-            self.clusterFork = function() {
-                var port = self.getProxyPort();
-                var worker = cluster.fork({ BKJS_PORT: port });
-                self._proxyTargets.push({ id: worker.id, port: port });
-            }
-            ipc.onMessage = function(msg) {
-                switch (msg.op) {
-                case "api:ready":
-                    for (var i = 0; i < self._proxyTargets.length; i++) {
-                        if (self._proxyTargets[i].id == this.id) return self._proxyTargets[i] = msg.value;
-                    }
-                    break;
-
-                case "cluster:exit":
-                    for (var i = 0; i < self._proxyTargets.length; i++) {
-                        if (self._proxyTargets[i].id == this.id) return self._proxyTargets.splice(i, 1);
-                    }
-                    break;
-                }
-            }
-            self.proxyServer = proxy.createServer({ xfwd : true });
-            self.proxyServer.on("error", function(err) { if (err.code != "ECONNRESET") logger.error("proxy:", err.code, err.stack) })
-            self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
-                api.handleProxyRequest(req, res, function(err) {
-                    if (res.headersSent) return;
-                    if (err) {
-                        res.writeHead(500, "Internal Error");
-                        return res.end(err.message);
-                    }
-                    var proto = req.headers["x-forwarded-proto"] || "";
-                    if (api.redirectSsl.rx && !proto.match(/https/) && url.parse(req.url).pathname.match(api.redirectSsl.rx)) {
-                        res.writeHead(302, { "Location": "https://" + req.headers.host + req.url });
-                        return res.end();
-                    }
-                    if (api.allowSsl.rx && url.parse(req.url).pathname.match(api.allowSsl.rx) && !proto.match(/https/)) {
-                        var body = JSON.stringify({ status: 400, message: "SSL only access" });
-                        res.writeHead(400, { 'Content-Type': 'application/json', "Content-Length": body.length });
-                        return res.end(body);
-                    }
-                    var target = self.getProxyTarget(req);
-                    if (target) return self.proxyServer.web(req, res, target);
-                    res.writeHead(500, "Not ready yet");
-                    res.end();
-                });
-            });
-            if (core.proxy.ssl && (core.ssl.key || core.ssl.pfx)) {
-                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
-                    api.handleProxyRequest(req, res, function(err) {
-                        if (res.headersSent) return;
-                        if (err) {
-                            res.writeHead(500, "Internal Error");
-                            return res.end(err.message);
+                ipc.onMessage = function(msg) {
+                    switch (msg.op) {
+                    case "api:ready":
+                        for (var i = 0; i < self._proxyTargets.length; i++) {
+                            if (self._proxyTargets[i].id == this.id) return self._proxyTargets[i] = msg.value;
                         }
-                        var target = self.getProxyTarget(req);
-                        if (target) return self.proxyServer.web(req, res, target);
-                        res.writeHead(500, "Not ready yet");
-                        res.end();
+                        break;
+
+                    case "cluster:exit":
+                        for (var i = 0; i < self._proxyTargets.length; i++) {
+                            if (self._proxyTargets[i].id == this.id) return self._proxyTargets.splice(i, 1);
+                        }
+                        break;
+                    }
+                }
+                self.proxyServer = proxy.createServer({ xfwd : true });
+                self.proxyServer.on("error", function(err) { if (err.code != "ECONNRESET") logger.error("proxy:", err.code, err.stack) })
+                self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
+                    self.handleProxyRequest(req, res, 0);
+                });
+                if (core.proxy.ssl && (core.ssl.key || core.ssl.pfx)) {
+                    self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
+                        self.handleProxyRequest(req, res, 1);
                     });
-                });
-            }
-            if (core.ws.port) {
-                self.server.on('upgrade', function(req, socket, head) {
-                    var target = self.getProxyTarget(req);
-                    if (target) return self.proxyServer.ws(req, socket, head, target);
-                    req.close();
-                });
-                if (self.sslServer) {
-                    self.sslServer.on('upgrade', function(req, socket, head) {
+                }
+                if (core.ws.port) {
+                    self.server.on('upgrade', function(req, socket, head) {
                         var target = self.getProxyTarget(req);
                         if (target) return self.proxyServer.ws(req, socket, head, target);
                         req.close();
                     });
+                    if (self.sslServer) {
+                        self.sslServer.on('upgrade', function(req, socket, head) {
+                            var target = self.getProxyTarget(req);
+                            if (target) return self.proxyServer.ws(req, socket, head, target);
+                            req.close();
+                        });
+                    }
                 }
+                self.clusterFork = function() {
+                    var port = self.getProxyPort();
+                    var worker = cluster.fork({ BKJS_PORT: port });
+                    self._proxyTargets.push({ id: worker.id, port: port });
+                }
+            } else {
+                self.clusterFork = function() { return cluster.fork(); }
             }
-        } else {
-            self.getWorkerEnv = function() { return null; }
-            self.clusterFork = function() { return cluster.fork(); }
-        }
-        // Arguments passed to the v8 engine
-        if (self.workerArgs.length) process.execArgv = self.workerArgs;
 
-        // Create tables and spawn Web workers
-        api.initTables(options, function(err) {
-            for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
+            // Arguments passed to the v8 engine
+            if (self.workerArgs.length) process.execArgv = self.workerArgs;
+
+            // Create tables and spawn Web workers
+            api.initTables(options, function(err) {
+                for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
+            });
+
+            // API related initialization
+            core.runMethods("configureServer", options);
+
+            // Frontend server tasks
+            setInterval(function() {
+                // Make sure we have all workers running
+                var workers = Object.keys(cluster.workers);
+                for (var i = 0; i < self.maxProcesses - workers.length; i++) self.clusterFork();
+            }, 5000);
+
+            // Restart if any worker dies, keep the worker pool alive
+            cluster.on("exit", function(worker, code, signal) {
+                logger.log('web worker: died:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
+                self.respawn(function() { self.clusterFork(); });
+                // Exit when all workers are terminated
+                if (self.exiting && !Object.keys(cluster.workers).length) process.exit(0);
+            });
+
+            // Graceful shutdown if the server needs restart
+            self.onkill = function() {
+                self.exiting = true;
+                setTimeout(function() { process.exit(0); }, 30000);
+                logger.log('web server: shutdown started');
+                for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
+            }
+            logger.log('startServer:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
         });
-
-        // API related initialization
-        core.runMethods("configureServer", options);
-
-        // Frontend server tasks
-        setInterval(function() {
-            // Make sure we have all workers running
-            var workers = Object.keys(cluster.workers);
-            for (var i = 0; i < this.maxProcesses - workers.length; i++) self.clusterFork();
-        }, 5000);
-
-        // Restart if any worker dies, keep the worker pool alive
-        cluster.on("exit", function(worker, code, signal) {
-            logger.log('web worker: died:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
-            self.respawn(function() { self.clusterFork(); });
-            // Exit when all workers are terminated
-            if (self.exiting && !Object.keys(cluster.workers).length) process.exit(0);
-        });
-
-        // Graceful shutdown if the server needs restart
-        self.onkill = function() {
-            self.exiting = true;
-            setTimeout(function() { process.exit(0); }, 60000);
-            logger.log('web server: shutdown started');
-            for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
-        }
-        logger.log('startServer:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
-
     } else {
         core.role = 'web';
         process.title = core.name + ": web";
@@ -440,11 +394,6 @@ server.startWeb = function(options)
                 self.exiting = true;
                 api.shutdown(function() { process.exit(0); } );
             }
-
-            process.on("uncaughtException", function(err) {
-                logger.error('fatal:', err, err.stack);
-                self.onkill();
-            });
         });
 
         logger.log('startWeb:', core.role, 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'port:', core.port, core.bind, 'repl:', core.replPortWeb, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
@@ -969,7 +918,7 @@ server.sleep = function(options, callback)
 
     setTimeout(function() {
         logger.log('sleep:', options);
-        if (callback) callback();
+        if (typeof callback == "function") callback();
     }, options.timeout || 30000);
 }
 
@@ -1024,6 +973,80 @@ server.spawnProcess = function(args, skip, opts)
     var cmd = self.processName || process.argv[0];
     logger.debug('spawnProcess:', cmd, argv, 'skip:', skip, 'opts:', opts);
     return spawn(cmd, argv, opts);
+}
+
+// Return a target port for proxy requests, rotates between all web workers
+server.getProxyPort = function()
+{
+    var ports = this._proxyTargets.map(function(x) { return x.port }).sort();
+    if (ports.length && ports[0] != core.proxy.port) return core.proxy.port;
+    for (var i = 1; i < ports.length; i++) {
+        if (ports[i] - ports[i - 1] != 1) return ports[i - 1] + 1;
+    }
+    return ports.length ? ports[ports.length-1] + 1 : core.proxy.port;
+}
+
+// Return a target for proxy requests
+server.getProxyTarget = function(req)
+{
+    // Virtual hosting proxy
+    if (this.proxyTarget && this.proxyTarget[req.host]) return { target: this.proxyTarget[req.host] };
+    // Proxy to the global Web server running behind us by url patterns
+    if (this.proxyHost && this.proxyUrl.rx) {
+        var d = req.url.match(this.proxyUrl.rx);
+        if ((this.proxyReverse && !d) || (!this.proxyReverse && d)) return { target: { host: this.proxyHost, port: this.proxyPort } };
+    }
+    // Forward api requests to the workers
+    for (var i = 0; i < this._proxyTargets.length; i++) {
+        var target = this._proxyTargets.shift();
+        if (!target) break;
+        this._proxyTargets.push(target);
+        if (!target.ready) continue;
+        return { target: { host: core.proxy.bind, port: target.port } };
+    }
+    return null;
+}
+
+// Process a proxy request, perform all filtering or redirects
+server.handleProxyRequest = function(req, res, ssl)
+{
+    var self = this;
+    var d = domain.create();
+    d.on('error', function(err) {
+        logger.error('handleProxyRequest:', req.path, err.stack);
+        res.writeHead(500, "Internal Error");
+        res.end(err.message);
+        self.onkill();
+    });
+    d.add(req);
+    d.add(res);
+
+    d.run(function() {
+        // Possibly overriden handler with aditiional logic
+        api.handleProxyRequest(req, res, function(err) {
+            if (res.headersSent) return;
+            if (err) {
+                res.writeHead(500, "Internal Error");
+                return res.end(err.message);
+            }
+            if (!ssl) {
+                var proto = req.headers["x-forwarded-proto"] || "";
+                if (api.redirectSsl.rx && !proto.match(/https/) && url.parse(req.url).pathname.match(api.redirectSsl.rx)) {
+                    res.writeHead(302, { "Location": "https://" + req.headers.host + req.url });
+                    return res.end();
+                }
+                if (api.allowSsl.rx && url.parse(req.url).pathname.match(api.allowSsl.rx) && !proto.match(/https/)) {
+                    var body = JSON.stringify({ status: 400, message: "SSL only access" });
+                    res.writeHead(400, { 'Content-Type': 'application/json', "Content-Length": body.length });
+                    return res.end(body);
+                }
+            }
+            var target = self.getProxyTarget(req);
+            if (target) return self.proxyServer.web(req, res, target);
+            res.writeHead(500, "Not ready yet");
+            res.end();
+        });
+    });
 }
 
 // Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.

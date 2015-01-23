@@ -474,7 +474,7 @@ corelib.runCallback = function(obj, msg)
     var self = this;
     if (!msg) return;
     if (typeof msg == "string") {
-        try { msg = JSON.parse(msg); } catch(e) { logger.error('runCallback:', e, msg); }
+        try { msg = JSON.parse(msg); } catch(e) { logger.error('runCallback:', msg, e.stack); }
     }
     if (!msg.id || !obj[msg.id]) return;
     // Only keep reference for the callback
@@ -485,11 +485,7 @@ corelib.runCallback = function(obj, msg)
     clearTimeout(item.timeout);
     // Call in the next loop cycle
     setImmediate(function() {
-        try {
-            item.callback(msg);
-        } catch(e) {
-            logger.error('runCallback:', e, msg, e.stack);
-        }
+        try { item.callback(msg); } catch(e) { logger.error('runCallback:', msg, e.stack); }
     });
 }
 

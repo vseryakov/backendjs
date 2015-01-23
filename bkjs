@@ -876,7 +876,7 @@ case "$ARG" in
     ;;
 
   install-bkjs)
-    (cd $BKJS_HOME && npm install vseryakov/$BKJS_MOD $BKJS_ARGS)
+    (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $BKJS_ARGS)
     ;;
 
   build-bkjs)

@@ -224,7 +224,7 @@ db.initPool = function(name, options, callback)
     if (this.pools[name]) {
         if (!options.force) return callback();
         this.pools[name].shutdown();
-        delete this.pools[name];
+        this.pools[name] = null;
     }
 
     var d = name.match(/^([a-z]+)([0-9]+)?$/);
@@ -314,7 +314,7 @@ db.initConfig = function(options, callback)
     types = corelib.strSplitUnique(types);
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
-        if (err) return callback ? callback(err, []) : null;
+        if (err) return callback(err, []);
 
         // Sort inside to be persistent across databases
         rows.sort(function(a,b) { return types.indexOf(b.type) - types.indexOf(a.type); });
@@ -330,11 +330,10 @@ db.initConfig = function(options, callback)
         });
         core.parseArgs(argv);
 
-        // Refresh from time to time with new or modified parameters, randomize a little to spread across all servers, we run in at the end
-        // in order to pickup any new config parameters that we just loaded
-        clearInterval(self.configTimer);
-        if (self.configInterval > 0) self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + corelib.randomShort());
-
+        // Refresh from time to time with new or modified parameters, randomize a little to spread across all servers
+        if (self.configInterval > 0 && !self.configTimer) {
+            self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + corelib.randomShort());
+        }
         // Init more db pools
         self.init(options, function(err) {
             callback(err, argv);

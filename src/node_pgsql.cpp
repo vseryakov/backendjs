@@ -30,6 +30,7 @@ public:
     enum { CB_CONNECT, CB_NOTIFY, CB_QUERY, CB_MAX };
 
     int fd;
+    bool active;
     PGconn *handle;
     uv_poll_t poll;
     uv_timer_t timer;
@@ -40,7 +41,7 @@ public:
     static Persistent<FunctionTemplate> constructor_template;
     vector<PGresult*> results;
 
-    PgSQLDatabase(): ObjectWrap(), fd(-1), handle(NULL), inserted_oid(0) {
+    PgSQLDatabase(): ObjectWrap(), fd(-1), active(1), handle(NULL), inserted_oid(0) {
         poll.data = timer.data = NULL;
         uv_timer_init(uv_default_loop(), &timer);
     }
@@ -58,7 +59,8 @@ public:
             if (!callback[i].IsEmpty()) callback[i].Dispose();
         }
         timer.data = NULL;
-        Unref();
+        if (active) Unref();
+        active = 0;
     }
 
     void Clear() {
@@ -68,19 +70,23 @@ public:
         results.clear();
     }
 
-    bool CallCallback(int id, string msg = string(), bool err = false, bool dispose = false) {
+    bool CallCallback(int id, string msg = string(), bool dispose = false) {
         if (!callback[id].IsEmpty()) {
             Local<Value> argv[2];
-            if (err) {
+            if (msg.size()) {
                 argv[0] = Exception::Error(String::New(msg.c_str()));
             } else {
                 argv[0] = Local<Value>::New(Null());
             }
             argv[1] = Local<Value>::New(Array::New(0));
-            Persistent<Function> cb = callback[id];
-            if (dispose) callback[id] = Persistent<Function>();
-            TRY_CATCH_CALL(handle_, cb, 2, argv);
-            if (dispose) cb.Dispose();
+            if (dispose) {
+                Persistent<Function> cb = callback[id];
+                callback[id] = Persistent<Function>();
+                TRY_CATCH_CALL(handle_, cb, 2, argv);
+                cb.Dispose();
+            } else {
+                TRY_CATCH_CALL(handle_, callback[id], 2, argv);
+            }
             return true;
         }
         LogDebug("%d: %s", id, msg.c_str());
@@ -192,16 +198,15 @@ Handle<Value> PgSQLDatabase::New(const Arguments& args)
     PgSQLDatabase* db = new PgSQLDatabase();
     db->Wrap(args.This());
     db->conninfo = *info;
+    db->Ref();
     LogDev("%s", *info);
 
     EXPECT_ARGUMENT_FUNCTION(-1, cb);
     if (!cb.IsEmpty()) db->callback[CB_CONNECT] = Persistent < Function > ::New(cb);
-
-	// Run in timer to call callback properly on any error, new does not allow callbacks
-	db->timer.data = db;
-	uv_timer_start(&db->timer, Timer_Connect, 0, 0);
-	db->Ref();
-	return args.This();
+    // Run in timer to call callback properly on any error, new does not allow callbacks
+    db->timer.data = db;
+    uv_timer_start(&db->timer, Timer_Connect, 0, 0);
+    return args.This();
 }
 
 void PgSQLDatabase::Timer_Connect(uv_timer_t* req, int status)
@@ -210,7 +215,7 @@ void PgSQLDatabase::Timer_Connect(uv_timer_t* req, int status)
 
     db->handle = PQconnectStart(db->conninfo.c_str());
     if (PQstatus(db->handle) == CONNECTION_BAD || (db->fd = PQsocket(db->handle)) < 0) {
-        db->CallCallback(CB_CONNECT, db->Error(), true, true);
+        db->CallCallback(CB_CONNECT, db->Error(), true);
         db->Destroy();
         return;
     }
@@ -231,7 +236,8 @@ void PgSQLDatabase::Timer_Timeout(uv_timer_t* req, int status)
 {
     PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
     POLL_STOP(db->poll);
-    db->CallCallback(CB_CONNECT, "connection timeout", true, true);
+    db->CallCallback(CB_CONNECT, "connection timeout", true);
+    db->Destroy();
 }
 
 void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
@@ -252,12 +258,12 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
 
     case PGRES_POLLING_OK:
         POLL_START(db->poll, UV_READABLE, Handle_Poll, db);
-        db->CallCallback(CB_CONNECT, "", false, true);
+        db->CallCallback(CB_CONNECT, "", true);
         break;
 
     case PGRES_POLLING_FAILED:
         POLL_STOP(db->poll);
-        db->CallCallback(CB_CONNECT, db->Error(), true, true);
+        db->CallCallback(CB_CONNECT, db->Error(), true);
         break;
 
     default:
@@ -277,14 +283,12 @@ Handle<Value> PgSQLDatabase::Close(const Arguments& args)
     PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
 
     OPTIONAL_ARGUMENT_FUNCTION(-1, cb);
-
-    db->Destroy();
-
     if (!cb.IsEmpty()) {
         Local<Value> argv[1] = { Local<Value>::New(Null()) };
         TRY_CATCH_CALL(Context::GetCurrent()->Global(), cb, 1, argv);
     }
-    return args.This();
+    db->Destroy();
+    return scope.Close(Local<Value>::New(Null()));
 }
 
 Handle<Value> PgSQLDatabase::QuerySync(const Arguments& args)
@@ -297,8 +301,6 @@ Handle<Value> PgSQLDatabase::QuerySync(const Arguments& args)
     REQUIRE_ARGUMENT_STRING(0, sql);
     OPTIONAL_ARGUMENT_ARRAY(1, params);
     if (!params.IsEmpty()) nparams = params->Length();
-    OPTIONAL_ARGUMENT_FUNCTION(-1, cb);
-    if (!cb.IsEmpty()) db->callback[CB_QUERY] = Persistent < Function > ::New(cb);
 
     db->Clear();
     POLL_STOP(db->poll);
@@ -362,7 +364,7 @@ Handle<Value> PgSQLDatabase::Query(const Arguments& args)
     }
     POLL_START(db->poll, UV_WRITABLE, Handle_Poll, db);
 
-    if (!rc) db->CallCallback(CB_QUERY, db->Error(), true, true);
+    if (!rc) db->CallCallback(CB_QUERY, db->Error(), true);
     return args.This();
 }
 
@@ -375,7 +377,7 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
 
     if (revents & UV_READABLE) {
         if (!PQconsumeInput(db->handle)) {
-            db->CallCallback(CB_NOTIFY, db->Error(), true);
+            db->CallCallback(CB_NOTIFY, db->Error());
             return;
         }
 
@@ -462,7 +464,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
             case 21:
             case 23:
             case 26: // integer
-                value = Local<Value>(Number::New(atoll(val)));
+                value = Local<Value>::New(Number::New(atoll(val)));
                 break;
 
             case 16: // bool
@@ -476,7 +478,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
             case 700: // float32
             case 701: // float64
             case 1700: // numeric
-                value = Local<Value>(Number::New(atof(val)));
+                value = Local<Value>::New(Number::New(atof(val)));
                 break;
 
             case 1003: // name
@@ -508,7 +510,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
             case 1186: // interval
 
             default:
-                value = Local<Value>(String::New(val));
+                value = Local<Value>::New(String::New(val));
             }
             row->Set(String::NewSymbol(name), value);
         }
@@ -524,7 +526,7 @@ void PgSQLDatabase::Process_Result()
         return;
     }
     if (!results.size()) {
-        CallCallback(CB_QUERY);
+        CallCallback(CB_QUERY, "", true);
         return;
     }
     PGresult *result = results[0];

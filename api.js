@@ -743,7 +743,7 @@ api.handleServerRequest = function(req, res)
     var api = core.modules.api;
     var d = domain.create();
     d.on('error', function(err) {
-        logger.error('api:', req.path, err.stack);
+        logger.error('handleServerRequest:', core.port, req.path, err.stack);
         api.sendReply(res, err);
         api.shutdown(function() { process.exit(0); });
     });
@@ -1671,7 +1671,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
                 if (user.id) req.account = user;
                 self.createSessionSignature(req, options);
                 if (options.successRedirect) return res.redirect(options.successRedirect);
-                if (typeof callback == "function") callback(req, options, info);
+                if (typeof callback == "function") return callback(req, options, info);
                 next();
             });
         })(req, res, next);
