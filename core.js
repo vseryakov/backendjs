@@ -159,17 +159,17 @@ var core = {
             { name: "home", type: "callback", callback: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "conf-file", descr: "Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path", pass: 1 },
             { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks", pass: 1 },
-            { name: "etc-dir", type: "callback", callback: function(v) { if (v) this.path.etc = v; }, descr: "Path where to keep config files", pass: 1 },
-            { name: "web-dir", type: "callback", callback: function(v) { if (v) this.path.web = v; }, descr: "Path where to keep web pages" },
-            { name: "views-dir", type: "callback", callback: function(v) { if (v) this.path.views = v; }, descr: "Path where to keep web template views" },
-            { name: "tmp-dir", type: "callback", callback: function(v) { if (v) this.path.tmp = v; }, descr: "Path where to keep temp files" },
-            { name: "spool-dir", type: "callback", callback: function(v) { if (v) this.path.spool = v; }, descr: "Path where to keep modifiable files" },
-            { name: "log-dir", type: "callback", callback: function(v) { if (v) this.path.log = v; }, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
-            { name: "files-dir", type: "callback", callback: function(v) { if (v) this.path.files = v; }, descr: "Path where to keep uploaded files" },
-            { name: "images-dir", type: "callback", callback: function(v) { if (v) this.path.images = v; }, descr: "Path where to keep images" },
-            { name: "modules-dir", type: "callback", callback: function(v) { if (v) this.path.modules = v; }, descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point", pass: 1 },
-            { name: "uid", type: "callback", callback: function(v) { var u = utils.getUser(v); if (u.uid) this.uid = u.uid, this.gid = u.gid; }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
-            { name: "gid", type: "callback", callback: function(v) { var g = utils.getGroup(v); if (g) this.gid = g.gid; }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
+            { name: "etc-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep config files", pass: 1 },
+            { name: "web-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep web pages" },
+            { name: "views-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep web template views" },
+            { name: "tmp-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep temp files" },
+            { name: "spool-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep modifiable files" },
+            { name: "log-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
+            { name: "files-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep uploaded files" },
+            { name: "images-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep images" },
+            { name: "modules-dir", type: "path", obj: "path", strip: "Dir", descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point", pass: 1 },
+            { name: "uid", type: "callback", callback: function(v) { if (!v)return;v = utils.getUser(v);if (v.name) this.uid = v.uid, this.gid = v.gid,this._name = "uid" }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
+            { name: "gid", type: "callback", callback: function(v) { if (!v)return;v = utils.getGroup(v);if (v.name) this.gid = v.gid,this._name = "gid" }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
             { name: "email", descr: "Email address to be used when sending emails from the backend" },
             { name: "force-uid", type: "callback", callback: "dropPrivileges", descr: "Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.", pass: 1 },
             { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used", pass: 1 },
@@ -241,7 +241,7 @@ var core = {
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access when using core.sendRequest" },
-            { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = corelib.domainName(this.hostName); }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
+            { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = corelib.domainName(this.hostName);this._name = "hostName" }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
             { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
     ],
@@ -538,14 +538,14 @@ core.processArgs = function(ctx, argv, pass)
             var prefix = ctx == self ? "-" : "-" + ctx.name + "-";
             // Name can be a regexp
             if (!key.match("^" + prefix + x.name + "$")) return;
-            var name = x.key || key.substr(prefix.length);
+            var name = x.key || key.substr(prefix.length), oname = "";
 
             try {
                 // Place inside the object
                 if (x.obj) {
-                    obj = corelib.toCamel(x.obj);
-                    if (!ctx[obj]) ctx[obj] = {};
-                    obj = ctx[obj];
+                    oname = corelib.toCamel(x.obj);
+                    if (!ctx[oname]) ctx[oname] = {};
+                    obj = ctx[oname];
                     // Strip the prefix if starts with the same name
                     name = name.replace(new RegExp("^" + x.obj + "-"), "");
                 }
@@ -563,8 +563,9 @@ core.processArgs = function(ctx, argv, pass)
                 // Only some types allow no value case
                 var type = (x.type || "").trim();
                 if (val == null && type != "bool" && type != "callback" && type != "none") return false;
-
-                logger.debug("processArgs:", x.type || "str", ctx.name + "." + name, "(" + key + ")", "=", val);
+                // Set the actual config variable name for further reference and easy access to the value
+                if (val != null) x._name = (oname ? oname + "." : "") + name, x._key = key;
+                logger.debug("processArgs:", x.type || "str", ctx.name + "." + x._name, "(" + key + ")", "=", val);
                 switch (type) {
                 case "none":
                     break;
@@ -681,7 +682,7 @@ core.showHelp = function(options)
     args.forEach(function(x) {
         x[1].forEach(function(y) {
             if (!y.name || !y.descr) return;
-            var dflt = y.match ? "" : ((x[0] ? self.modules[x[0]] : core)[corelib.toCamel(y.name)] || "");
+            var dflt = y._name ? corelib.objGet(x[0] ? self.modules[x[0]] : self, y._name) : "";
             var line = (x[0] ? x[0] + '-' : '') + (y.match ? 'NAME-' : '') + y.name + (options.markdown ? "`" : "") + " - " + y.descr + (dflt ? ". Default: " + JSON.stringify(dflt) : "");
             if (y.dns) line += ". DNS TXT configurable.";
             if (y.match) line += ". Where NAME is the actual " + y.match + " name.";

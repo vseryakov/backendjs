@@ -118,7 +118,7 @@ static Handle<Value> getUser(const Arguments& args)
    if (args.Length() > 0) {
        String::Utf8Value name(args[0]->ToString());
        pw = getpwnam(*name);
-       if (!pw) pw = getpwuid(args[0]->ToInteger()->Int32Value());
+       if (!pw && strNumeric(*name)) pw = getpwuid(args[0]->ToInteger()->Int32Value());
    } else {
        pw = getpwnam(getlogin());
    }
@@ -140,7 +140,7 @@ static Handle<Value> getGroup(const Arguments& args)
    if (args.Length() > 0) {
        String::Utf8Value name(args[0]->ToString());
        g = getgrnam(*name);
-       if (!g) g = getgrgid(args[0]->ToInteger()->Int32Value());
+       if (!g && strNumeric(*name)) g = getgrgid(args[0]->ToInteger()->Int32Value());
    } else {
        struct passwd *pw = getpwnam(getlogin());
        g = getgrgid(pw ? pw->pw_gid : 0);

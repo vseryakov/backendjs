@@ -83,7 +83,7 @@ var server = {
     _proxyTargets: [],
 
     // Config parameters
-    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=corelib.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1) }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
+    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=corelib.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1); this._name="maxProcesses" }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
            { name: "job-max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed, for instance mode only" },
@@ -93,7 +93,7 @@ var server = {
            { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "proxy-url", type: "regexpobj", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
-           { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = corelib.toNumber(v[1],0,80); }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
+           { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = corelib.toNumber(v[1],0,80); this._name="proxyHost" }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "proxy-target", type: "json", descr: "An object with virtual host names as property and targets as value, if host: header match any property, use its value as full target in the form http://host:port" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },

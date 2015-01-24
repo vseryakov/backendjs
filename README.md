@@ -1110,6 +1110,9 @@ default is is open for access to all users but same security considerations appl
 - `/system/msg/(msg)`
     Access to the messaging functions
 
+- `/system/params`
+    Return all config parameters applied from the config file(s) or remote database.
+
 - `/system/stats/get`
   Database pool statistics and other diagnostics
   - latency - how long a pending request waits in queue at this moment
