@@ -6023,6 +6023,24 @@ connection to APN gateway.</p>
 </ul>
 
 <ul>
+<li><p><code>server.getProxyPort()</code></p>
+<p> Return a target port for proxy requests, rotates between all web workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.getProxyTarget(req)</code></p>
+<p> Return a target for proxy requests</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.handleProxyRequest(req, res, ssl)</code></p>
+<p> Process a proxy request, perform all filtering or redirects</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>server.runJob(job)</code></p>
 <p> Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.</p>
 </li>
