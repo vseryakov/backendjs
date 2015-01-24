@@ -1754,6 +1754,7 @@ api.sendFormatted = function(req, rows, options)
 // - url - for redirects when status is 301 or 302
 api.sendStatus = function(res, options)
 {
+    if (res.headersSent) return;
     if (!options) options = { status: 200, message: "" };
     if (!options.status) options.status = 200;
     try {

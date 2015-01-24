@@ -700,6 +700,7 @@ db.query = function(req, options, callback)
                 if (err) return onEnd(err, client, [], {});
 
                 try {
+                    if (!rows) rows = [];
                     if (!info) info = {};
                     if (!info.affected_rows) info.affected_rows = client.affected_rows || 0;
                     if (!info.inserted_id) info.inserted_oid = client.inserted_oid || null;
@@ -2120,12 +2121,11 @@ db.sqlInitPool = function(options)
 
     // Execute initial statements to setup the environment, like pragmas
     pool.setup = function(client, callback) {
-        var me = this;
-        var init = Array.isArray(options.init) ? options.init : [];
-        corelib.forEachSeries(init, function(sql, next) {
+        if (!Array.isArray(options.init)) return callback(null, client);
+        corelib.forEachSeries(options.init, function(sql, next) {
             client.query(sql, next);
         }, function(err) {
-            if (err) logger.error('db.setup:', me.name, err);
+            if (err) logger.error('pool.setup:', err);
             callback(err, client);
         });
     }
