@@ -4564,7 +4564,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
  due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
  opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
  other database will not require any application code changes.</p>
-<p> Multiple connections of the same tipy can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as <code>pgsql1</code>.</p>
+<p> Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as <code>pgsql1</code>.</p>
 <p> Example:</p>
 <pre><code>      db-pgsql-pool = postgresql://locahost/backend
       db-pgsql-pool-1 = postgresql://localhost/billing
