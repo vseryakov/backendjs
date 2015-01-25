@@ -81,7 +81,7 @@ var metrics = require(__dirname + "/metrics");
 // opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
 // other database will not require any application code changes.
 //
-// Multiple connections of the same tipy can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as `pgsql1`.
+// Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as `pgsql1`.
 //
 // Example:
 //
@@ -2114,6 +2114,8 @@ db.sqlInitPool = function(options)
     if (!options.pool) options.pool = "sqlite";
 
     options.pooling = true;
+    // SQL databases cannot support unlimited connections, keep reasonable default to keep it from overloading
+    if (options.max == Infinity) options.max = 25;
     // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
     var dboptions = { sql: true, schema: [], typesMap: { uuid: 'text', counter: "int", bigint: "int", smallint: "int" }, opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' } };
     options.dboptions = corelib.mergeObj(dboptions, options.dboptions);

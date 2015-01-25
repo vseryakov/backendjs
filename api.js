@@ -1926,7 +1926,7 @@ api.sendStatistics = function()
 
     // Send to the collection host for storing in the special databze or due to security restrictions when
     // only HTTP is open and authentication is required
-    corelib.sendRequest({ url: self.collectHost, method: "POST", postdata: obj, quiet: self.collectQuiet }, function(err) {
+    core.sendRequest({ url: self.collectHost, method: "POST", postdata: obj, quiet: self.collectQuiet }, function(err) {
         logger.debug("sendStatistics:", self.collectHost, self.collectErrors, err || "");
         if (!err) {
             self.collectErrors = self.collectQuiet = 0;

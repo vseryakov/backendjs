@@ -501,7 +501,7 @@ Metrics.prototype.find = function(filter, list)
     if (!list) list = [];
     for (var p in this) {
         if (filter.test(p)) list.push(this[p]);
-        if (typeof this[p].find == "function") this[p].find(filter, list);
+        if (this[p] && typeof this[p].find == "function") this[p].find(filter, list);
     }
     return list;
 }
