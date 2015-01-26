@@ -313,7 +313,7 @@ case "$ARG" in
        echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitBurst 10000' >> /etc/rsyslog.conf
-       echo '$ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat' >> /etc/rsyslog.conf
+       echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> /etc/rsyslog.conf
        echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
        echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
        echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
