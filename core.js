@@ -1576,14 +1576,14 @@ core.watchLogs = function(options, callback)
                            if (chan) {
                                // Attach to the previous channel, for cases when more error into like backtraces are matched with
                                // a separate pattern. If no channel previously matched use any as the channel itself.
-                               chan = chan == "any" && i - eline <= self.logwatcherAnyRange ? (channel || "any") : chan;
+                               chan = chan == "any" && i - eline <= self.logwatcherAnyRange ? (echan || "any") : chan;
                                if (!errors[chan]) errors[chan] = "";
                                errors[chan] += lines[i] + "\n";
                                // Add all subsequent lines starting with a space or tab, those are continuations of the error or stack traces
                                while (i < lines.length -1 && (lines[i + 1][0] == ' ' || lines[i + 1][0] == '\t')) {
                                    errors[chan] += lines[++i] + "\n";
                                }
-                               channel = chan;
+                               echan = chan;
                                eline = i;
                            }
                        }

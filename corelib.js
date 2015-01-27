@@ -883,6 +883,51 @@ corelib.strftime = function(date, fmt, utc)
     return fmt;
 }
 
+// Nicely format an object with indentations
+corelib.formatJSON = function(obj, indent)
+{
+    var self = this;
+    // Shortcut to parse and format json from the string
+    if (typeof obj == "string" && obj != "") {
+        if (obj[0] != "[" && obj[0] != "{") return obj;
+        try { obj = JSON.parse(obj); } catch(e) { self.log(e) }
+    }
+    if (!indent) indent = "";
+    var style = "    ";
+    var type = this.typeName(obj);
+    var count = 0;
+    var text = type == "array" ? "[" : "{";
+
+    for (var p in obj) {
+        var val = obj[p];
+        if (count > 0) text += ",";
+        if (type != "array") {
+            text += ("\n" + indent + style + "\"" + p + "\"" + ": ");
+        }
+        switch (this.typeName(val)) {
+        case "array":
+        case "object":
+            text += this.formatJSON(val, (indent + style));
+            break;
+        case "boolean":
+        case "number":
+            text += val.toString();
+            break;
+        case "null":
+            text += "null";
+            break;
+        case "string":
+            text += ("\"" + val + "\"");
+            break;
+        default:
+            text += ("unknown: " + typeof(val));
+        }
+        count++;
+    }
+    text += type == "array" ? "]" : ("\n" + indent + "}");
+    return text;
+}
+
 // Split string into array, ignore empty items, `sep` is an RegExp to use as a separator instead of default  pattern `[,\|]`, if num is 1, then convert all items into numbers
 corelib.strSplit = function(str, sep, num)
 {

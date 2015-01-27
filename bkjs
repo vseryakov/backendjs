@@ -710,6 +710,7 @@ case "$ARG" in
       fi
     fi
     [ ! -f $file ] && echo "no jdk rpm found" && exit 1
+    [ "$PLATFORM" != "Linux" ] && exit
     rpm -Uvh $file
     alternatives --install /usr/bin/java java /usr/java/default/bin/java 20000
     alternatives --set java /usr/java/default/bin/java
