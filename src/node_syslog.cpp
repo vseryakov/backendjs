@@ -202,9 +202,14 @@ static void _syslogSendV(int severity, const char *fmt, va_list ap)
 
     // build the message
     char tmp[128];
+#ifdef linux
+    snprintf(tmp, sizeof(tmp), "<%d>%s ", severity, vFmtTime3339(vClock()).c_str());
+    buf = tmp;
+#else
     time_t now = time(NULL);
     snprintf(tmp, sizeof(tmp), "<%d>%.15s ", severity, ctime(&now) + 4);
     buf = tmp;
+#endif
     offset = buf.size();
 
     if (!log->tag.empty()) {

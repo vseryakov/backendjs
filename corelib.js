@@ -883,6 +883,31 @@ corelib.strftime = function(date, fmt, utc)
     return fmt;
 }
 
+// Return RFC3339 formatted timestamp for a date or current time
+corelib.toRFC3339 = function (date)
+{
+    date = date ? date : new Date();
+    var offset = date.getTimezoneOffset();
+    return this.zeropad(date.getFullYear(), 4)
+            + "-" + this.zeropad(date.getMonth() + 1, 2)
+            + "-" + this.zeropad(date.getDate(), 2)
+            + "T" + this.zeropad(date.getHours(), 2)
+            + ":" + this.zeropad(date.getMinutes(), 2)
+            + ":" + this.zeropad(date.getSeconds(), 2)
+            + "." + this.zeropad(date.getMilliseconds(), 3)
+            + (offset > 0 ? "-" : "+")
+            + this.zeropad(Math.floor(Math.abs(offset) / 60), 2)
+            + ":" + this.zeropad(Math.abs(offset) % 60, 2);
+}
+
+// Return a string with leading zeros
+corelib.zeropad = function(n, width)
+{
+    var pad = "";
+    while (pad.length < width - 1 && n < Math.pow(10, width - pad.length - 1)) pad += "0";
+    return pad + String(n);
+}
+
 // Nicely format an object with indentations
 corelib.formatJSON = function(obj, indent)
 {

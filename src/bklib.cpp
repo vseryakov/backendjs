@@ -460,6 +460,23 @@ string vFmtTime(string fmt, int64_t sec)
     return buf;
 }
 
+string vFmtTime3339(int64_t msec)
+{
+    char buf[128];
+    time_t sec = msec / 1000;
+    msec = msec % 1000;
+
+    struct tm tmbuf;
+    struct tm *tm = localtime_r((time_t*)&sec, &tmbuf);
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02d.%03d%c%02d:%02d",
+             tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+             tm->tm_hour, tm->tm_min, tm->tm_sec,
+             (int)msec,
+             tm->tm_gmtoff < 0 ? '-' : '+',
+             (int)(tm->tm_gmtoff / 3600), (int)((tm->tm_gmtoff % 3600) / 60));
+    return buf;
+}
+
 string vFmtStr(string fmt, ...)
 {
     va_list ap;
@@ -588,7 +605,7 @@ string strReplace(const string value, const string search, const string replace)
 
 string toString(vector<string> *list, string delim)
 {
-	return toString(*list, delim);
+    return toString(*list, delim);
 }
 
 string toString(const vector<string> &list, string delim)
@@ -648,13 +665,13 @@ vector<string> strSplit(const string str, const string delim, const string quote
         if (i == string::npos) break;
         // Opening quote
         if (i && quotes.find(str[i]) != string::npos) {
-        	q = ++i;
-        	while (q < len) {
-        		q = str.find_first_of(quotes, q);
-        		// Ignore escaped quotes
-        		if (q == string::npos || str[q - 1] != '\\') break;
-        		q++;
-        	}
+            q = ++i;
+            while (q < len) {
+                q = str.find_first_of(quotes, q);
+                // Ignore escaped quotes
+                if (q == string::npos || str[q - 1] != '\\') break;
+                q++;
+            }
         }
         // End of the word
         j = str.find_first_of(delim, i);
@@ -1200,7 +1217,7 @@ vector<double> vBoundingBox(double lat, double lon, double distance)
 	double MIN_LON = DEG2RAD(-180);
 	double MAX_LON = DEG2RAD(180);
 
-	double min_lat = DEG2RAD(lat) - rad_dist;
+    double min_lat = DEG2RAD(lat) - rad_dist;
     double max_lat = DEG2RAD(lat) + rad_dist;
     double min_lon, max_lon;
 
@@ -1211,10 +1228,10 @@ vector<double> vBoundingBox(double lat, double lon, double distance)
         max_lon = DEG2RAD(lon) + delta_lon;
         if (max_lon > MAX_LON) max_lon -= 2 * PI;
     } else {
-    	min_lat = MAX(min_lat, MIN_LAT);
-    	max_lat = MIN(max_lat, MAX_LAT);
-    	min_lon = MIN_LON;
-    	max_lon = MAX_LON;
+        min_lat = MAX(min_lat, MIN_LAT);
+        max_lat = MIN(max_lat, MAX_LAT);
+        min_lon = MIN_LON;
+        max_lon = MAX_LON;
     }
     vector<double> rc;
     rc.push_back(RAD2DEG(min_lat));
@@ -1234,19 +1251,19 @@ vector<double> vGeoHashDecode(string hash)
     vector<double> rc;
 
     for (uint i = 0; i< hash.size(); i++) {
-    	char c = hash[i];
-    	string::size_type cd = BASE32.find(c);
-    	for (int j = 0; j < 5; j++) {
-    		int mask = BITS[j];
-    		if (is_even) {
-    			lon_err /= 2;
-    			if (cd & mask) lon[0] = (lon[0] + lon[1])/2; else lon[1] = (lon[0] + lon[1])/2;
-    		} else {
-    			lat_err /= 2;
-    			if (cd & mask) lat[0] = (lat[0] + lat[1])/2; else lat[1] = (lat[0] + lat[1])/2;
-    		}
-    		is_even = !is_even;
-    	}
+        char c = hash[i];
+        string::size_type cd = BASE32.find(c);
+        for (int j = 0; j < 5; j++) {
+            int mask = BITS[j];
+            if (is_even) {
+                lon_err /= 2;
+                if (cd & mask) lon[0] = (lon[0] + lon[1])/2; else lon[1] = (lon[0] + lon[1])/2;
+            } else {
+                lat_err /= 2;
+                if (cd & mask) lat[0] = (lat[0] + lat[1])/2; else lat[1] = (lat[0] + lat[1])/2;
+            }
+            is_even = !is_even;
+        }
     }
     rc.push_back((lat[0] + lat[1])/2);
     rc.push_back((lon[0] + lon[1])/2);
@@ -1280,7 +1297,7 @@ string vGeoHashEncode(double latitude, double longitude, uint precision)
 			} else {
 				lat[1] = mid;
 			}
-          }
+		  }
 
 		is_even = !is_even;
 		if (bit < 4) {

@@ -90,6 +90,8 @@ string vStrFmtV(string &str, string fmt, ...);
 
 // Returns number of milliseconds since the epoch
 long long vClock();
+string vFmtTime3339(int64_t msec);
+string vFmtTime(string fmt, int64_t sec);
 
 // Return how many times word appears in text using Knuth-Morris-Pratt algorithm
 int vCountWords(const char *word, int wlen, const char *text, int tlen, bool all = true);
@@ -98,11 +100,10 @@ bool vFindWords(const char *word, int wlen, const char *text, int tlen);
 
 // Recursively create all direcotris for given path
 bool vMakePath(string path);
-
 uint32_t vHash(const uint8_t *buf, int size);
 uint32_t vHash2(const uint8_t *buf, int size, uint32_t seed = 0);
 uint32_t vCrc32(const void *data, int size);
-string vFmtTime(string fmt, int64_t sec);
+
 void vSetFileTime(string file, int64_t t);
 bool vWriteFile(const string file, const string data, int perms);
 vector<string> vShuffleList(const vector<string> list);
