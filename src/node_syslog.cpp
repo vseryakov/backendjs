@@ -11,6 +11,8 @@
 #define LOGDEV         "/dev/log"
 #endif
 
+#define LOG_RFC3339    0x10000
+
 struct SyslogTls {
     SyslogTls(): sock(-1), port(514), tag("backend"), path(LOGDEV), connected(0), options(0), facility(LOG_USER), severity(LOG_INFO) {}
 
@@ -80,7 +82,6 @@ static Handle<Value> syslogClose(const Arguments& args)
     _syslogClose();
     return scope.Close(Undefined());
 }
-
 
 static SyslogTls *_syslogGetTls(void)
 {
@@ -202,14 +203,14 @@ static void _syslogSendV(int severity, const char *fmt, va_list ap)
 
     // build the message
     char tmp[128];
-#ifdef linux
-    snprintf(tmp, sizeof(tmp), "<%d>%s ", severity, vFmtTime3339(vClock()).c_str());
-    buf = tmp;
-#else
-    time_t now = time(NULL);
-    snprintf(tmp, sizeof(tmp), "<%d>%.15s ", severity, ctime(&now) + 4);
-    buf = tmp;
-#endif
+    if (log->options & LOG_RFC3339) {
+        snprintf(tmp, sizeof(tmp), "<%d>%s ", severity, vFmtTime3339(vClock()).c_str());
+        buf = tmp;
+    } else {
+        time_t now = time(NULL);
+        snprintf(tmp, sizeof(tmp), "<%d>%.15s ", severity, ctime(&now) + 4);
+        buf = tmp;
+    }
     offset = buf.size();
 
     if (!log->tag.empty()) {

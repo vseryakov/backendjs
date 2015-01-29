@@ -5,6 +5,7 @@
 
 var util = require('util');
 var fs = require('fs');
+var os = require("os");
 var utils = require(__dirname + '/build/Release/backend');
 
 // Simple logger utility for debugging
@@ -45,6 +46,7 @@ var logger = {
     LOG_NDELAY: 0x08,
     LOG_NOWAIT: 0x10,
     LOG_PERROR: 0x20,
+    LOG_RFC3339: 0x10000,
 
     // syslog priorities
     LOG_EMERG: 0,
@@ -62,6 +64,10 @@ var logger = {
 }
 
 module.exports = logger;
+
+// Default options, can be set directly only so thi smodule does not have any dependencies
+logger.options = logger.LOG_PID | logger.LOG_CONS | (os.type() == "Linux" ? logger.LOG_RFC3339 : 0);
+logger.facility = logger.LOG_LOCAL0;
 
 logger.pad = function(n)
 {
@@ -88,7 +94,7 @@ logger.setSyslog = function (on)
 {
     var self = this;
     if (on) {
-        utils.syslogInit("backend", this.LOG_PID | this.LOG_CONS, this.LOG_LOCAL0);
+        utils.syslogInit("backend", this.options, this.facility);
         self.print = this.printSyslog;
         // Initialize map for facilities
         self.syslogLevels = { test: this.LOG_DEBUG, dev: this.LOG_DEBUG, debug: this.LOG_DEBUG, warn: this.LOG_WARNING,
@@ -123,8 +129,8 @@ logger.setFile = function(file)
     }
     self.file = file;
     if (self.file) {
-    	self.stream = fs.createWriteStream(this.file, { flags: 'a' });
-    	self.stream.on('error', function(err) {
+        self.stream = fs.createWriteStream(this.file, { flags: 'a' });
+        self.stream.on('error', function(err) {
             process.stderr.write(String(err));
             self.stream = process.stderr;
         });
@@ -133,16 +139,16 @@ logger.setFile = function(file)
             fs.chown(file, core.uid, core.gid, function(err) { self.error(file, e) });
         }
     } else {
-    	self.stream = process.stdout;
+        self.stream = process.stdout;
     }
     this.setSyslog(0);
 }
 
 logger.setDebug = function(level)
 {
-	var self = this;
-	self.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
-	utils.logging(self.level + 2);
+    var self = this;
+    self.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
+    utils.logging(self.level + 2);
 }
 
 // Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level

@@ -85,7 +85,7 @@ public:
         batons.push_back(baton);
         uv_poll_stop(&poll);
         poll.data = NULL;
-        LogDev("%p: cb=%d", baton, baton->callback.IsEmpty());
+        LogDev("%p: fd=%d, cb=%d", baton, fd, baton->callback.IsEmpty());
     }
 
     void StartPoll(int mode, uv_poll_cb cb, Handle<Function> callback) {
@@ -100,6 +100,7 @@ public:
         if (handle) PQfinish(handle);
         handle = NULL;
         if (!notify.IsEmpty()) notify.Dispose();
+        LogDev("fd=%d", fd);
     }
 
     void Clear() {
@@ -249,6 +250,7 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
     PostgresPollingStatusType rc = PQconnectPoll(db->handle);
     uv_timer_stop(&db->timer);
 
+    LogDev("status: %d, rc=%d, %d", status, rc, revents);
     switch (rc) {
     case PGRES_POLLING_READING:
         uv_poll_start(&db->poll, UV_READABLE, Handle_Connect);
@@ -264,7 +266,7 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
         break;
 
     case PGRES_POLLING_FAILED:
-        db->Close();
+        db->StopPoll();
         baton->Call(db->Error());
         break;
 
