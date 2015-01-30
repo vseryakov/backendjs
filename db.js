@@ -195,10 +195,12 @@ db.init = function(options, callback)
     // Config pool can be set to default which means use the current default pool
     if (this.config == "default") this.config = this.pool;
 
+    logger.debug("init: db:", Object.keys(this.npools), Object.keys(this.pools));
+
     // Configured pools for supported databases
     corelib.forEachSeries(Object.keys(this.npools), function(pool, next) {
         self.initPool(pool, options, function(err) {
-            if (err) logger.error("init:", pool, err);
+            if (err) logger.error("init: db:", pool, err);
             next();
         });
     }, callback);
@@ -247,7 +249,7 @@ db.initPool = function(name, options, callback)
                  noInitTables: this.cpools[type + 'NoInitTables' + n] || 0,
                  dbinit: this.cpools[type + 'InitOptions' + n],
                  dboptions: this.cpools[type + 'Options' + n] };
-    logger.debug("initPool:", opts);
+    logger.debug("initPool:", type, name);
 
     this[type + 'InitPool'](opts);
     this.initPoolTables(name, this.tables, options, callback);
@@ -312,6 +314,8 @@ db.initConfig = function(options, callback)
     });
     // Make sure we have only unique items in the list, skip empty or incomplete items
     types = corelib.strSplitUnique(types);
+
+    logger.debug("intConfig:", self.config, types);
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
         if (err) return callback(err, []);

@@ -5,6 +5,8 @@
 
 #include "node_backend.h"
 
+#ifdef USE_LMDB
+
 #include <lmdb.h>
 
 #define EXCEPTION(msg, errno, name) \
@@ -568,3 +570,4 @@ void LMDBInit(Handle<Object> target)
 
 }
 
+#endif

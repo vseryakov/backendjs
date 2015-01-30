@@ -332,7 +332,7 @@ corelib.forEachSeries = function(list, iterator, callback)
                 callback(err);
                 callback = self.noop;
             } else {
-                iterate(++i);
+                setImmediate(function() { iterate(++i); });
             }
         });
     }
@@ -363,7 +363,7 @@ corelib.forEachLimit = function(list, limit, iterator, callback)
                         callback();
                         callback = self.noop;
                     } else {
-                        iterate();
+                        setImmediate(iterate);
                     }
                 }
             });

@@ -657,7 +657,5 @@ void DebugInit(Handle<Object> target)
     NODE_SET_METHOD(target, "isBusy", isBusy);
     NODE_SET_METHOD(target, "initBusy", initBusy);
     NODE_SET_METHOD(target, "getBusy", getBusy);
-
-    install_handler(sigSEGV);
 }
 

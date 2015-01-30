@@ -3,6 +3,8 @@
 //  April 2013
 //
 
+#ifdef USE_LEVELDB
+
 #include "node_backend.h"
 
 #include "leveldb/db.h"
@@ -605,3 +607,4 @@ void LevelDBInit(Handle<Object> target)
     NODE_SET_METHOD(target, "repairDB", RepairDB);
 }
 
+#endif

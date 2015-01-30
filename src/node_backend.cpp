@@ -523,8 +523,12 @@ void backend_init(Handle<Object> target)
     CacheInit(target);
     SyslogInit(target);
     SQLiteInit(target);
+#ifdef USE_LEVELDB
     LevelDBInit(target);
+#endif
+#ifdef USE_LMDB
     LMDBInit(target);
+#endif
 #ifdef USE_WAND
     WandInit(target);
 #endif
