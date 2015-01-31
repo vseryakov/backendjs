@@ -719,6 +719,7 @@ case "$ARG" in
 
   init-pgsql)
     if [ ! -f $PG_DIR/postgresql.conf ]; then
+       db=$(get_arg -db backend)
        mkdir -p $PG_DIR
        [ "$OS_TYPE" = "amazon" -a -d /var/run/postgresql ] && sudo chown $BKJS_USER /var/run/postgresql
        $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
@@ -726,7 +727,7 @@ case "$ARG" in
        $SED "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
        $PG_PREFIX/bin/postgres -F -D $PG_DIR &
        sleep 3
-       $PG_PREFIX/bin/createdb -U postgres backend
+       $PG_PREFIX/bin/createdb -U postgres $db
     fi
     ;;
 
@@ -741,15 +742,16 @@ case "$ARG" in
 
   init-mysql)
     if [ ! -d $MYSQL_DIR/mysql ]; then
+       db=$(get_arg -db backend)
        mkdir -p $MYSQL_DIR
-       $ECHO "[client]\nuser=root\ndatabase=backend\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n" > ~/.my.cnf
+       $ECHO "[client]\nuser=root\ndatabase=$db\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n" > ~/.my.cnf
        $ECHO "[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\ndatadir=$MYSQL_DIR\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" >> ~/.my.cnf
        $MYSQL_PREFIX/bin/mysql_install_db --force --skip-name-resolve --datadir=$MYSQL_DIR --defaults-file=$HOME/.my.cnf
        ($0 run-mysql)
        sleep 3
        $MYSQL_PREFIX/bin/mysql -u root -e "DELETE FROM user WHERE user=''" mysql
        $MYSQL_PREFIX/bin/mysql -u root -e "DROP DATABASE test" mysql
-       $MYSQL_PREFIX/bin/mysql -u root -e "CREATE DATABASE backend" mysql
+       $MYSQL_PREFIX/bin/mysql -u root -e "CREATE DATABASE $db" mysql
     fi
     ;;
 
@@ -802,7 +804,8 @@ case "$ARG" in
     ($0 get-cassandra)
     ($0 run-cassandra)
     sleep 5
-    echo "CREATE KEYSPACE BACKEND WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
+    db=$(get_arg -db backend)
+    echo "CREATE KEYSPACE $db WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
     $CASSANDRA_PREFIX/bin/cqlsh -f /tmp/cql
     ;;
 
@@ -1192,7 +1195,7 @@ EOF
     echo "  run-check - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -args can be used to specify the full cron time spec"
     echo "  run-backup - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"
-    echo "  init-pgsql - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR"
+    echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
     echo "  init-dynamodb - download and install local DynamoDB, start the server"
@@ -1200,14 +1203,14 @@ EOF
     echo "  run-dynamodb - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
     echo "  stop-dynamodb - stop local DynamoDB server"
     echo "  get-cassandra - download and install Cassandra server in $CASSANDRA_PREFIX"
-    echo "  init-cassandra - download and initialize Cassandra, create backend keyspace, run the server"
+    echo "  init-cassandra [-db DB] - download and initialize Cassandra, create initial keyspace, run the server"
     echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
     echo "  stop-cassandra - stop local Cassandra server"
     echo "  init-elasticsearch - download and install local ElasticSearch, start the server"
     echo "  get-elasticsearch - install local ElasticSearch server in $BKJS_PREFIX/elasticsearch"
     echo "  run-elasticsearch - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch"
     echo "  stop-elasticsearch - stop local ElasticSearch server"
-    echo "  init-mysql - setup MySQL server for development and create backend database, start the server"
+    echo "  init-mysql [-db DB] - setup MySQL server for development and create initial database, start the server"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
     echo "  stop-mysql - stop local MySQL server"
     echo "  init-mongodb - download and start the Mongo server"

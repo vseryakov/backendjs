@@ -30,6 +30,7 @@ class PgSQLDatabase: public ObjectWrap {
 public:
 
     int fd;
+    int events;
     PGconn *handle;
     uv_poll_t poll;
     uv_timer_t timer;
@@ -65,7 +66,7 @@ public:
     };
     vector<Baton*> batons;
 
-    PgSQLDatabase(const char *info = 0): ObjectWrap(), fd(-1), handle(NULL), inserted_oid(0) {
+    PgSQLDatabase(const char *info = 0): ObjectWrap(), fd(-1), events(-1), handle(NULL), inserted_oid(0) {
         if (info) conninfo = info;
         poll.data = NULL;
         uv_timer_init(uv_default_loop(), &timer);
@@ -88,11 +89,18 @@ public:
         batons.push_back(baton);
         uv_poll_stop(&poll);
         poll.data = NULL;
+        events = -1;
         LogDev("%p: fd=%d, state=%d", baton, fd, baton->state);
     }
 
     void StartPoll(int mode, uv_poll_cb cb, Handle<Function> callback) {
+        events = mode;
         poll.data = new Baton(this, callback);
+        uv_poll_start(&poll, mode, cb);
+    }
+
+    void StartPoll(int mode, uv_poll_cb cb) {
+        events = mode;
         uv_poll_start(&poll, mode, cb);
     }
 
@@ -263,15 +271,17 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
     LogDev("%p: fd=%d, status=%d, revents=%d", db->handle, db->fd, rc, revents);
     switch (rc) {
     case PGRES_POLLING_READING:
-        uv_poll_start(&db->poll, UV_READABLE, Handle_Connect);
+        if (db->events == UV_READABLE) break;
+        db->StartPoll(UV_READABLE, Handle_Connect);
         break;
 
     case PGRES_POLLING_WRITING:
-        uv_poll_start(&db->poll, UV_WRITABLE, Handle_Connect);
+        if (db->events == UV_WRITABLE) break;
+        db->StartPoll(UV_WRITABLE, Handle_Connect);
         break;
 
     case PGRES_POLLING_OK:
-        uv_poll_start(&db->poll, UV_READABLE, Handle_Poll);
+        db->StartPoll(UV_READABLE, Handle_Poll);
         baton->Call();
         break;
 
@@ -367,7 +377,7 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
 
     if (revents & UV_WRITABLE) {
         if (!PQflush(db->handle)) {
-            uv_poll_start(&db->poll, UV_READABLE, Handle_Poll);
+            db->StartPoll(UV_READABLE, Handle_Poll);
         }
     }
 }
@@ -478,7 +488,7 @@ Handle<Value> PgSQLDatabase::QuerySync(const Arguments& args)
     } else {
         rc = PQexec(db->handle, *sql);
     }
-    if (db->poll.data) uv_poll_start(&db->poll, UV_WRITABLE, Handle_Poll);
+    if (db->poll.data) db->StartPoll(UV_WRITABLE, Handle_Poll);
     if (!rc) return ThrowException(Exception::Error(String::New(db->Error())));
 
     EXCEPTION(err, rc);

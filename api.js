@@ -1924,7 +1924,7 @@ api.sendStatistics = function()
     // need for the collection ost in the middle.
     if (self.collectHost == "pool") return self.saveStatistics(obj);
 
-    // Send to the collection host for storing in the special databze or due to security restrictions when
+    // Send to the collection host for storing in the special database or due to security restrictions when
     // only HTTP is open and authentication is required
     core.sendRequest({ url: self.collectHost, method: "POST", postdata: obj, quiet: self.collectQuiet }, function(err) {
         logger.debug("sendStatistics:", self.collectHost, self.collectErrors, err || "");
