@@ -597,6 +597,8 @@ case "$ARG" in
     [ -f .gitignore ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from .gitignore"
     [ -f $HOME/.gitignore_global ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from $HOME/.gitignore_global"
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
+    key=$(get_arg -ssh-key)
+    [ "$key" != "" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
     for h in $BKJS_HOST; do
         echo "Deploying the module to $BKJS_SSH_ARGS $BKJS_RSYNC_ARGS $h:$BKJS_PATH"
         rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS `ls` $h:$BKJS_PATH
@@ -1189,7 +1191,7 @@ EOF
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
-    echo "  put-backend path [-host HOST] [-path PATH] [-user USER] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
+    echo "  put-backend [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
     echo "  run-sync - synchronize other directories from the master host, runs on the start, must use BKJS_SYNC in the profile set to the host name where to get files"
     echo "  run-update - update the app frpm npm using package.json, runs on the start, must set BKJS_UPDATE in the profile to enable the update"
     echo "  run-check - to be run on instances, check for idleness,if no jobs running then shutdown the host"

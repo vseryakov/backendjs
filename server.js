@@ -154,12 +154,12 @@ server.start = function()
 // Start process monitor, running as root
 server.startMonitor = function(options)
 {
-    var self = this;
     process.title = core.name + ': monitor';
     core.role = 'monitor';
     // Be careful about adding functionality to the monitor, it is supposed to just watch the process and restart it
     core.runMethods("configureMonitor");
-    self.startProcess();
+    this.writePidfile();
+    this.startProcess();
 }
 
 // Setup worker environment
@@ -209,7 +209,7 @@ server.startMaster = function(options)
 
             // API related initialization
             core.runMethods("configureMaster");
-
+            self.writePidfile();
             logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
         });
     } else {
@@ -278,7 +278,6 @@ server.startWeb = function(options)
 
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
-                core.role = 'proxy';
 
                 ipc.onMessage = function(msg) {
                     switch (msg.op) {
@@ -361,6 +360,7 @@ server.startWeb = function(options)
                 logger.log('web server: shutdown started');
                 for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
             }
+            self.writePidfile();
             logger.log('startServer:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
         });
     } else {
@@ -920,6 +920,12 @@ server.sleep = function(options, callback)
         logger.log('sleep:', options);
         if (typeof callback == "function") callback();
     }, options.timeout || 30000);
+}
+
+// Create a pid file for the current process
+server.writePidfile = function()
+{
+    fs.writeFile(path.join(core.path.spool, core.role + ".pid"), process.pid, function(err) { if (err) logger.error("writePidfile:", err) });
 }
 
 // Shutdown the system immediately, mostly to be used in the remote jobs as the last task
