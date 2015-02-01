@@ -2064,7 +2064,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>server-proxy-url</code> - URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests</li>
 <li><code>server-proxy-reverse</code> - Reverse the proxy logic, proxy all that do not match the proxy-url pattern</li>
 <li><code>server-proxy-host</code> - A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port</li>
-<li><code>server-proxy-target</code> - An object with virtual host names as property and targets as value, if host: header match any property, use its value as full target in the form <a href="http://host:port">http://host:port</a></li>
+<li><code>server-proxy-target-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-target-www.myhost.com=<a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor</li>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
 <li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>

@@ -27,6 +27,27 @@ var proxy = require('http-proxy');
 
 // The main server class that starts various processes
 var server = {
+    // Config parameters
+    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=corelib.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1); this._name="maxProcesses" }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
+           { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
+           { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
+           { name: "job-max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed, for instance mode only" },
+           { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
+           { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
+           { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
+           { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
+           { name: "proxy-url", type: "regexpobj", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
+           { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
+           { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = corelib.toNumber(v[1],0,80); this._name="proxyHost" }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
+           { name: "proxy-target-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-target', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-target-www.myhost.com=http://127.0.0.1:8080" },
+           { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
+           { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
+           { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
+           { name: "jobs-tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
+           { name: "job-queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
+           { name: "jobs-count", descr: "How many jobs to execute at any iteration, this relates to the bk_queue queue processing only" },
+           { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" } ],
+
     // Watcher process status
     child: null,
     // Aditional processes to kill on exit
@@ -80,28 +101,7 @@ var server = {
     proxyHost: null,
     proxyPort: 80,
     proxyTarget: {},
-    _proxyTargets: [],
-
-    // Config parameters
-    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=corelib.toNumber(v,0,0,0,core.maxCPUs); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1); this._name="maxProcesses" }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
-           { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
-           { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
-           { name: "job-max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed, for instance mode only" },
-           { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
-           { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
-           { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
-           { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
-           { name: "proxy-url", type: "regexpobj", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
-           { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
-           { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = corelib.toNumber(v[1],0,80); this._name="proxyHost" }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
-           { name: "proxy-target", type: "json", descr: "An object with virtual host names as property and targets as value, if host: header match any property, use its value as full target in the form http://host:port" },
-           { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
-           { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
-           { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
-           { name: "jobs-tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
-           { name: "job-queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
-           { name: "jobs-count", descr: "How many jobs to execute at any iteration, this relates to the bk_queue queue processing only" },
-           { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" } ],
+    proxyWorkers: [],
 };
 
 module.exports = server;
@@ -283,14 +283,14 @@ server.startWeb = function(options)
                 ipc.onMessage = function(msg) {
                     switch (msg.op) {
                     case "api:ready":
-                        for (var i = 0; i < self._proxyTargets.length; i++) {
-                            if (self._proxyTargets[i].id == this.id) return self._proxyTargets[i] = msg.value;
+                        for (var i = 0; i < self.proxyWorkers.length; i++) {
+                            if (self.proxyWorkers[i].id == this.id) return self.proxyWorkers[i] = msg.value;
                         }
                         break;
 
                     case "cluster:exit":
-                        for (var i = 0; i < self._proxyTargets.length; i++) {
-                            if (self._proxyTargets[i].id == this.id) return self._proxyTargets.splice(i, 1);
+                        for (var i = 0; i < self.proxyWorkers.length; i++) {
+                            if (self.proxyWorkers[i].id == this.id) return self.proxyWorkers.splice(i, 1);
                         }
                         break;
                     }
@@ -322,7 +322,7 @@ server.startWeb = function(options)
                 self.clusterFork = function() {
                     var port = self.getProxyPort();
                     var worker = cluster.fork({ BKJS_PORT: port });
-                    self._proxyTargets.push({ id: worker.id, port: port });
+                    self.proxyWorkers.push({ id: worker.id, port: port });
                 }
             } else {
                 self.clusterFork = function() { return cluster.fork(); }
@@ -978,7 +978,7 @@ server.spawnProcess = function(args, skip, opts)
 // Return a target port for proxy requests, rotates between all web workers
 server.getProxyPort = function()
 {
-    var ports = this._proxyTargets.map(function(x) { return x.port }).sort();
+    var ports = this.proxyWorkers.map(function(x) { return x.port }).sort();
     if (ports.length && ports[0] != core.proxy.port) return core.proxy.port;
     for (var i = 1; i < ports.length; i++) {
         if (ports[i] - ports[i - 1] != 1) return ports[i - 1] + 1;
@@ -989,18 +989,21 @@ server.getProxyPort = function()
 // Return a target for proxy requests
 server.getProxyTarget = function(req)
 {
-    // Virtual hosting proxy
-    if (this.proxyTarget && this.proxyTarget[req.host]) return { target: this.proxyTarget[req.host] };
+    // Virtual host proxy
+    var host = req.host.toLowerCase();
+    for (var p in this.proxyTarget) {
+        if (this.proxyTarget[p].rx && host.match(this.proxyTarget[p].rx)) return { target: p };
+    }
     // Proxy to the global Web server running behind us by url patterns
     if (this.proxyHost && this.proxyUrl.rx) {
         var d = req.url.match(this.proxyUrl.rx);
         if ((this.proxyReverse && !d) || (!this.proxyReverse && d)) return { target: { host: this.proxyHost, port: this.proxyPort } };
     }
     // Forward api requests to the workers
-    for (var i = 0; i < this._proxyTargets.length; i++) {
-        var target = this._proxyTargets.shift();
+    for (var i = 0; i < this.proxyWorkers.length; i++) {
+        var target = this.proxyWorkers.shift();
         if (!target) break;
-        this._proxyTargets.push(target);
+        this.proxyWorkers.push(target);
         if (!target.ready) continue;
         return { target: { host: core.proxy.bind, port: target.port } };
     }

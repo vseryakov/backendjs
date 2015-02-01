@@ -563,8 +563,18 @@ core.processArgs = function(ctx, argv, pass)
                 // Only some types allow no value case
                 var type = (x.type || "").trim();
                 if (val == null && type != "bool" && type != "callback" && type != "none") return false;
+
                 // Set the actual config variable name for further reference and easy access to the value
-                if (val != null) x._name = (oname ? oname + "." : "") + name, x._key = key;
+                if (val != null) {
+                    x._name = (oname ? oname + "." : "") + name;
+                    x._key = key;
+                }
+                // Reverse mode, swap name and value
+                if (x.reverse) {
+                    var v = val;
+                    val = name;
+                    name = v;
+                }
                 logger.debug("processArgs:", x.type || "str", ctx.name + "." + x._name, "(" + key + ")", "=", val);
                 switch (type) {
                 case "none":
