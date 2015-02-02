@@ -2958,6 +2958,12 @@ been processed.</p>
 </ul>
 
 <ul>
+<li><p><code>aws.queryCW(action, obj, options, callback)</code></p>
+<p> AWS CloudWatch API request</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.queryElastiCache(action, obj, options, callback)</code></p>
 <p> AWS Elastic Cache API request</p>
 </li>
@@ -3040,6 +3046,8 @@ Options may contain the following properties:</p>
 <li>iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options[&#39;IamInstanceProfile.Name&#39;] attribute</li>
 <li>availZone - availability zone, if not given use aws.availZone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
 <li>subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute</li>
+<li>alarms - a list with CloudWatch alarms to create for the instance, each value of the object represent an object with options to be
+  passed to the cwPutMetricAlarm method.</li>
 </ul>
 </li>
 </ul>
@@ -3219,6 +3227,12 @@ The following options can be used:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.snsListTopics(options, callback)</code></p>
+<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.sesSendEmail(to, subject, body, options, callback)</code></p>
 <p> Send an email via SES
 The following options supported:</p>
@@ -3241,6 +3255,37 @@ The following options accepted:</p>
 <ul>
 <li>to - list of email addresses to use in RCPT TO</li>
 <li>from - an email to use in from header</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.cwPutMetricAlarm(options, callback)</code></p>
+<p> Creates or updates an alarm and associates it with the specified Amazon CloudWatch metric.
+The options specify the following:</p>
+<ul>
+<li>name - alarm name, if not specified metric name and dimensions will be used to generate alarm name</li>
+<li>metric - metric name, default is <code>CPUUtilization</code></li>
+<li>namespace - AWS namespace, default is <code>AWS/EC2</code></li>
+<li>op - comparison operator, one of =&gt; | &lt;= | &gt; | &lt; | GreaterThanOrEqualToThreshold | GreaterThanThreshold | LessThanThreshold | LessThanOrEqualToThreshold. Default is <code>&gt;=</code>.</li>
+<li>statistic - one of SampleCount | Average | Sum | Minimum | Maximum, default is <code>Average</code></li>
+<li>period - collection period in seconds, default is <code>60</code></li>
+<li>evaluationPeriods - the number of periods over which data is compared to the specified threshold, default is <code>15</code></li>
+<li>threshold - the value against which the specified statistic is compared, default is <code>90</code></li>
+<li>ok - ARN(s) to be notified on OK state</li>
+<li>alarm - ARN(s) to be notified on ALARM state</li>
+<li>insufficient_data - ARN(s) to be notified on INSUFFICIENT_DATA state</li>
+<li>dimensions - the dimensions for the alarm&#39;s associated metric.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.cwListMetrics(options, callback)</code></p>
+<p> Return metrics for the given query, the options can be specified:</p>
+<ul>
+<li>name - a metric name</li>
+<li>namespace - limit by namespace: AWS/AutoScaling, AWS Billing, AWS/CloudFront, AWS/DynamoDB, AWS/ElastiCache, AWS/EBS, AWS/EC2, AWS/ELB, AWS/ElasticMapReduce, AWS/Kinesis, AWS/OpsWorks, AWS/Redshift, AWS/RDS, AWS/Route53, AWS/SNS, AWS/SQS, AWS/SWF, AWS/StorageGateway</li>
 </ul>
 </li>
 </ul>
