@@ -1195,7 +1195,10 @@ core.loadModules = function(name, options, callback)
 core.getArg = function(name, dflt)
 {
     var idx = process.argv.lastIndexOf(name);
-    return idx > -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : (typeof dflt == "undefined" ? "" : dflt);
+    var val = idx > -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : "";
+    if (val[0] == "-") val = "";
+    if (!val && typeof dflt != "undefined") val = dflt;
+    return val;
 }
 
 // Return commandline argument value as a number
