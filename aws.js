@@ -337,6 +337,12 @@ aws.queryCFN = function(action, obj, options, callback)
     this.queryEndpoint("cloudformation", '2010-05-15', action, obj, options, callback);
 }
 
+// AWS CloudWatch API request
+aws.queryCW = function(action, obj, options, callback)
+{
+    this.queryEndpoint("monitoring", '2010-08-01', action, obj, options, callback);
+}
+
 // AWS Elastic Cache API request
 aws.queryElastiCache = function(action, obj, options, callback)
 {
@@ -565,6 +571,8 @@ aws.s3ParseUrl = function(url)
 //  - iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options['IamInstanceProfile.Name'] attribute
 //  - availZone - availability zone, if not given use aws.availZone or options['Placement.AvailabilityZone'] attribute
 //  - subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute
+//  - alarms - a list with CloudWatch alarms to create for the instance, each value of the object represent an object with options to be
+//      passed to the cwPutMetricAlarm method.
 aws.ec2RunInstances = function(options, callback)
 {
     var self = this;
@@ -623,8 +631,12 @@ aws.ec2RunInstances = function(options, callback)
         var items = corelib.objGet(obj, "RunInstancesResponse.instancesSet.item", { list: 1 });
         if (!items.length) return callback ? callback(err, obj) : null;
 
-        // Dont wait for instance to be running
-        if (!options.waitRunning && !options.name && !options.elbName && !options.elasticIp) {
+        // Dont wait for instance if no additional tasks requested
+        if (!options.waitRunning &&
+            !options.name &&
+            !options.elbName &&
+            !options.elasticIp &&
+            (!Array.isArray(options.alarms) || !options.alarms.length)) {
             return callback(err, obj);
         }
         var instanceId = items[0].instanceId;
@@ -649,6 +661,16 @@ aws.ec2RunInstances = function(options, callback)
                // Elastic IP
                if (!options.elasticIp) return next();
                self.ec2AssociateAddress(instanceId, options.elasticIp, { subnetId: req.SubnetId || req["NetworkInterface.0.SubnetId"] }, next);
+           },
+           function(next) {
+               // CloudWatch alarms
+               if (!Array.isArray(options.alarms)) return next();
+               corelib.forEachSeries(items, function(item, next2) {
+                   corelib.forEachSeries(options.alarms, function(alarm, next3) {
+                       alarm.dimensions = { InstanceId: item.instanceId }
+                       self.cwPutMetricAlarm(alarm, next3);
+                   }, next2);
+               }, next);
            },
            ], function() {
                 callback(err, obj);
@@ -1088,6 +1110,20 @@ aws.snsUnsubscribe = function(arn, options, callback)
     this.querySNS("Unsubscribe", params, options, callback);
 }
 
+// Creates a topic to which notifications can be published. The callback returns topic ARN on success.
+aws.snsListTopics = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = {};
+    this.querySNS("ListTopics", params, options, function(err, rc) {
+        var list = corelib.objGet(rc, "ListTopicsResponse.ListTopicsResult.Topics.member", { list: 1 });
+        if (typeof callback == "function") return callback(err, list.map(function(x) { return x.TopicArn }));
+    });
+}
+
 // Send an email via SES
 // The following options supported:
 //  - from - an email to use in the From: header
@@ -1129,6 +1165,77 @@ aws.sesSendRawEmail = function(body, options, callback)
     if (options.from) params["Source"] = options.from;
     if (options.to) corelib.strSplit(options.to).forEach(function(x, i) { params["Destinations.member." + (i + 1)] = x; })
     this.querySES("SendRawEmail", params, options, callback);
+}
+
+// Creates or updates an alarm and associates it with the specified Amazon CloudWatch metric.
+// The options specify the following:
+//  - name - alarm name, if not specified metric name and dimensions will be used to generate alarm name
+//  - metric - metric name, default is `CPUUtilization`
+//  - namespace - AWS namespace, default is `AWS/EC2`
+//  - op - comparison operator, one of => | <= | > | < | GreaterThanOrEqualToThreshold | GreaterThanThreshold | LessThanThreshold | LessThanOrEqualToThreshold. Default is `>=`.
+//  - statistic - one of SampleCount | Average | Sum | Minimum | Maximum, default is `Average`
+//  - period - collection period in seconds, default is `60`
+//  - evaluationPeriods - the number of periods over which data is compared to the specified threshold, default is `15`
+//  - threshold - the value against which the specified statistic is compared, default is `90`
+//  - ok - ARN(s) to be notified on OK state
+//  - alarm - ARN(s) to be notified on ALARM state
+//  - insufficient_data - ARN(s) to be notified on INSUFFICIENT_DATA state
+//  - dimensions - the dimensions for the alarm's associated metric.
+aws.cwPutMetricAlarm = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var ops = { ">=" : "GreaterThanOrEqualToThreshold", ">": "GreaterThanThreshold", "<": "LessThanThreshold", "<=": "LessThanOrEqualToThreshold" };
+    var metric = options.metric || "CPUUtilization";
+    var namespace = options.namespace || "AWS/EC2";
+
+    var params = {
+        AlarmName: options.name || (namespace + ": " + metric + " " + JSON.stringify(options.dimensions || "").replace(/["{}]/g, "")),
+        MetricName: metric,
+        Namespace: namespace,
+        ComparisonOperator: ops[options.op] || options.op || "GreaterThanOrEqualToThreshold",
+        Period: options.period || 60,
+        EvaluationPeriods: options.evaluationPeriods || 15,
+        Threshold: options.threshold || 90,
+        Statistic: options.statistic || "Average"
+    }
+    var i = 1;
+    for (var p in options.dimensions) {
+        params["Dimensions.member." + i + ".Name"] = p;
+        params["Dimensions.member." + i + ".Value"] = options.dimensions[p];
+        i++;
+    }
+    corelib.strSplit(options.ok).forEach(function(x, i) { params["OKActions.member." + (i + 1)] = x; });
+    corelib.strSplit(options.alarm).forEach(function(x, i) { params["AlarmActions.member." + (i + 1)] = x; });
+    corelib.strSplit(options.insufficient_data).forEach(function(x, i) { params["InsufficientDataActions.member." + (i + 1)] = x; });
+
+    this.queryCW("PutMetricAlarm", params, options, callback);
+}
+
+// Return metrics for the given query, the options can be specified:
+//  - name - a metric name
+//  - namespace - limit by namespace: AWS/AutoScaling, AWS Billing, AWS/CloudFront, AWS/DynamoDB, AWS/ElastiCache, AWS/EBS, AWS/EC2, AWS/ELB, AWS/ElasticMapReduce, AWS/Kinesis, AWS/OpsWorks, AWS/Redshift, AWS/RDS, AWS/Route53, AWS/SNS, AWS/SQS, AWS/SWF, AWS/StorageGateway
+aws.cwListMetrics = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    var params = {};
+    if (options.name) params.MetricName = options.name;
+    if (options.namespace) params.Namespace = options.namespace;
+    var i = 1;
+    for (var p in options.dimensions) {
+        params["Dimensions.member." + i + ".Name"] = p;
+        params["Dimensions.member." + i + ".Value"] = options.dimensions[p];
+        i++;
+    }
+    this.queryCW("ListMetrics", params, options, function(err, rc) {
+        var rows = corelib.objGet(rc, "ListMetricsResponse.ListMetricsResult.Metrics.member", { list: 1 });
+        if (typeof callback == "function") callback(err, rows);
+    });
 }
 
 // Convert a Javascript object into DynamoDB object
