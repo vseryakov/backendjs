@@ -996,7 +996,7 @@ server.getProxyPort = function()
 server.getProxyTarget = function(req)
 {
     // Virtual host proxy
-    var host = req.host.toLowerCase();
+    var host = (req.host || "").toLowerCase();
     for (var p in this.proxyTarget) {
         if (this.proxyTarget[p].rx && host.match(this.proxyTarget[p].rx)) return { target: p };
     }
