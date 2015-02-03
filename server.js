@@ -730,169 +730,6 @@ server.startShell = function(options)
     });
 }
 
-server.startTestServer = function(options)
-{
-    var self = this;
-    if (!options) options = {};
-
-    if (!options.master) {
-        options.running = options.stime = options.etime = options.id = 0;
-        aws.getInstanceInfo(function() {
-            setInterval(function() {
-                core.sendRequest({ url: options.host + '/ping/' + core.instance.id + '/' + options.id }, function(err, params) {
-                    if (err) return;
-                    logger.debug(params.obj);
-
-                    switch (params.obj.cmd) {
-                    case "exit":
-                    case "error":
-                        process.exit(0);
-                        break;
-
-                    case "register":
-                        options.id = params.obj.id;
-                        break;
-
-                    case "start":
-                        if (options.running) break;
-                        options.running = true;
-                        options.stime = Date.now();
-                        if (options.callback) {
-                            options.callback(options);
-                        } else
-                        if (options.test) {
-                            var name = options.test.split(".");
-                            core.runTest(core.modules[name[0]], name[1], options);
-                        }
-                        break;
-
-                    case "stop":
-                        if (!options.running) break;
-                        options.running = false;
-                        options.etime = Date.now();
-                        break;
-
-                    case "shutdown":
-                        self.shutdown();
-                        break;
-                    }
-                });
-
-                // Check shutdown interval
-                if (!options.running) {
-                    var now = Date.now();
-                    if (!options.etime) options.etime = now;
-                    if (now - options.etime > (options.idlelimit || 3600000)) core.shutdown();
-                }
-            }, options.interval || 5000);
-        });
-        return;
-    }
-
-    var nodes = {};
-    var app = express();
-    app.on('error', function (e) { logger.error(e); });
-    app.use(function(req, res, next) { return api.checkQuery(req, res, next); });
-    app.use(app.routes);
-    app.use(function(err, req, res, next) {
-        logger.error('startTestMaster:', req.path, err, err.stack);
-        res.json(err);
-    });
-    try { app.listen(options.port || 8080); } catch(e) { logger.error('startTestMaster:', e); }
-
-    // Return list of all nodes
-    app.get('/nodes', function(req, res) {
-        res.json(nodes)
-    });
-
-    // Registration: instance, id
-    app.get(/^\/ping\/([a-z0-9-]+)\/([a-z0-9]+)/, function(req, res) {
-        var now = Date.now();
-        var obj = { cmd: 'error', mtime: now }
-        var node = nodes[req.params[1]];
-        if (node) {
-            node.instance = req.params[0];
-            node.mtime = now;
-            obj.cmd = node.state;
-        } else {
-            obj.cmd = 'register';
-            obj.id = corelib.uuid();
-            nodes[obj.id] = { state: 'stop', ip: req.connection.remoteAddress, mtime: now, stime: now };
-        }
-        logger.debug(obj);
-        res.json(obj)
-    });
-
-    // Change state of the node(es)
-    app.get(/^\/(start|stop|launch|shutdown)\/([0-9]+)/, function(req, res, next) {
-        var obj = {}
-        var now = Date.now();
-        var state = req.params[0];
-        var num = req.params[1];
-        switch (state) {
-        case "launch":
-            break;
-
-        case "shutdown":
-            var instances = {};
-            for (var n in nodes) {
-                if (num <= 0) break;
-                if (!instances[nodes[n].instance]) {
-                    instances[nodes[n].instance] = 1;
-                    num--;
-                }
-            }
-            for (var n in nodes) {
-                var node = nodes[n];
-                if (node && node.state != state && instances[node.instance]) {
-                    node.state = state;
-                    node.stime = now;
-                }
-            }
-            logger.log('shutdown:', instances);
-            break;
-
-        default:
-            for (var n in nodes) {
-                if (num <= 0) break;
-                var node = nodes[n];
-                if (node && node.state != state) {
-                    node.state = state;
-                    node.stime = now;
-                    num--;
-                }
-            }
-        }
-        res.json(obj);
-    });
-
-    var interval = options.interval || 30000;
-    var runlimit = options.runlimit || 3600000;
-
-    setInterval(function() {
-        var now = Date.now();
-        for (var n in nodes) {
-            var node = nodes[n]
-            // Last time we saw this node
-            if (now - node.mtime > interval) {
-                logger.debug('cleanup: node expired', n, node);
-                delete nodes[n];
-            } else
-            // How long this node was in this state
-            if (now - node.stime > runlimit) {
-                switch (node.state) {
-                case 'start':
-                    // Stop long running nodes
-                    node.state = 'stop';
-                    logger.log('cleanup: node running too long', n, node)
-                    break;
-                }
-            }
-        }
-    }, interval);
-
-    logger.log('startTestMaster: started', options || "");
-}
 
 // Kill all child processes on exit
 server.onexit = function()
@@ -996,9 +833,11 @@ server.getProxyPort = function()
 server.getProxyTarget = function(req)
 {
     // Virtual host proxy
-    var host = (req.host || "").toLowerCase();
-    for (var p in this.proxyTarget) {
-        if (this.proxyTarget[p].rx && host.match(this.proxyTarget[p].rx)) return { target: p };
+    var host = (req.headers.host || "").toLowerCase().trim();
+    if (host) {
+        for (var p in this.proxyTarget) {
+            if (this.proxyTarget[p].rx && host.match(this.proxyTarget[p].rx)) return { target: p };
+        }
     }
     // Proxy to the global Web server running behind us by url patterns
     if (this.proxyHost && this.proxyUrl.rx) {

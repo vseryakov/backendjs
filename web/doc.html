@@ -3892,57 +3892,6 @@ Options properties:</p>
 </li>
 </ul>
 
-<ul>
-<li><p><code>core.checkTest()</code></p>
-<p> To be used in the tests, this function takes the following arguments
-checkTest(next, err, failure, ....)</p>
-<ul>
-<li>next is a callback to be called after printing error condition if any, it takes err as its argument</li>
-<li>err - is the error object passed by the most recent operation</li>
-<li>failure - must be true for failed test, the condition is evaluated by the caller and this is the result of it</li>
-<li>all other arguments are printed in case of error or result being false</li>
-</ul>
-<p>NOTE: In forever mode (-test-forever) any error is ignored and not reported</p>
-<p>Example</p>
-<pre><code>    function(next) {
-        db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
-            core.checkTest(next, err, row &amp;&amp; row.id == &quot;123&quot;, &quot;Record not found&quot;, row)
-        });
-    }
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>core.runTest(obj, options, callback)</code></p>
-<p> Run the test function which is defined in the object, all arguments will be taken from the command line.
-The common command line arguments that supported:</p>
-<ul>
-<li>-test-cmd - name of the function to run</li>
-<li>-test-workers - number of workers to run the test at the same time</li>
-<li>-test-delay - number of milliseconds before starting worker processes, default is 500ms</li>
-<li>-test-timeout - number of milliseconds between test steps, i.e. between invokations of the checkTest</li>
-<li>-test-iterations - how many times to run this test function, default is 1</li>
-<li>-test-forever - run forever without reporting any errors, for performance testing</li>
-</ul>
-<p>All common command line arguments can be used, like -db-pool to specify which db to use.</p>
-<p>After finish or in case of error the process exits, so this is not supposded tobe run inside the
-production backend, only as standalone utility for running unit tests</p>
-<p>Example:</p>
-<pre><code>    var bk = require(&quot;backendjs&quot;), core = bk.core, db = bk.db;
-    var tests = {
-        test1: function(next) {
-            db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
-                core.checkTest(next, err, row &amp;&amp; row.id == &quot;123&quot;, &quot;Record not found&quot;, row)
-            });
-        },
-        ...
-    }
-    bk.run(function() { core.runTest(tests); });
-
-    # node tests.js -test-cmd test1
-</code></pre></li>
-</ul>
-
 <h2 id="module-corelib">Module: CORELIB</h2>
 <ul>
 <li><p><code>corelib</code></p>

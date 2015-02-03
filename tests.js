@@ -43,6 +43,282 @@ var tests = {
     bbox: [0, 0, 0, 0],
 };
 
+// To be used in the tests, this function takes the following arguments
+// checkTest(next, err, failure, ....)
+//  - next is a callback to be called after printing error condition if any, it takes err as its argument
+//  - err - is the error object passed by the most recent operation
+//  - failure - must be true for failed test, the condition is evaluated by the caller and this is the result of it
+//  - all other arguments are printed in case of error or result being false
+//
+//  NOTE: In forever mode (-test-forever) any error is ignored and not reported
+//
+// Example
+//
+//          function(next) {
+//              db.get("bk_account", { id: "123" }, function(err, row) {
+//                  core.checkTest(next, err, row && row.id == "123", "Record not found", row)
+//              });
+//          }
+core.checkTest = function()
+{
+    var next = arguments[0], err = null;
+    if (this.test.forever) return next();
+
+    if (arguments[1] || arguments[2]) {
+        var args = [ arguments[1] || new Error("failed condition") ];
+        for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
+        logger.error(args);
+        err = args[0];
+    }
+    if (this.test.timeout) return setTimeout(function() { next(err) }, this.test.timeout);
+    next(err);
+}
+
+// Run the test function which is defined in the object, all arguments will be taken from the command line.
+// The common command line arguments that supported:
+// - -test-cmd - name of the function to run
+// - -test-workers - number of workers to run the test at the same time
+// - -test-delay - number of milliseconds before starting worker processes, default is 500ms
+// - -test-timeout - number of milliseconds between test steps, i.e. between invokations of the checkTest
+// - -test-iterations - how many times to run this test function, default is 1
+// - -test-forever - run forever without reporting any errors, for performance testing
+//
+// All common command line arguments can be used, like -db-pool to specify which db to use.
+//
+// After finish or in case of error the process exits, so this is not supposded tobe run inside the
+// production backend, only as standalone utility for running unit tests
+//
+// Example:
+//
+//          var bk = require("backendjs"), core = bk.core, db = bk.db;
+//          var tests = {
+//              test1: function(next) {
+//                  db.get("bk_account", { id: "123" }, function(err, row) {
+//                      core.checkTest(next, err, row && row.id == "123", "Record not found", row)
+//                  });
+//              },
+//              ...
+//          }
+//          bk.run(function() { core.runTest(tests); });
+//
+//          # node tests.js -test-cmd test1
+//
+core.runTest = function(obj, options, callback)
+{
+    var self = this;
+    if (!options) options = {};
+
+    this.test = { role: cluster.isMaster ? "master" : "worker", iterations: 0, stime: Date.now() };
+    this.test.delay = options.delay || this.getArgInt("-test-delay", 500);
+    this.test.countdown = options.iterations || this.getArgInt("-test-iterations", 1);
+    this.test.forever = options.forever || this.getArgInt("-test-forever", 0);
+    this.test.timeout = options.forever || this.getArgInt("-test-timeout", 0);
+    this.test.keepmaster = options.keepmaster || this.getArgInt("-test-keepmaster", 0);
+    self.test.workers = options.workers || self.getArgInt("-test-workers", 0);
+    this.test.cmd = options.cmd || this.getArg("-test-cmd");
+    if (this.test.cmd[0] == "_" || !obj || !obj[this.test.cmd]) {
+        console.log("usage: ", process.argv[0], process.argv[1], "-test-cmd", "command");
+        console.log("      where command is one of: ", Object.keys(obj).filter(function(x) { return x[0] != "_" && typeof obj[x] == "function" }).join(", "));
+        if (cluster.isMaster && callback) return callback("invalid arguments");
+        process.exit(0);
+    }
+
+    if (cluster.isMaster) {
+        setTimeout(function() { for (var i = 0; i < self.test.workers; i++) cluster.fork(); }, self.test.delay);
+        cluster.on("exit", function(worker) {
+            if (!Object.keys(cluster.workers).length && !self.test.forever && !self.test.keepmaster) process.exit(0);
+        });
+    }
+
+    logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', this.test.cmd, 'db-pool:', this.modules.db.pool);
+
+    corelib.whilst(
+        function () { return self.test.countdown > 0 || self.test.forever || options.running; },
+        function (next) {
+            self.test.countdown--;
+            obj[self.test.cmd](function(err) {
+                self.test.iterations++;
+                if (self.test.forever) err = null;
+                setImmediate(function() { next(err) });
+            });
+        },
+        function(err) {
+            self.test.etime = Date.now();
+            if (err) {
+                logger.error("test failed:", self.test.role, 'name:', self.test.cmd, err);
+                if (cluster.isMaster && callback) return callback(err);
+                process.exit(1);
+            }
+            logger.log("test stopped:", self.test.role, 'name:', self.test.cmd, 'db-pool:', self.modules.db.pool, 'time:', self.test.etime - self.test.stime, "ms");
+            if (cluster.isMaster && callback) return callback();
+            process.exit(0);
+        });
+};
+
+server.startTestServer = function(options)
+{
+    var self = this;
+    if (!options) options = {};
+
+    if (!options.master) {
+        options.running = options.stime = options.etime = options.id = 0;
+        aws.getInstanceInfo(function() {
+            setInterval(function() {
+                core.sendRequest({ url: options.host + '/ping/' + core.instance.id + '/' + options.id }, function(err, params) {
+                    if (err) return;
+                    logger.debug(params.obj);
+
+                    switch (params.obj.cmd) {
+                    case "exit":
+                    case "error":
+                        process.exit(0);
+                        break;
+
+                    case "register":
+                        options.id = params.obj.id;
+                        break;
+
+                    case "start":
+                        if (options.running) break;
+                        options.running = true;
+                        options.stime = Date.now();
+                        if (options.callback) {
+                            options.callback(options);
+                        } else
+                        if (options.test) {
+                            var name = options.test.split(".");
+                            core.runTest(core.modules[name[0]], name[1], options);
+                        }
+                        break;
+
+                    case "stop":
+                        if (!options.running) break;
+                        options.running = false;
+                        options.etime = Date.now();
+                        break;
+
+                    case "shutdown":
+                        self.shutdown();
+                        break;
+                    }
+                });
+
+                // Check shutdown interval
+                if (!options.running) {
+                    var now = Date.now();
+                    if (!options.etime) options.etime = now;
+                    if (now - options.etime > (options.idlelimit || 3600000)) core.shutdown();
+                }
+            }, options.interval || 5000);
+        });
+        return;
+    }
+
+    var nodes = {};
+    var app = express();
+    app.on('error', function (e) { logger.error(e); });
+    app.use(function(req, res, next) { return api.checkQuery(req, res, next); });
+    app.use(app.routes);
+    app.use(function(err, req, res, next) {
+        logger.error('startTestMaster:', req.path, err, err.stack);
+        res.json(err);
+    });
+    try { app.listen(options.port || 8080); } catch(e) { logger.error('startTestMaster:', e); }
+
+    // Return list of all nodes
+    app.get('/nodes', function(req, res) {
+        res.json(nodes)
+    });
+
+    // Registration: instance, id
+    app.get(/^\/ping\/([a-z0-9-]+)\/([a-z0-9]+)/, function(req, res) {
+        var now = Date.now();
+        var obj = { cmd: 'error', mtime: now }
+        var node = nodes[req.params[1]];
+        if (node) {
+            node.instance = req.params[0];
+            node.mtime = now;
+            obj.cmd = node.state;
+        } else {
+            obj.cmd = 'register';
+            obj.id = corelib.uuid();
+            nodes[obj.id] = { state: 'stop', ip: req.connection.remoteAddress, mtime: now, stime: now };
+        }
+        logger.debug(obj);
+        res.json(obj)
+    });
+
+    // Change state of the node(es)
+    app.get(/^\/(start|stop|launch|shutdown)\/([0-9]+)/, function(req, res, next) {
+        var obj = {}
+        var now = Date.now();
+        var state = req.params[0];
+        var num = req.params[1];
+        switch (state) {
+        case "launch":
+            break;
+
+        case "shutdown":
+            var instances = {};
+            for (var n in nodes) {
+                if (num <= 0) break;
+                if (!instances[nodes[n].instance]) {
+                    instances[nodes[n].instance] = 1;
+                    num--;
+                }
+            }
+            for (var n in nodes) {
+                var node = nodes[n];
+                if (node && node.state != state && instances[node.instance]) {
+                    node.state = state;
+                    node.stime = now;
+                }
+            }
+            logger.log('shutdown:', instances);
+            break;
+
+        default:
+            for (var n in nodes) {
+                if (num <= 0) break;
+                var node = nodes[n];
+                if (node && node.state != state) {
+                    node.state = state;
+                    node.stime = now;
+                    num--;
+                }
+            }
+        }
+        res.json(obj);
+    });
+
+    var interval = options.interval || 30000;
+    var runlimit = options.runlimit || 3600000;
+
+    setInterval(function() {
+        var now = Date.now();
+        for (var n in nodes) {
+            var node = nodes[n]
+            // Last time we saw this node
+            if (now - node.mtime > interval) {
+                logger.debug('cleanup: node expired', n, node);
+                delete nodes[n];
+            } else
+            // How long this node was in this state
+            if (now - node.stime > runlimit) {
+                switch (node.state) {
+                case 'start':
+                    // Stop long running nodes
+                    node.state = 'stop';
+                    logger.log('cleanup: node running too long', n, node)
+                    break;
+                }
+            }
+        }
+    }, interval);
+
+    logger.log('startTestMaster: started', options || "");
+}
+
 tests.account = function(callback)
 {
     var myid, otherid;
