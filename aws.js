@@ -223,10 +223,10 @@ aws.parseXMLResponse = function(err, params, callback)
         var errors = corelib.objGet(params.obj, "Response.Errors.Error", { list: 1 });
         if (errors.length && errors[0].Message) err = corelib.newError({ message: errors[0].Message, code: errors[0].Code, status: params.status });
         if (!err) err = corelib.newError({ message: "Error: " + params.data, status: params.status });
-        logger.error('queryAWS:', params.href, params.search, err);
+        logger.error('queryAWS:', params.href, params.search, params.Action || "", err);
         return callback(err, params.obj);
     }
-    logger.debug('queryAWS:', params.href, params.search, params.obj);
+    logger.debug('queryAWS:', params.href, params.search, params.Action || "", params.obj);
     callback(err, params.obj);
 }
 
@@ -287,6 +287,7 @@ aws.queryAWS = function(region, endpoint, proto, path, obj, callback)
     this.querySign(region, endpoint, host, "POST", path, query, headers);
 
     core.httpGet(proto + host + path, { method: "POST", postdata: query, headers: headers }, function(err, params) {
+        if (obj.Action) params.Action = obj.Action;
         self.parseXMLResponse(err, params, callback);
     });
 }
