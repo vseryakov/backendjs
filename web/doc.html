@@ -3354,6 +3354,31 @@ The options specify the following:</p>
                                 writeCapacity: 10 });
 </code></pre>
 <ul>
+<li><p><code>aws.ddbUpdateTable(options, callback)</code></p>
+<p> Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
+provisionined throughput on demand.
+Options must provide the following properties:</p>
+<ul>
+<li>name - table name</li>
+<li>readCapacity -</li>
+<li>writeCapacity - new povisioned throughtput settings</li>
+<li>add - an object with indexes to create</li>
+<li>del - delete a global secondary index by name, a string or a list with multiple indexes</li>
+<li>update - an object with indexes to update</li>
+</ul>
+<p>Example</p>
+<pre><code>        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name_idx: { name: { type: &quot;S&quot;, hash: 1 }, id: { type: &#39;N&#39;, range: 1 }, readCapacity: 20, writeCapacity: 20, projection: [&quot;mtime&quot;,&quot;email&quot;] } })
+        aws.ddbUpdateTable({ name: &quot;users&quot;, del: &quot;name_idx&quot; })
+        aws.ddbUpdateTable({ name: &quot;users&quot;, update: { name_idx: { readCapacity: 10, writeCapacity: 10 } })
+</code></pre><p>Example of crontab job in etc/crontab:</p>
+<pre><code>        [
+        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 1 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 1000, &quot;writeCapacity&quot;: 1000 } } },
+        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 6 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 2000, &quot;writeCapacity&quot;: 2000 } } }
+        ]
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>aws.ddbDeleteTable(name, options, callback)</code></p>
 <p> Remove a table from the database</p>
 </li>
@@ -3365,24 +3390,6 @@ The options specify the following:</p>
 if options.waitTimeout is not specified calls the callback immediately. options.waitStatus is checked if given and keeps waiting
 while the status is equal to it. options.waitDelay can be specified how often to request new status, default is 250ms.</p>
 </li>
-</ul>
-
-<ul>
-<li><p><code>aws.ddbUpdateTable(options, callback)</code></p>
-<p> Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
-provisionined throughput on demand.
-Options must provide the following properties:</p>
-<ul>
-<li>name - table name</li>
-<li>readCapacity -</li>
-<li>writeCapacity - new povisioned throughtput settings</li>
-</ul>
-<p>Example of crontab job in etc/crontab:</p>
-<pre><code>        [
-        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 1 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 1000, &quot;writeCapacity&quot;: 1000 } } },
-        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 6 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 2000, &quot;writeCapacity&quot;: 2000 } } }
-        ]
-</code></pre></li>
 </ul>
 
 <ul>

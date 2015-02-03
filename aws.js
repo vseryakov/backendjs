@@ -1519,6 +1519,88 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
     });
 }
 
+// Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
+// provisionined throughput on demand.
+// Options must provide the following properties:
+//  - name - table name
+//  - readCapacity -
+//  - writeCapacity - new povisioned throughtput settings
+//  - add - an object with indexes to create
+//  - del - delete a global secondary index by name, a string or a list with multiple indexes
+//  - update - an object with indexes to update
+//
+//  Example
+//
+//              aws.ddbUpdateTable({ name: "users", add: { name_idx: { name: { type: "S", hash: 1 }, id: { type: 'N', range: 1 }, readCapacity: 20, writeCapacity: 20, projection: ["mtime","email"] } })
+//              aws.ddbUpdateTable({ name: "users", del: "name_idx" })
+//              aws.ddbUpdateTable({ name: "users", update: { name_idx: { readCapacity: 10, writeCapacity: 10 } })
+//
+// Example of crontab job in etc/crontab:
+//
+//              [
+//              { "type": "server", "cron": "0 0 1 * * *", "job": { "aws.ddbUpdateTable": { "name": "bk_account", "readCapacity": 1000, "writeCapacity": 1000 } } },
+//              { "type": "server", "cron": "0 0 6 * * *", "job": { "aws.ddbUpdateTable": { "name": "bk_account", "readCapacity": 2000, "writeCapacity": 2000 } } }
+//              ]
+//
+aws.ddbUpdateTable = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+    var params = { TableName: options.name };
+    if (options.readCapacity && options.writeCapacity) {
+        params.ProvisionedThroughput = { ReadCapacityUnits: options.readCapacity, WriteCapacityUnits: options.writeCapacity };
+    }
+
+    if (options.add) {
+        if (!params.AttributeDefinitions) params.AttributeDefinitions = [];
+        if (!params.GlobalSecondaryIndexUpdates) params.GlobalSecondaryIndexUpdates = [];
+        for (var name in options.add) {
+            var obj = options.add[name];
+            if (name.length <= 2) name = "i_" + name;
+            var index = { IndexName: name, KeySchema: [], ProvisionedThroughput: {}, Projection: { ProjectionType: "KEYS_ONLY" } };
+            for (var p in obj) {
+                if (!obj[p]) continue;
+                switch (p) {
+                case "readCapacity":
+                    index.ProvisionedThroughput.ReadCapacityUnits = options.readCapacity;
+                    break;
+                case "writeCapacity":
+                    index.ProvisionedThroughput.WriteCapacityUnits = options.writeCapacity;
+                    break;
+                case "projection":
+                    index.Projection = { ProjectionType: Array.isArray(obj.projection) ? "INCLUDE" : String(obj.projection).toUpperCase() };
+                    if (index.Projection.ProjectionType == "INCLUDE") index.Projection.NonKeyAttributes = obj.projection;
+                    break;
+                default:
+                    index.KeySchema.push({ AttributeName: p, KeyType: obj[p].range ? "RANGE" : "HASH" })
+                    params.AttributeDefinitions.push({ AttributeName: p, AttributeType: obj[p].type || "S" });
+                }
+            }
+            params.GlobalSecondaryIndexUpdates.push({ Create: index });
+        }
+    } else
+
+    if (options.del) {
+        if (!params.GlobalSecondaryIndexUpdates) params.GlobalSecondaryIndexUpdates = [];
+        corelib.strSplit(options.del).forEach(function(x) {
+            params.GlobalSecondaryIndexUpdates.push({ Delete: { IndexName: x } });
+        });
+    } else
+
+    if (options.update) {
+        if (!params.GlobalSecondaryIndexUpdates) params.GlobalSecondaryIndexUpdates = [];
+        for (var p in options.update) {
+            var idx = { Update: { IndexName: p, ProvisionedThroughput: {} } };
+            idx.ProvisionedThroughput.ReadCapacityUnits = options.update[p].readCapacity;
+            idx.ProvisionedThroughput.WriteCapacityUnits = options.update[p].writeCapacity;
+            params.GlobalSecondaryIndexUpdates.push(idx);
+        }
+    }
+
+    this.queryDDB('UpdateTable', params, options, callback);
+}
+
 // Remove a table from the database
 aws.ddbDeleteTable = function(name, options, callback)
 {
@@ -1556,29 +1638,6 @@ aws.ddbWaitForTable = function(name, item, options, callback)
       function(err) {
           callback(err, item);
       });
-}
-
-// Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
-// provisionined throughput on demand.
-// Options must provide the following properties:
-//  - name - table name
-//  - readCapacity -
-//  - writeCapacity - new povisioned throughtput settings
-//
-// Example of crontab job in etc/crontab:
-//
-//              [
-//              { "type": "server", "cron": "0 0 1 * * *", "job": { "aws.ddbUpdateTable": { "name": "bk_account", "readCapacity": 1000, "writeCapacity": 1000 } } },
-//              { "type": "server", "cron": "0 0 6 * * *", "job": { "aws.ddbUpdateTable": { "name": "bk_account", "readCapacity": 2000, "writeCapacity": 2000 } } }
-//              ]
-//
-aws.ddbUpdateTable = function(options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
-    var params = { TableName: options.name, ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity, WriteCapacityUnits: options.writeCapacity } };
-    this.queryDDB('UpdateTable', params, options, callback);
 }
 
 // Put or add an item
