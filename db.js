@@ -142,7 +142,7 @@ var db = {
     local: 'sqlite',
 
     // Refresh config from the db
-    configInterval: 300,
+    configInterval: 1800,
 
     // Default tables
     tables: {

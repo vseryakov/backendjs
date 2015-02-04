@@ -457,7 +457,7 @@ aws.signS3 = function(method, bucket, path, options)
     }
 
     // Run through the encoding so our signature match the real url sent by core.httpGet
-    path = url.parse(path).pathname;
+    path = url.parse(path || "/").pathname;
 
     strSign += (bucket ? "/" + bucket : "") + (path[0] != "/" ? "/" : "") + path + (rc.length ? "?" : "") + rc.sort().join("&");
     var signature = corelib.sign(options.secret || this.secret, strSign);
@@ -471,10 +471,10 @@ aws.signS3 = function(method, bucket, path, options)
     uri += "s3" + (region != "us-east-1" ? "-" + region : "") + ".amazonaws.com";
     uri += dns ? "" : "/" + bucket;
     uri += (path[0] != "/" ? "/" : "") + path;
-    uri += url.format({ query: options.query });
 
     // Build REST url
     if (options.url) {
+        uri += url.format({ query: options.query });
         uri += (uri.indexOf("?") == -1 ? "?" : "") + '&AWSAccessKeyId=' + (options.key || this.key) + "&Signature=" + encodeURIComponent(signature);
         if (options.expires) uri += "&Expires=" + options.expires;
         if (options.securityToken || this.securityToken) uri += "&SecurityToken=" + (options.securityToken || this.securityToken);
@@ -502,6 +502,7 @@ aws.queryS3 = function(bucket, path, options, callback)
     var uri = this.signS3(options.method, bucket, path, options);
     core.httpGet(uri, options, function(err, params) {
         if (err || params.status != 200) return callback(err || corelib.newError({ message: "Error: " + params.status, name: "S3", status : params.status}), params.data);
+        if (options.json) return self.parseXMLResponse(err, params, callback);
         callback(err, params);
     });
 }
