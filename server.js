@@ -38,7 +38,7 @@ var server = {
            { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "proxy-url", type: "regexpobj", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
-           { name: "proxy-host", type: "callback", callback: function(v) { if (!v) return; v = v.split(":"); if (v[0]) this.proxyHost = v[0]; if (v[1]) this.proxyPort = corelib.toNumber(v[1],0,80); this._name="proxyHost" }, descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
+           { name: "proxy-host", type: "url", descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
            { name: "proxy-target-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-target', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-target-www.myhost.com=http://127.0.0.1:8080" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
@@ -99,7 +99,6 @@ var server = {
     // Proxy target
     proxyUrl: {},
     proxyHost: null,
-    proxyPort: 80,
     proxyTarget: {},
     proxyWorkers: [],
 };
@@ -842,7 +841,7 @@ server.getProxyTarget = function(req)
     // Proxy to the global Web server running behind us by url patterns
     if (this.proxyHost && this.proxyUrl.rx) {
         var d = req.url.match(this.proxyUrl.rx);
-        if ((this.proxyReverse && !d) || (!this.proxyReverse && d)) return { target: { host: this.proxyHost, port: this.proxyPort } };
+        if ((this.proxyReverse && !d) || (!this.proxyReverse && d)) return { target: this.proxyHost };
     }
     // Forward api requests to the workers
     for (var i = 0; i < this.proxyWorkers.length; i++) {
@@ -890,6 +889,7 @@ server.handleProxyRequest = function(req, res, ssl)
                 }
             }
             var target = self.getProxyTarget(req);
+            logger.dev("handleProxyRequest:", req.headers.host, req.url, target);
             if (target) return self.proxyServer.web(req, res, target);
             res.writeHead(500, "Not ready yet");
             res.end();

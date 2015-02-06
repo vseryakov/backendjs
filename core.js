@@ -605,6 +605,9 @@ core.processArgs = function(ctx, argv, pass)
                 case "regexpmap":
                     obj[name] = corelib.toRegexpMap(x.set ? null : obj[name], val);
                     break;
+                case "url":
+                    put(obj, name, url.parse(val), x);
+                    break;
                 case "json":
                     put(obj, name, corelib.jsonParse(val), x);
                     break;

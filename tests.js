@@ -942,8 +942,8 @@ tests.db = function(callback)
         },
         function(next) {
             // Check pagination
-            var rc = [];
             next_token = null;
+            var rc = [];
             corelib.forEachSeries([2, 3], function(n, next2) {
                 db.select("test2", { id: id2 }, { sort: "id2", start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
@@ -1018,6 +1018,16 @@ tests.db = function(callback)
             // Query with sorting by another column/index
             db.select("test2", { id: id2 }, { desc: true, sort: "num" }, function(err, rows, info) {
                 core.checkTest(next, err, rows.length==0 || rows[0].num!=9 , "err18:", rows, info);
+            });
+        },
+        function(next) {
+            // Scan all records
+            var rows = [];
+            db.scan("test2", {}, { count: 2 }, function(row, next2) {
+                rows.push(row);
+                next2();
+            }, function(err) {
+                core.checkTest(next, err, rows.length!=11, "err19:", rows.length);
             });
         },
     ],

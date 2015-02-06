@@ -1632,7 +1632,13 @@ aws.ddbWaitForTable = function(name, item, options, callback)
       },
       function(next) {
           self.ddbDescribeTable(name, options, function(err, rc) {
-              if (err) return next(err);
+              if (err) {
+                  // Table deleted, does not exist anymore
+                  if (err.code == "ResourceNotFoundException" && options.waitStatus == "DELETING") {
+                      status = err = null;
+                  }
+                  return next(err);
+              }
               status = rc.Table.TableStatus;
               setTimeout(next, options.waitDelay || 1000);
           });

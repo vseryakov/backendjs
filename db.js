@@ -692,8 +692,6 @@ db.query = function(req, options, callback)
                 logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, e.stack);
             }
         }
-        // Cleanup options to avoid memory leaks
-        if (options._merged) for (var p in options) delete options[p];
     }
 
     pool.get(function(err, client) {
@@ -1153,7 +1151,9 @@ db.scan = function(table, query, options, rowCallback, endCallback)
               if (options.batch) {
                   rowCallback(rows, next);
               } else {
-                  corelib.forEachSeries(rows, function(row, next2) { rowCallback(row, next2); }, next);
+                  corelib.forEachSeries(rows, function(row, next2) {
+                      rowCallback(row, next2);
+                  }, next);
               }
           });
       }, endCallback);
