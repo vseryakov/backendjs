@@ -264,13 +264,15 @@ var api = {
 
     // No authentication for these urls
     allow: corelib.toRegexpObj(null, ["^/$",
-                                   "\\.html$",
-                                   "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$",
-                                   "\\.ttf$", "\\.eof$", "\\.woff$",
-                                   "\\.js$", "\\.css$",
-                                   "^/public",
-                                   "^/account/add$",
-                                   "^/ping" ]),
+                                      "\\.html$",
+                                      "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$",
+                                      "\\.ttf$", "\\.eof$", "\\.woff$",
+                                      "\\.js$", "\\.css$",
+                                      "^/js/",
+                                      "^/css/",
+                                      "^/public/",
+                                      "^/account/add$",
+                                      "^/ping" ]),
     // Only for admins
     allowAdmin: {},
     // Allow by account type

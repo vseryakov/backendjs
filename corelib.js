@@ -57,25 +57,32 @@ corelib.toUncamel = function(str)
     return str.replace(/([A-Z])/g, function(letter) { return '-' + letter.toLowerCase(); });
 }
 
-// Safe version, use 0 instead of NaN, handle booleans, if decimals specified, returns float
-corelib.toNumber = function(str, decimals, dflt, min, max)
+// Safe version, use 0 instead of NaN, handle booleans, if float specified, returns as float.
+//
+// Example:
+//
+//               corelib.toNumber("123")
+//               corelib.toNumber("1.23", { float: 1, dflt: 0, min: 0, max: 2 })
+//
+corelib.toNumber = function(str, float, dflt, min, max)
 {
     var n = 0;
+    options = this.typeName(float) == "object" ? float : { float: float, dflt: dflt, min: min, max: max };
     if (typeof str == "number") {
         n = str;
     } else {
-        if (typeof dflt == "undefined") dflt = 0;
+        if (typeof options.dflt == "undefined") options.dflt = 0;
         if (typeof str != "string") {
-            n = dflt;
+            n = options.dflt;
         } else {
             // Autodetect floating number
-            if (typeof decimals == "undefined" || decimals == null) decimals = /^[0-9-]+\.[0-9]+$/.test(str);
-            n = str[0] == 't' ? 1 : str[0] == 'f' ? 0 : str == "infinity" ? Infinity : (decimals ? parseFloat(str,10) : parseInt(str,10));
-            n = isNaN(n) ? dflt : n;
+            if (typeof options.float == "undefined" || options.float == null) options.float = /^[0-9-]+\.[0-9]+$/.test(str);
+            n = str[0] == 't' ? 1 : str[0] == 'f' ? 0 : str == "infinity" ? Infinity : (options.float ? parseFloat(str,10) : parseInt(str,10));
+            n = isNaN(n) ? options.dflt : n;
         }
     }
-    if (typeof min == "number" && n < min) n = min;
-    if (typeof max == "number" && n > max) n = max;
+    if (typeof options.min == "number" && n < options.min) n = options.min;
+    if (typeof options.max == "number" && n > options.max) n = options.max;
     return n;
 }
 
@@ -503,11 +510,11 @@ corelib.createPool = function(options)
 {
     var self = this;
 
-    var pool = { _pmin: this.toNumber(options.min, 0, 0, 0),
-                 _pmax: this.toNumber(options.max, 0, 10, 0),
-                 _pmax_queue: this.toNumber(options.interval, 0, 100, 0),
-                 _ptimeout: this.toNumber(options.timeout, 0, 5000, 1),
-                 _pidle: this.toNumber(options.idle, 0, 300000, 0),
+    var pool = { _pmin: this.toNumber(options.min, { float: 0, flt: 0, min: 0 }),
+                 _pmax: this.toNumber(options.max, { float: 0, dflt: 10, min: 0 }),
+                 _pmax_queue: this.toNumber(options.interval, { float: 0, dflt: 100, min: 0 }),
+                 _ptimeout: this.toNumber(options.timeout, { float: 0, dflt: 5000, min: 1 }),
+                 _pidle: this.toNumber(options.idle, { float: 0, dflt: 300000, min: 0 }),
                  _pcreate: options.create || function(cb) { cb(null, {}) },
                  _pdestroy: options.destroy || function() {},
                  _pvalidate: options.validate || function() { return true },

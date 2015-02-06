@@ -3931,9 +3931,12 @@ Options properties:</p>
 </ul>
 
 <ul>
-<li><p><code>corelib.toNumber(str, decimals, dflt, min, max)</code></p>
-<p> Safe version, use 0 instead of NaN, handle booleans, if decimals specified, returns float</p>
-</li>
+<li><p><code>corelib.toNumber(str, float, dflt, min, max)</code></p>
+<p> Safe version, use 0 instead of NaN, handle booleans, if float specified, returns as float.</p>
+<p>Example:</p>
+<pre><code>         corelib.toNumber(&quot;123&quot;)
+         corelib.toNumber(&quot;1.23&quot;, { float: 1, dflt: 0, min: 0, max: 2 })
+</code></pre></li>
 </ul>
 
 <ul>
