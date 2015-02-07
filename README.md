@@ -388,6 +388,10 @@ The accounts API manages accounts and authentication, it provides basic user acc
             }
 
 
+- `/account/logout`
+
+   Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.
+
 - `/account/add`
 
   Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, login**.
@@ -1840,7 +1844,7 @@ All requests to the API server must be signed with account login/secret pair.
         - Line5: The expiration value in milliseconds, required, followed by a newline
         - Line6: The Content-Type HTTP header, lowercase, followed by a newline
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
-    * Form BK-Signature HTTP header as the following:
+    * Form the signature HTTP header as the following:
         - The header string consist of multiple fields separated by pipe |
             - Field1: Signature version:
                 - version 1, normal signature
@@ -1853,7 +1857,7 @@ All requests to the API server must be signed with account login/secret pair.
             - Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters
             - Field7: empty, reserved for future use
 
-The resulting signature is sent as HTTP header bk-signature: string
+The resulting signature is sent as HTTP header bk-signature: or in the header specified by the `api-signature-name` config parameter
 
 For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,

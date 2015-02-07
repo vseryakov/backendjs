@@ -15,13 +15,14 @@ var Backendjs = {
     // Save credentials in the local storage, by default keep only in memory
     persistent: false,
 
-    // Scramble login, save HMACs for login/secret instead of actual values, a user still
+    // Scramble login, save HMAC for the secret instead of the actual value, a user still
     // need to enter the real values but the browser will never store them, only hashes.
     // The value is: 0 - no scramble, 1 - scramble secret as HMAC
     scramble: 0,
 
-    // Signature version
-    sigversion: 4,
+    // Signature header name and version
+    signatureVersion: 4,
+    signatureName: "bk-signature",
 
     // Current account record
     account: {},
@@ -110,7 +111,7 @@ var Backendjs = {
         var self = this;
         self.loggedIn = false;
         self.account = {};
-        self.sendRequest("/account/get?_session=0", function(err, data, xhr) {
+        self.sendRequest("/account/logout", function(err, data, xhr) {
             self.setCredentials();
             if (typeof callback == "function") callback(err, data, xhr);
         });
@@ -130,7 +131,7 @@ var Backendjs = {
         var host = window.location.hostname;
         if (url.indexOf('://') > -1) {
             var u = url.split('/');
-            host = u[2];
+            host = u[2].split(":")[0];
             url = '/' + u.slice(3).join('/');
         }
         if (!options) options = {};
@@ -146,17 +147,17 @@ var Backendjs = {
         if (query instanceof FormData) query = "";
         if (typeof query == "object") query = jQuery.param(query);
         query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
-        switch (this.sigversion) {
+        switch (this.signatureVersion) {
         case 1:
             str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
             hmac = b64_hmac_sha1(creds.secret, str);
             break;
 
         default:
-            str = this.sigversion + "\n" + String(options.tag || "") + "\n" + creds.login + "\n" + String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
+            str = this.signatureVersion + "\n" + String(options.tag || "") + "\n" + creds.login + "\n" + String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
             hmac = b64_hmac_sha256(creds.secret, str);
         }
-        rc['bk-signature'] = this.sigversion + '|' + String(options.tag || "") + '|' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
+        rc[this.signatureName] = this.signatureVersion + '|' + String(options.tag || "") + '|' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
         if (this.debug) this.log('sign:', creds, str);
         return rc;
     },
@@ -164,7 +165,7 @@ var Backendjs = {
     // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
     signUrl: function(url, expires) {
         var hdrs = this.sign("GET", url, "", { expires: expires });
-        return url + (url.indexOf("?") == -1 ? "?" : "") + "&bk-signature=" + encodeURIComponent(hdrs['bk-signature']);
+        return url + (url.indexOf("?") == -1 ? "?" : "") + "&" + this.signatureName + "=" + encodeURIComponent(hdrs[this.signatureName]);
     },
 
     // Encode url query

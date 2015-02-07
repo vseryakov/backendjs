@@ -1356,9 +1356,9 @@ db.getLocations = function(table, query, options, callback)
 
     // New location search
     if (!options.geohash) {
-        options.count = options.gcount = corelib.toNumber(options.count, 0, 10, 0, 50);
+        options.count = options.gcount = corelib.toNumber(options.count, { float: 0, dflt: 10, min: 0, max: 50 });
         options.geokey = lcols[0] = options.geokey && cols[options.geokey] ? options.geokey : 'geohash';
-        options.distance = corelib.toNumber(query.distance, 0, options.minDistance || 1, 0, 999);
+        options.distance = corelib.toNumber(query.distance, { float: 0, dflt: options.minDistance || 1, min: 0, max: 999 });
         options.start = null;
         // Have to maintain sorting order for pagination
         if (!options.sort && keys.length > 1) options.sort = keys[1];
@@ -2294,7 +2294,7 @@ db.sqlValue = function(value, type, dflt, min, max)
     case "real":
     case "float":
     case "double":
-        return corelib.toNumber(value, true, dflt, min, max);
+        return corelib.toNumber(value, { float: true, dflt: dflt, min: min, max: max });
 
     case "int":
     case "bigint":
@@ -2302,7 +2302,7 @@ db.sqlValue = function(value, type, dflt, min, max)
     case "integer":
     case "number":
     case "counter":
-        return corelib.toNumber(value, null, dflt, min, max);
+        return corelib.toNumber(value, { dflt: dflt, min: min, max: max });
 
     case "bool":
     case "boolean":
@@ -2315,7 +2315,7 @@ db.sqlValue = function(value, type, dflt, min, max)
         return this.sqlQuote((new Date(value)).toLocaleTimeString());
 
     case "mtime":
-        return /^[0-9\.]+$/.test(value) ? this.toNumber(value, null, dflt, min, max) : this.sqlQuote((new Date(value)).toISOString());
+        return /^[0-9\.]+$/.test(value) ? this.toNumber(value, { dflt: dflt, min: min, max: max }) : this.sqlQuote((new Date(value)).toISOString());
 
     default:
         return this.sqlQuote(value);
@@ -2613,9 +2613,9 @@ db.sqlLimit = function(options)
     if (orderby) rc += " ORDER BY " + orderby;
 
     // Limit clause
-    var page = corelib.toNumber(options.page, false, 0, 0);
-    var count = corelib.toNumber(options.count, false, 50, 0);
-    var start = corelib.toNumber(options.start, false, 0, 0);
+    var page = corelib.toNumber(options.page, { float: false, dflt: 0, min: 0 });
+    var count = corelib.toNumber(options.count, { float: false, dflt: 50, min: 0 });
+    var start = corelib.toNumber(options.start, { float: false, dflt: 0, min: 0 });
     if (count) {
         rc += " LIMIT " + count;
     }

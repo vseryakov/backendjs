@@ -271,6 +271,7 @@ var api = {
                                       "^/js/",
                                       "^/css/",
                                       "^/public/",
+                                      "^/account/logout$",
                                       "^/account/add$",
                                       "^/ping" ]),
     // Only for admins
@@ -313,9 +314,12 @@ var api = {
     sessionAge: 86400 * 14 * 1000,
     // How old can a signtature be to consider it valid, for clock drifts
     signatureAge: 0,
+    signatureName: "bk-signature",
+
     // Separate age for access token
     accessTokenAge: 86400 * 7 * 1000,
     accessTokenSecret: "",
+    accessTokenName: 'bk-access-token',
 
     // Intervals between updating presence status table
     statusInterval: 900000,
@@ -380,6 +384,8 @@ var api = {
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
+           { name: "signature-name", descr: "Name for the access signature query parameter or header" },
+           { name: "access-token-name", descr: "Name for the access token query parameter or header" },
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests" },
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
            { name: "no-modules", type: "regexp", descr: "A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it" },
@@ -462,7 +468,7 @@ api.init = function(options, callback)
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version + " " + core.appName + "/" + core.appVersion);
         res.header('Access-Control-Allow-Origin', '*');
-        res.header('Access-Control-Allow-Headers', 'bk-signature');
+        res.header('Access-Control-Allow-Headers', self.signatureName);
         next();
     });
 
@@ -1030,7 +1036,7 @@ api.checkAuthorization = function(req, status, callback)
 
     // Disable access to endpoints if session exists, meaning Web app
     if (self.disableSession.rx) {
-        if (req.session && req.session['bk-signature'] && req.path.match(self.disableSession.rx)) return callback({ status: 401, message: "Not authorized" });
+        if (req.session && req.session[self.signatureName] && req.path.match(self.disableSession.rx)) return callback({ status: 401, message: "Not authorized" });
     }
     // Admin only access
     if (self.allowAdmin.rx) {
@@ -1111,7 +1117,7 @@ api.checkSignature = function(req, callback)
 
         // Verify the signature
         var secret = account.secret;
-        var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != "bk-signature"; }).join("&");
+        var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != self.signatureName }).join("&");
         switch (sig.version) {
         case 1:
             sig.str = "";
@@ -1174,13 +1180,13 @@ api.parseSignature = function(req)
     rc.method = req.method || "";
     rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
     rc.type = (req.headers['content-type'] || "").toLowerCase();
-    rc.signature = req.query['bk-signature'] || req.headers['bk-signature'] || "";
+    rc.signature = req.query[this.signatureName] || req.headers[this.signatureName] || "";
     if (!rc.signature) {
-        rc.signature = req.query['bk-access-token'] || req.headers['bk-access-token'];
+        rc.signature = req.query[this.accesTokenName] || req.headers[this.accessTokenName];
         if (rc.signature) rc.signature = corelib.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
     }
     if (!rc.signature) {
-        rc.signature = req.session ? req.session['bk-signature'] : "";
+        rc.signature = req.session ? req.session[this.signatureName] : "";
     }
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
@@ -1245,32 +1251,30 @@ api.createSignature = function(login, secret, method, host, uri, options)
         str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
         hmac = corelib.sign(String(secret), str, "sha256")
     }
-    rc['bk-signature'] = ver + '|' + tag + '|' + String(login) + '|' + hmac + '|' + expires + '|' + checksum + '|';
+    rc[this.signatureName] = ver + '|' + tag + '|' + String(login) + '|' + hmac + '|' + expires + '|' + checksum + '|';
     if (logger.level > 1) logger.log('createSignature:', rc);
     return rc;
 }
 
 // Setup session cookies or access token for automatic authentication without signing, req must be complete with all required
 // properties after successful authorization.
-api.createSessionSignature = function(req, options)
+api.handleSessionSignature = function(req, options)
 {
-    if (!req.account || !req.account.login || !req.account.secret) return;
-
     if (typeof options.accessToken != "undefined") {
-        if (options.accessToken) {
+        if (options.accessToken && req.account && req.account.login && req.account.secret) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
-            req.account['bk-access-token'] = corelib.encrypt(this.accessTokenSecret, sig["bk-signature"], "", "hex");
+            req.account['bk-access-token'] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureName], "", "hex");
             req.account['bk-access-token-age'] = options.sessionAge || this.accessTokenAge;
         } else {
             delete req.account.accessToken;
         }
-    } else
+    }
     if (typeof options.session != "undefined") {
-        if (options.session) {
+        if (options.session && req.account && req.account.login && req.account.secret) {
             var sig = this.createSignature(req.account.login, req.account.secret, "", req.headers.host, "", { version: 2, expires: options.sessionAge || this.sessionAge });
-            req.session["bk-signature"] = sig["bk-signature"];
+            req.session[this.signatureName] = sig[this.signatureName];
         } else {
-            delete req.session["bk-signature"];
+            delete req.session[this.signatureName];
         }
     }
 }
@@ -1356,11 +1360,11 @@ api.getOptions = function(req)
     if (req.query._session) req.options.session = corelib.toNumber(req.query._session);
     if (req.query._accesstoken) req.options.accessToken = corelib.toNumber(req.query._accesstoken);
     if (req.query._select) req.options.select = req.query._select;
-    if (req.query._count) req.options.count = corelib.toNumber(req.query._count, 0, 50, 0, this.selectLimit);
+    if (req.query._count) req.options.count = corelib.toNumber(req.query._count, { float: 0, dflt: 50, min: 0, max: this.selectLimit });
     if (req.query._start) req.options.start = corelib.base64ToJson(req.query._start, this.getTokenSecret(req));
     if (req.query._token) req.options.token = corelib.base64ToJson(req.query._token, this.getTokenSecret(req));
     if (req.query._sort) req.options.sort = req.query._sort;
-    if (req.query._page) req.options.page = corelib.toNumber(req.query._page, 0, 0, 0);
+    if (req.query._page) req.options.page = corelib.toNumber(req.query._page, { float: 0, dflt: 0, min: 0 });
     if (req.query._width) req.options.width = corelib.toNumber(req.query._width);
     if (req.query._height) req.options.height = corelib.toNumber(req.query._height);
     if (req.query._ext) req.options.ext = req.query._ext;
@@ -1671,7 +1675,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
             req.logIn(user, function(err) {
                 if (err) return next(err);
                 if (user.id) req.account = user;
-                self.createSessionSignature(req, options);
+                self.handleSessionSignature(req, options);
                 if (options.successRedirect) return res.redirect(options.successRedirect);
                 if (typeof callback == "function") return callback(req, options, info);
                 next();
