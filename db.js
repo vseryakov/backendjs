@@ -112,9 +112,9 @@ var db = {
            { name: "elasticsearch-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
            { name: "couchdb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
            { name: "riak-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
-           { name: "(.+)-pool-max(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1, max: 10000, descr: "Max number of open connections for a pool" },
-           { name: "(.+)-pool-min(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1, max: 10000, descr: "Min number of open connections for a pool" },
-           { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1000, max: 86400000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
+           { name: "(.+)-pool-max(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1, descr: "Max number of open connections for a pool" },
+           { name: "(.+)-pool-min(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1, descr: "Min number of open connections for a pool" },
+           { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
            { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
            { name: "(.+)-pool-init-options(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
            { name: "(.+)-pool-options(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "json", descr: "A DB pool driver options passed to every request" },
@@ -126,8 +126,8 @@ var db = {
     pool: 'sqlite',
 
     // Configuration parameters
-    npools: {  sqlite: "" },
-    cpools: {},
+    npools: { sqlite: "" },
+    cpools: { sqliteIdle: 900000 },
 
     // Database connection pools by pool name
     pools: {},

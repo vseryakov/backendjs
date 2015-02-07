@@ -38,7 +38,7 @@ var server = {
            { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "proxy-url", type: "regexpobj", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
            { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
-           { name: "proxy-host", type: "url", descr: "A Web server IP address or hostname where to proxy matched requests, can be just a host or host:port" },
+           { name: "proxy-target", type: "url", key: "proxyHost", descr: "A Web server where to proxy requests by matching request URL, in the form: http://host[:port]" },
            { name: "proxy-target-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-target', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-target-www.myhost.com=http://127.0.0.1:8080" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
@@ -185,14 +185,14 @@ server.startMaster = function(options)
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
-            setInterval(function() { d.run(function() { core.watchLogs(); }); }, core.logwatcherInterval * 60000);
+            setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
 
             // Primary cron jobs
-            if (self.jobsInterval > 0) setInterval(function() { d.run(function() { self.processQueue(); }); }, self.jobsInterval * 1000);
+            if (self.jobsInterval > 0) setInterval(function() { self.processQueue(); }, self.jobsInterval * 1000);
 
             // Watch temp files
-            setInterval(function() { d.run(function() { core.watchTmp("tmp", { seconds: 86400 }) }); }, 43200000);
-            setInterval(function() { d.run(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }); }, 86400000);
+            setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
+            setInterval(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }, 86400000);
 
             // Maintenance tasks
             setInterval(function() {
@@ -294,7 +294,7 @@ server.startWeb = function(options)
                     }
                 }
                 self.proxyServer = proxy.createServer({ xfwd : true });
-                self.proxyServer.on("error", function(err) { if (err.code != "ECONNRESET") logger.error("proxy:", err.code, err.stack) })
+                self.proxyServer.on("error", function(err, req) { if (err.code != "ECONNRESET") logger.error("proxy:", req.target || '', req.url, err.stack) })
                 self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
                     self.handleProxyRequest(req, res, 0);
                 });
@@ -414,7 +414,7 @@ server.handleChildProcess = function(child, type, method)
     self.pids[child.pid] = 1;
     child.on('exit', function (code, signal) {
         delete self.pids[this.pid];
-        logger.log('process terminated:', type, 'pid:', this.pid, 'code:', code, 'signal:', signal);
+        logger.log('handleChildProcess:', core.role, 'process terminated:', type, 'pid:', this.pid, 'code:', code, 'signal:', signal);
         // Make sure all web servers are down before restating to avoid EADDRINUSE error condition
         core.killBackend(type, "SIGKILL", function() {
             self.respawn(function() { self[method](); });
@@ -436,8 +436,8 @@ server.startProcess = function()
         if (self.logErrors) logger.error(data); else util.print(data);
     });
     // Restart if dies or exits
-    self.child.on('exit', function (code, signal) {
-        logger.log('process terminated:', 'code:', code, 'signal:', signal);
+    self.child.on('exit', function(code, signal) {
+        logger.log('startProcess:', core.role, 'process terminated:', 'pid:', self.child.pid, 'code:', code, 'signal:', signal);
         core.killBackend("", "", function() {
             self.respawn(function() {
                 self.startProcess();
@@ -860,10 +860,12 @@ server.handleProxyRequest = function(req, res, ssl)
     var self = this;
     var d = domain.create();
     d.on('error', function(err) {
-        logger.error('handleProxyRequest:', req.path, err.stack);
-        res.writeHead(500, "Internal Error");
-        res.end(err.message);
-        self.onkill();
+        logger.error('handleProxyRequest:', req.target || '', req.url, err.stack);
+        if (res.headersSent) return;
+        try {
+            res.writeHead(500, "Internal Error");
+            res.end(err.message);
+        } catch(e) {}
     });
     d.add(req);
     d.add(res);
@@ -888,9 +890,9 @@ server.handleProxyRequest = function(req, res, ssl)
                     return res.end(body);
                 }
             }
-            var target = self.getProxyTarget(req);
-            logger.dev("handleProxyRequest:", req.headers.host, req.url, target);
-            if (target) return self.proxyServer.web(req, res, target);
+            req.target = self.getProxyTarget(req);
+            logger.dev("handleProxyRequest:", req.headers.host, req.url, req.target);
+            if (req.target) return self.proxyServer.web(req, res, req.target);
             res.writeHead(500, "Not ready yet");
             res.end();
         });

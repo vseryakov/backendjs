@@ -49,12 +49,12 @@ public:
 
         Baton(PgSQLDatabase* db_, Handle<Function> cb_): db(db_), state(0)  {
             db->Ref();
-            callback = Persistent < Function > ::New(cb_);
+            if (!cb_.IsEmpty()) callback = Persistent < Function > ::New(cb_);
             LogDev("%p: cb=%d", this, callback.IsEmpty());
         }
         void Call(const char *err = 0) {
             LogDev("%p: state=%d", this, state);
-            if (state++ || callback.IsEmpty()) return;
+            if (state++ || callback.IsEmpty() || !callback->IsFunction()) return;
             Local < Value > argv[2] = { err ? Exception::Error(Local<String>::New(String::New(err))) : Local<Value>::New(Null()), Local<Value>::New(Array::New(0))  };
             TRY_CATCH_CALL(db->handle_, callback, 2, argv);
         }
@@ -239,7 +239,7 @@ Handle<Value> PgSQLDatabase::New(const Arguments& args)
 void PgSQLDatabase::Handle_Notice(void *arg, const char *msg)
 {
     PgSQLDatabase *db = (PgSQLDatabase *)arg;
-    if (!msg || db->notify.IsEmpty()) return;
+    if (!msg || db->notify.IsEmpty() || !db->notify->IsFunction()) return;
     Local<Value> argv[1] = { Local<String>::New(String::New(msg)) };
     TRY_CATCH_CALL(db->handle_, db->notify, 1, argv);
 }
@@ -342,7 +342,7 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
             }
 
             LogDev("%p: cb=%d", baton, baton->callback.IsEmpty());
-            if (!baton->state++ && !baton->callback.IsEmpty()) {
+            if (!baton->state++ && !baton->callback.IsEmpty() && baton->callback->IsFunction()) {
                 HandleScope scope;
                 Local<Value> argv[2];
                 if (db->results.size()) {

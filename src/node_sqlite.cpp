@@ -48,11 +48,11 @@ public:
         Baton(SQLiteDatabase* db_, Handle<Function> cb_, string s = "", int i = 0): db(db_), status(SQLITE_OK), sparam(s), iparam(i) {
             db->Ref();
             request.data = this;
-            callback = Persistent < Function > ::New(cb_);
+            if (!cb_.IsEmpty()) callback = Persistent < Function > ::New(cb_);
         }
         virtual ~Baton() {
             db->Unref();
-            callback.Dispose();
+            if (!callback.IsEmpty()) callback.Dispose();
         }
     };
 
@@ -119,7 +119,7 @@ public:
         Baton(SQLiteStatement* stmt_, Handle<Function> cb_): stmt(stmt_), inserted_id(0), changes(0), sql(stmt->sql)  {
             stmt->Ref();
             request.data = this;
-            callback = Persistent < Function > ::New(cb_);
+            if (!cb_.IsEmpty()) callback = Persistent < Function > ::New(cb_);
         }
         virtual ~Baton() {
             stmt->Unref();
@@ -415,13 +415,13 @@ static Local<Object> GetRow(sqlite3_stmt *stmt)
         if (dtype && !strcasecmp(dtype, "json")) type = SQLITE_JSON;
         switch (type) {
         case SQLITE_INTEGER:
-            value = Local<Value>(Number::New(sqlite3_column_int64(stmt, i)));
+            value = Local<Value>(Local<Number>::New(Number::New(sqlite3_column_int64(stmt, i))));
             break;
         case SQLITE_FLOAT:
-            value = Local<Value>(Number::New(sqlite3_column_double(stmt, i)));
+            value = Local<Value>(Local<Number>::New(Number::New(sqlite3_column_double(stmt, i))));
             break;
         case SQLITE_TEXT:
-            value = Local<Value>(String::New((const char*) sqlite3_column_text(stmt, i)));
+            value = Local<Value>(Local<String>::New(String::New((const char*) sqlite3_column_text(stmt, i))));
             break;
         case SQLITE_JSON:
             value = Local<Value>::New(parseJSON((const char*)sqlite3_column_text(stmt, i)));
@@ -454,13 +454,13 @@ static Local<Object> RowToJS(Row &row)
             value = Local<Value>::New(parseJSON(field.svalue.c_str()));
             break;
         case SQLITE_INTEGER:
-            value = Local<Value>(Number::New(field.nvalue));
+            value = Local<Value>(Local<Number>::New(Number::New(field.nvalue)));
             break;
         case SQLITE_FLOAT:
-            value = Local<Value>(Number::New(field.nvalue));
+            value = Local<Value>(Local<Number>::New(Number::New(field.nvalue)));
             break;
         case SQLITE_TEXT:
-            value = Local<Value>(String::New(field.svalue.c_str(), field.svalue.size()));
+            value = Local<Value>(Local<String>::New(String::New(field.svalue.c_str(), field.svalue.size())));
             break;
         case SQLITE_BLOB:
             buffer = Buffer::New(field.svalue.c_str(), field.svalue.size());

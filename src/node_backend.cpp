@@ -83,15 +83,15 @@ Handle<Value> toArray(vector<string> &list, int numeric)
     for (uint i = 0; i < list.size(); i++) {
         switch (numeric) {
         case 1:
-            rc->Set(Integer::New(i), Local<Number>::New(Number::New(atol(list[i].c_str()))));
+            rc->Set(Local<Number>::New(Integer::New(i)), Local<Number>::New(Number::New(atol(list[i].c_str()))));
             break;
 
         case 2:
-            rc->Set(Integer::New(i), Local<Number>::New(Number::New(atof(list[i].c_str()))));
+            rc->Set(Local<Number>::New(Integer::New(i)), Local<Number>::New(Number::New(atof(list[i].c_str()))));
             break;
 
         default:
-            rc->Set(Integer::New(i), Local<String>::New(String::New(list[i].c_str())));
+            rc->Set(Local<Number>::New(Integer::New(i)), Local<String>::New(String::New(list[i].c_str())));
         }
     }
     return scope.Close(rc);

@@ -315,6 +315,7 @@ var api = {
     // How old can a signtature be to consider it valid, for clock drifts
     signatureAge: 0,
     signatureName: "bk-signature",
+    corsOrigin: "*",
 
     // Separate age for access token
     accessTokenAge: 86400 * 7 * 1000,
@@ -414,6 +415,7 @@ var api = {
            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
            { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
+           { name: "cors-origin", descr: "Origin header for CORS requests" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "select-limit", type: "int", descr: "Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
@@ -467,8 +469,9 @@ api.init = function(options, callback)
     // Allow cross site requests
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version + " " + core.appName + "/" + core.appVersion);
-        res.header('Access-Control-Allow-Origin', '*');
+        res.header('Access-Control-Allow-Origin', self.corsOrigin);
         res.header('Access-Control-Allow-Headers', self.signatureName);
+        logger.debug('handleServerRequest:', req.ip || "", req.method, req.path, req.get('content-type') || "");
         next();
     });
 
@@ -757,7 +760,9 @@ api.handleServerRequest = function(req, res)
     });
     d.add(req);
     d.add(res);
-    d.run(function() { api.app(req, res); });
+    d.run(function() {
+        api.app(req, res);
+    });
 }
 
 // Process incoming proxy request, can be overriden for custom logic with frontend proxy server. If any
