@@ -2054,6 +2054,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-collect-interval</code> - How often to collect statistics and metrics in seconds</li>
 <li><code>api-collect-send-interval</code> - How often to send collected statistics to the master server in seconds</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
+<li><code>api-exit-on-error</code> - Exit on uncaught exception</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
 <li><code>api-select-limit</code> - Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
@@ -2570,7 +2571,7 @@ this functionality without clearing table column definitions.</p>
 <p> Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
 validating the signature or session cookies.</p>
 <ul>
-<li>method can be &#39;&#39; in such case all mathods will be matched</li>
+<li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similar to registering Express routes</li>
 <li>callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
 with the callback with status: and message: properties, status != 200 means error</li>
@@ -2621,11 +2622,11 @@ The purpose is to perform some additional actions after the standard API complet
 the callback may not return data back to the client, in this next post process hook will be called and eventually the result will be sent back to the client.
 <strong>To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called</strong></li>
 </ul>
-<p>Example, just update the rows, it will be sent</p>
+<p>Example, just update the rows, it will be sent at the end of processing all post hooks</p>
 <pre><code>    api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, function(req, res, rows) {
         rows.forEach(function(row) { ...});
     });
-</code></pre><p>Example, add data to the rows</p>
+</code></pre><p>Example, add data to the rows and return result after it</p>
 <pre><code>    api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, function(req, res, row) {
         db.get(&quot;bk_account&quot;, { id: row.id }, function(err, rec) {
             row.name = rec.name;
