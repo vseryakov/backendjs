@@ -257,6 +257,65 @@ var api = {
 
     }, // tables
 
+    // Config parameters
+    args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end" },
+           { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
+           { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
+           { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
+           { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express" },
+           { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
+           { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
+           { name: "access-log", descr: "File for access logging" },
+           { name: "init-tables", type: "bool", key: 'dbInitTables', descr: "Initialize/create API tables in the shell/worker or other non-API modules" },
+           { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
+           { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
+           { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
+           { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
+           { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
+           { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
+           { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
+           { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
+           { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
+           { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
+           { name: "signature-name", descr: "Name for the access signature query parameter or header" },
+           { name: "access-token-name", descr: "Name for the access token query parameter or header" },
+           { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests" },
+           { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
+           { name: "no-modules", type: "regexp", descr: "A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it" },
+           { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
+           { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
+           { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints" },
+           { name: "allow-account-", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
+           { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
+           { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
+           { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
+           { name: "allow-path", type: "regexpobj", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
+           { name: "disallow-path", type: "regexpobj", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
+           { name: "allow-anonymous", type: "regexpobj", descr: "Add to the list of allowed URL paths that can be served with or without valid account, the difference with `allow-path` is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found" },
+           { name: "allow-ssl", type: "regexpobj", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
+           { name: "redirect-ssl", type: "regexpobj", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects" },
+           { name: "redirect-url", type: "regexpmap", descr: "Add to the list a JSON object with property name defining the host/path regexp to be matched agaisnt in order to redirect using the value of the property, if the regexp starts with !, that mans negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { '^[^/]+/path/$': '/path2/index.html', '.+/$': '@PATH@/index.html' } " },
+           { name: "deny", type:" regexpobj", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
+           { name: "deny-path", type: "regexpobj", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
+           { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
+           { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
+           { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
+           { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
+           { name: "pages-view", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
+           { name: "pages-main", descr: "A template for the main page to be created when starting the wiki engine for the first time, if not given a default simple welcome message will be used" },
+           { name: "collect-host", descr: "The backend URL where all collected statistics should be sent over, if set to `pool` then each web worker will save metrics directly into the statistics database pool" },
+           { name: "collect-pool", descr: "Database pool where to save collected statistics" },
+           { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
+           { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
+           { name: "cors-origin", descr: "Origin header for CORS requests" },
+           { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
+           { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
+           { name: "select-limit", type: "int", descr: "Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database" },
+           { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
+           { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
+           { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
+    ],
+
     // Access handlers to grant access to the endpoint before checking for signature.
     // Authorization handlers after the account has been authenticated.
     // Post process, callbacks to be called after successfull API calls, takes as input the result.
@@ -364,64 +423,6 @@ var api = {
 
     // Endpoints for registered API services, each service registers itself of load
     endpoints: {},
-
-    // Config parameters
-    args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end" },
-           { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
-           { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
-           { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
-           { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express" },
-           { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
-           { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
-           { name: "access-log", descr: "File for access logging" },
-           { name: "init-tables", type: "bool", key: 'dbInitTables', descr: "Initialize/create API tables in the shell/worker or other non-API modules" },
-           { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
-           { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
-           { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
-           { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
-           { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
-           { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
-           { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
-           { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
-           { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
-           { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
-           { name: "signature-name", descr: "Name for the access signature query parameter or header" },
-           { name: "access-token-name", descr: "Name for the access token query parameter or header" },
-           { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests" },
-           { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
-           { name: "no-modules", type: "regexp", descr: "A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it" },
-           { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
-           { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
-           { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints" },
-           { name: "allow-account-", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
-           { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
-           { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
-           { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
-           { name: "allow-path", type: "regexpobj", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
-           { name: "disallow-path", type: "regexpobj", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
-           { name: "allow-anonymous", type: "regexpobj", descr: "Add to the list of allowed URL paths that can be served with or without valid account, the difference with `allow-path` is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found" },
-           { name: "allow-ssl", type: "regexpobj", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
-           { name: "redirect-ssl", type: "regexpobj", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects" },
-           { name: "redirect-url", type: "regexpmap", descr: "Add to the list a JSON object with property name defining the host/path regexp to be matched agaisnt in order to redirect using the value of the property, if the regexp starts with !, that mans negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { '^[^/]+/path/$': '/path2/index.html', '.+/$': '@PATH@/index.html' } " },
-           { name: "deny", type:" regexpobj", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
-           { name: "deny-path", type: "regexpobj", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
-           { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
-           { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
-           { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
-           { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
-           { name: "pages-view", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
-           { name: "pages-main", descr: "A template for the main page to be created when starting the wiki engine for the first time, if not given a default simple welcome message will be used" },
-           { name: "collect-host", descr: "The backend URL where all collected statistics should be sent over, if set to `pool` then each web worker will save metrics directly into the statistics database pool" },
-           { name: "collect-pool", descr: "Database pool where to save collected statistics" },
-           { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
-           { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
-           { name: "cors-origin", descr: "Origin header for CORS requests" },
-           { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
-           { name: "select-limit", type: "int", descr: "Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database" },
-           { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
-           { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
-           { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
-    ],
 }
 
 module.exports = api;
@@ -755,7 +756,8 @@ api.handleServerRequest = function(req, res)
     var d = domain.create();
     d.on('error', function(err) {
         logger.error('handleServerRequest:', core.port, req.path, err.stack);
-        api.sendReply(res, err);
+        if (!res.headersSent) api.sendReply(res, err);
+        if (!api.exitOnError) return;
         api.shutdown(function() { process.exit(0); });
     });
     d.add(req);
@@ -1530,7 +1532,7 @@ api.addHook = function(type, method, path, callback)
 
 // Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
 // validating the signature or session cookies.
-// - method can be '' in such case all mathods will be matched
+// - method can be '' in such case all methods will be matched
 // - path is a string or regexp of the request URL similar to registering Express routes
 // - callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
 //   with the callback with status: and message: properties, status != 200 means error
@@ -1586,13 +1588,13 @@ api.registerPreProcess = function(method, path, callback)
 //   the callback may not return data back to the client, in this next post process hook will be called and eventually the result will be sent back to the client.
 //   **To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called**
 //
-// Example, just update the rows, it will be sent
+// Example, just update the rows, it will be sent at the end of processing all post hooks
 //
 //          api.registerPostProcess('', '/data/', function(req, res, rows) {
 //              rows.forEach(function(row) { ...});
 //          });
 //
-// Example, add data to the rows
+// Example, add data to the rows and return result after it
 //
 //          api.registerPostProcess('', '/data/', function(req, res, row) {
 //              db.get("bk_account", { id: row.id }, function(err, rec) {

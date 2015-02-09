@@ -21,7 +21,7 @@
         }
 
 #define ERROR(db, cb, err) \
-    if (!cb.IsEmpty() && err) { \
+    if (err && !cb.IsEmpty() && cb->IsFunction()) { \
         Local<Value> argv[1] = { Exception::Error(Local<String>::New(String::New(err))) }; \
         TRY_CATCH_CALL(db->handle_, cb, 1, argv); \
     }

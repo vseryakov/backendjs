@@ -756,12 +756,12 @@ db.query = function(req, options, callback)
                     }
 
                     // Custom filter to return the final result set
-                    if (options.filter && rows.length) {
+                    if (typeof options.filter == "function"  && rows.length) {
                         rows = rows.filter(function(row) { return options.filter(row, options); })
                     }
 
                     // Async filter, can perform I/O for filtering
-                    if (options.async_filter && rows.length) {
+                    if (typeof options.async_filter == "function" && rows.length) {
                         return options.async_filter(rows, options, function(err, rows) { onEnd(err, client, rows, info); });
                     }
 
