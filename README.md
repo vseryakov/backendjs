@@ -1667,21 +1667,19 @@ during the initialization on every html page, it will enable Web sessions for th
 The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path '/public' still allowed without the signature:
 
-        <link href="/styles/jquery-ui.css" rel="stylesheet" type="text/css" />
-        <script src="/js/jquery.js" type="text/javascript"></script>
-        <script src="/js/jquery-ui.js" type="text/javascript"></script>
+        <script src="/js/jquery.js"></script>
+        <link href="/css/bootstrap.css" rel="stylesheet">
+        <script src="/js/bootstrap.js"></script>
         <script src="/js/knockout.js" type="text/javascript"></script>
         <script src="/js/crypto.js" type="text/javascript"></script>
-        <script src="js/backendjs.js" type="text/javascript"></script>
-        <script src="js/backendjs-jquery-ui.js" type="text/javascript"></script>
+        <script src="/js/backendjs.js" type="text/javascript"></script>
+        <script src="/js/backendjs-bootstrap.js" type="text/javascript"></script>
+        <script src="/js/backendjs-ko.js" type="text/javascript"></script>
         <script>
         $(function () {
             Backendjs.session = true;
-            ko.applyBindings(Backendjs);
-
-            Backendjs.login(function(err, data) {
-                if (err) window.location='/public/index.html';
-            });
+            $(Backendjs).on("nologin", function() { window.location='/public/index.html'; });
+            Backendjs.koInit();
         });
         </script>
 
@@ -1757,7 +1755,7 @@ Most common used commands are:
 
 # Deployment use cases
 
-## Custom AWS instance setup
+## AWS instance setup with node and backendjs
 
 Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
 new image configuration.
@@ -1775,9 +1773,9 @@ new image configuration.
 - try to access the instance via HTTP port 8000 for the API console or documentation
 - after reboot the server will be started automatically
 
-## Custom AWS instance
+## AWS instance as an appliance
 
-Run the backendjs on the AWS instance as user ec2-user with the backend in the user home
+To make an API appliance by using the backendjs on the AWS instance as user ec2-user with the backend in the user home
 
 - start new AWS instance via AWS console, use Amazon Linux or CentOS 6
 - login as `ec2-user`

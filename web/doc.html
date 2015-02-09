@@ -51,8 +51,8 @@
 <li><a href="#websockets-connections"> WebSockets connections</a></li>
 <li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a><ul>
-<li><a href="#custom-aws-instance-setup"> Custom AWS instance setup</a></li>
-<li><a href="#custom-aws-instance"> Custom AWS instance</a></li>
+<li><a href="#aws-instance-setup-with-node-and-backendjs"> AWS instance setup with node and backendjs</a></li>
+<li><a href="#aws-instance-as-an-appliance"> AWS instance as an appliance</a></li>
 <li><a href="#aws-beanstalk-deployment"> AWS Beanstalk deployment</a></li>
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 </ul>
@@ -1622,21 +1622,19 @@ rendering is done using Javascript. This is how the <code>api.html</code> develp
 during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.</p>
 <p>The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path &#39;/public&#39; still allowed without the signature:</p>
-<pre><code>    &lt;link href=&quot;/styles/jquery-ui.css&quot; rel=&quot;stylesheet&quot; type=&quot;text/css&quot; /&gt;
-    &lt;script src=&quot;/js/jquery.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;/js/jquery-ui.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+<pre><code>    &lt;script src=&quot;/js/jquery.js&quot;&gt;&lt;/script&gt;
+    &lt;link href=&quot;/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
+    &lt;script src=&quot;/js/bootstrap.js&quot;&gt;&lt;/script&gt;
     &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
     &lt;script src=&quot;/js/crypto.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;js/backendjs.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;js/backendjs-jquery-ui.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;/js/backendjs.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;/js/backendjs-bootstrap.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;/js/backendjs-ko.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
     &lt;script&gt;
     $(function () {
         Backendjs.session = true;
-        ko.applyBindings(Backendjs);
-
-        Backendjs.login(function(err, data) {
-            if (err) window.location=&#39;/public/index.html&#39;;
-        });
+        $(Backendjs).on(&quot;nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
+        Backendjs.koInit();
     });
     &lt;/script&gt;
 </code></pre><h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
@@ -1695,7 +1693,7 @@ customize the running environment, these should be regular shell scripts using b
 </li>
 </ul>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
-<h2 id="custom-aws-instance-setup">Custom AWS instance setup</h2>
+<h2 id="aws-instance-setup-with-node-and-backendjs">AWS instance setup with node and backendjs</h2>
 <p>Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
 new image configuration.</p>
 <ul>
@@ -1712,8 +1710,8 @@ new image configuration.</p>
 </li>
 <li>after reboot the server will be started automatically</li>
 </ul>
-<h2 id="custom-aws-instance">Custom AWS instance</h2>
-<p>Run the backendjs on the AWS instance as user ec2-user with the backend in the user home</p>
+<h2 id="aws-instance-as-an-appliance">AWS instance as an appliance</h2>
+<p>To make an API appliance by using the backendjs on the AWS instance as user ec2-user with the backend in the user home</p>
 <ul>
 <li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
 <li>login as <code>ec2-user</code></li>
