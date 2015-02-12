@@ -94,6 +94,7 @@
 <li><a href="#module-db_pgsql">db_pgsql</a></li>
 <li><a href="#module-db_redis">db_redis</a></li>
 <li><a href="#module-db_riak">db_riak</a></li>
+<li><a href="#module-db_sql">db_sql</a></li>
 <li><a href="#module-db_sqlite">db_sqlite</a></li>
 </ul>
 </li>
@@ -1633,7 +1634,7 @@ this assumes the default path &#39;/public&#39; still allowed without the signat
     &lt;script&gt;
     $(function () {
         Bkjs.session = true;
-        $(Backendjs).on(&quot;nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
+        $(Bkjs).on(&quot;nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
         Bkjs.koInit();
     });
     &lt;/script&gt;
@@ -1956,7 +1957,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
 <li><code>db-no-cache-columns</code> - Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database</li>
-<li><code>db-no-init-tables</code> - Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, disabling this will turn on table creation in the shell and master processes</li>
+<li><code>db-no-init-tables</code> - Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameer defined</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
@@ -1980,7 +1981,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>db-(.+)-pool-init-options(-[0-9]+)?</code> - Options for a DB pool driver passed during creation of a pool</li>
 <li><code>db-(.+)-pool-options(-[0-9]+)?</code> - A DB pool driver options passed to every request</li>
 <li><code>db-(.+)-pool-no-cache-columns(-[0-9]+)?</code> - disable caching table columns for this pool only</li>
-<li><code>db-(.+)-pool-no-init-tables(-[0-9]+)?</code> - Do not create tables for this pool only</li>
+<li><code>db-(.+)-pool-no-init-tables(-[0-9]+)?</code> - Do not create tables for this pool only, a regexp of tables to skip</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region</li>
@@ -2517,14 +2518,20 @@ if present in the info. This result object can be used for pagination responses.
 <ul>
 <li><p><code>api.checkResultColumns(table, rows, options)</code></p>
 <p> Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process
-callbacks after all records have been procersses and are ready to be returned to the client, the last step would be to cleanup all non public columns if necessary.</p>
+callbacks after all records have been processes and are ready to be returned to the client, the last step would be to cleanup
+all non public columns if necessary.</p>
 <p><code>table</code> can be a single table name or a list of table names which combined public columns need to be kept in the rows. List of request tables
-is kept in the <code>req.options.cleanup</code> which is by default is table name of the API endpoint, for example for /account/get it will contain bk_account, for
+is kept in the <code>req.options.cleanup</code> which by default is a table name of the API endpoint, for example for /account/get it will contain bk_account, for
 /connection/get - bk_connection.</p>
 <p>In the <code>options</code> account object can be present to detect account own records which will not be cleaned and all properties will be returned, by default <code>id</code>
 property is used to detect current account but can be specified by the <code>options.key</code> property.</p>
 <p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
 <p>If any column is marked with <code>secure</code> property this means never return that column in the result even for the owner of the record</p>
+<p>If any column is marked with <code>admin</code> property and the current account is an admin this property will be returned as well.</p>
+<p>The <code>options.strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
+new columns or columns created on the fly are returned to the client.</p>
+<p>The <code>options.pool</code> property must match the actual rowset to be applied properly, in case the records have been retrieved for the different
+database pool.</p>
 </li>
 </ul>
 
@@ -2549,6 +2556,7 @@ all request properties with the same name as this column name will be removed fr
 table to disable updating location related columns because speial location API maintains location data and updates the accounts table.</p>
 <p>The options can have a property in the form <code>keep_{name}</code> which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
 this functionality without clearing table column definitions.</p>
+<p>The <code>options.reverse</code> will make the logic oppsote, clear all properties that do not have the property <code>name</code> in the object.</p>
 </li>
 </ul>
 
@@ -2670,7 +2678,7 @@ If err is not null the error message is returned immediately.</p>
 </ul>
 
 <ul>
-<li><p><code>api.sendFormatted(req, rows, options)</code></p>
+<li><p><code>api.sendFormatted(req, data, options)</code></p>
 <p> Send result back formatting according to the options properties:</p>
 <ul>
 <li>format - json, csv, xml, JSON is degfault</li>
@@ -4739,7 +4747,8 @@ function(pool, callback) and will be called with first arg an error object and s
 <li>bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
 may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds</li>
 <li>convertError - a callback function(table, op, err, options) that converts native DB driver error into other human readable format</li>
-<li>resolveTable - a callback function(op, table, obj, options) that returns poosible different table at the time of the query, it is called by the <code>db.prepare</code> method
+<li>processColumns - a callback function(pool) taht is called after this pool cached columms from the database, it is called sychnroniously inside the <code>db.cacheColumns</code> method.</li>
+<li>resolveTable - a callback function(op, table, obj, options) that returns possible different table at the time of the query, it is called by the <code>db.prepare</code> method
 and if exist it must return the same or new table name for the given query parameters.</li>
 </ul>
 <p>The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
@@ -5216,22 +5225,24 @@ Additional options:</p>
 <p> Create a table using column definitions represented as a list of objects. Each column definition can
 contain the following properties:</p>
 <ul>
-<li>name - column name</li>
-<li>type - column type, one of: int, real, string, counter or other supported type</li>
-<li>primary - column is part of the primary key</li>
-<li>unique - column is part of an unique key</li>
-<li>index - column is part of an index</li>
-<li>value - default value for the column</li>
-<li>len - column length</li>
-<li>pub - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
+<li><code>name</code> - column name</li>
+<li><code>type</code> - column type, one of: int, real, string, counter or other supported type</li>
+<li><code>primary</code> - column is part of the primary key</li>
+<li><code>unique</code> - column is part of an unique key</li>
+<li><code>index</code> - column is part of an index</li>
+<li><code>value</code> - default value for the column</li>
+<li><code>len</code> - column length</li>
+<li><code>pub</code> - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
 credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
 so by default only a few columns are marked as public in the bk_account table</em></li>
-<li>hidden - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
+<li><code>secure</code> - an opposite for the pub property, if defined this proprty should never be returned to the client by the API handlers</li>
+<li><code>admin</code> - if defined this property can only be visible and mamaged by an admin account</li>
+<li><code>hidden</code> - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
 it can contain pub property to be returned to the client</li>
-<li>readonly - only add/put operations will use the value, incr/update will not affect the value</li>
-<li>writeonly - only incr/update can chnage this value, add/put will ignore it</li>
-<li>now - means on every add/put/update set this column with current time as Date.now()</li>
-<li>autoincr - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name</li>
+<li><code>readonly</code> - only add/put operations will use the value, incr/update will not affect the value</li>
+<li><code>writeonly</code> - only incr/update can chnage this value, add/put will ignore it</li>
+<li><code>now</code> - means on every add/put/update set this column with current time as Date.now()</li>
+<li><code>autoincr</code> - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name</li>
 </ul>
 <p><em>Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
 properties define a composite key in the order of definition or sorted by the property value, for example: <code>{ a: {index:2 }, b: { index:1 } }</code> will create index (b,a)
@@ -5428,6 +5439,24 @@ is used for SQL parametrized statements</p>
 </ul>
 
 <ul>
+<li><p><code>db.setProcessColumns(callback)</code></p>
+<p> Add a callback to be called after each cache columns event, it will be called for each pool separately.
+The callback to be called may take options argument and it is called in the context of the pool.</p>
+<p>The primary goal for this hook is to allow management of the existing tables which are not own by the
+backendjs application. For such tables, because we have not created them, we need to define column properties
+after the fact and to keep column definitions in the app for such cases is not realistic. This callback will
+allow to handle such situations and can be used to set necessary propeties to the table columns.</p>
+<p>Example, a few public columns, allow an admin to see all the columns</p>
+<pre><code>   db.setProcessColumns(function() {
+       var cols = db.getColumns(&quot;users&quot;, { pool: this.name });
+       for (var p in  cols) {
+           if ([&quot;id&quot;,&quot;name&quot;].indexOf(p) &gt; -1) cols[p].pub = 1; else cols[p].admin = 1;
+       }
+   })
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>db.mergeKeys(pool)</code></p>
 <p> Update pool keys with the primary keys form the table definitions in addition to the actual cached
 column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
@@ -5463,191 +5492,6 @@ specified table thus providing an opportunity to customize the result.</p>
       if (row.type == &quot;private&quot; &amp;&amp; row.id != opts.account.id) return true;
   });
 </code></pre>
-<ul>
-<li><p><code>db.sqlInitPool(options)</code></p>
-<p> Create a database pool for SQL like databases</p>
-<ul>
-<li>options - an object defining the pool, the following properties define the pool:<ul>
-<li>pool - pool name/type, of not specified SQLite is used</li>
-<li>max - max number of clients to be allocated in the pool</li>
-<li>idle - after how many milliseconds an idle client will be destroyed</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlCacheColumns(options, callback)</code></p>
-<p> Cache columns using the information_schema</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlPrepare(op, table, obj, options)</code></p>
-<p> Prepare SQL statement for the given operation</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlQuote(val)</code></p>
-<p> Quote value to be used in SQL expressions</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlValue(value, type, dflt, min, max)</code></p>
-<p> Return properly quoted value to be used directly in SQL expressions, format according to the type</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlValueIn(list, type)</code></p>
-<p> Return list in format to be used with SQL IN ()</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlExpr(name, value, options)</code></p>
-<p> Build SQL expressions for the column and value
-options may contain the following properties:</p>
-<ul>
-<li>op - SQL operator, default is =</li>
-<li>type - can be data, string, number, float, expr, default is string</li>
-<li>value - default value to use if passed value is null or empty</li>
-<li>min, max - are used for numeric values for validation of ranges</li>
-<li>expr - for op=expr, contains sprintf-like formatted expression to be used as is with all &#39;%s&#39; substituted with actual value</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlTime(d)</code></p>
-<p> Return time formatted for SQL usage as ISO, if no date specified returns current time</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlFilter(columns, values, params)</code></p>
-<p> Given columns definition object, build SQL query using values from the values object, all conditions are joined using AND,</p>
-<ul>
-<li>columns is a list of objects with the following properties:<ul>
-<li>name - column name, also this is the key to use in the values object to get value by</li>
-<li>col - actual column name to use in the SQL</li>
-<li>alias - optional table prefix if multiple tables involved</li>
-<li>value - default value</li>
-<li>type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr</li>
-<li>op - any valid SQL operation: =,&gt;,&lt;, between, like, not like, in, not in, ~*,.....</li>
-<li>group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)</li>
-<li>always - only use default value if true</li>
-<li>required - value default or supplied must be in the query, otherwise return empty SQL</li>
-<li>search - additional name for a value, for cases when generic field is used for search but we search specific column</li>
-</ul>
-</li>
-<li>values - actual values for the condition as an object, usually req.query</li>
-<li>params - if given will contain values for binding parameters</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlLimit(options)</code></p>
-<p> Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlWhere(table, query, keys, options)</code></p>
-<p> Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
-<ul>
-<li>query - properties for the condition, in case of an array the primary keys for IN condition will be used only</li>
-<li>keys - a list of columns to use for the condition, other properties will be ignored</li>
-<li>options may contains the following properties:<ul>
-<li>pool - pool to be used for driver specific functions</li>
-<li>ops - object for comparison operators for primary key, default is equal operator</li>
-<li>opsMap - operator mapping into supported by the database</li>
-<li>typesMap - type mapping for properties to be used in the condition</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlCreate(table, obj, options)</code></p>
-<p> Create SQL table using table definition</p>
-<ul>
-<li>table - name of the table to create</li>
-<li>obj - object with properties as column names and each property value is an object:<ul>
-<li>name - column name</li>
-<li>type - type of the column, default is TEXT, options: int, real or other supported types</li>
-<li>value - default value for the column</li>
-<li>primary - part of the primary key</li>
-<li>index - indexed column, part of the composite index</li>
-<li>unique - must be combined with index property to specify unique composite index</li>
-<li>len - max length of the column</li>
-<li>notnull - true if should be NOT NULL</li>
-<li>auto - true for AUTO_INCREMENT column</li>
-</ul>
-</li>
-<li>options may contains:<ul>
-<li>upgrade - perform alter table instead of create</li>
-<li>typesMap - type mapping, convert lowercase type into other type supported by any specific database</li>
-<li>noDefaults - ignore default value if not supported (Cassandra)</li>
-<li>noNulls - NOT NULL restriction is not supported (Cassandra)</li>
-<li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
-<li>noLengths - ignore column length for columns (Cassandra)</li>
-<li>noIfExists - do not support IF EXISTS on table or indexes</li>
-<li>noCompositeIndex - does not support composite indexes (Cassandra)</li>
-<li>noAuto - no support for auto increment columns</li>
-<li>skipNull - object with operations which dont support null(empty) values (DynamoDB cannot add/put empty/null values)</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlUpgrade(table, obj, options)</code></p>
-<p> Create ALTER TABLE ADD COLUMN statements for missing columns</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlDrop(table, obj, options)</code></p>
-<p> Create SQL DROP TABLE statement</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlSelect(table, query, options)</code></p>
-<p> Select object from the database,
-options may define the following properties:</p>
-<ul>
-<li>keys is a list of columns for the condition</li>
-<li>select is list of columns or expressions to return</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlInsert(table, obj, options)</code></p>
-<p> Build SQL insert statement</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlUpdate(table, obj, options)</code></p>
-<p> Build SQL statement for update</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlDelete(table, obj, options)</code></p>
-<p> Build SQL statement for delete</p>
-</li>
-</ul>
-
 <h2 id="module-ipc">Module: IPC</h2>
 <ul>
 <li><p><code>ipc</code></p>
@@ -6846,6 +6690,192 @@ pass bucketType in the <code>-db-riak-options</code>:</p>
 <pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/buckets?buckets=true&quot; }, { pool: &quot;riak&quot; }, db.showResult)
 db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;, obj: 1 }, { pool: &quot;riak&quot; }, db.showResult)
 </code></pre></li>
+</ul>
+
+<h2 id="module-db_sql">Module: DB_SQL</h2>
+<ul>
+<li><p><code>db.sqlInitPool(options)</code></p>
+<p> Create a database pool for SQL like databases</p>
+<ul>
+<li>options - an object defining the pool, the following properties define the pool:<ul>
+<li>pool - pool name/type, of not specified SQLite is used</li>
+<li>max - max number of clients to be allocated in the pool</li>
+<li>idle - after how many milliseconds an idle client will be destroyed</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlCacheColumns(options, callback)</code></p>
+<p> Cache columns using the information_schema</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlPrepare(op, table, obj, options)</code></p>
+<p> Prepare SQL statement for the given operation</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlQuote(val)</code></p>
+<p> Quote value to be used in SQL expressions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlValue(value, type, dflt, min, max)</code></p>
+<p> Return properly quoted value to be used directly in SQL expressions, format according to the type</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlValueIn(list, type)</code></p>
+<p> Return list in format to be used with SQL IN ()</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlExpr(name, value, options)</code></p>
+<p> Build SQL expressions for the column and value
+options may contain the following properties:</p>
+<ul>
+<li>op - SQL operator, default is =</li>
+<li>type - can be data, string, number, float, expr, default is string</li>
+<li>value - default value to use if passed value is null or empty</li>
+<li>min, max - are used for numeric values for validation of ranges</li>
+<li>expr - for op=expr, contains sprintf-like formatted expression to be used as is with all &#39;%s&#39; substituted with actual value</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlTime(d)</code></p>
+<p> Return time formatted for SQL usage as ISO, if no date specified returns current time</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlFilter(columns, values, params)</code></p>
+<p> Given columns definition object, build SQL query using values from the values object, all conditions are joined using AND,</p>
+<ul>
+<li>columns is a list of objects with the following properties:<ul>
+<li>name - column name, also this is the key to use in the values object to get value by</li>
+<li>col - actual column name to use in the SQL</li>
+<li>alias - optional table prefix if multiple tables involved</li>
+<li>value - default value</li>
+<li>type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr</li>
+<li>op - any valid SQL operation: =,&gt;,&lt;, between, like, not like, in, not in, ~*,.....</li>
+<li>group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)</li>
+<li>always - only use default value if true</li>
+<li>required - value default or supplied must be in the query, otherwise return empty SQL</li>
+<li>search - additional name for a value, for cases when generic field is used for search but we search specific column</li>
+</ul>
+</li>
+<li>values - actual values for the condition as an object, usually req.query</li>
+<li>params - if given will contain values for binding parameters</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlLimit(options)</code></p>
+<p> Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlWhere(table, query, keys, options)</code></p>
+<p> Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
+<ul>
+<li>query - properties for the condition, in case of an array the primary keys for IN condition will be used only</li>
+<li>keys - a list of columns to use for the condition, other properties will be ignored</li>
+<li>options may contains the following properties:<ul>
+<li>pool - pool to be used for driver specific functions</li>
+<li>ops - object for comparison operators for primary key, default is equal operator</li>
+<li>opsMap - operator mapping into supported by the database</li>
+<li>typesMap - type mapping for properties to be used in the condition</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlCreate(table, obj, options)</code></p>
+<p> Create SQL table using table definition</p>
+<ul>
+<li>table - name of the table to create</li>
+<li>obj - object with properties as column names and each property value is an object:<ul>
+<li>name - column name</li>
+<li>type - type of the column, default is TEXT, options: int, real or other supported types</li>
+<li>value - default value for the column</li>
+<li>primary - part of the primary key</li>
+<li>index - indexed column, part of the composite index</li>
+<li>unique - must be combined with index property to specify unique composite index</li>
+<li>len - max length of the column</li>
+<li>notnull - true if should be NOT NULL</li>
+<li>auto - true for AUTO_INCREMENT column</li>
+</ul>
+</li>
+<li>options may contains:<ul>
+<li>upgrade - perform alter table instead of create</li>
+<li>typesMap - type mapping, convert lowercase type into other type supported by any specific database</li>
+<li>noDefaults - ignore default value if not supported (Cassandra)</li>
+<li>noNulls - NOT NULL restriction is not supported (Cassandra)</li>
+<li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
+<li>noLengths - ignore column length for columns (Cassandra)</li>
+<li>noIfExists - do not support IF EXISTS on table or indexes</li>
+<li>noCompositeIndex - does not support composite indexes (Cassandra)</li>
+<li>noAuto - no support for auto increment columns</li>
+<li>skipNull - object with operations which dont support null(empty) values (DynamoDB cannot add/put empty/null values)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlUpgrade(table, obj, options)</code></p>
+<p> Create ALTER TABLE ADD COLUMN statements for missing columns</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlDrop(table, obj, options)</code></p>
+<p> Create SQL DROP TABLE statement</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlSelect(table, query, options)</code></p>
+<p> Select object from the database,
+options may define the following properties:</p>
+<ul>
+<li>keys is a list of columns for the condition</li>
+<li>select is list of columns or expressions to return</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlInsert(table, obj, options)</code></p>
+<p> Build SQL insert statement</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlUpdate(table, obj, options)</code></p>
+<p> Build SQL statement for update</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlDelete(table, obj, options)</code></p>
+<p> Build SQL statement for delete</p>
+</li>
 </ul>
 
 <h2 id="module-db_sqlite">Module: DB_SQLITE</h2>
