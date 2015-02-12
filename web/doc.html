@@ -441,7 +441,7 @@ add other accounts with this type specified, this column can also be used in acc
 all columns of this table are available as <code>req.account</code> object after the successful authentication where req is Express request object used in the middleware
 parameters.</p>
 <p><em>Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields. In the
-Web client if Backendjs.scramble is set to 1 then the secret is replaced by the HMAC value derived from the login and sent to the server, no actual login/secret
+Web client if Bkjs.scramble is set to 1 then the secret is replaced by the HMAC value derived from the login and sent to the server, no actual login/secret
 are ever saved, only used in the login form</em>.</p>
 <p>Example:</p>
 <pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
@@ -516,7 +516,7 @@ only every 5 seconds new events will be delivered to the Web client, if more tha
 
   // To run in the browser:
   (function poll() {
-      Backendjs.send({ url: &quot;/account/subscribe&quot;, complete: poll }, function(data) {
+      Bkjs.send({ url: &quot;/account/subscribe&quot;, complete: poll }, function(data) {
           console.log(&quot;received event:&quot;, data);
        });
    })();
@@ -1632,14 +1632,14 @@ this assumes the default path &#39;/public&#39; still allowed without the signat
     &lt;script src=&quot;/js/backendjs-ko.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
     &lt;script&gt;
     $(function () {
-        Backendjs.session = true;
+        Bkjs.session = true;
         $(Backendjs).on(&quot;nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
-        Backendjs.koInit();
+        Bkjs.koInit();
     });
     &lt;/script&gt;
 </code></pre><h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
 <p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page <code>Backendjs.session</code> must be set to true for all
+in case of error will be redirected to the login page by the server. Note, in the login page <code>Bkjs.session</code> must be set to true for all
 html pages to work after login without singing every API request.</p>
 <p>First we disable all allowed paths to the html and registration:</p>
 <pre><code>    app.configureMiddleware = function(options, callback) {
@@ -1800,7 +1800,7 @@ all config parameters support DNS store. To see which parmeteres can be stored i
 <p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.</p>
-<p>See web/js/backendjs.js for function Backendjs.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
+<p>See web/js/backendjs.js for function Bkjs.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
 <h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
 <ul>
 <li><p>for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:</p>

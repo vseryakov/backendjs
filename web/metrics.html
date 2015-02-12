@@ -19,8 +19,8 @@
  <script src="/js/backendjs-jquery-ui.js" type="text/javascript"></script>
 
  <link href="/css/nv.d3.css" rel="stylesheet" type="text/css">
- <script src="/js/d3.min.js"></script>
- <script src="/js/nv.d3.min.js"></script>
+ <script src="/js/d3.js"></script>
+ <script src="/js/nv.d3.js"></script>
 
 <style>
 
@@ -61,7 +61,7 @@ function showChart()
 
     var type = $('#type').val();
     var mtime = Date.now() - parseInt($('#period').val());
-    Backendjs.send({ url: "/system/stats/calc?_noscan=0&_ops=mtime,ge&mtime=" + mtime, jsonType: "list" }, function(rows) {
+    Bkjs.send({ url: "/system/stats/calc?_noscan=0&_ops=mtime,ge&mtime=" + mtime, jsonType: "list" }, function(rows) {
 
         var data = [];
         switch (type) {
@@ -131,7 +131,6 @@ function showChart()
                  .x(function(d) { return d[0] })
                  .y(function(d) { return d[1] })
                  .color(d3.scale.category10().range())
-                 .transitionDuration(300)
                  .clipVoronoi(false);
 
            chart.xAxis.tickFormat(function(d) { return d3.time.format('%a %H:%M')(new Date(d)) });
@@ -149,13 +148,13 @@ function showChart()
 }
 
 $(function() {
-     Backendjs.session = true;
+     Bkjs.session = true;
 
      $('#type').on('change', function() { showChart(); });
      $('#period').on('change', function() { showChart(); });
 
-     ko.applyBindings(Backendjs);
-     Backendjs.login(function(err) {
+     ko.applyBindings(Bkjs);
+     Bkjs.login(function(err) {
        if (!err) return showChart();
        $("#chart_canvas").html("Not logged in");
      });

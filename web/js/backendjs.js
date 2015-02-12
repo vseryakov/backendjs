@@ -4,7 +4,7 @@
 //
 
 // Core backend support
-var Backendjs = {
+var Bkjs = {
 
     // True if current credentials are good
     loggedIn: false,
@@ -165,6 +165,7 @@ var Backendjs = {
     // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
     signUrl: function(url, expires) {
         var hdrs = this.sign("GET", url, "", { expires: expires });
+        if (!hdrs[this.signatureName]) return url;
         return url + (url.indexOf("?") == -1 ? "?" : "") + "&" + this.signatureName + "=" + encodeURIComponent(hdrs[this.signatureName]);
     },
 
@@ -310,7 +311,7 @@ var Backendjs = {
         if (t !== "object") return t;
         if (Array.isArray(v)) return "array";
         if (v.constructor == (new Date).constructor) return "date";
-        if (v.constructor == (new RegExp).constructor) return "regex";
+        if (v.constructor == (new RegExp).constructor) return "regexp";
         return "object";
     },
 

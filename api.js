@@ -1270,8 +1270,8 @@ api.handleSessionSignature = function(req, options)
     if (typeof options.accessToken != "undefined") {
         if (options.accessToken && req.account && req.account.login && req.account.secret) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
-            req.account['bk-access-token'] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureName], "", "hex");
-            req.account['bk-access-token-age'] = options.sessionAge || this.accessTokenAge;
+            req.account[this.accessTokenName] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureName], "", "hex");
+            req.account[this.accessTokenName + '-age'] = options.sessionAge || this.accessTokenAge;
         } else {
             delete req.account.accessToken;
         }
@@ -1364,30 +1364,30 @@ api.getOptions = function(req)
      "publish", "archive", "trash"].forEach(function(x) {
         if (typeof req.query["_" + x] != "undefined") req.options[x] = corelib.toBool(req.query["_" + x]);
     });
+    // String parameters
+    ["name","alias","format","separator","pool",
+     "cleanup","sort","ext","encoding"].forEach(function(x) {
+        if (req.query["_" + x]) req.options[x] = req.query["_" + x];
+    });
+    // Numeric parameters
     if (req.query._session) req.options.session = corelib.toNumber(req.query._session);
     if (req.query._accesstoken) req.options.accessToken = corelib.toNumber(req.query._accesstoken);
-    if (req.query._select) req.options.select = req.query._select;
     if (req.query._count) req.options.count = corelib.toNumber(req.query._count, { float: 0, dflt: 50, min: 0, max: this.selectLimit });
     if (req.query._start) req.options.start = corelib.base64ToJson(req.query._start, this.getTokenSecret(req));
     if (req.query._token) req.options.token = corelib.base64ToJson(req.query._token, this.getTokenSecret(req));
-    if (req.query._sort) req.options.sort = req.query._sort;
     if (req.query._page) req.options.page = corelib.toNumber(req.query._page, { float: 0, dflt: 0, min: 0 });
     if (req.query._width) req.options.width = corelib.toNumber(req.query._width);
     if (req.query._height) req.options.height = corelib.toNumber(req.query._height);
-    if (req.query._ext) req.options.ext = req.query._ext;
-    if (req.query._encoding) req.options.encoding = req.query._encoding;
     if (req.query._tm) req.options.tm = corelib.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
     if (req.query._quality) req.options.quality = corelib.toNumber(req.query._quality);
     if (req.query._round) req.options.round = corelib.toNumber(req.query._round);
     if (req.query._interval) req.options.interval = corelib.toNumber(req.query._interval);
-    if (req.query._alias) req.options.alias = req.query._alias;
-    if (req.query._name) req.options.name = req.query._name;
+    // Other special parameters
+    if (req.query._select) req.options.select = corelib.strSplit(req.query._select);
     if (req.query._ops) {
         var ops = corelib.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
     }
-    if (req.query._pool) req.options.pool = req.query._pool;
-    if (req.query._cleanup) req.options.pool = req.query._cleanup;
     return req.options;
 }
 
@@ -1423,10 +1423,11 @@ api.getPublicColumns = function(table, options)
 }
 
 // Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process
-// callbacks after all records have been procersses and are ready to be returned to the client, the last step would be to cleanup all non public columns if necessary.
+// callbacks after all records have been processes and are ready to be returned to the client, the last step would be to cleanup
+// all non public columns if necessary.
 //
 // `table` can be a single table name or a list of table names which combined public columns need to be kept in the rows. List of request tables
-// is kept in the `req.options.cleanup` which is by default is table name of the API endpoint, for example for /account/get it will contain bk_account, for
+// is kept in the `req.options.cleanup` which by default is a table name of the API endpoint, for example for /account/get it will contain bk_account, for
 // /connection/get - bk_connection.
 //
 // In the `options` account object can be present to detect account own records which will not be cleaned and all properties will be returned, by default `id`
@@ -1436,16 +1437,23 @@ api.getPublicColumns = function(table, options)
 //
 // If any column is marked with `secure` property this means never return that column in the result even for the owner of the record
 //
+// If any column is marked with `admin` property and the current account is an admin this property will be returned as well.
 //
+// The `options.strict` will enforce that all columns not present in the table definition will be skipped as well, by default all
+// new columns or columns created on the fly are returned to the client.
+//
+// The `options.pool` property must match the actual rowset to be applied properly, in case the records have been retrieved for the different
+// database pool.
 api.checkResultColumns = function(table, rows, options)
 {
     if (!table || !rows) return;
     if (!options) options = {};
     var db = core.modules.db;
     var cols = {};
+    var admin = this.checkAccountType(options, "admin");
     corelib.strSplit(table).forEach(function(x) {
         var c = db.getColumns(x, options);
-        for (var p in c) cols[p] = c[p].pub ? 1 : c[p].secure ? -1 : 0;
+        for (var p in c) cols[p] = c[p].pub ? 1 : c[p].secure ? -1 : c[p].admin ? admin : 0;
     });
     if (!Array.isArray(rows)) rows = [ rows ];
     logger.debug("checkResultColumns:", table, cols, rows.length, options);
@@ -1453,7 +1461,10 @@ api.checkResultColumns = function(table, rows, options)
         // For personal records, skip only special columns
         var owner = options.account && options.account.id == row[options.key || 'id'];
         for (var p in row) {
-            if (typeof cols[p] == "undefined") continue;
+            if (typeof cols[p] == "undefined") {
+                if (options.strict) delete row[p];
+                continue;
+            }
             // Owners only skip secure columns
             if (owner && cols[p] < 0) delete row[p];
             if (!owner && cols[p] <= 0) delete row[p];
@@ -1495,14 +1506,18 @@ api.describeTables = function(tables)
 //
 // The options can have a property in the form `keep_{name}` which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
 // this functionality without clearing table column definitions.
+//
+// The `options.reverse` will make the logic oppsote, clear all properties that do not have the property `name` in the object.
+//
 api.clearQuery = function(query, options, table, name)
 {
+    var reverse = options && options.reverse ? 1 : 0;
     for (var i = 3; i < arguments.length; i++) {
         var name = arguments[i];
         if (options && options['keep_' + name]) continue;
         var cols = core.modules.db.getColumns(table, options);
         for (var p in cols) {
-            if (cols[p][name]) delete query[p];
+            if ((!reverse && cols[p][name]) || (reverse && !cols[p][name])) delete query[p];
         }
     }
 }
@@ -1731,32 +1746,38 @@ api.sendReply = function(res, status, text)
 // Send result back formatting according to the options properties:
 //  - format - json, csv, xml, JSON is degfault
 //  - separator - a separator to use for CSV and other formats
-api.sendFormatted = function(req, rows, options)
+api.sendFormatted = function(req, data, options)
 {
     if (!options) options = {};
+    if (!data) data = [];
 
     switch (options.format) {
     case "xml":
-        var data = "<data>";
+        if (req.options.cleanup) this.checkResultColumns(req.options.cleanup, data.count && data.data ? data.data : data, req.options);
+        var xml = "<data>";
+        if (data.next_token) xml += "<next_token>" + data.next_token + "</next_token>";
+        var rows = Array.isArray(data) ? data : (data.data || []);
         rows.forEach(function(x) {
-            data += "<row>";
+            xml += "<row>";
             for (var y in x) data += "<" + y + ">" + String(x[y]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&apos;').replace(/"/g, '&quot;') + "</" + y + ">";
-            data += "</row>\n";
+            xml += "</row>\n";
         });
-        data += "</data>";
+        xml += "</data>";
         req.res.set('Content-Type', 'application/xml');
-        req.res.send(200, data);
+        req.res.send(200, xml);
         break;
 
     case "csv":
-        var data = Object.keys(rows[0]).join(options.separator || "|") + "\n";
-        rows.forEach(function(x) { data += Object.keys(x).map(function(y) { return x[y]} ).join(options.separator || "|") + "\n"; });
+        if (req.options.cleanup) this.checkResultColumns(req.options.cleanup, data.count && data.data ? data.data : data, req.options);
+        var rows = Array.isArray(data) ? data : (data.data || []);
+        var csv = Object.keys(rows[0]).join(options.separator || "|") + "\n";
+        rows.forEach(function(x) { csv += Object.keys(x).map(function(y) { return x[y]} ).join(options.separator || "|") + "\n"; });
         req.res.set('Content-Type', 'text/plain');
-        req.res.send(200, data);
+        req.res.send(200, csv);
         break;
 
     default:
-        api.sendJSON(req, null, rows);
+        api.sendJSON(req, null, data);
     }
 }
 

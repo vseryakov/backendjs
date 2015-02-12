@@ -74,7 +74,7 @@ public:
         uv_timer_init(uv_default_loop(), &cleanup);
         cleanup.data = this;
         uv_timer_start(&cleanup, Handle_Cleanup, 2000, 2000);
-        LogDev("%p: %s", this, *info);
+        LogDev("%p: %s", this, info);
     }
 
     ~PgSQLDatabase() {

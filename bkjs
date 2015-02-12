@@ -633,15 +633,15 @@ case "$ARG" in
   run-backup)
     [ "$BKJS_BACKUP" = "" ] && exit
     DATE=$(date +%m-%d-%y)
+    HOUR=$(date +%H)
     DOW=$(date +%w)
     DAY=$(date +%d|sed 's/^0*//g')
     FILE=backup
-    # Even days will have 1 appended to the backup file name
-    [ "$BACKUP_TWO" != "" -a $(($DAY % 2)) -eq 0 ] && FILE="${FILE}1"
-    # Make backup copies daily/weekly...
+    # Make backup file names distinguished
+    [ "$BACKUP_MOD" != "" -a $(($DAY % $BACKUP_MOD)) -eq 0 ] && FILE="${FILE}$BACKUP_MOD"
+    [ "$BACKUP_HOURLY" != "" ] && FILE="$FILE$HOUR"
     [ "$BACKUP_DAILY" != "" ] && FILE="$FILE$DAY"
     [ "$BACKUP_WEEKLY" != "" ] && FILE="$FILE$DOW"
-    [ "$BACKUP_HALFWEEKLY" != "" ] && FILE="$FILE$((6 - $DOW))"
     FILE="$FILE-$HOST"
     # Additional options for tar
     BACKUP_TAR_ARGS="--ignore-failed-read --exclude-backup $BACKUP_TAR_ARGS"
@@ -651,6 +651,7 @@ case "$ARG" in
     done
     # Files and dirs to backup
     BACKUP_FILES="/etc /home/$BKJS_USER $BKJS_HOME/etc $BKJS_HOME/web $BKJS_PREFIX $BACKUP_FILES"
+    ARCHIVED_FILES=""
     mkdir -p $BKJS_BACKUP
 
     # Database backup if exists
@@ -658,36 +659,39 @@ case "$ARG" in
        BACKUP_FILES="$BACKUP_FILES $PG_DIR/*.conf"
        # PG directory on CentOS is separate
        [ -e $PG_PREFIX ] && BACKUP_FILES="$BACKUP_FILES $PG_PREFIX"
-       $PG_PREFIX/bin/pg_dump -Fc -U ${BACKUP_PG_USER:-postgres} $BACKUP_PG > $BKJS_BACKUP/$FILE.pgsql.dump
+       for d in $BACKUP_PG; do
+         $PG_PREFIX/bin/pg_dump -Fc -U ${BACKUP_PG_USER:-postgres} $d > $BKJS_BACKUP/$FILE-$d.pgsql.dump
+         [ -f $BKJS_BACKUP/$FILE-$d.pgsql.dump ] && ARCHIVED_FILES="$ARCHIVED_FILES $BKJS_BACKUP/$FILE-$d.pgsql.dump"
+       done
     fi
     if [ "$BACKUP_MYSQL" != "" -a -d $MYSQL_DIR/mysql ]; then
-       $MYSQL_PREFIX/bin/mysqldump -u ${BACKUP_MYSQL_USER:-root} $BACKUP_MYSQL > $BKJS_BACKUP/$FILE.mysql.dump
+       for d in $BACKUP_MYSQL; do
+         $MYSQL_PREFIX/bin/mysqldump -u ${BACKUP_MYSQL_USER:-root} $d > $BKJS_BACKUP/$FILE-$d.mysql.dump
+         [ -f $BKJS_BACKUP/$FILE-$d.mysql.dump ] && ARCHIVED_FILES="$ARCHIVED_FILES $BKJS_BACKUP/$FILE-$d.mysql.dump"
+       done
     fi
 
     # Filesystem backup
     if [ "$BACKUP_FS" != "" ]; then
        tar $BACKUP_TAR_ARGS -czf $BKJS_BACKUP/$FILE.tar.gz $BACKUP_FILES 2>&1 |egrep -v "tar: Removing leading|tar:.+ignored|as we read it"
+       [ -f $BKJS_BACKUP/$FILE.tar.gz ] && ARCHIVED_FILES="$ARCHIVED_FILES $BKJS_BACKUP/$FILE.tar.gz"
     fi
     # Allow to be managed by the user
     [ "$BACKUP_USER" != "" ] && chown -R $BACKUP_USER $BKJS_BACKUP
 
-    # Collect all files we just backed up
-    FILES=""
-    [ -f $BKJS_BACKUP/$FILE.tar.gz ] && FILES="$FILES $BKJS_BACKUP/$FILE.tar.gz"
-    [ -f $BKJS_BACKUP/$FILE.pgsql.dump ] && FILES="$FILES $BKJS_BACKUP/$FILE.pgsql.dump"
-    [ -f $BKJS_BACKUP/$FILE.mysql.dump ] && FILES="$FILES $BKJS_BACKUP/$FILE.mysql.dump"
-    [ "$FILES" = "" ] && exit
+    # Files we just backed up
+    [ "$ARCHIVED_FILES" = "" ] && exit
 
     # Send to remote host if configured, must be full ssh url with path like user@host:/path
     if [ "$BACKUP_REMOTE" != "" ]; then
        for h in $BACKUP_REMOTE; do
-         su - $BKJS_USER -c "scp -q $FILES $h"
+         su - $BKJS_USER -c "scp -q $ARCHIVED_FILES $h"
        done
     fi
 
     # Send to the S3 bucket using AWS tools
     if [ "$BACKUP_S3" != "" ]; then
-       for f in $FILES; do
+       for f in $ARCHIVED_FILES; do
          aws s3 cp $f $BACKUP_S3/$(basename $f) --quiet
        done
     fi

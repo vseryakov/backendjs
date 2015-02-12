@@ -3,43 +3,43 @@
 //
 
 // Setup a cookie session
-Backendjs.session = true;
+Bkjs.session = true;
 // Redirect to this url on logout
-Backendjs.koLogoutUrl = "";
+Bkjs.koLogoutUrl = "";
 // Status of the current account
-Backendjs.koAuth = ko.observable(0);
-Backendjs.koAdmin = ko.observable(0);
+Bkjs.koAuth = ko.observable(0);
+Bkjs.koAdmin = ko.observable(0);
 
-Backendjs.koLogin = function(data, event)
+Bkjs.koLogin = function(data, event)
 {
-    Backendjs.showLogin(function(err) {
-        Backendjs.koAuth(Backendjs.loggedIn);
-        Backendjs.koAdmin(Backendjs.loggedIn && Backendjs.account.type.split(",").indexOf("admin") > -1);
-        $(Backendjs).trigger(Backendjs.loggedIn ? "login" : "nologin");
+    Bkjs.showLogin(function(err) {
+        Bkjs.koAuth(Bkjs.loggedIn);
+        Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.account.type.split(",").indexOf("admin") > -1);
+        $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin");
         if (err) return;
-        Backendjs.hideLogin();
-        if (Backendjs.koShow) Backendjs.koShow();
+        Bkjs.hideLogin();
+        if (Bkjs.koShow) Bkjs.koShow();
     });
 }
 
-Backendjs.koLogout = function(data, event)
+Bkjs.koLogout = function(data, event)
 {
-    Backendjs.logout(function() {
-        Backendjs.koAuth(0);
-        Backendjs.koAdmin(0);
-        $(Backendjs).trigger('logout');
-        if (Backendjs.koLogoutUrl) window.location.href = Backendjs.koLogoutUrl;
+    Bkjs.logout(function() {
+        Bkjs.koAuth(0);
+        Bkjs.koAdmin(0);
+        $(Bkjs).trigger('logout');
+        if (Bkjs.koLogoutUrl) window.location.href = Bkjs.koLogoutUrl;
     });
 }
 
-Backendjs.koInit = function()
+Bkjs.koInit = function()
 {
-    ko.applyBindings(Backendjs);
-    Backendjs.login(function(err, data, xhr) {
-        Backendjs.koAuth(Backendjs.loggedIn);
-        Backendjs.koAdmin(Backendjs.loggedIn && Backendjs.account.type.split(",").indexOf("admin") > -1);
-        $(Backendjs).trigger(Backendjs.loggedIn ? "login" : "nologin");
+    ko.applyBindings(Bkjs);
+    Bkjs.login(function(err, data, xhr) {
+        Bkjs.koAuth(Bkjs.loggedIn);
+        Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.account.type.split(",").indexOf("admin") > -1);
+        $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin");
         if (err) return;
-        if (Backendjs.koShow) Backendjs.koShow();
+        if (Bkjs.koShow) Bkjs.koShow();
     });
 }

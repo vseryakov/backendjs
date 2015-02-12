@@ -407,7 +407,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
   parameters.
 
   *Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields. In the
-  Web client if Backendjs.scramble is set to 1 then the secret is replaced by the HMAC value derived from the login and sent to the server, no actual login/secret
+  Web client if Bkjs.scramble is set to 1 then the secret is replaced by the HMAC value derived from the login and sent to the server, no actual login/secret
   are ever saved, only used in the login form*.
 
   Example:
@@ -498,7 +498,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
         // To run in the browser:
         (function poll() {
-            Backendjs.send({ url: "/account/subscribe", complete: poll }, function(data) {
+            Bkjs.send({ url: "/account/subscribe", complete: poll }, function(data) {
                 console.log("received event:", data);
              });
          })();
@@ -1677,15 +1677,15 @@ this assumes the default path '/public' still allowed without the signature:
         <script src="/js/backendjs-ko.js" type="text/javascript"></script>
         <script>
         $(function () {
-            Backendjs.session = true;
-            $(Backendjs).on("nologin", function() { window.location='/public/index.html'; });
-            Backendjs.koInit();
+            Bkjs.session = true;
+            $(Bkjs).on("nologin", function() { window.location='/public/index.html'; });
+            Bkjs.koInit();
         });
         </script>
 
 ## Secure Web site, backend verification
 On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page `Backendjs.session` must be set to true for all
+in case of error will be redirected to the login page by the server. Note, in the login page `Bkjs.session` must be set to true for all
 html pages to work after login without singing every API request.
 
 First we disable all allowed paths to the html and registration:
@@ -1861,7 +1861,7 @@ For JSON content type, the method must be POST and no query parameters specified
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.
 
-See web/js/backendjs.js for function Backendjs.sign or function core.signRequest in the core.js for the Javascript implementation.
+See web/js/backendjs.js for function Bkjs.sign or function core.signRequest in the core.js for the Javascript implementation.
 
 # Backend framework development (Mac OS X, developers)
 

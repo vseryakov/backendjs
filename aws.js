@@ -73,7 +73,8 @@ aws.configureServer = function(options, callback)
     if (!core.instance.id || !core.instance.image) return callback();
     corelib.series([
        function(next) {
-           if (core.instance.tag) return next();
+           // Set new tag if not set yet or it follows our naming convention, reboot could have launched a new app version so we set it
+           if (core.instance.tag && !String(core.instance.tag).match(/^([a-z]+)-(a-z)-([0-9\.]+)$/i)) return next();
            self.ec2CreateTags(core.instance.id, core.runMode + "-" + core.appName + "-" + core.appVersion, function() { next() });
        },
        function(next) {

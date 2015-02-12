@@ -82,11 +82,11 @@ li {
 
 // Based on https://github.com/ngn/jquery-input-history.git
 $(function() {
-    $.widget('Backendjs.inputHistory', {
+    $.widget('Bkjs.inputHistory', {
     _create:function() {
         var s, _this = this;
         this.storageKey = 'inputHistory.' + this.element.attr('id');
-        this.h0 = Backendjs.getHistory();
+        this.h0 = Bkjs.getHistory();
         this.h = this.h0.concat(['']);
         this.i = this.h0.length;
         return this.element.keydown(function(event) {
@@ -134,53 +134,53 @@ $(function() {
 });
 
 $(function() {
-     Backendjs.debug = 1;
-     Backendjs.session = 1;
-     Backendjs.apiResponse = ko.observable('');
-     Backendjs.apiUrl = ko.observable('');
-     Backendjs.apiEmail = ko.observable();
-     Backendjs.apiTable = false;
-     Backendjs.apiRaw = false;
-     Backendjs.apiEscape = false;
-     Backendjs.apiHistory = ko.observableArray();
-     Backendjs.apiWS = ko.observable(0);
-     Backendjs.apiWS.subscribe(function(val) {
-        if (!val) return Backendjs.wsClose();
-        Backendjs.wsConnect("", function(data) { Backendjs.formatResponse(data); });
+     Bkjs.debug = 1;
+     Bkjs.session = 1;
+     Bkjs.apiResponse = ko.observable('');
+     Bkjs.apiUrl = ko.observable('');
+     Bkjs.apiEmail = ko.observable();
+     Bkjs.apiTable = false;
+     Bkjs.apiRaw = false;
+     Bkjs.apiEscape = false;
+     Bkjs.apiHistory = ko.observableArray();
+     Bkjs.apiWS = ko.observable(0);
+     Bkjs.apiWS.subscribe(function(val) {
+        if (!val) return Bkjs.wsClose();
+        Bkjs.wsConnect("", function(data) { Bkjs.formatResponse(data); });
      });
 
-     Backendjs.getHistory = function(sort) {
+     Bkjs.getHistory = function(sort) {
         var list = localStorage['inputHistory.url'], a = [];
         list = (list || "").split('\n');
         if (sort) list.sort();
         list.forEach(function(x) { if (x && a.indexOf(x) == -1) a.push(x) });
         return a;
      }
-     Backendjs.clearHistory = function() {
+     Bkjs.clearHistory = function() {
         localStorage['inputHistory.url'] = "";
-        Backendjs.apiHistory(Backendjs.getHistory(true));
+        Bkjs.apiHistory(Bkjs.getHistory(true));
         $("#dialog-history").dialog("close");
      }
-     Backendjs.deleteHistory = function(data, event) {
+     Bkjs.deleteHistory = function(data, event) {
         if (!data) return;
-        var list = Backendjs.getHistory();
+        var list = Bkjs.getHistory();
         var idx = list.indexOf(data);
         if (idx == -1) return;
         list.splice(idx, 1);
         localStorage['inputHistory.url'] = list.join('\n');
-        Backendjs.apiHistory(Backendjs.getHistory(true));
+        Bkjs.apiHistory(Bkjs.getHistory(true));
      }
-     Backendjs.selectHistory = function(data, event) {
+     Bkjs.selectHistory = function(data, event) {
         if (!data) return;
         $("#url").val(data);
         $("#dialog-history").dialog("close");
-        Backendjs.doRun();
+        Bkjs.doRun();
      }
-     Backendjs.showHistory = function() {
-        Backendjs.apiHistory(this.getHistory(true));
+     Bkjs.showHistory = function() {
+        Bkjs.apiHistory(this.getHistory(true));
         $("#dialog-history").dialog("open");
      }
-     Backendjs.formatResponse = function(data, xhr) {
+     Bkjs.formatResponse = function(data, xhr) {
         try {
             var ctype = xhr.getResponseHeader("content-type") || "";
             if (ctype.indexOf("json") > -1) {
@@ -211,10 +211,10 @@ $(function() {
             this.apiResponse(e.toString())
         }
      }
-     Backendjs.doPrepare = function(options) {
+     Bkjs.doPrepare = function(options) {
         var file = $("#file")[0];
         if (!file.files.length) {
-            if (Backendjs.apiEscape) options.url = Backendjs.encodeUrl(options.url);
+            if (Bkjs.apiEscape) options.url = Bkjs.encodeUrl(options.url);
             return true;
         }
         var form = new FormData(), obj = {}, fn = "icon";
@@ -236,7 +236,7 @@ $(function() {
         options.processData = false;
         return true;
      }
-     Backendjs.doRun = function() {
+     Bkjs.doRun = function() {
          var self = this;
          var url = $('#url').val();
          if (!url) return;
@@ -250,27 +250,27 @@ $(function() {
                  $("#file").val('');
              });
          } else {
-             if (Backendjs.ws) return Backendjs.wsSend(url);
-             if (Backendjs.io) return Backendjs.ioSend(url);
+             if (Bkjs.ws) return Bkjs.wsSend(url);
+             if (Bkjs.io) return Bkjs.ioSend(url);
 
              var options = { url: url };
-             if (Backendjs.apiRaw) options.dataType = "text";
-             if (!Backendjs.doPrepare(options)) return;
-             Backendjs.send(options, function(data, xhr) {
+             if (Bkjs.apiRaw) options.dataType = "text";
+             if (!Bkjs.doPrepare(options)) return;
+             Bkjs.send(options, function(data, xhr) {
                  $("#file").val('');
-                 Backendjs.formatResponse(data, xhr);
+                 Bkjs.formatResponse(data, xhr);
              }, function(msg, xhr, status, error) {
                  $("#file").val('');
                  self.apiResponse(error + "\n" + xhr.responseText);
              });
          }
      }
-     Backendjs.koShow = function() {
-        Backendjs.apiEmail(Backendjs.loggedIn ? Backendjs.account.login : "");
+     Bkjs.koShow = function() {
+        Bkjs.apiEmail(Bkjs.loggedIn ? Bkjs.account.login : "");
      }
 
      $('#url').inputHistory({
-         enter: function() { Backendjs.doRun() }
+         enter: function() { Bkjs.doRun() }
      });
 
      $("#dialog-history").dialog({
@@ -280,7 +280,7 @@ $(function() {
      });
 
      document.title += ": " + window.location.hostname.split(".").shift();
-     Backendjs.koInit();
+     Bkjs.koInit();
 });
 </script>
 

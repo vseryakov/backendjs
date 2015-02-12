@@ -61,49 +61,49 @@
 
 $(document).ready(function() {
 
-    Backendjs.taxis = {};
+    Bkjs.taxis = {};
 
-    Backendjs.doRefresh = function(data, event) {
+    Bkjs.doRefresh = function(data, event) {
         this.send({ url: '/taxi/get', jsonType: "list" }, function(list) {
             list.forEach(function(x) {
                 var pos = new google.maps.LatLng(x.latitude, x.longitude);
-                if (!Backendjs.taxis[x.id]) {
-                    Backendjs.taxis[x.id] = x;
-                    x.marker = new google.maps.Marker({ map: Backendjs.map, position: pos, icon: 'taxi-' + x.status + '.png', title: x.id });
+                if (!Bkjs.taxis[x.id]) {
+                    Bkjs.taxis[x.id] = x;
+                    x.marker = new google.maps.Marker({ map: Bkjs.map, position: pos, icon: 'taxi-' + x.status + '.png', title: x.id });
                 } else {
-                    Backendjs.taxis[x.id].marker.setIcon('taxi-' + x.status + '.png');
-                    Backendjs.taxis[x.id].marker.animateTo(pos);
+                    Bkjs.taxis[x.id].marker.setIcon('taxi-' + x.status + '.png');
+                    Bkjs.taxis[x.id].marker.animateTo(pos);
                 }
             });
         });
     }
 
-    Backendjs.doConfirm = function(data, event) {
-        Backendjs.send({ url: '/taxi/set?status=Scheduled&id=' + data.id, jsonType: "list" }, function() {
-            Backendjs.doRefresh();
+    Bkjs.doConfirm = function(data, event) {
+        Bkjs.send({ url: '/taxi/set?status=Scheduled&id=' + data.id, jsonType: "list" }, function() {
+            Bkjs.doRefresh();
         });
     }
 
-    Backendjs.showLogin = function() {
+    Bkjs.showLogin = function() {
         this.login();
     }
-    Backendjs.showLogout = function() {
+    Bkjs.showLogout = function() {
         this.logout();
     }
 
-    Backendjs.setupMap = function() {
-        Backendjs.send({ url: '/taxi/center' }, function(center) {
-            Backendjs.center = new google.maps.LatLng(center.latitude, center.longitude);
-            Backendjs.map = new google.maps.Map(document.getElementById('map_canvas'), { zoom: 13, center: Backendjs.center, mapTypeId: google.maps.MapTypeId.ROADMAP });
-            Backendjs.doRefresh();
-            setInterval(function() { Backendjs.doRefresh() }, 5000);
+    Bkjs.setupMap = function() {
+        Bkjs.send({ url: '/taxi/center' }, function(center) {
+            Bkjs.center = new google.maps.LatLng(center.latitude, center.longitude);
+            Bkjs.map = new google.maps.Map(document.getElementById('map_canvas'), { zoom: 13, center: Bkjs.center, mapTypeId: google.maps.MapTypeId.ROADMAP });
+            Bkjs.doRefresh();
+            setInterval(function() { Bkjs.doRefresh() }, 5000);
         });
     }
 
-    ko.applyBindings(Backendjs);
-    Backendjs.login(function(err, data) {
+    ko.applyBindings(Bkjs);
+    Bkjs.login(function(err, data) {
         if (err) return true;
-        Backendjs.setupMap();
+        Bkjs.setupMap();
     });
 
 });

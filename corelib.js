@@ -561,15 +561,15 @@ corelib.createPool = function(options)
 
         var idx = this._pbusy.indexOf(client);
         if (idx > -1) {
-            this._pbusy.splice(idx, 1);
             this._pclose(client);
+            this._pbusy.splice(idx, 1);
             return;
         }
         var idx = this._pavail.indexOf(client);
         if (idx > -1) {
+            this._pclose(client);
             this._pavail.splice(idx, 1);
             this._pmtime.splice(idx, 1);
-            this._pclose(client);
             return;
         }
     }
@@ -592,15 +592,16 @@ corelib.createPool = function(options)
             return self.runCallback(this._pqueue, this._pqueue[id]);
         }
 
-        this._pbusy.splice(idx, 1);
-
         // Destroy if above the limit or invalid
         if (this._pavail.length > this._pmax || !this._pcheck(client)) {
-            return this._pclose(client);
+            this._pclose(client);
+        } else {
+            // Add to the available list
+            this._pavail.unshift(client);
+            this._pmtime.unshift(Date.now());
         }
-        // Add to the available list
-        this._pavail.unshift(client);
-        this._pmtime.unshift(Date.now());
+        // Remove from the busy list at the end to keep the object referenced all the time
+        this._pbusy.splice(idx, 1);
     }
 
     pool.stats = function() {
@@ -1423,7 +1424,7 @@ corelib.typeName = function(v)
     if (Array.isArray(v)) return "array";
     if (Buffer.isBuffer(v)) return "buffer";
     if (v instanceof Date) return "date";
-    if (v instanceof RegExp) return "regex";
+    if (v instanceof RegExp) return "regexp";
     return "object";
 }
 
@@ -1438,7 +1439,7 @@ corelib.isEmpty = function(val)
     case "array":
         return val.length == 0;
     case "number":
-    case "regex":
+    case "regexp":
     case "boolean":
         return false;
     case "date":

@@ -5,7 +5,7 @@
 
 // Bootstrap backend support
 
-Backendjs.showAlert = function(obj, type, text, dismiss)
+Bkjs.showAlert = function(obj, type, text, dismiss)
 {
     if (typeof obj == "string") dismiss = text, text = type, type = obj, obj = $("body");
     text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + text
@@ -16,12 +16,12 @@ Backendjs.showAlert = function(obj, type, text, dismiss)
 }
 
 // Login UI control
-Backendjs.hideLogin = function()
+Bkjs.hideLogin = function()
 {
     $("#backendjs-login-modal").modal("hide");
 }
 
-Backendjs.showLogin = function(callback)
+Bkjs.showLogin = function(callback)
 {
     var modal = $('#backendjs-login-modal');
     if (!modal.length) {
@@ -63,8 +63,8 @@ Backendjs.showLogin = function(callback)
     secret.off().on("keyup", function(e) { if (e.which == 13) { form.trigger("submit"); e.preventDefault(); } });
     form.find('button[type=submit]').off().on("click", function(e) { form.trigger("submit"); e.preventDefault(); });
     form.off().on("submit", function() {
-        Backendjs.login(login.val(), secret.val(), function(err, data) {
-            if (err) Backendjs.showAlert(modal, "danger", err);
+        Bkjs.login(login.val(), secret.val(), function(err, data) {
+            if (err) Bkjs.showAlert(modal, "danger", err);
             if (typeof callback == "function") callback(err, data)
         });
         return false;
