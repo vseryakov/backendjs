@@ -39,10 +39,10 @@ Bkjs.showLogin = function(callback)
          </div>');
 
     function submit(cb) {
-        self.login($('#backendjs-login').val(),  $('#backendjs-secret').val(), function(err, data) {
+        self.login($('#backendjs-login').val(),  $('#backendjs-secret').val(), function(err, data, xhr) {
             if (err) self.showAlert(modal, "error", err);
             if (!cb) cb = modal.dialog("option", "callback");
-            if (cb) cb(err, data);
+            if (typeof cb == "function") cb(err, data, xhr);
         });
     }
 

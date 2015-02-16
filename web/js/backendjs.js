@@ -30,6 +30,14 @@ var Bkjs = {
     // Websockets
     wsconf: { host: null, port: 8000, errors: 0 },
 
+    // Secret policy for plain text passwords
+    passwordPolicy: {
+        '[a-z]+': 'requires at least one lower case letter',
+        '[A-Z]+': 'requires at least one upper case letter',
+        '[0-9]+': 'requires at least one digit',
+        '.{6,}': 'requires at least 6 characters',
+    },
+
     // Return current credentials
     getCredentials: function() {
         var obj = this.persistent ? localStorage : this;
@@ -51,6 +59,18 @@ var Bkjs = {
         obj.backendjsLogin = creds.login;
         obj.backendjsSecret = creds.secret;
         if (this.debug) this.log('setCredentials:', creds);
+    },
+
+    // Verify account secret against the policy
+    checkPassword: function(secret) {
+        var self = this;
+        secret = secret || "";
+        for (var p in this.passwordPolicy) {
+            if (!secret.match(p)) {
+                return { status: 400, message: this.passwordPolicy[p], policy: Object.keys(this.passwordPolicy).map(function(x) { return self.passwordPolicy[x] }).join(", ") };
+            }
+        }
+        return "";
     },
 
     // Retrieve account record, call the callback with the object or error
@@ -143,6 +163,7 @@ var Bkjs = {
         if (!ctype && method == "POST") ctype = "application/x-www-form-urlencoded; charset=UTF-8";
         var q = String(url || "/").split("?");
         url = q[0];
+        if (url[0] != "/") url = "/" + url;
         if (!query) query = q[1] || "";
         if (query instanceof FormData) query = "";
         if (typeof query == "object") query = jQuery.param(query);
@@ -190,14 +211,10 @@ var Bkjs = {
         var self = this;
         if (typeof options == "string") options = { url: options };
 
-        // Global progress indicator
-        if (!window.loadingState) window.loadingState = { count: 0 };
-        var state = window.loadingState;
-
         if (!options.dataType) options.dataType = 'json';
         // Success callback but if it throws exception we call error handler instead
         options.success = function(json, status, xhr) {
-            if (--state.count <= 0) $('#loading').hide(), state.count = 0;
+            self.loading("hide");
             // Make sure json is of type we requested
             switch (options.jsonType) {
             case 'list':
@@ -212,7 +229,7 @@ var Bkjs = {
         }
         // Parse error message
         options.error = function(xhr, status, error) {
-            if (--state.count <= 0) $('#loading').hide(), state.count = 0;
+            self.loading("hide");
             var msg = "";
             try { msg = JSON.parse(xhr.responseText).message; } catch(e) { msg = status; }
             self.log('send: error:', status, msg, error, options);
@@ -221,7 +238,7 @@ var Bkjs = {
         if (!options.nosignature) {
             options.headers = this.sign(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
         }
-        $('#loading').show(), state.count++;
+        this.loading("show");
         $.ajax(options);
     },
 
@@ -278,6 +295,28 @@ var Bkjs = {
     // Percent encode with special symbols in addition
     encode: function(str) {
         return encodeURIComponent(str).replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
+    },
+
+    // Show/hide loading animation
+    loading: function(op) {
+        var img = $('.loading');
+        if (!img.length) return;
+
+        if (!window.bkjsLoading) window.bkjsLoading = { count: 0 };
+        var state = window.bkjsLoading;
+        switch (op) {
+        case "hide":
+            if (--state.count > 0) break;
+            state.count = 0;
+            if (state.display == "none") img.hide(); else img.css("visibility", "hidden");
+            break;
+
+        case "show":
+            if (state.count++ > 0) break;
+            if (!state.display) state.display = img.css("display");
+            if (state.display == "none") img.show(); else img.css("visibility", "visible");
+            break;
+        }
     },
 
     // Return value of the query parameter by name

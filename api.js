@@ -67,6 +67,7 @@ var api = {
                       email: {},
                       phone: {},
                       website: {},
+                      company: {},
                       birthday: {},
                       gender: {},
                       address: {},
@@ -284,17 +285,17 @@ var api = {
            { name: "no-modules", type: "regexp", descr: "A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it" },
            { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
-           { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints" },
+           { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers `AuthCheck` callback for the given endpoints" },
            { name: "allow-account-", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
            { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
            { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", type: "regexpobj", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
-           { name: "disallow-path", type: "regexpobj", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration" },
+           { name: "disallow-path", type: "regexpobj", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove `^/account/add$` to disable open registration" },
            { name: "allow-anonymous", type: "regexpobj", descr: "Add to the list of allowed URL paths that can be served with or without valid account, the difference with `allow-path` is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found" },
            { name: "allow-ssl", type: "regexpobj", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
            { name: "redirect-ssl", type: "regexpobj", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects" },
-           { name: "redirect-url", type: "regexpmap", descr: "Add to the list a JSON object with property name defining the host/path regexp to be matched agaisnt in order to redirect using the value of the property, if the regexp starts with !, that mans negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { '^[^/]+/path/$': '/path2/index.html', '.+/$': '@PATH@/index.html' } " },
+           { name: "redirect-url", type: "regexpmap", descr: "Add to the list a JSON object with property name defining the host/path regexp to be matched agaisnt in order to redirect using the value of the property, if the regexp starts with !, that means negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { '^[^/]+/path/$': '/path2/index.html', '.+/$': '@PATH@/index.html' } " },
            { name: "deny", type:" regexpobj", set: 1, descr: "Regexp for URLs that will be denied access, replaces the whole access list"  },
            { name: "deny-path", type: "regexpobj", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
@@ -307,6 +308,7 @@ var api = {
            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
            { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
+           { name: "secret-policy", type: "regexpmap", descr : "An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, `api.checkAccountSecret` performs the validation, example: { '[a-z]+': 'At least one lowercase letter', '[A-Z]+': 'At least one upper case letter' }" },
            { name: "cors-origin", descr: "Origin header for CORS requests" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
@@ -319,7 +321,7 @@ var api = {
     // Access handlers to grant access to the endpoint before checking for signature.
     // Authorization handlers after the account has been authenticated.
     // Post process, callbacks to be called after successfull API calls, takes as input the result.
-    hooks: { access: [], auth: [], post: [] },
+    hooks: {},
 
     // No authentication for these urls
     allow: corelib.toRegexpObj(null, ["^/$",
@@ -347,6 +349,12 @@ var api = {
 
     // Global redirect rules, each rule must match host/path to be redirected
     redirectUrl: [],
+
+    // A list of regexp expresions for account pasword verification
+    secretPolicy: corelib.toRegexpMap(null, { '[a-z]+': 'requires at least one lower case letter',
+                                              '[A-Z]+': 'requires at least one upper case letter',
+                                              '[0-9]+': 'requires at least one digit',
+                                              '.{6,}': 'requires at least 6 characters'  }),
 
     // Where images/file are kept
     imagesUrl: '',
@@ -499,11 +507,18 @@ api.init = function(options, callback)
                 delete self.metrics[path];
                 delete self.metrics[path + '_0'];
             }
-            // Cleanup request
-            for (var p in req.options) delete req.options[p];
-            delete req.options;
-            for (var p in req.account) delete req.account[p];
-            delete req.account;
+            // Call cleanup hooks
+            var hooks = self.findHook('cleanup', req.method, req.path);
+            corelib.forEachSeries(hooks, function(hook, next) {
+                logger.debug('cleanup:', req.method, req.path, hook.path);
+                hook.callbacks.call(self, req, function() { next() });
+            }, function() {
+                // Cleanup request explicitely
+                for (var p in req.options) delete req.options[p];
+                delete req.options;
+                for (var p in req.account) delete req.account[p];
+                delete req.account;
+            });
         }
         next();
     });
@@ -560,7 +575,7 @@ api.init = function(options, callback)
         var location = req.host + req.url;
         for (var i = 0; i < self.redirectUrl.length; i++) {
             if (self.redirectUrl[i].rx.test(location)) {
-                var url = self.redirectUrl[i].url.replace(/@(HOST|PATH|URL)@/g, function(m) {
+                var url = self.redirectUrl[i].value.replace(/@(HOST|PATH|URL)@/g, function(m) {
                     return m == "HOST" ? req.host : m == "PATH" ? req.path : m == "URL" ? req.url : "";
                 });
                 logger.debug("redirect:", location, "=>", url, self.redirectUrl[i]);
@@ -583,7 +598,7 @@ api.init = function(options, callback)
     // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
     self.app.use(function(req, res, next) {
         if (!self.domain || req.host.match(self.domain)) return self.checkRequest(req, res, next);
-        req._noBackend = 1;
+        req._noRouter = 1;
         next();
     });
 
@@ -600,7 +615,7 @@ api.init = function(options, callback)
         // Custom routes, if host defined only server API calls for matched domains
         var router = self.app.router;
         self.app.use(function(req, res, next) {
-            if (req._noBackend) return next();
+            if (req._noRouter) return next();
             return router(req, res, next);
         });
 
@@ -1267,8 +1282,8 @@ api.createSignature = function(login, secret, method, host, uri, options)
 // properties after successful authorization.
 api.handleSessionSignature = function(req, options)
 {
-    if (typeof options.accessToken != "undefined") {
-        if (options.accessToken && req.account && req.account.login && req.account.secret) {
+    if (typeof options.accessToken != "undefined" && req.session) {
+        if (options.accessToken && req.account && req.account.login && req.account.secret && req.headers) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
             req.account[this.accessTokenName] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureName], "", "hex");
             req.account[this.accessTokenName + '-age'] = options.sessionAge || this.accessTokenAge;
@@ -1276,8 +1291,8 @@ api.handleSessionSignature = function(req, options)
             delete req.account.accessToken;
         }
     }
-    if (typeof options.session != "undefined") {
-        if (options.session && req.account && req.account.login && req.account.secret) {
+    if (typeof options.session != "undefined" && req.session) {
+        if (options.session && req.account && req.account.login && req.account.secret && req.headers) {
             var sig = this.createSignature(req.account.login, req.account.secret, "", req.headers.host, "", { version: 2, expires: options.sessionAge || this.sessionAge });
             req.session[this.signatureName] = sig[this.signatureName];
         } else {
@@ -1541,16 +1556,18 @@ api.addHook = function(type, method, path, callback)
 {
     var hooks = this.findHook(type, method, path);
     if (hooks.some(function(x) { return x.method == method && x.path == path })) return false;
+    if (!this.hooks[type]) this.hooks[type] = [];
     this.hooks[type].push(new express.Route(method, path, callback));
     return true;
 }
 
 // Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
-// validating the signature or session cookies.
-// - method can be '' in such case all methods will be matched
-// - path is a string or regexp of the request URL similar to registering Express routes
-// - callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
-//   with the callback with status: and message: properties, status != 200 means error
+// validating the signature or session cookies. No account information is available at this point yet.
+//
+//  - method can be '' in such case all methods will be matched
+//  - path is a string or regexp of the request URL similar to registering Express routes
+//  - callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
+//    with the callback with status: and message: properties, status != 200 means error
 //
 // Example:
 //
@@ -1567,7 +1584,7 @@ api.registerAccessCheck = function(method, path, callback)
 }
 
 // Similar to `registerAccessCheck` but this callback will be called after the signature or session is verified but before
-// the API route method is called.
+// the API route method is called. The `req.account` object will always exist at this point but may not contain the user in case of an error.
 //
 // The purpose of this hook is to perform some preparations or check permissions of a valid user to resources or in case of error perform any other action
 // like redirection or returning something explaining what to do in case of failure. The callback for this call is different then in `checkAccess` hooks.
@@ -1595,7 +1612,9 @@ api.registerPreProcess = function(method, path, callback)
     this.addHook('auth', method, path, callback);
 }
 
-// Register a callback to be called after successfull API action, status 200 only.
+// Register a callback to be called after successfull API action, status 200 only. To trigger this callback the primary response handler must return
+// results using `api.sendJSON` or `api.sendFormatted` methods.
+//
 // The purpose is to perform some additional actions after the standard API completed or to customize the result
 // - method can be '' in such case all mathods will be matched
 // - path is a string or regexp of the request URL similar to registering Express routes
@@ -1624,6 +1643,19 @@ api.registerPostProcess = function(method, path, callback)
     this.addHook('post', method, path, callback);
 }
 
+// Register a cleanup callback that will be called at the end of a request, all registered cleanup callbacks will be called in the order
+// of registration. At this time the reslt has been sent so connection is not valid anymore but the request object is still available.
+//
+// Example, do custom logging of all requests
+//
+//          api.registerCleanup('', '/data/', function(req, next) {
+//              db.add("log", req.query, next);
+//          });
+//
+api.registerCleanup = function(method, path, callback)
+{
+    this.addHook('cleanup', method, path, callback);
+}
 
 // Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
 // OAUTH authenticated account. The callback will be called as function(req,res) with `req.user` signifies the successful
@@ -1668,7 +1700,8 @@ api.registerOAuthStrategy = function(strategy, options, callback)
         req.query.secret = corelib.uuid();
         req.query.name = profile.displayName;
         req.query.gender = profile.gender;
-        if (profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
+        req.query.email = profile.email;
+        if (!req.query.email && profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
         // Deal with broken or not complete implementations
         if (profile.photos && profile.photos.length) req.query.icon = profile.photos[0].value || profile.photos[0];
         if (!req.query.icon && profile._json && profile._json.picture) req.query.icon = profile._json.picture;
@@ -1744,11 +1777,12 @@ api.sendReply = function(res, status, text)
 }
 
 // Send result back formatting according to the options properties:
-//  - format - json, csv, xml, JSON is degfault
+//  - format - json, csv, xml, JSON is default
 //  - separator - a separator to use for CSV and other formats
-api.sendFormatted = function(req, data, options)
+api.sendFormatted = function(req, err, data, options)
 {
-    if (!options) options = {};
+    if (err) return this.sendReply(req.res, err);
+    if (!options) options = req.options;
     if (!data) data = [];
 
     switch (options.format) {
@@ -1777,7 +1811,7 @@ api.sendFormatted = function(req, data, options)
         break;
 
     default:
-        api.sendJSON(req, null, data);
+        this.sendJSON(req, err, data);
     }
 }
 

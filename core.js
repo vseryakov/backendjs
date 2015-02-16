@@ -296,6 +296,7 @@ core.init = function(options, callback)
     self.network = self.ipaddr.split(".").slice(0, 2).join(".");
     self.hostName = os.hostname().toLowerCase();
     self.domain = corelib.domainName(self.hostName);
+    self.location = "http://" + self.hostName + ":" + core.port;
 
     // Load external modules
     self.loadModules(self.path.modules, { exclude: self.noModules });

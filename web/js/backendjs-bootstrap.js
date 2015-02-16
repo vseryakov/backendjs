@@ -63,9 +63,9 @@ Bkjs.showLogin = function(callback)
     secret.off().on("keyup", function(e) { if (e.which == 13) { form.trigger("submit"); e.preventDefault(); } });
     form.find('button[type=submit]').off().on("click", function(e) { form.trigger("submit"); e.preventDefault(); });
     form.off().on("submit", function() {
-        Bkjs.login(login.val(), secret.val(), function(err, data) {
+        Bkjs.login(login.val(), secret.val(), function(err, data, xhr) {
             if (err) Bkjs.showAlert(modal, "danger", err);
-            if (typeof callback == "function") callback(err, data)
+            if (typeof callback == "function") callback(err, data, xhr);
         });
         return false;
     });

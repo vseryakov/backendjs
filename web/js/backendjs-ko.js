@@ -12,10 +12,10 @@ Bkjs.koAdmin = ko.observable(0);
 
 Bkjs.koLogin = function(data, event)
 {
-    Bkjs.showLogin(function(err) {
+    Bkjs.showLogin(function(err, data, xhr) {
         Bkjs.koAuth(Bkjs.loggedIn);
         Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.account.type.split(",").indexOf("admin") > -1);
-        $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin");
+        $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, xhr.status]);
         if (err) return;
         Bkjs.hideLogin();
         if (Bkjs.koShow) Bkjs.koShow();
@@ -38,7 +38,7 @@ Bkjs.koInit = function()
     Bkjs.login(function(err, data, xhr) {
         Bkjs.koAuth(Bkjs.loggedIn);
         Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.account.type.split(",").indexOf("admin") > -1);
-        $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin");
+        $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, xhr.status]);
         if (err) return;
         if (Bkjs.koShow) Bkjs.koShow();
     });

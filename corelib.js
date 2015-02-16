@@ -149,7 +149,7 @@ corelib.toValue = function(val, type)
     }
 }
 
-// Add a regexp to the object map that consist of pattern and compiled regexp, this is used in the config type `regexpobj`.
+// Add a regexp to the list of regexp objects, this is used in the config type `regexpmap`.
 corelib.toRegexpMap = function(obj, val)
 {
     if (val == "<null>") obj = null;
@@ -157,7 +157,7 @@ corelib.toRegexpMap = function(obj, val)
     val = this.jsonParse(val, { obj: 1, error: 1 });
     for (var p in val) {
         var item = this.toRegexpObj(null, p);
-        item.url = val[p];
+        item.value = val[p];
         if (item.reset) obj = [];
         obj.push(item);
     }
@@ -1626,6 +1626,7 @@ corelib.searchObj = function(obj, options)
 //   - obj - return the value as an object, if the result is a simple type, wrap into an object like { name: name, value: result }
 //   - str - return the value as a string, convert any other type into string
 //   - num - return the value as a number, convert any other type by using toNumber
+//   - func - return the value as a function, if the object is not a function returns null
 //
 // Example:
 //
@@ -1642,6 +1643,7 @@ corelib.objGet = function(obj, name, options)
         if (typeof obj == "undefined") return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
     }
     if (obj && options) {
+        if (options.func && typeof obj != "function") return null;
         if (options.list && !Array.isArray(obj)) return [ obj ];
         if (options.obj && typeof obj != "object") return { name: name, value: obj };
         if (options.str && typeof obj != "string") return String(obj);
@@ -1710,7 +1712,7 @@ corelib.jsonParse = function(obj, options)
     }
     if (!obj) return onerror("empty");
     try {
-        obj = JSON.parse(obj);
+        obj = typeof obj == "string" ? JSON.parse(obj) : obj;
         if (options && options.obj && this.typeName(obj) != "object") obj = {};
         if (options && options.list && this.typeName(obj) != "array") obj = [];
         if (options && options.str && this.typeName(obj) != "string") obj = "";
