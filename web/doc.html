@@ -2029,17 +2029,17 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-no-modules</code> - A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly</li>
 <li><code>api-allow-connection</code> - Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op...</li>
-<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints</li>
+<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers <code>AuthCheck</code> callback for the given endpoints</li>
 <li><code>api-allow-account-</code> - URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types</li>
 <li><code>api-icon-limit</code> - Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type</li>
 <li><code>api-express-enable</code> - Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,....</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication, return result before even checking for the signature</li>
-<li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove ^/account/add$ to disable open registration</li>
+<li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove <code>^/account/add$</code> to disable open registration</li>
 <li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
-<li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining the host/path regexp to be matched agaisnt in order to redirect using the value of the property, if the regexp starts with !, that mans negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;@PATH@/index.html&#39; } </li>
+<li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining the host/path regexp to be matched agaisnt in order to redirect using the value of the property, if the regexp starts with !, that means negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;@PATH@/index.html&#39; } </li>
 <li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list</li>
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds</li>
@@ -2052,6 +2052,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-collect-pool</code> - Database pool where to save collected statistics</li>
 <li><code>api-collect-interval</code> - How often to collect statistics and metrics in seconds</li>
 <li><code>api-collect-send-interval</code> - How often to send collected statistics to the master server in seconds</li>
+<li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
@@ -2116,6 +2117,7 @@ the worker processes if they die and restart them automatically. How many proces
                     email: {},
                     phone: {},
                     website: {},
+                    company: {},
                     birthday: {},
                     gender: {},
                     address: {},
@@ -2575,7 +2577,7 @@ this functionality without clearing table column definitions.</p>
 <ul>
 <li><p><code>api.registerAccessCheck(method, path, callback)</code></p>
 <p> Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
-validating the signature or session cookies.</p>
+validating the signature or session cookies. No account information is available at this point yet.</p>
 <ul>
 <li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similar to registering Express routes</li>
@@ -2595,7 +2597,7 @@ with the callback with status: and message: properties, status != 200 means erro
 <ul>
 <li><p><code>api.registerPreProcess(method, path, callback)</code></p>
 <p> Similar to <code>registerAccessCheck</code> but this callback will be called after the signature or session is verified but before
-the API route method is called.</p>
+the API route method is called. The <code>req.account</code> object will always exist at this point but may not contain the user in case of an error.</p>
 <p>The purpose of this hook is to perform some preparations or check permissions of a valid user to resources or in case of error perform any other action
 like redirection or returning something explaining what to do in case of failure. The callback for this call is different then in <code>checkAccess</code> hooks.</p>
 <ul>
@@ -2619,8 +2621,9 @@ an error condition, the callback must pass the same or modified status object in
 
 <ul>
 <li><p><code>api.registerPostProcess(method, path, callback)</code></p>
-<p> Register a callback to be called after successfull API action, status 200 only.
-The purpose is to perform some additional actions after the standard API completed or to customize the result</p>
+<p> Register a callback to be called after successfull API action, status 200 only. To trigger this callback the primary response handler must return
+results using <code>api.sendJSON</code> or <code>api.sendFormatted</code> methods.</p>
+<p>The purpose is to perform some additional actions after the standard API completed or to customize the result</p>
 <ul>
 <li>method can be &#39;&#39; in such case all mathods will be matched</li>
 <li>path is a string or regexp of the request URL similar to registering Express routes</li>
@@ -2639,6 +2642,17 @@ the callback may not return data back to the client, in this next post process h
             res.json(row);
         });
         return true;
+    });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>api.registerCleanup(method, path, callback)</code></p>
+<p> Register a cleanup callback that will be called at the end of a request, all registered cleanup callbacks will be called in the order
+of registration. At this time the reslt has been sent so connection is not valid anymore but the request object is still available.</p>
+<p>Example, do custom logging of all requests</p>
+<pre><code>    api.registerCleanup(&#39;&#39;, &#39;/data/&#39;, function(req, next) {
+        db.add(&quot;log&quot;, req.query, next);
     });
 </code></pre></li>
 </ul>
@@ -2678,10 +2692,10 @@ If err is not null the error message is returned immediately.</p>
 </ul>
 
 <ul>
-<li><p><code>api.sendFormatted(req, data, options)</code></p>
+<li><p><code>api.sendFormatted(req, err, data, options)</code></p>
 <p> Send result back formatting according to the options properties:</p>
 <ul>
-<li>format - json, csv, xml, JSON is degfault</li>
+<li>format - json, csv, xml, JSON is default</li>
 <li>separator - a separator to use for CSV and other formats</li>
 </ul>
 </li>
@@ -3972,7 +3986,7 @@ Options properties:</p>
 
 <ul>
 <li><p><code>corelib.toRegexpMap(obj, val)</code></p>
-<p> Add a regexp to the object map that consist of pattern and compiled regexp, this is used in the config type <code>regexpobj</code>.</p>
+<p> Add a regexp to the list of regexp objects, this is used in the config type <code>regexpmap</code>.</p>
 </li>
 </ul>
 
@@ -4507,6 +4521,7 @@ Options may contains the following properties:</p>
 <li>obj - return the value as an object, if the result is a simple type, wrap into an object like { name: name, value: result }</li>
 <li>str - return the value as a string, convert any other type into string</li>
 <li>num - return the value as a number, convert any other type by using toNumber</li>
+<li>func - return the value as a function, if the object is not a function returns null</li>
 </ul>
 <p>Example:</p>
 <pre><code>    &gt; corelib.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;)
@@ -6121,12 +6136,14 @@ If options.existing is 1 then return only record with found accounts, all other 
 profile, return bk_account record in the callback. req.query contains profile fields converted to bk_auth/bk_account names
 so the whole req.query can be saved as it is. <code>req.query.login</code> must exist.</p>
 <p>This method is supposed to be called after the user is authenticated and verified, it does not
-check secrets but only existence of a user by login. If  user with login exists, this works as <code>api.getAccount</code>
+check secrets but only existence of a user by login. If the user with login exists, this works as <code>api.getAccount</code>
 with an extra call to bk_auth. On success the current account is active and set as <code>req.account</code>.</p>
-<p>If new account ws created, the generated secret will be returned and must be saved by the client for subsequent
+<p>If new account is created, the generated secret will be returned and must be saved by the client for subsequent
 API calls unless cookie session is established.</p>
 <p>if <code>req.query.icon&#39; is set with the url of the profile image, it will be downloaded and saved as account icon type</code>0<code>.</code>options.width`
 if specified will be used to resize the image.</p>
+<p>In case when a new account was created the account record will have a property <code>_added</code> set to true.
+This is to explicitely distinguish existing and new accounts.</p>
 </li>
 </ul>
 
@@ -6144,10 +6161,16 @@ if specified will be used to resize the image.</p>
 
 <ul>
 <li><p><code>api.prepareAccountSecret(query, options)</code></p>
-<p> If specified in the options, prepare credentials to be stored in the db:</p>
+<p> If specified in the options, prepare credentials to be stored in the db, returns null if no error or an error object</p>
 <ul>
 <li>scramble can be used to sign the secret with login so the db never stores cleartext credentials</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAccountSecret(query, options)</code></p>
+<p> Verifies the given account secret against the password policy, return an error messsage if any of the checks fails or null if the secret is valid</p>
 </li>
 </ul>
 
