@@ -18,15 +18,15 @@ Bkjs.showAlert = function(obj, type, text, dismiss)
 // Login UI control
 Bkjs.hideLogin = function()
 {
-    $("#backendjs-login-modal").modal("hide");
+    $("#bkjs-login-modal").modal("hide");
 }
 
 Bkjs.showLogin = function(callback)
 {
-    var modal = $('#backendjs-login-modal');
+    var modal = $('#bkjs-login-modal');
     if (!modal.length) {
         modal = $(
-        '<div id="backendjs-login-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="LoginLabel" aria-hidden="true">\
+        '<div id="bkjs-login-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="LoginLabel" aria-hidden="true">\
           <div class="modal-dialog">\
            <div class="modal-content">\
             <form role="form">\
@@ -37,11 +37,11 @@ Bkjs.showLogin = function(callback)
             <div class="modal-body">\
               <div class="alerts"></div>\
               <div class="form-group">\
-               <label for="backendjs-login">Login</label>\
+               <label for="bkjs-login">Login</label>\
                <input class="form-control" placeholder="Login" type="text" autofocus>\
               </div>\
               <div class="form-group">\
-               <label for="backendjs-login">Password</label>\
+               <label for="bkjs-login">Password</label>\
                <input class="form-control" placeholder="Password" type="password" value="">\
               </div>\
             </div>\

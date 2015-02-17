@@ -15,7 +15,7 @@ Bkjs.showAlert = function(obj, type, text)
 
 Bkjs.hideLogin = function()
 {
-    $("#backendjs-login-modal").dialog("close");
+    $("#bkjs-login-modal").dialog("close");
 }
 
 // Login UI control
@@ -23,23 +23,23 @@ Bkjs.showLogin = function(callback)
 {
     var self = this;
 
-    var modal = $('#backendjs-login-modal');
+    var modal = $('#bkjs-login-modal');
     if (!modal.length) modal = $(
-        '<div id=backendjs-login-modal>\
+        '<div id=bkjs-login-modal>\
            <p class="ui-title">Please provide your account login and password.</p>\
            <p class="ui-error"></p>\
-           <form id=backendjs-login-form>\
+           <form id=bkjs-login-form>\
            <fieldset style="padding:10px;border:0;margin-top:25px;">\
-            <label for="backendjs-login" style="display:block">Login</label>\
-            <input type="text" id="backendjs-login" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
-            <label for="backendjs-secret" style="display:block">Password</label>\
-            <input type="password" id="backendjs-secret" value="" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
+            <label for="bkjs-login" style="display:block">Login</label>\
+            <input type="text" id="bkjs-login" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
+            <label for="bkjs-secret" style="display:block">Password</label>\
+            <input type="password" id="bkjs-secret" value="" class="text ui-widget-content ui-corner-all" style="display:block;margin-bottom:12px;width:95%;padding:.4em;" />\
            </fieldset>\
            </form>\
          </div>');
 
     function submit(cb) {
-        self.login($('#backendjs-login').val(),  $('#backendjs-secret').val(), function(err, data, xhr) {
+        self.login($('#bkjs-login').val(),  $('#bkjs-secret').val(), function(err, data, xhr) {
             if (err) self.showAlert(modal, "error", err);
             if (!cb) cb = modal.dialog("option", "callback");
             if (typeof cb == "function") cb(err, data, xhr);
@@ -64,13 +64,13 @@ Bkjs.showLogin = function(callback)
         create: function() {
             var dialog = this;
             $(this).find('form').submit(function() { submit(callback); return false; });
-            $(this).find('#backendjs-login').keyup(function(e) { if (e.which == 13) { $(dialog).find('#backendjs-secret').focus(); e.preventDefault(); } });
-            $(this).find('#backendjs-secret').keyup(function(e) { if (e.which == 13) { submit(); e.preventDefault(); } });
+            $(this).find('#bkjs-login').keyup(function(e) { if (e.which == 13) { $(dialog).find('#bkjs-secret').focus(); e.preventDefault(); } });
+            $(this).find('#bkjs-secret').keyup(function(e) { if (e.which == 13) { submit(); e.preventDefault(); } });
         },
         open: function() {
             $(this).find('.ui-error').text($(this).dialog('option','msg') || "").removeClass("ui-state-highlight");
-            $('#backendjs-login').val("");
-            $('#backendjs-secret').val("");
+            $('#bkjs-login').val("");
+            $('#bkjs-secret').val("");
         },
     });
 

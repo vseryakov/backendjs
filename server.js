@@ -141,12 +141,12 @@ server.start = function()
 
     // Master server, always create tables in the masters processes
     if (core.isArg("-master")) {
-        return core.init({ role: "master" }, function(err, opts) { self.startMaster(opts); });
+        return core.init({ role: "master", noDb: true }, function(err, opts) { self.startMaster(opts); });
     }
 
     // Backend Web server
     if (core.isArg("-web")) {
-        return core.init({ role: "web" }, function(err, opts) { self.startWeb(opts); });
+        return core.init({ role: "web", noDb: true }, function(err, opts) { self.startWeb(opts); });
     }
 }
 
@@ -334,7 +334,9 @@ server.startWeb = function(options)
                 for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
             });
 
-            // API related initialization
+            // Web server related initialization, not much functionality is expected in this process
+            // regardless if it is a proxy or not, it supposed to pass messages between the web workers
+            // and keep the cache
             core.runMethods("configureServer", options);
 
             // Frontend server tasks

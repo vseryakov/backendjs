@@ -82,6 +82,8 @@ var Bkjs = {
         self.send({ url: "/account/get?" + (this.session ? "_session=1" : "_session=0"), jsonType: "obj" }, function(data, xhr) {
             self.loggedIn = true;
             self.account = data;
+            // Clear credentials from the memory if we use sessions
+            if (self.session) self.setCredentials();
             if (typeof callback == "function") callback(null, data, xhr);
         }, function(err, xhr) {
             self.loggedIn = false;
@@ -190,7 +192,7 @@ var Bkjs = {
         return url + (url.indexOf("?") == -1 ? "?" : "") + "&" + this.signatureName + "=" + encodeURIComponent(hdrs[this.signatureName]);
     },
 
-    // Encode url query
+    // Encode url query, provided full url with query parameters in human form, re-encode the query
     encodeUrl: function(url) {
         if (url && url.indexOf("?") > -1) {
             var url = url.split("?");
@@ -198,8 +200,8 @@ var Bkjs = {
             url = url[0] + "?";
             for (var i in q) {
                 var v = q[i].split("=");
-                fn = unescape(v[0]);
-                if (v[1]) url += "&" + fn + "=" + this.encode(v[1]);
+                var n = unescape(v[0]);
+                if (v[1]) url += "&" + n + "=" + this.encode(v[1]);
             }
         }
         return url;
@@ -266,7 +268,7 @@ var Bkjs = {
         });
     },
 
-    // WebSokets helper functions
+    // WebSockets helper functions
     wsConnect: function(url, options, onmessage, onerror) {
         var self = this;
         if (typeof options == "function") onmessage = options, onerror = onmessage, options = {};

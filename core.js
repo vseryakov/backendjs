@@ -253,6 +253,7 @@ module.exports = core;
 // If options are given they may contain the following properties:
 // - noInit - if true do not initialize database and do not run all configure methods
 // - noDns - do not retrieve config from DNS
+// - noDb - no db pools except local and config
 core.init = function(options, callback)
 {
     var self = this;
@@ -502,7 +503,7 @@ core.processArgs = function(ctx, argv, pass)
 
     function put(obj, key, val, x) {
         if (x.array) {
-            if (val == "<null>") {
+            if (val == null) {
                 obj[key] = [];
             } else {
                 if (!Array.isArray(obj[key]) || x.set) obj[key] = [];
@@ -513,7 +514,7 @@ core.processArgs = function(ctx, argv, pass)
                 }
             }
         } else {
-            if (val == "<null>") {
+            if (val == null) {
                 delete obj[key];
             } else {
                 obj[key] = val;
@@ -576,6 +577,7 @@ core.processArgs = function(ctx, argv, pass)
                     val = name;
                     name = v;
                 }
+                if (val == "<null>") val = null;
                 logger.debug("processArgs:", x.type || "str", ctx.name + "." + x._name, "(" + key + ")", "=", val);
                 switch (type) {
                 case "none":
@@ -598,7 +600,7 @@ core.processArgs = function(ctx, argv, pass)
                     put(obj, name, corelib.strSplitUnique(val, x.separator), x);
                     break;
                 case "regexp":
-                    put(obj, name, new RegExp(val), x);
+                    put(obj, name, val ? new RegExp(val) : val, x);
                     break;
                 case "regexpobj":
                     obj[name] = corelib.toRegexpObj(x.set ? null : obj[name], val, x.del);
@@ -607,25 +609,27 @@ core.processArgs = function(ctx, argv, pass)
                     obj[name] = corelib.toRegexpMap(x.set ? null : obj[name], val);
                     break;
                 case "url":
-                    put(obj, name, url.parse(val), x);
+                    put(obj, name, val ? url.parse(val) : val, x);
                     break;
                 case "json":
-                    put(obj, name, corelib.jsonParse(val), x);
+                    put(obj, name, val ? corelib.jsonParse(val) : val, x);
                     break;
                 case "path":
                     // Check if it starts with local path, use the actual path not the current dir for such cases
                     for (var p in this.path) {
-                        if (val.substr(0, p.length + 1) == p + "/") {
+                        if (val && val.substr(0, p.length + 1) == p + "/") {
                             val = this.path[p] + val.substr(p.length);
                             break;
                         }
                     }
-                    put(obj, name, path.resolve(val), x);
+                    put(obj, name, val ? path.resolve(val) : val, x);
                     break;
                 case "file":
+                    if (!val) break;
                     try { put(obj, name, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', name, val, e); }
                     break;
                 case "callback":
+                    if (!val) break;
                     if (typeof x.callback == "string") {
                         obj[x.callback](val, name);
                     } else

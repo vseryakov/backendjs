@@ -152,7 +152,7 @@ corelib.toValue = function(val, type)
 // Add a regexp to the list of regexp objects, this is used in the config type `regexpmap`.
 corelib.toRegexpMap = function(obj, val)
 {
-    if (val == "<null>") obj = null;
+    if (val == null) return [];
     if (this.typeName(obj) != "array") obj = [];
     val = this.jsonParse(val, { obj: 1, error: 1 });
     for (var p in val) {
@@ -167,7 +167,7 @@ corelib.toRegexpMap = function(obj, val)
 // Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in the config type `regexpobj`
 corelib.toRegexpObj = function(obj, val, del)
 {
-    if (val == "<null>") obj = null;
+    if (val == null) obj = null;
     if (this.typeName(obj) != "object") obj = {};
     if (!Array.isArray(obj.list)) obj.list = [];
     if (val) {

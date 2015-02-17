@@ -33,9 +33,9 @@ Features:
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
 * Can be used with any MVC or other types of frameworks that work on top or with the Express server.
-* Hosted on [github](https://github.com/vseryakov/backendjs), http://backendjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
+* Hosted on [github](https://github.com/vseryakov/backendjs), http://bkjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
 
-Check out the [Documentation](http://backendjs.io) for more details.
+Check out the [Documentation](http://bkjs.io) for more details.
 
 # Requirements and dependencies
 
@@ -1044,7 +1044,8 @@ one table and one record without maintaining any other features like auto counte
 
 *Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
 who can access it.*
-  - To disable this endpoint completely in the config: api-disable=data
+  - To disable this endpoint completely in the config: `api-disable=data`
+  - To allow admins to access it only in the config: `api-allow-admin=^/data`
   - To allow admins to access it only:
 
         api.registerPreProcess('GET', '/data', function(req, status, cb) { if (req.account.type != "admin") return cb({ status: 401, message: 'access denied' }; cb(status)); });
@@ -1672,9 +1673,9 @@ this assumes the default path '/public' still allowed without the signature:
         <script src="/js/bootstrap.js"></script>
         <script src="/js/knockout.js" type="text/javascript"></script>
         <script src="/js/crypto.js" type="text/javascript"></script>
-        <script src="/js/backendjs.js" type="text/javascript"></script>
-        <script src="/js/backendjs-bootstrap.js" type="text/javascript"></script>
-        <script src="/js/backendjs-ko.js" type="text/javascript"></script>
+        <script src="/js/bkjs.js" type="text/javascript"></script>
+        <script src="/js/bkjs-bootstrap.js" type="text/javascript"></script>
+        <script src="/js/bkjs-ko.js" type="text/javascript"></script>
         <script>
         $(function () {
             Bkjs.session = true;
@@ -1781,7 +1782,7 @@ To make an API appliance by using the backendjs on the AWS instance as user ec2-
 - login as `ec2-user`
 - install commands
 
-        curl -L -o /tmp/bkjs http://backendjs.io/bkjs && chmod 755 /tmp/bkjs
+        curl -L -o /tmp/bkjs http://bkjs.io/bkjs && chmod 755 /tmp/bkjs
         /tmp/bkjs install -user ec2-user -prefix ec2-user
         bkjs restart
 
@@ -1861,7 +1862,7 @@ For JSON content type, the method must be POST and no query parameters specified
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.
 
-See web/js/backendjs.js for function Bkjs.sign or function core.signRequest in the core.js for the Javascript implementation.
+See web/js/bkjs.js for function Bkjs.sign or function core.signRequest in the core.js for the Javascript implementation.
 
 # Backend framework development (Mac OS X, developers)
 
@@ -1920,5 +1921,5 @@ See web/js/backendjs.js for function Bkjs.sign or function core.signRequest in t
 # Author
   Vlad Seryakov
 
-Check out the [Documentation](http://backendjs.io) for more details.
+Check out the [Documentation](http://bkjs.io) for more details.
 

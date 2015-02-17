@@ -280,7 +280,7 @@ var api = {
            { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
            { name: "signature-name", descr: "Name for the access signature query parameter or header" },
            { name: "access-token-name", descr: "Name for the access token query parameter or header" },
-           { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests" },
+           { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used" },
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
            { name: "no-modules", type: "regexp", descr: "A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it" },
            { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
@@ -440,7 +440,7 @@ module.exports = api;
 //
 // During the init sequence, this function calls `api.initMiddleware` and `api.initApplication` methods which by default are empty but can be redefined in the user aplications.
 //
-// The backendjs.js uses its own request parser that places query parameters into `req.query` or `req.body` depending on the method.
+// The bkjs.js uses its own request parser that places query parameters into `req.query` or `req.body` depending on the method.
 //
 // For GET method, `req.query` contains all url-encoded parameters, for POST method `req.body` contains url-encoded parameters or parsed JSON payload or multipart payload.
 //

@@ -100,43 +100,43 @@ var db = {
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
-           { name: "sqlite-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", descr: "SQLite pool db name, absolute path or just a name for the db file created in var/" },
-           { name: "pgsql-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
-           { name: "mysql-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
-           { name: "dynamodb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
-           { name: "mongodb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
-           { name: "cassandra-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
-           { name: "lmdb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", descr: "Path to the local LMDB database" },
-           { name: "leveldb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", descr: "Path to the local LevelDB database" },
-           { name: "redis-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "127.0.0.1", descr: "Redis host" },
-           { name: "elasticsearch-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
-           { name: "couchdb-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
-           { name: "riak-pool(-[0-9]+)?", obj: 'npools', strip: "Pool", novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
-           { name: "(.+)-pool-max(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1, descr: "Max number of open connections for a pool" },
-           { name: "(.+)-pool-min(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1, descr: "Min number of open connections for a pool" },
-           { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
-           { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
-           { name: "(.+)-pool-init-options(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
-           { name: "(.+)-pool-options(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "json", descr: "A DB pool driver options passed to every request" },
-           { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'cpools', strip: "Pool", type: "bool", descr: "disable caching table columns for this pool only" },
-           { name: "(.+)-pool-no-init-tables(-[0-9]+)?", type: "regexp", obj: 'cpools', strip: "Pool", novalue: ".+", descr: "Do not create tables for this pool only, a regexp of tables to skip" },
+           { name: "sqlite-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", descr: "SQLite pool db name, absolute path or just a name for the db file created in var/" },
+           { name: "pgsql-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
+           { name: "mysql-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
+           { name: "dynamodb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
+           { name: "mongodb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
+           { name: "cassandra-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
+           { name: "lmdb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", descr: "Path to the local LMDB database" },
+           { name: "leveldb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", descr: "Path to the local LevelDB database" },
+           { name: "redis-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "127.0.0.1", descr: "Redis host" },
+           { name: "elasticsearch-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
+           { name: "couchdb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
+           { name: "riak-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
+           { name: "(.+)-pool-max(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Max number of open connections for a pool" },
+           { name: "(.+)-pool-min(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Min number of open connections for a pool" },
+           { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
+           { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
+           { name: "(.+)-pool-init-options(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
+           { name: "(.+)-pool-options(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "A DB pool driver options passed to every request" },
+           { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "bool", descr: "disable caching table columns for this pool only" },
+           { name: "(.+)-pool-no-init-tables(-[0-9]+)?", type: "regexp", obj: 'poolParams', strip: "Pool", novalue: ".+", descr: "Do not create tables for this pool only, a regexp of tables to skip" },
     ],
-
-    // Default database pool for the backend
-    pool: 'sqlite',
-
-    // Configuration parameters
-    npools: { sqlite: "" },
-    cpools: { sqliteIdle: 900000 },
 
     // Database connection pools by pool name
     pools: {},
+
+    // Configuration parameters
+    poolNames: { sqlite: "" },
+    poolParams: { sqliteIdle: 900000 },
 
     // Pools by table name
     poolTables: {},
 
     // Tables to be cached
     cacheTables: [],
+
+    // Default database pool for the backend
+    pool: 'sqlite',
 
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
@@ -185,7 +185,8 @@ db.shutdownWeb = function(optios, callback)
     }, callback);
 }
 
-// Initialize all database pools.
+// Initialize all database pools. the options may containt the following properties:
+//  - noDb - only open local and config db pools, other pools are ignored
 db.init = function(options, callback)
 {
     var self = this;
@@ -195,10 +196,11 @@ db.init = function(options, callback)
     // Config pool can be set to default which means use the current default pool
     if (this.config == "default") this.config = this.pool;
 
-    logger.debug("init: db:", Object.keys(this.npools), Object.keys(this.pools));
+    logger.debug("init: db:", Object.keys(this.poolNames), Object.keys(this.pools));
 
     // Configured pools for supported databases
-    corelib.forEachSeries(Object.keys(this.npools), function(pool, next) {
+    corelib.forEachSeries(Object.keys(this.poolNames), function(pool, next) {
+        if (options.noDb && pool != self.local && pool != self.config) return next();
         self.initPool(pool, options, function(err) {
             if (err) logger.error("init: db:", pool, err);
             next();
@@ -209,7 +211,7 @@ db.init = function(options, callback)
 // Initialize a db pool by parameter name.
 // Options can have the following properties:
 //   - noInitTables - if defined it is used instead of the global parameter
-//   - noCacheColumns - if defined it is used instead fo the global parameter
+//   - noCacheColumns - if defined it is used instead of the global parameter
 //   - force - if true, close existing pool with the same name, otherwise skip existing pools
 db.initPool = function(name, options, callback)
 {
@@ -219,7 +221,7 @@ db.initPool = function(name, options, callback)
     if (typeof callback != "function") callback = corelib.noop;
 
     // Pool db connection parameter must exists even if empty
-    var db = this.npools[name];
+    var db = this.poolNames[name];
     if (typeof db == "undefined") return callback();
 
     // Do not re-init the pool if not forced
@@ -236,19 +238,19 @@ db.initPool = function(name, options, callback)
     if (!self[type + "InitPool"]) return callback(new Error("invalid pool type " + name));
 
     // Pool specific tables
-    (this.cpools[type + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
+    (this.poolParams[type + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
 
     // All pool specific parameters
     var opts = { pool: name,
                  type: type,
                  db: db || "",
-                 min: this.cpools[type + 'Min' + n] || 0,
-                 max: this.cpools[type + 'Max' + n] || Infinity,
-                 idle: this.cpools[type + 'Idle' + n] || 300000,
-                 noCacheColumns: this.cpools[type + 'NoCacheColumns' + n] || 0,
-                 noInitTables: this.cpools[type + 'NoInitTables' + n] || 0,
-                 dbinit: this.cpools[type + 'InitOptions' + n],
-                 dboptions: this.cpools[type + 'Options' + n] };
+                 min: this.poolParams[type + 'Min' + n] || 0,
+                 max: this.poolParams[type + 'Max' + n] || Infinity,
+                 idle: this.poolParams[type + 'Idle' + n] || 300000,
+                 noCacheColumns: this.poolParams[type + 'NoCacheColumns' + n] || 0,
+                 noInitTables: this.poolParams[type + 'NoInitTables' + n] || 0,
+                 dbinit: this.poolParams[type + 'InitOptions' + n],
+                 dboptions: this.poolParams[type + 'Options' + n] };
     logger.debug("initPool:", type, name);
 
     this[type + 'InitPool'](opts);
@@ -646,7 +648,8 @@ db.showResult = function(err, rows, info)
 //     - silence_error - do not report about the error in the log, still the error is retirned to the caller
 //     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined
 //       columns as is
-//     - noconvertrows - if true skip converting the data from the database format into Javascript data types
+//     - noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
+//       for the table to convert values returned from the db into the the format defined by the column
 //     - cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)
 //     - total - if true then it is supposed to return only one record with property `count`, skip all post processing and convertion
 // - callback(err, rows, info) where
@@ -732,25 +735,7 @@ db.query = function(req, options, callback)
 
                     // Convert from db types into javascript, deal with json and joined columns
                     if (rows.length && !options.noconvertrows) {
-                        var cols = pool.dbcolumns[table.toLowerCase()] || {};
-                        for (var p in cols) {
-                            var col = cols[p];
-                            // Convert from JSON type
-                            if (options.noJson && col.type == "json") {
-                                rows.forEach(function(row) {
-                                    if (typeof row[p] == "string" && row[p]) row[p] = corelib.jsonParse(row[p], { logging : 1 });
-                                });
-                            }
-                            // Extract joined values and place into separate columns
-                            if (col.join) {
-                                rows.forEach(function(row) {
-                                    if (typeof row[p] == "string" && row[p]) {
-                                        var v = row[p].split("|");
-                                        if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
-                                    }
-                                });
-                            }
-                        }
+                        self.convertRows(pool, table, rows, options);
                     }
 
                     // Convert values if we have custom column callback
@@ -2045,6 +2030,61 @@ db.mergeColumns = function(pool)
     }
 }
 
+// Update pool keys with the primary keys form the table definitions in addition to the actual cached
+// column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
+// not provide info about primary keys
+db.mergeKeys = function(pool)
+{
+    var dbcolumns = pool.dbcolumns;
+    var dbkeys = pool.dbkeys;
+    for (var table in dbcolumns) {
+        if (!dbkeys[table]) dbkeys[table] = corelib.searchObj(dbcolumns[table], { name: 'primary', sort: 1, names: 1 });
+    }
+}
+
+// Convert rows returned by the database into the Javascript format or into the format
+// defined by the table columns. The following special properties in the column definition chnage the format:
+//  - type = json - if a column type is json and the value is a string returned will be converted into a Javascript object
+//  - list - split the value into array
+//  - join - a list of names, it produces new properties by splitting the value by | and assigning pieces to
+//      separate properties using names from the join list
+//
+//      Example:
+//              api.describeTables([ { user: { id: { type: "text", join: ["id","type"] }, name: {} } ]);
+//
+//              db.put("test", { id: "1", type: "user", name: "Test" })
+//              db.select("test", {}, db.showResult)
+//
+db.convertRows = function(pool, table, rows, options)
+{
+    if (!pool) pool = this.getPool(table, options);
+    var cols = pool.dbcolumns[table.toLowerCase()] || {};
+    for (var p in cols) {
+        var col = cols[p];
+        // Convert from JSON type
+        if (options.noJson && col.type == "json") {
+            rows.forEach(function(row) {
+                if (typeof row[p] == "string" && row[p]) row[p] = corelib.jsonParse(row[p], { logging : 1 });
+            });
+        }
+        // Split into a list
+        if (col.list) {
+            rows.forEach(function(row) {
+                row[p] = corelib.strSplit(row[p]);
+            });
+        }
+        // Extract joined values and place into separate columns
+        if (col.join) {
+            rows.forEach(function(row) {
+                if (typeof row[p] == "string" && row[p]) {
+                    var v = row[p].split("|");
+                    if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
+                }
+            });
+        }
+    }
+}
+
 // Add a callback to be called after each cache columns event, it will be called for each pool separately.
 // The callback to be called may take options argument and it is called in the context of the pool.
 //
@@ -2068,25 +2108,12 @@ db.setProcessColumns = function(callback)
     this.processColumns.push(callback);
 }
 
-// Update pool keys with the primary keys form the table definitions in addition to the actual cached
-// column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
-// not provide info about primary keys
-db.mergeKeys = function(pool)
-{
-    var dbcolumns = pool.dbcolumns;
-    var dbkeys = pool.dbkeys;
-    for (var table in dbcolumns) {
-        if (!dbkeys[table]) dbkeys[table] = corelib.searchObj(dbcolumns[table], { name: 'primary', sort: 1, names: 1 });
-    }
-}
-
 // Custom row handler that is called for every row in the result, this assumes that pool.processRow callback has been assigned previously by db.setProcessRow.
 // This function is called automatically by the db.query but can be called manually for rows that are not received from the database, for example on
 // adding new records and returning them back to the client. In such case, the `pool` argument can be passed as null, it will be found by the table name.
 // `rows` can be list of records or single record.
 db.processRows = function(pool, table, rows, options)
 {
-    var self = this;
     if (!pool) pool = this.getPool(table, options);
     var hooks = pool.processRow[table];
     if (!Array.isArray(hooks) || !hooks.length) return rows;
