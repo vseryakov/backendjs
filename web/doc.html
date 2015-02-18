@@ -388,7 +388,7 @@ hooks are registered and return data itself then it is the hook responsibility t
 
         app.configureWeb = function(options, callback)
         {
-            db.setProcessRow(&quot;bk_account&quot;, this.processAccountRow);
+            db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, this.processAccountRow);
             ...
             callback();
         }
@@ -4814,8 +4814,7 @@ the pool by table name if some tables are assigned to any specific pool by confi
    the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
    filtering based on the ata in the other table for example.</li>
 <li>silence_error - do not report about the error in the log, still the error is retirned to the caller</li>
-<li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined
-columns as is</li>
+<li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as is</li>
 <li>noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 for the table to convert values returned from the db into the the format defined by the column</li>
 <li>cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)</li>
@@ -5505,18 +5504,20 @@ allow to handle such situations and can be used to set necessary propeties to th
 </ul>
 
 <ul>
-<li><p><code>db.processRows(pool, table, rows, options)</code></p>
-<p> Custom row handler that is called for every row in the result, this assumes that pool.processRow callback has been assigned previously by db.setProcessRow.
-This function is called automatically by the db.query but can be called manually for rows that are not received from the database, for example on
-adding new records and returning them back to the client. In such case, the <code>pool</code> argument can be passed as null, it will be found by the table name.
-<code>rows</code> can be list of records or single record.</p>
+<li><p><code>db.processRows(type, pool, table, rows, options)</code></p>
+<p> Run registsred pre- or post- process callbacks.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.setProcessRow(table, options, callback)</code></p>
-<p> Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
+<li><p><code>db.setProcessRow(type, table, options, callback)</code></p>
+<p> Assign a processRow callback for a table, this callback will be called for every row on every result being retrieved from the
 specified table thus providing an opportunity to customize the result.</p>
+<p>type defines at what time the callback will be called:</p>
+<ul>
+<li><code>pre</code> - making a request to the db on the query record</li>
+<li><code>post</code> - after the request finished to be called on the result rows</li>
+</ul>
 <p>All assigned callback to this table will be called in the order of the assignment.</p>
 <p>The callback accepts 3 arguments: function(row, options, columns)
  where - row is a row from the table, options are the obj passed to the db called and columns is an object with table&#39;s columns</p>
@@ -5524,11 +5525,11 @@ specified table thus providing an opportunity to customize the result.</p>
 </li>
 </ul>
 <p>  Example</p>
-<pre><code>  db.setProcessRow(&quot;bk_account&quot;, function(row, opts, cols) {
+<pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, function(row, opts, cols) {
       if (row.birthday) row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
   });
 
-  db.setProcessRow(&quot;bk_icon&quot;, function(row, opts, cols) {
+  db.setProcessRow(&quot;post&quot;, &quot;bk_icon&quot;, function(row, opts, cols) {
       if (row.type == &quot;private&quot; &amp;&amp; row.id != opts.account.id) return true;
   });
 </code></pre>
