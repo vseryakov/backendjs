@@ -1350,13 +1350,13 @@ api.initTables = function(options, callback)
                 }
             }
 
-            db.setProcessRow("bk_account", options, onAccountRow);
-            db.setProcessRow("bk_sent", options, onSentRow);
-            db.setProcessRow("bk_message", options, onMessageRow);
-            db.setProcessRow("bk_archive", options, onMessageRow);
-            db.setProcessRow("bk_connection", options, onConnectionRow);
-            db.setProcessRow("bk_reference", options, onConnectionRow);
-            db.setProcessRow("bk_icon", options, self.checkIcon);
+            db.setProcessRow("post", "bk_account", options, onAccountRow);
+            db.setProcessRow("post", "bk_sent", options, onSentRow);
+            db.setProcessRow("post", "bk_message", options, onMessageRow);
+            db.setProcessRow("post", "bk_archive", options, onMessageRow);
+            db.setProcessRow("post", "bk_connection", options, onConnectionRow);
+            db.setProcessRow("post", "bk_reference", options, onConnectionRow);
+            db.setProcessRow("post", "bk_icon", options, self.checkIcon);
         }
         callback(err);
     });

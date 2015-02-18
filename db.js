@@ -646,8 +646,7 @@ db.showResult = function(err, rows, info)
 //          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
 //          filtering based on the ata in the other table for example.
 //     - silence_error - do not report about the error in the log, still the error is retirned to the caller
-//     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined
-//       columns as is
+//     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as is
 //     - noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 //       for the table to convert values returned from the db into the the format defined by the column
 //     - cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)
@@ -740,7 +739,7 @@ db.query = function(req, options, callback)
 
                     // Convert values if we have custom column callback
                     if (!options.noprocessrows) {
-                        rows = self.processRows(pool, table, rows, options);
+                        rows = self.processRows("post", pool, table, rows, options);
                     }
 
                     // Custom filter to return the final result set
@@ -1751,6 +1750,7 @@ db.prepare = function(op, table, obj, options)
             o[p] = v;
         }
         obj = o;
+        if (!options.noprocessrows) this.processRows("pre", pool, table, obj, options);
         break;
 
     case "del":
@@ -1766,6 +1766,7 @@ db.prepare = function(op, table, obj, options)
             o[p] = v;
         }
         obj = o;
+        if (!options.noprocessrows) this.processRows("pre", pool, table, obj, options);
         break;
 
     case "select":
@@ -1794,6 +1795,7 @@ db.prepare = function(op, table, obj, options)
                 }
             }
         }
+        if (!options.noprocessrows) this.processRows("pre", pool, table, obj, options);
         break;
 
     case "upgrade":
@@ -2108,14 +2110,12 @@ db.setProcessColumns = function(callback)
     this.processColumns.push(callback);
 }
 
-// Custom row handler that is called for every row in the result, this assumes that pool.processRow callback has been assigned previously by db.setProcessRow.
-// This function is called automatically by the db.query but can be called manually for rows that are not received from the database, for example on
-// adding new records and returning them back to the client. In such case, the `pool` argument can be passed as null, it will be found by the table name.
-// `rows` can be list of records or single record.
-db.processRows = function(pool, table, rows, options)
+// Run registsred pre- or post- process callbacks.
+db.processRows = function(type, pool, table, rows, options)
 {
     if (!pool) pool = this.getPool(table, options);
-    var hooks = pool.processRow[table];
+    if (!pool.processRow[type]) return rows;
+    var hooks = pool.processRow[type][table];
     if (!Array.isArray(hooks) || !hooks.length) return rows;
     var cols = this.getColumns(table, options);
 
@@ -2134,8 +2134,12 @@ db.processRows = function(pool, table, rows, options)
     return rows;
 }
 
-// Assign processRow callback for a table, this callback will be called for every row on every result being retrieved from the
+// Assign a processRow callback for a table, this callback will be called for every row on every result being retrieved from the
 // specified table thus providing an opportunity to customize the result.
+//
+// type defines at what time the callback will be called:
+//  - `pre` - making a request to the db on the query record
+//  - `post` - after the request finished to be called on the result rows
 //
 // All assigned callback to this table will be called in the order of the assignment.
 //
@@ -2147,23 +2151,24 @@ db.processRows = function(pool, table, rows, options)
 //
 //  Example
 //
-//      db.setProcessRow("bk_account", function(row, opts, cols) {
+//      db.setProcessRow("post", "bk_account", function(row, opts, cols) {
 //          if (row.birthday) row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
 //      });
 //
-//      db.setProcessRow("bk_icon", function(row, opts, cols) {
+//      db.setProcessRow("post", "bk_icon", function(row, opts, cols) {
 //          if (row.type == "private" && row.id != opts.account.id) return true;
 //      });
 //
-db.setProcessRow = function(table, options, callback)
+db.setProcessRow = function(type, table, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!table || typeof callback != "function") return;
     for (var p in this.pools) {
         var pool = this.pools[p];
-        if (!pool.processRow[table]) pool.processRow[table] = [];
-        pool.processRow[table].push(callback);
+        if (!pool.processRow[type]) pool.processRow[type] = {};
+        if (!pool.processRow[type][table]) pool.processRow[type][table] = [];
+        pool.processRow[type][table].push(callback);
     }
 }
 

@@ -342,7 +342,7 @@ hooks are registered and return data itself then it is the hook responsibility t
 
             app.configureWeb = function(options, callback)
             {
-                db.setProcessRow("bk_account", this.processAccountRow);
+                db.setProcessRow("post", "bk_account", this.processAccountRow);
                 ...
                 callback();
             }

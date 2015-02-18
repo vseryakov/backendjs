@@ -146,7 +146,7 @@ server.start = function()
 
     // Backend Web server
     if (core.isArg("-web")) {
-        return core.init({ role: "web", noDb: true }, function(err, opts) { self.startWeb(opts); });
+        return core.init({ role: "web", noDb: cluster.isMaster }, function(err, opts) { self.startWeb(opts); });
     }
 }
 

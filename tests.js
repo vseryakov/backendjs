@@ -772,7 +772,7 @@ tests.db = function(callback)
     var num2 = corelib.randomNum(this.bbox[0], this.bbox[2]);
     var next_token = null;
 
-    db.setProcessRow("test4", function(row, options, cols) {
+    db.setProcessRow("post", "test4", function(row, options, cols) {
         logger.log(row, options, cols)
         var type = (row.type || "").split(":");
         row.type = type[0];

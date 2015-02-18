@@ -1083,7 +1083,7 @@ api.describeTables({
 // Create API endpoints and routes
 app.configureWeb = function(options, callback)
 {
-    db.setProcessRow('test', this.processTestRow);
+    db.setProcessRow("post", 'test', this.processTestRow);
 
     // Add new record
     api.app.all(/^\/test\/add/, function(req, res) {
