@@ -74,16 +74,9 @@
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-api_accounts">api_accounts</a></li>
-<li><a href="#module-api_connections">api_connections</a></li>
-<li><a href="#module-api_counter">api_counter</a></li>
-<li><a href="#module-api_data">api_data</a></li>
 <li><a href="#module-api_files">api_files</a></li>
 <li><a href="#module-api_icons">api_icons</a></li>
-<li><a href="#module-api_locations">api_locations</a></li>
-<li><a href="#module-api_messages">api_messages</a></li>
-<li><a href="#module-api_pages">api_pages</a></li>
-<li><a href="#module-api_status">api_status</a></li>
-<li><a href="#module-api_system">api_system</a></li>
+<li><a href="#module-api_statistics">api_statistics</a></li>
 <li><a href="#module-db_cassandra">db_cassandra</a></li>
 <li><a href="#module-db_couchdb">db_couchdb</a></li>
 <li><a href="#module-db_dynamodb">db_dynamodb</a></li>
@@ -96,6 +89,16 @@
 <li><a href="#module-db_riak">db_riak</a></li>
 <li><a href="#module-db_sql">db_sql</a></li>
 <li><a href="#module-db_sqlite">db_sqlite</a></li>
+<li><a href="#module-accounts">accounts</a></li>
+<li><a href="#module-connections">connections</a></li>
+<li><a href="#module-counters">counters</a></li>
+<li><a href="#module-data">data</a></li>
+<li><a href="#module-files">files</a></li>
+<li><a href="#module-icons">icons</a></li>
+<li><a href="#module-locations">locations</a></li>
+<li><a href="#module-messages">messages</a></li>
+<li><a href="#module-pages">pages</a></li>
+<li><a href="#module-system">system</a></li>
 </ul>
 </li>
 </ul>
@@ -271,7 +274,7 @@ which makes it easy to refer and extend with additional methods and structures.<
         var db = bkjs.db;
 
         // Describe the tables or data model
-        api.describeTables({
+        db.describeTables({
             ...
         });
 
@@ -308,9 +311,11 @@ request endpoint callbacks must be provided in the application.</p>
 the application is structured.</p>
 <h2 id="modules">Modules</h2>
 <p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
-home subdirectory <code>modules/</code>. The format is the same as for regular node.js modules and only top level .js files are loaded on the backend startup.</p>
+home subdirectory <code>modules/</code> and from the backendjs package directory for core modules. The format is the same as for regular node.js modules and
+only top level .js files are loaded on the backend startup. By default all present in the module/ directories will be loaded, to restrict which
+modules to load or to ignore see command line parameters <code>-deny-modules</code> and <code>-allow-modules</code>.</p>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules.
+can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
 <p>Let&#39;s assuming the modules/ contains file facebook.js which implements custom FB logic:</p>
 <pre><code>        var bkjs = require(&quot;backendjs&quot;);
@@ -342,7 +347,7 @@ access to the database driver and executes given query directly by the db driver
 <ul>
 <li><p>first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
 at the same time, for example lets define album table and make sure it exists when we run our application:</p>
-<pre><code>      api.describeTables({
+<pre><code>      db.describeTables({
           album: {
               id: { primary: 1 },                         // Primary key for an album
               name: { pub: 1 },                           // Album name, public column
@@ -367,7 +372,7 @@ API and syntax, for example, DynamoDB tables must have only hash primary key or 
 one or two columns can be marked with primary property while for SQL databases the composite primary key can conisit of more than 2 columns.</p>
 <p>The backendjs always creates several tables in the configured database pools by default, these tables are required to support default API functionality and some
 are required for backend opertions. Refer below for the Javascript modules documenttion that described which tables are created by default. In the custom applications
-same <code>api.describeTables</code> method can modify columns in the default table and add more columns if needed.</p>
+the <code>db.describeTables</code> method can modify columns in the default table and add more columns if needed.</p>
 <p>For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
 done in the <code>api.initApplication</code> method. It will extend the bk_account table and the application can use new columns the same way as the already existing columns.
 Using the birthday column we make &#39;age&#39; property automatically calculated and visible in the result, this is done by the internal method <code>api.processAccountRow</code> which
@@ -375,7 +380,7 @@ is registered as post process callback for the bk_account table. The computed pr
 and all properties not defined and configured are passed as is.</p>
 <p>The cleanup of the public columns is done by the <code>api.sendJSON</code> which is used by all API routes when redy to send data back to the client. If any postprocess
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.</p>
-<pre><code>        api.describeTables({
+<pre><code>        db.describeTables({
                 bk_account: {
                        gender: { pub: 1 },
                        birthday: {},
@@ -392,10 +397,9 @@ hooks are registered and return data itself then it is the hook responsibility t
             ...
             callback();
         }
-        app.processAccountRow = function(row, options, cols)
+        app.processAccountRow = function(op, row, options, cols)
         {
             if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-            return row;
         }
 </code></pre><h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
 <h2 id="accounts">Accounts</h2>
@@ -702,7 +706,7 @@ a connection with it. No direct operations on bk_reference is allowed.</p>
 <li><p><code>/connection/put</code>
 Create or replace a connection between two accounts, required parameters are:</p>
 <ul>
-<li><code>id</code> - id of account to connect to</li>
+<li><code>peer</code> - id of account to connect to</li>
 <li><code>type</code> - type of connection, like,dislike,....</li>
 <li>_connected - the reply will contain a connection record if the other side of our connection is connected to us as well</li>
 <li>_publish - notify another account about this via pub/sub messaging system if it is active</li>
@@ -714,7 +718,7 @@ Create or replace a connection between two accounts, required parameters are:</p
 <p>Also, this call updates the counters in the <code>bk_counter</code> table for my account which match the connection type, for example if the type of
 connection is &#39;invite&#39; and the <code>bk_counter</code> table contain 2 columns <code>invite0</code> and <code>invite1</code>, then both counters will be increased.</p>
 <p>Example:</p>
-<pre><code>  /connection/add?id=12345&amp;type=invite&amp;state=sent
+<pre><code>  /connection/add?peer=12345&amp;type=invite&amp;state=sent
 </code></pre></li>
 <li><p><code>/connection/update</code></p>
 </li>
@@ -722,25 +726,26 @@ connection is &#39;invite&#39; and the <code>bk_counter</code> table contain 2 c
 Update other properties of the existing connection, for connections that may take more than i step or if a connection has other data associated with it beside
 the type of the connection.</p>
 <p>Example:</p>
-<pre><code>  /connection/update?id=12345&amp;type=invite&amp;state=accepted
+<pre><code>  /connection/update?peer=12345&amp;type=invite&amp;state=accepted
 </code></pre></li>
 <li><p><code>/connection/del</code>
 Delete existing connection(s), <code>id</code> and/or <code>type</code> may be be specified, if not all existing connections will be deleted.</p>
 <p>Example:</p>
-<pre><code>  /connection/del?type=invite&amp;id=12345
+<pre><code>  /connection/del?type=invite&amp;peer=12345
 </code></pre></li>
 <li><p><code>/connection/get</code>
 Return a single connection for given id</p>
 <p>Parameters:</p>
 <ul>
-<li>id - account id of the connection, required</li>
+<li>peer - account id of the connection, required</li>
 <li>type - connection type, required</li>
 </ul>
 <p>Example:</p>
-<pre><code>  /connection/get?id=12345&amp;type=like
+<pre><code>  /connection/get?peer=12345&amp;type=like
 </code></pre><p>Response:</p>
-<pre><code>  { &quot;id&quot;: &quot;12345&quot;,
+<pre><code>  { &quot;id&quot;: &quot;1111&quot;,
     &quot;type: &quot;like&quot;,
+    &quot;peer&quot;: &quot;12345&quot;,
     &quot;mtime&quot;: &quot;2434343543543&quot; }
 </code></pre></li>
 <li><p><code>/reference/get</code>
@@ -756,14 +761,15 @@ query parameters <code>_select,_ops,_desc</code>, see docs about <code>db.select
 <pre><code>  # Return all accounts who i invited
   /connection/select?type=invite
   # Return connection for specific type and account id
-  /connection/select?type=invite&amp;id=12345
+  /connection/select?type=invite&amp;peer=12345
   # Return accounts who i invited me after specified mtime
   /connection/select?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
   # Return accounts who i invited before specified mtime
   /connection/select?type=invite&amp;_ops=mtime,le&amp;_desc=1&amp;mtime=12334312543
 </code></pre><p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;12345&quot;,
+<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;111&quot;,
                 &quot;type&quot;: &quot;invite&quot;,
+                &quot;peer&quot;: &quot;12345&quot;,
                 &quot;status&quot;: &quot;&quot;,
                 &quot;mtime&quot;: &quot;12334312543&quot;
             }],
@@ -778,8 +784,9 @@ Receive all references that connected with my account, i.e. connections made by 
   # Return accounts who invited me after specified mtime
   /reference/select?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
 </code></pre><p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
+<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;111&quot;,
                 &quot;type&quot;: &quot;invite&quot;,
+                &quot;peer&quot;: &quot;12345&quot;,
                 &quot;status&quot;: &quot;&quot;,
                 &quot;mtime&quot;: &quot;12334312543&quot;
             }],
@@ -908,13 +915,13 @@ result in mtimes that do not correspond to actual times when the message has bee
 <li><code>mtime</code> - time before or after messages sent, defined by _ops parametrs</li>
 </ul>
 <p>Example:</p>
-<pre><code>  /message/get/sent?id=123
-  /message/get/sent?id=123&amp;mtime=123475658690&amp;_ops=mtime,le
+<pre><code>  /message/get/sent?recipient=123
+  /message/get/sent?recipient=123&amp;mtime=123475658690&amp;_ops=mtime,le
 </code></pre></li>
 <li><p><code>/message/add</code>
 Send a message to an account, the following parameters must be specified:</p>
 <ul>
-<li><code>id</code> - account id of the receiver</li>
+<li><code>id</code> - recipient account id</li>
 <li><code>msg</code> - text of the message, can be empty if <code>icon</code> property exists</li>
 <li><code>icon</code> - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
 can be a multipart file upload if submitted via browser, can be omitted if <code>msg/connection/get?type=invite&amp;id=12345</code> property exists.</li>
@@ -1940,7 +1947,8 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>cache-port</code> - Port to use for nanomsg sockets for cache requests</li>
 <li><code>cache-bind</code> - Listen only on specified address for cache sockets server in the master process</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
-<li><code>no-modules</code> - A regexp with modules names to be excluded form loading on startup</li>
+<li><code>deny-modules</code> - A regexp with modules names to be excluded from loading on startup</li>
+<li><code>allow-modules</code> - A regexp with modules name to be loaded on startup, only matched modules will be loaded</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes</li>
 <li><code>logwatcher-any-range</code> - Number of lines for matched channel <code>any</code> to be attached to the previous matched channel, if more than this number use the channel <code>any</code> on its own</li>
@@ -2012,7 +2020,6 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error</li>
 <li><code>api-access-log</code> - File for access logging</li>
-<li><code>api-init-tables</code> - Initialize/create API tables in the shell/worker or other non-API modules</li>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
 <li><code>api-notifications</code> - Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers</li>
 <li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
@@ -2027,12 +2034,9 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-access-token-name</code> - Name for the access token query parameter or header</li>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
 <li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only</li>
-<li><code>api-no-modules</code> - A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly</li>
-<li><code>api-allow-connection</code> - Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op...</li>
 <li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers <code>AuthCheck</code> callback for the given endpoints</li>
 <li><code>api-allow-account-</code> - URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types</li>
-<li><code>api-icon-limit</code> - Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type</li>
 <li><code>api-express-enable</code> - Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,....</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replace the whole access list</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication, return result before even checking for the signature</li>
@@ -2045,10 +2049,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds</li>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds</li>
-<li><code>api-status-interval</code> - Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago</li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing</li>
-<li><code>api-pages-view</code> - A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files</li>
-<li><code>api-pages-main</code> - A template for the main page to be created when starting the wiki engine for the first time, if not given a default simple welcome message will be used</li>
 <li><code>api-collect-host</code> - The backend URL where all collected statistics should be sent over, if set to <code>pool</code> then each web worker will save metrics directly into the statistics database pool</li>
 <li><code>api-collect-pool</code> - Database pool where to save collected statistics</li>
 <li><code>api-collect-interval</code> - How often to collect statistics and metrics in seconds</li>
@@ -2057,10 +2058,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
-<li><code>api-select-limit</code> - Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
-<li><code>api-max-distance</code> - Max searchable distance(radius) in km, for location searches to limit the upper bound</li>
-<li><code>api-min-distance</code> - Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch for jobs</li>
 <li><code>server-idle-time</code> - If set and no jobs are submitted the backend will be shutdown, for instance mode only</li>
@@ -2088,225 +2086,6 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
 the worker processes if they die and restart them automatically. How many processes to spawn can be configured via <code>-server-max-workers</code> config parameter.</p>
 </li>
-</ul>
-
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      // Authentication by login, only keeps id and secret to check the siganture
-      bk_auth: { login: { primary: 1 },                              // Account login
-                 id: {},                                             // Auto generated UUID
-                 alias: {},                                          // Account alias
-                 status: {},                                         // Status of the account
-                 type: { admin: 1 },                                 // Account type: admin, ....
-                 secret: { secure: 1 },                              // Account password
-                 token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
-                 acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
-                 acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
-                 query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
-                 expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
-                 mtime: { type: &quot;bigint&quot;, now: 1 } },
-
-      // Basic account information
-      bk_account: { id: { primary: 1, pub: 1 },
-                    login: {},
-                    name: {},
-                    first_name: {},
-                    last_name: {},
-                    alias: { pub: 1 },
-                    status: {},
-                    type: { admin: 1 },
-                    email: {},
-                    phone: {},
-                    website: {},
-                    company: {},
-                    birthday: {},
-                    gender: {},
-                    address: {},
-                    city: {},
-                    state: {},
-                    zipcode: {},
-                    country: {},
-                    device_id: {},                                    // Device for notifications
-                    geohash: { location: 1 },                         // To prevent regular account updates
-                    latitude: { type: &quot;real&quot;, location: 1 },          // overriding location columns
-                    longitude: { type: &quot;real&quot;, location: 1 },
-                    location: { location: 1 },
-                    ltime: { type: &quot;bigint&quot;, location: 1 },           // Last location update time
-                    ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // Create time
-                    mtime: { type: &quot;bigint&quot;, now: 1 } },              // Last update time
-
-     // Status/presence support
-     bk_status: { id: { primary: 1 },                               // account id
-                  status: {},                                       // status, online, offline, away
-                  alias: {},
-                  atime: { type: &quot;bigint&quot;, now: 1 },                // last access time
-                  mtime: { type: &quot;bigint&quot; }},                       // last status save to db time
-
-     // Keep track of icons uploaded
-     bk_icon: { id: { primary: 1 },                         // Account id
-                type: { primary: 1, pub: 1 },               // prefix:type
-                prefix: {},                                 // icon prefix/namespace
-                acl_allow: {},                              // Who can see it: all, auth, id:id...
-                ext: {},                                    // Saved image extension
-                descr: {},
-                geohash: {},                                // Location associated with the icon
-                latitude: { type: &quot;real&quot; },
-                longitude: { type: &quot;real&quot; },
-                mtime: { type: &quot;bigint&quot;, now: 1 }},         // Last time added/updated
-
-     // Locations for all accounts to support distance searches
-     bk_location: { geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
-                    id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
-                    latitude: { type: &quot;real&quot; },
-                    longitude: { type: &quot;real&quot; },
-                    alias: { pub: 1 },
-                    mtime: { type: &quot;bigint&quot;, now: 1 }},
-
-     // All connections between accounts: like,dislike,friend...
-     bk_connection: { id: { primary: 1, pub: 1 },                    // my account_id
-                      type: { primary: 1, pub: 1 },                  // type:connection
-                      connection: { pub: 1 },                        // other id of the connection
-                      alias: { pub: 1 },
-                      status: {},
-                      mtime: { type: &quot;bigint&quot;, now: 1, pub: 1 }},
-
-     // References from other accounts, likes,dislikes...
-     bk_reference: { id: { primary: 1, pub: 1 },                    // account_id
-                     type: { primary: 1, pub: 1 },                  // type:connection
-                     connection: { pub: 1 },                        // other id of the connection
-                     alias: { pub: 1 },
-                     status: {},
-                     mtime: { type: &quot;bigint&quot;, now: 1, pub: 1 }},
-
-     // New messages
-     bk_message: { id: { primary: 1 },                         // my account_id
-                   mtime: { primary: 1 },                      // mtime:sender
-                   sender: { index: 1 },                       // Sender id
-                   alias: {},                                  // Sender alias
-                   acl_allow: {},                              // Who has access: all, auth, id:id...
-                   msg: {},                                    // Text of the message
-                   icon: { type: &quot;int&quot; }},                     // 1 - icon present, 0 - no icon
-
-     // Archived messages
-     bk_archive: { id: { primary: 1, index: 1 },               // my account_id
-                   mtime: { primary: 1 },                      // mtime:sender
-                   sender: { index: 1 },                       // Sender id
-                   alias: {},                                  // Sender alias
-                   msg: {},                                    // Text of the message
-                   icon: { type: &quot;int&quot; }},                     // 1 - icon present, 0 - no icon
-
-     // Messages sent
-     bk_sent: { id: { primary: 1, index: 1 },                // my account
-                mtime: { primary: 1 },                       // mtime:recipient
-                recipient: { index: 1 },                     // Recipient id
-                alias: {},                                   // Recipient alias
-                msg: {},                                     // Text of the message
-                icon: { type: &quot;int&quot; }},                      // 1 - icon present, 0 - no icon
-
-     // All accumulated counters for accounts
-     bk_counter: { id: { primary: 1, pub: 1 },                               // account id
-                   ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy with notification
-                   like0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },        // who i like
-                   like1: { type: &quot;counter&quot;, value: 0, autoincr: 1 },        // reversed, who likes me
-                   follow0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },      // who i follow
-                   follow1: { type: &quot;counter&quot;, value: 0, autoincr: 1 }},     // reversed, who follows me
-
-      // Wiki pages
-      bk_pages: { id: { primary: 1, pub: 1 },
-                  title: { pub: 1 },
-                  subtitle: { pub: 1 },
-                  icon: { pub: 1 },                            // icon class, glyphicon, fa....
-                  link: { pub: 1 },                            // external link to the content
-                  content: { pub: 1 },                         // the page content
-                  toc: { type:&quot; bool&quot;, pub: 1 },               // produce table of content
-                  pub: { type: &quot;bool&quot;, pub: 1 },               // no account to see thos page
-                  userid: { pub: 1 },                          // id of the last user
-                  mtime: { type: &quot;bigint&quot;, now: 1, pub: 1 }},
-
-     // Collected metrics per worker process, basic columns are defined in the table to be collected like
-     // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
-     // Counters ending with _0 are snapshots, i.e. they must be summed up for any given interval.
-     // All other counters are averages.
-     bk_collect: { id: { primary: 1 },
-                   mtime: { type: &quot;bigint&quot;, primary: 1 },
-                   app: {},
-                   ip: {},
-                   type: {},
-                   instance: {},
-                   worker: {},
-                   pid: { type: &quot;int&quot; },
-                   latency: { type: &quot;int&quot; },
-                   cpus: { type: &quot;int&quot; },
-                   mem: { type: &quot;bigint&quot; },
-                   rss_hmean: { type: &quot;real&quot; },
-                   heap_hmean: { type: &quot;real&quot; },
-                   avg_hmean: { type: &quot;real&quot; },
-                   free_hmean: { type: &quot;real&quot; },
-                   util_hmean: { type: &quot;real&quot; },
-                   api_req_rmean: { type: &quot;real&quot; },
-                   api_req_hmean: { type: &quot;real&quot; },
-                   api_req_0: { type: &quot;real&quot; },
-                   api_errors_0: { type: &quot;real&quot; },
-                   api_bad_0: { type: &quot;real&quot; },
-                   api_que_rmean: { type: &quot;real&quot; },
-                   api_que_hmean: { type: &quot;real&quot; },
-                   pool_req_rmean: { type: &quot;real&quot; },
-                   pool_req_hmean: { type: &quot;real&quot; },
-                   pool_req_hmean: { type: &quot;real&quot; },
-                   pool_req_0: { type: &quot;real&quot; },
-                   pool_errors_0: { type: &quot;real&quot; },
-                   pool_que_rmean: { type: &quot;real&quot; },
-                   pool_que_hmean: { type: &quot;real&quot; },
-                   url_account_get_rmean: { type: &quot;real&quot; },
-                   url_account_get_hmean: { type: &quot;real&quot; },
-                   url_account_get_0: { type: &quot;real&quot; },
-                   url_account_select_rmean: { type: &quot;real&quot; },
-                   url_account_select_hmean: { type: &quot;real&quot; },
-                   url_account_select_0: { type: &quot;real&quot; },
-                   url_account_update_rmean: { type: &quot;real&quot; },
-                   url_account_update_hmean: { type: &quot;real&quot; },
-                   url_account_update_0: { type: &quot;real&quot; },
-                   url_message_get_rmean: { type: &quot;real&quot; },
-                   url_message_get_hmean: { type: &quot;real&quot; },
-                   url_message_get_0: { type: &quot;real&quot; },
-                   url_message_add_rmean: { type: &quot;real&quot; },
-                   url_message_add_hmean: { type: &quot;real&quot; },
-                   url_message_add_0: { type: &quot;real&quot; },
-                   url_counter_incr_rmean: { type: &quot;real&quot; },
-                   url_counter_incr_hmean: { type: &quot;real&quot; },
-                   url_counter_incr_0: { type: &quot;real&quot; },
-                   url_connection_get_rmean: { type: &quot;real&quot; },
-                   url_connection_get_hmean: { type: &quot;real&quot; },
-                   url_connection_get_0: { type: &quot;real&quot; },
-                   url_connection_select_rmean: { type: &quot;real&quot; },
-                   url_connection_select_hmean: { type: &quot;real&quot; },
-                   url_connection_select_0: { type: &quot;real&quot; },
-                   url_connection_add_rmean: { type: &quot;real&quot; },
-                   url_connection_add_hmean: { type: &quot;real&quot; },
-                   url_connection_add_0: { type: &quot;real&quot; },
-                   url_connection_incr_rmean: { type: &quot;real&quot; },
-                   url_connection_incr_hmean: { type: &quot;real&quot; },
-                   url_connection_incr_0: { type: &quot;real&quot; },
-                   url_connection_del_rmean: { type: &quot;real&quot; },
-                   url_connection_del_hmean: { type: &quot;real&quot; },
-                   url_connection_del_0: { type: &quot;real&quot; },
-                   url_location_get_rmean: { type: &quot;real&quot; },
-                   url_location_get_hmean: { type: &quot;real&quot; },
-                   url_location_get_0: { type: &quot;real&quot; },
-                   url_location_put_rmean: { type: &quot;real&quot; },
-                   url_location_put_hmean: { type: &quot;real&quot; },
-                   url_location_put_0: { type: &quot;real&quot; },
-                   url_icon_get_rmean: { type: &quot;real&quot; },
-                   url_icon_get_hmean: { type: &quot;real&quot; },
-                   url_icon_get_0: { type: &quot;real&quot; },
-                   url_image_account_rmean: { type: &quot;real&quot; },
-                   url_image_account_hmean: { type: &quot;real&quot; },
-                   url_image_account_0: { type: &quot;real&quot; },
-                   url_image_message_rmean: { type: &quot;real&quot; },
-                   url_image_message_hmean: { type: &quot;real&quot; },
-                   url_image_message_0: { type: &quot;real&quot; },
-                   ctime: { type: &quot;bigint&quot; }},
-</code></pre></li>
 </ul>
 
 <ul>
@@ -2474,21 +2253,16 @@ properties after successful authorization.</p>
 </ul>
 
 <ul>
-<li><p><code>api.initTables(options, callback)</code></p>
-<p> Called in the master process to create/upgrade API related tables</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAccountType(req, type)</code></p>
+<li><p><code>api.checkAccountType(row, type)</code></p>
 <p> Return true if the current user belong to the specified type, account type may contain more than one type</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>api.getOptions(req)</code></p>
-<p> Convert query options into database options, most options are the same as for <code>db.select</code> but prepended with underscore to
-distinguish control parameters from query parameters.</p>
+<p> Convert query options into internal options, such options are prepended with the underscore to
+distinguish control parameters from query parameters.
+For security purposes this is the only place that translates special control query parameters into the options properties.</p>
 </li>
 </ul>
 
@@ -2536,20 +2310,6 @@ new columns or columns created on the fly are returned to the client.</p>
 <p>The <code>options.pool</code> property must match the actual rowset to be applied properly, in case the records have been retrieved for the different
 database pool.</p>
 </li>
-</ul>
-
-<ul>
-<li><p><code>api.describeTables(tables)</code></p>
-<p> Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
-on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
-like public columns are only specific to the backend so to mark such columns the table with such properties must be described
-using this method. Only columns with changed properties need to be specified, other columns will be left as it is.</p>
-<p>Example</p>
-<pre><code>    api.describeTables({ bk_account: { name: { pub: 1 } },
-
-                         test: { id: { primary: 1, type: &quot;int&quot; },
-                                 name: { pub: 1, index: 1 } });
-</code></pre></li>
 </ul>
 
 <ul>
@@ -2674,7 +2434,7 @@ login and hold the account properties.</p>
 <li>fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
  for the given authenticated profile. This is for processing or customizing new account properties and doing
  some post processing work after the account has been created.
- For any function, <code>req.profile</code>, <code>req.accessToken</code>,<code>req.refreshToken</code> will be set for the authenticated profile object from the provider.</li>
+ For any function, <code>query._profile</code>, <code>query._accessToken</code>, <code>query._refreshToken</code> will be set for the authenticated profile object from the provider.</li>
 </ul>
 </li>
 </ul>
@@ -2754,43 +2514,6 @@ events using account id as a key.</p>
 <ul>
 <li><p><code>api.sendEvent(req, key, data)</code></p>
 <p> Process a message received from subscription server or other even notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.initStatistics()</code></p>
-<p> Setup statistics collections</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getStatistics(options)</code></p>
-<p> Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
-where all property names of the complex objects are combined into one name separated by comma.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.sendStatistics()</code></p>
-<p> Send collected statistics to the collection server, <code>backend-host</code> must be configured and possibly <code>backend-login</code> and <code>backend-secret</code> in case
-the system API is secured, the user can be any valid user registered in the bk_auth table.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.saveStatistics(obj, callback)</code></p>
-<p> Save collected statistics in the bk_collect table, this can be called via API or directly by the backend, this wrapper
-is supposed to be overrriden by the application with additional logic how the statistics is saved. Columns in the bk_collect table
-must be defined for any metrics to be saved, use api.describeTable with additional columns from the api.metrics object in additional to the default ones.</p>
-<p>Example, add pool cache stats to the table</p>
-<pre><code>    api.describeTable({ bk_collect: { pool_cache_rmean: { type: &quot;real&quot; },
-                                      pool_cache_hmean: { type: &quot;real&quot; } });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>api.calcStatistics(query, options, callback)</code></p>
-<p> Calculate statistics for a period of time, query and options must confirm to the db.select conventions.</p>
 </li>
 </ul>
 
@@ -3638,13 +3361,13 @@ it in the spawned web master will fail due to the fact that we already set the h
 </ul>
 
 <ul>
-<li><p><code>core.parseConfig(data)</code></p>
+<li><p><code>core.parseConfig(data, pass)</code></p>
 <p> Parse config lines for the file or other place</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.parseArgs(argv)</code></p>
+<li><p><code>core.parseArgs(argv, pass)</code></p>
 <p> Parse command line arguments</p>
 </li>
 </ul>
@@ -3771,7 +3494,8 @@ call the callback when finished. The callback second argument will be the option
 in the options back to the caller. Errors from a module is never propagated and simply ignored.</p>
 <p>The following properties can be specified in the options:</p>
 <ul>
-<li>noModules - a regexp of the modules names to be excluded form calling the method</li>
+<li>denyModules - a regexp of the modules names to be excluded from calling the method</li>
+<li>allowModules - a regexp of the modules names to be called only</li>
 </ul>
 </li>
 </ul>
@@ -3802,14 +3526,16 @@ modules with the core it makes the module a first class citizen in the backendjs
      {}
 </code></pre>
 <ul>
-<li><p><code>core.loadModules(name, options, callback)</code></p>
-<p> Dynamically load services from the specified directory. The modules are loaded using <code>require</code> as normal node module but in addition if the module exports
+<li><p><code>core.loadModules(dir, options, callback)</code></p>
+<p> Dynamically load services from the specified directory. The modules are loaded using <code>require</code> as a normal nodejs module but in addition if the module exports
 <code>init</code> method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
 called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. <code>core.addModule</code> is called
 automatically.</p>
+<p><strong>Caution must be taken for module naming, it is possible to override any default bkjs module which will result in unexpected behaviour</strong></p>
 <p>The following options properties can be specified:</p>
 <ul>
-<li>noModules - a regexp with modules name/file to be excluded from loading, the whole file name is checked</li>
+<li>denyModules - a regexp with modules name(s) to be excluded from loading, the basename of a file is checked only</li>
+<li>allowModules - a regexp with modules name(s) to be loaded only</li>
 </ul>
 <p>Example, to load all modules from the local relative directory</p>
 <pre><code> core.loadModules(&quot;modules&quot;)
@@ -4103,23 +3829,6 @@ any errors must be passed, use the message object for it, no other arguments are
 <li><p><code>corelib.runCallback(obj, msg)</code></p>
 <p> Run delayed callback for the message previously registered with the <code>deferCallback</code> method.
 The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>corelib.createPool(options)</code></p>
-<p> Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
-Options defines the following properties:</p>
-<ul>
-<li>create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)</li>
-<li>destroy - method to be called to destroy a resource item</li>
-<li>validate - method to verify actibe resource item, return false if it needs to be destroyed</li>
-<li>min - min number of active resource items</li>
-<li>max - max number of active resource items</li>
-<li>max_queue - how big the waiting queue can be, above this all requests will be rejected immediately</li>
-<li>timeout - number of milliseconds to wait for the next available resource item, cannot be 0</li>
-<li>idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.</li>
-</ul>
 </li>
 </ul>
 
@@ -4465,7 +4174,8 @@ or an object with message, code, status, and name properties to build full error
 
 <ul>
 <li><p><code>corelib.mergeObj(obj, options)</code></p>
-<p> Merge an object with the options, all properties in the options override existing in the object, returns a new object</p>
+<p> Merge an object with the options, all properties in the options override existing in the object, returns a new object, shallow copy,
+only top level properties are reassigned.</p>
 <p>Example</p>
 <pre><code> var o = corelib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
  o = { a:1, b:2, c:5, d:1 }
@@ -4567,6 +4277,23 @@ options can specify the output in case of an error:</p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>corelib.createPool(options)</code></p>
+<p> Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
+Options defines the following properties:</p>
+<ul>
+<li>create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)</li>
+<li>destroy - method to be called to destroy a resource item</li>
+<li>validate - method to verify actibe resource item, return false if it needs to be destroyed</li>
+<li>min - min number of active resource items</li>
+<li>max - max number of active resource items</li>
+<li>max_queue - how big the waiting queue can be, above this all requests will be rejected immediately</li>
+<li>timeout - number of milliseconds to wait for the next available resource item, cannot be 0</li>
+<li>idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.</li>
+</ul>
+</li>
+</ul>
+
 <h2 id="module-db">Module: DB</h2>
 <ul>
 <li><p><code>db</code></p>
@@ -4621,917 +4348,6 @@ database like DynamoDB for real-time requests and slower SQL database running on
 <pre><code>      db-pgsql-pool = postgresql://locahost/backend
       db-pgsql-pool-1 = postgresql://localhost/billing
       db-pgsql-pool-max-1 = 100
-</code></pre>
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
-      // to be used by different backends or workers, &#39;core&#39; is default global group
-      bk_config: { name: { primary: 1 },                      // name of the parameter
-                   type: { primary: 1 },                      // config type
-                   value: {},                                 // the value
-                   mtime: { type: &quot;bigint&quot;, now: 1 }
-      },
-
-      // General purpose properties, can be used to store arbitrary values
-      bk_property: { name: { primary: 1 },
-                     value: {},
-                     mtime: { type: &quot;bigint&quot;, now: 1 }
-      },
-
-      // Pending jobs or other requests to be processed
-      bk_queue: { id: { type: &quot;uuid&quot;, primary: 1 },
-                  tag: {},
-                  type: {},
-                  job: { type: &quot;json&quot; },
-                  args: { type: &quot;json&quot; },
-                  stime: { type: &quot;bigint&quot; },                        // time when valid for processing
-                  etime: { type: &quot;bigint&quot; },                        // expiration time
-                  ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // creation time
-                  mtime: { type: &quot;bigint&quot;, now: 1 }
-      },
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.shutdownWeb(optios, callback)</code></p>
-<p> Gracefully close all database pools when the shutdown is initiated by a Web process</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.init(options, callback)</code></p>
-<p> Initialize all database pools. the options may containt the following properties:</p>
-<ul>
-<li>noDb - only open local and config db pools, other pools are ignored</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.initPool(name, options, callback)</code></p>
-<p> Initialize a db pool by parameter name.
-Options can have the following properties:</p>
-<ul>
-<li>noInitTables - if defined it is used instead of the global parameter</li>
-<li>noCacheColumns - if defined it is used instead of the global parameter</li>
-<li>force - if true, close existing pool with the same name, otherwise skip existing pools</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.initConfig(options, callback)</code></p>
-<p> Load configuration from the config database, must be configured with <code>db-config-type</code> pointing to the database pool where bk_config table contains
-configuration parameters.</p>
-<p>The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins, this allows
-for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.</p>
-<p>The following list of properties will be queried from the config database and the sorting order is very important, the last values
-will override values received for the eqrlier properties, for example, if two properties defined in the <code>bk_config</code> table with the
-types <code>myapp</code> and <code>prod-myapp</code>, then the last value will be used only.</p>
-<p>All attributes will be added multiple times in the following order, <code>name</code> being the attribute listed below:
-  <code>name</code>, runMode-<code>name</code>, appName-<code>name</code>, runMode-appName-<code>name</code></p>
-<p>The priority of the attributes is the following:</p>
-<ul>
-<li>the run mode specified in the command line <code>-run-mode</code>: <code>prod</code></li>
-<li>the application name: <code>myapp</code></li>
-<li>the application version specified in the package.json: <code>1.0.0</code></li>
-<li>the network where the instance is running, first 2 octets from the current IP address: <code>192.168</code></li>
-<li>the region where the instance is running, AWS region or other name: <code>us-east-1</code></li>
-<li>the network where the instance is running, first 2 octets from the current IP address: <code>192.168.1</code></li>
-<li>the zone where the instance is running, AWS availability zone or other name: <code>us-east-1a</code></li>
-<li>current instance tag or a custom tag for ad-hoc queries: <code>nat</code></li>
-<li>current instance IP address: <code>192.168.1.1</code></li>
-</ul>
-<p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.initTables(tables, options, callback)</code></p>
-<p> Create tables in all pools</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.initPoolTables(name, tables, options, callback)</code></p>
-<p> Init the pool, create tables and columns:</p>
-<ul>
-<li>name - db pool to create the tables in</li>
-<li>tables - an object with list of tables to create or upgrade</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.dropPoolTables(name, tables, options, callback)</code></p>
-<p> Delete all specified tables from the pool, if <code>name</code> is empty then default pool will be used, <code>tables</code> is an object with table names as
-properties, same table definition format as for create table method</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getPoolTables(name)</code></p>
-<p> Return all tables know to the given pool, returned tables are in the object with
-column information merged from cached columns from the database with description columns
-given by the application. Property fake: 1 in any column signifies not a real column but
-a column described by the application and not yet created by the database driver or could not be added
-due to some error.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getPools()</code></p>
-<p> Return a list of all active database pools, returns list of objects with name: and type: properties</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.createPool(options)</code></p>
-<p> Create a new database pool with default methods and properties</p>
-<ul>
-<li>options - an object with default pool properties<ul>
-<li>type - pool type, this is the db driver name</li>
-<li>pool or name - pool name</li>
-<li>pooling - create generic pool for connection caching</li>
-<li>watchfile - file path to be watched for changes, all clients will be destroyed gracefully</li>
-<li>min - min number of open database connections</li>
-<li>max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to Infinity no<pre><code>  pooling will be enabled and result in unlimited connections, this is default for DynamoDB
-</code></pre></li>
-<li>max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue
-The following pool callback can be assigned to the pool object:</li>
-</ul>
-</li>
-<li>connect - a callback to be called when actual database client needs to be created, the callback signature is
-function(pool, callback) and will be called with first arg an error object and second arg is the database instance, required for pooling</li>
-<li>close - a callback to be called when a db connection needs to be closed, optional callback with error can be provided to this method</li>
-<li>bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
-may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds</li>
-<li>convertError - a callback function(table, op, err, options) that converts native DB driver error into other human readable format</li>
-<li>processColumns - a callback function(pool) taht is called after this pool cached columms from the database, it is called sychnroniously inside the <code>db.cacheColumns</code> method.</li>
-<li>resolveTable - a callback function(op, table, obj, options) that returns possible different table at the time of the query, it is called by the <code>db.prepare</code> method
-and if exist it must return the same or new table name for the given query parameters.</li>
-</ul>
-<p>The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
-it is required to call <code>pool.free</code> at the end to return the connection back to the connection pool.</p>
-<pre><code>    var pool = db.getPool(&quot;&quot;, { pool: &quot;mongodb&quot; });
-    pool.get(function(err, client) {
-        var collection = client.collection(&#39;bk_account&#39;);
-        collection.findOne({ id: &#39;123&#39; }, function() {
-            pool.free(client);
-        });
-    });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.showResult(err, rows, info)</code></p>
-<p> Convenient helper to show results from the database requests, can be used as the callback in all db method.</p>
-<p>Example:</p>
-<pre><code>    db.select(&quot;bk_account&quot;, {}, db.showResult);
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.query(req, options, callback)</code></p>
-<p> Execute query using native database driver, the query is passed directly to the driver.</p>
-<ul>
-<li>req - can be a string or an object with the following properties:<ul>
-<li>text - SQL statement or other query in the format of the native driver, can be a list of statements</li>
-<li>values - parameter values for SQL bindings or other driver specific data</li>
-<li>op - operations to be performed, used by non-SQL drivers</li>
-<li>obj - actual object with data for non-SQL drivers</li>
-<li>table - table name for the operation</li>
-</ul>
-</li>
-<li>options may have the following properties:<ul>
-<li>pool - name of the database pool where to execute this query.
-The difference with the high level functions that take a table name as their firt argument, this function must use pool
-explicitely if it is different from the default. Other functions can resolve
-the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</li>
-<li>unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the <code>unique</code> property</li>
-<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(row, options)</li>
-<li>async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(rows, options, callback),
-   the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
-   filtering based on the ata in the other table for example.</li>
-<li>silence_error - do not report about the error in the log, still the error is retirned to the caller</li>
-<li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as is</li>
-<li>noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
-for the table to convert values returned from the db into the the format defined by the column</li>
-<li>cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)</li>
-<li>total - if true then it is supposed to return only one record with property <code>count</code>, skip all post processing and convertion</li>
-</ul>
-</li>
-<li>callback(err, rows, info) where<ul>
-<li>info is an object with information about the last query: inserted_oid,affected_rows,next_token</li>
-<li>rows is always returned as a list, even in case of error it is an empty list</li>
-</ul>
-</li>
-</ul>
-<p>Example with SQL driver</p>
-<pre><code>    db.query({ text: &quot;SELECT a.id,c.type FROM bk_account a,bk_connection c WHERE a.id=c.id and a.id=?&quot;, values: [&#39;123&#39;] }, { pool: &#39;pgsql&#39; }, function(err, rows, info) {
-    });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.add(table, obj, options, callback)</code></p>
-<p> Insert new object into the database</p>
-<ul>
-<li>obj - an JavaScript object with properties for the record, primary key properties must be supplied</li>
-<li>options may contain the following properties:<ul>
-<li>all_columns - do not check for actual columns defined in the pool tables and add all properties from the obj, only will work for NoSQL dbs,
-by default all properties in the obj not described in the table definition for the given table will be ignored.</li>
-<li>skip_columns - ignore properties by name listed in the this array</li>
-<li>mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
-string then it is used as a name of the column instead of default mtime name</li>
-<li>skip_null - if set, all null values will be skipped, otherwise will be written into the DB as NULLs</li>
-</ul>
-</li>
-</ul>
-<p>On return the <code>obj</code> will contain all new columns generated before adding the record</p>
-<p>Example</p>
-<pre><code> db.add(&quot;bk_account&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
- });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.put(table, obj, options, callback)</code></p>
-<p> Add/update an object in the database, if object already exists it will be replaced with all new properties from the obj</p>
-<ul>
-<li>obj - an object with record properties, primary key properties must be specified</li>
-<li>options - same properties as for <code>db.add</code> method</li>
-</ul>
-<p>Example</p>
-<pre><code> db.put(&quot;bk_account&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
- });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.update(table, obj, options, callback)</code></p>
-<p> Update existing object in the database.</p>
-<ul>
-<li>obj - is an actual record to be updated, primary key properties must be specified</li>
-<li>options - same properties as for <code>db.add</code> method with the following additional properties:<ul>
-<li>ops - object for comparison operators for primary key, default is equal operator</li>
-<li>opsMap - operator mapping into supported by the database</li>
-<li>typesMap - type mapping for properties to be used in the condition</li>
-</ul>
-</li>
-</ul>
-<p>Example</p>
-<pre><code>    db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
-        console.log(&#39;updated:&#39;, info.affected_rows);
-    });
-
-    db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { pool: pgsql&#39; }, function(err, rows, info) {
-        console.log(&#39;updated:&#39;, info.affected_rows);
-    });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.updateAll(table, query, obj, options, callback)</code></p>
-<p> Update all records that match given condition in the <code>query</code>, one by one, the input is the same as for <code>db.select</code> and every record
-returned will be updated using <code>db.update</code> call by the primary key, so make sure options.select include the primary key for every row found by the select.</p>
-<p>All properties from the <code>obj</code> will be set in every matched record.</p>
-<p>The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
-to finish due to sequential update every record one by one.
-Special properties that can be in the options for this call:</p>
-<ul>
-<li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using corelib.forEachLimit.</li>
-<li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
- in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
- as <code>options.process(row, options)</code></li>
-</ul>
-<p>Example, update birthday format if not null</p>
-<pre><code>    db.updateAll(&quot;bk_account&quot;,
-                { birthday: 1 },
-                { mtime: Date.now() },
-                { ops: { birthday: &quot;not null&quot; },
-                  concurrency: 2,
-                  process: function(r, o) {
-                        r.birthday = corelib.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;));
-                  } },
-                  function(err, rows) {
-    });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.incr(table, obj, options, callback)</code></p>
-<p> Counter operation, increase or decrease column values, similar to update but all specified columns except primary
-key will be incremented, use negative value to decrease the value.</p>
-<p><em>Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
-if does not exist yet.</em></p>
-<p>Example</p>
-<pre><code> db.incr(&quot;bk_counter&quot;, { id: &#39;123&#39;, like0: 1, invite0: 1 }, function(err, rows, info) {
- });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.del(table, obj, options, callback)</code></p>
-<p> Delete an object in the database, no error if the object does not exist</p>
-<ul>
-<li>obj - an object with primary key properties only, other properties will be ignored</li>
-<li>options - same properties as for <code>db.update</code> method</li>
-</ul>
-<p>Example</p>
-<pre><code> db.del(&quot;bk_account&quot;, { id: &#39;123&#39; }, function(err, rows, info) {
-     console.log(&#39;updated:&#39;, info.affected_rows);
- });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.delAll(table, query, options, callback)</code></p>
-<p> Delete all records that match given condition, one by one, the input is the same as for <code>db.select</code> and every record
-returned will be deleted using <code>db.del</code> call. The callback will receive on completion the err and all rows found and deleted.
-Special properties that can be in the options for this call:</p>
-<ul>
-<li>concurrency - how many delete requests to execute at the same time by using corelib.forEachLimit.</li>
-<li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
-in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
-as <code>options.process(row, options)</code></li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.replace(table, obj, options, callback)</code></p>
-<p> Add/update the object, check existence by the primary key. This is not equivalent of REPLACE INTO, it does <code>db.get</code>
-to check if the object exists in the database and performs <code>db.add</code> or <code>db.update</code> depending on the existence.</p>
-<ul>
-<li>obj is a JavaScript object with properties that correspond to the table columns</li>
-<li>options define additional flags that may<ul>
-<li>check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value</li>
-<li>check_data - verify every value in the given object with actual value in the database and skip update if the record is the same,
-if it is an array then check only specified columns</li>
-</ul>
-</li>
-</ul>
-<p>Example: updates record 123 only if gender is not &#39;m&#39; or adds new record</p>
-<pre><code>    db.replace(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, { check_data: true });
-</code></pre><p>Example: updates record 123 only if mtime of the record is less or equal yesterday</p>
-<pre><code>    db.replace(&quot;bk_account&quot;, { id: &#39;123&#39;, mtime: Date.now() - 86400000 }, { check_mtime: &#39;mtime&#39; });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.list(table, query, options, callback)</code></p>
-<p> Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column
-Example</p>
-<pre><code>db.list(&quot;bk_account&quot;, [&quot;id1&quot;, &quot;id2&quot;], function(err, rows) { console.log(err, rows) });
-db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { console.log(err, rows) });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.batch(table, op, objs, options, callback)</code></p>
-<p> Perform a batch of operations at the same time.</p>
-<ul>
-<li>op - is one of add, put, update, del</li>
-<li>objs a list of objects to put/delete from the database</li>
-<li>options can have the follwoing:<ul>
-<li>concurrency - number of how many operations to run at the same time, 1 means sequential</li>
-<li>ignore_error - will run all operations without stopping on error, the callback will have third argument which is an array of arrays with failed operations</li>
-</ul>
-</li>
-</ul>
-<p>Example:</p>
-<pre><code>    db.batch(&quot;bc_counter&quot;, &quot;add&quot;, [{id:1&quot;,like0:1}, {id:&quot;2&quot;,like0:2}], db.showResult)
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.scan(table, query, options, rowCallback, endCallback)</code></p>
-<p> Convenient helper for scanning a table for some processing, rows are retrieved in batches and passed to the callback until there are no more
-records matching given criteria. The obj is the same as passed to the <code>db.select</code> method which defined a condition which records to get.
-The rowCallback must be present and is called for every row or batch retrieved and second parameter which is the function to be called
-once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
-Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.</p>
-<p>Parameters:</p>
-<ul>
-<li>table - table to scan</li>
-<li>query - an object with query conditions, same as in <code>db.select</code></li>
-<li>options - same as in <code>db.select</code>, with the following additions:<ul>
-<li>count - size of every batch, default is 100</li>
-<li>batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property</li>
-<li>noprocessrows - default is 1 to pass raw records for processing, to work with normal records pass 0 to disable default behaviour</li>
-</ul>
-</li>
-<li>rowCallback - process records when called like this `callback(rows, next)</li>
-<li>endCallback - end of scan when called like this: `callback(err)</li>
-</ul>
-<p>Example:</p>
-<pre><code>    db.scan(&quot;bk_account&quot;, {}, { count: 10, pool: &quot;dynamodb&quot; }, function(row, next) {
-        // Copy all accounts from one db into another
-        db.add(&quot;bk_account&quot;, row, { pool: &quot;pgsql&quot; }, next);
-    }, function(err) { });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.migrate(table, options, callback)</code></p>
-<p> Migrate a table via temporary table, copies all records into a temp table, then re-create the table with up-to-date definitions and copies all records back into the new table.
-The following options can be used:</p>
-<ul>
-<li>preprocess - a callback function(row, options, next) that is called for every row on the original table, next must be called to move to the next row, if err is returned as first arg then the processing will stop</li>
-<li>postprocess - a callback function(row, options, next) that is called for every row on the destination table, same rules as for preprocess</li>
-<li>tmppool - the db pool to be used for temporary table</li>
-<li>tpmdrop - if 1 then the temporary table willbe dropped at the end in case of success, by default it is kept</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.search(table, query, options, callback)</code></p>
-<p> Perform full text search on the given table, the database implementation may ignore table name completely
-in case of global text index.
-Query is in general a text string with the format that is supported by the underlying driver, bkjs does not parse the query at all.
-Options make take the same properties as in the select method. Without full text support
-this works the same way as the <code>select</code> method.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.join(table, rows, options, callback)</code></p>
-<p> Join the given list of records with the records from other table by primary key.
-The properties from the joined table will be merged with the original rows preserving the existing properties</p>
-<ul>
-<li>options.keys defines custom primary key to use instead of table&#39;s primary key</li>
-<li>options.existing is 1 then return only joined records.</li>
-<li>options.override - joined table properties will replace existing ones</li>
-</ul>
-<p>Example:</p>
-<pre><code>    db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], db.showResult)
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.getLocations(table, query, options, callback)</code></p>
-<p> Geo locations search, paginate all results until the end.
-table must be defined with the following required columns:</p>
-<ul>
-<li>geohash - location as primary key hash column</li>
-<li>id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases</li>
-<li>latitude and longitude as floating numbers to store the actual location</li>
-</ul>
-<p>When defining the table for location searches the begining of the table must be defined as the following:</p>
-<pre><code>    api.describeTables({
-            geo: { geohash: { primary: 1 },
-                   id: { primary: 1 },
-                   latitude: { type: &quot;real&quot; },
-                   longitude: { type: &quot;real&quot; },
-            }
-    });
-</code></pre><p>the rest of the columns can be defined as needed, no special requirements.</p>
-<p><code>obj</code> must contain the following:</p>
-<ul>
-<li>latitude</li>
-<li>longitude</li>
-</ul>
-<p>other properties:</p>
-<ul>
-<li>distance - in km, the radius around the point, in not given the <code>min-distance</code> will be used</li>
-</ul>
-<p>all other properties will be used as additional conditions</p>
-<p><code>options</code> optional properties:</p>
-<ul>
-<li>top - number of first &#39;top&#39;th records from each neighboring area, to be used with sorting by the range key to take
- only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations</li>
-<li>geokey - name of the geohash primary key column, by default it is <code>geohash</code>, it is possible to keep several different
- geohash indexes within the same table with different geohash length which will allow to perform
- searches more precisely dependgin on the distance given</li>
-<li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
-round number and uses decimal point of the round number to limit decimals in the distance</li>
-<li>sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
-in case of SQL this is the second part of the primary key</li>
-</ul>
-<p>On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
-the next_token returned by the previous call and query will be ignored</p>
-<p>On return, the callback&#39;s third argument contains the object with next_token that must be provided for subsequent searches until rows array is empty.</p>
-<p>Example</p>
-<pre><code>    var query = { latitude: -118, longitude: 30, distance: 10 };
-    db.getLocations(&quot;bk_location&quot;, query, { round: 5 }, function(err, rows, info) {
-        ...
-        // Get next page using previous info object
-        db.getLocations(&quot;bk_location&quot;, query, info.next_token, function(err, rows, info) {
-            ...
-        });
-    });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.select(table, query, options, callback)</code></p>
-<p> Select objects from the database that match supplied conditions.</p>
-<ul>
-<li>query - can be an object with properties for the condition, all matching records will be returned</li>
-<li>query - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
-<li>options can use the following special properties:<ul>
-<li>ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
- <code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, in, between, regexp, iregexp, begins_with, like%, ilike%</code></li>
-<li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
-<li>typesMap - type mapping between supplied and actual column types, an object</li>
-<li>select - a list of columns or expressions to return or all columns if not specified</li>
-<li>start - start records with this primary key, this is the next_token passed by the previous query</li>
-<li>count - how many records to return</li>
-<li>sort - sort by this column. <em>NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
-   <code>select</code> property might be used to get all required properties.</em></li>
-<li>desc - if sorting, do in descending order</li>
-<li>page - starting page number for pagination, uses count to find actual record to start</li>
-<li>unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
-  table for the same id only one instance will be returned</li>
-</ul>
-</li>
-</ul>
-<p>On return, the callback can check third argument which is an object with some predefined properties along with driver specific properties returned by the query:</p>
-<ul>
-<li>affected_rows - how many records this operation affected, for add/put/update</li>
-<li>inserted_oid - last created auto generated id</li>
-<li>next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query</li>
-</ul>
-<p>Example: get by primary key, refer above for default table definitions</p>
-<pre><code>  db.select(&quot;bk_message&quot;, { id: &#39;123&#39; }, { count: 2 }, function(err, rows) {
-
-  });
-</code></pre><p>Example: get all icons with type greater or equal to 2</p>
-<pre><code>  db.select(&quot;bk_icon&quot;, { id: &#39;123&#39;, type: &#39;2&#39; }, { select: &#39;id,type&#39;, ops: { type: &#39;ge&#39; } }, function(err, rows) {
-
-  });
-</code></pre><p>Example: get unread msgs sorted by time, recent first</p>
-<pre><code>  db.select(&quot;bk_message&quot;, { id: &#39;123&#39;, status: &#39;N:&#39; }, { sort: &quot;status&quot;, desc: 1, ops: { status: &quot;begins_with&quot; } }, function(err, rows) {
-
-  });
-</code></pre><p>Example: allow all accounts icons to be visible</p>
-<pre><code>  db.select(&quot;bk_account&quot;, {}, function(err, rows) {
-      rows.forEach(function(row) {
-          row.acl_allow = &#39;auth&#39;;
-          db.update(&quot;bk_icon&quot;, row);
-      });
-  });
-</code></pre><p>Example: scan accounts with custom filter, not by primary key: all females</p>
-<pre><code>  db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, function(err, rows) {
-
-  });
-</code></pre><p>Example: select connections using primary key and other filter columns: all likes for the last day</p>
-<pre><code>  db.select(&quot;bk_connection&quot;, { id: &#39;123&#39;, type: &#39;like&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;begins_with&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
-
-  });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.get(table, query, options, callback)</code></p>
-<p> Retrieve one record from the database by primary key, returns found record or null if not found
-Options can use the following special properties:</p>
-<ul>
-<li>select - a list of columns or expressions to return, default is to return all columns</li>
-<li>op - operators to use for comparison for properties, see <code>db.select</code></li>
-<li>cached - if specified it runs getCached version</li>
-</ul>
-<p>Example</p>
-<pre><code>    db.get(&quot;bk_account&quot;, { id: &#39;12345&#39; }, function(err, row) {
-       if (row) console.log(row.name);
-    });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.getCached(op, table, query, options, callback)</code></p>
-<p> Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
-Options accept the same parameters as for the usual get action but it is very important that all the options
-be the same for every call, especially <code>select</code> parameters which tells which columns to retrieve and cache.
-Additional options:</p>
-<ul>
-<li>prefix - prefix to be used for the key instead of table name</li>
-</ul>
-<p>Example:</p>
-<pre><code>db.getCached(&quot;get&quot;, &quot;bk_account&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {
-    var distance = utils.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
-});
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.getCache(table, query, options, callback)</code></p>
-<p> Retrieve an object from the cache by key</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.putCache(table, obj, options)</code></p>
-<p> Store a record in the cache</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.delCache(table, query, options)</code></p>
-<p> Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getCacheKey(table, query, options)</code></p>
-<p> Returns concatenated values for the primary keys, this is used for caching records by primary key</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.create(table, columns, options, callback)</code></p>
-<p> Create a table using column definitions represented as a list of objects. Each column definition can
-contain the following properties:</p>
-<ul>
-<li><code>name</code> - column name</li>
-<li><code>type</code> - column type, one of: int, real, string, counter or other supported type</li>
-<li><code>primary</code> - column is part of the primary key</li>
-<li><code>unique</code> - column is part of an unique key</li>
-<li><code>index</code> - column is part of an index</li>
-<li><code>value</code> - default value for the column</li>
-<li><code>len</code> - column length</li>
-<li><code>pub</code> - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
-credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
-so by default only a few columns are marked as public in the bk_account table</em></li>
-<li><code>secure</code> - an opposite for the pub property, if defined this proprty should never be returned to the client by the API handlers</li>
-<li><code>admin</code> - if defined this property can only be visible and mamaged by an admin account</li>
-<li><code>hidden</code> - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
-it can contain pub property to be returned to the client</li>
-<li><code>readonly</code> - only add/put operations will use the value, incr/update will not affect the value</li>
-<li><code>writeonly</code> - only incr/update can chnage this value, add/put will ignore it</li>
-<li><code>now</code> - means on every add/put/update set this column with current time as Date.now()</li>
-<li><code>autoincr</code> - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name</li>
-</ul>
-<p><em>Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
-properties define a composite key in the order of definition or sorted by the property value, for example: <code>{ a: {index:2 }, b: { index:1 } }</code> will create index (b,a)
-because of the index: property value being not the same.</em></p>
-<p>NOTE: Index creation is not required and all index properties can be omitted, it can be done more effectively using native tools for any specific database,
-this format is for simple and common use cases without using any other tools but it does not cover all possible variations for every database. But all indexes and
-primary keys created outside of the backend application still be be detected properly by <code>db.cacheColumns</code> method for every database.</p>
-<p>Each database pool also can support native options that are passed directly to the driver in the options, these properties are
-defined in the object with the same name as the db driver, all properties are combined, for example to define provisioned throughput for the DynamoDB index:</p>
-<pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index: 1, dynamodb: { readCapacity: 50, writeCapacity: 50 } },
-                              type: { primary: 1, pub: 1, projection: 1 },
-                              name: { index: 1, pub: 1 } }
-                            });
-</code></pre><p>Create DynamoDB table with global secondary index, first index property if not the same as primary key hash defines global index, if it is the same then local,
-below we create global secondary index on property &#39;name&#39; only, in the example above it was local secondary index for id and name. also local secondary index is
-created on id,title.</p>
-<pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index1: 1 },
-                              type: { primary: 1, projection: 1 },
-                              name: { index: 1 }
-                              title: { index1: 1, projection1: 1 } }
-                            });
-</code></pre><p>When using real DynamoDB creating a table may take some time, for such cases if options.waitTimeout is not specified it defaults to 1min,
-so the callback is called as soon as the table is active or after the timeout whichever comes first.</p>
-</li>
-</ul>
-<p> Pass MongoDB options directly:
-        db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
-                                  type: { primary: 1, pub: 1 },
-                                  name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
-                                });</p>
-
-<ul>
-<li><p><code>db.upgrade(table, columns, options, callback)</code></p>
-<p> Upgrade a table with missing columns from the definition list</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.drop(table, options, callback)</code></p>
-<p> Drop a table</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.prepare(op, table, obj, options)</code></p>
-<p> Prepare for execution for the given operation: add, del, put, update,...
-Returns prepared object to be passed to the driver&#39;s .query method. This method is a part of the driver
-helpers and is not used directly in the applications.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getPool(table, options)</code></p>
-<p> Return database pool by table name or default pool, options may contain { pool: name } to return
-the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
-special empty pool which provides same interface but returns errors instesd of results.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getPoolByName(name)</code></p>
-<p> Returns given pool if it exists and initialized otherwise returns null</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getOptions(table, options)</code></p>
-<p> Return combined options for the pool including global pool options</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getColumns(table, options)</code></p>
-<p> Return columns for a table or null, columns is an object with column names and objects for definition</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getColumn(table, name, options)</code></p>
-<p> Return the column definition for a table</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getColumnProperty(table, name, attr, options)</code></p>
-<p> Return a value for the given property from the column definition, return empty string if no column or attribute found</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getCapacity(table)</code></p>
-<p> Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property
-of all table columns.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.checkCapacity(obj, callback)</code></p>
-<p> Check if number of write requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
-write requests with any database or can be used generically. The <code>obj</code> must be initialized with <code>db.getCapacity</code> call.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getSelectedColumns(table, options)</code></p>
-<p> Return list of selected or allowed only columns, empty list if no options.select is specified</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.skipColumn(name, val, options, columns)</code></p>
-<p> Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.filterColumns(obj, rows, options)</code></p>
-<p> Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is usee
-by custom filters in <code>db.select</code> by the drivers which cannot perform comparisons with non-indexes columns like DynamoDb, Cassandra.
-The rows that satisfy primary key conditions are retunred and then called this function to eliminate the records that do not satisfy non-indexed column conditions.</p>
-<p>Options support the following propertis:</p>
-<ul>
-<li>keys - list of columns to check, these may or may not be the primary keys, any columns to be compared</li>
-<li>cols - an object with columns definition</li>
-<li>ops - operations for columns</li>
-<li>typesMap - types for the columns if different from the actual Javascript type</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getKeys(table, options)</code></p>
-<p> Return cached primary keys for a table or empty array</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getSearchKeys(table, options)</code></p>
-<p> Return keys for the table search, if options.keys provided and not empty it will be used otherwise
-table&#39;s primary keys will be returned. This is a wrapper that makes sure that valid keys are used and
-deals with input errors like empty keys list to be consistent between different databases.
-This function always returns an Array even if it is empty.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getSearchQuery(table, obj, options)</code></p>
-<p> Return query object based on the keys specified in the options or primary keys for the table, only search properties
-will be returned in the query object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getQueryForKeys(keys, obj, options)</code></p>
-<p> Returns an object based on the list of keys, basically returns a subset of properties</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getBindValue(table, options, val, info)</code></p>
-<p> Return possibly converted value to be used for inserting/updating values in the database,
-is used for SQL parametrized statements</p>
-<p>Parameters:</p>
-<ul>
-<li>options - standard pool parameters with pool: property for specific pool</li>
-<li>val - the JavaScript value to convert into bind parameter</li>
-<li>info - column definition for the value from the cached columns</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getColumnValue(table, options, val, info)</code></p>
-<p> Return transformed value for the column value returned by the database, same parameters as for getBindValue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.convertError(table, op, err, options)</code></p>
-<p> Convert native database error in some generic human readable string</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.cacheColumns(options, callback)</code></p>
-<p> Reload all columns into the cache for the pool</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.mergeColumns(pool)</code></p>
-<p> Merge JavaScript column definitions with the db cached columns</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.mergeKeys(pool)</code></p>
-<p> Update pool keys with the primary keys form the table definitions in addition to the actual cached
-column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
-not provide info about primary keys</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.convertRows(pool, table, rows, options)</code></p>
-<p> Convert rows returned by the database into the Javascript format or into the format
-defined by the table columns. The following special properties in the column definition chnage the format:</p>
-<ul>
-<li>type = json - if a column type is json and the value is a string returned will be converted into a Javascript object</li>
-<li>list - split the value into array</li>
-<li><p>join - a list of names, it produces new properties by splitting the value by | and assigning pieces to
-  separate properties using names from the join list</p>
-<p>  Example:</p>
-<pre><code>      api.describeTables([ { user: { id: { type: &quot;text&quot;, join: [&quot;id&quot;,&quot;type&quot;] }, name: {} } ]);
-
-      db.put(&quot;test&quot;, { id: &quot;1&quot;, type: &quot;user&quot;, name: &quot;Test&quot; })
-      db.select(&quot;test&quot;, {}, db.showResult)
-</code></pre></li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.setProcessColumns(callback)</code></p>
-<p> Add a callback to be called after each cache columns event, it will be called for each pool separately.
-The callback to be called may take options argument and it is called in the context of the pool.</p>
-<p>The primary goal for this hook is to allow management of the existing tables which are not own by the
-backendjs application. For such tables, because we have not created them, we need to define column properties
-after the fact and to keep column definitions in the app for such cases is not realistic. This callback will
-allow to handle such situations and can be used to set necessary propeties to the table columns.</p>
-<p>Example, a few public columns, allow an admin to see all the columns</p>
-<pre><code>   db.setProcessColumns(function() {
-       var cols = db.getColumns(&quot;users&quot;, { pool: this.name });
-       for (var p in  cols) {
-           if ([&quot;id&quot;,&quot;name&quot;].indexOf(p) &gt; -1) cols[p].pub = 1; else cols[p].admin = 1;
-       }
-   })
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.processRows(type, pool, table, rows, options)</code></p>
-<p> Run registsred pre- or post- process callbacks.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.setProcessRow(type, table, options, callback)</code></p>
-<p> Assign a processRow callback for a table, this callback will be called for every row on every result being retrieved from the
-specified table thus providing an opportunity to customize the result.</p>
-<p>type defines at what time the callback will be called:</p>
-<ul>
-<li><code>pre</code> - making a request to the db on the query record</li>
-<li><code>post</code> - after the request finished to be called on the result rows</li>
-</ul>
-<p>All assigned callback to this table will be called in the order of the assignment.</p>
-<p>The callback accepts 3 arguments: function(row, options, columns)
- where - row is a row from the table, options are the obj passed to the db called and columns is an object with table&#39;s columns</p>
-<p><strong>If the callback returns true, row will be filtered out and not included in the final result set.</strong></p>
-</li>
-</ul>
-<p>  Example</p>
-<pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, function(row, opts, cols) {
-      if (row.birthday) row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
-  });
-
-  db.setProcessRow(&quot;post&quot;, &quot;bk_icon&quot;, function(row, opts, cols) {
-      if (row.type == &quot;private&quot; &amp;&amp; row.id != opts.account.id) return true;
-  });
 </code></pre>
 <h2 id="module-ipc">Module: IPC</h2>
 <ul>
@@ -6108,84 +4924,6 @@ the higher level management tool must take care when and what to run and in what
 
 <h2 id="module-api_accounts">Module: API_ACCOUNTS</h2>
 <ul>
-<li><p><code>api.initAccountsAPI()</code></p>
-<p> Account management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getAccount(req, options, callback)</code></p>
-<p> Return an account, used in /account/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.notifyAccount(id, options, callback)</code></p>
-<p> Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
-as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
-&quot;offline&quot; according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
-The options may contain the following:</p>
-<ul>
-<li>msg - message text to send</li>
-<li>badge - a badge number to be sent</li>
-<li>prefix - prepend the message with this prefix</li>
-<li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
-<li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
-  all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
-<li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
-<li>logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number</li>
-<li>service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
-<li>device_id - the device to send the message to instesd of the device_id property fro the account record</li>
-</ul>
-<p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
-system will pick the right delivery service depending on the device id, the default service is apple.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.listAccount(rows, options, callback)</code></p>
-<p> Return account details for the list of rows, options.key specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
-The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.
-If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.selectAccount(req, options, callback)</code></p>
-<p> Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.fetchAccount(req, options, callback)</code></p>
-<p> Given a profile data from some other system, check if there is an account or create a new account for the given
-profile, return bk_account record in the callback. req.query contains profile fields converted to bk_auth/bk_account names
-so the whole req.query can be saved as it is. <code>req.query.login</code> must exist.</p>
-<p>This method is supposed to be called after the user is authenticated and verified, it does not
-check secrets but only existence of a user by login. If the user with login exists, this works as <code>api.getAccount</code>
-with an extra call to bk_auth. On success the current account is active and set as <code>req.account</code>.</p>
-<p>If new account is created, the generated secret will be returned and must be saved by the client for subsequent
-API calls unless cookie session is established.</p>
-<p>if <code>req.query.icon&#39; is set with the url of the profile image, it will be downloaded and saved as account icon type</code>0<code>.</code>options.width`
-if specified will be used to resize the image.</p>
-<p>In case when a new account was created the account record will have a property <code>_added</code> set to true.
-This is to explicitely distinguish existing and new accounts.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.addAccount(req, options, callback)</code></p>
-<p> Register new account, used in /account/add API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.updateAccount(req, options, callback)</code></p>
-<p> Update existing account, used in /account/update API call</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.prepareAccountSecret(query, options)</code></p>
 <p> If specified in the options, prepare credentials to be stored in the db, returns null if no error or an error object</p>
 <ul>
@@ -6201,122 +4939,41 @@ This is to explicitely distinguish existing and new accounts.</p>
 </ul>
 
 <ul>
-<li><p><code>api.setAccountSecret(req, options, callback)</code></p>
-<p> Change account secret, used in /account/put/secret API call</p>
+<li><p><code>api.fetchAccount(query, options, callback)</code></p>
+<p> Given a profile data from some other system, check if there is an account or create a new account for the given
+profile, returns account record in the callback. req.query contains profile fields converted to bk_auth names
+so the whole req.query can be saved as it is. <code>query.login</code> must exist.</p>
+<p>This method is supposed to be called after the user is authenticated and verified, it does not
+check secrets but only existence of a user by login. On success existing or new account is returned by the callback.</p>
+<p>If new account is created, the generated secret will be returned and must be saved by the client for subsequent
+API calls unless cookie session is established.</p>
+<p>if <code>query.icon&#39; is set with the url of the profile image, it will be downloaded and saved as account icon type</code>0<code>.</code>options.width`
+if specified will be used to resize the image.</p>
+<p>In case when a new account was created the account record will have a property <code>_added</code> set to true.
+This is to explicitely distinguish existing and new accounts.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.deleteAccount(id, options, callback)</code></p>
-<p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
-The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
-delete an account but keep all messages and location: keep: { message: 1, location: 1 }</p>
-</li>
-</ul>
-
-<h2 id="module-api_connections">Module: API_CONNECTIONS</h2>
-<ul>
-<li><p><code>api.initConnectionsAPI()</code></p>
-<p> Connections management</p>
+<li><p><code>api.addAccount(query, options, callback)</code></p>
+<p> Register new account, return new account record in the callback, when options.admin is true then allow to set all properties
+otherwise admin properties will not be updated</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.getConnection(req, options, callback)</code></p>
-<p> Return all connections for the current account, this function is called by the <code>/connection/get</code> API call.</p>
+<li><p><code>api.updateAccount(query, options, callback)</code></p>
+<p> Update existing account, if <code>options.admin</code> is true then allow to update all properties</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.selectConnection(req, options, callback)</code></p>
-<p> Return all connections for the current account, this function is called by the <code>/connection/select</code> API call.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.putConnection(req, options, callback)</code></p>
-<p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call with query parameters coming from the Express request.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delConnection(req, options, callback)</code></p>
-<p> Delete a connection, this function is called by the <code>/connection/del</code> API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.queryConnection(id, obj, options, callback)</code></p>
-<p> Return all connections for the account id with optional query properties, obj.type should not include :</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.readConnection(id, obj, options, callback)</code></p>
-<p> Return one connection for given id, obj must have .id and .type properties defined,
-if options.details is 1 then combine with account record.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.makeConnection(id, obj, options, callback)</code></p>
-<p> Lower level connection creation with all counters support, can be used outside of the current account scope for
-any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id and type for other account
-with other properties to be added. <code>obj</code> is left untouched.</p>
-<p>To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.</p>
-<p>The following properties can alter the actions:</p>
-<ul>
-<li>publish - send notification via pub/sub system if present</li>
-<li>nocounter - do not update auto increment counters</li>
-<li>noreference - do not create reference part of the connection</li>
-<li>connected - return existing connection record for the same type from the other account</li>
-<li>alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.</li>
-<li>account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
-be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.deleteConnection(id, obj, options, callback)</code></p>
-<p> Lower level connection deletion, for given account <code>id</code>, the other id and type is in the <code>obj</code>, performs deletion of all
-connections. If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.</p>
-</li>
-</ul>
-
-<h2 id="module-api_counter">Module: API_COUNTER</h2>
-<ul>
-<li><p><code>api.initCounterAPI()</code></p>
-<p> Counters management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.incrCounter(req, options, callback)</code></p>
-<p> Increase a counter, used in /counter/incr API call, options.op can be set to &#39;put&#39;</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.incrAutoCounter(id, type, num, options, callback)</code></p>
-<p> Update auto counter for account and type</p>
-</li>
-</ul>
-
-<h2 id="module-api_data">Module: API_DATA</h2>
-<ul>
-<li><p><code>api.initDataAPI()</code></p>
-<p> API for full access to all tables</p>
+<li><p><code>api.setAccountSecret(query, options, callback)</code></p>
+<p> Change account secret</p>
 </li>
 </ul>
 
 <h2 id="module-api_files">Module: API_FILES</h2>
-<ul>
-<li><p><code>api.initFilesAPI()</code></p>
-<p> Generic file management</p>
-</li>
-</ul>
-
 <ul>
 <li><p><code>api.getFile(req, res, file, options)</code></p>
 <p> Send a file to the client</p>
@@ -6352,12 +5009,6 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <h2 id="module-api_icons">Module: API_ICONS</h2>
-<ul>
-<li><p><code>api.initIconsAPI()</code></p>
-<p> Generic icon management</p>
-</li>
-</ul>
-
 <ul>
 <li><p><code>api.iconPath(id, options)</code></p>
 <p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
@@ -6430,33 +5081,14 @@ Valid properties in the options:</p>
 </ul>
 
 <ul>
-<li><p><code>api.handleIconRequest(req, res, options, callback)</code></p>
-<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
-Verify icon limits before adding new icons</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.formatIcon(row, options)</code></p>
 <p> Return formatted icon URL for the given account, verify permissions</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.checkIcon(row, options, cols)</code></p>
+<li><p><code>api.checkIcon(op, row, options, cols)</code></p>
 <p> Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.selectIcon(req, options, callback)</code></p>
-<p> Return list of icons for the account, used in /icon/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getIcon(req, res, id, options)</code></p>
-<p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
 </li>
 </ul>
 
@@ -6484,149 +5116,41 @@ Verify icon limits before adding new icons</p>
 </li>
 </ul>
 
-<h2 id="module-api_locations">Module: API_LOCATIONS</h2>
+<h2 id="module-api_statistics">Module: API_STATISTICS</h2>
 <ul>
-<li><p><code>api.initLocationsAPI()</code></p>
-<p> Geo locations management</p>
+<li><p><code>api.initStatistics()</code></p>
+<p> Setup statistics collections</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.getLocation(req, options, callback)</code></p>
-<p> Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
-is used in <code>/location/get</code> request. It can be used in the applications with customized input and output if neccesary for the application specific logic.</p>
-<p>Example</p>
-<pre><code>    # Request will look like: /recent/locations?latitude=34.1&amp;longitude=-118.1&amp;mtime=123456789
-    this.app.all(/^\/recent\/locations$/, function(req, res) {
-        var options = self.getOptions(req);
-        options.keys = [&quot;geohash&quot;,&quot;mtime&quot;];
-        options.ops = { mtime: &#39;gt&#39; };
-        options.details = true;
-        self.getLocations(req, options, function(err, data) {
-            self.sendJSON(req, err, data);
-        });
-    });
+<li><p><code>api.getStatistics(options)</code></p>
+<p> Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
+where all property names of the complex objects are combined into one name separated by comma.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendStatistics()</code></p>
+<p> Send collected statistics to the collection server, <code>backend-host</code> must be configured and possibly <code>backend-login</code> and <code>backend-secret</code> in case
+the system API is secured, the user can be any valid user registered in the bk_auth table.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.saveStatistics(obj, callback)</code></p>
+<p> Save collected statistics in the bk_collect table, this can be called via API or directly by the backend, this wrapper
+is supposed to be overrriden by the application with additional logic how the statistics is saved. Columns in the bk_collect table
+must be defined for any metrics to be saved, use api.describeTable with additional columns from the api.metrics object in additional to the default ones.</p>
+<p>Example, add pool cache stats to the table</p>
+<pre><code>    api.describeTable({ bk_collect: { pool_cache_rmean: { type: &quot;real&quot; },
+                                      pool_cache_hmean: { type: &quot;real&quot; } });
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>api.putLocation(req, options, callback)</code></p>
-<p> Save location coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
-</li>
-</ul>
-
-<h2 id="module-api_messages">Module: API_MESSAGES</h2>
-<ul>
-<li><p><code>api.initMessagesAPI()</code></p>
-<p> Messaging management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getArchiveMessage(req, options, callback)</code></p>
-<p> Return archived messages, used in /message/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getSentMessage(req, options, callback)</code></p>
-<p> Return sent messages to the specified account, used in /message/get/sent API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getMessage(req, options, callback)</code></p>
-<p> Return new/unread messages, used in /message/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.archiveMessage(req, options, callback)</code></p>
-<p> Mark a message as archived, used in /message/archive API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.addMessage(req, options, callback)</code></p>
-<p> Add new message, used in /message/add API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delMessage(req, options, callback)</code></p>
-<p> Delete a message or all messages for the given account from the given sender, used in /message/del` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delArchiveMessage(req, options, callback)</code></p>
-<p> Delete the messages in the archive, used in /message/del/archive` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delSentMessage(req, options, callback)</code></p>
-<p> Delete the messages i sent, used in /message/del/sent` API call</p>
-</li>
-</ul>
-
-<h2 id="module-api_pages">Module: API_PAGES</h2>
-<ul>
-<li><p><code>api.initPagesAPI()</code></p>
-<p> API for wiki pages support</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.preparePages(options)</code></p>
-<p> Prepare a markdown page, the following properties can be used in the options:</p>
-<ul>
-<li>content - the markdown contents</li>
-<li>title - tile to be rendered, this will be discovered by taking first # heading if not set</li>
-<li>subtitle - subtitle or short description</li>
-<li>toc - if not empty, then it is replaced with the table of contents by collecting all heading tags, i.e #</li>
-<li>id - id or file name, if no title is specified or discovered it will be used as a title</li>
-<li>render - if true render into html, otherwise return just markdown</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.sendPages(req, options)</code></p>
-<p> Send rendered markdown to the client response</p>
-</li>
-</ul>
-
-<h2 id="module-api_status">Module: API_STATUS</h2>
-<ul>
-<li><p><code>api.initStatusAPI()</code></p>
-<p> Status/presence</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getStatus(id, options, callback)</code></p>
-<p> Returns status record for given account, used in /status/get API call.
-It always returns status object even if it was never set before, on return the record contains
-a property <code>online</code> set to true of false according to the idle period and actual status.</p>
-<p>If id is an array, then return all status records for specified list of account ids.</p>
-<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to to other value,
-for other cases <code>status</code> property is not used, it is supposed for the application extention.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.putStatus(obj, options, callback)</code></p>
-<p> Maintain online status, update to db every status-interval seconds, if options.check is given only update db if last update happened
-longer than status-interval seconds ago, keep atime up-to-date in the cache on every status update.
-On return the row will have a property <code>saved</code> if it was flushed to db.</p>
-</li>
-</ul>
-
-<h2 id="module-api_system">Module: API_SYSTEM</h2>
-<ul>
-<li><p><code>api.initSystemAPI()</code></p>
-<p> API for internal provisioning and configuration</p>
+<li><p><code>api.calcStatistics(query, options, callback)</code></p>
+<p> Calculate statistics for a period of time, query and options must confirm to the db.select conventions.</p>
 </li>
 </ul>
 
@@ -6938,6 +5462,530 @@ options may define the following properties:</p>
 <li><p><code>db.sqliteConnect(options, callback)</code></p>
 <p> Common code to open or create local SQLite databases, execute all required initialization statements, calls callback
 with error as first argument and database object as second</p>
+</li>
+</ul>
+
+<h2 id="module-accounts">Module: ACCOUNTS</h2>
+<ul>
+<li><p><code>accounts</code></p>
+<p> Account management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.configureAccountsAPI()</code></p>
+<p> Account management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.getAccount(req, options, callback)</code></p>
+<p> Return an account, used in /account/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.notifyAccount(id, options, callback)</code></p>
+<p> Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
+as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
+&quot;offline&quot; according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
+The options may contain the following:</p>
+<ul>
+<li>msg - message text to send</li>
+<li>badge - a badge number to be sent</li>
+<li>prefix - prepend the message with this prefix</li>
+<li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
+<li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
+  all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
+<li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
+<li>logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number</li>
+<li>service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
+<li>device_id - the device to send the message to instesd of the device_id property fro the account record</li>
+</ul>
+<p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
+system will pick the right delivery service depending on the device id, the default service is apple.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.listAccount(rows, options, callback)</code></p>
+<p> Return account details for the list of rows, options.key specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
+The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.
+If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.selectAccount(req, options, callback)</code></p>
+<p> Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.addAccount(req, options, callback)</code></p>
+<p> Register new account, used in /account/add API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.updateAccount(req, options, callback)</code></p>
+<p> Update existing account, used in /account/update API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.deleteAccount(id, options, callback)</code></p>
+<p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
+The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
+delete an account but keep all messages and location: keep: { message: 1, location: 1 }</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.getStatus(id, options, callback)</code></p>
+<p> Returns status record for given account, used in /status/get API call.
+It always returns status object even if it was never set before, on return the record contains
+a property <code>online</code> set to true of false according to the idle period and actual status.</p>
+<p>If id is an array, then return all status records for specified list of account ids.</p>
+<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to to other value,
+for other cases <code>status</code> property is not used, it is supposed for the application extention.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.putStatus(obj, options, callback)</code></p>
+<p> Maintain online status, update to db every status-interval seconds, if options.check is given only update db if last update happened
+longer than status-interval seconds ago, keep atime up-to-date in the cache on every status update.
+On return the row will have a property <code>saved</code> if it was flushed to db.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.fetchAccount(query, options, callback)</code></p>
+<p> Override OAuth account management</p>
+</li>
+</ul>
+
+<h2 id="module-connections">Module: CONNECTIONS</h2>
+<ul>
+<li><p><code>connections</code></p>
+<p> Connections management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.configureConnectionsAPI()</code></p>
+<p> Connections management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.getConnection(req, options, callback)</code></p>
+<p> Return one connection for the current account, this function is called by the <code>/connection/get</code> API call.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.selectConnection(req, options, callback)</code></p>
+<p> Return all connections for the current account, this function is called by the <code>/connection/select</code> API call.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.putConnection(req, options, callback)</code></p>
+<p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call with query parameters coming from the Express request.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.delConnection(req, options, callback)</code></p>
+<p> Delete a connection, this function is called by the <code>/connection/del</code> API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.queryConnection(id, obj, options, callback)</code></p>
+<p> Return all connections for the account id with optional query properties</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.readConnection(id, obj, options, callback)</code></p>
+<p> Return one connection for given id, obj must have .peer and .type properties defined,
+if options.details is 1 then combine with account record.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.makeConnection(id, obj, options, callback)</code></p>
+<p> Lower level connection creation with all counters support, can be used outside of the current account scope for
+any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id and type for other account
+with other properties to be added. <code>obj</code> is left untouched.</p>
+<p>To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.</p>
+<p>The following properties can alter the actions:</p>
+<ul>
+<li>publish - send notification via pub/sub system if present</li>
+<li>nocounter - do not update auto increment counters</li>
+<li>noreference - do not create reference part of the connection</li>
+<li>connected - return existing connection record for the same type from the other account</li>
+<li>alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.</li>
+<li>account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
+be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>connections.deleteConnection(id, obj, options, callback)</code></p>
+<p> Lower level connection deletion, for given account <code>id</code>, the other id and type is in the <code>obj</code>, performs deletion of all
+connections. If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.</p>
+</li>
+</ul>
+
+<h2 id="module-counters">Module: COUNTERS</h2>
+<ul>
+<li><p><code>counters</code></p>
+<p> Counters management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>counters.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>counters.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>counters.configureCountersAPI()</code></p>
+<p> Counters management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>counters.incrCounter(req, options, callback)</code></p>
+<p> Increase a counter, used in /counter/incr API call, options.op can be set to &#39;put&#39;</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>counters.incrAutoCounter(id, type, num, options, callback)</code></p>
+<p> Update auto counter for account and type</p>
+</li>
+</ul>
+
+<h2 id="module-data">Module: DATA</h2>
+<ul>
+<li><p><code>data</code></p>
+<p> Account management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>data.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>data.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>data.configureDataAPI()</code></p>
+<p> API for full access to all tables</p>
+</li>
+</ul>
+
+<h2 id="module-files">Module: FILES</h2>
+<ul>
+<li><p><code>files</code></p>
+<p> Account management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>files.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>files.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>files.configureFilesAPI()</code></p>
+<p> Generic file management</p>
+</li>
+</ul>
+
+<h2 id="module-icons">Module: ICONS</h2>
+<ul>
+<li><p><code>icons</code></p>
+<p> Icons management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>icons.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>icons.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>icons.configureIconsAPI()</code></p>
+<p> Generic icon management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>icons.handleIconRequest(req, res, options, callback)</code></p>
+<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
+Verify icon limits before adding new icons</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>icons.selectIcon(req, options, callback)</code></p>
+<p> Return list of icons for the account, used in /icon/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>icons.getIcon(req, res, id, options)</code></p>
+<p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
+</li>
+</ul>
+
+<h2 id="module-locations">Module: LOCATIONS</h2>
+<ul>
+<li><p><code>locations</code></p>
+<p> Locations management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>locations.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>locations.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>locations.configureLocationsAPI()</code></p>
+<p> Geo locations management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>locations.getLocation(req, options, callback)</code></p>
+<p> Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
+is used in <code>/location/get</code> request. It can be used in the applications with customized input and output if neccesary for the application specific logic.</p>
+<p>Example</p>
+<pre><code>    # Request will look like: /recent/locations?latitude=34.1&amp;longitude=-118.1&amp;mtime=123456789
+    api.app.all(/^\/recent\/locations$/, function(req, res) {
+        var options = api.getOptions(req);
+        options.keys = [&quot;geohash&quot;,&quot;mtime&quot;];
+        options.ops = { mtime: &#39;gt&#39; };
+        options.details = true;
+        api.getLocations(req, options, function(err, data) {
+            self.sendJSON(req, err, data);
+        });
+    });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>locations.putLocation(req, options, callback)</code></p>
+<p> Save location coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
+</li>
+</ul>
+
+<h2 id="module-messages">Module: MESSAGES</h2>
+<ul>
+<li><p><code>messages</code></p>
+<p> Messages management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.configureMessagesAPI()</code></p>
+<p> Messaging management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.getArchiveMessage(req, options, callback)</code></p>
+<p> Return archived messages, used in /message/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.getSentMessage(req, options, callback)</code></p>
+<p> Return sent messages to the specified account, used in /message/get/sent API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.getMessage(req, options, callback)</code></p>
+<p> Return new/unread messages, used in /message/get API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.archiveMessage(req, options, callback)</code></p>
+<p> Mark a message as archived, used in /message/archive API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.addMessage(req, options, callback)</code></p>
+<p> Add new message, used in /message/add API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.delMessage(req, options, callback)</code></p>
+<p> Delete a message or all messages for the given account from the given sender, used in /message/del` API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.delArchiveMessage(req, options, callback)</code></p>
+<p> Delete the messages in the archive, used in /message/del/archive` API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>messages.delSentMessage(req, options, callback)</code></p>
+<p> Delete the messages i sent, used in /message/del/sent` API call</p>
+</li>
+</ul>
+
+<h2 id="module-pages">Module: PAGES</h2>
+<ul>
+<li><p><code>pages</code></p>
+<p> Wiki pages management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>pages.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>pages.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>pages.configurePagesAPI()</code></p>
+<p> API for wiki pages support</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>pages.preparePages(options)</code></p>
+<p> Prepare a markdown page, the following properties can be used in the options:</p>
+<ul>
+<li>content - the markdown contents</li>
+<li>title - tile to be rendered, this will be discovered by taking first # heading if not set</li>
+<li>subtitle - subtitle or short description</li>
+<li>toc - if not empty, then it is replaced with the table of contents by collecting all heading tags, i.e #</li>
+<li>id - id or file name, if no title is specified or discovered it will be used as a title</li>
+<li>render - if true render into html, otherwise return just markdown</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>pages.sendPages(req, options)</code></p>
+<p> Send rendered markdown to the client response</p>
+</li>
+</ul>
+
+<h2 id="module-system">Module: SYSTEM</h2>
+<ul>
+<li><p><code>system</code></p>
+<p> System management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>system.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>system.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>system.configureSystemAPI()</code></p>
+<p> API for internal provisioning and configuration</p>
 </li>
 </ul>
 
